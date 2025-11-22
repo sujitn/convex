@@ -1,0 +1,113 @@
+# Convex - High-Performance Fixed Income Analytics Library
+# Workspace configuration
+
+[workspace]
+members = [
+    "crates/convex-core",
+    "crates/convex-curves",
+    "crates/convex-bonds",
+    "crates/convex-spreads",
+    "crates/convex-math",
+    "crates/convex-ffi",
+]
+
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/convex"
+homepage = "https://github.com/yourusername/convex"
+keywords = ["finance", "fixed-income", "bonds", "quantitative", "analytics"]
+categories = ["finance", "mathematics", "science"]
+
+[workspace.dependencies]
+# Core dependencies - shared across all crates
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1.34", features = ["serde", "maths"] }
+rust_decimal_macros = "1.34"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Mathematical dependencies
+nalgebra = "0.32"
+argmin = "0.9"
+statrs = "0.17"
+approx = "0.5"
+
+# Performance dependencies
+rayon = "1.10"
+ndarray = { version = "0.15", features = ["rayon", "serde"] }
+
+# Utility dependencies
+uuid = { version = "1.7", features = ["serde", "v4"] }
+log = "0.4"
+
+# Development dependencies
+criterion = "0.5"
+proptest = "1.4"
+
+# FFI dependencies
+cbindgen = "0.26"
+libc = "0.2"
+
+[profile.dev]
+opt-level = 1  # Basic optimizations for faster dev builds
+
+[profile.test]
+opt-level = 2  # Better performance in tests
+
+[profile.release]
+opt-level = 3
+lto = "fat"          # Link-time optimization
+codegen-units = 1    # Better optimization, slower compile
+strip = true         # Strip symbols
+panic = "abort"      # Smaller binary, faster panic
+
+[profile.bench]
+inherits = "release"
+debug = true         # Include debug info for profiling
+
+# Documentation profile
+[profile.doc]
+inherits = "dev"
+opt-level = 0
+
+# CI profile - fast compilation, good-enough optimization
+[profile.ci]
+inherits = "release"
+lto = "thin"
+codegen-units = 4
+
+# Distribution profile for binaries
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+strip = true
+
+# Example of platform-specific optimizations
+# [target.'cfg(target_arch = "x86_64")'.dependencies]
+# packed_simd = { version = "0.3", optional = true }
+
+# [target.'cfg(target_arch = "aarch64")'.dependencies]
+# # ARM-specific optimizations
+
+# Workspace-level features
+[workspace.metadata]
+# This section can contain custom metadata for tools
+
+# Cargo-deny configuration for dependency checking
+[workspace.metadata.cargo-deny]
+# See https://github.com/EmbarkStudios/cargo-deny for configuration
+
+# Docs.rs configuration
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
