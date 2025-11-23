@@ -1,0 +1,40 @@
+[package]
+name = "convex-bonds"
+description = "Bond pricing and analytics for the Convex fixed income analytics library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "bonds", "pricing", "risk"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-math = { path = "../convex-math" }
+convex-curves = { path = "../convex-curves" }
+
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+parallel = []  # Enable parallel pricing

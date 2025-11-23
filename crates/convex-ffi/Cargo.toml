@@ -1,0 +1,36 @@
+[package]
+name = "convex-ffi"
+description = "C FFI bindings for the Convex fixed income analytics library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "ffi", "c-bindings"]
+categories = ["finance", "api-bindings"]
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-math = { workspace = true }
+convex-curves = { workspace = true }
+convex-bonds = { workspace = true }
+
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+
+# FFI support
+libc = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[build-dependencies]
+cbindgen = { workspace = true }
+
+[features]
+default = []

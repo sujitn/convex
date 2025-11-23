@@ -1,0 +1,41 @@
+[package]
+name = "convex-curves"
+description = "Yield curve construction and interpolation for the Convex fixed income analytics library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "yield-curve", "bootstrap"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-math = { path = "../convex-math" }
+
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Parallelism
+rayon = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+parallel = []  # Enable parallel curve building

@@ -1,0 +1,35 @@
+[package]
+name = "convex-math"
+description = "Mathematical utilities for the Convex fixed income analytics library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "mathematics", "numerical", "optimization"]
+categories = ["mathematics", "science"]
+
+[dependencies]
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Linear algebra
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+simd = []  # Future SIMD optimizations

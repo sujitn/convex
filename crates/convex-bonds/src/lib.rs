@@ -1,0 +1,56 @@
+//! # Convex Bonds
+//!
+//! Bond pricing and analytics for the Convex fixed income analytics library.
+//!
+//! This crate provides:
+//!
+//! - **Instruments**: Fixed coupon bonds, zero coupon bonds, floating rate notes
+//! - **Pricing**: Present value, clean/dirty price, yield-to-maturity
+//! - **Cash Flows**: Coupon schedule generation with business day adjustments
+//! - **Risk**: Duration, convexity, DV01, key rate durations
+//!
+//! ## Example
+//!
+//! ```rust,ignore
+//! use convex_bonds::prelude::*;
+//! use convex_core::types::{Date, Currency, Frequency};
+//! use rust_decimal_macros::dec;
+//!
+//! // Create a fixed coupon bond
+//! let bond = FixedBondBuilder::new()
+//!     .isin("US912828Z229")
+//!     .coupon_rate(dec!(2.5))
+//!     .maturity(Date::from_ymd(2030, 5, 15).unwrap())
+//!     .frequency(Frequency::SemiAnnual)
+//!     .currency(Currency::USD)
+//!     .build()
+//!     .unwrap();
+//!
+//! // Calculate yield-to-maturity
+//! let settlement = Date::from_ymd(2025, 1, 15).unwrap();
+//! let price = Price::new(dec!(98.50), Currency::USD);
+//! let ytm = bond.yield_to_maturity(price, settlement).unwrap();
+//! ```
+
+#![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+
+pub mod cashflows;
+pub mod error;
+pub mod instruments;
+pub mod pricing;
+pub mod risk;
+
+/// Prelude module for convenient imports.
+pub mod prelude {
+    pub use crate::cashflows::CashFlowGenerator;
+    pub use crate::error::{BondError, BondResult};
+    pub use crate::instruments::{FixedBond, FixedBondBuilder, ZeroCouponBond};
+    pub use crate::pricing::{BondPricer, PriceResult};
+    pub use crate::risk::{DurationResult, RiskMetrics};
+}
+
+pub use error::{BondError, BondResult};
+pub use instruments::{FixedBond, FixedBondBuilder};
