@@ -3,39 +3,39 @@
 ## Phase 1: Foundation (Weeks 1-2)
 
 ### Core Infrastructure (convex-core)
-- [ ] Project Setup
-  - [ ] Create Cargo workspace
-  - [ ] Configure dependencies
+- [x] Project Setup
+  - [x] Create Cargo workspace
+  - [x] Configure dependencies
   - [ ] Set up CI/CD pipeline
-  - [ ] Initialize git repository
+  - [x] Initialize git repository
 
-- [ ] Date & Calendar Types
-  - [ ] `Date` struct with year/month/day
-  - [ ] Date arithmetic (add days, months, years)
-  - [ ] Business day calendar trait
-  - [ ] US Federal Reserve calendar
+- [x] Date & Calendar Types
+  - [x] `Date` struct with year/month/day
+  - [x] Date arithmetic (add days, months, years)
+  - [x] Business day calendar trait
+  - [x] US Federal Reserve calendar
   - [ ] UK Bank of England calendar
   - [ ] EUR TARGET2 calendar
-  - [ ] Business day adjustment conventions
-  - [ ] Tests for all calendars
+  - [x] Business day adjustment conventions
+  - [x] Tests for all calendars
 
-- [ ] Financial Types
-  - [ ] `Price` newtype with currency
-  - [ ] `Yield` type with convention
-  - [ ] `Spread` type in basis points
-  - [ ] `Currency` enum (USD, EUR, GBP, JPY, etc.)
-  - [ ] `Frequency` enum (Annual, SemiAnnual, Quarterly, Monthly)
-  - [ ] Type conversions and display
+- [x] Financial Types
+  - [x] `Price` newtype with currency
+  - [x] `Yield` type with convention
+  - [x] `Spread` type in basis points
+  - [x] `Currency` enum (USD, EUR, GBP, JPY, etc.)
+  - [x] `Frequency` enum (Annual, SemiAnnual, Quarterly, Monthly)
+  - [x] Type conversions and display
 
-- [ ] Day Count Conventions
-  - [ ] `DayCounter` trait definition
-  - [ ] ACT/360 implementation
-  - [ ] ACT/365 implementation
-  - [ ] 30/360 US implementation
-  - [ ] 30E/360 implementation
-  - [ ] ACT/ACT ICMA implementation
-  - [ ] ACT/ACT ISDA implementation
-  - [ ] Comprehensive tests for each
+- [x] Day Count Conventions
+  - [x] `DayCounter` trait definition
+  - [x] ACT/360 implementation
+  - [x] ACT/365 implementation
+  - [x] 30/360 US implementation
+  - [x] 30E/360 implementation
+  - [x] ACT/ACT ICMA implementation
+  - [x] ACT/ACT ISDA implementation
+  - [x] Comprehensive tests for each
   - [ ] Validation against known reference values
 
 ### Documentation
@@ -49,36 +49,36 @@
 ## Phase 2: Yield Curves (Weeks 3-4)
 
 ### Curve Infrastructure (convex-curves)
-- [ ] Core Abstractions
-  - [ ] `YieldCurve` trait
-  - [ ] `CurvePoint` struct
-  - [ ] `ZeroRate` representation
-  - [ ] `DiscountFactor` calculations
-  - [ ] `ForwardRate` calculations
+- [x] Core Abstractions
+  - [x] `YieldCurve` trait
+  - [x] `CurvePoint` struct
+  - [x] `ZeroRate` representation
+  - [x] `DiscountFactor` calculations
+  - [x] `ForwardRate` calculations
 
-- [ ] Interpolation Methods
-  - [ ] Linear interpolation on zero rates
+- [x] Interpolation Methods
+  - [x] Linear interpolation on zero rates
   - [ ] Flat forward interpolation
-  - [ ] Cubic spline interpolation
+  - [x] Cubic spline interpolation
   - [ ] Log-linear on discount factors
   - [ ] Hermite cubic interpolation
   - [ ] Benchmarks for interpolation speed
 
-- [ ] Bootstrap Algorithms
-  - [ ] Bootstrap from deposit rates
+- [x] Bootstrap Algorithms
+  - [x] Bootstrap from deposit rates
   - [ ] Bootstrap from government bonds
   - [ ] Bootstrap from swaps
   - [ ] Handle overlapping tenors
-  - [ ] Error handling for invalid inputs
+  - [x] Error handling for invalid inputs
 
-- [ ] Curve Construction
-  - [ ] `CurveBuilder` pattern
-  - [ ] Validate input data consistency
-  - [ ] Support multiple reference dates
+- [x] Curve Construction
+  - [x] `CurveBuilder` pattern
+  - [x] Validate input data consistency
+  - [x] Support multiple reference dates
   - [ ] Cache interpolation coefficients
 
 ### Testing
-- [ ] Unit tests for all interpolation methods
+- [x] Unit tests for all interpolation methods
 - [ ] Integration tests with real market data
 - [ ] Property tests for curve invariants
 - [ ] Benchmark curve construction speed (target: <100μs for 50 points)
@@ -88,41 +88,41 @@
 ## Phase 3: Bond Pricing (Weeks 5-6)
 
 ### Bond Instruments (convex-bonds)
-- [ ] Fixed-Rate Bonds
-  - [ ] `FixedRateBond` struct
-  - [ ] `BondBuilder` pattern
-  - [ ] ISIN/CUSIP identifiers
-  - [ ] Coupon schedule generation
+- [x] Fixed-Rate Bonds
+  - [x] `FixedRateBond` struct
+  - [x] `BondBuilder` pattern
+  - [x] ISIN/CUSIP identifiers
+  - [x] Coupon schedule generation
   - [ ] Handle stub periods
   - [ ] Handle irregular first/last coupon
 
-- [ ] Zero-Coupon Bonds
-  - [ ] `ZeroCouponBond` struct
-  - [ ] Simple pricing formula
-  - [ ] Discount factor calculation
+- [x] Zero-Coupon Bonds
+  - [x] `ZeroCouponBond` struct
+  - [x] Simple pricing formula
+  - [x] Discount factor calculation
 
-- [ ] Cash Flow Engine
-  - [ ] `CashFlow` struct (date, amount)
-  - [ ] Generate regular coupon schedule
+- [x] Cash Flow Engine
+  - [x] `CashFlow` struct (date, amount)
+  - [x] Generate regular coupon schedule
   - [ ] Apply business day adjustments
   - [ ] Handle end-of-month rules
-  - [ ] Principal redemption
+  - [x] Principal redemption
 
 ### Pricing Engine
-- [ ] Price from Yield
-  - [ ] Present value calculation
-  - [ ] Support all compounding frequencies
-  - [ ] Clean price calculation
-  - [ ] Dirty price (with accrued interest)
-  - [ ] Accrued interest calculation
+- [x] Price from Yield
+  - [x] Present value calculation
+  - [x] Support all compounding frequencies
+  - [x] Clean price calculation
+  - [x] Dirty price (with accrued interest)
+  - [x] Accrued interest calculation
 
-- [ ] Yield from Price (YTM)
-  - [ ] Newton-Raphson solver
-  - [ ] Brent's method as fallback
-  - [ ] Initial guess heuristic
-  - [ ] Convergence tolerance (1e-10)
-  - [ ] Maximum iterations (100)
-  - [ ] Clear error messages for non-convergence
+- [x] Yield from Price (YTM)
+  - [x] Newton-Raphson solver
+  - [x] Brent's method as fallback
+  - [x] Initial guess heuristic
+  - [x] Convergence tolerance (1e-10)
+  - [x] Maximum iterations (100)
+  - [x] Clear error messages for non-convergence
 
 - [ ] Money Market Yields
   - [ ] Discount Yield
@@ -144,20 +144,20 @@
 ## Phase 4: Spread Analytics (Weeks 7-8)
 
 ### Basic Spreads (convex-spreads)
-- [ ] G-Spread
-  - [ ] Interpolate government yield at maturity
-  - [ ] Calculate arithmetic difference
+- [x] G-Spread
+  - [x] Interpolate government yield at maturity
+  - [x] Calculate arithmetic difference
   - [ ] Handle interpolation edge cases
 
-- [ ] I-Spread
-  - [ ] Interpolate between two government bonds
-  - [ ] Linear interpolation by default
+- [x] I-Spread
+  - [x] Interpolate between two government bonds
+  - [x] Linear interpolation by default
   - [ ] Cubic spline option
 
-- [ ] Z-Spread
-  - [ ] Iterative solver to match price
-  - [ ] Discount all cash flows with spread
-  - [ ] Brent's method for root finding
+- [x] Z-Spread
+  - [x] Iterative solver to match price
+  - [x] Discount all cash flows with spread
+  - [x] Brent's method for root finding
   - [ ] Target speed: <50μs
 
 ### Asset Swap Spreads
@@ -181,13 +181,13 @@
 ## Phase 5: Risk Calculations (Weeks 9-10)
 
 ### Duration Metrics
-- [ ] Macaulay Duration
-  - [ ] Weighted average time to cash flows
-  - [ ] Handle zero-coupon bonds correctly
+- [x] Macaulay Duration
+  - [x] Weighted average time to cash flows
+  - [x] Handle zero-coupon bonds correctly
 
-- [ ] Modified Duration
-  - [ ] Analytical formula
-  - [ ] Relationship to price sensitivity
+- [x] Modified Duration
+  - [x] Analytical formula
+  - [x] Relationship to price sensitivity
 
 - [ ] Effective Duration
   - [ ] Finite difference method
@@ -195,16 +195,16 @@
   - [ ] For bonds with embedded options
 
 ### Convexity
-- [ ] Convexity calculation
-  - [ ] Second derivative of price
+- [x] Convexity calculation
+  - [x] Second derivative of price
   - [ ] Analytical formula
-  - [ ] Finite difference method
+  - [x] Finite difference method
 
 ### DV01 / PV01
-- [ ] Dollar Value of 1bp
-  - [ ] Calculate from duration
-  - [ ] Direct bump calculation
-  - [ ] Per $100 face value
+- [x] Dollar Value of 1bp
+  - [x] Calculate from duration
+  - [x] Direct bump calculation
+  - [x] Per $100 face value
 
 ### Key Rate Durations
 - [ ] Partial DV01s by maturity bucket
@@ -259,10 +259,10 @@
 ## Phase 7: Language Bindings (Weeks 15-18)
 
 ### C API (convex-ffi)
-- [ ] C-compatible structs
-- [ ] Safe wrappers around Rust types
-- [ ] Error handling via return codes
-- [ ] Memory management (creation/destruction)
+- [x] C-compatible structs
+- [x] Safe wrappers around Rust types
+- [x] Error handling via return codes
+- [x] Memory management (creation/destruction)
 - [ ] Generate header with cbindgen
 - [ ] Example C program
 
@@ -379,6 +379,19 @@
 - [ ] Update CHANGELOG
 - [ ] Write blog posts
 - [ ] Conference talks/presentations
+
+---
+
+## Current Test Summary (178 tests passing)
+
+| Crate | Unit Tests | Doc Tests |
+|-------|------------|-----------|
+| convex-core | 102 | 6 |
+| convex-math | 32 | 5 |
+| convex-curves | 10 | 0 |
+| convex-bonds | 14 | 0 |
+| convex-spreads | 5 | 0 |
+| convex-ffi | 4 | 0 |
 
 ---
 

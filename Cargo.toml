@@ -4,10 +4,10 @@
 [workspace]
 members = [
     "crates/convex-core",
+    "crates/convex-math",
     "crates/convex-curves",
     "crates/convex-bonds",
     "crates/convex-spreads",
-    "crates/convex-math",
     "crates/convex-ffi",
 ]
 
@@ -25,6 +25,14 @@ keywords = ["finance", "fixed-income", "bonds", "quantitative", "analytics"]
 categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
+# Internal crates
+convex-core = { path = "crates/convex-core" }
+convex-math = { path = "crates/convex-math" }
+convex-curves = { path = "crates/convex-curves" }
+convex-bonds = { path = "crates/convex-bonds" }
+convex-spreads = { path = "crates/convex-spreads" }
+convex-ffi = { path = "crates/convex-ffi" }
+
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1.34", features = ["serde", "maths"] }
@@ -72,11 +80,6 @@ panic = "abort"      # Smaller binary, faster panic
 [profile.bench]
 inherits = "release"
 debug = true         # Include debug info for profiling
-
-# Documentation profile
-[profile.doc]
-inherits = "dev"
-opt-level = 0
 
 # CI profile - fast compilation, good-enough optimization
 [profile.ci]
