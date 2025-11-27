@@ -2,351 +2,458 @@
 
 ## Project Status
 
-**Current Phase**: Foundation & Initial Development  
-**Started**: [Date will be filled when project starts]  
-**Last Updated**: [Auto-updated by Claude]
+**Current Phase**: Foundation & Initial Development
+**Started**: 2025-11-27
+**Last Updated**: 2025-11-27
+**Target**: Production-grade fixed income analytics
+
+---
 
 ## Key Decisions Log
 
 ### Architecture Decisions
 
-#### AD-001: Workspace Structure (Pending)
+#### AD-001: Workspace Structure
 - **Decision**: Use Cargo workspace with multiple crates
 - **Rationale**: Enables modular development, independent compilation, clear separation of concerns
-- **Alternatives Considered**: Single crate with modules (rejected for scalability)
-- **Status**: Approved
-- **Date**: TBD
+- **Crates**: convex-core, convex-math, convex-curves, convex-bonds, convex-spreads, convex-risk, convex-yas, convex-ffi
+- **Status**: ✅ Approved
 
-#### AD-002: Numerical Type Choice (Pending)
-- **Decision**: Use `rust_decimal::Decimal` for financial calculations, f64 for performance-critical math
-- **Rationale**: Avoid floating-point precision issues in price/yield calculations
-- **Alternatives Considered**: 
-  - f64 only (rejected - precision issues)
-  - Fixed-point arithmetic (rejected - complexity)
-- **Trade-offs**: Slight performance overhead vs correctness
-- **Status**: Approved
-- **Date**: TBD
+#### AD-002: Numerical Precision Strategy
+- **Decision**: Use `rust_decimal::Decimal` for all financial calculations visible to users, f64 for internal math
+- **Rationale**: Avoid floating-point precision issues in price/yield calculations while maintaining performance
+- **Implementation**:
+  - All public API types use Decimal
+  - Internal interpolation uses f64
+  - Conversion at API boundaries
+- **Status**: ✅ Approved
 
-#### AD-003: Error Handling Strategy (Pending)
+#### AD-003: Error Handling Strategy
 - **Decision**: Use `thiserror` for domain errors, never panic in library code
-- **Rationale**: Ergonomic error handling, clear error types for consumers
 - **Error Categories**:
   - `PricingError`: Invalid inputs, calculation failures
   - `CurveError`: Curve construction issues
+  - `SolverError`: Convergence failures
   - `DateError`: Invalid date operations
-- **Status**: Approved
-- **Date**: TBD
+  - `ValidationError`: Input validation failures
+- **Status**: ✅ Approved
 
-#### AD-004: Interpolation Default (Pending)
-- **Decision**: Cubic spline as default, linear as fallback
-- **Rationale**: Balance between smoothness and stability
-- **Performance Target**: < 1 microsecond per interpolation
-- **Status**: Pending discussion
-- **Date**: TBD
+#### AD-004: Interpolation Architecture
+- **Decision**: Pluggable interpolation with trait-based design
+- **Methods Supported**:
+  - Linear, Log-Linear
+  - Cubic Spline (Natural, Clamped)
+  - Monotone Convex (Hagan)
+  - Bessel/Hermite
+  - Tension Spline
+- **Default**: Monotone Convex for production (positive forwards)
+- **Status**: ✅ Approved
 
-#### AD-005: Parallel Processing Strategy (Pending)
-- **Decision**: Use Rayon for data parallelism in curve building
-- **Rationale**: Ergonomic API, work-stealing scheduler
-- **Use Cases**: 
-  - Bootstrap multiple currencies
-  - Batch bond pricing
+#### AD-005: Extrapolation Strategy
+- **Decision**: Support multiple extrapolation methods, configurable per curve
+- **Methods**:
+  - None (error if outside range)
+  - Flat
+  - Linear
+  - Smith-Wilson (regulatory)
+- **Default**: Flat for short end, Smith-Wilson for long end (>30Y)
+- **Status**: ✅ Approved
+
+#### AD-006: Multi-Curve Framework
+- **Decision**: Full multi-curve support from day one
+- **Architecture**:
+  - Separate discounting and projection curves
+  - Support for basis spreads
+  - Cross-currency curve handling
+- **Status**: ✅ Approved
+
+#### AD-007: Parallel Processing
+- **Decision**: Use Rayon for data parallelism
+- **Use Cases**:
+  - Portfolio pricing
+  - Curve building (parallel instrument pricing)
+  - Risk calculations
   - Scenario analysis
-- **Status**: Approved
-- **Date**: TBD
+- **Status**: ✅ Approved
+
+---
 
 ### Technical Decisions
 
-#### TD-001: Dependency Selection (Pending)
-**Core Dependencies Approved**:
-- chrono 0.4+ (date/time handling)
-- rust_decimal 1.34+ (precise decimal math)
-- serde 1.0+ (serialization)
-- thiserror 1.0+ (error handling)
+#### TD-001: Core Dependencies
+```toml
+[dependencies]
+rust_decimal = "1.34"
+rust_decimal_macros = "1.34"
+chrono = { version = "0.4", default-features = false }
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+rayon = "1.10"
+arrayvec = "0.7"
 
-**Performance Dependencies**:
-- rayon 1.10+ (parallel processing)
-- ndarray 0.15+ (array operations)
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.4"
+approx = "0.5"
+```
+- **Status**: ✅ Approved
 
-**Math Dependencies**:
-- nalgebra 0.32+ (linear algebra)
-- approx 0.5+ (floating point comparisons)
+#### TD-002: Testing Framework
+- Unit Tests: Standard Rust + approx for float comparison
+- Property Tests: proptest for invariants
+- Benchmarks: Criterion.rs
+- Validation: Bloomberg comparison tests
+- **Coverage Target**: >90% for core modules
+- **Status**: ✅ Approved
 
-**Status**: Approved
-**Review Date**: TBD
+#### TD-003: Documentation Standard
+- Rustdoc with LaTeX math notation
+- Code examples for all public APIs
+- Bloomberg methodology references
+- Complexity analysis (time/space)
+- **Status**: ✅ Approved
 
-#### TD-002: Testing Framework (Pending)
-- **Unit Tests**: Standard Rust test framework
-- **Property Tests**: proptest for invariant checking
-- **Benchmarks**: Criterion.rs
-- **Integration**: Separate tests/ directory
-- **Status**: Approved
-- **Date**: TBD
-
-#### TD-003: Documentation Standard (Pending)
-- **API Docs**: Rustdoc with LaTeX math notation
-- **Examples**: Inline code examples for all public APIs
-- **Architecture**: Markdown in .claude directory
-- **Guides**: Separate docs/ directory for user guides
-- **Status**: Approved
-- **Date**: TBD
+---
 
 ### Domain Decisions
 
-#### DD-001: Day Count Convention Priority (Pending)
-**Implementation Order**:
-1. ACT/360 (Money markets)
-2. ACT/365 (UK Gilts)
-3. 30/360 US (Corporate bonds)
-4. ACT/ACT ICMA (Government bonds)
-5. ACT/ACT ISDA (Swaps)
+#### DD-001: Day Count Implementation Priority
+1. ✅ ACT/360 (Money markets)
+2. ✅ ACT/365F (UK Gilts)
+3. ✅ ACT/365L (Leap year aware)
+4. ✅ 30/360 US (Corporate bonds) - with Bloomberg Feb EOM rules
+5. ✅ ACT/ACT ICMA (Government bonds) - with period-based calculation
+6. ✅ ACT/ACT ISDA (Swaps)
+7. ✅ 30E/360 (Eurobonds)
+8. ✅ 30E/360 ISDA (ISDA swaps)
+9. ✅ ACT/ACT AFB (French)
+10. ✅ 30/360 German (German market)
+11. ⬜ BUS/252 (Brazil) - Future
 
-**Rationale**: Frequency of use in major markets
-**Status**: Approved
-**Date**: TBD
+#### DD-002: Bond Type Implementation Priority
+**Phase 1 (Core):**
+1. ⬜ Fixed-rate corporate
+2. ⬜ US Treasury Note/Bond
+3. ⬜ Zero coupon
+4. ⬜ T-Bill
 
-#### DD-002: Yield Calculation Method (Pending)
-- **Decision**: Bloomberg YAS methodology as reference
-- **Method**: Sequential roll-forward with Newton-Raphson
-- **Tolerance**: 1e-10 for yield convergence
+**Phase 2 (Extended Government):**
+5. ⬜ UK Gilt
+6. ⬜ German Bund
+7. ⬜ TIPS
+
+**Phase 3 (Optionality):**
+8. ⬜ Callable corporate
+9. ⬜ Putable bonds
+10. ⬜ Sinking fund
+
+**Phase 4 (Special):**
+11. ⬜ Municipal
+12. ⬜ FRN
+13. ⬜ MBS Pass-through
+14. ⬜ Convertible
+
+#### DD-003: Curve Type Priority
+1. ⬜ Government bond curve (bootstrap)
+2. ⬜ Swap curve (OIS discounting)
+3. ⬜ Credit spread curve
+4. ⬜ Inflation curve
+
+#### DD-004: Interpolation Priority
+1. ⬜ Linear (baseline)
+2. ⬜ Monotone Convex (production default)
+3. ⬜ Cubic Spline
+4. ⬜ Nelson-Siegel/Svensson (fitting)
+
+#### DD-005: Yield Calculation Methodology
+- **Method**: Bloomberg YAS sequential roll-forward
+- **Solver**: Newton-Raphson with Brent fallback
+- **Tolerance**: 1e-10
 - **Max Iterations**: 100
-- **Status**: Approved - must match Bloomberg exactly
-- **Date**: TBD
+- **Status**: ✅ Must match Bloomberg exactly
 
-#### DD-003: Calendar Support (Pending)
-**Phase 1 Calendars**:
-- US Federal Reserve (SIFMA)
-- UK (Bank of England)
-- EUR (TARGET2)
+#### DD-006: Calendar Support
+**Phase 1:**
+- ⬜ SIFMA (US bond market)
+- ⬜ US Government (Treasury)
+- ⬜ TARGET2 (Eurozone)
 
-**Phase 2 Calendars**:
-- Japan (Tokyo Stock Exchange)
-- Additional G7 markets
+**Phase 2:**
+- ⬜ UK (Bank of England)
+- ⬜ Japan (TSE)
+- ⬜ Combined calendar support
 
-**Status**: Phase 1 approved
-**Date**: TBD
+---
 
 ## Implementation Progress
 
-### Milestone 1: Core Infrastructure (0%)
-- [ ] Create workspace structure
-- [ ] Implement core types (Date, Price, Yield, Spread)
-- [ ] Implement day count conventions
+### Milestone 1: Core Infrastructure
+- [x] Create workspace structure
+- [x] Implement core types (Date, Price, Yield, Spread)
+- [x] Implement day count conventions (all 10 conventions)
 - [ ] Implement business day calendars
-- [ ] Write comprehensive unit tests
-- [ ] Create initial documentation
+- [x] Write comprehensive unit tests (68 day count tests passing)
+- [x] Bloomberg validation: Day counts (Boeing bond: 134 days ✓)
 
-**Target**: Week 1-2  
-**Status**: Not Started
+**Target**: Week 1-2
+**Status**: In Progress (Day counts complete)
 
-### Milestone 2: Yield Curve Foundation (0%)
-- [ ] Design curve traits and interfaces
-- [ ] Implement linear interpolation
-- [ ] Implement cubic spline interpolation
-- [ ] Bootstrap from deposits
-- [ ] Bootstrap from government bonds
-- [ ] Validation against known test cases
+### Milestone 2: Mathematical Foundation
+- [ ] Newton-Raphson solver
+- [ ] Brent's method
+- [ ] Linear interpolation
+- [ ] Cubic spline interpolation
+- [ ] Monotone convex interpolation
+- [ ] Extrapolation methods
+- [ ] Smith-Wilson implementation
 
 **Target**: Week 3-4  
 **Status**: Not Started
 
-### Milestone 3: Basic Bond Pricing (0%)
-- [ ] Fixed-rate bond implementation
-- [ ] Zero-coupon bond implementation
-- [ ] Cash flow generation engine
-- [ ] YTM calculator (Newton-Raphson)
-- [ ] Clean/dirty price calculations
-- [ ] Accrued interest calculations
+### Milestone 3: Curve Construction
+- [ ] Curve trait and types
+- [ ] Bootstrap from deposits
+- [ ] Bootstrap from swaps
+- [ ] Bootstrap from bonds
+- [ ] Multi-curve framework
+- [ ] Curve validation suite
 
 **Target**: Week 5-6  
 **Status**: Not Started
 
-### Milestone 4: Spread Analytics (0%)
-- [ ] G-spread implementation
-- [ ] I-spread implementation
-- [ ] Z-spread solver
-- [ ] Basic asset swap spread
-- [ ] Validation against market data
+### Milestone 4: Basic Bond Pricing
+- [ ] Fixed-rate bond
+- [ ] Zero-coupon bond
+- [ ] Cash flow generation
+- [ ] YTM calculator
+- [ ] Clean/dirty price
+- [ ] Accrued interest
+- [ ] Bloomberg validation: Boeing bond
 
 **Target**: Week 7-8  
 **Status**: Not Started
 
-### Milestone 5: Risk Calculations (0%)
-- [ ] Duration calculations (Macaulay, Modified, Effective)
-- [ ] Convexity calculations
-- [ ] DV01 calculations
-- [ ] Key rate durations
-- [ ] Comprehensive risk tests
+### Milestone 5: Government Bonds
+- [ ] US Treasury Note/Bond
+- [ ] T-Bill (discount basis)
+- [ ] TIPS (inflation-linked)
+- [ ] UK Gilt
+- [ ] German Bund
+- [ ] Price quote conventions (32nds)
 
 **Target**: Week 9-10  
 **Status**: Not Started
+
+### Milestone 6: Spread Analytics
+- [ ] G-spread
+- [ ] I-spread
+- [ ] Z-spread (Brent solver)
+- [ ] Asset swap spread (par-par)
+- [ ] Bloomberg validation: Spreads
+
+**Target**: Week 11-12  
+**Status**: Not Started
+
+### Milestone 7: Risk Calculations
+- [ ] Macaulay duration
+- [ ] Modified duration
+- [ ] Effective duration
+- [ ] Convexity
+- [ ] DV01
+- [ ] Key rate durations
+- [ ] Bloomberg validation: Risk metrics
+
+**Target**: Week 13-14  
+**Status**: Not Started
+
+### Milestone 8: Corporate Bond Extensions
+- [ ] Callable bonds
+- [ ] Binomial tree model
+- [ ] OAS calculation
+- [ ] Yield to worst
+- [ ] Make-whole call
+
+**Target**: Week 15-16  
+**Status**: Not Started
+
+### Milestone 9: Special Bond Types
+- [ ] Municipal bonds (tax-equivalent yield)
+- [ ] FRN (discount margin)
+- [ ] MBS pass-through (prepayment models)
+- [ ] Convertible bonds
+
+**Target**: Week 17-20  
+**Status**: Not Started
+
+### Milestone 10: Production Hardening
+- [ ] Performance optimization
+- [ ] Full Bloomberg validation
+- [ ] FFI layer
+- [ ] Python bindings
+- [ ] Documentation complete
+
+**Target**: Week 21-24  
+**Status**: Not Started
+
+---
+
+## Validation Status
+
+### Bloomberg Validation Matrix
+
+| Category | Test Cases | Passing | Status |
+|----------|-----------|---------|--------|
+| Day Counts | 68/50 | 68 | ✅ |
+| US Treasury | 0/20 | 0 | ⬜ |
+| Corporate IG | 0/20 | 0 | ⬜ |
+| Corporate HY | 0/15 | 0 | ⬜ |
+| Municipal | 0/10 | 0 | ⬜ |
+| TIPS | 0/10 | 0 | ⬜ |
+| MBS | 0/10 | 0 | ⬜ |
+| Curves | 0/30 | 0 | ⬜ |
+| Spreads | 0/20 | 0 | ⬜ |
+| Risk | 0/25 | 0 | ⬜ |
+| **Total** | **68/210** | **68** | 🟡 |
+
+### Primary Validation Bond Status
+
+**Boeing 7.5% 06/15/2025 (CUSIP: 097023AH7)**
+Settlement: 04/29/2020, Price: 110.503
+
+| Metric | Expected | Actual | Diff | Status |
+|--------|----------|--------|------|--------|
+| Street Convention | 4.905895% | - | - | ⬜ |
+| True Yield | 4.903264% | - | - | ⬜ |
+| Current Yield | 6.561% | - | - | ⬜ |
+| G-Spread | 448.5 bps | - | - | ⬜ |
+| Z-Spread | 444.7 bps | - | - | ⬜ |
+| Mod Duration | 4.209 | - | - | ⬜ |
+| Convexity | 0.219 | - | - | ⬜ |
+| Accrued Days | 134 | 134 | 0 | ✅ |
+| Accrued Interest | 26,986.11 | - | - | ⬜ |
+
+---
+
+## Performance Benchmarks
+
+### Target vs Actual
+
+| Operation | Target | Actual | Status |
+|-----------|--------|--------|--------|
+| Bond pricing | < 1μs | TBD | ⬜ |
+| YTM calculation | < 1μs | TBD | ⬜ |
+| Z-spread | < 50μs | TBD | ⬜ |
+| OAS (100 steps) | < 10ms | TBD | ⬜ |
+| Curve bootstrap (50 pts) | < 100μs | TBD | ⬜ |
+| Linear interpolation | < 10ns | TBD | ⬜ |
+| Monotone convex | < 50ns | TBD | ⬜ |
+| Portfolio (1000 bonds) | < 100ms | TBD | ⬜ |
+
+---
 
 ## Known Issues & Challenges
 
 ### Technical Challenges
 
 #### TC-001: Float Precision in Yield Calculations
-- **Issue**: Need exact replication of Bloomberg YAS
-- **Challenge**: Floating point arithmetic differences
-- **Solution**: Use Decimal type for all financial calculations
-- **Status**: Planned mitigation
+- **Issue**: Need exact Bloomberg YAS match
+- **Solution**: Use Decimal, sequential roll-forward
 - **Priority**: Critical
+- **Status**: Design complete
 
-#### TC-002: Performance vs Precision Trade-off
-- **Issue**: Decimal math slower than f64
-- **Challenge**: Meet < 1 microsecond pricing target
-- **Solution**: Hybrid approach - Decimal for money, f64 for intermediate math
-- **Status**: Under consideration
+#### TC-002: Curve Extrapolation Stability
+- **Issue**: Long-dated extrapolation can be unstable
+- **Solution**: Smith-Wilson with proper parameterization
 - **Priority**: High
+- **Status**: Requires implementation
 
-#### TC-003: Calendar Complexity
-- **Issue**: Complex holiday rules and exceptions
-- **Challenge**: Maintain accuracy across markets
-- **Solution**: Use authoritative sources, comprehensive testing
-- **Status**: Requires research
+#### TC-003: MBS Prepayment Modeling
+- **Issue**: Complex prepayment behavior
+- **Solution**: Support CPR, PSA, and custom vectors
 - **Priority**: Medium
+- **Status**: Design needed
 
-### Domain Challenges
-
-#### DC-001: Bloomberg YAS Methodology Documentation
-- **Issue**: Some Bloomberg methods are undocumented
-- **Challenge**: Reverse-engineer exact behavior
-- **Solution**: Compare outputs, iterative refinement
-- **Status**: Ongoing
-- **Priority**: Critical
-
-#### DC-002: Market Convention Variations
-- **Issue**: Different markets have subtle convention differences
-- **Challenge**: Support all major markets correctly
-- **Solution**: Configuration-driven approach
-- **Status**: Design in progress
+#### TC-004: Callable Bond Convergence
+- **Issue**: OAS solver can be unstable
+- **Solution**: Robust bracketing, multiple solver fallbacks
 - **Priority**: High
-
-#### DC-003: Edge Cases in Yield Calculations
-- **Issue**: Negative yields, very short/long maturities
-- **Challenge**: Numerical stability
-- **Solution**: Robust error handling, fallback methods
-- **Status**: Requires testing
-- **Priority**: Medium
-
-## Performance Metrics Tracking
-
-### Target Metrics
-- Bond pricing: < 1 microsecond
-- YTM calculation: < 10 microseconds
-- Bootstrap 50-point curve: < 100 microseconds
-- Z-spread: < 50 microseconds
-- DV01 calculation: < 5 microseconds
-
-### Current Metrics
-*Will be populated as implementation progresses*
-
-### Benchmark Results
-*Will be tracked here with dates and versions*
-
-## Testing Coverage
-
-### Unit Test Coverage
-- Target: 90%+
-- Current: TBD
-- Last Updated: TBD
-
-### Integration Test Status
-- Total Tests: TBD
-- Passing: TBD
-- Failing: TBD
-
-### Validation Test Status
-- Bloomberg Comparison Tests: TBD
-- Reuters Comparison Tests: TBD
-- Known Case Tests: TBD
-
-## Dependencies Management
-
-### Dependency Updates Log
-*Track dependency version updates and reasons*
-
-### Security Audit Log
-*Track cargo-audit results and resolutions*
-
-## Questions & Discussions
-
-### Q-001: Should we support negative interest rates in all calculations?
-- **Context**: European bonds have negative yields
-- **Options**: 
-  1. Full support (complex)
-  2. Limited support (flag issues)
-- **Decision**: TBD
-- **Owner**: TBD
-
-### Q-002: How to handle settlement date variations?
-- **Context**: Different markets, different conventions
-- **Options**:
-  1. Configuration per bond
-  2. Global defaults with overrides
-- **Decision**: TBD
-- **Owner**: TBD
-
-### Q-003: Async vs Sync API?
-- **Context**: Future integration with async systems
-- **Options**:
-  1. Sync only (simpler)
-  2. Sync + Async wrappers
-  3. Async-first
-- **Decision**: TBD
-- **Owner**: TBD
-
-## Future Enhancements Queue
-
-### Short-term (Next 3 months)
-1. Advanced interpolation methods (Nelson-Siegel)
-2. Callable bond support
-3. Floating rate notes
-4. Python bindings
-
-### Medium-term (3-6 months)
-1. Java bindings
-2. C# bindings
-3. Excel plugin
-4. REST API service
-5. Inflation-linked bonds
-
-### Long-term (6-12 months)
-1. Convertible bonds
-2. ABS/MBS support
-3. CDS integration
-4. Multi-curve frameworks
-5. GPU acceleration
-
-## References & Resources
-
-### Bloomberg Documentation
-- YAS Function Reference: [Location TBD]
-- Fixed Income Analytics: [Location TBD]
-
-### Academic Papers
-- *To be added as referenced*
-
-### Industry Standards
-- ISDA definitions
-- ICMA conventions
-- ARRC SOFR documentation
-
-## Team Notes
-
-### Communication Channels
-- GitHub Issues: For bug reports and feature requests
-- Discussions: For design decisions
-- Documentation: In .claude/ directory
-
-### Code Review Guidelines
-- All PRs require review
-- Must pass all tests
-- Must maintain >90% coverage
-- Must include documentation updates
-
-### Release Cadence
-- TBD (suggestion: monthly minor releases, quarterly major releases)
+- **Status**: Design needed
 
 ---
 
-*This memory file should be updated regularly to track progress and decisions*
+## Open Questions
+
+### Q-001: Negative Interest Rate Support
+- **Context**: EUR government bonds, JPY
+- **Decision**: Full support required
+- **Implementation**: Allow negative yields, handle in all formulas
+- **Status**: ✅ Decided
+
+### Q-002: Ex-Dividend Handling
+- **Context**: UK Gilts have 7 business day ex-div
+- **Decision**: Support per-market conventions
+- **Status**: ✅ Decided
+
+### Q-003: Leap Second Handling
+- **Context**: Could affect day counts at year boundaries
+- **Decision**: Ignore (industry standard)
+- **Status**: ✅ Decided
+
+### Q-004: Async API
+- **Context**: Future integration needs
+- **Decision**: Sync-first, async wrappers later
+- **Status**: ✅ Decided
+
+---
+
+## References Used
+
+### Bloomberg Documentation
+- YAS Function Reference
+- Day Count Conventions
+- Settlement Conventions
+
+### Academic Papers
+- Hagan, P. "Interpolation Methods for Curve Construction"
+- Le Floc'h, F. "Monotone Convex Interpolation"
+- Nelson, C. & Siegel, A. "Parsimonious Modeling of Yield Curves"
+
+### Industry Standards
+- ISDA Day Count Definitions
+- ICMA Bond Calculation Rules
+- ARRC SOFR Conventions
+- EIOPA Smith-Wilson Specification
+
+---
+
+## Change Log
+
+### 2025-11-27 - Day Count Conventions Complete
+- **Implemented all 10 day count conventions** with Bloomberg-exact accuracy
+- **ACT Family**: ACT/360, ACT/365F, ACT/365L, ACT/ACT ISDA, ACT/ACT ICMA, ACT/ACT AFB
+- **30/360 Family**: 30/360 US, 30E/360, 30E/360 ISDA, 30/360 German
+- **Critical Fix**: 30/360 US now includes proper February end-of-month rules
+  - Rule 1: If D1 is last day of Feb → D1 = 30
+  - Rule 2: If D1 = 31 → D1 = 30
+  - Rule 3: If D2 is last day of Feb AND D1 was last day of Feb → D2 = 30
+  - Rule 4: If D2 = 31 AND D1 >= 30 → D2 = 30
+- **ACT/ACT ICMA**: Added `year_fraction_with_period()` for proper bond accrual calculation
+- **Tests**: 68 comprehensive tests passing
+- **Bloomberg Validation**: Boeing bond accrued days = 134 ✓
+
+### [Earlier] - Initial Setup
+- Created project structure
+- Established architecture decisions
+- Defined validation targets
+
+---
+
+## Next Steps
+
+1. **Complete Milestone 1**: Implement business day calendars (SIFMA, TARGET2, UK)
+2. **Begin Milestone 2**: Mathematical solvers (Newton-Raphson, Brent)
+3. **BUS/252 Convention**: Add Brazilian business day convention if needed
+
+---
+
+*Update this file after each significant implementation or decision*

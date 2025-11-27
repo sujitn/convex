@@ -3,56 +3,52 @@
 ## Prerequisites
 
 ### Required Tools
-- **Rust**: Latest stable version (1.75+)
-  ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  ```
 
-- **Claude Code**: Install from [claude.ai/code](https://claude.ai/code)
-  ```bash
-  # macOS/Linux
-  curl -fsSL https://claude.ai/download/code | sh
-  
-  # Verify installation
-  claude --version
-  ```
+**Rust (1.75+):**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup update stable
+```
 
-### Optional Tools (Recommended)
-- **cargo-edit**: For managing dependencies
-  ```bash
-  cargo install cargo-edit
-  ```
+**Claude Code:**
+```bash
+# Install from claude.ai/code
+claude --version
+```
 
-- **cargo-watch**: For auto-recompilation
-  ```bash
-  cargo install cargo-watch
-  ```
+### Recommended Tools
 
-- **cargo-nextest**: Faster test runner
-  ```bash
-  cargo install cargo-nextest
-  ```
+```bash
+# Dependency management
+cargo install cargo-edit
 
-- **criterion**: Benchmarking (added to dependencies)
+# Fast test runner
+cargo install cargo-nextest
 
-- **cargo-flamegraph**: Performance profiling
-  ```bash
-  cargo install flamegraph
-  ```
+# Benchmarking (added to dev-dependencies)
+# criterion is used in the project
+
+# Profiling
+cargo install flamegraph
+
+# Code coverage
+cargo install cargo-tarpaulin
+```
+
+---
 
 ## Project Setup
 
-### 1. Initialize the Project
+### 1. Create Project Directory
 
 ```bash
-# Create project directory
 mkdir convex
 cd convex
 
-# Copy the .claude directory with all config files
-cp -r /path/to/downloaded/.claude .
+# Copy .claude configuration
+cp -r /path/to/.claude .
 
-# Initialize git repository
+# Initialize git
 git init
 git add .claude/
 git commit -m "Initial Claude Code configuration"
@@ -61,336 +57,309 @@ git commit -m "Initial Claude Code configuration"
 ### 2. Start Claude Code
 
 ```bash
-# Start Claude Code in the project directory
 claude code
-
-# Or start with specific context
-claude code --context .claude/context.md
 ```
 
-### 3. First Prompt to Claude
-
-Copy and paste this into Claude Code:
+### 3. First Prompt
 
 ```
 I'm starting the Convex fixed income analytics library. Please:
 
-1. Create the Cargo workspace structure with all crates (convex-core, convex-curves, convex-bonds, convex-spreads, convex-math, convex-ffi)
-2. Set up the workspace Cargo.toml with shared dependencies
-3. Create basic module structure for each crate
-4. Add essential dependencies (chrono, rust_decimal, thiserror, serde)
-5. Create a basic example in the top-level README.md
+1. Read all files in .claude/ to understand requirements
+2. Create the Cargo workspace with crates:
+   - convex-core (types, day counts, calendars)
+   - convex-math (solvers, interpolation, optimization)
+   - convex-curves (yield curve construction)
+   - convex-bonds (all bond types)
+   - convex-spreads (spread calculations)
+   - convex-risk (risk analytics)
+   - convex-yas (Bloomberg YAS replication)
+   - convex-ffi (FFI layer)
+3. Set up workspace Cargo.toml with shared dependencies
+4. Create basic module structure in each crate
 
-Follow the architecture described in .claude/architecture.md and conventions in .claude/conventions.md.
+Follow the architecture in .claude/architecture.md.
 ```
+
+---
 
 ## Development Workflow
 
-### Typical Claude Code Session
+### Session Start
 
-1. **Start with Context**
-   ```bash
-   claude code
-   ```
-
-2. **Define Task Clearly**
-   ```
-   Implement the ACT/360 day count convention in convex-core with:
-   - DayCounter trait implementation
-   - Comprehensive unit tests
-   - Documentation with examples
-   - Comparison tests against known values
-   ```
-
-3. **Review Output**
-   - Claude will generate code following conventions
-   - Review for correctness and style
-   - Ask for modifications if needed
-
-4. **Iterate**
-   ```
-   The ACT/360 implementation looks good, but can you:
-   - Add property-based tests for edge cases
-   - Optimize the day_count_fraction calculation
-   - Add more detailed documentation with LaTeX formulas
-   ```
-
-5. **Test and Commit**
-   ```bash
-   cargo test
-   cargo clippy
-   cargo fmt
-   git add .
-   git commit -m "Implement ACT/360 day count convention"
-   ```
-
-### Best Practices for Working with Claude Code
-
-**Be Specific and Contextual**
-```
-❌ "Add bond pricing"
-✅ "Implement fixed-rate bond clean price calculation in convex-bonds using 
-   the present value formula with semi-annual compounding. Include YTM 
-   solver using Newton-Raphson with convergence tolerance of 1e-10."
-```
-
-**Reference Documentation**
-```
-"Implement the yield curve bootstrap as described in .claude/context.md, 
-following the conventions in .claude/conventions.md. Use the architecture 
-outlined in .claude/architecture.md for module structure."
-```
-
-**Incremental Development**
-```
-Phase 1: "Create basic Bond struct with builder pattern"
-Phase 2: "Add cash flow generation"
-Phase 3: "Implement price calculation from yield"
-Phase 4: "Add YTM calculation from price"
-```
-
-**Request Comprehensive Testing**
-```
-"Along with the implementation, create:
-- Unit tests for each function
-- Property tests for invariants
-- Integration test with real US Treasury bond
-- Validation test comparing to Bloomberg reference value"
-```
-
-## Common Development Tasks
-
-### Adding a New Bond Type
+Always begin with:
 
 ```
-I want to add support for floating rate notes. Please:
-
-1. Create a FloatingRateNote struct in convex-bonds/src/instruments/
-2. Implement cash flow generation with spread over reference rate
-3. Add pricing calculation using forward projection
-4. Create builder pattern for construction
-5. Add comprehensive tests
-6. Update documentation
-
-The implementation should follow existing patterns for FixedRateBond 
-and support LIBOR and SOFR reference rates.
+Please read .claude/context.md, .claude/architecture.md, and .claude/memory.md
+to understand the project state. Then run `tree -L 2 src/` to see current structure.
 ```
 
-### Implementing a New Spread Type
+### Feature Implementation Pattern
 
 ```
-Implement I-Spread (Interpolated Spread) calculation in convex-spreads:
+## Task: Implement [FEATURE] in [CRATE]
 
-1. Interpolate government yield at bond's exact maturity
-2. Calculate spread as bond YTM minus interpolated yield
-3. Support multiple interpolation methods (linear, cubic spline)
-4. Handle edge cases (maturity beyond curve, negative spreads)
-5. Add benchmarks to ensure < 10 microsecond calculation time
-6. Include tests comparing to Bloomberg I-Spread function
+### Pre-Implementation
+Read .claude/context.md section: [RELEVANT_SECTION]
+Review existing code in [MODULE_PATH]
+
+### Requirements
+[Detailed requirements from prompts.md]
+
+### Validation
+- Tolerance: [±X]
+- Test bond: [CUSIP or description]
+
+### Deliverables
+- [ ] Implementation with docs
+- [ ] Unit tests
+- [ ] Bloomberg validation test
+- [ ] Benchmark (if performance-critical)
 ```
 
-### Optimizing Performance
+### Session End
 
 ```
-The bond portfolio pricing is taking too long. Please:
-
-1. Profile the current implementation
-2. Identify bottlenecks (likely in discount_cash_flows)
-3. Apply optimizations:
-   - Pre-allocate vectors with capacity
-   - Use iterators instead of loops
-   - Consider SIMD for discount factor calculations
-   - Use rayon for parallel pricing of multiple bonds
-4. Create before/after benchmarks
-5. Document optimization decisions in memory.md
-
-Target: Price 1000 bonds in under 10 milliseconds.
+Please update .claude/memory.md with:
+- What was implemented today
+- Any decisions made
+- Validation status
+- Open issues or next steps
 ```
 
-### Creating Language Bindings
+---
+
+## Implementation Order
+
+### Phase 1: Foundation (Week 1-2)
 
 ```
-Create Python bindings for the core bond pricing functionality:
-
-1. Set up PyO3 in convex-python crate
-2. Wrap Bond, YieldCurve, and pricing functions
-3. Create Pythonic API with type hints
-4. Add __repr__ and __str__ for friendly display
-5. Include examples in docstrings
-6. Create setup.py for pip installation
-7. Write Python tests comparing to Rust implementation
-
-The API should feel natural to Python users while maintaining performance.
+1. Core types (Price, Yield, Spread, Rate)
+   - Use Decimal for precision
+   - Implement Display, From, TryFrom
+   
+2. Day count conventions
+   - Start with ACT/360, 30/360 US
+   - Must match Bloomberg exactly
+   
+3. Holiday calendars
+   - SIFMA, US Government first
+   - Bitmap storage for O(1) lookup
 ```
 
-## Testing Strategy
+### Phase 2: Math Engine (Week 3-4)
 
-### Running Tests
+```
+1. Solvers
+   - Newton-Raphson (primary)
+   - Brent's method (fallback)
+   
+2. Interpolation
+   - Linear (baseline)
+   - Monotone Convex (production)
+   - Cubic Spline
+   
+3. Extrapolation
+   - Flat
+   - Smith-Wilson (regulatory)
+```
+
+### Phase 3: Curves (Week 5-6)
+
+```
+1. Curve traits and types
+2. Bootstrap from deposits
+3. Bootstrap from swaps
+4. Multi-curve framework
+```
+
+### Phase 4: Bond Pricing (Week 7-10)
+
+```
+1. Fixed-rate bonds + Boeing validation
+2. US Treasury (Notes, Bonds, Bills)
+3. Zero coupon
+4. UK Gilts, German Bunds
+5. TIPS
+```
+
+### Phase 5: Spreads & Risk (Week 11-14)
+
+```
+1. G-Spread, I-Spread
+2. Z-Spread (Brent solver)
+3. Duration (all types)
+4. Convexity, DV01
+```
+
+### Phase 6: Advanced (Week 15-20)
+
+```
+1. Callable bonds (binomial tree)
+2. OAS calculation
+3. Municipal bonds
+4. MBS Pass-through
+5. Convertibles
+```
+
+### Phase 7: Production (Week 21-24)
+
+```
+1. Full Bloomberg validation
+2. Performance optimization
+3. FFI layer
+4. Python bindings
+5. Documentation complete
+```
+
+---
+
+## Testing Commands
 
 ```bash
-# All tests
-cargo test
+# Run all tests
+cargo test --workspace
 
-# Specific crate
-cargo test -p convex-core
+# Run specific crate
+cargo test -p convex-bonds
 
-# Specific test
-cargo test test_act_360_day_count
+# Run Bloomberg validation
+cargo test --test bloomberg_validation
 
-# With output
+# Run with output
 cargo test -- --nocapture
 
-# Fast test runner (if installed)
+# Fast test runner
 cargo nextest run
-```
 
-### Running Benchmarks
-
-```bash
-# All benchmarks
+# Run benchmarks
 cargo bench
 
-# Specific benchmark
-cargo bench ytm_calculation
-
-# With profiling
-cargo bench --bench bond_pricing -- --profile-time=5
+# Coverage report
+cargo tarpaulin --out Html
 ```
 
-### Code Quality Checks
+## Quality Commands
 
 ```bash
 # Linting
-cargo clippy -- -D warnings
+cargo clippy --workspace -- -D warnings
 
 # Formatting
-cargo fmt --check
+cargo fmt --workspace
+
+# Check formatting
+cargo fmt --workspace -- --check
 
 # Documentation
-cargo doc --open
+cargo doc --workspace --open
 
-# Check everything
+# Check all
 cargo check --all-features
 ```
 
-## Troubleshooting
+---
 
-### Claude Doesn't Follow Conventions
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `.claude/context.md` | Domain knowledge, accuracy requirements |
+| `.claude/architecture.md` | System design, crate structure |
+| `.claude/memory.md` | Decisions, progress, validation status |
+| `.claude/prompts.md` | Prompt templates for all features |
+
+---
+
+## Validation Targets
+
+### Primary: Boeing 7.5% 06/15/2025
 
 ```
-Please review .claude/conventions.md and ensure the implementation:
-- Uses newtypes for domain concepts
-- Implements proper error handling with thiserror
-- Includes comprehensive documentation
-- Follows naming conventions (snake_case for functions, PascalCase for types)
-- Has inline annotations for performance-critical functions
+CUSIP: 097023AH7
+Settlement: 04/29/2020
+Price: 110.503
+
+Expected Values:
+├── Street Convention: 4.905895%  (±0.00001%)
+├── G-Spread: 448.5 bps           (±0.1 bps)
+├── Z-Spread: 444.7 bps           (±0.1 bps)
+├── Modified Duration: 4.209      (±0.001)
+├── Convexity: 0.219              (±0.001)
+└── Accrued Interest: 26,986.11   (±0.01)
 ```
 
-### Test Failures
+### Performance Targets
+
+| Operation | Target |
+|-----------|--------|
+| Bond pricing | < 1μs |
+| YTM calculation | < 1μs |
+| Z-spread | < 50μs |
+| OAS (100 steps) | < 10ms |
+| Curve bootstrap | < 100μs |
+| Portfolio (1000) | < 100ms |
+
+---
+
+## Common Issues & Solutions
+
+### Precision Issues
 
 ```
-The test_ytm_calculation is failing. Please:
-1. Debug the issue by adding detailed logging
-2. Compare expected vs actual values at each step
-3. Identify where the calculation diverges
-4. Fix the implementation
-5. Add a test to prevent regression
+Problem: Calculations differ from Bloomberg
+
+Solution:
+1. Use Decimal for all financial math
+2. Check day count implementation (month-end rules)
+3. Verify settlement date calculation
+4. Check sequential roll-forward for short bonds
+```
+
+### Convergence Failures
+
+```
+Problem: YTM solver doesn't converge
+
+Solution:
+1. Check initial guess (use coupon rate)
+2. Add bounds checking
+3. Fall back to Brent's method
+4. Log iterations for debugging
 ```
 
 ### Performance Issues
 
 ```
-Profiling shows discount_cash_flows is taking 80% of execution time. Please:
-1. Review the implementation for inefficiencies
-2. Look for unnecessary allocations or cloning
-3. Consider using iterators and fold instead of collect
-4. Add inline annotations
-5. Benchmark the improvement
+Problem: Calculations too slow
+
+Solution:
+1. Profile with flamegraph
+2. Check for allocations in hot path
+3. Use iterators instead of collect()
+4. Pre-allocate vectors with capacity
+5. Cache interpolation coefficients
 ```
-
-## Project Structure Reference
-
-After initial setup, your project should look like:
-
-```
-convex/
-├── .claude/
-│   ├── context.md           # Domain knowledge
-│   ├── architecture.md      # System design
-│   ├── memory.md           # Decisions log
-│   ├── conventions.md      # Coding standards
-│   └── prompts.md          # Prompt examples
-├── Cargo.toml              # Workspace config
-├── README.md
-├── LICENSE
-├── crates/
-│   ├── convex-core/
-│   ├── convex-curves/
-│   ├── convex-bonds/
-│   ├── convex-spreads/
-│   ├── convex-math/
-│   └── convex-ffi/
-├── examples/
-├── benchmarks/
-└── tests/
-```
-
-## Next Steps
-
-1. **Start with Core Types**
-   ```
-   Let's begin by implementing the core types in convex-core:
-   - Date with business day arithmetic
-   - Price with currency support
-   - Yield with convention support
-   - Spread in basis points
-   
-   Include full documentation and tests for each.
-   ```
-
-2. **Build Day Count Foundations**
-   ```
-   Implement all day count conventions following Bloomberg methodology:
-   - ACT/360, ACT/365, 30/360, ACT/ACT ICMA, ACT/ACT ISDA
-   - With comprehensive tests comparing to known values
-   ```
-
-3. **Create Yield Curve Infrastructure**
-   ```
-   Build the yield curve construction framework:
-   - Bootstrap algorithm
-   - Linear and cubic spline interpolation
-   - Tests with real market data
-   ```
-
-4. **Implement Bond Pricing**
-   ```
-   Create bond pricing engine:
-   - Fixed-rate bonds
-   - YTM calculation using Newton-Raphson
-   - Clean and dirty price calculations
-   - Validation against Bloomberg
-   ```
-
-## Resources
-
-- **Context**: `.claude/context.md` - Domain knowledge and requirements
-- **Architecture**: `.claude/architecture.md` - System design diagrams
-- **Conventions**: `.claude/conventions.md` - Coding standards
-- **Prompts**: `.claude/prompts.md` - Example prompts for common tasks
-- **Memory**: `.claude/memory.md` - Decisions and progress tracking
-
-## Support
-
-When working with Claude Code:
-- Reference the .claude files frequently
-- Be specific in your requests
-- Ask for tests and documentation
-- Request performance benchmarks
-- Have Claude update memory.md with decisions
 
 ---
 
-**Ready to Start?**
+## Next Steps After Setup
 
-Run `claude code` in the convex directory and begin with the first prompt above!
+1. **Start with core types**: Get Price, Yield, Spread working
+2. **Add day counts**: ACT/360 and 30/360 US first
+3. **Build yield solver**: Newton-Raphson with tests
+4. **Create first bond**: Fixed-rate with Boeing validation
+5. **Iterate**: Add types, validate, optimize
+
+---
+
+## Resources
+
+- **Bloomberg YAS Reference**: Internal docs
+- **ISDA Day Count Definitions**: industry standard
+- **ICMA Bond Calculation Rules**: coupon calculations
+- **EIOPA Smith-Wilson**: regulatory curve extrapolation
+
+---
+
+**Ready?** Run `claude code` and start with the first prompt!
