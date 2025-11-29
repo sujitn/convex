@@ -110,6 +110,29 @@ impl Interpolator for LinearInterpolator {
         Ok(y0 + t * (y1 - y0))
     }
 
+    fn derivative(&self, x: f64) -> MathResult<f64> {
+        // Check bounds
+        if !self.allow_extrapolation {
+            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
+                return Err(MathError::ExtrapolationNotAllowed {
+                    x,
+                    min: self.xs[0],
+                    max: self.xs[self.xs.len() - 1],
+                });
+            }
+        }
+
+        let i = self.find_segment(x);
+
+        let x0 = self.xs[i];
+        let x1 = self.xs[i + 1];
+        let y0 = self.ys[i];
+        let y1 = self.ys[i + 1];
+
+        // Derivative of linear interpolation is constant slope
+        Ok((y1 - y0) / (x1 - x0))
+    }
+
     fn allows_extrapolation(&self) -> bool {
         self.allow_extrapolation
     }

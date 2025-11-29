@@ -8,6 +8,7 @@
 //! - **Optimization**: Function optimization (Levenberg-Marquardt, BFGS)
 //! - **Linear Algebra**: Matrix operations and decompositions
 //! - **Interpolation**: Numerical interpolation methods
+//! - **Extrapolation**: Curve extrapolation (Flat, Linear, Smith-Wilson)
 //!
 //! ## Design Philosophy
 //!
@@ -21,6 +22,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod extrapolation;
 pub mod interpolation;
 pub mod linear_algebra;
 pub mod optimization;
@@ -29,8 +31,18 @@ pub mod solvers;
 /// Prelude module for convenient imports.
 pub mod prelude {
     pub use crate::error::{MathError, MathResult};
-    pub use crate::interpolation::{CubicSpline, Interpolator, LinearInterpolator};
-    pub use crate::solvers::{bisection, brent, newton_raphson, RootFinder};
+    pub use crate::extrapolation::{
+        ExtrapolationMethod, Extrapolator, FlatExtrapolator, LinearExtrapolator, SmithWilson,
+    };
+    pub use crate::interpolation::{
+        CubicSpline, Interpolator, LinearInterpolator, LogLinearInterpolator, MonotoneConvex,
+        NelsonSiegel, Svensson,
+    };
+    pub use crate::solvers::{
+        bisection, brent, hybrid, hybrid_numerical, newton_raphson, newton_raphson_numerical,
+        secant, BisectionSolver, BrentSolver, HybridSolver, NewtonSolver, RootFinder, SecantSolver,
+        Solver, SolverConfig, SolverResult,
+    };
 }
 
 pub use error::{MathError, MathResult};

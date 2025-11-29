@@ -5,7 +5,11 @@
       "Bash(cargo test:*)",
       "Bash(git checkout:*)",
       "Bash(Get-ChildItem -Path src -Recurse -Depth 2)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(tree:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"tree /F crates\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path crates -Recurse -Depth 3 | Select-Object FullName\")"
     ],
     "deny": [],
     "ask": []
