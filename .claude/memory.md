@@ -160,10 +160,12 @@ approx = "0.5"
 4. ⬜ Inflation curve
 
 #### DD-004: Interpolation Priority
-1. ⬜ Linear (baseline)
-2. ⬜ Monotone Convex (production default)
-3. ⬜ Cubic Spline
-4. ⬜ Nelson-Siegel/Svensson (fitting)
+1. ✅ Linear (baseline)
+2. ✅ Monotone Convex (production default)
+3. ✅ Cubic Spline
+4. ✅ Nelson-Siegel/Svensson (fitting)
+5. ✅ Log-Linear (for discount factors)
+6. ✅ Extrapolation: Flat, Linear, Smith-Wilson (EIOPA)
 
 #### DD-005: Yield Calculation Methodology
 - **Method**: Bloomberg YAS sequential roll-forward
@@ -199,16 +201,22 @@ approx = "0.5"
 **Status**: ✅ Complete
 
 ### Milestone 2: Mathematical Foundation
-- [ ] Newton-Raphson solver
-- [ ] Brent's method
-- [ ] Linear interpolation
-- [ ] Cubic spline interpolation
-- [ ] Monotone convex interpolation
-- [ ] Extrapolation methods
-- [ ] Smith-Wilson implementation
+- [x] Newton-Raphson solver (with numerical derivative fallback)
+- [x] Brent's method (guaranteed convergence)
+- [x] Bisection method (robust fallback)
+- [x] Secant method (derivative-free)
+- [x] Hybrid solver (Newton + Brent fallback)
+- [x] Solver trait with unified interface
+- [x] Linear interpolation
+- [x] Log-linear interpolation (for discount factors)
+- [x] Cubic spline interpolation (natural)
+- [x] Monotone Convex interpolation (Hagan) - PRODUCTION DEFAULT
+- [x] Nelson-Siegel parametric model
+- [x] Svensson parametric model
+- [x] Extrapolation methods (Flat, Linear, Smith-Wilson)
 
-**Target**: Week 3-4  
-**Status**: Not Started
+**Target**: Week 3-4
+**Status**: ✅ Complete
 
 ### Milestone 3: Curve Construction
 - [ ] Curve trait and types
@@ -305,6 +313,9 @@ approx = "0.5"
 |----------|-----------|---------|--------|
 | Day Counts | 68/50 | 68 | ✅ |
 | Calendars | 154/100 | 154 | ✅ |
+| Solvers | 54/40 | 54 | ✅ |
+| Interpolation | 59/50 | 59 | ✅ |
+| Extrapolation | 27/25 | 27 | ✅ |
 | US Treasury | 0/20 | 0 | ⬜ |
 | Corporate IG | 0/20 | 0 | ⬜ |
 | Corporate HY | 0/15 | 0 | ⬜ |
@@ -314,7 +325,7 @@ approx = "0.5"
 | Curves | 0/30 | 0 | ⬜ |
 | Spreads | 0/20 | 0 | ⬜ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **222/310** | **222** | 🟡 |
+| **Total** | **362/415** | **362** | 🟡 |
 
 ### Primary Validation Bond Status
 
@@ -366,7 +377,7 @@ Settlement: 04/29/2020, Price: 110.503
 - **Issue**: Long-dated extrapolation can be unstable
 - **Solution**: Smith-Wilson with proper parameterization
 - **Priority**: High
-- **Status**: Requires implementation
+- **Status**: ✅ Resolved - Smith-Wilson implemented with EIOPA presets
 
 #### TC-003: MBS Prepayment Modeling
 - **Issue**: Complex prepayment behavior
@@ -429,6 +440,77 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Change Log
 
+### 2025-11-29 - Extrapolation Methods Complete (Milestone 2 Done)
+- **Implemented full extrapolation infrastructure in convex-math**:
+  - `FlatExtrapolator`: Constant value from last point (conservative)
+  - `LinearExtrapolator`: Linear slope continuation from last derivative
+  - `SmithWilson`: EIOPA regulatory standard for Solvency II
+    - Smooth convergence to Ultimate Forward Rate (UFR)
+    - Configurable convergence speed (alpha)
+    - Last Liquid Point (LLP) based extrapolation
+- **EIOPA Presets for Smith-Wilson**:
+  - `SmithWilson::eiopa_eur()`: UFR 3.45%, LLP 20Y, α=0.126
+  - `SmithWilson::eiopa_gbp()`: UFR 3.45%, LLP 50Y, α=0.100
+  - `SmithWilson::eiopa_usd()`: UFR 3.45%, LLP 30Y, α=0.100
+  - `SmithWilson::eiopa_chf()`: UFR 3.45%, LLP 25Y, α=0.100
+- **Extrapolator Trait**:
+  - `extrapolate(t, last_t, last_value, last_derivative)`: Extrapolate to time t
+  - `name()`: Returns method name
+- **ExtrapolationMethod Enum**:
+  - `None`, `Flat`, `Linear`, `SmithWilson { ufr, alpha }`
+- **Key Features**:
+  - UFR convergence verified at long maturities
+  - Higher alpha = faster convergence (tested)
+  - Convergence from both above and below UFR
+  - EIOPA convergence criterion testing (within 3bp at LLP+40Y)
+- **Tests**: 27 extrapolation tests + 4 doc-tests passing
+- **Milestone 2 Status**: ✅ Complete
+
+### 2025-11-29 - Interpolation Methods Complete
+- **Implemented full interpolation infrastructure in convex-math**:
+  - `LinearInterpolator`: Simple piecewise linear
+  - `LogLinearInterpolator`: Log-linear for discount factors (guarantees positive values)
+  - `CubicSpline`: Natural cubic spline with C2 continuity
+  - `MonotoneConvex`: Hagan-West method - **PRODUCTION DEFAULT**
+    - Guarantees positive forward rates
+    - C1 continuity
+    - No spurious oscillations
+  - `NelsonSiegel`: 4-parameter parametric model (β₀, β₁, β₂, τ)
+  - `Svensson`: 6-parameter extension with second hump
+- **Interpolator Trait**:
+  - `interpolate()`: Get value at point
+  - `derivative()`: Get first derivative (for forward rates)
+  - `allows_extrapolation()`, `min_x()`, `max_x()`, `in_range()`
+- **Key Features**:
+  - All methods pass through input points
+  - Positive forward rate validation for MonotoneConvex
+  - Derivative accuracy verified vs numerical differentiation
+- **Tests**: 59 interpolation tests + 7 doc-tests passing
+
+### 2025-11-29 - Root-Finding Solvers Complete
+- **Implemented complete solver infrastructure in convex-math**:
+  - `newton_raphson`: Quadratic convergence with analytical derivative
+  - `newton_raphson_numerical`: Numerical derivative fallback
+  - `brent`: Guaranteed convergence using bisection/secant/IQI
+  - `bisection`: Robust bracketing method
+  - `secant`: Superlinear convergence without derivative
+  - `hybrid`: Newton + Brent fallback for robust YTM calculation
+  - `hybrid_numerical`: Hybrid without analytical derivative
+- **Unified Solver Trait**:
+  - `Solver` trait with `solve()` method matching specification
+  - `NewtonSolver`, `BrentSolver`, `BisectionSolver`, `SecantSolver`, `HybridSolver`
+- **Configuration**:
+  - Default tolerance: 1e-10
+  - Default max iterations: 100
+  - `SolverConfig` for customization
+  - `SolverResult` with root, iterations, residual
+- **YTM-like Financial Tests**:
+  - Par bond, discount bond, premium bond
+  - High-yield bond, zero-coupon bond
+  - Z-spread-like calculation
+  - All solvers agree within tolerance
+- **Tests**: 54 solver tests + 9 doc-tests passing
+
 ### 2025-11-29 - Holiday Calendars Complete (Milestone 1 Done)
 - **Implemented full business day calendar infrastructure**:
   - `SIFMACalendar`: US bond market holidays (SIFMA recommended closures)
@@ -474,9 +556,13 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Next Steps
 
-1. **Begin Milestone 2**: Mathematical solvers (Newton-Raphson, Brent)
-2. **Interpolation Methods**: Linear, Cubic Spline, Monotone Convex
-3. **Extrapolation**: Flat, Linear, Smith-Wilson
+1. **Begin Milestone 3**: Curve construction and bootstrap
+   - Define `Curve` trait and core types
+   - Implement bootstrap from deposits (short end)
+   - Implement bootstrap from swaps (medium/long end)
+   - Implement bootstrap from bonds
+2. **Multi-Curve Framework**: OIS discounting + projection curves
+3. **Curve Instruments**: Deposits, FRAs, Swaps, Bonds
 4. **BUS/252 Convention**: Add Brazilian business day convention if needed
 
 ---

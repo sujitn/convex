@@ -124,6 +124,40 @@ impl Interpolator for CubicSpline {
         Ok(y)
     }
 
+    fn derivative(&self, x: f64) -> MathResult<f64> {
+        // Check bounds
+        if !self.allow_extrapolation {
+            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
+                return Err(MathError::ExtrapolationNotAllowed {
+                    x,
+                    min: self.xs[0],
+                    max: self.xs[self.xs.len() - 1],
+                });
+            }
+        }
+
+        let i = self.find_segment(x);
+
+        let x_lo = self.xs[i];
+        let x_hi = self.xs[i + 1];
+        let y_lo = self.ys[i];
+        let y_hi = self.ys[i + 1];
+        let y2_lo = self.y2s[i];
+        let y2_hi = self.y2s[i + 1];
+
+        let h = x_hi - x_lo;
+        let a = (x_hi - x) / h;
+        let b = (x - x_lo) / h;
+
+        // Derivative of cubic spline formula
+        // dy/dx = (y_hi - y_lo)/h - (3*a^2 - 1)/6 * h * y2_lo + (3*b^2 - 1)/6 * h * y2_hi
+        let dy = (y_hi - y_lo) / h
+            - (3.0 * a * a - 1.0) / 6.0 * h * y2_lo
+            + (3.0 * b * b - 1.0) / 6.0 * h * y2_hi;
+
+        Ok(dy)
+    }
+
     fn allows_extrapolation(&self) -> bool {
         self.allow_extrapolation
     }
