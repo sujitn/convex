@@ -62,6 +62,23 @@ for cf in schedule.iter() {
 let accrued = CashFlowGenerator::accrued_interest(&bond, settlement).unwrap();
 ```
 
+### Calendar Integration
+
+Use business day calendars for settlement and payment date adjustments:
+
+```rust
+use convex_core::calendars::{SIFMACalendar, Calendar, BusinessDayConvention};
+
+let cal = SIFMACalendar::new();
+
+// Calculate settlement date (T+1)
+let trade_date = Date::from_ymd(2025, 1, 15).unwrap();
+let settlement = cal.settlement_date(trade_date, 1);
+
+// Adjust payment dates
+let adjusted = cal.adjust(payment_date, BusinessDayConvention::ModifiedFollowing).unwrap();
+```
+
 ### Risk Analytics
 
 ```rust

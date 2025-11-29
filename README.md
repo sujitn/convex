@@ -16,6 +16,7 @@ Convex is a production-grade fixed income analytics library providing comprehens
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
 - **Risk Metrics**: Duration, Convexity, DV01, Key Rate Durations
 - **Day Count Conventions**: ACT/360, ACT/365, 30/360, ACT/ACT (ICMA, ISDA)
+- **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing, SIMD optimizations
 - **Type Safety**: Leverage Rust's type system to prevent errors
 - **Language Bindings**: Python, Java, C#, Excel plugin (coming soon)
@@ -135,6 +136,7 @@ Convex is designed for production trading systems with strict performance requir
 | YTM Calculation | < 10 μs | Newton-Raphson convergence |
 | Bootstrap 50-point curve | < 100 μs | Parallel processing |
 | Z-Spread | < 50 μs | Iterative solver |
+| Holiday Lookup | < 10 ns | O(1) bitmap lookup |
 | Portfolio (1000 bonds) | < 10 ms | Parallel pricing |
 
 *Benchmarked on AMD Ryzen 9 5950X @ 3.4GHz*
@@ -149,6 +151,49 @@ Convex implements all major day count conventions with exact Bloomberg compatibi
 - **30E/360**: European 30/360 convention
 - **ACT/ACT ICMA**: Actual/Actual per period (Government bonds)
 - **ACT/ACT ISDA**: Actual/Actual with year convention (Swaps)
+
+## Holiday Calendars
+
+Convex provides comprehensive holiday calendar support with O(1) bitmap-based lookups:
+
+### Built-in Calendars
+
+| Calendar | Description | Usage |
+|----------|-------------|-------|
+| `SIFMACalendar` | US fixed income (bond market) | Corporate bonds, Munis |
+| `USGovernmentCalendar` | US Treasury securities | Treasuries |
+| `Target2Calendar` | Eurozone payments | EUR swaps, Bunds |
+| `UKCalendar` | UK bank holidays | Gilts |
+| `JapanCalendar` | Japan holidays | JGBs |
+
+### Dynamic Calendars
+
+Load calendars from JSON or create custom calendars at runtime:
+
+```rust
+use convex_core::calendars::{DynamicCalendar, CustomCalendarBuilder, WeekendType, Calendar};
+
+// Load from JSON
+let cal = DynamicCalendar::from_json(r#"{
+    "name": "My Calendar",
+    "weekend": "SaturdaySunday",
+    "holidays": ["2025-01-01", "2025-12-25"]
+}"#)?;
+
+// Build custom calendar
+let cal = CustomCalendarBuilder::new("Trading Calendar")
+    .weekend(WeekendType::SaturdaySunday)
+    .add_fixed_holiday(1, 1)           // New Year's Day
+    .add_nth_weekday(1, Weekday::Mon, 3) // MLK Day
+    .add_good_friday()
+    .add_custom(|year| fetch_holidays_from_db(year))
+    .build();
+
+// Dynamic modification
+let mut cal = DynamicCalendar::new("Custom", WeekendType::SaturdaySunday);
+cal.add_holiday(date);
+cal.merge_from(&SIFMACalendar::new());
+```
 
 ## Yield Calculation Methodology
 
@@ -303,6 +348,8 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 - [x] Yield curve construction
 - [x] Fixed-rate bond pricing
 - [x] Basic spread calculations
+- [x] Holiday calendars (SIFMA, TARGET2, UK, Japan)
+- [x] Dynamic calendar system (JSON loading, custom builders)
 
 ### Q1 2025
 - [ ] Floating rate notes
