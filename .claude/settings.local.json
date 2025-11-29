@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cargo check:*)",
       "Bash(cargo test:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(Get-ChildItem -Path src -Recurse -Depth 2)",
+      "Bash(Select-Object FullName)"
     ],
     "deny": [],
     "ask": []
