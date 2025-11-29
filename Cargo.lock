@@ -395,6 +395,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex-risk"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "chrono",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+ "convex-math",
+ "criterion",
+ "proptest",
+ "rayon",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "convex-spreads"
 version = "0.1.0"
 dependencies = [
@@ -405,6 +424,26 @@ dependencies = [
  "convex-math",
  "criterion",
  "log",
+ "proptest",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "convex-yas"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "chrono",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+ "convex-math",
+ "convex-risk",
+ "convex-spreads",
+ "criterion",
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",

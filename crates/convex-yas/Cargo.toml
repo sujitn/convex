@@ -1,0 +1,41 @@
+[package]
+name = "convex-yas"
+description = "Bloomberg YAS (Yield Analysis System) replication for the Convex fixed income library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "bloomberg", "yield", "analytics", "yas"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-math = { workspace = true }
+convex-bonds = { workspace = true }
+convex-curves = { workspace = true }
+convex-spreads = { workspace = true }
+convex-risk = { workspace = true }
+
+# Date/time handling
+chrono = { workspace = true }
+
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
