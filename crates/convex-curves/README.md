@@ -72,6 +72,22 @@ let curve = bootstrap_curve(
 - **NelsonSiegel**: Parametric Nelson-Siegel model
 - **Svensson**: Extended Svensson model
 
+### Calendar Integration
+
+Use business day calendars for curve construction and date adjustments:
+
+```rust
+use convex_core::calendars::{SIFMACalendar, Calendar, BusinessDayConvention};
+
+let cal = SIFMACalendar::new();
+
+// Adjust curve dates to business days
+let adjusted_date = cal.adjust(maturity, BusinessDayConvention::ModifiedFollowing).unwrap();
+
+// Calculate forward dates
+let spot_date = cal.settlement_date(trade_date, 2);
+```
+
 ## Curve Types
 
 ### ZeroCurve

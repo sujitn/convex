@@ -8,6 +8,9 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-ffi/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-math/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-spreads/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-curves/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-curves/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-curves/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
