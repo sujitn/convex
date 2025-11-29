@@ -4,7 +4,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-11-29
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -174,14 +174,14 @@ approx = "0.5"
 
 #### DD-006: Calendar Support
 **Phase 1:**
-- ⬜ SIFMA (US bond market)
-- ⬜ US Government (Treasury)
-- ⬜ TARGET2 (Eurozone)
+- ✅ SIFMA (US bond market)
+- ✅ US Government (Treasury)
+- ✅ TARGET2 (Eurozone)
 
 **Phase 2:**
-- ⬜ UK (Bank of England)
-- ⬜ Japan (TSE)
-- ⬜ Combined calendar support
+- ✅ UK (Bank of England)
+- ✅ Japan (TSE)
+- ✅ Combined calendar support (JointCalendar)
 
 ---
 
@@ -191,12 +191,12 @@ approx = "0.5"
 - [x] Create workspace structure
 - [x] Implement core types (Date, Price, Yield, Spread)
 - [x] Implement day count conventions (all 10 conventions)
-- [ ] Implement business day calendars
-- [x] Write comprehensive unit tests (68 day count tests passing)
+- [x] Implement business day calendars (SIFMA, US Gov, TARGET2, UK, Japan)
+- [x] Write comprehensive unit tests (222 tests passing)
 - [x] Bloomberg validation: Day counts (Boeing bond: 134 days ✓)
 
 **Target**: Week 1-2
-**Status**: In Progress (Day counts complete)
+**Status**: ✅ Complete
 
 ### Milestone 2: Mathematical Foundation
 - [ ] Newton-Raphson solver
@@ -304,6 +304,7 @@ approx = "0.5"
 | Category | Test Cases | Passing | Status |
 |----------|-----------|---------|--------|
 | Day Counts | 68/50 | 68 | ✅ |
+| Calendars | 154/100 | 154 | ✅ |
 | US Treasury | 0/20 | 0 | ⬜ |
 | Corporate IG | 0/20 | 0 | ⬜ |
 | Corporate HY | 0/15 | 0 | ⬜ |
@@ -313,7 +314,7 @@ approx = "0.5"
 | Curves | 0/30 | 0 | ⬜ |
 | Spreads | 0/20 | 0 | ⬜ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **68/210** | **68** | 🟡 |
+| **Total** | **222/310** | **222** | 🟡 |
 
 ### Primary Validation Bond Status
 
@@ -428,6 +429,29 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Change Log
 
+### 2025-11-29 - Holiday Calendars Complete (Milestone 1 Done)
+- **Implemented full business day calendar infrastructure**:
+  - `SIFMACalendar`: US bond market holidays (SIFMA recommended closures)
+  - `USGovernmentCalendar`: US Treasury market holidays
+  - `Target2Calendar`: Eurozone TARGET2 payment system holidays
+  - `UKCalendar`: UK bank holidays (Bank of England)
+  - `JapanCalendar`: Japanese national holidays
+  - `JointCalendar`: Combine multiple calendars for cross-border transactions
+- **Key Technical Decisions**:
+  - O(1) bitmap-based holiday lookups (~12KB memory per calendar)
+  - Support years 1970-2099 in bitmap storage
+  - `DynamicCalendar` for runtime-configurable calendars (JSON loading)
+  - `CustomCalendarBuilder` for programmatic calendar creation
+- **Business Day Conventions** (ISDA-compliant):
+  - Following, ModifiedFollowing, Preceding, ModifiedPreceding, Unadjusted
+- **Calendar Trait API**:
+  - `is_business_day()`, `is_holiday()`, `adjust()`
+  - `add_business_days()`, `settlement_date()`
+  - `next_business_day()`, `previous_business_day()`
+  - `business_days_between()`
+- **Tests**: 222 unit tests + 14 doc-tests passing
+- **Milestone 1 Status**: ✅ Complete
+
 ### 2025-11-27 - Day Count Conventions Complete
 - **Implemented all 10 day count conventions** with Bloomberg-exact accuracy
 - **ACT Family**: ACT/360, ACT/365F, ACT/365L, ACT/ACT ISDA, ACT/ACT ICMA, ACT/ACT AFB
@@ -450,9 +474,10 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Next Steps
 
-1. **Complete Milestone 1**: Implement business day calendars (SIFMA, TARGET2, UK)
-2. **Begin Milestone 2**: Mathematical solvers (Newton-Raphson, Brent)
-3. **BUS/252 Convention**: Add Brazilian business day convention if needed
+1. **Begin Milestone 2**: Mathematical solvers (Newton-Raphson, Brent)
+2. **Interpolation Methods**: Linear, Cubic Spline, Monotone Convex
+3. **Extrapolation**: Flat, Linear, Smith-Wilson
+4. **BUS/252 Convention**: Add Brazilian business day convention if needed
 
 ---
 
