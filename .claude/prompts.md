@@ -1,477 +1,891 @@
 # Claude Code Prompts for Convex Development
 
-## Getting Started Prompts
+## Essential: Session Start Prompt
 
-### Initial Project Setup
-
-```
-Create the initial Cargo workspace for the Convex fixed income analytics library with the following structure:
-- convex-core (core types and traits)
-- convex-curves (yield curve construction)
-- convex-bonds (bond pricing)
-- convex-spreads (spread calculations)
-- convex-math (mathematical utilities)
-- convex-ffi (FFI layer)
-
-Set up each crate with appropriate dependencies and basic module structure. Include proper workspace configuration for shared dependencies.
-```
-
-### Core Types Development
+**Always begin each Claude Code session with this:**
 
 ```
-Implement the core domain types in convex-core:
-
-1. Date type with business day arithmetic
-2. Price newtype with currency support (USD, EUR, GBP, JPY)
-3. Yield type with convention support (ACT/360, ACT/365, 30/360)
-4. Spread type in basis points
-5. Currency enum
-
-Each type should:
-- Use rust_decimal for precision
-- Implement Display, Debug, PartialEq
-- Include serde support
-- Have comprehensive unit tests
-- Include documentation with examples
-
-Ensure types prevent invalid states at compile time.
-```
-
-## Domain-Specific Prompts
-
-### Day Count Conventions
-
-```
-Implement all major day count conventions in convex-core:
-
-Required conventions:
-1. ACT/360 - Actual days / 360 (Money market)
-2. ACT/365 - Actual days / 365 (UK Gilts)
-3. 30/360 US - 30-day months, 360-day year
-4. 30E/360 - European convention
-5. ACT/ACT ICMA - Actual/Actual per period
-6. ACT/ACT ISDA - Actual/Actual with year convention
-
-Each implementation must:
-- Handle month-end rules correctly
-- Match Bloomberg's implementation exactly
-- Include edge case tests (leap years, month boundaries)
-- Provide clear documentation with examples
-- Pass validation tests against known reference values
-
-Create a DayCounter trait and implement it for each convention.
-```
-
-### Yield Curve Construction
-
-```
-Implement yield curve bootstrap functionality in convex-curves:
-
-Requirements:
-1. Bootstrap from deposit rates (overnight to 1 year)
-2. Bootstrap from government bond prices
-3. Support multiple interpolation methods:
-   - Linear on zero rates
-   - Cubic spline
-   - Log-linear on discount factors
-
-The implementation should:
-- Use rayon for parallel processing when beneficial
-- Cache interpolation coefficients
-- Handle negative rates correctly
-- Provide clear error messages for invalid inputs
-- Include comprehensive tests with real market data examples
-
-Target performance: Bootstrap 50-point curve in < 100 microseconds.
-```
-
-### Bond Pricing Engine
-
-```
-Create a bond pricing engine in convex-bonds that calculates:
-
-1. Clean price from yield
-2. Dirty price (including accrued interest)
-3. Yield-to-maturity from price using Newton-Raphson
-4. Money market yields (Discount Yield, Bond Equivalent Yield)
-
-The implementation must:
-- Exactly replicate Bloomberg YAS methodology
-- Use sequential roll-forward for yield calculations
-- Handle all coupon frequencies (annual, semi-annual, quarterly, monthly)
-- Calculate accrued interest correctly for all day count conventions
-- Converge within 100 iterations for YTM
-- Include tolerance of 1e-10 for convergence
-
-Provide extensive tests comparing outputs to Bloomberg reference values.
-```
-
-### Spread Analytics
-
-```
-Implement spread calculation modules in convex-spreads:
-
-1. Z-Spread Calculator:
-   - Iteratively solve for spread that matches market price
-   - Discount all cash flows with spread over zero curve
-   - Use Brent method for root finding
-   - Target < 50 microseconds per calculation
-
-2. G-Spread Calculator:
-   - Interpolate government yield at bond's maturity
-   - Simple arithmetic difference
-   - Handle interpolation edge cases
-
-3. Asset Swap Spread:
-   - Par-par asset swap spread
-   - Proceeds asset swap spread
-   - Require swap curve as input
-
-Each calculator should have comprehensive tests and match industry standards.
-```
-
-## Implementation Quality Prompts
-
-### Testing Requirements
-
-```
-For the [MODULE_NAME] module, create a comprehensive test suite including:
-
-1. Unit Tests:
-   - Test each public function with valid inputs
-   - Test boundary conditions (zero, negative, very large values)
-   - Test error cases and error message clarity
-   
-2. Property-Based Tests:
-   - Invariants that should always hold
-   - Relationships between functions (e.g., price increases when yield decreases)
-   - Use proptest with appropriate strategies
-
-3. Integration Tests:
-   - End-to-end scenarios with real bond data
-   - Multi-step workflows (curve building -> bond pricing -> risk calculation)
-
-4. Validation Tests:
-   - Compare outputs to Bloomberg/Reuters reference values
-   - Known test cases from academic papers
-   - Edge cases that have caused issues historically
-
-Ensure test coverage exceeds 90% for the module.
-```
-
-### Performance Optimization
-
-```
-Profile and optimize the [FUNCTION_NAME] function:
-
-1. First, create a benchmark using criterion:
-   - Realistic input data
-   - Multiple scenarios (best/average/worst case)
-   - Compare against performance target
-
-2. Analyze the profile:
-   - Identify hot paths
-   - Find allocation bottlenecks
-   - Check for unnecessary cloning
-
-3. Apply optimizations:
-   - Use inline for small functions
-   - Eliminate allocations in hot paths
-   - Consider SIMD for vectorizable operations
-   - Use iterators instead of loops
-   - Pre-allocate with capacity
-
-4. Validate:
-   - Ensure correctness is maintained
-   - Measure improvement
-   - Document optimization decisions
-
-Target: Achieve [X microseconds] per operation.
-```
-
-### Documentation Enhancement
-
-```
-Enhance documentation for the [MODULE/TYPE/FUNCTION]:
-
-1. Add comprehensive rustdoc comments including:
-   - Clear description of purpose and behavior
-   - Mathematical formulas in LaTeX notation
-   - All parameters with types and constraints
-   - Return value and type
-   - Possible errors and when they occur
-   - Complexity analysis (time and space)
-   
-2. Include code examples:
-   - Basic usage
-   - Common patterns
-   - Edge cases and how to handle them
-   
-3. Add cross-references:
-   - Related functions/types
-   - Academic papers
-   - Industry standards (Bloomberg, ISDA)
-
-4. Ensure examples compile and run:
-   - Use ```rust,no_run or ```rust for examples
-   - Test examples with cargo test --doc
-```
-
-## Advanced Feature Prompts
-
-### Callable Bond Support
-
-```
-Extend the bond pricing engine to support callable bonds:
-
-1. Define CallSchedule struct:
-   - Call dates and call prices
-   - Call types (American, European, Bermudan)
-   
-2. Implement OAS calculation:
-   - Build binomial/trinomial interest rate tree
-   - Backward induction with optimal exercise
-   - Calibrate tree to volatility surface
-   
-3. Calculate option-adjusted metrics:
-   - Option-adjusted spread
-   - Effective duration and convexity
-   - Option cost (OAS - Z-spread)
-
-The implementation should handle:
-- Multiple call dates
-- Make-whole call provisions
-- Par call with 30-day notice
-
-Include tests with known callable bond examples.
-```
-
-### Multi-Curve Framework
-
-```
-Implement multi-curve framework for post-crisis discounting:
-
-1. Separate discounting and projection curves:
-   - OIS curve for discounting
-   - LIBOR/SOFR curve for projections
-   
-2. Support basis spreads:
-   - Tenor basis (3M vs 6M LIBOR)
-   - Cross-currency basis
-   
-3. Implement dual curve bootstrap:
-   - Bootstrap projection curve using OIS discounting
-   - Handle FRA, futures, swaps consistently
-
-The framework should:
-- Be backwards compatible with single curve
-- Support transition to SOFR
-- Include comprehensive basis documentation
-
-Reference ISDA definitions for all calculations.
-```
-
-### FFI and Language Bindings
-
-```
-Create C API and Python bindings for the bond pricing functionality:
-
-1. C API (convex-ffi):
-   - Define C-compatible structs for Bond, Price, Yield
-   - Implement C functions that wrap Rust functions
-   - Ensure proper error handling and null safety
-   - Generate header file with cbindgen
-   
-2. Python Bindings (PyO3):
-   - Create Python classes wrapping Rust types
-   - Implement __repr__, __str__ for user-friendly display
-   - Support numpy arrays for batch operations
-   - Include type hints for IDE support
-   
-3. Documentation:
-   - Python examples showing common workflows
-   - Performance comparison to pure Python
-   - Installation instructions
-
-The bindings should be ergonomic and Pythonic while maintaining performance.
-```
-
-## Debugging and Troubleshooting Prompts
-
-### Convergence Issues
-
-```
-The YTM calculation is not converging for certain bonds. Debug and fix:
-
-1. Add detailed logging:
-   - Log each iteration of Newton-Raphson
-   - Show price function value and derivative
-   - Display convergence criteria check
-
-2. Identify problematic cases:
-   - What bond characteristics cause issues?
-   - Are there patterns (very low/high coupon, long/short maturity)?
-
-3. Improve algorithm:
-   - Add fallback to bisection if Newton-Raphson diverges
-   - Adjust initial guess based on bond characteristics
-   - Implement better bounds checking
-
-4. Add guards:
-   - Maximum iterations limit
-   - Detect oscillation
-   - Return appropriate error with context
-
-Include test cases for previously failing bonds.
-```
-
-### Precision Issues
-
-```
-Some yield calculations differ from Bloomberg by more than acceptable tolerance. Investigate:
-
-1. Compare step-by-step:
-   - Cash flow dates and amounts
-   - Day count fractions
-   - Discount factors
-   - Present values
-
-2. Check numerical precision:
-   - Are we using Decimal where needed?
-   - Any float to decimal conversions?
-   - Rounding differences?
-
-3. Verify methodology:
-   - Is sequential roll-forward implemented correctly?
-   - Are we handling compounding frequency properly?
-   - Edge cases (stub periods, irregular payments)?
-
-4. Create detailed test:
-   - Show expected vs actual at each step
-   - Document any intentional differences
-   - Add tolerance assertions
-
-Ensure we match Bloomberg to within 1e-6 for all test cases.
-```
-
-## Code Review Prompts
-
-### Review Checklist
-
-```
-Review the following module/PR for quality and correctness:
-
-1. Correctness:
-   - Are algorithms implemented correctly?
-   - Do tests cover edge cases?
-   - Are error conditions handled properly?
-
-2. Performance:
-   - Any obvious inefficiencies?
-   - Unnecessary allocations?
-   - Could benefit from parallelization?
-
-3. API Design:
-   - Is the API ergonomic?
-   - Clear naming and documentation?
-   - Follows Rust conventions?
-
-4. Safety:
-   - Any unsafe code? Is it necessary and documented?
-   - Proper error handling, no panics?
-   - Thread safety considerations?
-
-5. Maintainability:
-   - Clear code structure?
-   - Good separation of concerns?
-   - Sufficient comments for complex logic?
-
-Provide specific feedback and suggestions for improvement.
-```
-
-## Maintenance and Evolution Prompts
-
-### Add New Bond Type
-
-```
-Add support for [NEW_BOND_TYPE] (e.g., floating rate notes, inflation-linked):
-
-1. Define the bond type:
-   - Struct with relevant fields
-   - Builder pattern for construction
-   - Validation of inputs
-
-2. Implement pricing:
-   - Cash flow generation specific to this type
-   - Any special discounting considerations
-   - Integration with existing pricing engine
-
-3. Add risk calculations:
-   - Duration and convexity
-   - Any type-specific risk metrics
-
-4. Documentation and tests:
-   - Examples of usage
-   - Comparison to market standards
-   - Edge case handling
-
-Ensure backward compatibility with existing code.
-```
-
-### Performance Regression
-
-```
-Recent changes have caused performance degradation. Investigate and fix:
-
-1. Run benchmarks:
-   - Compare current performance to baseline
-   - Identify which operations regressed
-   - Measure severity of regression
-
-2. Profile the code:
-   - Find hot paths that changed
-   - Look for new allocations
-   - Check for algorithmic changes
-
-3. Fix the regression:
-   - Revert problematic changes if necessary
-   - Optimize new code
-   - Consider alternative approaches
-
-4. Prevent future regressions:
-   - Add benchmark to CI
-   - Set performance thresholds
-   - Document performance requirements
-
-Document findings and solution in memory.md.
-```
-
-## Tips for Effective Prompts
-
-### Be Specific
-```
-❌ "Implement bond pricing"
-✅ "Implement fixed-rate bond pricing that calculates clean price from YTM using the formula P = Σ(CF_i / (1+y/f)^t_i), handling semi-annual coupons with 30/360 day count"
-```
-
-### Provide Context
-```
-❌ "Fix the bug"
-✅ "The YTM calculation fails for zero-coupon bonds because the cash flow iterator returns empty. Update generate_cash_flows() to handle zero-coupon case by returning a single redemption payment."
-```
-
-### Reference Standards
-```
-❌ "Calculate duration"
-✅ "Calculate Modified Duration using the formula D_mod = -1/P * dP/dy, matching Bloomberg's DUR function output. Test against US Treasury examples."
-```
-
-### Set Quality Bars
-```
-❌ "Write tests"
-✅ "Write comprehensive tests achieving >95% coverage including: unit tests for each function, property tests for invariants, integration tests with real bond data, and validation tests comparing to Bloomberg reference values."
+Please read these project files in order:
+1. .claude/context.md - Domain knowledge, accuracy requirements
+2. .claude/architecture.md - System design, crate structure
+3. .claude/conventions.md - Coding standards (if exists)
+4. .claude/memory.md - Decisions and progress
+
+Then run: tree -L 2 src/
+
+Confirm you understand the Convex project before we proceed.
 ```
 
 ---
 
-*These prompts are designed to guide Claude Code in building a production-quality fixed income analytics library.*
+## Core Infrastructure Prompts
+
+### 1. Core Types
+
+```markdown
+## Task: Implement Core Domain Types in convex-core
+
+### Pre-Implementation
+Read .claude/context.md sections: Accuracy Targets, Numerical Precision
+
+### Requirements
+
+Implement these newtypes in `convex-core/src/types/`:
+
+**Price Types:**
+- CleanPrice (always positive, percentage of par)
+- DirtyPrice (includes accrued)
+
+**Yield Types:**
+- Yield (annual, as decimal e.g., 0.05 = 5%)
+
+**Spread Types:**
+- Spread (basis points, can be negative)
+
+**Rate Types:**
+- Rate (generic: coupon, discount, forward)
+
+**Risk Types:**
+- Duration, Convexity, DV01
+
+### Implementation Pattern
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct Yield(Decimal);
+
+impl Yield {
+    pub fn from_percent(pct: f64) -> Self;
+    pub fn from_decimal(dec: Decimal) -> Self;
+    pub fn as_decimal(&self) -> Decimal;
+    pub fn as_percent(&self) -> f64;
+}
+```
+
+### Validation
+- All types must use Decimal for precision
+- Implement Display with appropriate precision
+- Include unit tests for all conversions
+- Test edge cases (zero, negative where valid)
+```
+
+### 2. Day Count Conventions
+
+```markdown
+## Task: Implement Day Count Conventions in convex-core
+
+### Pre-Implementation
+Read .claude/context.md section: Day Count Conventions
+
+### Requirements
+
+Implement ALL day count conventions exactly matching Bloomberg:
+
+**ACT Family:**
+- ACT/360, ACT/365F, ACT/365L
+- ACT/ACT ICMA (period-based)
+- ACT/ACT ISDA (year-based)
+- ACT/ACT AFB (French)
+
+**30 Family:**
+- 30/360 US (with exact month-end rules)
+- 30E/360 (Eurobond)
+- 30E/360 ISDA
+- 30/360 German
+
+### Critical: 30/360 US Month-End Rules
+
+```rust
+pub fn thirty_360_us(d1: Date, d2: Date) -> Decimal {
+    // Rule 1: If D1 is last day of Feb → D1 = 30
+    // Rule 2: If D1 = 31 → D1 = 30
+    // Rule 3: If D2 is last day of Feb AND D1 was adjusted → D2 = 30
+    // Rule 4: If D2 = 31 AND D1 >= 30 → D2 = 30
+}
+```
+
+### Tests Required
+- Bloomberg-verified test cases for each convention
+- Leap year edge cases
+- Month-end boundaries
+- Same-day (zero fraction)
+- Cross-year boundaries
+```
+
+### 3. Holiday Calendars
+
+```markdown
+## Task: Implement Holiday Calendar System in convex-core
+
+### Pre-Implementation
+Read .claude/context.md section: Settlement Conventions
+
+### Requirements
+
+Implement in `convex-core/src/calendar/`:
+
+**Calendar Struct:**
+- Bitmap storage for O(1) lookups
+- Support 1970-2100 range
+- Weekend rules (Sat/Sun, Fri/Sat, etc.)
+
+**Calendars to Implement:**
+- SIFMA (US bond market)
+- US Government (Treasury)
+- TARGET2 (Eurozone)
+- UK Bank Holidays
+- Japan
+
+**Date Roll Conventions:**
+- Following, ModifiedFollowing
+- Preceding, ModifiedPreceding
+- Unadjusted
+
+**Methods:**
+```rust
+impl HolidayCalendar {
+    fn is_business_day(&self, date: Date) -> bool;
+    fn adjust(&self, date: Date, convention: DateRoll) -> Date;
+    fn add_business_days(&self, date: Date, days: i32) -> Date;
+    fn settlement_date(&self, trade: Date, days: u32) -> Date;
+}
+```
+
+### Performance Target
+- is_business_day: O(1), < 10ns
+```
+
+---
+
+## Mathematical Engine Prompts
+
+### 4. Solvers
+
+```markdown
+## Task: Implement Root-Finding Solvers in convex-math
+
+### Requirements
+
+Implement in `convex-math/src/solvers/`:
+
+**Newton-Raphson:**
+- Tolerance: 1e-10 (configurable)
+- Max iterations: 100
+- Analytical derivative when available
+
+**Brent's Method:**
+- For Z-spread and OAS
+- Guaranteed convergence
+- Tolerance: 1e-10
+
+**Hybrid Solver:**
+- Start with Newton
+- Fall back to Brent if diverging
+
+```rust
+pub trait Solver {
+    fn solve<F, D>(
+        &self,
+        f: F,
+        derivative: Option<D>,
+        initial_guess: f64,
+        bounds: Option<(f64, f64)>,
+    ) -> Result<f64, SolverError>
+    where
+        F: Fn(f64) -> f64,
+        D: Fn(f64) -> f64;
+}
+```
+
+### Performance Targets
+- YTM solve: < 1μs
+- Z-spread solve: < 50μs
+```
+
+### 5. Interpolation Methods
+
+```markdown
+## Task: Implement Interpolation Methods in convex-math
+
+### Pre-Implementation
+Read .claude/context.md section: Interpolation Methods
+
+### Requirements
+
+Implement ALL interpolation methods:
+
+**On Zero Rates:**
+- Linear
+- Log-Linear
+- Cubic Spline (Natural)
+- Monotone Convex (Hagan) ← PRODUCTION DEFAULT
+
+**Parametric:**
+- Nelson-Siegel
+- Svensson
+
+```rust
+pub trait Interpolator: Send + Sync {
+    fn new(x: &[f64], y: &[f64]) -> Result<Self, InterpolationError>;
+    fn interpolate(&self, x: f64) -> f64;
+    fn derivative(&self, x: f64) -> f64;
+}
+```
+
+### Monotone Convex Implementation
+Critical for production - must ensure:
+- Positive forward rates
+- No oscillation
+- C1 continuity
+
+### Tests Required
+- Accuracy vs known analytical solutions
+- Edge cases (at/near pillars)
+- Derivative accuracy
+- Positive forward rate validation
+```
+
+### 6. Extrapolation Methods
+
+```markdown
+## Task: Implement Extrapolation Methods in convex-math
+
+### Requirements
+
+**Methods:**
+- Flat (constant from last point)
+- Linear (slope continuation)
+- Smith-Wilson (regulatory standard)
+
+**Smith-Wilson Implementation:**
+```rust
+pub struct SmithWilson {
+    pub ultimate_forward_rate: f64,  // e.g., 4.2% for EUR
+    pub convergence_speed: f64,      // Alpha
+    pub last_liquid_point: f64,      // e.g., 20Y
+}
+```
+
+Must match EIOPA specification exactly for regulatory curves.
+
+### Tests
+- Convergence to UFR
+- Smoothness at transition point
+- Match regulatory test cases
+```
+
+---
+
+## Curve Construction Prompts
+
+### 7. Curve Bootstrap
+
+```markdown
+## Task: Implement Curve Bootstrapping in convex-curves
+
+### Pre-Implementation
+Read .claude/context.md section: Yield Curve Construction
+
+### Requirements
+
+**Curve Types:**
+- Discount curve (discount factors)
+- Zero curve (zero rates)
+- Forward curve (instantaneous forwards)
+
+**Bootstrap from Instruments:**
+- Deposits (O/N to 12M)
+- FRAs
+- Interest Rate Swaps (2Y-50Y)
+- OIS Swaps
+
+**Algorithm:**
+```rust
+pub struct CurveBootstrapper {
+    interpolation: InterpolationMethod,
+    extrapolation: Extrapolation,
+    solver: BootstrapSolver,
+    tolerance: f64,  // 1e-12
+}
+
+impl CurveBootstrapper {
+    pub fn bootstrap(
+        &self,
+        instruments: &[CurveInstrument],
+        valuation_date: Date,
+    ) -> Result<BootstrappedCurve, CurveError>;
+}
+```
+
+### Validation Requirements
+- All input instruments must reprice to tolerance
+- Forward rates must be positive (with monotone convex)
+- No arbitrage violations
+
+### Tests
+- Reprice all input instruments to 1e-8
+- Compare to Bloomberg curves
+- Test with different interpolation methods
+```
+
+### 8. Multi-Curve Framework
+
+```markdown
+## Task: Implement Multi-Curve Framework in convex-curves
+
+### Requirements
+
+**Multi-Curve Environment:**
+```rust
+pub struct MultiCurveEnvironment {
+    discount_curve: Curve,                          // OIS
+    projection_curves: HashMap<RateIndex, Curve>,   // SOFR, EURIBOR, etc.
+    basis_curves: HashMap<BasisKey, Curve>,         // Basis spreads
+}
+```
+
+**Rate Indices:**
+- SOFR, ESTR, SONIA (overnight)
+- Term SOFR, EURIBOR (term)
+- Legacy LIBOR (for existing trades)
+
+**Dual Curve Bootstrap:**
+- Discount with OIS
+- Project with term rate
+- Handle basis consistently
+
+### Tests
+- FRA pricing under dual curve
+- Swap pricing with OIS discounting
+- Basis swap pricing
+```
+
+---
+
+## Bond Pricing Prompts
+
+### 9. Fixed Rate Bond
+
+```markdown
+## Task: Implement Fixed Rate Bond Pricing in convex-bonds
+
+### Pre-Implementation
+Read .claude/context.md section: Pricing Methodologies
+
+### Requirements
+
+**Bond Struct:**
+```rust
+pub struct FixedRateBond {
+    identifiers: BondIdentifiers,
+    coupon_rate: Rate,
+    maturity: Date,
+    issue_date: Date,
+    frequency: Frequency,
+    day_count: DayCountConvention,
+    settlement_days: u32,
+    calendar: CalendarId,
+}
+```
+
+**Implement:**
+- Cash flow generation
+- Accrued interest calculation
+- Price from yield (closed form)
+- Yield from price (Newton-Raphson)
+- Clean/dirty price conversion
+
+**Bloomberg Validation:**
+Use Boeing 7.5% 06/15/2025 as primary test case:
+- Settlement: 04/29/2020
+- Price: 110.503
+- Expected YTM: 4.905895%
+
+### Tolerance
+- Yield: ±0.00001%
+- Price: ±0.0001
+```
+
+### 10. US Treasury Securities
+
+```markdown
+## Task: Implement US Treasury Securities in convex-bonds
+
+### Requirements
+
+**Treasury Note/Bond:**
+- ACT/ACT ICMA day count
+- Semi-annual frequency
+- T+1 settlement
+- 32nds price quote parsing
+
+**Treasury Bill:**
+```rust
+pub fn tbill_price_from_discount(
+    discount_rate: Rate,
+    settlement: Date,
+    maturity: Date,
+) -> CleanPrice;
+
+pub fn tbill_bond_equivalent_yield(
+    price: CleanPrice,
+    settlement: Date,
+    maturity: Date,
+) -> Yield;
+```
+
+**Price Quote Parsing:**
+```rust
+// "99-16+" = 99 + 16.5/32 = 99.515625
+pub fn parse_treasury_price(quote: &str) -> Result<CleanPrice, ParseError>;
+```
+
+### Validation
+- Compare to Treasury Direct
+- Bloomberg UST pricing
+```
+
+### 11. TIPS (Inflation-Linked)
+
+```markdown
+## Task: Implement TIPS in convex-bonds
+
+### Requirements
+
+**TIPS Struct:**
+```rust
+pub struct Tips {
+    cusip: String,
+    real_coupon: Rate,           // Real (not nominal) coupon
+    maturity: Date,
+    base_cpi: Decimal,           // Reference CPI at issue
+    deflation_floor: bool,       // Usually true
+}
+```
+
+**Calculations:**
+- Index ratio = Reference CPI / Base CPI
+- Inflation-adjusted principal
+- Real yield calculation
+- Breakeven inflation
+
+### CPI Indexation
+- 3-month lag
+- Linear interpolation between monthly values
+
+### Validation
+- Bloomberg TIPS pricing
+- Treasury inflation calculations
+```
+
+### 12. Callable Bonds
+
+```markdown
+## Task: Implement Callable Bond Pricing in convex-bonds
+
+### Requirements
+
+**Call Schedule:**
+```rust
+pub struct CallSchedule {
+    features: Vec<CallFeature>,
+}
+
+pub struct CallFeature {
+    first_call_date: Date,
+    call_price: Decimal,
+    call_frequency: Option<Frequency>,
+}
+```
+
+**Yield Calculations:**
+- Yield to call (each call date)
+- Yield to worst (minimum of all)
+
+**OAS Calculation:**
+```rust
+pub struct OASCalculator {
+    rate_model: RateModel,      // Hull-White or BDT
+    tree_steps: usize,          // 100+ for accuracy
+    volatility: f64,            // ATM swaption vol
+}
+```
+
+**Binomial Tree:**
+- Build interest rate tree
+- Backward induction with exercise
+- Solve for OAS matching market price
+
+### Performance Target
+- OAS: < 10ms (100 step tree)
+```
+
+### 13. Municipal Bonds
+
+```markdown
+## Task: Implement Municipal Bond Pricing in convex-bonds
+
+### Requirements
+
+**Tax-Equivalent Yield:**
+```rust
+pub fn taxable_equivalent_yield(
+    tax_exempt_yield: Yield,
+    federal_tax_rate: Decimal,
+    state_tax_rate: Option<Decimal>,
+    is_amt_subject: bool,
+) -> Yield;
+```
+
+**De Minimis Rule:**
+- Threshold: 0.25% × years to maturity
+- Affects tax treatment of discount
+
+**Bond Types:**
+- General Obligation (GO)
+- Revenue
+- Pre-refunded
+
+### Validation
+- EMMA data
+- Bloomberg MUNI pricing
+```
+
+### 14. MBS Pass-Through
+
+```markdown
+## Task: Implement MBS Pass-Through Pricing in convex-bonds
+
+### Requirements
+
+**MBS Structure:**
+```rust
+pub struct MBSPassThrough {
+    pool_number: String,
+    issuer: AgencyIssuer,       // GNMA, FNMA, FHLMC
+    original_balance: Decimal,
+    current_factor: Decimal,
+    pass_through_rate: Rate,
+    wam: u32,                   // Weighted avg maturity (months)
+    warm: u32,                  // Weighted avg remaining maturity
+}
+```
+
+**Prepayment Models:**
+```rust
+pub enum PrepaymentModel {
+    CPR(f64),                   // Constant prepayment rate
+    SMM(f64),                   // Single monthly mortality
+    PSA(f64),                   // PSA speed (100 = standard)
+    Vector(Vec<f64>),           // Custom vector
+}
+```
+
+**Cash Flow Projection:**
+- Monthly scheduled principal
+- Prepayment calculation
+- Interest calculation
+- Factor adjustment
+
+**Yield Table:**
+- Yield at various PSA speeds
+- Price sensitivity to prepayment
+
+### Performance Target
+- Full cash flow projection: < 100ms
+```
+
+---
+
+## Spread Calculation Prompts
+
+### 15. Z-Spread
+
+```markdown
+## Task: Implement Z-Spread Calculation in convex-spreads
+
+### Requirements
+
+**Definition:**
+Z-spread is the constant spread over the spot curve that reprices the bond.
+
+```rust
+pub struct ZSpreadCalculator {
+    tolerance: Decimal,      // 1e-8 bps
+    max_iterations: u32,     // 50
+}
+
+impl ZSpreadCalculator {
+    pub fn calculate(
+        &self,
+        bond: &impl Bond,
+        settlement: Date,
+        dirty_price: Decimal,
+        spot_curve: &impl SpotCurve,
+    ) -> Result<Spread, SpreadError>;
+}
+```
+
+**Algorithm:**
+- Use Brent's method (more robust than Newton)
+- Bracket between -100bps and 2000bps
+- Continuous discounting
+
+### Bloomberg Validation
+Boeing bond Z-spread: 444.7 bps (±0.1 bps)
+```
+
+### 16. OAS Calculation
+
+```markdown
+## Task: Implement OAS Calculation in convex-spreads
+
+### Requirements
+
+OAS = Spread over tree that prices callable bond correctly
+
+**Algorithm:**
+1. Build interest rate tree
+2. Calibrate to ATM swaption vols
+3. Backward induction with optimal call exercise
+4. Solve for OAS matching market price
+
+**Tree Implementation:**
+```rust
+pub struct BinomialTree {
+    steps: usize,
+    dt: f64,
+    rates: Vec<Vec<f64>>,        // Rate at each node
+    probabilities: Vec<Vec<f64>>, // Transition probs
+}
+```
+
+**OAS vs Z-Spread:**
+- OAS < Z-spread for callable bonds (option value)
+- Difference = option cost in bps
+
+### Performance Target
+- 100 step tree: < 10ms
+```
+
+---
+
+## Risk Calculation Prompts
+
+### 17. Duration & Convexity
+
+```markdown
+## Task: Implement Risk Metrics in convex-risk
+
+### Requirements
+
+**Duration Types:**
+```rust
+// Macaulay: weighted average time
+pub fn macaulay_duration(
+    cash_flows: &[CashFlow],
+    settlement: Date,
+    yield_val: Yield,
+    day_count: &impl DayCount,
+) -> Duration;
+
+// Modified: price sensitivity
+pub fn modified_duration(macaulay: Duration, yield_val: Yield, freq: Frequency) -> Duration;
+
+// Effective: for bonds with optionality
+pub fn effective_duration(
+    bond: &impl Bond,
+    settlement: Date,
+    curve: &impl Curve,
+    bump_size: Decimal,
+) -> Duration;
+```
+
+**Convexity:**
+```rust
+pub fn analytical_convexity(...) -> Convexity;
+pub fn effective_convexity(...) -> Convexity;
+```
+
+**DV01:**
+```rust
+pub fn dv01(
+    modified_duration: Duration,
+    dirty_price: Decimal,
+    face_value: Decimal,
+) -> DV01;
+```
+
+### Bloomberg Validation
+Boeing bond:
+- Mod Duration: 4.209 (±0.001)
+- Convexity: 0.219 (±0.001)
+```
+
+---
+
+## YAS Replication Prompts
+
+### 18. Full YAS Implementation
+
+```markdown
+## Task: Implement Bloomberg YAS Replication in convex-yas
+
+### Requirements
+
+**YAS Analysis Result:**
+```rust
+pub struct YasAnalysis {
+    // Yields
+    pub street_convention: Yield,
+    pub true_yield: Yield,
+    pub current_yield: Yield,
+    
+    // Spreads
+    pub g_spread: Spread,
+    pub i_spread: Spread,
+    pub z_spread: Spread,
+    pub asw_spread: Spread,
+    
+    // Risk
+    pub modified_duration: Duration,
+    pub convexity: Convexity,
+    pub dv01: DV01,
+    
+    // Invoice
+    pub invoice: SettlementInvoice,
+}
+```
+
+**Sequential Roll-Forward:**
+For bonds < 1 year, must use Bloomberg's exact methodology
+
+### Bloomberg Validation
+ALL fields must match within tolerance for Boeing bond:
+- Street Convention: 4.905895% (±0.00001%)
+- G-Spread: 448.5 bps (±0.1 bps)
+- Z-Spread: 444.7 bps (±0.1 bps)
+- Mod Duration: 4.209 (±0.001)
+```
+
+---
+
+## Testing & Validation Prompts
+
+### 19. Bloomberg Validation Suite
+
+```markdown
+## Task: Create Bloomberg Validation Test Suite
+
+### Requirements
+
+Create comprehensive validation tests in `tests/bloomberg_validation/`:
+
+**Test Structure:**
+```rust
+#[test]
+fn test_boeing_full_yas() {
+    let bond = create_boeing_bond();
+    let settlement = date!(2020-04-29);
+    let price = CleanPrice::new(dec!(110.503)).unwrap();
+    
+    let yas = YasAnalysis::calculate(&bond, settlement, price, &curve).unwrap();
+    
+    assert_bloomberg_match!(yas.street_convention.as_percent(), 4.905895, 0.00001);
+    assert_bloomberg_match!(yas.g_spread.as_bps(), 448.5, 0.1);
+    // ... all fields
+}
+```
+
+**Validation Macro:**
+```rust
+#[macro_export]
+macro_rules! assert_bloomberg_match {
+    ($actual:expr, $expected:expr, $tolerance:expr) => {
+        let diff = ($actual - $expected).abs();
+        assert!(diff <= $tolerance, 
+            "Bloomberg mismatch: expected {}, got {}, diff {}", 
+            $expected, $actual, diff);
+    };
+}
+```
+
+### Coverage Required
+- All bond types
+- All day count conventions
+- All spread types
+- All risk metrics
+- All curve operations
+```
+
+### 20. Performance Benchmarks
+
+```markdown
+## Task: Create Performance Benchmark Suite
+
+### Requirements
+
+Create benchmarks in `benches/`:
+
+```rust
+use criterion::{criterion_group, criterion_main, Criterion, black_box};
+
+fn bench_yield_calculation(c: &mut Criterion) {
+    let bond = create_benchmark_bond();
+    let settlement = date!(2024-06-15);
+    let price = dec!(99.5);
+    
+    c.bench_function("yield_from_price", |b| {
+        b.iter(|| calculate_yield(
+            black_box(&bond),
+            black_box(settlement),
+            black_box(price),
+        ))
+    });
+}
+
+criterion_group!(benches, 
+    bench_yield_calculation,
+    bench_z_spread,
+    bench_curve_bootstrap,
+    bench_interpolation,
+);
+criterion_main!(benches);
+```
+
+### Targets
+- Yield calculation: < 1μs
+- Z-spread: < 50μs
+- Curve bootstrap: < 100μs
+- Portfolio (1000): < 100ms
+```
+
+---
+
+## Quick Reference
+
+### File Locations
+- Domain knowledge: `.claude/context.md`
+- Architecture: `.claude/architecture.md`
+- Progress tracking: `.claude/memory.md`
+
+### Commands
+```bash
+cargo test --workspace              # All tests
+cargo test -p convex-bonds          # Crate tests
+cargo test --test bloomberg         # Validation tests
+cargo bench                         # Benchmarks
+cargo clippy -- -D warnings         # Linting
+cargo fmt                           # Formatting
+cargo doc --open                    # Documentation
+```
+
+### Session End
+```
+Please update .claude/memory.md with:
+- What was implemented
+- Any decisions made
+- Validation status
+- Open issues
+```

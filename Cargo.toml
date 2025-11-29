@@ -8,6 +8,8 @@ members = [
     "crates/convex-curves",
     "crates/convex-bonds",
     "crates/convex-spreads",
+    "crates/convex-risk",
+    "crates/convex-yas",
     "crates/convex-ffi",
 ]
 
@@ -31,6 +33,8 @@ convex-math = { path = "crates/convex-math" }
 convex-curves = { path = "crates/convex-curves" }
 convex-bonds = { path = "crates/convex-bonds" }
 convex-spreads = { path = "crates/convex-spreads" }
+convex-risk = { path = "crates/convex-risk" }
+convex-yas = { path = "crates/convex-yas" }
 convex-ffi = { path = "crates/convex-ffi" }
 
 # Core dependencies - shared across all crates
