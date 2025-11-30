@@ -32,6 +32,7 @@ use crate::curves::DiscountCurve;
 use crate::error::{CurveError, CurveResult};
 use crate::instruments::{CurveInstrument, Deposit, FRA, OIS, RateFuture, Swap, FutureType};
 use crate::interpolation::InterpolationMethod;
+use crate::repricing::BootstrapResult;
 
 /// Bootstrap method to use for curve construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -312,6 +313,53 @@ impl CurveBuilder {
         self.bootstrap_sequential()
     }
 
+    /// Bootstraps the curve with mandatory repricing validation.
+    ///
+    /// This is the recommended method for production use. It returns a
+    /// `BootstrapResult` that includes the curve and a complete repricing
+    /// report showing how well each instrument is priced.
+    ///
+    /// # Returns
+    ///
+    /// A `BootstrapResult` containing:
+    /// - The bootstrapped `DiscountCurve`
+    /// - A `RepricingReport` with validation results for each instrument
+    /// - Build duration for performance monitoring
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let result = CurveBuilder::new(ref_date)
+    ///     .add_deposit("3M", 0.05)
+    ///     .add_ois("2Y", 0.045)
+    ///     .bootstrap_validated()?;
+    ///
+    /// assert!(result.is_valid(), "Repricing failed");
+    /// let curve = result.into_curve();
+    /// ```
+    pub fn bootstrap_validated(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
+        if self.instruments.is_empty() {
+            return Err(CurveError::invalid_data("No instruments provided for curve building"));
+        }
+
+        self.bootstrap_sequential_validated()
+    }
+
+    /// Bootstraps with strict validation - fails if any instrument exceeds tolerance.
+    pub fn bootstrap_validated_strict(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
+        let result = self.bootstrap_validated()?;
+
+        if !result.is_valid() {
+            return Err(CurveError::repricing_failed(
+                result.repricing_report.failed_count(),
+                result.repricing_report.max_error(),
+                result.failed_instruments().into_iter().map(String::from).collect(),
+            ));
+        }
+
+        Ok(result)
+    }
+
     /// Sequential bootstrap implementation.
     fn bootstrap_sequential(self) -> CurveResult<DiscountCurve> {
         let allow_extrapolation = !matches!(self.extrapolation, ExtrapolationType::None);
@@ -325,6 +373,21 @@ impl CurveBuilder {
         }
 
         bootstrapper.bootstrap()
+    }
+
+    /// Sequential bootstrap with repricing validation.
+    fn bootstrap_sequential_validated(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
+        let allow_extrapolation = !matches!(self.extrapolation, ExtrapolationType::None);
+
+        let mut bootstrapper = SequentialBootstrapper::new(self.reference_date)
+            .with_interpolation(self.interpolation)
+            .with_extrapolation(allow_extrapolation);
+
+        for inst in self.instruments {
+            bootstrapper = bootstrapper.add_instrument(InstrumentWrapper(inst));
+        }
+
+        bootstrapper.bootstrap_validated()
     }
 
     /// Parses a futures contract code.

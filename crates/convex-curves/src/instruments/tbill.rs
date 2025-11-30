@@ -4,8 +4,9 @@
 
 use convex_core::Date;
 
+use super::quotes::{BondQuoteType, MarketQuote, QuoteType};
 use super::{year_fraction_act360, CurveInstrument, InstrumentType};
-use crate::error::CurveResult;
+use crate::error::{CurveError, CurveResult};
 use crate::traits::Curve;
 
 /// Treasury Bill.
@@ -88,6 +89,72 @@ impl TreasuryBill {
     pub fn with_face_value(mut self, face_value: f64) -> Self {
         self.face_value = face_value;
         self
+    }
+
+    /// Creates a T-Bill from a discount rate.
+    ///
+    /// Converts the bank discount rate to price:
+    /// `Price = Face × (1 - Discount_Rate × Days / 360)`
+    ///
+    /// # Arguments
+    ///
+    /// * `cusip` - CUSIP identifier
+    /// * `settlement_date` - Settlement date
+    /// * `maturity_date` - Maturity date
+    /// * `discount_rate` - Bank discount rate (e.g., 0.05 for 5%)
+    pub fn from_discount_rate(
+        cusip: impl Into<String>,
+        settlement_date: Date,
+        maturity_date: Date,
+        discount_rate: f64,
+    ) -> Self {
+        let days = settlement_date.days_between(&maturity_date) as f64;
+        let price = 100.0 * (1.0 - discount_rate * days / 360.0);
+        Self::new(cusip, settlement_date, maturity_date, price)
+    }
+
+    /// Creates a T-Bill from a market quote.
+    ///
+    /// Supports both price and discount rate quote types.
+    ///
+    /// # Arguments
+    ///
+    /// * `cusip` - CUSIP identifier
+    /// * `settlement_date` - Settlement date
+    /// * `maturity_date` - Maturity date
+    /// * `quote` - Market quote (price or discount rate)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the quote type is not supported for T-Bills.
+    pub fn from_quote(
+        cusip: impl Into<String>,
+        settlement_date: Date,
+        maturity_date: Date,
+        quote: &MarketQuote,
+    ) -> CurveResult<Self> {
+        let cusip = cusip.into();
+        match quote.quote_type {
+            QuoteType::Bond(BondQuoteType::CleanPrice) | QuoteType::Bond(BondQuoteType::DirtyPrice) => {
+                // For T-Bills, clean = dirty (no coupon)
+                Ok(Self::new(cusip, settlement_date, maturity_date, quote.mid()))
+            }
+            QuoteType::Bond(BondQuoteType::DiscountRate) => {
+                Ok(Self::from_discount_rate(cusip, settlement_date, maturity_date, quote.mid()))
+            }
+            QuoteType::Bond(BondQuoteType::YieldToMaturity) => {
+                // For T-Bills, convert BEY to price
+                // BEY = (Face - Price) / Price × (365 / Days)
+                // Price = Face / (1 + BEY × Days / 365)
+                let days = settlement_date.days_between(&maturity_date) as f64;
+                let price = 100.0 / (1.0 + quote.mid() * days / 365.0);
+                Ok(Self::new(cusip, settlement_date, maturity_date, price))
+            }
+            _ => Err(CurveError::invalid_data(format!(
+                "Unsupported quote type {:?} for T-Bill",
+                quote.quote_type
+            ))),
+        }
     }
 
     /// Returns the CUSIP.
@@ -341,5 +408,98 @@ mod tests {
         let pv = tbill.pv(&curve).unwrap();
         // PV = 100 × 0.995 - 99.50 = 0
         assert_relative_eq!(pv, 0.0, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_tbill_from_discount_rate() {
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap(); // ~90 days
+
+        // Create from discount rate
+        let tbill = TreasuryBill::from_discount_rate("912796XY", settle, maturity, 0.02);
+
+        // Verify price: Price = 100 × (1 - 0.02 × 90/360) = 100 × 0.995 = 99.50
+        let days = settle.days_between(&maturity) as f64;
+        let expected_price = 100.0 * (1.0 - 0.02 * days / 360.0);
+        assert_relative_eq!(tbill.price(), expected_price, epsilon = 1e-10);
+
+        // Verify round-trip: discount_rate should return ~0.02
+        assert_relative_eq!(tbill.discount_rate(), 0.02, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbill_from_quote_price() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap();
+
+        let quote = MarketQuote::clean_price(99.50);
+        let tbill = TreasuryBill::from_quote("912796XY", settle, maturity, &quote).unwrap();
+
+        assert_relative_eq!(tbill.price(), 99.50, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbill_from_quote_discount_rate() {
+        use crate::instruments::quotes::{BondQuoteType, MarketQuote, QuoteType};
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap();
+
+        let quote = MarketQuote::new(0.02, QuoteType::Bond(BondQuoteType::DiscountRate));
+        let tbill = TreasuryBill::from_quote("912796XY", settle, maturity, &quote).unwrap();
+
+        // Should match from_discount_rate
+        let tbill2 = TreasuryBill::from_discount_rate("912796XY", settle, maturity, 0.02);
+        assert_relative_eq!(tbill.price(), tbill2.price(), epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbill_from_quote_bey() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap();
+
+        // First create a T-Bill from price to get its BEY
+        let tbill1 = TreasuryBill::new("912796XY", settle, maturity, 99.50);
+        let bey = tbill1.bond_equivalent_yield();
+
+        // Now create from BEY quote
+        let quote = MarketQuote::ytm(bey);
+        let tbill2 = TreasuryBill::from_quote("912796XY", settle, maturity, &quote).unwrap();
+
+        // Prices should be close (not exact due to approximation)
+        assert_relative_eq!(tbill2.price(), 99.50, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_tbill_from_quote_with_bid_ask() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap();
+
+        // Quote with bid/ask spread
+        let quote = MarketQuote::clean_price(99.50).with_bid_ask(99.48, 99.52);
+        let tbill = TreasuryBill::from_quote("912796XY", settle, maturity, &quote).unwrap();
+
+        // Should use mid price (99.50)
+        assert_relative_eq!(tbill.price(), 99.50, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbill_from_quote_unsupported_type() {
+        use crate::instruments::quotes::{MarketQuote, QuoteType, RateQuoteType};
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2025, 4, 15).unwrap();
+
+        // Rate quote type not supported for T-Bills
+        let quote = MarketQuote::new(0.05, QuoteType::Rate(RateQuoteType::Simple));
+        let result = TreasuryBill::from_quote("912796XY", settle, maturity, &quote);
+
+        assert!(result.is_err());
     }
 }

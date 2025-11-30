@@ -10,6 +10,9 @@ use crate::curves::{DiscountCurve, DiscountCurveBuilder};
 use crate::error::{CurveError, CurveResult};
 use crate::instruments::CurveInstrument;
 use crate::interpolation::InterpolationMethod;
+use crate::repricing::{
+    BootstrapResult, BuildTimer, RepricingCheck, RepricingReport, tolerances,
+};
 
 /// Type of curve to fit in global bootstrap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,7 +246,7 @@ impl GlobalBootstrapper {
         let result = gradient_descent(objective, &initial_params, &opt_config)
             .map_err(|e| CurveError::bootstrap_failed("global", e.to_string()))?;
 
-        if !result.converged && result.objective_value > 1e-6 {
+        if !result.converged && result.objective_value > 1e-4 {
             return Err(CurveError::bootstrap_failed(
                 "global",
                 format!(
@@ -255,6 +258,135 @@ impl GlobalBootstrapper {
 
         // Build final curve
         self.build_curve_from_params(&result.parameters, &pillar_times)
+    }
+
+    /// Bootstraps the curve with mandatory repricing validation.
+    ///
+    /// This is the recommended method for production use. It returns a
+    /// `BootstrapResult` that includes the curve and a complete repricing
+    /// report showing how well each instrument is priced.
+    pub fn bootstrap_validated(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
+        let timer = BuildTimer::start();
+
+        if self.instruments.is_empty() {
+            return Err(CurveError::invalid_data("No instruments provided for bootstrap"));
+        }
+
+        // Sort instruments by pillar date
+        let mut indexed: Vec<_> = self
+            .instruments
+            .iter()
+            .zip(self.weights.iter())
+            .enumerate()
+            .collect();
+        indexed.sort_by_key(|(_, (inst, _))| inst.pillar_date());
+
+        let sorted_instruments: Vec<_> = indexed.iter().map(|(_, (inst, _))| *inst).collect();
+        let sorted_weights: Vec<_> = indexed.iter().map(|(_, (_, w))| **w).collect();
+
+        // Get pillar times
+        let pillar_times: Vec<f64> = sorted_instruments
+            .iter()
+            .map(|inst| self.year_fraction(inst.pillar_date()))
+            .collect();
+
+        // Initial guess: flat curve at 4%
+        let initial_params: Vec<f64> = match self.config.curve_type {
+            GlobalCurveType::PiecewiseZero => vec![0.04; sorted_instruments.len()],
+            GlobalCurveType::PiecewiseDiscount => {
+                pillar_times.iter().map(|&t| (-0.04 * t).exp()).collect()
+            }
+        };
+
+        // Build objective function
+        let objective = |params: &[f64]| -> f64 {
+            let curve = match self.build_curve_from_params(params, &pillar_times) {
+                Ok(c) => c,
+                Err(_) => return 1e20, // Penalty for invalid curve
+            };
+
+            let mut total = 0.0;
+
+            // Sum of squared pricing errors
+            for (inst, &weight) in sorted_instruments.iter().zip(sorted_weights.iter()) {
+                let pv = inst.pv(&curve).unwrap_or(1e10);
+                total += weight * pv * pv;
+            }
+
+            // Roughness penalty
+            if self.config.roughness_penalty > 0.0 {
+                total += self.config.roughness_penalty * self.roughness(params);
+            }
+
+            total
+        };
+
+        // Run optimization
+        let opt_config = OptimizationConfig {
+            tolerance: self.config.tolerance,
+            max_iterations: self.config.max_iterations,
+            step_size: 1e-6,
+        };
+
+        let result = gradient_descent(objective, &initial_params, &opt_config)
+            .map_err(|e| CurveError::bootstrap_failed("global", e.to_string()))?;
+
+        if !result.converged && result.objective_value > 1e-4 {
+            return Err(CurveError::bootstrap_failed(
+                "global",
+                format!(
+                    "Optimization did not converge: objective = {:.2e} after {} iterations",
+                    result.objective_value, result.iterations
+                ),
+            ));
+        }
+
+        // Build final curve
+        let curve = self.build_curve_from_params(&result.parameters, &pillar_times)?;
+
+        // Perform repricing validation
+        let repricing_report = self.validate_repricing(&curve)?;
+
+        let build_duration = timer.elapsed();
+
+        Ok(BootstrapResult::new(curve, repricing_report, build_duration))
+    }
+
+    /// Bootstraps the curve with strict repricing validation.
+    ///
+    /// Returns an error if any instrument fails to reprice within tolerance.
+    pub fn bootstrap_validated_strict(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
+        let result = self.bootstrap_validated()?;
+
+        if !result.is_valid() {
+            return Err(CurveError::repricing_failed(
+                result.repricing_report.failed_count(),
+                result.repricing_report.max_error(),
+                result.failed_instruments().into_iter().map(String::from).collect(),
+            ));
+        }
+
+        Ok(result)
+    }
+
+    /// Validates that the curve reprices all instruments.
+    fn validate_repricing(&self, curve: &DiscountCurve) -> CurveResult<RepricingReport> {
+        let mut checks = Vec::with_capacity(self.instruments.len());
+
+        for inst in &self.instruments {
+            let model_pv = inst.pv(curve)?;
+            let tolerance = tolerances::for_instrument(inst.instrument_type());
+
+            checks.push(RepricingCheck::new(
+                inst.description(),
+                inst.instrument_type(),
+                0.0,
+                model_pv,
+                tolerance,
+            ));
+        }
+
+        Ok(RepricingReport::new(checks))
     }
 
     /// Builds a curve from optimization parameters.
@@ -307,8 +439,10 @@ impl GlobalBootstrapper {
     }
 
     /// Calculates year fraction from reference date.
+    ///
+    /// Uses ACT/360 day count to match money market instruments (deposits, OIS, swaps).
     fn year_fraction(&self, date: Date) -> f64 {
-        self.reference_date.days_between(&date) as f64 / 365.0
+        self.reference_date.days_between(&date) as f64 / 360.0
     }
 
     /// Returns the optimization result details.

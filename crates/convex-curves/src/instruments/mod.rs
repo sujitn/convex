@@ -39,6 +39,7 @@ mod deposit;
 mod fra;
 mod future;
 mod ois;
+pub mod quotes;
 mod swap;
 mod tbill;
 mod tbond;
@@ -48,6 +49,10 @@ pub use deposit::Deposit;
 pub use fra::FRA;
 pub use future::{imm_date, next_imm_dates, FutureType, RateFuture};
 pub use ois::OIS;
+pub use quotes::{
+    BondQuoteType, MarketQuote, QuoteType, QuoteValidationConfig, RateQuoteType,
+    futures_price_to_rate, rate_to_futures_price, validate_market_data, validate_quote,
+};
 pub use swap::Swap;
 pub use tbill::TreasuryBill;
 pub use tbond::{CashFlow, TreasuryBond};
@@ -72,10 +77,14 @@ pub enum InstrumentType {
     OIS = 4,
     /// Basis swap (tenor or cross-currency)
     BasisSwap = 5,
-    /// Treasury Bill (discount instrument)
+    /// Treasury Bill (discount instrument) - US-specific
     TreasuryBill = 6,
-    /// Treasury Note/Bond (coupon instrument)
+    /// Treasury Note/Bond (coupon instrument) - US-specific
     TreasuryBond = 7,
+    /// Generic zero-coupon government bond (any market)
+    GovernmentZeroCoupon = 8,
+    /// Generic coupon government bond (any market: Gilts, Bunds, JGBs, etc.)
+    GovernmentCouponBond = 9,
 }
 
 impl std::fmt::Display for InstrumentType {
@@ -89,6 +98,8 @@ impl std::fmt::Display for InstrumentType {
             Self::BasisSwap => write!(f, "BasisSwap"),
             Self::TreasuryBill => write!(f, "T-Bill"),
             Self::TreasuryBond => write!(f, "T-Bond"),
+            Self::GovernmentZeroCoupon => write!(f, "Gov Zero"),
+            Self::GovernmentCouponBond => write!(f, "Gov Bond"),
         }
     }
 }

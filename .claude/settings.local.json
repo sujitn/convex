@@ -17,7 +17,8 @@
       "Bash(cargo run:*)",
       "WebFetch(domain:home.treasury.gov)",
       "WebSearch",
-      "WebFetch(domain:blog.deriscope.com)"
+      "WebFetch(domain:blog.deriscope.com)",
+      "Bash(cmd /c \"tree /F src\")"
     ],
     "deny": [],
     "ask": []

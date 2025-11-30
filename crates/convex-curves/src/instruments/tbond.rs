@@ -6,8 +6,9 @@
 use convex_core::types::Frequency;
 use convex_core::Date;
 
+use super::quotes::{BondQuoteType, MarketQuote, QuoteType};
 use super::{CurveInstrument, InstrumentType};
-use crate::error::CurveResult;
+use crate::error::{CurveError, CurveResult};
 use crate::traits::Curve;
 
 /// A cash flow (coupon or principal payment).
@@ -116,6 +117,105 @@ impl TreasuryBond {
     pub fn with_face_value(mut self, face_value: f64) -> Self {
         self.face_value = face_value;
         self
+    }
+
+    /// Creates a Treasury Bond from yield to maturity.
+    ///
+    /// Converts YTM to clean price using standard bond pricing:
+    /// ```text
+    /// Price = Σ Coupon(i) / (1 + y/2)^(2*ti) + Face / (1 + y/2)^(2*tn)
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `cusip` - CUSIP identifier
+    /// * `settlement_date` - Settlement date
+    /// * `maturity_date` - Maturity date
+    /// * `coupon_rate` - Annual coupon rate (e.g., 0.04125)
+    /// * `ytm` - Yield to maturity (e.g., 0.05 for 5%)
+    #[must_use]
+    pub fn from_ytm(
+        cusip: impl Into<String>,
+        settlement_date: Date,
+        maturity_date: Date,
+        coupon_rate: f64,
+        ytm: f64,
+    ) -> Self {
+        // Create a temporary bond at par to get cash flows
+        let temp_bond = Self::new(cusip.into(), settlement_date, maturity_date, coupon_rate, 100.0);
+        let flows = temp_bond.cash_flows();
+
+        // Calculate dirty price from YTM
+        let y_semi = ytm / 2.0; // Semi-annual yield
+        let mut dirty_price = 0.0;
+
+        for cf in &flows {
+            let t = temp_bond.year_fraction(cf.date);
+            // Number of semi-annual periods (can be fractional)
+            let n = t * 2.0;
+            let df = (1.0 + y_semi).powf(-n);
+            dirty_price += cf.amount * df;
+        }
+
+        // Clean price = Dirty price - Accrued interest
+        let clean_price = dirty_price - temp_bond.accrued_interest();
+
+        Self::new(
+            temp_bond.cusip,
+            settlement_date,
+            maturity_date,
+            coupon_rate,
+            clean_price,
+        )
+    }
+
+    /// Creates a Treasury Bond from a market quote.
+    ///
+    /// Supports clean price, dirty price, and yield to maturity quotes.
+    ///
+    /// # Arguments
+    ///
+    /// * `cusip` - CUSIP identifier
+    /// * `settlement_date` - Settlement date
+    /// * `maturity_date` - Maturity date
+    /// * `coupon_rate` - Annual coupon rate
+    /// * `quote` - Market quote
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the quote type is not supported for Treasury Bonds.
+    pub fn from_quote(
+        cusip: impl Into<String>,
+        settlement_date: Date,
+        maturity_date: Date,
+        coupon_rate: f64,
+        quote: &MarketQuote,
+    ) -> CurveResult<Self> {
+        let cusip = cusip.into();
+        match quote.quote_type {
+            QuoteType::Bond(BondQuoteType::CleanPrice) => {
+                Ok(Self::new(cusip, settlement_date, maturity_date, coupon_rate, quote.mid()))
+            }
+            QuoteType::Bond(BondQuoteType::DirtyPrice) => {
+                // Convert dirty to clean by subtracting accrued
+                let temp_bond = Self::new(cusip.clone(), settlement_date, maturity_date, coupon_rate, 100.0);
+                let accrued = temp_bond.accrued_interest();
+                let clean_price = quote.mid() - accrued;
+                Ok(Self::new(cusip, settlement_date, maturity_date, coupon_rate, clean_price))
+            }
+            QuoteType::Bond(BondQuoteType::YieldToMaturity) => {
+                Ok(Self::from_ytm(cusip, settlement_date, maturity_date, coupon_rate, quote.mid()))
+            }
+            QuoteType::Bond(BondQuoteType::DiscountRate) => {
+                Err(CurveError::invalid_data(
+                    "Discount rate not supported for coupon bonds. Use YTM or Clean Price."
+                ))
+            }
+            _ => Err(CurveError::invalid_data(format!(
+                "Unsupported quote type {:?} for Treasury Bond",
+                quote.quote_type
+            ))),
+        }
     }
 
     /// Returns the CUSIP.
@@ -483,5 +583,130 @@ mod tests {
         let desc = tbond.description();
 
         assert!(desc.contains("T-Bond"));
+    }
+
+    #[test]
+    fn test_tbond_from_ytm_at_par() {
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap(); // 2 years
+
+        // When coupon = YTM, price should be ~100
+        let tbond = TreasuryBond::from_ytm("912810TW", settle, maturity, 0.04, 0.04);
+
+        // Should be close to par (100), allowing for day count differences
+        assert!((tbond.clean_price() - 100.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_tbond_from_ytm_discount() {
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        // Higher YTM than coupon = discount bond
+        let tbond = TreasuryBond::from_ytm("912810TW", settle, maturity, 0.04, 0.06);
+
+        // Price should be below par
+        assert!(tbond.clean_price() < 100.0);
+    }
+
+    #[test]
+    fn test_tbond_from_ytm_premium() {
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        // Lower YTM than coupon = premium bond
+        let tbond = TreasuryBond::from_ytm("912810TW", settle, maturity, 0.04, 0.02);
+
+        // Price should be above par
+        assert!(tbond.clean_price() > 100.0);
+    }
+
+    #[test]
+    fn test_tbond_from_quote_clean_price() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        let quote = MarketQuote::clean_price(98.50);
+        let tbond = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote).unwrap();
+
+        assert_relative_eq!(tbond.clean_price(), 98.50, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbond_from_quote_dirty_price() {
+        use crate::instruments::quotes::{BondQuoteType, MarketQuote, QuoteType};
+
+        let settle = Date::from_ymd(2025, 7, 15).unwrap(); // Mid-period
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        // First create bond at clean price to calculate expected accrued
+        let temp_bond = TreasuryBond::new("912810TW", settle, maturity, 0.04, 100.0);
+        let accrued = temp_bond.accrued_interest();
+
+        // Quote dirty price = clean + accrued
+        let dirty = 98.50 + accrued;
+        let quote = MarketQuote::new(dirty, QuoteType::Bond(BondQuoteType::DirtyPrice));
+        let tbond = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote).unwrap();
+
+        // Clean price should be 98.50
+        assert_relative_eq!(tbond.clean_price(), 98.50, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_tbond_from_quote_ytm() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        let quote = MarketQuote::ytm(0.05);
+        let tbond = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote).unwrap();
+
+        // Should match from_ytm
+        let tbond2 = TreasuryBond::from_ytm("912810TW", settle, maturity, 0.04, 0.05);
+        assert_relative_eq!(tbond.clean_price(), tbond2.clean_price(), epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbond_from_quote_with_bid_ask() {
+        use crate::instruments::quotes::MarketQuote;
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        let quote = MarketQuote::clean_price(98.50).with_bid_ask(98.25, 98.75);
+        let tbond = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote).unwrap();
+
+        // Should use mid price
+        assert_relative_eq!(tbond.clean_price(), 98.50, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_tbond_from_quote_unsupported_type() {
+        use crate::instruments::quotes::{MarketQuote, QuoteType, RateQuoteType};
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        let quote = MarketQuote::new(0.05, QuoteType::Rate(RateQuoteType::Simple));
+        let result = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tbond_from_quote_discount_rate_unsupported() {
+        use crate::instruments::quotes::{BondQuoteType, MarketQuote, QuoteType};
+
+        let settle = Date::from_ymd(2025, 1, 15).unwrap();
+        let maturity = Date::from_ymd(2027, 1, 15).unwrap();
+
+        // Discount rate doesn't make sense for coupon bonds
+        let quote = MarketQuote::new(0.05, QuoteType::Bond(BondQuoteType::DiscountRate));
+        let result = TreasuryBond::from_quote("912810TW", settle, maturity, 0.04, &quote);
+
+        assert!(result.is_err());
     }
 }

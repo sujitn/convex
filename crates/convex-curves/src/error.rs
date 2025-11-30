@@ -61,6 +61,17 @@ pub enum CurveError {
     /// Core library error.
     #[error("Core error: {0}")]
     CoreError(#[from] convex_core::ConvexError),
+
+    /// Repricing validation failed.
+    #[error("Repricing validation failed: {failed_count} instruments exceeded tolerance (max error: {max_error:.2e})")]
+    RepricingFailed {
+        /// Number of instruments that failed
+        failed_count: usize,
+        /// Maximum repricing error
+        max_error: f64,
+        /// Names of failed instruments
+        failed_instruments: Vec<String>,
+    },
 }
 
 impl CurveError {
@@ -86,6 +97,20 @@ impl CurveError {
         Self::BootstrapFailed {
             tenor: tenor.into(),
             reason: reason.into(),
+        }
+    }
+
+    /// Creates a repricing failed error.
+    #[must_use]
+    pub fn repricing_failed(
+        failed_count: usize,
+        max_error: f64,
+        failed_instruments: Vec<String>,
+    ) -> Self {
+        Self::RepricingFailed {
+            failed_count,
+            max_error,
+            failed_instruments,
         }
     }
 }

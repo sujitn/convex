@@ -50,6 +50,7 @@ pub mod curves;
 pub mod error;
 pub mod instruments;
 pub mod interpolation;
+pub mod repricing;
 pub mod traits;
 pub mod validation;
 
@@ -73,6 +74,9 @@ pub mod prelude {
     pub use crate::interpolation::InterpolationMethod;
     pub use crate::traits::Curve;
     pub use crate::validation::{CurveValidator, ValidationError, ValidationReport, ValidationWarning};
+    pub use crate::repricing::{
+        BootstrapResult, RepricingCheck, RepricingReport, tolerances,
+    };
 }
 
 pub use compounding::Compounding;
