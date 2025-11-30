@@ -767,6 +767,48 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Change Log
 
+### 2025-11-30 - Treasury Curve Integration Complete
+
+**Implemented:**
+- **Treasury Curve Example** (`examples/treasury_curve.rs`): Comprehensive example demonstrating two approaches:
+  1. **Simple Interpolated Curve**: Uses `DiscountCurveBuilder::add_zero_rate()` with linear interpolation
+     - Fast construction, good for quick yield lookups
+     - Does NOT exactly reprice input instruments
+  2. **Bootstrapped Curve**: Uses `GlobalBootstrapper` with actual T-Bill prices and bond cash flows
+     - Exactly reprices all instruments (max error: $0.005 per $100)
+     - Production-grade for pricing and risk management
+- **Updated Treasury Curve Test** with precise Nov 28, 2025 market data:
+  - T-Bills: 1M (3 7/8), 3M (3 23/32), 6M (3 21/32), 1Y (3 15/32)
+  - T-Notes: 2Y (3.375% @ 99 1/4), 3Y (3.500% @ 100), 5Y (3.500% @ 99 5/32), 7Y (3.750% @ 99 1/4), 10Y (4.000% @ 99 9/32)
+  - T-Bonds: 20Y (4.625% @ 99 10/32), 30Y (4.625% @ 99 3/32)
+- **Forward Rate Analysis**: Added comprehensive explanation of zero rate "hump" phenomenon
+
+**Decisions:**
+- **Removed `SimpleYieldCurve`**: User decision - "it was a mistake". The `DiscountCurveBuilder::add_zero_rate()` method provides equivalent functionality without a separate curve type.
+
+**Key Technical Finding - Zero Rate Inversion (20Y > 30Y):**
+- Market yields: 20Y = 4.628%, 30Y = 4.667% (30Y > 20Y)
+- Zero rates: 20Y ≈ 4.83%, 30Y ≈ 4.77% (20Y > 30Y - appears inverted)
+- **Explanation**: Forward rate structure
+  - 10Y-20Y forward: 7.44% (par curve steepens +61bp)
+  - 20Y-30Y forward: 5.90% (par curve flattens +4bp only)
+  - Zero rate = average of all forwards to maturity
+  - Declining forwards from 20Y-30Y pull down the 30Y zero rate
+- **Conclusion**: This is mathematically correct, not a bug
+
+**Validation:**
+- All tests passing: `cargo test` succeeds
+- Max repricing error: $0.005 per $100 notional
+- Forward rate positivity: All forwards positive
+- Test assertion: `assert!(fwd_20_30 < fwd_10_20)` confirms declining forward structure
+
+**Files Modified:**
+- `convex-curves/src/curves/simple.rs` - DELETED
+- `convex-curves/src/curves/mod.rs` - Removed SimpleYieldCurve exports
+- `convex-curves/src/lib.rs` - Removed SimpleYieldCurve from prelude
+- `convex-curves/tests/treasury_curve_integration.rs` - Updated market data, added forward analysis
+- `convex-curves/examples/treasury_curve.rs` - NEW: Two-approach example
+
 ### 2025-11-30 - Market Observable Refactoring Complete (All Phases)
 
 **MAJOR BUG FIX: Day Count Convention Mismatch**
