@@ -9,7 +9,11 @@
       "Bash(tree:*)",
       "Bash(dir:*)",
       "Bash(cmd /c \"tree /F crates\")",
-      "Bash(powershell -Command \"Get-ChildItem -Path crates -Recurse -Depth 3 | Select-Object FullName\")"
+      "Bash(powershell -Command \"Get-ChildItem -Path crates -Recurse -Depth 3 | Select-Object FullName\")",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"tree /F src 2>nul || tree src 2>nul || dir /s /b src 2>nul || powershell -Command \"\"Get-ChildItem -Path src -Recurse -Depth 2 | Select-Object FullName\"\"\")",
+      "Bash(powershell:*)",
+      "Bash(cargo build:*)"
     ],
     "deny": [],
     "ask": []
