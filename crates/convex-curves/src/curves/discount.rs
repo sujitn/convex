@@ -229,20 +229,23 @@ impl DiscountCurve {
             }
             InterpolationMethod::MonotoneConvex => {
                 // Monotone convex on zero rates, then convert back to DF
-                let zero_rates: Vec<f64> = self
+                // MonotoneConvex requires first time > 0, so filter out t=0
+                let (times, zero_rates): (Vec<f64>, Vec<f64>) = self
                     .pillar_times
                     .iter()
                     .zip(self.discount_factors.iter())
-                    .map(|(t, df)| {
-                        if *t > 0.0 {
-                            -df.ln() / t
-                        } else {
-                            0.0
-                        }
-                    })
-                    .collect();
+                    .filter(|(t, _)| **t > 0.0)
+                    .map(|(t, df)| (*t, -df.ln() / t))
+                    .unzip();
+
+                if times.is_empty() {
+                    return Err(CurveError::InterpolationFailed {
+                        reason: "No positive time points for MonotoneConvex".to_string(),
+                    });
+                }
+
                 Box::new(
-                    MonotoneConvex::new(self.pillar_times.clone(), zero_rates)
+                    MonotoneConvex::new(times, zero_rates)
                         .map_err(|e| CurveError::InterpolationFailed {
                             reason: e.to_string(),
                         })?

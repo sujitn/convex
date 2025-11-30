@@ -186,6 +186,66 @@ pub trait Curve: Send + Sync {
         let t2 = self.year_fraction(end);
         self.forward_rate(t1, t2)
     }
+
+    /// Returns the par yield at maturity `t` with semi-annual compounding.
+    ///
+    /// The par yield is the coupon rate that makes a bond price equal to par (100).
+    /// This is equivalent to the CMT (Constant Maturity Treasury) rate published
+    /// by the US Treasury.
+    ///
+    /// # Formula
+    ///
+    /// For semi-annual coupon bonds:
+    /// ```text
+    /// Par Yield = 2 × (1 - DF(T)) / Σ DF(ti)
+    /// ```
+    /// where ti = 0.5, 1.0, 1.5, ..., T are the coupon payment dates.
+    ///
+    /// # Arguments
+    ///
+    /// * `t` - Maturity in years
+    ///
+    /// # Returns
+    ///
+    /// The par yield as a decimal (e.g., 0.045 for 4.5%).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Get the 10-year par yield (comparable to 10Y CMT)
+    /// let par_10y = curve.par_yield(10.0)?;
+    /// ```
+    fn par_yield(&self, t: f64) -> CurveResult<f64> {
+        // For very short maturities (< 6 months), use zero rate
+        if t <= 0.5 {
+            return self.zero_rate(t, Compounding::SemiAnnual);
+        }
+
+        let df_t = self.discount_factor(t)?;
+
+        // Sum discount factors at each semi-annual coupon date
+        let mut sum_df = 0.0;
+        let mut coupon_time = 0.5;
+        while coupon_time <= t + 0.001 {
+            sum_df += self.discount_factor(coupon_time)?;
+            coupon_time += 0.5;
+        }
+
+        if sum_df <= 0.0 {
+            return self.zero_rate(t, Compounding::SemiAnnual);
+        }
+
+        // Par yield = 2 × (1 - DF(T)) / Σ DF(ti)
+        Ok(2.0 * (1.0 - df_t) / sum_df)
+    }
+
+    /// Returns the par yield for a specific date.
+    ///
+    /// Convenience method that converts the date to a year fraction.
+    fn par_yield_at(&self, date: Date) -> CurveResult<f64> {
+        let t = self.year_fraction(date);
+        self.par_yield(t)
+    }
 }
 
 /// Extension trait for curves that support bumping/shifting.
@@ -289,5 +349,51 @@ mod tests {
         let date = Date::from_ymd(2026, 1, 1).unwrap();
         let df = curve.discount_factor_at(date).unwrap();
         assert!((df - (-0.05_f64).exp()).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_par_yield_flat_curve() {
+        // For a flat curve, par yield should equal the flat rate (approximately)
+        let curve = FlatCurve::new(0.05, Date::from_ymd(2025, 1, 1).unwrap());
+
+        // 2-year par yield
+        let par_2y = curve.par_yield(2.0).unwrap();
+        // Par yield should be close to 5% for a flat 5% curve
+        // (small difference due to continuous vs semi-annual compounding)
+        assert!((par_2y - 0.05).abs() < 0.005);
+
+        // 10-year par yield
+        let par_10y = curve.par_yield(10.0).unwrap();
+        assert!((par_10y - 0.05).abs() < 0.005);
+    }
+
+    #[test]
+    fn test_par_yield_short_maturity() {
+        let curve = FlatCurve::new(0.04, Date::from_ymd(2025, 1, 1).unwrap());
+
+        // For maturities <= 0.5 years, par_yield returns zero rate
+        let par_3m = curve.par_yield(0.25).unwrap();
+        let zero_3m = curve.zero_rate(0.25, Compounding::SemiAnnual).unwrap();
+        assert!((par_3m - zero_3m).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_par_yield_formula() {
+        // Verify the par yield formula: Par = 2 * (1 - DF(T)) / Σ DF(ti)
+        let curve = FlatCurve::new(0.04, Date::from_ymd(2025, 1, 1).unwrap());
+
+        let t = 2.0; // 2-year maturity
+        let df_t = curve.discount_factor(t).unwrap();
+
+        // Sum discount factors at 0.5, 1.0, 1.5, 2.0
+        let sum_df = curve.discount_factor(0.5).unwrap()
+            + curve.discount_factor(1.0).unwrap()
+            + curve.discount_factor(1.5).unwrap()
+            + curve.discount_factor(2.0).unwrap();
+
+        let expected_par = 2.0 * (1.0 - df_t) / sum_df;
+        let actual_par = curve.par_yield(t).unwrap();
+
+        assert!((actual_par - expected_par).abs() < 1e-10);
     }
 }

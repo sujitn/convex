@@ -13,7 +13,11 @@
       "Bash(findstr:*)",
       "Bash(cmd /c \"tree /F src 2>nul || tree src 2>nul || dir /s /b src 2>nul || powershell -Command \"\"Get-ChildItem -Path src -Recurse -Depth 2 | Select-Object FullName\"\"\")",
       "Bash(powershell:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(cargo run:*)",
+      "WebFetch(domain:home.treasury.gov)",
+      "WebSearch",
+      "WebFetch(domain:blog.deriscope.com)"
     ],
     "deny": [],
     "ask": []
