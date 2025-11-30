@@ -46,7 +46,7 @@ mod tbond;
 pub use basis_swap::BasisSwap;
 pub use deposit::Deposit;
 pub use fra::FRA;
-pub use future::{FutureType, RateFuture};
+pub use future::{imm_date, next_imm_dates, FutureType, RateFuture};
 pub use ois::OIS;
 pub use swap::Swap;
 pub use tbill::TreasuryBill;
