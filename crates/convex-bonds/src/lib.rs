@@ -38,6 +38,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod cashflows;
+pub mod curve_instruments;
 pub mod error;
 pub mod instruments;
 pub mod pricing;
@@ -46,6 +47,9 @@ pub mod risk;
 /// Prelude module for convenient imports.
 pub mod prelude {
     pub use crate::cashflows::CashFlowGenerator;
+    pub use crate::curve_instruments::{
+        GovernmentCouponBond, GovernmentZeroCoupon, MarketConvention, day_count_factor,
+    };
     pub use crate::error::{BondError, BondResult};
     pub use crate::instruments::{FixedBond, FixedBondBuilder, ZeroCouponBond};
     pub use crate::pricing::{BondPricer, PriceResult};
