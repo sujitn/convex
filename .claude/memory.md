@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-06 (BOND-007 Sinking Fund Bonds Complete)
+**Last Updated**: 2025-12-06 (BOND-005a Rate Index Infrastructure Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -778,6 +778,59 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-06 - Rate Index Infrastructure (BOND-005a) Complete
+
+**Enhanced indices module in convex-bonds:**
+
+- **ArrearConvention** (`indices/conventions.rs`):
+  - Generalized overnight rate compounding convention for all RFRs
+  - `lookback_days` - observation shift period (2-5 days typical)
+  - `shift_type` - ObservationShift, PaymentShift, or Lookback
+  - `lockout_days` - optional rate freeze for final N days
+  - `daily_floor` - optional floor on daily rates
+  - Preset methods: `arrc_sofr()`, `sonia_standard()`, `estr_standard()`, `saron_standard()`, `loan_convention()`
+
+- **IndexConventions** (`indices/conventions.rs`):
+  - Comprehensive convention structure for all rate indices
+  - Day count, currency, calendar, fixing lag, spot lag
+  - Publication time (MorningT, EndOfDayT, MorningT1)
+  - Bloomberg ticker and Refinitiv RIC
+  - Official data source (FederalReserveNY, BankOfEngland, ECB, etc.)
+  - Default arrear convention for overnight rates
+  - Factory methods: `for_index(&RateIndex)`, `sofr()`, `sonia()`, `estr()`, `tona()`, `saron()`, `corra()`, `aonia()`, `euribor(tenor)`, `tibor(tenor)`, `term_sofr(tenor)`, `term_sonia(tenor)`, `libor(currency, tenor)`
+
+- **Supporting Types**:
+  - `ShiftType` enum: ObservationShift, PaymentShift, Lookback
+  - `PublicationTime` enum: MorningT, EndOfDayT, MorningT1
+  - `IndexSource` enum: FederalReserveNY, BankOfEngland, ECB, BankOfJapan, SIX, CME, EMMI, JBA, BLS, ONS, Eurostat, IBA, Custom
+
+**Tests**: 9 new convention tests + 229 existing = 238 total passing
+- ArrearConvention preset validation
+- ArrearConvention builder methods
+- IndexConventions for SOFR, SONIA, ESTR, EURIBOR, Term SOFR
+- IndexSource display formatting
+- Overnight convention consistency check
+
+**Performance Targets**:
+- Convention lookup: < 10ns (direct struct construction)
+- Index identification: < 5ns (enum match)
+
+**API Usage**:
+```rust
+// Get conventions for any index
+let sofr_conv = IndexConventions::for_index(&RateIndex::SOFR);
+assert_eq!(sofr_conv.currency, Currency::USD);
+assert_eq!(sofr_conv.day_count, DayCountConvention::Act360);
+
+// Use arrear convention for compounding
+let arrear = ArrearConvention::arrc_sofr();
+let with_lockout = arrear.with_lockout(2);
+
+// Access Bloomberg/Refinitiv identifiers
+let euribor_conv = IndexConventions::euribor(Tenor::M3);
+println!("Bloomberg: {}", euribor_conv.bloomberg_ticker.unwrap());
+```
 
 ### 2025-12-06 - Sinking Fund Bonds (BOND-007) Complete
 

@@ -67,7 +67,10 @@ pub mod prelude {
     pub use crate::error::{BondError, BondResult, IdentifierError};
 
     // Indices (for FRN support)
-    pub use crate::indices::{IndexFixing, IndexFixingStore, OvernightCompounding};
+    pub use crate::indices::{
+        ArrearConvention, IndexConventions, IndexFixing, IndexFixingStore, IndexSource,
+        OvernightCompounding, PublicationTime, ShiftType,
+    };
 
     // Instruments
     pub use crate::instruments::{
@@ -99,7 +102,10 @@ pub mod prelude {
 }
 
 pub use error::{BondError, BondResult};
-pub use indices::{IndexFixing, IndexFixingStore, OvernightCompounding};
+pub use indices::{
+    ArrearConvention, IndexConventions, IndexFixing, IndexFixingStore, IndexSource,
+    OvernightCompounding, PublicationTime, ShiftType,
+};
 pub use instruments::{
     AccelerationOption, CallableBond, CallableBondBuilder, FixedBond, FixedBondBuilder,
     FixedRateBond, FixedRateBondBuilder, FloatingRateNote, FloatingRateNoteBuilder,
