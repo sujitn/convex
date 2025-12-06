@@ -50,6 +50,7 @@ pub mod curves;
 pub mod error;
 pub mod instruments;
 pub mod interpolation;
+pub mod multicurve;
 pub mod repricing;
 pub mod traits;
 pub mod validation;
@@ -72,10 +73,15 @@ pub mod prelude {
         TreasuryBill, TreasuryBond,
     };
     pub use crate::interpolation::InterpolationMethod;
+    pub use crate::multicurve::{
+        BumpType, CurrencyPair, CurveSet, CurveSetBuilder, CurveSensitivityCalculator,
+        FxForwardCurve, FxForwardCurveBuilder, KeyRateDuration, MultiCurveBuilder,
+        RateIndex as MultiCurveRateIndex, Tenor,
+    };
+    pub use crate::repricing::{BootstrapResult, RepricingCheck, RepricingReport, tolerances};
     pub use crate::traits::Curve;
-    pub use crate::validation::{CurveValidator, ValidationError, ValidationReport, ValidationWarning};
-    pub use crate::repricing::{
-        BootstrapResult, RepricingCheck, RepricingReport, tolerances,
+    pub use crate::validation::{
+        CurveValidator, ValidationError, ValidationReport, ValidationWarning,
     };
 }
 

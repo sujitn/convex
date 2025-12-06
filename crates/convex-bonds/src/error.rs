@@ -5,6 +5,50 @@ use thiserror::Error;
 /// A specialized Result type for bond operations.
 pub type BondResult<T> = Result<T, BondError>;
 
+/// Errors that can occur during identifier validation.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum IdentifierError {
+    /// Invalid length for identifier.
+    #[error("Invalid {id_type} length: expected {expected}, got {actual}")]
+    InvalidLength {
+        /// Type of identifier (CUSIP, ISIN, etc.).
+        id_type: &'static str,
+        /// Expected length.
+        expected: usize,
+        /// Actual length.
+        actual: usize,
+    },
+
+    /// Invalid check digit.
+    #[error("Invalid {id_type} check digit for '{value}'")]
+    InvalidCheckDigit {
+        /// Type of identifier.
+        id_type: &'static str,
+        /// The invalid value.
+        value: String,
+    },
+
+    /// Invalid character in identifier.
+    #[error("Invalid character '{ch}' at position {position} in {id_type}")]
+    InvalidCharacter {
+        /// Type of identifier.
+        id_type: &'static str,
+        /// The invalid character.
+        ch: char,
+        /// Position in the string.
+        position: usize,
+    },
+
+    /// Invalid format.
+    #[error("Invalid {id_type} format: {reason}")]
+    InvalidFormat {
+        /// Type of identifier.
+        id_type: &'static str,
+        /// Reason for invalidity.
+        reason: String,
+    },
+}
+
 /// Errors that can occur during bond operations.
 #[derive(Error, Debug, Clone)]
 pub enum BondError {
@@ -57,6 +101,13 @@ pub enum BondError {
         settlement: String,
         /// Maturity date.
         maturity: String,
+    },
+
+    /// Invalid schedule configuration.
+    #[error("Invalid schedule: {message}")]
+    InvalidSchedule {
+        /// Description of the schedule error.
+        message: String,
     },
 
     /// Core library error.

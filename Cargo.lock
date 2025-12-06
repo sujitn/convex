@@ -324,6 +324,7 @@ dependencies = [
  "convex-math",
  "criterion",
  "log",
+ "once_cell",
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",
