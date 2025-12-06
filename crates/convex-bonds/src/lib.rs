@@ -38,22 +38,55 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod cashflows;
+pub mod conventions;
 pub mod curve_instruments;
 pub mod error;
 pub mod instruments;
 pub mod pricing;
 pub mod risk;
+pub mod traits;
+pub mod types;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
-    pub use crate::cashflows::CashFlowGenerator;
+    // Cash flows
+    pub use crate::cashflows::{
+        AccruedInterestCalculator, CashFlowGenerator, Schedule, ScheduleConfig, StubType,
+    };
+
+    // Conventions
+    pub use crate::conventions::{BondConventions, BondConventionsBuilder};
+
+    // Curve instruments
     pub use crate::curve_instruments::{
         GovernmentCouponBond, GovernmentZeroCoupon, MarketConvention, day_count_factor,
     };
-    pub use crate::error::{BondError, BondResult};
+
+    // Errors
+    pub use crate::error::{BondError, BondResult, IdentifierError};
+
+    // Instruments
     pub use crate::instruments::{FixedBond, FixedBondBuilder, ZeroCouponBond};
+
+    // Pricing
     pub use crate::pricing::{BondPricer, PriceResult};
+
+    // Risk
     pub use crate::risk::{DurationResult, RiskMetrics};
+
+    // Traits
+    pub use crate::traits::{
+        AmortizingBond, Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond,
+        FloatingCouponBond, InflationLinkedBond,
+    };
+
+    // Types
+    pub use crate::types::{
+        AccruedConvention, AmortizationEntry, AmortizationSchedule, AmortizationType,
+        BondIdentifiers, BondType, CalendarId, CallEntry, CallSchedule, CallType, Cusip, Figi,
+        InflationIndexType, Isin, PriceQuote, PriceQuoteConvention, PutEntry, PutSchedule, PutType,
+        RateIndex, RoundingConvention, Sedol, Tenor, YieldConvention,
+    };
 }
 
 pub use error::{BondError, BondResult};

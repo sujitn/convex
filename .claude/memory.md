@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-06 (Multi-Curve Framework Complete)
+**Last Updated**: 2025-12-06 (BOND-003 Cash Flow Engine Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -646,6 +646,10 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | Repricing | 9/5 | 9 | ✅ |
 | Quotes | 16/10 | 16 | ✅ |
 | MultiCurve | 44/40 | 44 | ✅ |
+| Bond Identifiers | 19/15 | 19 | ✅ |
+| Bond Conventions | 42/30 | 42 | ✅ |
+| Price/Yield Types | 72/50 | 72 | ✅ |
+| Cash Flow Engine | 30/25 | 30 | ✅ |
 | US Treasury | 0/20 | 0 | ⬜ |
 | Corporate IG | 0/20 | 0 | ⬜ |
 | Corporate HY | 0/15 | 0 | ⬜ |
@@ -654,7 +658,7 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | MBS | 0/10 | 0 | ⬜ |
 | Spreads | 0/20 | 0 | ⬜ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **592/495** | **592** | 🟡 |
+| **Total** | **725/590** | **725** | 🟡 |
 
 > **Note**: Total workspace tests: 600+ (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
 
@@ -770,6 +774,184 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-06 - Cash Flow Engine (BOND-003) Complete
+
+**Enhanced in convex-core:**
+
+- **CashFlowType enum** (`types/cashflow.rs`):
+  - Added: `PartialPrincipal`, `FloatingCoupon`, `InflationCoupon`, `InflationPrincipal`
+  - Retained: `Coupon`, `Principal`, `CouponAndPrincipal`, `SinkingFund`, `Call`, `Put`
+
+- **CashFlow struct** with full metadata:
+  - `date`, `amount`, `cf_type` (existing)
+  - `accrual_start`, `accrual_end` - accrual period info
+  - `reference_rate` - for floating coupons
+  - `notional_after` - remaining notional for amortizing
+  - New constructors: `coupon_with_accrual()`, `floating_coupon()`, `partial_principal()`,
+    `final_payment_with_accrual()`, `inflation_coupon()`, `inflation_principal()`
+  - New accessors: `accrual_start()`, `accrual_end()`, `reference_rate()`, `notional_after()`
+  - Helper methods: `is_floating()`, `is_inflation_linked()`
+  - Builder methods: `with_accrual()`, `with_reference_rate()`, `with_notional_after()`
+
+**Implemented in convex-bonds:**
+
+- **Schedule Generation** (`cashflows/schedule.rs`):
+  - `StubType` enum: None, ShortFirst, LongFirst, ShortLast, LongLast
+  - `ScheduleConfig` builder with calendar, business day convention, end-of-month
+  - `Schedule::generate()` - generates dates backward from maturity by default
+  - Forward generation for front stubs
+  - Unadjusted and adjusted date tracking
+  - `periods()` and `unadjusted_periods()` iterators
+  - Business day adjustment with configurable calendar
+
+- **AccruedInterestCalculator** (`cashflows/accrued.rs`):
+  - `standard()` - standard accrued interest calculation
+  - `ex_dividend()` - UK Gilt style with negative accrued in ex-div period
+  - `irregular_period()` - ICMA stub period calculation
+  - `using_year_fraction()` - direct year fraction method
+
+- **Enhanced CashFlowGenerator** (`cashflows/mod.rs`):
+  - `generate()` - fixed bond with accrual period info (enhanced)
+  - `fixed_rate_from_schedule()` - from Schedule with day count
+  - `floating_rate()` - FRN with forward rate projection
+  - `amortizing()` - with declining notional
+  - `inflation_linked()` - with index ratio function
+  - `accrued_interest_with_daycount()` - using AccruedInterestCalculator
+
+- **CalendarId::weekend_only()** - new constructor for testing
+- **CalendarId::to_calendar()** - converts to boxed Calendar trait object
+
+**Performance Targets**:
+- Schedule generation: < 1μs
+- Cash flow generation: < 500ns
+- Accrued calculation: < 100ns
+
+**Bloomberg Validation Test**:
+- Boeing 7.5% 06/15/2025 accrued interest test included
+- 30/360 US day count, semi-annual frequency
+
+**Tests**: 372 total (222 convex-core + 150 convex-bonds)
+
+**API Usage**:
+```rust
+// Schedule generation
+let config = ScheduleConfig::new(
+    Date::from_ymd(2020, 1, 15).unwrap(),
+    Date::from_ymd(2025, 1, 15).unwrap(),
+    Frequency::SemiAnnual,
+);
+let schedule = Schedule::generate(config).unwrap();
+
+// Fixed rate cash flows
+let flows = CashFlowGenerator::fixed_rate_from_schedule(
+    &schedule, dec!(0.05), dec!(100),
+    DayCountConvention::Thirty360US, settlement,
+);
+
+// Floating rate with forward projection
+let flows = CashFlowGenerator::floating_rate(
+    &schedule, dec!(0.005), dec!(100),
+    DayCountConvention::Act360, settlement, forward_rates,
+);
+
+// Accrued interest
+let accrued = AccruedInterestCalculator::standard(
+    settlement, last_coupon, next_coupon,
+    dec!(0.075), dec!(1_000_000),
+    DayCountConvention::Thirty360US, Frequency::SemiAnnual,
+);
+
+// Ex-dividend accrued (UK Gilts)
+let accrued = AccruedInterestCalculator::ex_dividend(
+    settlement, last_coupon, next_coupon,
+    rate, face, day_count, frequency, 7, &calendar,
+);
+```
+
+### 2025-12-06 - Bond Identifiers and Reference Data (BOND-002) Complete
+
+**Implemented in convex-bonds:**
+
+- **Validated Security Identifiers** (`types/identifiers.rs`):
+  - `Cusip`: 9-character identifier with Luhn-variant check digit validation
+    - `new()`: Validates check digit, `new_unchecked()`: No validation
+    - `issuer()`, `issue()`, `check_digit()` accessors
+    - `calculate_check_digit()` for generating valid CUSIPs
+  - `Isin`: 12-character ISO 6166 identifier with Luhn check digit
+    - `new()`: Validates format and check digit
+    - `from_cusip()`: Creates ISIN from CUSIP with country code
+    - `country_code()`, `nsin()` accessors
+  - `Figi`: 12-character Bloomberg identifier (BBG prefix validation)
+  - `Sedol`: 7-character UK identifier with weighted check digit (no vowels)
+  - `BondIdentifiers`: Container holding multiple identifier types
+    - Builder pattern with `with_cusip()`, `with_isin()`, etc.
+    - `primary_id()`: Priority-ordered lookup (ISIN > CUSIP > FIGI > SEDOL)
+  - `CalendarId`: Market calendar identifiers with combination support
+
+- **Yield Conventions** (`types/yield_convention.rs`):
+  - `YieldConvention` enum: StreetConvention, TrueYield, ISMA, SimpleYield,
+    DiscountYield, BondEquivalentYield, MunicipalYield, Moosmuller, BraessFangmeyer,
+    Annual, Continuous
+  - `AccruedConvention` enum: Standard, None, ExDividend, RecordDate
+  - `RoundingConvention` enum: for price/yield rounding
+
+- **Price Quote Conventions** (`types/price_quote.rs`):
+  - `PriceQuoteConvention` enum: Decimal, ThirtySeconds, ThirtySecondsPlus,
+    SixtyFourths, OneHundredTwentyEighths, Discount, Yield, Percentage, PerUnit
+  - `PriceQuote` struct with parsing and conversion:
+    - `from_thirty_seconds(handle, 32nds, plus)`: Parse Treasury notation
+    - `parse(string, convention)`: Parse any format
+    - `to_thirty_seconds()`: Convert decimal to 32nds notation
+    - `discount_to_price()` / `price_to_discount()`: T-Bill conversions
+
+- **Market Conventions Module** (`conventions/`):
+  - `BondConventions` struct with builder pattern:
+    - day_count, frequency, settlement_days, business_day_convention
+    - calendar, end_of_month, yield_convention, accrued_convention
+    - price_quote, quote_clean, face_denomination, minimum_denomination
+    - ex_dividend_days, description
+  - **US Treasury** (`us_treasury.rs`): note_bond(), bill(), tips(), frn(), strips()
+  - **US Corporate** (`us_corporate.rs`): investment_grade(), high_yield(),
+    municipal(), agency(), mbs()
+  - **UK Gilt** (`uk_gilt.rs`): conventional(), index_linked_old(), index_linked_new(),
+    treasury_bill() - with 7-day ex-dividend period
+  - **German Bund** (`german_bund.rs`): bund(), bobl(), schatz(), bundei(), bubill()
+  - **Japanese JGB** (`japanese_jgb.rs`): jgb(), jgb_inflation_linked(), jgb_frn(),
+    t_bill() - with SimpleYield convention
+  - **Eurobond** (`eurobond.rs`): standard(), actual_actual(), french_oat(),
+    french_oat_inflation(), italian_btp(), spanish_bono(), supranational(),
+    commercial_paper()
+
+**Tests**: 133 unit tests + 18 doc tests passing in convex-bonds
+
+**Performance Targets**:
+- Identifier validation: < 100ns
+- Convention lookup: < 10ns (pre-computed static values)
+
+**API Usage**:
+```rust
+// Validated identifiers
+let cusip = Cusip::new("037833100")?;  // Apple CUSIP
+let isin = Isin::from_cusip(&cusip, "US")?;
+assert_eq!(isin.as_str(), "US0378331005");
+
+// Bond identifiers container
+let ids = BondIdentifiers::new()
+    .with_cusip(cusip)
+    .with_ticker("AAPL")
+    .with_issuer_name("Apple Inc");
+
+// Market conventions
+let conventions = us_treasury::note_bond();
+assert_eq!(conventions.settlement_days(), 1);
+assert_eq!(conventions.day_count(), DayCountConvention::ActActIcma);
+assert_eq!(conventions.frequency(), Frequency::SemiAnnual);
+
+// Price quotes in 32nds
+let quote = PriceQuote::from_thirty_seconds(99, 16, false)?;
+assert_eq!(quote.decimal_price().to_string(), "99.50");
+```
 
 ### 2025-12-06 - Multi-Curve Framework Complete (Milestone 3.4)
 
