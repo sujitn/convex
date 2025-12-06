@@ -1,12 +1,140 @@
 //! Rate and inflation indices for bonds.
 //!
 //! Re-exports the rate index from convex-curves and adds inflation-linked
-//! index types specific to bond analytics.
+//! index types specific to bond analytics, plus SOFR compounding conventions
+//! for floating rate notes.
 
 use serde::{Deserialize, Serialize};
 
 // Re-export the comprehensive RateIndex from curves module
 pub use convex_curves::multicurve::{RateIndex, Tenor};
+
+/// SOFR compounding convention for floating rate notes.
+///
+/// Defines how daily SOFR rates are compounded over a coupon period.
+/// The ARRC (Alternative Reference Rates Committee) has standardized
+/// several conventions for SOFR-based products.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SOFRConvention {
+    /// Daily SOFR compounded in arrears (most common for FRNs).
+    ///
+    /// The rate is determined by compounding daily SOFR rates over
+    /// the interest period, with the final rate known near period end.
+    CompoundedInArrears {
+        /// Lookback days - shift observation period backward
+        /// Typically 2-5 business days to allow payment calculation
+        lookback_days: u32,
+        /// If true, shift observation period; if false, shift weight
+        observation_shift: bool,
+        /// Days before payment when rate is locked (optional)
+        lockout_days: Option<u32>,
+    },
+
+    /// Simple average of daily SOFR rates.
+    ///
+    /// Less common than compounded, but simpler to calculate.
+    SimpleAverage {
+        /// Lookback days for observation shift
+        lookback_days: u32,
+    },
+
+    /// CME Term SOFR - forward-looking term rate.
+    ///
+    /// Published by CME for 1M, 3M, 6M, 12M tenors.
+    /// Determined at the start of the interest period.
+    TermSOFR(Tenor),
+
+    /// SOFR compounded in advance (rare).
+    ///
+    /// Rate is determined before the interest period starts
+    /// using prior period's daily SOFR rates.
+    CompoundedInAdvance,
+}
+
+impl SOFRConvention {
+    /// Creates standard ARRC in-arrears convention with 5-day lookback.
+    #[must_use]
+    pub fn arrc_standard() -> Self {
+        SOFRConvention::CompoundedInArrears {
+            lookback_days: 5,
+            observation_shift: true,
+            lockout_days: None,
+        }
+    }
+
+    /// Creates convention with lockout period (common for syndicated loans).
+    #[must_use]
+    pub fn with_lockout(lookback_days: u32, lockout_days: u32) -> Self {
+        SOFRConvention::CompoundedInArrears {
+            lookback_days,
+            observation_shift: true,
+            lockout_days: Some(lockout_days),
+        }
+    }
+
+    /// Creates Term SOFR 3M convention.
+    #[must_use]
+    pub fn term_3m() -> Self {
+        SOFRConvention::TermSOFR(Tenor::M3)
+    }
+
+    /// Returns true if this is a compounded in arrears convention.
+    #[must_use]
+    pub fn is_in_arrears(&self) -> bool {
+        matches!(self, SOFRConvention::CompoundedInArrears { .. })
+    }
+
+    /// Returns the lookback days if applicable.
+    #[must_use]
+    pub fn lookback_days(&self) -> Option<u32> {
+        match self {
+            SOFRConvention::CompoundedInArrears { lookback_days, .. } => Some(*lookback_days),
+            SOFRConvention::SimpleAverage { lookback_days } => Some(*lookback_days),
+            _ => None,
+        }
+    }
+
+    /// Returns true if rate is known at period start.
+    #[must_use]
+    pub fn is_forward_looking(&self) -> bool {
+        matches!(
+            self,
+            SOFRConvention::TermSOFR(_) | SOFRConvention::CompoundedInAdvance
+        )
+    }
+}
+
+impl Default for SOFRConvention {
+    fn default() -> Self {
+        Self::arrc_standard()
+    }
+}
+
+impl std::fmt::Display for SOFRConvention {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SOFRConvention::CompoundedInArrears {
+                lookback_days,
+                observation_shift,
+                lockout_days,
+            } => {
+                write!(f, "SOFR Compounded In Arrears ({lookback_days}D lookback")?;
+                if *observation_shift {
+                    write!(f, ", observation shift")?;
+                }
+                if let Some(lock) = lockout_days {
+                    write!(f, ", {lock}D lockout")?;
+                }
+                write!(f, ")")
+            }
+            SOFRConvention::SimpleAverage { lookback_days } => {
+                write!(f, "SOFR Simple Average ({lookback_days}D lookback)")
+            }
+            SOFRConvention::TermSOFR(tenor) => write!(f, "Term SOFR {tenor}"),
+            SOFRConvention::CompoundedInAdvance => write!(f, "SOFR Compounded In Advance"),
+        }
+    }
+}
 
 /// Inflation index type for inflation-linked bonds (TIPS, Linkers).
 ///

@@ -24,5 +24,5 @@ pub use bond_type::BondType;
 pub use identifiers::{BondIdentifiers, CalendarId, Cusip, Figi, Isin, Sedol};
 pub use options::{CallEntry, CallSchedule, CallType, PutEntry, PutSchedule, PutType};
 pub use price_quote::{PriceQuote, PriceQuoteConvention};
-pub use rate_index::{InflationIndexType, RateIndex, Tenor};
+pub use rate_index::{InflationIndexType, RateIndex, SOFRConvention, Tenor};
 pub use yield_convention::{AccruedConvention, RoundingConvention, YieldConvention};

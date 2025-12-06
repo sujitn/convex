@@ -29,6 +29,7 @@ serde = { workspace = true }
 # Utilities
 uuid = { workspace = true }
 log = { workspace = true }
+once_cell = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }

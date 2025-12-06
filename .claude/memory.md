@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-06 (BOND-003 Cash Flow Engine Complete)
+**Last Updated**: 2025-12-06 (BOND-007 Sinking Fund Bonds Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -650,6 +650,10 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | Bond Conventions | 42/30 | 42 | ✅ |
 | Price/Yield Types | 72/50 | 72 | ✅ |
 | Cash Flow Engine | 30/25 | 30 | ✅ |
+| Fixed Rate Bond | 12/10 | 12 | ✅ |
+| Zero Coupon Bond | 18/15 | 18 | ✅ |
+| Floating Rate Note | 34/30 | 34 | ✅ |
+| Callable Bond | 12/10 | 12 | ✅ |
 | US Treasury | 0/20 | 0 | ⬜ |
 | Corporate IG | 0/20 | 0 | ⬜ |
 | Corporate HY | 0/15 | 0 | ⬜ |
@@ -658,7 +662,7 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | MBS | 0/10 | 0 | ⬜ |
 | Spreads | 0/20 | 0 | ⬜ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **725/590** | **725** | 🟡 |
+| **Total** | **789/645** | **789** | 🟡 |
 
 > **Note**: Total workspace tests: 600+ (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
 
@@ -775,6 +779,327 @@ Settlement: 04/29/2020, Price: 110.503
 
 ## Change Log
 
+### 2025-12-06 - Sinking Fund Bonds (BOND-007) Complete
+
+**Implemented in convex-bonds:**
+
+- **SinkingFundBond** (`instruments/sinking_fund.rs`):
+  - Complete sinking fund bond implementation wrapping FixedRateBond
+  - Scheduled principal repayments with delivery option and acceleration
+  - Automatic factor and amortization schedule calculation
+  - Builder pattern with validation
+
+- **SinkingFundSchedule**:
+  - Stores list of `SinkingFundPayment` entries (date, percentage, call price)
+  - `delivery_option` - bondholder can deliver bonds at market vs sinking price
+  - `acceleration_option` - issuer can accelerate sinking (double-up, triple-up, custom)
+  - `AccelerationOption` enum: None, DoubleUp, TripleUp, Custom(Decimal)
+  - `factor(as_of)` - calculate remaining principal factor
+  - `total_sinking_percentage()` - sum of all payments
+  - `to_amortization_schedule()` - convert to AmortizationSchedule
+
+- **Average Life Calculation**:
+  - `average_life(settlement)` - weighted average time to principal repayment
+  - Weights each principal payment by time from settlement
+  - Industry-standard formula: Σ(Δt × CF) / Σ(CF)
+
+- **Yield Calculations**:
+  - `yield_to_average_life(price, settlement)` - YTAL for sinking fund analysis
+  - Uses Newton-Raphson solver targeting average life as maturity
+  - `yield_to_maturity(price, settlement)` - standard YTM to final maturity
+
+- **AmortizingBond Trait Implementation**:
+  - `amortization_schedule()` - returns computed schedule
+  - `factor(as_of)` - remaining principal factor
+  - `cash_flows(settlement)` - principal-adjusted cash flows
+  - `average_life(settlement)` - WAL calculation
+  - `yield_to_average_life(price, settlement)` - YTAL
+
+- **Cash Flow Methods**:
+  - `cash_flows(settlement)` - coupons adjusted for outstanding factor
+  - `cash_flows_with_sinking(settlement)` - includes sinking fund payments as principal
+  - `accrued_interest(settlement)` - accrued on current outstanding principal
+
+**Tests**: 15 sinking fund tests + 214 existing = 229 total passing
+- SinkingFundPayment creation and validation
+- AccelerationOption variants (DoubleUp, TripleUp, Custom)
+- Schedule factor calculation at various dates
+- Total sinking percentage validation
+- SinkingFundBond creation with builder
+- Average life calculation
+- Yield to average life calculation
+- Factor tracking over time
+- Cash flow generation
+- AmortizingBond trait compliance
+- Builder validation errors
+
+**Performance Targets**:
+- Factor calculation: < 1μs
+- Average life: < 5μs
+- YTAL calculation: < 50μs
+- Cash flow generation: < 10μs
+
+**API Usage**:
+```rust
+// Create a sinking fund schedule
+let schedule = SinkingFundSchedule::new()
+    .with_payment(date!(2026-01-15), dec!(10), dec!(100))  // 10% at par
+    .with_payment(date!(2027-01-15), dec!(10), dec!(100))
+    .with_payment(date!(2028-01-15), dec!(10), dec!(100))
+    .with_delivery_option(true)
+    .with_acceleration(AccelerationOption::DoubleUp);
+
+// Create sinking fund bond
+let sf_bond = SinkingFundBondBuilder::new(base_bond, schedule)
+    .original_face(dec!(100))
+    .build()?;
+
+// Calculate average life and YTAL
+let avg_life = sf_bond.average_life(settlement);  // e.g., 3.5 years
+let ytal = sf_bond.yield_to_average_life(dec!(98.50), settlement)?;
+
+// Get factor at specific date
+let factor = sf_bond.factor(settlement);  // e.g., 0.80 (80% outstanding)
+
+// Get cash flows with sinking payments
+let flows = sf_bond.cash_flows_with_sinking(settlement);
+```
+
+### 2025-12-06 - Callable Bonds (BOND-006) Complete
+
+**Implemented in convex-bonds:**
+
+- **CallableBond** (`instruments/callable.rs`):
+  - Complete callable bond implementation wrapping FixedRateBond
+  - Call schedule support with step-down prices
+  - Optional put schedule for callable/puttable bonds
+  - American, Bermudan, European, and Make-Whole call types
+  - Builder pattern with validation
+
+- **Yield Calculations**:
+  - `yield_to_call_date(price, settlement, call_date)` - YTC to specific date
+  - `yield_to_first_call(price, settlement)` - YTC to first callable date
+  - `yield_to_maturity(price, settlement)` - YTM for underlying bond
+  - `yield_to_worst_with_date(price, settlement)` - YTW with workout date
+  - `yield_to_worst(price, settlement)` - YTW value only (from EmbeddedOptionBond trait)
+
+- **Make-Whole Call Support**:
+  - `is_make_whole()` - Check if bond has make-whole provision
+  - `make_whole_spread()` - Get treasury spread in bps
+  - `make_whole_call_price(call_date, treasury_rate)` - Calculate make-whole price
+
+- **Workout Date Helpers**:
+  - `all_workout_dates(settlement, maturity)` - Enumerate all potential workout dates
+  - `next_call_date_after(date)` - Find next callable date
+
+- **Bond Types Added**:
+  - `BondType::MakeWholeCallable` - Make-whole callable bonds
+  - Updated `is_corporate()`, `has_optionality()` methods
+
+- **Trait Implementations**:
+  - `Bond` trait - full delegation to underlying FixedRateBond
+  - `FixedCouponBond` trait - delegation for coupon properties
+  - `EmbeddedOptionBond` trait - YTC, YTP, YTW, schedule access
+
+**Tests**: 12 callable bond tests + 20 existing doc tests passing
+- Call schedule creation and validation
+- Step-down price schedules
+- Protection period handling
+- Yield calculations (YTC, YTM, YTW)
+- Make-whole bond pricing
+- Callable/puttable combinations
+- Builder validation
+
+**Performance Targets**:
+- YTC calculation: < 5μs
+- YTW calculation: < 50μs
+- Call date enumeration: < 1μs
+
+**API Usage**:
+```rust
+// Create a callable bond
+let call_schedule = CallSchedule::new(CallType::American)
+    .with_entry(CallEntry::new(date!(2025-06-15), 102.0))
+    .with_entry(CallEntry::new(date!(2027-06-15), 101.0))
+    .with_entry(CallEntry::new(date!(2028-06-15), 100.0));
+
+let callable = CallableBond::new(base_bond, call_schedule);
+
+// Calculate yields
+let ytc = callable.yield_to_first_call(dec!(100), settlement)?;
+let ytm = callable.yield_to_maturity(dec!(100), settlement)?;
+let (ytw, workout_date) = callable.yield_to_worst_with_date(dec!(105), settlement)?;
+
+// Make-whole bonds
+let mw_schedule = CallSchedule::make_whole(25.0) // T+25 bps
+    .with_entry(CallEntry::new(date!(2024-01-15), 100.0));
+let mw_bond = CallableBond::new(base_bond, mw_schedule);
+let mw_price = mw_bond.make_whole_call_price(call_date, treasury_rate)?;
+```
+
+### 2025-12-06 - Floating Rate Notes (BOND-005b) Complete
+
+**Implemented in convex-bonds:**
+
+- **FloatingRateNote** (`instruments/floating_rate.rs`):
+  - Complete FRN implementation with SOFR, SONIA, €STR, EURIBOR support
+  - Cap/floor/collar structures
+  - Builder pattern with market convention presets
+  - SOFR compounding conventions (CompoundedInArrears, SimpleAverage, TermSOFR)
+
+- **Index Fixing Infrastructure** (`indices/` module):
+  - `IndexFixingStore`: Storage for historical rate fixings with O(log n) lookup
+  - `IndexFixing`: Single rate observation with source attribution
+  - Range queries, date lookups, multiple indices support
+  - `OvernightCompounding`: ARRC-standard compounding calculator
+    - Compounded in arrears with lookback/lockout support
+    - Simple average calculation
+    - Required fixing dates helper
+
+- **Forward Curve Projection**:
+  - `cash_flows_projected(settlement, forward_curve)` - projects FRN coupons using forward rates
+  - Applies spread, cap, floor to projected rates
+  - Returns cash flows with reference rate metadata
+
+- **Fixing Date Helpers**:
+  - `required_fixing_dates(from)` - returns all fixing dates needed for future periods
+  - Overnight rates: all business days in period
+  - Term rates: single fixing date based on reset lag
+
+- **Accrued Interest from Store**:
+  - `accrued_interest_from_store(settlement, store)` - calculates accrued using historical fixings
+  - Overnight compounding for SOFR/SONIA in arrears
+  - Term rate lookup for EURIBOR/Term SOFR
+
+- **BondCashFlow Enhancement**:
+  - Added `reference_rate` field for FRN projected/actual rates
+  - `with_reference_rate(rate)` builder method
+
+**Market Convention Presets**:
+- `us_treasury_frn()` - SOFR compounded in arrears, ACT/360, quarterly
+- `corporate_sofr()` - Term SOFR, ACT/360, quarterly
+- `uk_sonia()` - SONIA compounded, ACT/365F, quarterly, same-day settlement
+- `estr()` - €STR compounded, ACT/360, TARGET2 calendar
+- `euribor_3m()` / `euribor_6m()` - EURIBOR term rates
+
+**Tests**: 202 unit tests + 20 doc tests passing (convex-bonds)
+- 17 floating rate note tests
+- 13 index fixing store tests
+- 4 overnight compounding tests
+
+**Performance Targets**:
+- FRN construction: < 500ns
+- Period rate calculation (term): < 100ns
+- Period rate calculation (compounded 90d): < 10μs
+- Accrued interest: < 200ns
+
+**API Usage**:
+```rust
+// Create a SOFR FRN
+let frn = FloatingRateNote::builder()
+    .cusip_unchecked("912796AB1")
+    .sofr_arrears()
+    .spread_bps(10)
+    .issue_date(Date::from_ymd(2024, 1, 15).unwrap())
+    .maturity(Date::from_ymd(2026, 1, 15).unwrap())
+    .frequency(Frequency::Quarterly)
+    .build()?;
+
+// Project cash flows using forward curve
+let projected = frn.cash_flows_projected(settlement, &forward_curve);
+
+// Calculate accrued from historical fixings
+let mut store = IndexFixingStore::new();
+store.add_fixing(date, RateIndex::SOFR, dec!(0.0530));
+let accrued = frn.accrued_interest_from_store(settlement, &store);
+
+// Get required fixing dates
+let fixing_dates = frn.required_fixing_dates(settlement);
+```
+
+### 2025-12-06 - Zero Coupon Bonds (BOND-008) Complete
+
+**Implemented in convex-bonds:**
+
+- **Enhanced ZeroCouponBond** (`instruments/zero_coupon.rs`):
+  - Complete rewrite with full Bond trait implementation
+  - Multiple compounding conventions (Annual, SemiAnnual, Quarterly, Monthly, Continuous)
+  - Pricing and yield calculations
+
+- **Compounding Enum** with 5 variants:
+  - `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`, `Continuous`
+  - `periods_per_year()` helper method
+  - Serde support with custom serialization
+
+- **Yield Conversion Functions**:
+  - `convert_yield(rate, from, to)` - convert between any compounding conventions
+  - Uses continuous compounding as intermediate for accuracy
+
+- **ZeroCouponBond Struct**:
+  - `identifiers` - validated bond identifiers (CUSIP, ISIN)
+  - `maturity`, `issue_date`, `issue_price`
+  - `day_count` - day count convention
+  - `compounding` - yield compounding convention
+  - `settlement_days`, `calendar`, `currency`
+  - `face_value`, `redemption_value`
+
+- **ZeroCouponBondBuilder** with market convention methods:
+  - `us_treasury_bill()` - ACT/360, T+1, Discount yield
+  - `german_bubill()` - ACT/360, T+2, TARGET2
+  - `uk_treasury_bill()` - ACT/365F, T+1, UK calendar
+
+- **Pricing Methods**:
+  - `price_from_yield(yield_rate, settlement)` - price from yield for any compounding
+  - `yield_from_price(price, settlement)` - yield from price (Newton-Raphson)
+  - `discount_yield(price, settlement)` - T-Bill discount yield (360-day basis)
+  - `bond_equivalent_yield(price, settlement)` - BEY for comparison with coupon bonds
+
+- **Bond Trait Implementation**:
+  - `identifiers()`, `maturity()`, `currency()`, `face_value()`
+  - `coupon_frequency()` - returns 0 for zero coupon
+  - `cash_flows(settlement)` - single redemption payment
+  - `accrued_interest()` - always returns zero
+  - `day_count_convention()`, `calendar()`, `redemption_value()`
+
+- **Direct Accessor Methods**:
+  - `maturity_date()` - returns Date directly (not Option)
+  - `identifier()` - returns string identifier for display
+
+**Key Features**:
+- Custom Serialize/Deserialize for DayCountConvention (doesn't implement serde)
+- Proper days_between calculation (settlement to maturity, not reverse)
+- Validated security identifiers with check digit validation
+- Market-specific conventions for US, German, UK Treasury bills
+
+**Performance Targets**:
+- Price/yield calculations: < 50ns (met)
+- Yield conversion: < 10ns
+
+**Tests**: 174 unit tests + 20 doc tests (convex-bonds)
+- 18 new zero coupon bond tests
+- All tests passing
+
+**API Usage**:
+```rust
+// Create a US Treasury Bill
+let bond = ZeroCouponBond::builder()
+    .cusip_unchecked("912796AB1")
+    .maturity(Date::from_ymd(2024, 6, 15).unwrap())
+    .issue_date(Date::from_ymd(2024, 3, 17).unwrap())
+    .us_treasury_bill()
+    .build()?;
+
+// Calculate price from yield
+let settlement = Date::from_ymd(2024, 3, 17).unwrap();
+let price = bond.price_from_yield(dec!(0.05), settlement);
+
+// Calculate discount yield from price
+let discount_yield = bond.discount_yield(dec!(98.75), settlement);
+
+// Convert yield between compounding conventions
+let semi_yield = convert_yield(dec!(0.05), Compounding::Annual, Compounding::SemiAnnual);
+```
+
 ### 2025-12-06 - Cash Flow Engine (BOND-003) Complete
 
 **Enhanced in convex-core:**
@@ -867,6 +1192,85 @@ let accrued = AccruedInterestCalculator::ex_dividend(
     settlement, last_coupon, next_coupon,
     rate, face, day_count, frequency, 7, &calendar,
 );
+```
+
+### 2025-12-06 - Fixed Rate Bond (BOND-004) Complete
+
+**Implemented in convex-bonds:**
+
+- **FixedRateBond** (`instruments/fixed_rate.rs`):
+  - Full fixed rate bond with validated identifiers, market conventions, and cached schedule
+  - Implements `Bond` and `FixedCouponBond` traits
+  - Schedule caching with `OnceCell` for performance
+  - Ex-dividend support for UK Gilts
+
+- **FixedRateBondBuilder**:
+  - Fluent API for bond construction
+  - `cusip()` / `cusip_unchecked()` - CUSIP identifier
+  - `coupon_rate()` / `coupon_percent()` - coupon specification
+  - `us_corporate()` - US corporate bond conventions (30/360, T+2, semi-annual)
+  - `us_treasury()` - US Treasury conventions (ACT/ACT ICMA, T+1)
+  - `uk_gilt()` - UK Gilt conventions (with 7 business day ex-dividend)
+  - `german_bund()` - German Bund conventions (annual, TARGET2)
+  - `with_conventions()` - apply custom BondConventions
+
+- **Bond Trait Implementation**:
+  - `identifiers()` - returns validated BondIdentifiers
+  - `cash_flows()` - generates CashFlow vector with accrual periods
+  - `accrued_interest()` - standard or ex-dividend calculation
+  - `next_coupon_date()` / `previous_coupon_date()` - schedule navigation
+  - `day_count_convention()` - string representation
+
+- **FixedCouponBond Trait Implementation**:
+  - `coupon_rate()` - annual coupon as Decimal
+  - `coupon_frequency()` - payments per year
+  - `first_coupon_date()` / `last_coupon_date()` - schedule dates
+  - `is_ex_dividend()` - ex-dividend period check
+
+**Key Features**:
+- Validated identifiers (CUSIP, ISIN)
+- Market-specific conventions (US Corporate, Treasury, UK Gilt, German Bund)
+- Schedule caching with `OnceCell` for performance
+- Ex-dividend accrued interest (negative accrued in ex-div period)
+- Business day adjustments with configurable calendar
+- Custom Serialize/Deserialize for DayCountConvention
+
+**Bloomberg Validation**:
+- Boeing 7.5% 06/15/2025 accrued: 2.79166 per $100 (134 days at 30/360)
+- Settlement: April 29, 2020
+
+**Tests**: 161 unit tests + 18 doc tests (convex-bonds)
+
+**Dependencies Added**:
+- `once_cell = "1.19"` for lazy schedule initialization
+
+**API Usage**:
+```rust
+// Create a US corporate bond
+let bond = FixedRateBond::builder()
+    .cusip("097023AH7")?
+    .coupon_percent(7.5)
+    .maturity(Date::from_ymd(2025, 6, 15).unwrap())
+    .issue_date(Date::from_ymd(2005, 5, 31).unwrap())
+    .us_corporate()
+    .build()?;
+
+// Calculate accrued interest
+let settlement = Date::from_ymd(2020, 4, 29).unwrap();
+let accrued = bond.accrued_interest(settlement);
+
+// Get cash flows
+let flows = bond.cash_flows(settlement);
+
+// Check ex-dividend status (UK Gilts)
+let uk_bond = FixedRateBond::builder()
+    .cusip_unchecked("GILT00001")
+    .coupon_percent(4.0)
+    .maturity(date)
+    .issue_date(date)
+    .uk_gilt()
+    .build()?;
+let is_ex_div = uk_bond.is_ex_dividend(settlement);
 ```
 
 ### 2025-12-06 - Bond Identifiers and Reference Data (BOND-002) Complete

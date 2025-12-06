@@ -64,6 +64,8 @@ pub enum BondType {
     // ==================== Corporate - Structured ====================
     /// Callable bond (issuer can redeem early)
     Callable,
+    /// Make-whole callable bond (redemption at treasury + spread)
+    MakeWholeCallable,
     /// Puttable bond (holder can sell back early)
     Puttable,
     /// Both callable and puttable
@@ -151,6 +153,7 @@ impl BondType {
                 | BondType::FlooredFRN
                 | BondType::CollaredFRN
                 | BondType::Callable
+                | BondType::MakeWholeCallable
                 | BondType::Puttable
                 | BondType::CallableAndPuttable
                 | BondType::SinkingFund
@@ -220,6 +223,7 @@ impl BondType {
         matches!(
             self,
             BondType::Callable
+                | BondType::MakeWholeCallable
                 | BondType::Puttable
                 | BondType::CallableAndPuttable
                 | BondType::CallableAgency
@@ -319,6 +323,7 @@ impl std::fmt::Display for BondType {
             BondType::FlooredFRN => "Floored FRN",
             BondType::CollaredFRN => "Collared FRN",
             BondType::Callable => "Callable",
+            BondType::MakeWholeCallable => "Make-Whole Callable",
             BondType::Puttable => "Puttable",
             BondType::CallableAndPuttable => "Callable & Puttable",
             BondType::SinkingFund => "Sinking Fund",

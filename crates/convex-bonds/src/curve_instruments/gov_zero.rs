@@ -7,7 +7,8 @@ use convex_curves::instruments::{CurveInstrument, InstrumentType};
 use convex_curves::traits::Curve;
 use convex_curves::CurveResult;
 
-use crate::instruments::{Bond, ZeroCouponBond};
+use crate::instruments::ZeroCouponBond;
+use crate::traits::Bond;
 
 use super::conventions::{day_count_factor, MarketConvention};
 
@@ -83,7 +84,7 @@ impl GovernmentZeroCoupon {
         discount_rate: f64,
         convention: MarketConvention,
     ) -> Self {
-        let days = settlement.days_between(&bond.maturity()) as f64;
+        let days = settlement.days_between(&bond.maturity_date()) as f64;
         // Discount instruments use 360-day year for rate calculation
         let price = 100.0 * (1.0 - discount_rate * days / 360.0);
         Self::new(bond, settlement, price, convention)
@@ -119,7 +120,7 @@ impl GovernmentZeroCoupon {
     #[must_use]
     pub fn implied_yield(&self) -> f64 {
         let face_value: f64 = self.bond.face_value().to_f64().unwrap_or(100.0);
-        let yf = day_count_factor(self.settlement, self.bond.maturity(), self.convention);
+        let yf = day_count_factor(self.settlement, self.bond.maturity_date(), self.convention);
         if yf > 0.0 && self.price > 0.0 {
             (face_value / self.price - 1.0) / yf
         } else {
@@ -129,13 +130,13 @@ impl GovernmentZeroCoupon {
 
     /// Calculates the year fraction from settlement to maturity.
     fn year_fraction(&self) -> f64 {
-        day_count_factor(self.settlement, self.bond.maturity(), self.convention)
+        day_count_factor(self.settlement, self.bond.maturity_date(), self.convention)
     }
 }
 
 impl CurveInstrument for GovernmentZeroCoupon {
     fn maturity(&self) -> Date {
-        self.bond.maturity()
+        self.bond.maturity_date()
     }
 
     fn pv(&self, curve: &dyn Curve) -> CurveResult<f64> {
@@ -164,7 +165,7 @@ impl CurveInstrument for GovernmentZeroCoupon {
         format!(
             "{} {} @ {:.4} ({})",
             self.bond.identifier(),
-            self.bond.maturity(),
+            self.bond.maturity_date(),
             self.price,
             self.convention
         )
@@ -231,7 +232,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Calculate expected price from a 5% flat curve
-        let yf = day_count_factor(settlement, bond.maturity(), MarketConvention::UKGilt);
+        let yf = day_count_factor(settlement, bond.maturity_date(), MarketConvention::UKGilt);
         let df = (-0.05 * yf).exp();
         let fair_price = 100.0 * df;
 

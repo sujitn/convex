@@ -37,6 +37,8 @@ pub struct BondCashFlow {
     pub accrual_end: Option<Date>,
     /// Remaining factor (for amortizing bonds)
     pub factor: Decimal,
+    /// Reference rate for floating rate instruments (projected or actual)
+    pub reference_rate: Option<Decimal>,
 }
 
 impl BondCashFlow {
@@ -50,6 +52,7 @@ impl BondCashFlow {
             accrual_start: None,
             accrual_end: None,
             factor: Decimal::ONE,
+            reference_rate: None,
         }
     }
 
@@ -63,6 +66,7 @@ impl BondCashFlow {
             accrual_start: None,
             accrual_end: None,
             factor: Decimal::ONE,
+            reference_rate: None,
         }
     }
 
@@ -76,6 +80,7 @@ impl BondCashFlow {
             accrual_start: None,
             accrual_end: None,
             factor: Decimal::ONE,
+            reference_rate: None,
         }
     }
 
@@ -91,6 +96,13 @@ impl BondCashFlow {
     #[must_use]
     pub fn with_factor(mut self, factor: Decimal) -> Self {
         self.factor = factor;
+        self
+    }
+
+    /// Sets the reference rate (for floating rate instruments).
+    #[must_use]
+    pub fn with_reference_rate(mut self, rate: Decimal) -> Self {
+        self.reference_rate = Some(rate);
         self
     }
 
