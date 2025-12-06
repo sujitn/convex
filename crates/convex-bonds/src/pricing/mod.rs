@@ -1,4 +1,14 @@
 //! Bond pricing calculations.
+//!
+//! This module provides:
+//! - [`YieldSolver`]: Bloomberg YAS-style yield-to-maturity solver
+//! - [`BondPricer`]: High-level pricing interface
+//! - [`PriceResult`]: Result type for pricing calculations
+//! - [`current_yield`]: Current yield calculation
+
+mod yield_solver;
+
+pub use yield_solver::{current_yield, current_yield_from_bond, YieldResult, YieldSolver};
 
 use rust_decimal::Decimal;
 

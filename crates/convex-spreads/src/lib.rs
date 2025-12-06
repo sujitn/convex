@@ -29,12 +29,22 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod asw;
+pub mod benchmark;
 pub mod error;
+pub mod government_curve;
 pub mod gspread;
 pub mod ispread;
+pub mod sovereign;
 pub mod zspread;
 
+pub use asw::{ASWType, ParParAssetSwap, ProceedsAssetSwap};
+pub use benchmark::{BenchmarkSpec, SecurityId};
 pub use error::{SpreadError, SpreadResult};
+pub use government_curve::{GovernmentBenchmark, GovernmentCurve};
+pub use gspread::{BenchmarkInfo, GSpreadCalculator, GSpreadResult, TreasuryBenchmark};
+pub use sovereign::{Sovereign, SupranationalIssuer};
+pub use zspread::ZSpreadCalculator;
 
 use rust_decimal::Decimal;
 

@@ -81,7 +81,9 @@ pub mod prelude {
     };
 
     // Pricing
-    pub use crate::pricing::{BondPricer, PriceResult};
+    pub use crate::pricing::{
+        current_yield, current_yield_from_bond, BondPricer, PriceResult, YieldResult, YieldSolver,
+    };
 
     // Risk
     pub use crate::risk::{DurationResult, RiskMetrics};

@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-06 (BOND-005a Rate Index Infrastructure Complete)
+**Last Updated**: 2025-12-06 (SPREAD-001 Enhanced G-Spread Calculator Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -778,6 +778,397 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-06 - Asset Swap Spread Calculator (SPREAD-003) Complete
+
+**Implemented ASW module with Par-Par and Proceeds calculators in convex-spreads:**
+
+- **New Module**: `asw/` with `mod.rs`, `par_par.rs`, `proceeds.rs`
+
+- **ASWType Enum** (`asw/mod.rs`):
+  - `ParPar` - Exchange bond at par, spread compensates for price difference
+  - `MarketValue` - Swap notional equals bond market value
+  - `Proceeds` - Swap notional equals bond proceeds
+  - Methods: `description()`, `uses_par_notional()`, `uses_market_notional()`
+
+- **ParParAssetSwap** (`asw/par_par.rs`):
+  - Par-par asset swap spread calculator using ZeroCurve
+  - Formula: ASW = (100 - Dirty Price) / Annuity
+  - Key methods:
+    - `calculate()` - Par-par ASW spread in basis points
+    - `gross_spread()` - Alias for calculate (market terminology)
+    - `net_spread()` - After repo/funding cost adjustment
+    - `annuity()` - Swap annuity (PV01 of floating leg)
+    - `implied_price()` - Inverse: bond price from ASW spread
+  - Net spread formula: Net = Gross - (DP/100 - 1) × repo_rate
+
+- **ProceedsAssetSwap** (`asw/proceeds.rs`):
+  - Proceeds asset swap where notional = dirty price
+  - Formula: Proceeds ASW = Par-Par ASW × (100 / Dirty Price)
+  - Key methods:
+    - `calculate()` - Proceeds ASW spread
+    - `market_value_spread()` - MV ASW with coupon mismatch
+    - `z_spread_equivalent()` - Approximate Z-spread conversion
+
+- **Annuity Calculation**:
+  - Generates payment dates backward from maturity
+  - Annuity = Σ DF(t_i) × τ_i (discount factor × year fraction)
+  - Supports semi-annual, quarterly, annual, monthly frequencies
+
+- **Trait Requirements**: `Bond + FixedCouponBond`
+  - Uses `coupon_frequency()`, `coupon_rate()`, `accrued_interest()`
+  - Uses `maturity()`, `face_value()`, `currency()`
+
+- **Error Handling**:
+  - `SettlementAfterMaturity` - When settlement >= maturity
+  - `InvalidInput` - Zero dirty price, zero annuity, invalid frequency
+  - `CurveError` - Discount factor interpolation failures
+
+- **Tests** (65 tests total in convex-spreads):
+  - Par-par calculator creation and reference date
+  - ASW at par (near-zero spread)
+  - Discount bond ASW (positive spread)
+  - Premium bond ASW (negative spread)
+  - Net spread with repo rate adjustment
+  - Annuity calculation sanity check
+  - Implied price roundtrip
+  - Proceeds vs Par-Par comparison (discount/premium)
+  - Z-spread equivalent conversion
+  - Settlement after maturity error handling
+  - ASWType enum tests (description, notional type, display)
+
+**API Usage**:
+```rust
+use convex_spreads::asw::{ParParAssetSwap, ProceedsAssetSwap};
+use convex_curves::curves::ZeroCurve;
+
+// Create calculators with swap curve
+let par_par = ParParAssetSwap::new(&swap_curve);
+let proceeds = ProceedsAssetSwap::new(&swap_curve);
+
+// Par-par ASW (most common for investment-grade)
+let asw = par_par.calculate(&bond, clean_price, settlement)?;
+println!("Par-Par ASW: {} bps", asw.as_bps());
+
+// Net ASW after funding cost
+let net = par_par.net_spread(&bond, clean_price, settlement, repo_rate)?;
+
+// Proceeds ASW (structured products)
+let proceeds_asw = proceeds.calculate(&bond, clean_price, settlement)?;
+
+// Z-spread approximation from proceeds ASW
+let z_equiv = proceeds.z_spread_equivalent(&bond, clean_price, settlement)?;
+```
+
+**Performance Target**: < 10μs for ASW calculation
+
+**Total Tests**: 65 tests passing in convex-spreads
+
+---
+
+### 2025-12-06 - Enhanced G-Spread Calculator (SPREAD-001) Complete
+
+**Implemented comprehensive G-Spread system with multi-sovereign support:**
+
+- **New Modules**:
+  - `sovereign.rs` - Sovereign enum (50+ countries) and SupranationalIssuer enum
+  - `benchmark.rs` - SecurityId (CUSIP/ISIN/FIGI) and BenchmarkSpec enum
+  - `government_curve.rs` - GovernmentCurve with benchmark support
+
+- **Sovereign Enum** (`sovereign.rs`):
+  - 50+ sovereigns: UST, UK, Germany, France, Japan, Canada, Australia, etc.
+  - Supranational issuers: EIB, EBRD, WorldBank, ADB, KfW, ESM, EU
+  - `currency()` - Returns primary bond currency
+  - `bond_name()` - Common names (Treasury, Gilt, Bund, OAT, JGB)
+  - `bloomberg_prefix()` - Bloomberg ticker prefix (GT, GUKG, GDBR)
+  - `standard_tenors()` - Standard benchmark tenors for each sovereign
+
+- **BenchmarkSpec Enum** (`benchmark.rs`):
+  - `Interpolated` - Yield interpolated at exact maturity (most common)
+  - `OnTheRunTenor(Tenor)` - Spread to specific benchmark (2Y, 5Y, 10Y, etc.)
+  - `NearestOnTheRun` - Spread to nearest standard benchmark
+  - `SpecificSecurity(SecurityId)` - Spread to specific CUSIP/ISIN/FIGI
+  - `ExplicitYield(Yield)` - User-provided benchmark yield
+  - Convenience methods: `ten_year()`, `five_year()`, `cusip()`, `isin()`
+
+- **SecurityId Enum** (`benchmark.rs`):
+  - Wraps CUSIP, ISIN, FIGI identifiers from convex-bonds
+  - Factory methods with validation: `cusip()`, `isin()`, `figi()`
+  - Unchecked versions for testing: `cusip_unchecked()`, etc.
+
+- **GovernmentCurve** (`government_curve.rs`):
+  - Multi-sovereign yield curve with benchmark support
+  - Factory methods: `us_treasury()`, `uk_gilt()`, `german_bund()`, `japanese_jgb()`
+  - `with_benchmark()` - Add on-the-run benchmarks with security details
+  - `interpolated_yield()` - Linear interpolation of yields
+  - `benchmark()` - Get benchmark by tenor
+  - `nearest_benchmark()` - Find closest benchmark to maturity
+  - `security_by_id()` - Lookup by CUSIP/ISIN/FIGI
+
+- **GovernmentBenchmark** (`government_curve.rs`):
+  - Captures security details: tenor, CUSIP/ISIN, maturity, coupon, yield
+  - `is_on_the_run` flag for on-the-run vs off-the-run
+  - Factory methods: `with_cusip()`, `with_isin()`
+
+- **Enhanced GSpreadCalculator** (`gspread.rs`):
+  - Now uses GovernmentCurve for multi-sovereign support
+  - `calculate()` - Full G-spread with BenchmarkSpec and GSpreadResult
+  - `from_price()` - G-spread from market price (calculates YTM)
+  - `interpolated()` - Convenience for most common case
+  - `to_tenor()` - Spread to specific benchmark tenor
+  - `spread_to_yield()` - Static helper for explicit yields
+
+- **BenchmarkInfo Enum** (`gspread.rs`):
+  - `Interpolated` - Shows sovereign and years to maturity
+  - `Benchmark` - Shows tenor, security ID, maturity
+  - `SpecificSecurity` - Shows security ID details
+  - `Explicit` - Indicates user-provided yield
+  - `description()` - Human-readable benchmark info
+
+- **GSpreadResult** (`gspread.rs`):
+  - Contains spread, bond yield, benchmark yield, benchmark info
+  - `years_to_maturity` for context
+
+- **Error Handling**:
+  - `BenchmarkNotFound` - When requested benchmark unavailable
+  - `NoBenchmarksAvailable` - When curve has no benchmarks for nearest lookup
+
+- **Tests** (47 tests total in convex-spreads):
+  - Sovereign currency and bond name mapping
+  - SecurityId construction and display
+  - BenchmarkSpec factory methods
+  - GovernmentCurve interpolation and benchmark lookup
+  - GSpreadCalculator with all benchmark spec types
+  - Multi-sovereign curve support (UK Gilts)
+
+**API Usage**:
+```rust
+use convex_spreads::{GSpreadCalculator, GovernmentCurve, BenchmarkSpec, Sovereign};
+use convex_spreads::government_curve::GovernmentBenchmark;
+
+// Create US Treasury curve with benchmarks
+let ust_curve = GovernmentCurve::us_treasury(settlement)
+    .with_benchmark(GovernmentBenchmark::with_cusip_unchecked(
+        Sovereign::UST, Tenor::Y10, "91282CJQ9",
+        maturity_10y, coupon, yield_10y,
+    ));
+
+// Calculate G-spread (interpolated - most common)
+let calc = GSpreadCalculator::new(&ust_curve);
+let result = calc.calculate(bond_yield, maturity, settlement, BenchmarkSpec::interpolated())?;
+println!("G-Spread: {} bps vs {}", result.spread.as_bps(), result.benchmark_info.description());
+
+// Spread to 10-year benchmark
+let result = calc.calculate(bond_yield, maturity, settlement, BenchmarkSpec::ten_year())?;
+
+// Spread to specific CUSIP
+let result = calc.calculate(bond_yield, maturity, settlement, BenchmarkSpec::cusip("91282CJQ9")?)?;
+```
+
+**Performance Target**: < 1μs for interpolated G-spread
+
+---
+
+### 2025-12-06 - G-Spread Calculator (SPREAD-003) Complete
+
+**Implemented GSpreadCalculator with struct-based API in convex-spreads:**
+
+- **GSpreadCalculator** (`gspread.rs`):
+  - Struct-based design with treasury curve reference
+  - Linear interpolation of government yields at bond maturity
+  - Bloomberg YAS methodology: G-Spread = Bond YTM - Interpolated Treasury Yield
+
+- **TreasuryBenchmark Enum**:
+  - Standard US Treasury benchmarks: 2Y, 3Y, 5Y, 7Y, 10Y, 20Y, 30Y
+  - `Interpolated` option for exact maturity
+  - `years()` - Get tenor in years
+  - `bloomberg_ticker()` - Bloomberg identifier (e.g., "GT10 Govt")
+  - `closest_for_years()` - Find nearest benchmark for given maturity
+
+- **Key Methods**:
+  - `new(curve)` - Create calculator with ZeroCurve reference
+  - `from_yield()` - G-spread from bond yield (fastest)
+  - `from_price()` - G-spread from bond price (calculates YTM internally)
+  - `benchmark_spread()` - Spread to specific on-the-run benchmark
+  - `benchmark_yield()` - Get yield for any benchmark tenor
+  - `calculate_spread()` - Legacy compatibility method
+
+- **Convenience Functions**:
+  - `calculate()` - G-spread from bond and yield
+  - `calculate_from_price()` - G-spread from bond and price
+
+- **Tests** (14 new tests):
+  - Treasury benchmark years and closest matching
+  - Calculator creation and curve access
+  - G-spread from yield (various spread levels)
+  - G-spread settlement after maturity error
+  - Benchmark spread calculations (5Y, 10Y)
+  - Benchmark yield retrieval
+  - G-spread from price
+  - Positive and negative spread scenarios
+  - Spread type verification
+  - Bloomberg ticker mapping
+
+**API Usage**:
+```rust
+use convex_spreads::gspread::{GSpreadCalculator, TreasuryBenchmark};
+use convex_core::types::{Yield, Compounding};
+
+// Create calculator
+let calc = GSpreadCalculator::new(&treasury_curve);
+
+// From yield (faster - no YTM calculation)
+let bond_yield = Yield::new(dec!(0.055), Compounding::SemiAnnual);
+let spread = calc.from_yield(bond_yield, maturity, settlement)?;
+println!("G-Spread: {} bps", spread.as_bps());
+
+// From price (calculates YTM internally)
+let spread = calc.from_price(&bond, clean_price, settlement)?;
+
+// Spread to specific benchmark
+let spread = calc.benchmark_spread(bond_yield, TreasuryBenchmark::TenYear)?;
+
+// Get benchmark yields
+let yield_10y = calc.benchmark_yield(TreasuryBenchmark::TenYear)?;
+```
+
+**Performance Target**: < 1μs for G-spread calculation (simple subtraction after interpolation)
+
+**Total Tests**: 962+ tests passing across workspace (25 in convex-spreads)
+
+### 2025-12-06 - Z-Spread Calculator (SPREAD-002) Complete
+
+**Enhanced ZSpreadCalculator with struct-based API in convex-spreads:**
+
+- **ZSpreadCalculator** (`zspread.rs`):
+  - Struct-based design with curve reference and solver config
+  - Brent's method for root-finding (tolerance 1e-10, max 100 iterations)
+  - Continuous compounding: DF = exp(-(r_i + z) * t_i)
+  - Configurable with builder methods: `with_tolerance()`, `with_max_iterations()`
+
+- **Key Methods**:
+  - `new(curve)` - Create calculator with reference to ZeroCurve
+  - `calculate_from_cash_flows()` - Z-spread from cash flows and dirty price
+  - `calculate_for_bond()` - Z-spread for FixedBond given market price
+  - `price_with_spread()` - Price bond with given spread (for reverse calculation)
+  - `spread_dv01()` - Price sensitivity to 1bp spread change
+  - `spread_duration()` - Percentage price sensitivity (DV01/Price * 10000)
+
+- **Error Handling**:
+  - Added `NoFutureCashFlows` error variant for empty cash flow scenarios
+  - Proper validation: settlement after maturity, convergence failures
+
+- **Tests** (7 new tests):
+  - Calculator creation with builder pattern
+  - Price with spread (zero, positive, negative spreads)
+  - Z-spread calculation roundtrip
+  - Spread DV01 calculation
+  - Spread duration calculation
+  - Multi-spread roundtrip (50, 100, 200, 300, 400 bps)
+  - Empty cash flows error handling
+
+**API Usage**:
+```rust
+use convex_spreads::zspread::ZSpreadCalculator;
+use convex_curves::prelude::{ZeroCurve, ZeroCurveBuilder};
+
+// Create calculator
+let curve = ZeroCurveBuilder::new()
+    .reference_date(settlement)
+    .add_rate(date_1y, dec!(0.045))
+    .add_rate(date_5y, dec!(0.049))
+    .build()?;
+
+let calc = ZSpreadCalculator::new(&curve)
+    .with_tolerance(1e-8)
+    .with_max_iterations(50);
+
+// Calculate Z-spread from price
+let z_spread = calc.calculate_from_cash_flows(&cash_flows, dirty_price, settlement)?;
+println!("Z-Spread: {} bps", z_spread.as_bps());
+
+// Price bond with spread
+let price = calc.price_with_spread(&cash_flows, 0.02, settlement);  // 200 bps
+
+// Calculate sensitivities
+let dv01 = calc.spread_dv01(&cash_flows, z_spread, settlement);
+let duration = calc.spread_duration(&cash_flows, z_spread, settlement);
+```
+
+**Total Tests**: 948+ tests passing across workspace (11 in convex-spreads)
+
+### 2025-12-06 - Yield-to-Maturity Solver (BOND-009) Complete
+
+**Implemented YieldSolver with Bloomberg YAS methodology in convex-bonds:**
+
+- **YieldSolver** (`pricing/yield_solver.rs`):
+  - Newton-Raphson iteration with analytical derivative
+  - Brent's method fallback for difficult cases
+  - Configurable tolerance and max iterations
+  - Support for multiple yield conventions
+
+- **Yield Conventions Supported**:
+  - `StreetConvention` - US market standard (semi-annual compounding)
+  - `TrueYield` - Exact time discounting (no periodic assumption)
+  - `Continuous` - Continuous compounding (exp(-rt))
+  - `SimpleYield` - Japanese convention (no compounding)
+
+- **Key Methods**:
+  - `solve()` - Calculate YTM from price and cash flows
+  - `dirty_price_from_yield()` - Price from yield
+  - `clean_price_from_yield()` - Clean price from yield
+  - `current_yield()` - Simple current yield (annual coupon / price)
+  - `current_yield_from_bond()` - Current yield from FixedCouponBond
+
+- **YieldResult Struct**:
+  - `yield_value` - The calculated yield (decimal)
+  - `iterations` - Number of iterations to converge
+  - `residual` - Final residual (convergence check)
+
+**Tests**: 10 new yield solver tests + 238 existing = 248 total passing
+- YTM at par (coupon rate = YTM)
+- YTM for discount bonds (YTM > coupon)
+- YTM for premium bonds (YTM < coupon)
+- Price-yield roundtrip
+- Current yield calculation
+- Boeing 7.5% 06/15/2025 validation
+- True yield vs Street yield comparison
+- Solver convergence across price range
+- Annual and quarterly frequencies
+
+**Performance Targets**:
+- YTM calculation: < 5μs (Newton-Raphson, ~5 iterations)
+- Price from yield: < 500ns
+- Current yield: < 10ns
+
+**API Usage**:
+```rust
+// Create solver with default Street Convention
+let solver = YieldSolver::new();
+
+// Calculate YTM from price
+let result = solver.solve(
+    &cash_flows,
+    dec!(98.50),  // clean price
+    dec!(1.25),   // accrued interest
+    settlement,
+    DayCountConvention::Thirty360US,
+    Frequency::SemiAnnual,
+)?;
+println!("YTM: {:.4}%", result.yield_value * 100.0);
+
+// Calculate price from yield
+let dirty_price = solver.dirty_price_from_yield(
+    &cash_flows,
+    0.05,  // 5% yield
+    settlement,
+    DayCountConvention::Thirty360US,
+    Frequency::SemiAnnual,
+);
+
+// Current yield (simple)
+let cy = current_yield(dec!(7.5), dec!(110.503));
+```
 
 ### 2025-12-06 - Rate Index Infrastructure (BOND-005a) Complete
 

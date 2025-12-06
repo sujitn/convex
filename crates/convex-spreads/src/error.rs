@@ -38,6 +38,21 @@ pub enum SpreadError {
         /// Maturity date.
         maturity: String,
     },
+
+    /// No future cash flows available.
+    #[error("No future cash flows available for spread calculation")]
+    NoFutureCashFlows,
+
+    /// Benchmark not found.
+    #[error("Benchmark not found: {description}")]
+    BenchmarkNotFound {
+        /// Description of the requested benchmark.
+        description: String,
+    },
+
+    /// No benchmarks available on curve.
+    #[error("No benchmarks available on government curve")]
+    NoBenchmarksAvailable,
 }
 
 impl SpreadError {

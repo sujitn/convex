@@ -18,7 +18,8 @@
       "WebFetch(domain:home.treasury.gov)",
       "WebSearch",
       "WebFetch(domain:blog.deriscope.com)",
-      "Bash(cmd /c \"tree /F src\")"
+      "Bash(cmd /c \"tree /F src\")",
+      "Bash(cargo clippy:*)"
     ],
     "deny": [],
     "ask": []
