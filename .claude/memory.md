@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-11-30 (Treasury Curve Integration Complete)
+**Last Updated**: 2025-12-06 (Multi-Curve Framework Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -249,10 +249,12 @@ approx = "0.5"
 - [ ] Synthetic instrument generation (turn adjustments)
 
 #### 3.4 Multi-Curve Framework
-- [ ] OIS discounting curve (SOFR, €STR, SONIA)
-- [ ] Projection curves by tenor (1M, 3M, 6M)
-- [ ] Curve dependencies and build order
-- [ ] Cross-currency curve framework
+- [x] OIS discounting curve (SOFR, €STR, SONIA)
+- [x] Projection curves by tenor (1M, 3M, 6M)
+- [x] Curve dependencies and build order
+- [x] Cross-currency curve framework
+- [x] FX forward curves from interest rate parity
+- [x] Curve sensitivities (DV01, key rate durations)
 
 #### 3.5 Validation & Testing
 - [x] Repricing validation (instruments reprice to par)
@@ -269,7 +271,7 @@ approx = "0.5"
 - [x] Currency-specific conventions (USD, EUR, GBP, JPY, CHF)
 
 **Target**: Week 5-8
-**Status**: 🟢 Phase 3.1 + 3.2 + 3.3 + 3.5 Complete
+**Status**: ✅ Milestone 3 Complete (3.1-3.6)
 
 ---
 
@@ -549,6 +551,7 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 
 ### Milestone 4: Basic Bond Pricing
 - [ ] Fixed-rate bond
+- [ ] Floating-rate bond
 - [ ] Zero-coupon bond
 - [ ] Cash flow generation
 - [ ] YTM calculator
@@ -642,6 +645,7 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | Conventions | 12/10 | 12 | ✅ |
 | Repricing | 9/5 | 9 | ✅ |
 | Quotes | 16/10 | 16 | ✅ |
+| MultiCurve | 44/40 | 44 | ✅ |
 | US Treasury | 0/20 | 0 | ⬜ |
 | Corporate IG | 0/20 | 0 | ⬜ |
 | Corporate HY | 0/15 | 0 | ⬜ |
@@ -650,9 +654,9 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | MBS | 0/10 | 0 | ⬜ |
 | Spreads | 0/20 | 0 | ⬜ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **548/455** | **548** | 🟡 |
+| **Total** | **592/495** | **592** | 🟡 |
 
-> **Note**: Total workspace tests: 567+ (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
+> **Note**: Total workspace tests: 600+ (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
 
 ### Primary Validation Bond Status
 
@@ -766,6 +770,91 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-06 - Multi-Curve Framework Complete (Milestone 3.4)
+
+**Implemented:**
+- **`multicurve` module** in `convex-curves` with complete multi-curve support:
+  - `RateIndex` enum with all major rate indices:
+    - Overnight RFRs: SOFR, €STR, SONIA, TONA, SARON, CORRA, AONIA
+    - Term rates: Term SOFR, EURIBOR, TIBOR, Term SONIA
+    - Legacy: LIBOR (for fallback calculations)
+  - `Tenor` enum with all standard tenors (O/N, T/N, 1W-50Y)
+  - Day count, fixing lag, payment lag, compounding conventions per index
+
+- **`CurveSet` container** for multi-curve environments:
+  - Holds discount curve (OIS), projection curves, and FX curves
+  - Thread-safe using `Arc<DiscountCurve>` and `Arc<ForwardCurve>`
+  - Methods: `discount_factor()`, `forward_rate()`, `fx_forward()`
+  - `CurveSetBuilder` for fluent construction
+
+- **`MultiCurveBuilder`** with fluent API:
+  - `.add_ois("1Y", rate)` for discount curve construction
+  - `.add_projection(RateIndex, tenor, rate)` for projection curves
+  - `.add_basis_swap(pay_index, receive_index, tenor, spread)` for basis
+  - `.add_fx_curve(pair, spot_rate)` for FX curves
+  - `MultiCurveConfig` for interpolation and convergence settings
+
+- **`FxForwardCurve`** from interest rate parity:
+  - `CurrencyPair` struct (base/quote convention)
+  - Forward rate: `F(t) = S × DF_foreign(t) / DF_domestic(t)`
+  - Cross-currency basis spread support (constant or term structure)
+  - Forward points in pips, implied rate differential
+  - Convenience constructors: `eurusd()`, `gbpusd()`, `usdjpy()`, etc.
+
+- **`CurveSensitivityCalculator`** for risk metrics:
+  - `dv01()`: Dollar value of 1bp parallel shift
+  - `key_rate_durations()`: Sensitivity to individual pillar points
+  - `bucket_sensitivities()`: Sensitivity to rate buckets
+  - `BumpType` enum: Parallel, KeyRate, Bucket, Custom
+  - Central difference for accurate numerical derivatives
+  - `Priceable` trait for instrument pricing
+
+**New Tests:** 44 multi-curve tests
+- Rate index properties (currency, day count, fixing lag)
+- Tenor parsing and display
+- CurveSet construction and queries
+- FX forward from interest rate parity
+- Cross-currency basis adjustment
+- DV01 and key rate duration calculations
+- Bucket sensitivities
+
+**Files Created:**
+- `convex-curves/src/multicurve/mod.rs` - Module exports
+- `convex-curves/src/multicurve/rate_index.rs` - RateIndex enum
+- `convex-curves/src/multicurve/curve_set.rs` - CurveSet container
+- `convex-curves/src/multicurve/builder.rs` - MultiCurveBuilder
+- `convex-curves/src/multicurve/fx_forward.rs` - FxForwardCurve
+- `convex-curves/src/multicurve/sensitivity.rs` - Curve sensitivities
+
+**API Usage:**
+```rust
+// Build multi-curve environment
+let curves = MultiCurveBuilder::new(reference_date)
+    // Discount curve (SOFR OIS)
+    .add_ois("1M", 0.0530)
+    .add_ois("1Y", 0.0510)
+    .add_ois("5Y", 0.0450)
+    // Term SOFR 3M projection curve
+    .add_projection(RateIndex::TermSOFR3M, "2Y", 0.0485)
+    .add_projection(RateIndex::TermSOFR3M, "5Y", 0.0455)
+    .build()?;
+
+// Query curves
+let df = curves.discount_factor_at(1.0)?;
+let fwd = curves.forward_rate_at(&RateIndex::term_sofr_3m(), 1.0, 1.25)?;
+
+// Calculate sensitivities
+let calculator = CurveSensitivityCalculator::new();
+let dv01 = calculator.dv01(&price_fn, curves.discount_curve())?;
+let krds = calculator.key_rate_durations(
+    &price_fn,
+    curves.discount_curve(),
+    &[Tenor::Y2, Tenor::Y5, Tenor::Y10, Tenor::Y30],
+)?;
+```
+
+**Milestone 3 Status:** ✅ Complete
 
 ### 2025-11-30 - Treasury Curve Integration Complete
 
@@ -1536,13 +1625,7 @@ Legend: ✅ Full support, ⚠️ Partial, ❌ Not available
 
 ## Next Steps
 
-1. **Complete Milestone 3.4: Multi-Curve Framework**
-   - Full OIS discounting curve integration (SOFR, €STR, SONIA)
-   - Projection curves by tenor (1M, 3M, 6M SOFR)
-   - Curve dependencies and build order resolution
-   - Cross-currency curve framework
-
-2. **Begin Milestone 4: Basic Bond Pricing**
+1. **Begin Milestone 4: Basic Bond Pricing**
    - Fixed-rate corporate bonds
    - Zero-coupon bonds
    - Cash flow generation from schedules
@@ -1550,13 +1633,13 @@ Legend: ✅ Full support, ⚠️ Partial, ❌ Not available
    - Clean/dirty price calculations
    - Accrued interest
 
-3. **Bloomberg Validation**
+2. **Bloomberg Validation**
    - Compare bootstrapped curves against Bloomberg SWDF/FWCV
    - Verify discount factors within 1e-8
    - Verify zero rates within 0.01 bps
    - Verify forward rates within 0.05 bps
 
-4. **Open Issues**
+3. **Open Issues**
    - Global bootstrap via CurveBuilder not fully integrated (Sequential only)
    - Smith-Wilson extrapolation in CurveBuilder is configured but not fully implemented in DiscountCurve
    - Turn adjustments for year-end effects not implemented
