@@ -43,6 +43,7 @@ pub mod curve_instruments;
 pub mod error;
 pub mod indices;
 pub mod instruments;
+pub mod options;
 pub mod pricing;
 pub mod risk;
 pub mod traits;
@@ -84,6 +85,9 @@ pub mod prelude {
     pub use crate::pricing::{
         current_yield, current_yield_from_bond, BondPricer, PriceResult, YieldResult, YieldSolver,
     };
+
+    // Options (for OAS pricing)
+    pub use crate::options::{BinomialTree, HullWhite, ModelError, ShortRateModel};
 
     // Risk
     pub use crate::risk::{DurationResult, RiskMetrics};
