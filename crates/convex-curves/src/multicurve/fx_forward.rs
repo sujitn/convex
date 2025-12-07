@@ -493,7 +493,7 @@ mod tests {
         let fx_no_basis = FxForwardCurveBuilder::new(CurrencyPair::eurusd())
             .spot_rate(1.10)
             .domestic_curve(usd_curve(ref_date))
-            .foreign_curve(eur_curve(ref_date.clone()))
+            .foreign_curve(eur_curve(ref_date))
             .build()
             .unwrap();
 

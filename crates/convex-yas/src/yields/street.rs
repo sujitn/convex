@@ -63,7 +63,12 @@ pub fn street_convention_yield(
 }
 
 /// Estimate current yield as starting point
-fn estimate_current_yield(dirty_price: f64, cash_flows: &[f64], times: &[f64], frequency: u32) -> f64 {
+fn estimate_current_yield(
+    dirty_price: f64,
+    cash_flows: &[f64],
+    times: &[f64],
+    frequency: u32,
+) -> f64 {
     // Find first coupon (non-principal) cash flow
     let annual_coupon = if cash_flows.len() >= 2 {
         // Assume first cash flow is coupon, multiply by frequency

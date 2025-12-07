@@ -18,7 +18,9 @@
 //! | Convexity       | 0.219     | ±0.001           |
 
 use crate::invoice::SettlementInvoice;
-use crate::yields::{current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield};
+use crate::yields::{
+    current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield,
+};
 use crate::YasError;
 use chrono::NaiveDate;
 use convex_bonds::prelude::Bond;
@@ -650,10 +652,10 @@ impl<'a> YASCalculator<'a> {
 
         // Calculate payment dates going backwards from maturity
         let months_between: i32 = match self.frequency {
-            1 => 12,  // Annual
-            4 => 3,   // Quarterly
-            12 => 1,  // Monthly
-            _ => 6,   // Default to semi-annual
+            1 => 12, // Annual
+            4 => 3,  // Quarterly
+            12 => 1, // Monthly
+            _ => 6,  // Default to semi-annual
         };
 
         let mut payment_dates = Vec::new();
@@ -1042,9 +1044,7 @@ mod tests {
         // Near-par bond - accounting for accrued interest
         // Accrued for Boeing 7.5% from 12/15 to 04/29 is about 2.75
         // So clean price ~97.25 gives dirty ~100
-        let result = calculator
-            .analyze(&bond, settlement, dec!(97.25))
-            .unwrap();
+        let result = calculator.analyze(&bond, settlement, dec!(97.25)).unwrap();
 
         if let Some(asw) = result.asw_spread {
             // At near-par, ASW should be relatively small compared to

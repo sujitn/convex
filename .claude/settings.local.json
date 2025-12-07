@@ -30,7 +30,9 @@
       "Bash(ls:*)",
       "Bash(wasm-pack build:*)",
       "Bash(npm install:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

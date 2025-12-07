@@ -259,7 +259,7 @@ mod tests {
     fn test_discount_factor_interpolation() {
         // Test log-linear for discount factors
         let times = vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
-        let rates = vec![0.02, 0.022, 0.025, 0.03, 0.035, 0.04];
+        let rates = [0.02, 0.022, 0.025, 0.03, 0.035, 0.04];
 
         // Convert to discount factors
         let dfs: Vec<f64> = times

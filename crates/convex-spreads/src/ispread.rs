@@ -44,6 +44,5 @@ mod tests {
     #[test]
     fn test_placeholder() {
         // Placeholder - real tests require curve and bond fixtures
-        assert!(true);
     }
 }

@@ -966,6 +966,7 @@ mod tests {
     /// - Feb: 30 days
     /// - Mar: 30 days
     /// - Apr: 29 days
+    ///
     /// Total: 134 days
     ///
     /// Period: Dec 15 to Jun 15 = 180 days (30/360)

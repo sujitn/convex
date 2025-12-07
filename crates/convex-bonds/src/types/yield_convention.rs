@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_yield_convention_default() {
-        let conv: YieldConvention = Default::default();
+        let conv = YieldConvention::default();
         assert_eq!(conv, YieldConvention::StreetConvention);
     }
 
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_accrued_convention_default() {
-        let conv: AccruedConvention = Default::default();
+        let conv = AccruedConvention::default();
         assert_eq!(conv, AccruedConvention::Standard);
     }
 

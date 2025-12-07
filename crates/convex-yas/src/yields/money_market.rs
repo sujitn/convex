@@ -79,6 +79,7 @@ pub fn money_market_yield(
 /// Calculate money market yield with custom horizon.
 ///
 /// Same as `money_market_yield` but allows specifying a custom horizon in days.
+#[allow(clippy::too_many_arguments)]
 pub fn money_market_yield_with_horizon(
     cash_flows: &[BondCashFlow],
     dirty_price: Decimal,
@@ -139,6 +140,7 @@ pub fn money_market_yield_with_horizon(
 }
 
 /// Perform roll-forward calculation to get total value at horizon.
+#[allow(clippy::too_many_arguments)]
 fn roll_forward(
     initial: Decimal,
     cash_flows: &[BondCashFlow],
@@ -485,11 +487,15 @@ mod tests {
         let maturity = date(2020, 10, 29);
 
         // Empty cash flows
-        assert!(money_market_yield(&[], dec!(100), dec!(0.05), settlement, maturity, 2, 360).is_err());
+        assert!(
+            money_market_yield(&[], dec!(100), dec!(0.05), settlement, maturity, 2, 360).is_err()
+        );
 
         // Zero price
         let cfs = vec![BondCashFlow::coupon(maturity, dec!(5))];
-        assert!(money_market_yield(&cfs, dec!(0), dec!(0.05), settlement, maturity, 2, 360).is_err());
+        assert!(
+            money_market_yield(&cfs, dec!(0), dec!(0.05), settlement, maturity, 2, 360).is_err()
+        );
 
         // Negative price
         assert!(

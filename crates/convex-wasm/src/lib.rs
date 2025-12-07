@@ -3,19 +3,19 @@
 //! This crate provides WASM bindings for the Convex library, enabling
 //! Bloomberg YAS-equivalent bond analytics in web browsers.
 
-use wasm_bindgen::prelude::*;
-use serde::{Deserialize, Serialize};
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
-use convex_core::types::{Date, Frequency, Currency};
-use convex_core::daycounts::DayCountConvention;
-use convex_core::calendars::BusinessDayConvention;
-use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
-use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_bonds::prelude::BondIdentifiers;
-use convex_curves::{ZeroCurve, ZeroCurveBuilder};
+use convex_bonds::traits::{Bond, FixedCouponBond};
+use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
+use convex_core::calendars::BusinessDayConvention;
+use convex_core::daycounts::DayCountConvention;
+use convex_core::types::{Currency, Date, Frequency};
 use convex_curves::interpolation::InterpolationMethod;
+use convex_curves::{ZeroCurve, ZeroCurveBuilder};
 use convex_yas::YASCalculator;
 
 // ============================================================================
@@ -116,12 +116,17 @@ fn parse_date(s: &str) -> Result<Date, String> {
         return Err(format!("Invalid date format: {}. Expected YYYY-MM-DD", s));
     }
 
-    let year: i32 = parts[0].parse().map_err(|_| format!("Invalid year: {}", parts[0]))?;
-    let month: u32 = parts[1].parse().map_err(|_| format!("Invalid month: {}", parts[1]))?;
-    let day: u32 = parts[2].parse().map_err(|_| format!("Invalid day: {}", parts[2]))?;
+    let year: i32 = parts[0]
+        .parse()
+        .map_err(|_| format!("Invalid year: {}", parts[0]))?;
+    let month: u32 = parts[1]
+        .parse()
+        .map_err(|_| format!("Invalid month: {}", parts[1]))?;
+    let day: u32 = parts[2]
+        .parse()
+        .map_err(|_| format!("Invalid day: {}", parts[2]))?;
 
-    Date::from_ymd(year, month, day)
-        .map_err(|e| format!("Invalid date {}: {:?}", s, e))
+    Date::from_ymd(year, month, day).map_err(|e| format!("Invalid date {}: {:?}", s, e))
 }
 
 fn date_to_naive(date: Date) -> chrono::NaiveDate {
@@ -188,46 +193,56 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
         Ok(p) => p,
-        Err(e) => return AnalysisResult {
-            error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
     };
 
     // Parse curve points
     let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
         Ok(p) => p,
-        Err(e) => return AnalysisResult {
-            error: Some(format!("Failed to parse curve points: {:?}", e)),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(format!("Failed to parse curve points: {:?}", e)),
+                ..Default::default()
+            }
+        }
     };
 
     // Build the bond
     let bond = match create_bond(&bond_params) {
         Ok(b) => b,
-        Err(e) => return AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
     };
 
     // Parse settlement date
     let settlement = match parse_date(&bond_params.settlement_date) {
         Ok(d) => d,
-        Err(e) => return AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
     };
 
     // Build the curve
     let curve = match create_curve(settlement, &points) {
         Ok(c) => c,
-        Err(e) => return AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
     };
 
     // Create calculator and analyze
@@ -328,28 +343,34 @@ fn calculate_simple_metrics_impl(params: JsValue, clean_price: f64) -> AnalysisR
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
         Ok(p) => p,
-        Err(e) => return AnalysisResult {
-            error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
     };
 
     // Build the bond
     let bond = match create_bond(&bond_params) {
         Ok(b) => b,
-        Err(e) => return AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
     };
 
     // Parse settlement date
     let settlement = match parse_date(&bond_params.settlement_date) {
         Ok(d) => d,
-        Err(e) => return AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
     };
 
     // Calculate basic metrics
@@ -360,12 +381,13 @@ fn calculate_simple_metrics_impl(params: JsValue, clean_price: f64) -> AnalysisR
         Some(maturity) => {
             let days = settlement.days_between(&maturity);
             (days, days as f64 / 365.0)
-        },
+        }
         None => (0, 0.0),
     };
 
     // Current yield = annual coupon / clean price
-    let annual_coupon = decimal_to_f64(bond.coupon_rate()) * decimal_to_f64(bond.face_value()) / 100.0;
+    let annual_coupon =
+        decimal_to_f64(bond.coupon_rate()) * decimal_to_f64(bond.face_value()) / 100.0;
     let current_yield = if clean_price > 0.0 {
         Some(annual_coupon / clean_price * 100.0)
     } else {
@@ -399,7 +421,8 @@ fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> {
     let day_count = parse_day_count(params.day_count.as_deref().unwrap_or("30/360"));
     let currency = parse_currency(params.currency.as_deref().unwrap_or("USD"));
 
-    let first_coupon = params.first_coupon_date
+    let first_coupon = params
+        .first_coupon_date
         .as_ref()
         .and_then(|s| parse_date(s).ok());
 
@@ -421,7 +444,8 @@ fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> {
         builder = builder.first_coupon_date(fc);
     }
 
-    builder.build()
+    builder
+        .build()
         .map_err(|e| format!("Failed to create bond: {:?}", e))
 }
 
@@ -441,7 +465,8 @@ fn create_curve(reference_date: Date, points: &[CurvePoint]) -> Result<ZeroCurve
         builder = builder.add_rate(date, rate);
     }
 
-    builder.build()
+    builder
+        .build()
         .map_err(|e| format!("Failed to create curve: {:?}", e))
 }
 
@@ -454,7 +479,7 @@ fn convert_yas_result(
         Some(maturity) => {
             let days = settlement.days_between(&maturity);
             (days, days as f64 / 365.0)
-        },
+        }
         None => (0, 0.0),
     };
 
@@ -480,7 +505,10 @@ fn convert_yas_result(
 
         g_spread: Some(decimal_to_f64(result.g_spread.as_bps())),
         z_spread: Some(decimal_to_f64(result.z_spread.as_bps())),
-        asw_spread: result.asw_spread.as_ref().map(|s| decimal_to_f64(s.as_bps())),
+        asw_spread: result
+            .asw_spread
+            .as_ref()
+            .map(|s| decimal_to_f64(s.as_bps())),
 
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),
@@ -511,9 +539,18 @@ mod tests {
 
     #[test]
     fn test_parse_day_count() {
-        assert!(matches!(parse_day_count("30/360"), DayCountConvention::Thirty360US));
-        assert!(matches!(parse_day_count("ACT/365"), DayCountConvention::Act365Fixed));
-        assert!(matches!(parse_day_count("act/act"), DayCountConvention::ActActIcma));
+        assert!(matches!(
+            parse_day_count("30/360"),
+            DayCountConvention::Thirty360US
+        ));
+        assert!(matches!(
+            parse_day_count("ACT/365"),
+            DayCountConvention::Act365Fixed
+        ));
+        assert!(matches!(
+            parse_day_count("act/act"),
+            DayCountConvention::ActActIcma
+        ));
     }
 
     #[test]
@@ -546,9 +583,18 @@ mod tests {
     fn test_create_curve() {
         let reference = Date::from_ymd(2024, 6, 15).unwrap();
         let points = vec![
-            CurvePoint { date: "2025-06-15".to_string(), rate: 4.0 },
-            CurvePoint { date: "2026-06-15".to_string(), rate: 4.5 },
-            CurvePoint { date: "2029-06-15".to_string(), rate: 5.0 },
+            CurvePoint {
+                date: "2025-06-15".to_string(),
+                rate: 4.0,
+            },
+            CurvePoint {
+                date: "2026-06-15".to_string(),
+                rate: 4.5,
+            },
+            CurvePoint {
+                date: "2029-06-15".to_string(),
+                rate: 5.0,
+            },
         ];
 
         let curve = create_curve(reference, &points).unwrap();
