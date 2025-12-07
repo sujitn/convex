@@ -62,7 +62,7 @@ log = "0.4"
 once_cell = "1.19"
 
 # Development dependencies
-criterion = "0.5"
+criterion = "0.8"
 proptest = "1.4"
 
 # FFI dependencies
