@@ -54,7 +54,7 @@ approx = "0.5"
 
 # Performance dependencies
 rayon = "1.10"
-ndarray = { version = "0.15", features = ["rayon", "serde"] }
+ndarray = { version = "0.17", features = ["rayon", "serde"] }
 
 # Utility dependencies
 uuid = { version = "1.19", features = ["serde", "v4"] }
