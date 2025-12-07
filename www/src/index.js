@@ -2,14 +2,19 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/bloomberg.css';
+// WASM initialization fix
 
 // Initialize WASM module
 let wasmModule = null;
 
 async function initWasm() {
   try {
-    // Dynamic import of the WASM module (bundler target)
+    // Dynamic import of the WASM module (web target)
     const wasm = await import('../pkg');
+    // With --target web, we need to call the default init function first
+    if (wasm.default) {
+      await wasm.default();
+    }
     wasmModule = wasm;
     console.log('WASM module initialized successfully');
     return wasm;

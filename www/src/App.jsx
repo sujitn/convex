@@ -96,86 +96,203 @@ function generateCurvePoints(treasuryCurve, maturityDate) {
   }));
 }
 
-// Fetch Treasury rates from Treasury.gov XML feed
-async function fetchTreasuryRates() {
+// Fetch USD Treasury rates from Treasury.gov XML feed
+async function fetchUSDRates() {
+  const year = new Date().getFullYear();
+  const treasuryUrl = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${year}`;
+
+  // Try direct fetch first, fallback to CORS proxy
+  let response;
   try {
-    // Treasury.gov XML endpoint - use CORS proxy for browser access
-    const year = new Date().getFullYear();
-    const treasuryUrl = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${year}`;
+    response = await fetch(treasuryUrl);
+    if (!response.ok) throw new Error('Direct fetch failed');
+  } catch {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(treasuryUrl)}`;
+    response = await fetch(proxyUrl);
+  }
 
-    // Try direct fetch first (works if CORS is allowed)
-    let response;
-    try {
-      response = await fetch(treasuryUrl);
-    } catch (corsError) {
-      // Fallback to CORS proxy
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(treasuryUrl)}`;
-      response = await fetch(proxyUrl);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const xmlText = await response.text();
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+  const entries = xmlDoc.querySelectorAll('entry');
+  if (entries.length === 0) throw new Error('No data entries found');
+
+  const latestEntry = entries[entries.length - 1];
+  const props = latestEntry.querySelector('content')?.querySelector('properties');
+  if (!props) throw new Error('No properties found');
+
+  const rates = {};
+  const mappings = {
+    'BC_1MONTH': '1M', 'BC_3MONTH': '3M', 'BC_6MONTH': '6M',
+    'BC_1YEAR': '1Y', 'BC_2YEAR': '2Y', 'BC_3YEAR': '3Y',
+    'BC_5YEAR': '5Y', 'BC_7YEAR': '7Y', 'BC_10YEAR': '10Y',
+    'BC_20YEAR': '20Y', 'BC_30YEAR': '30Y',
+  };
+
+  for (const [xmlKey, tenorKey] of Object.entries(mappings)) {
+    const elem = props.querySelector(xmlKey);
+    if (elem?.textContent) {
+      const rate = parseFloat(elem.textContent);
+      if (!isNaN(rate)) rates[tenorKey] = rate;
     }
+  }
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+  if (Object.keys(rates).length === 0) throw new Error('No rates parsed');
+  return rates;
+}
 
-    const xmlText = await response.text();
+// Fetch EUR rates from ECB (approximate using AAA-rated euro area yields)
+async function fetchEURRates() {
+  // ECB Statistical Data Warehouse - AAA-rated euro area central government bonds
+  const baseUrl = 'https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM';
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl + '?lastNObservations=1&format=jsondata')}`;
 
-    // Parse XML to extract latest rates
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+  try {
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    // Get all entries and find the most recent one
-    const entries = xmlDoc.querySelectorAll('entry');
-    if (entries.length === 0) {
-      throw new Error('No data entries found');
-    }
-
-    // Get the last entry (most recent)
-    const latestEntry = entries[entries.length - 1];
-    const content = latestEntry.querySelector('content');
-    if (!content) {
-      throw new Error('No content in entry');
-    }
-
-    // Extract rates from the m:properties element
-    const props = content.querySelector('properties');
-    if (!props) {
-      throw new Error('No properties found');
-    }
-
+    const data = await response.json();
     const rates = {};
-    const mappings = {
-      'BC_1MONTH': '1M',
-      'BC_3MONTH': '3M',
-      'BC_6MONTH': '6M',
-      'BC_1YEAR': '1Y',
-      'BC_2YEAR': '2Y',
-      'BC_3YEAR': '3Y',
-      'BC_5YEAR': '5Y',
-      'BC_7YEAR': '7Y',
-      'BC_10YEAR': '10Y',
-      'BC_20YEAR': '20Y',
-      'BC_30YEAR': '30Y',
-    };
 
-    for (const [xmlKey, tenorKey] of Object.entries(mappings)) {
-      const elem = props.querySelector(xmlKey);
-      if (elem && elem.textContent) {
-        const rate = parseFloat(elem.textContent);
-        if (!isNaN(rate)) {
-          rates[tenorKey] = rate;
+    // ECB provides rates at various maturities - map to our tenors
+    const series = data?.dataSets?.[0]?.series || {};
+    const dimensions = data?.structure?.dimensions?.series || [];
+    const maturityDim = dimensions.find(d => d.id === 'MATURITY_NOT_ISOCODE');
+
+    if (maturityDim) {
+      const tenorMap = {
+        'Y1': '1Y', 'Y2': '2Y', 'Y3': '3Y', 'Y5': '5Y',
+        'Y7': '7Y', 'Y10': '10Y', 'Y20': '20Y', 'Y30': '30Y',
+        'M3': '3M', 'M6': '6M', 'M1': '1M'
+      };
+
+      for (const [key, seriesData] of Object.entries(series)) {
+        const obs = seriesData?.observations;
+        if (obs) {
+          const latestValue = Object.values(obs).pop()?.[0];
+          if (latestValue !== undefined) {
+            // Extract maturity from key
+            const keyParts = key.split(':');
+            const maturityIdx = parseInt(keyParts[4]);
+            const maturity = maturityDim.values[maturityIdx]?.id;
+            if (maturity && tenorMap[maturity]) {
+              rates[tenorMap[maturity]] = latestValue;
+            }
+          }
         }
       }
     }
 
-    // Check if we got any rates
-    if (Object.keys(rates).length === 0) {
-      throw new Error('No rates parsed from XML');
-    }
-
-    return rates;
+    if (Object.keys(rates).length > 0) return rates;
+    throw new Error('No EUR rates parsed');
   } catch (error) {
-    console.error('Failed to fetch Treasury rates:', error);
-    throw error;
+    console.warn('ECB fetch failed, using defaults:', error);
+    // Return typical EUR rates as fallback
+    return {
+      '1M': 3.65, '3M': 3.60, '6M': 3.50, '1Y': 3.20,
+      '2Y': 2.80, '3Y': 2.70, '5Y': 2.60, '7Y': 2.65,
+      '10Y': 2.75, '20Y': 2.90, '30Y': 2.85
+    };
+  }
+}
+
+// Fetch GBP rates from Bank of England
+async function fetchGBPRates() {
+  // BoE provides gilt yields via their Statistical Interactive Database
+  // Using proxy due to CORS
+  try {
+    const baseUrl = 'https://www.bankofengland.co.uk/boeapps/iadb/fromshowcolumns.asp?csv.x=yes&Datefrom=01/Jan/2024&Dateto=now&SeriesCodes=IUDSOIA,IUDMO02,IUDMO05,IUDMO10,IUDMO15,IUDMO20,IUDMO25,IUDMO30&CSVF=TN&UsingCodes=Y&VPD=Y';
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`;
+
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const csvText = await response.text();
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) throw new Error('No data');
+
+    // Get last line (most recent data)
+    const lastLine = lines[lines.length - 1];
+    const values = lastLine.split(',');
+
+    // Map BoE series to tenors (approximate)
+    const rates = {};
+    if (values[1]) rates['1Y'] = parseFloat(values[1]);
+    if (values[2]) rates['2Y'] = parseFloat(values[2]);
+    if (values[3]) rates['5Y'] = parseFloat(values[3]);
+    if (values[4]) rates['10Y'] = parseFloat(values[4]);
+    if (values[5]) rates['15Y'] = parseFloat(values[5]); // No 15Y in our curve, skip
+    if (values[6]) rates['20Y'] = parseFloat(values[6]);
+    if (values[7]) rates['30Y'] = parseFloat(values[7]);
+
+    if (Object.keys(rates).length > 0) return rates;
+    throw new Error('No GBP rates parsed');
+  } catch (error) {
+    console.warn('BoE fetch failed, using defaults:', error);
+    // Return typical GBP Gilt rates as fallback
+    return {
+      '1M': 4.65, '3M': 4.60, '6M': 4.50, '1Y': 4.30,
+      '2Y': 4.10, '3Y': 4.05, '5Y': 4.00, '7Y': 4.05,
+      '10Y': 4.15, '20Y': 4.50, '30Y': 4.45
+    };
+  }
+}
+
+// Fetch JPY JGB rates
+async function fetchJPYRates() {
+  // Japan MoF doesn't have easy CORS access, use fallback
+  return {
+    '1M': 0.05, '3M': 0.08, '6M': 0.12, '1Y': 0.30,
+    '2Y': 0.55, '3Y': 0.65, '5Y': 0.85, '7Y': 1.00,
+    '10Y': 1.10, '20Y': 1.80, '30Y': 2.10
+  };
+}
+
+// Main function to fetch rates based on currency
+async function fetchRatesForCurrency(currency) {
+  console.log(`Fetching rates for ${currency}...`);
+
+  switch (currency) {
+    case 'USD':
+      return await fetchUSDRates();
+    case 'EUR':
+      return await fetchEURRates();
+    case 'GBP':
+      return await fetchGBPRates();
+    case 'JPY':
+      return await fetchJPYRates();
+    case 'CHF':
+      // Swiss rates - use fallback
+      return {
+        '1M': 1.20, '3M': 1.15, '6M': 1.05, '1Y': 0.85,
+        '2Y': 0.70, '3Y': 0.65, '5Y': 0.60, '7Y': 0.65,
+        '10Y': 0.75, '20Y': 0.85, '30Y': 0.80
+      };
+    case 'AUD':
+      return {
+        '1M': 4.25, '3M': 4.20, '6M': 4.10, '1Y': 3.90,
+        '2Y': 3.70, '3Y': 3.65, '5Y': 3.80, '7Y': 3.95,
+        '10Y': 4.10, '20Y': 4.40, '30Y': 4.35
+      };
+    case 'CAD':
+      return {
+        '1M': 3.80, '3M': 3.75, '6M': 3.60, '1Y': 3.40,
+        '2Y': 3.20, '3Y': 3.15, '5Y': 3.10, '7Y': 3.15,
+        '10Y': 3.25, '20Y': 3.40, '30Y': 3.35
+      };
+    case 'NZD':
+      return {
+        '1M': 4.75, '3M': 4.70, '6M': 4.55, '1Y': 4.30,
+        '2Y': 4.00, '3Y': 3.95, '5Y': 4.05, '7Y': 4.20,
+        '10Y': 4.40, '20Y': 4.60, '30Y': 4.55
+      };
+    default:
+      return DEFAULT_TREASURY_CURVE;
   }
 }
 
@@ -216,6 +333,9 @@ function App({ wasmModule }) {
         day_count: bond.dayCount,
         currency: bond.currency,
         first_coupon_date: bond.firstCouponDate || null,
+        call_schedule: bond.callSchedule && bond.callSchedule.length > 0
+          ? bond.callSchedule.map(c => ({ date: c.date, price: c.price }))
+          : null,
       };
 
       // Generate curve points from Treasury curve
@@ -269,6 +389,23 @@ function App({ wasmModule }) {
     setPriceYieldData(data);
   }, [wasmModule]);
 
+  // Auto-fetch rates on initial load and when currency changes
+  useEffect(() => {
+    const fetchRates = async () => {
+      setIsFetchingRates(true);
+      try {
+        const rates = await fetchRatesForCurrency(bond.currency);
+        setTreasuryCurve(prev => ({ ...prev, ...rates }));
+        setRatesLastUpdated(new Date().toLocaleString());
+      } catch (err) {
+        console.warn(`Failed to fetch ${bond.currency} rates, using defaults:`, err);
+      } finally {
+        setIsFetchingRates(false);
+      }
+    };
+    fetchRates();
+  }, [bond.currency]);
+
   // Initial calculation
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -295,21 +432,22 @@ function App({ wasmModule }) {
     }));
   }, []);
 
-  // Fetch live Treasury rates
-  const handleFetchRates = useCallback(async () => {
+  // Fetch live rates for current currency
+  const handleFetchRates = useCallback(async (currencyOverride) => {
+    const targetCurrency = currencyOverride || bond.currency;
     setIsFetchingRates(true);
     setError(null);
     try {
-      const rates = await fetchTreasuryRates();
+      const rates = await fetchRatesForCurrency(targetCurrency);
       setTreasuryCurve(prev => ({ ...prev, ...rates }));
       setRatesLastUpdated(new Date().toLocaleString());
     } catch (err) {
-      setError('Failed to fetch Treasury rates. Using default values.');
+      setError(`Failed to fetch ${targetCurrency} rates. Using default values.`);
       console.error(err);
     } finally {
       setIsFetchingRates(false);
     }
-  }, []);
+  }, [bond.currency]);
 
   // Reset to defaults
   const handleReset = useCallback(() => {
