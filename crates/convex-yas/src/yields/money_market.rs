@@ -81,9 +81,7 @@ pub fn bond_equivalent_yield(
     }
 
     if price <= Decimal::ZERO {
-        return Err(YasError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
+        return Err(YasError::InvalidInput("price must be positive".to_string()));
     }
 
     let discount = face_value - price;
@@ -137,9 +135,7 @@ pub fn cd_equivalent_yield(
     }
 
     if price <= Decimal::ZERO {
-        return Err(YasError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
+        return Err(YasError::InvalidInput("price must be positive".to_string()));
     }
 
     let discount = face_value - price;
@@ -163,11 +159,7 @@ mod tests {
         let dy = discount_yield(price, face, days).unwrap();
 
         // (100 - 98.5) / 100 × (360/90) × 100 = 6.0%
-        assert_relative_eq!(
-            dy.to_string().parse::<f64>().unwrap(),
-            6.0,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(dy.to_string().parse::<f64>().unwrap(), 6.0, epsilon = 0.01);
     }
 
     #[test]
@@ -197,10 +189,6 @@ mod tests {
         let cd = cd_equivalent_yield(price, face, days).unwrap();
 
         // (100 - 98.5) / 98.5 × (360/90) × 100 ≈ 6.09%
-        assert_relative_eq!(
-            cd.to_string().parse::<f64>().unwrap(),
-            6.09,
-            epsilon = 0.02
-        );
+        assert_relative_eq!(cd.to_string().parse::<f64>().unwrap(), 6.09, epsilon = 0.02);
     }
 }

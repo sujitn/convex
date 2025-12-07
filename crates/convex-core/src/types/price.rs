@@ -198,10 +198,10 @@ impl Sub<Decimal> for Price {
 
 impl PartialOrd for Price {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.currency != other.currency {
-            None // Can't compare prices in different currencies
-        } else {
+        if self.currency == other.currency {
             self.value.partial_cmp(&other.value)
+        } else {
+            None // Can't compare prices in different currencies
         }
     }
 }

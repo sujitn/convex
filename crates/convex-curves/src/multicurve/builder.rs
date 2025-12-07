@@ -12,7 +12,7 @@ use convex_core::Date;
 use crate::bootstrap::SequentialBootstrapper;
 use crate::curves::{DiscountCurve, ForwardCurve, ForwardCurveBuilder};
 use crate::error::{CurveError, CurveResult};
-use crate::instruments::{CurveInstrument, Deposit, OIS, Swap};
+use crate::instruments::{CurveInstrument, Deposit, Swap, OIS};
 use crate::interpolation::InterpolationMethod;
 use crate::traits::Curve;
 
@@ -84,16 +84,16 @@ pub struct MultiCurveBuilder {
     /// Projection instruments by rate index.
     projection_instruments: HashMap<RateIndex, Vec<Box<dyn CurveInstrument>>>,
     /// Basis swap instruments.
-    basis_instruments: Vec<BasisSwapSpec>,
+    basis_instruments: Vec<_BasisSwapSpec>,
     /// FX curve specifications.
-    fx_specs: Vec<FxCurveSpec>,
+    fx_specs: Vec<_FxCurveSpec>,
     /// Configuration.
     config: MultiCurveConfig,
 }
 
 /// Specification for a basis swap.
 #[derive(Debug, Clone)]
-struct BasisSwapSpec {
+struct _BasisSwapSpec {
     /// Pay leg index
     pay_index: RateIndex,
     /// Receive leg index
@@ -106,7 +106,7 @@ struct BasisSwapSpec {
 
 /// Specification for FX curve construction.
 #[derive(Debug, Clone)]
-struct FxCurveSpec {
+struct _FxCurveSpec {
     /// Currency pair
     pair: CurrencyPair,
     /// Spot rate
@@ -208,12 +208,7 @@ impl MultiCurveBuilder {
 
     /// Adds a projection instrument with explicit maturity.
     #[must_use]
-    pub fn add_projection_maturity(
-        mut self,
-        index: RateIndex,
-        maturity: Date,
-        rate: f64,
-    ) -> Self {
+    pub fn add_projection_maturity(mut self, index: RateIndex, maturity: Date, rate: f64) -> Self {
         let swap = Swap::new(self.reference_date, maturity, rate, Frequency::SemiAnnual);
         self.projection_instruments
             .entry(index)
@@ -240,7 +235,7 @@ impl MultiCurveBuilder {
         tenor: &str,
         spread: f64,
     ) -> Self {
-        self.basis_instruments.push(BasisSwapSpec {
+        self.basis_instruments.push(_BasisSwapSpec {
             pay_index,
             receive_index,
             tenor: tenor.to_string(),
@@ -256,7 +251,7 @@ impl MultiCurveBuilder {
     /// The actual FX curve will be built after the interest rate curves.
     #[must_use]
     pub fn add_fx_curve(mut self, pair: CurrencyPair, spot_rate: f64) -> Self {
-        self.fx_specs.push(FxCurveSpec {
+        self.fx_specs.push(_FxCurveSpec {
             pair,
             spot_rate,
             basis_bps: None,
@@ -272,7 +267,7 @@ impl MultiCurveBuilder {
         spot_rate: f64,
         basis_bps: f64,
     ) -> Self {
-        self.fx_specs.push(FxCurveSpec {
+        self.fx_specs.push(_FxCurveSpec {
             pair,
             spot_rate,
             basis_bps: Some(basis_bps),
@@ -322,11 +317,12 @@ impl MultiCurveBuilder {
 
         // 4. Build FX curves (placeholder - would need foreign curves)
         // FX curves require foreign discount curves which would come from separate builds
-        let _fx_curves: HashMap<CurrencyPair, Arc<super::fx_forward::FxForwardCurve>> = HashMap::new();
+        let _fx_curves: HashMap<CurrencyPair, Arc<super::fx_forward::FxForwardCurve>> =
+            HashMap::new();
 
         // Build the curve set
-        let mut builder = CurveSetBuilder::new(self.reference_date)
-            .discount_curve_arc(discount_arc);
+        let mut builder =
+            CurveSetBuilder::new(self.reference_date).discount_curve_arc(discount_arc);
 
         for (index, curve) in projection_curves {
             builder = builder.projection_curve_arc(index, curve);
@@ -388,7 +384,11 @@ impl MultiCurveBuilder {
             }
         }
 
-        let avg_spread = if count > 0 { total_spread / count as f64 } else { 0.0 };
+        let avg_spread = if count > 0 {
+            total_spread / f64::from(count)
+        } else {
+            0.0
+        };
 
         ForwardCurveBuilder::new()
             .base_curve(Arc::clone(discount) as Arc<dyn Curve>)
@@ -430,7 +430,7 @@ impl MultiCurveBuilder {
                     Tenor::W2 => 14,
                     _ => 0,
                 };
-                reference.add_days(days as i64)
+                reference.add_days(i64::from(days))
             } else {
                 reference.add_months(months as i32).unwrap_or(reference)
             }
@@ -457,7 +457,7 @@ struct GenericInstrument {
 }
 
 impl GenericInstrument {
-    /// Creates a GenericInstrument from a boxed CurveInstrument.
+    /// Creates a `GenericInstrument` from a boxed `CurveInstrument`.
     fn from_boxed(inst: &Box<dyn CurveInstrument>) -> Self {
         Self {
             maturity: inst.maturity(),
@@ -576,7 +576,7 @@ mod tests {
         let date_1y = MultiCurveBuilder::parse_tenor_date(ref_date, "1Y").unwrap();
         let date_5y = MultiCurveBuilder::parse_tenor_date(ref_date, "5Y").unwrap();
 
-        assert_eq!(date_1m.month(), 2);  // Feb
+        assert_eq!(date_1m.month(), 2); // Feb
         assert_eq!(date_1y.year(), 2026);
         assert_eq!(date_5y.year(), 2030);
     }

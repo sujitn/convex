@@ -33,6 +33,7 @@ use crate::solvers::{SolverConfig, SolverResult};
 /// let result = brent(f, 1.0, 2.0, &SolverConfig::default()).unwrap();
 /// assert!((f(result.root)).abs() < 1e-10);
 /// ```
+#[allow(clippy::many_single_char_names)]
 pub fn brent<F>(f: F, a: f64, b: f64, config: &SolverConfig) -> MathResult<SolverResult>
 where
     F: Fn(f64) -> f64,

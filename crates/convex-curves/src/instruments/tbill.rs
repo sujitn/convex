@@ -135,13 +135,21 @@ impl TreasuryBill {
     ) -> CurveResult<Self> {
         let cusip = cusip.into();
         match quote.quote_type {
-            QuoteType::Bond(BondQuoteType::CleanPrice) | QuoteType::Bond(BondQuoteType::DirtyPrice) => {
+            QuoteType::Bond(BondQuoteType::CleanPrice | BondQuoteType::DirtyPrice) => {
                 // For T-Bills, clean = dirty (no coupon)
-                Ok(Self::new(cusip, settlement_date, maturity_date, quote.mid()))
+                Ok(Self::new(
+                    cusip,
+                    settlement_date,
+                    maturity_date,
+                    quote.mid(),
+                ))
             }
-            QuoteType::Bond(BondQuoteType::DiscountRate) => {
-                Ok(Self::from_discount_rate(cusip, settlement_date, maturity_date, quote.mid()))
-            }
+            QuoteType::Bond(BondQuoteType::DiscountRate) => Ok(Self::from_discount_rate(
+                cusip,
+                settlement_date,
+                maturity_date,
+                quote.mid(),
+            )),
             QuoteType::Bond(BondQuoteType::YieldToMaturity) => {
                 // For T-Bills, convert BEY to price
                 // BEY = (Face - Price) / Price × (365 / Days)

@@ -29,14 +29,17 @@ use convex_core::types::Frequency;
 use convex_core::Date;
 
 use crate::error::CurveResult;
-use crate::instruments::{Deposit, OIS, Swap};
+use crate::instruments::{Deposit, Swap, OIS};
 
 /// USD (US Dollar) market conventions.
 ///
 /// Post-LIBOR conventions for the US market, using SOFR as the
 /// primary overnight rate.
 pub mod usd {
-    use super::*;
+    use super::{
+        Calendar, ConventionSummary, CurveResult, Date, DayCountConvention, Deposit, Frequency,
+        SIFMACalendar, Swap, OIS,
+    };
 
     /// Spot settlement days (T+2).
     pub const SPOT_DAYS: u32 = 2;
@@ -124,7 +127,10 @@ pub mod usd {
 ///
 /// Uses EURIBOR for legacy products and ESTR for OIS.
 pub mod eur {
-    use super::*;
+    use super::{
+        Calendar, ConventionSummary, CurveResult, Date, DayCountConvention, Deposit, Frequency,
+        Swap, Target2Calendar, OIS,
+    };
 
     /// Spot settlement days (T+2).
     pub const SPOT_DAYS: u32 = 2;
@@ -192,7 +198,10 @@ pub mod eur {
 ///
 /// Uses SONIA as the overnight rate. GBP has same-day settlement.
 pub mod gbp {
-    use super::*;
+    use super::{
+        Calendar, ConventionSummary, CurveResult, Date, DayCountConvention, Deposit, Frequency,
+        Swap, UKCalendar, OIS,
+    };
 
     /// Spot settlement days (T+0 for GBP!).
     pub const SPOT_DAYS: u32 = 0;
@@ -260,7 +269,9 @@ pub mod gbp {
 
 /// JPY (Japanese Yen) market conventions.
 pub mod jpy {
-    use super::*;
+    use super::{
+        Calendar, ConventionSummary, CurveResult, Date, DayCountConvention, Deposit, Frequency, OIS,
+    };
     use convex_core::calendars::JapanCalendar;
 
     /// Spot settlement days (T+2).
@@ -315,7 +326,7 @@ pub mod jpy {
 
 /// CHF (Swiss Franc) market conventions.
 pub mod chf {
-    use super::*;
+    use super::{ConventionSummary, DayCountConvention, Frequency};
 
     /// Spot settlement days (T+2).
     pub const SPOT_DAYS: u32 = 2;
@@ -377,11 +388,15 @@ impl std::fmt::Display for ConventionSummary {
         writeln!(f, "{} Market Conventions:", self.currency)?;
         writeln!(f, "  Spot days: T+{}", self.spot_days)?;
         writeln!(f, "  Deposit DC: {}", self.deposit_day_count)?;
-        writeln!(f, "  Swap Fixed: {} / {}", self.swap_fixed_freq, self.swap_fixed_day_count)?;
+        writeln!(
+            f,
+            "  Swap Fixed: {} / {}",
+            self.swap_fixed_freq, self.swap_fixed_day_count
+        )?;
         writeln!(f, "  Swap Float: {}", self.swap_float_freq)?;
         writeln!(f, "  O/N Index: {}", self.overnight_index)?;
         if let Some(ibor) = self.ibor_index {
-            writeln!(f, "  IBOR Index: {}", ibor)?;
+            writeln!(f, "  IBOR Index: {ibor}")?;
         }
         writeln!(f, "  Calendar: {}", self.calendar_name)?;
         Ok(())

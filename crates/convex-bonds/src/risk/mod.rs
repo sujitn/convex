@@ -67,7 +67,7 @@ impl RiskCalculator {
         settlement: Date,
     ) -> BondResult<DurationResult> {
         let y = yield_value.to_string().parse::<f64>().unwrap_or(0.05);
-        let freq = bond.frequency().periods_per_year() as f64;
+        let freq = f64::from(bond.frequency().periods_per_year());
 
         let schedule = crate::cashflows::CashFlowGenerator::generate(bond, settlement)?;
 
@@ -113,7 +113,7 @@ impl RiskCalculator {
         settlement: Date,
     ) -> BondResult<Decimal> {
         let y = yield_value.to_string().parse::<f64>().unwrap_or(0.05);
-        let freq = bond.frequency().periods_per_year() as f64;
+        let freq = f64::from(bond.frequency().periods_per_year());
 
         let schedule = crate::cashflows::CashFlowGenerator::generate(bond, settlement)?;
 
@@ -147,19 +147,14 @@ impl RiskCalculator {
     }
 
     /// Calculates DV01 (dollar value of 1 basis point).
-    pub fn dv01(
-        bond: &FixedBond,
-        yield_value: Decimal,
-        settlement: Date,
-    ) -> BondResult<Decimal> {
+    pub fn dv01(bond: &FixedBond, yield_value: Decimal, settlement: Date) -> BondResult<Decimal> {
         let bp = Decimal::from_str_exact("0.0001").unwrap_or(Decimal::ZERO);
 
         let price_up = BondPricer::price_from_yield(bond, yield_value + bp, settlement)?;
         let price_down = BondPricer::price_from_yield(bond, yield_value - bp, settlement)?;
 
         // DV01 = (P_down - P_up) / 2
-        let dv01 = (price_down.clean_price.as_percentage()
-            - price_up.clean_price.as_percentage())
+        let dv01 = (price_down.clean_price.as_percentage() - price_up.clean_price.as_percentage())
             / Decimal::TWO;
 
         Ok(dv01)

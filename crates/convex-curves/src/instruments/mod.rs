@@ -50,8 +50,8 @@ pub use fra::FRA;
 pub use future::{imm_date, next_imm_dates, FutureType, RateFuture};
 pub use ois::OIS;
 pub use quotes::{
-    BondQuoteType, MarketQuote, QuoteType, QuoteValidationConfig, RateQuoteType,
     futures_price_to_rate, rate_to_futures_price, validate_market_data, validate_quote,
+    BondQuoteType, MarketQuote, QuoteType, QuoteValidationConfig, RateQuoteType,
 };
 pub use swap::Swap;
 pub use tbill::TreasuryBill;
@@ -171,7 +171,7 @@ impl RateIndex {
     /// Returns the tenor in years.
     #[must_use]
     pub fn tenor_years(&self) -> f64 {
-        self.tenor_months as f64 / 12.0
+        f64::from(self.tenor_months) / 12.0
     }
 }
 
@@ -259,16 +259,20 @@ pub trait CurveInstrument: Send + Sync {
 
     /// Returns a description string for debugging.
     fn description(&self) -> String {
-        format!("{} maturing {}", self.instrument_type(), self.maturity())
+        let instrument_type = self.instrument_type();
+        let maturity = self.maturity();
+        format!("{instrument_type} maturing {maturity}")
     }
 }
 
 /// Helper function to calculate year fraction using ACT/365 Fixed.
+#[must_use]
 pub fn year_fraction_act365(start: Date, end: Date) -> f64 {
     start.days_between(&end) as f64 / 365.0
 }
 
 /// Helper function to calculate year fraction using ACT/360.
+#[must_use]
 pub fn year_fraction_act360(start: Date, end: Date) -> f64 {
     start.days_between(&end) as f64 / 360.0
 }

@@ -127,9 +127,7 @@ fn early_may_bank_holiday(year: i32) -> Vec<NaiveDate> {
         }
     } else {
         // 1st Monday in May
-        if let Some(date) =
-            super::bitmap::nth_weekday_of_month(year, 5, chrono::Weekday::Mon, 1)
-        {
+        if let Some(date) = super::bitmap::nth_weekday_of_month(year, 5, chrono::Weekday::Mon, 1) {
             holidays.push(date);
         }
     }

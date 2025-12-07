@@ -44,9 +44,7 @@ pub fn effective_duration(
     }
 
     if bump_size.abs() < 1e-12 {
-        return Err(RiskError::InvalidInput(
-            "bump size too small".to_string(),
-        ));
+        return Err(RiskError::InvalidInput("bump size too small".to_string()));
     }
 
     let eff_dur = (price_down - price_up) / (2.0 * price_base * bump_size);

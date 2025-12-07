@@ -348,7 +348,7 @@ impl std::fmt::Display for BondType {
             BondType::CoveredBond => "Covered Bond",
             BondType::CLO => "CLO",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

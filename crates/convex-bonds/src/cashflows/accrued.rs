@@ -99,6 +99,7 @@ impl AccruedInterestCalculator {
     ///
     /// Accrued interest (negative if in ex-dividend period).
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn ex_dividend(
         settlement: Date,
         last_coupon: Date,
@@ -170,6 +171,7 @@ impl AccruedInterestCalculator {
     ///
     /// Accrued interest for the irregular period.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn irregular_period(
         settlement: Date,
         period_start: Date,
@@ -253,8 +255,8 @@ mod tests {
             settlement,
             last_coupon,
             next_coupon,
-            dec!(0.075),  // 7.5%
-            dec!(1_000_000),  // $1M face
+            dec!(0.075),     // 7.5%
+            dec!(1_000_000), // $1M face
             DayCountConvention::Thirty360US,
             Frequency::SemiAnnual,
         );
@@ -314,7 +316,7 @@ mod tests {
             dec!(100),
             DayCountConvention::ActActIcma,
             Frequency::SemiAnnual,
-            7,  // 7 business days ex-div
+            7, // 7 business days ex-div
             &calendar,
         );
 
@@ -352,10 +354,10 @@ mod tests {
     fn test_irregular_period_short_first() {
         // Short first period (stub)
         let settlement = Date::from_ymd(2025, 5, 15).unwrap();
-        let period_start = Date::from_ymd(2025, 3, 1).unwrap();  // Odd start
+        let period_start = Date::from_ymd(2025, 3, 1).unwrap(); // Odd start
         let period_end = Date::from_ymd(2025, 6, 15).unwrap();
-        let ref_start = Date::from_ymd(2024, 12, 15).unwrap();  // Regular period start
-        let ref_end = Date::from_ymd(2025, 6, 15).unwrap();     // Regular period end
+        let ref_start = Date::from_ymd(2024, 12, 15).unwrap(); // Regular period start
+        let ref_end = Date::from_ymd(2025, 6, 15).unwrap(); // Regular period end
 
         let accrued = AccruedInterestCalculator::irregular_period(
             settlement,
@@ -370,7 +372,7 @@ mod tests {
         );
 
         assert!(accrued > Decimal::ZERO);
-        assert!(accrued < dec!(2.5));  // Less than full period coupon
+        assert!(accrued < dec!(2.5)); // Less than full period coupon
     }
 
     #[test]

@@ -242,7 +242,7 @@ impl Isin {
         if !Self::verify_check_digit(&value) {
             return Err(IdentifierError::InvalidCheckDigit {
                 id_type: "ISIN",
-                value: value.to_string(),
+                value: value.clone(),
             });
         }
 
@@ -303,14 +303,13 @@ impl Isin {
 
         let base = format!("{}{}", country, cusip.as_str());
         // Calculate check digit
-        let check = Self::calculate_check_digit(&base).ok_or_else(|| {
-            IdentifierError::InvalidFormat {
+        let check =
+            Self::calculate_check_digit(&base).ok_or_else(|| IdentifierError::InvalidFormat {
                 id_type: "ISIN",
                 reason: "Failed to calculate check digit".to_string(),
-            }
-        })?;
+            })?;
 
-        Self::new(&format!("{}{}", base, check))
+        Self::new(&format!("{base}{check}"))
     }
 
     /// Creates an ISIN from a CUSIP and country code without validating the result.
@@ -318,7 +317,7 @@ impl Isin {
     pub fn from_cusip_unchecked(cusip: &Cusip, country: &str) -> Self {
         let base = format!("{}{}", country.to_uppercase(), cusip.as_str());
         let check = Self::calculate_check_digit(&base).unwrap_or('0');
-        Self(format!("{}{}", base, check))
+        Self(format!("{base}{check}"))
     }
 
     /// Calculates the ISIN check digit for the first 11 characters.
@@ -523,7 +522,7 @@ impl Sedol {
         if !Self::verify_check_digit(&value) {
             return Err(IdentifierError::InvalidCheckDigit {
                 id_type: "SEDOL",
-                value: value.to_string(),
+                value: value.clone(),
             });
         }
 
@@ -934,10 +933,7 @@ mod tests {
     #[test]
     fn test_cusip_invalid_length() {
         let result = Cusip::new("09702");
-        assert!(matches!(
-            result,
-            Err(IdentifierError::InvalidLength { .. })
-        ));
+        assert!(matches!(result, Err(IdentifierError::InvalidLength { .. })));
     }
 
     #[test]

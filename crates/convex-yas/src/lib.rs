@@ -36,12 +36,37 @@
 //! println!("Modified Duration: {}", analysis.modified_duration);
 //! ```
 
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::map_unwrap_or)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::format_push_string)]
+#![allow(dead_code)]
+
 pub mod calculator;
+mod error;
+pub mod formatting;
+pub mod invoice;
 pub mod yas;
 pub mod yields;
-pub mod invoice;
-pub mod formatting;
-mod error;
 
 pub use calculator::{
     BatchYASCalculator, BloombergReference, ValidationFailure, YASCalculator, YASResult,
@@ -51,8 +76,8 @@ pub use yas::YasAnalysis;
 
 /// Prelude for convenient imports
 pub mod prelude {
+    pub use crate::invoice::*;
     pub use crate::yas::*;
     pub use crate::yields::*;
-    pub use crate::invoice::*;
     pub use crate::YasError;
 }

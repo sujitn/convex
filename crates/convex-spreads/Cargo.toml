@@ -38,3 +38,7 @@ criterion = { workspace = true }
 [features]
 default = []
 parallel = []  # Enable parallel spread calculations
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

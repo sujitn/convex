@@ -64,11 +64,7 @@ mod tests {
 
         let sy = simple_yield(coupon, price, par, years).unwrap();
 
-        assert_relative_eq!(
-            sy.to_string().parse::<f64>().unwrap(),
-            5.0,
-            epsilon = 0.001
-        );
+        assert_relative_eq!(sy.to_string().parse::<f64>().unwrap(), 5.0, epsilon = 0.001);
     }
 
     #[test]
@@ -83,11 +79,7 @@ mod tests {
 
         // Capital gain = (100 - 95) / 5 = 1
         // Simple yield = (5 + 1) / 95 × 100 ≈ 6.32%
-        assert_relative_eq!(
-            sy.to_string().parse::<f64>().unwrap(),
-            6.32,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(sy.to_string().parse::<f64>().unwrap(), 6.32, epsilon = 0.01);
     }
 
     #[test]
@@ -102,10 +94,6 @@ mod tests {
 
         // Capital loss = (100 - 105) / 5 = -1
         // Simple yield = (5 - 1) / 105 × 100 ≈ 3.81%
-        assert_relative_eq!(
-            sy.to_string().parse::<f64>().unwrap(),
-            3.81,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(sy.to_string().parse::<f64>().unwrap(), 3.81, epsilon = 0.01);
     }
 }

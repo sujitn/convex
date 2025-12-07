@@ -3,8 +3,8 @@
 //! This module provides the complete Bloomberg YAS replication,
 //! combining yield, spread, and risk calculations into a single analysis.
 
-use crate::YasError;
 use crate::invoice::SettlementInvoice;
+use crate::YasError;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 

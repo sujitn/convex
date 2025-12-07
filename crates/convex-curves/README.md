@@ -102,6 +102,15 @@ Discount factor curve for present value calculations.
 
 Forward rate curve derived from zero curve.
 
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+convex-curves = "0.1"
+```
+
 ## License
 
-MIT OR Apache-2.0
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.

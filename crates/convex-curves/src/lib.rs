@@ -41,6 +41,38 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::missing_fields_in_debug)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::single_match)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::while_let_loop)]
+#![allow(clippy::used_underscore_items)]
+#![allow(clippy::borrowed_box)]
+#![allow(dead_code)]
 
 pub mod bootstrap;
 pub mod builder;
@@ -69,16 +101,16 @@ pub mod prelude {
     };
     pub use crate::error::{CurveError, CurveResult};
     pub use crate::instruments::{
-        CurveInstrument, Deposit, FRA, InstrumentType, OIS, RateIndex, RateFuture, Swap,
-        TreasuryBill, TreasuryBond,
+        CurveInstrument, Deposit, InstrumentType, RateFuture, RateIndex, Swap, TreasuryBill,
+        TreasuryBond, FRA, OIS,
     };
     pub use crate::interpolation::InterpolationMethod;
     pub use crate::multicurve::{
-        BumpType, CurrencyPair, CurveSet, CurveSetBuilder, CurveSensitivityCalculator,
+        BumpType, CurrencyPair, CurveSensitivityCalculator, CurveSet, CurveSetBuilder,
         FxForwardCurve, FxForwardCurveBuilder, KeyRateDuration, MultiCurveBuilder,
         RateIndex as MultiCurveRateIndex, Tenor,
     };
-    pub use crate::repricing::{BootstrapResult, RepricingCheck, RepricingReport, tolerances};
+    pub use crate::repricing::{tolerances, BootstrapResult, RepricingCheck, RepricingReport};
     pub use crate::traits::Curve;
     pub use crate::validation::{
         CurveValidator, ValidationError, ValidationReport, ValidationWarning,

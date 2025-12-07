@@ -234,11 +234,17 @@ impl Sovereign {
             Self::India => Currency::INR,
             Self::NewZealand => Currency::NZD,
             // ASEAN & Korea: use USD (common for external issuance)
-            Self::SouthKorea | Self::Indonesia | Self::Malaysia | Self::Thailand | Self::Philippines => Currency::USD,
+            Self::SouthKorea
+            | Self::Indonesia
+            | Self::Malaysia
+            | Self::Thailand
+            | Self::Philippines => Currency::USD,
 
             Self::SouthAfrica => Currency::ZAR,
             // Middle East: use USD (most common for external issuance)
-            Self::Israel | Self::Turkey | Self::SaudiArabia | Self::UAE | Self::Qatar => Currency::USD,
+            Self::Israel | Self::Turkey | Self::SaudiArabia | Self::UAE | Self::Qatar => {
+                Currency::USD
+            }
 
             Self::Supranational(s) => s.primary_currency(),
         }

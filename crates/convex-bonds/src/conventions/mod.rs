@@ -49,7 +49,7 @@ use convex_core::types::Frequency;
 
 use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
 
-/// Re-export DayCountConvention for convenience as DayCountBasis alias
+/// Re-export `DayCountConvention` for convenience as `DayCountBasis` alias
 pub type DayCountBasis = DayCountConvention;
 
 /// Complete bond market conventions.
@@ -375,7 +375,9 @@ impl BondConventionsBuilder {
             calendar: self.calendar.unwrap_or(default.calendar),
             end_of_month: self.end_of_month.unwrap_or(default.end_of_month),
             yield_convention: self.yield_convention.unwrap_or(default.yield_convention),
-            accrued_convention: self.accrued_convention.unwrap_or(default.accrued_convention),
+            accrued_convention: self
+                .accrued_convention
+                .unwrap_or(default.accrued_convention),
             price_quote: self.price_quote.unwrap_or(default.price_quote),
             quote_clean: self.quote_clean.unwrap_or(default.quote_clean),
             face_denomination: self.face_denomination.unwrap_or(default.face_denomination),

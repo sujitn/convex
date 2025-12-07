@@ -63,6 +63,7 @@ impl Swap {
     /// * `termination_date` - Swap end date
     /// * `fixed_rate` - Fixed leg rate
     /// * `fixed_frequency` - Fixed leg payment frequency
+    #[must_use]
     pub fn new(
         effective_date: Date,
         termination_date: Date,
@@ -96,8 +97,14 @@ impl Swap {
     }
 
     /// Creates a standard SOFR swap (annual fixed).
+    #[must_use]
     pub fn sofr(effective_date: Date, termination_date: Date, fixed_rate: f64) -> Self {
-        Self::new(effective_date, termination_date, fixed_rate, Frequency::Annual)
+        Self::new(
+            effective_date,
+            termination_date,
+            fixed_rate,
+            Frequency::Annual,
+        )
     }
 
     /// Sets the float index.
@@ -139,6 +146,7 @@ impl Swap {
     }
 
     /// Generates fixed leg payment dates.
+    #[must_use]
     pub fn fixed_payment_dates(&self) -> Vec<Date> {
         generate_schedule(
             self.effective_date,
@@ -206,6 +214,7 @@ impl Swap {
     }
 
     /// Returns the final period year fraction.
+    #[must_use]
     pub fn final_period_tau(&self) -> f64 {
         let dates = self.fixed_payment_dates();
         if dates.len() <= 1 {
@@ -252,13 +261,10 @@ impl CurveInstrument for Swap {
 
     fn description(&self) -> String {
         let dates = self.fixed_payment_dates();
-        let years = dates.len() as f64 / self.fixed_frequency.periods_per_year() as f64;
-        format!(
-            "IRS {:.0}Y {} at {:.4}%",
-            years,
-            self.float_index,
-            self.fixed_rate * 100.0
-        )
+        let years = dates.len() as f64 / f64::from(self.fixed_frequency.periods_per_year());
+        let float_index = &self.float_index;
+        let rate = self.fixed_rate * 100.0;
+        format!("IRS {years:.0}Y {float_index} at {rate:.4}%")
     }
 }
 
@@ -298,22 +304,21 @@ fn parse_tenor(start: Date, tenor: &str) -> CurveResult<Date> {
 
     if tenor.ends_with('Y') {
         let years: i32 = tenor[..tenor.len() - 1].parse().map_err(|_| {
-            crate::error::CurveError::invalid_data(format!("Invalid tenor: {}", tenor))
+            crate::error::CurveError::invalid_data(format!("Invalid tenor: {tenor}"))
         })?;
         start.add_years(years).map_err(|e| {
-            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {}", e))
+            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {e}"))
         })
     } else if tenor.ends_with('M') {
         let months: i32 = tenor[..tenor.len() - 1].parse().map_err(|_| {
-            crate::error::CurveError::invalid_data(format!("Invalid tenor: {}", tenor))
+            crate::error::CurveError::invalid_data(format!("Invalid tenor: {tenor}"))
         })?;
         start.add_months(months).map_err(|e| {
-            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {}", e))
+            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {e}"))
         })
     } else {
         Err(crate::error::CurveError::invalid_data(format!(
-            "Invalid tenor format: {}",
-            tenor
+            "Invalid tenor format: {tenor}"
         )))
     }
 }

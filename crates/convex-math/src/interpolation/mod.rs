@@ -141,7 +141,9 @@ mod tests {
         let mc = MonotoneConvex::new(times, rates).unwrap();
 
         // Check many points for positive forwards
-        for t in [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0] {
+        for t in [
+            0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0,
+        ] {
             let fwd = mc.forward_rate(t).unwrap();
             assert!(fwd >= 0.0, "Forward at t={} is {}, should be >= 0", t, fwd);
         }

@@ -292,7 +292,10 @@ mod tests {
         assert!(value_100 > value_60, "100Y should be above 60Y");
 
         // At very long maturities, should be close to UFR
-        assert!((value_150 - ufr).abs() < 0.005, "150Y should be within 50bp of UFR");
+        assert!(
+            (value_150 - ufr).abs() < 0.005,
+            "150Y should be within 50bp of UFR"
+        );
     }
 
     #[test]

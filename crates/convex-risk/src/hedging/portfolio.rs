@@ -1,7 +1,7 @@
 //! Portfolio-level risk aggregation.
 
-use crate::dv01::DV01;
 use crate::duration::Duration;
+use crate::dv01::DV01;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 

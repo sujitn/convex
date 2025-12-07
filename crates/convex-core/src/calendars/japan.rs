@@ -155,9 +155,7 @@ fn japan_holidays_for_year(year: i32) -> Vec<NaiveDate> {
             }
         }
         _ => {
-            if let Some(d) =
-                super::bitmap::nth_weekday_of_month(year, 7, chrono::Weekday::Mon, 3)
-            {
+            if let Some(d) = super::bitmap::nth_weekday_of_month(year, 7, chrono::Weekday::Mon, 3) {
                 holidays.push(d);
             }
         }
@@ -208,8 +206,7 @@ fn japan_holidays_for_year(year: i32) -> Vec<NaiveDate> {
             }
         }
         _ => {
-            if let Some(d) =
-                super::bitmap::nth_weekday_of_month(year, 10, chrono::Weekday::Mon, 2)
+            if let Some(d) = super::bitmap::nth_weekday_of_month(year, 10, chrono::Weekday::Mon, 2)
             {
                 holidays.push(d);
             }
@@ -240,7 +237,7 @@ fn japan_holidays_for_year(year: i32) -> Vec<NaiveDate> {
 fn calculate_vernal_equinox(year: i32) -> u32 {
     // Simplified formula: 20.8431 + 0.242194 * (year - 1980) - floor((year - 1980) / 4)
     let y = (year - 1980) as f64;
-    let day = 20.8431 + 0.242194 * y - (y / 4.0).floor();
+    let day = 20.8431 + 0.242_194 * y - (y / 4.0).floor();
     day as u32
 }
 
@@ -249,7 +246,7 @@ fn calculate_vernal_equinox(year: i32) -> u32 {
 fn calculate_autumnal_equinox(year: i32) -> u32 {
     // Simplified formula: 23.2488 + 0.242194 * (year - 1980) - floor((year - 1980) / 4)
     let y = (year - 1980) as f64;
-    let day = 23.2488 + 0.242194 * y - (y / 4.0).floor();
+    let day = 23.2488 + 0.242_194 * y - (y / 4.0).floor();
     day as u32
 }
 

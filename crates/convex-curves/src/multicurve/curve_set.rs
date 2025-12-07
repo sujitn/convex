@@ -63,7 +63,10 @@ impl std::fmt::Debug for CurveSet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CurveSet")
             .field("reference_date", &self.reference_date)
-            .field("projection_curves", &self.projection_curves.keys().collect::<Vec<_>>())
+            .field(
+                "projection_curves",
+                &self.projection_curves.keys().collect::<Vec<_>>(),
+            )
             .field("fx_curves", &self.fx_curves.keys().collect::<Vec<_>>())
             .finish()
     }
@@ -113,7 +116,11 @@ impl CurveSet {
     }
 
     /// Returns the zero rate from the discount curve.
-    pub fn zero_rate(&self, t: f64, compounding: crate::compounding::Compounding) -> CurveResult<f64> {
+    pub fn zero_rate(
+        &self,
+        t: f64,
+        compounding: crate::compounding::Compounding,
+    ) -> CurveResult<f64> {
         self.discount_curve.zero_rate(t, compounding)
     }
 
@@ -131,10 +138,9 @@ impl CurveSet {
     ///
     /// Returns an error if no projection curve exists for the given index.
     pub fn forward_rate(&self, index: &RateIndex, start: Date, end: Date) -> CurveResult<f64> {
-        let curve = self
-            .projection_curves
-            .get(index)
-            .ok_or_else(|| CurveError::invalid_data(format!("No projection curve for index: {index}")))?;
+        let curve = self.projection_curves.get(index).ok_or_else(|| {
+            CurveError::invalid_data(format!("No projection curve for index: {index}"))
+        })?;
 
         // Convert dates to time fractions
         let t1 = self.year_fraction(start);
@@ -151,10 +157,9 @@ impl CurveSet {
 
     /// Returns the forward rate for a specific rate index using year fractions.
     pub fn forward_rate_at(&self, index: &RateIndex, t1: f64, t2: f64) -> CurveResult<f64> {
-        let curve = self
-            .projection_curves
-            .get(index)
-            .ok_or_else(|| CurveError::invalid_data(format!("No projection curve for index: {index}")))?;
+        let curve = self.projection_curves.get(index).ok_or_else(|| {
+            CurveError::invalid_data(format!("No projection curve for index: {index}"))
+        })?;
 
         let base = curve.base_curve();
         let fwd = base.forward_rate(t1, t2)?;
@@ -165,10 +170,9 @@ impl CurveSet {
     ///
     /// For example, for Term SOFR 3M, this returns the 3M forward rate starting at t.
     pub fn forward_rate_for_tenor(&self, index: &RateIndex, t: f64) -> CurveResult<f64> {
-        let curve = self
-            .projection_curves
-            .get(index)
-            .ok_or_else(|| CurveError::invalid_data(format!("No projection curve for index: {index}")))?;
+        let curve = self.projection_curves.get(index).ok_or_else(|| {
+            CurveError::invalid_data(format!("No projection curve for index: {index}"))
+        })?;
 
         curve.forward_rate_at(t)
     }
@@ -416,7 +420,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let fwd = curve_set.forward_rate_at(&RateIndex::term_sofr_3m(), 1.0, 2.0).unwrap();
+        let fwd = curve_set
+            .forward_rate_at(&RateIndex::term_sofr_3m(), 1.0, 2.0)
+            .unwrap();
         assert!(fwd > 0.01 && fwd < 0.10);
     }
 

@@ -248,8 +248,8 @@ impl ActActAfb {
 
         // For longer periods, we need the rule for the final partial year
         // Look back one year from end
-        let one_year_back = Date::from_ymd(end.year() - 1, end.month(), end.day())
-            .unwrap_or_else(|_| {
+        let one_year_back =
+            Date::from_ymd(end.year() - 1, end.month(), end.day()).unwrap_or_else(|_| {
                 // Handle Feb 29 -> Feb 28
                 Date::from_ymd(end.year() - 1, end.month(), 28).unwrap()
             });
@@ -293,7 +293,11 @@ impl DayCount for ActActAfb {
 
         // For periods up to one year
         if total_days <= 366 {
-            let basis = if Self::is_366_basis(start, end) { 366 } else { 365 };
+            let basis = if Self::is_366_basis(start, end) {
+                366
+            } else {
+                365
+            };
             return Decimal::from(total_days) / Decimal::from(basis);
         }
 

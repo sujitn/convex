@@ -1,4 +1,4 @@
-//! Fluent CurveBuilder API for constructing yield curves.
+//! Fluent `CurveBuilder` API for constructing yield curves.
 //!
 //! Provides a high-level, market-convention-aware interface for building
 //! discount curves from market instruments.
@@ -30,7 +30,7 @@ use convex_core::Date;
 use crate::bootstrap::SequentialBootstrapper;
 use crate::curves::DiscountCurve;
 use crate::error::{CurveError, CurveResult};
-use crate::instruments::{CurveInstrument, Deposit, FRA, OIS, RateFuture, Swap, FutureType};
+use crate::instruments::{CurveInstrument, Deposit, FutureType, RateFuture, Swap, FRA, OIS};
 use crate::interpolation::InterpolationMethod;
 use crate::repricing::BootstrapResult;
 
@@ -127,7 +127,7 @@ impl CurveBuilder {
     ///
     /// # Default Settings
     ///
-    /// - Interpolation: LogLinear
+    /// - Interpolation: `LogLinear`
     /// - Extrapolation: Flat
     /// - Bootstrap: Sequential
     /// - Calendar: SIFMA (US fixed income)
@@ -197,7 +197,9 @@ impl CurveBuilder {
     /// - 1Y, 2Y, etc: Years
     #[must_use]
     pub fn add_deposit(mut self, tenor: &str, rate: f64) -> Self {
-        let spot_date = self.calendar.add_business_days(self.reference_date, self.spot_days as i32);
+        let spot_date = self
+            .calendar
+            .add_business_days(self.reference_date, self.spot_days as i32);
 
         if let Ok(deposit) = Deposit::from_tenor(spot_date, tenor, rate) {
             self.instruments.push(Box::new(deposit));
@@ -220,7 +222,9 @@ impl CurveBuilder {
     /// ```
     #[must_use]
     pub fn add_fra(mut self, start_tenor: &str, end_tenor: &str, rate: f64) -> Self {
-        let spot_date = self.calendar.add_business_days(self.reference_date, self.spot_days as i32);
+        let spot_date = self
+            .calendar
+            .add_business_days(self.reference_date, self.spot_days as i32);
 
         // Parse tenors to months
         let start_months = parse_tenor_to_months(start_tenor).unwrap_or(0);
@@ -277,7 +281,8 @@ impl CurveBuilder {
     /// * `rate` - Fixed rate as a decimal
     #[must_use]
     pub fn add_swap(mut self, tenor: &str, rate: f64) -> Self {
-        if let Ok(swap) = Swap::from_tenor(self.reference_date, tenor, rate, Frequency::SemiAnnual) {
+        if let Ok(swap) = Swap::from_tenor(self.reference_date, tenor, rate, Frequency::SemiAnnual)
+        {
             self.instruments.push(Box::new(swap));
         }
         self
@@ -306,7 +311,9 @@ impl CurveBuilder {
     /// - Invalid curve parameters
     pub fn bootstrap(self) -> CurveResult<DiscountCurve> {
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for curve building"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for curve building",
+            ));
         }
 
         // Currently only sequential bootstrap is supported via CurveBuilder
@@ -339,7 +346,9 @@ impl CurveBuilder {
     /// ```
     pub fn bootstrap_validated(self) -> CurveResult<BootstrapResult<DiscountCurve>> {
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for curve building"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for curve building",
+            ));
         }
 
         self.bootstrap_sequential_validated()
@@ -353,7 +362,11 @@ impl CurveBuilder {
             return Err(CurveError::repricing_failed(
                 result.repricing_report.failed_count(),
                 result.repricing_report.max_error(),
-                result.failed_instruments().into_iter().map(String::from).collect(),
+                result
+                    .failed_instruments()
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
             ));
         }
 
@@ -437,11 +450,17 @@ impl CurveBuilder {
             FutureType::SOFR3M // Default
         };
 
-        Some(RateFuture::new(future_type, imm_date, accrual_start, accrual_end, price))
+        Some(RateFuture::new(
+            future_type,
+            imm_date,
+            accrual_start,
+            accrual_end,
+            price,
+        ))
     }
 }
 
-/// Wrapper to implement CurveInstrument for boxed instruments.
+/// Wrapper to implement `CurveInstrument` for boxed instruments.
 struct InstrumentWrapper(Box<dyn CurveInstrument>);
 
 impl CurveInstrument for InstrumentWrapper {
@@ -571,11 +590,7 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         let curve = CurveBuilder::new(ref_date)
-            .add_deposits(&[
-                ("1M", 0.050),
-                ("3M", 0.052),
-                ("6M", 0.054),
-            ])
+            .add_deposits(&[("1M", 0.050), ("3M", 0.052), ("6M", 0.054)])
             .bootstrap()
             .unwrap();
 
@@ -603,11 +618,19 @@ mod tests {
         // Dec 2024: Dec 1 is Sunday, first Wednesday is Dec 4, third is Dec 18
         let imm = find_imm_date(2024, 12).unwrap();
         // Dec 1, 2024 is Sunday (weekday 6), so first Wed is Dec 4, third Wed is Dec 18
-        assert!(imm.day() >= 15 && imm.day() <= 21, "IMM date should be third Wednesday, got day {}", imm.day());
+        assert!(
+            imm.day() >= 15 && imm.day() <= 21,
+            "IMM date should be third Wednesday, got day {}",
+            imm.day()
+        );
 
         // Mar 2025: Mar 1 is Saturday, first Wednesday is Mar 5, third is Mar 19
         let imm = find_imm_date(2025, 3).unwrap();
-        assert!(imm.day() >= 15 && imm.day() <= 21, "IMM date should be third Wednesday, got day {}", imm.day());
+        assert!(
+            imm.day() >= 15 && imm.day() <= 21,
+            "IMM date should be third Wednesday, got day {}",
+            imm.day()
+        );
     }
 
     #[test]

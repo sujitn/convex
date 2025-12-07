@@ -269,8 +269,7 @@ mod tests {
     fn test_numerical_derivative() {
         let f = |x: f64| x * x - 2.0;
 
-        let result =
-            hybrid_numerical(f, 1.5, Some((1.0, 2.0)), &SolverConfig::default()).unwrap();
+        let result = hybrid_numerical(f, 1.5, Some((1.0, 2.0)), &SolverConfig::default()).unwrap();
 
         assert_relative_eq!(result.root, std::f64::consts::SQRT_2, epsilon = 1e-8);
     }

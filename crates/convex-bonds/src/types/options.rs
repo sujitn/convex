@@ -199,7 +199,7 @@ impl PutEntry {
 pub struct CallSchedule {
     /// Type of call provision
     pub call_type: CallType,
-    /// Schedule entries (should be sorted by start_date)
+    /// Schedule entries (should be sorted by `start_date`)
     pub entries: Vec<CallEntry>,
     /// Protection period end date (bond cannot be called before this)
     pub protection_end: Option<Date>,
@@ -276,7 +276,7 @@ impl CallSchedule {
         self.entries
             .iter()
             .filter(|e| e.start_date <= date)
-            .last()
+            .next_back()
             .map(|e| e.call_price)
     }
 
@@ -311,7 +311,7 @@ impl CallSchedule {
 pub struct PutSchedule {
     /// Type of put provision
     pub put_type: PutType,
-    /// Schedule entries (should be sorted by start_date)
+    /// Schedule entries (should be sorted by `start_date`)
     pub entries: Vec<PutEntry>,
 }
 
@@ -348,7 +348,7 @@ impl PutSchedule {
         self.entries
             .iter()
             .filter(|e| e.start_date <= date)
-            .last()
+            .next_back()
             .map(|e| e.put_price)
     }
 

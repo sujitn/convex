@@ -104,6 +104,7 @@ impl IterativeMultiCurveBootstrapper {
     /// # Arguments
     ///
     /// * `reference_date` - The curves' reference/valuation date
+    #[must_use]
     pub fn new(reference_date: Date) -> Self {
         Self {
             reference_date,
@@ -263,14 +264,14 @@ impl IterativeMultiCurveBootstrapper {
             let df = instrument.implied_df(&partial, 0.0).map_err(|e| {
                 CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Discount curve: {}", e),
+                    format!("Discount curve: {e}"),
                 )
             })?;
 
             if df <= 0.0 || df > 1.0 {
                 return Err(CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Invalid DF: {}", df),
+                    format!("Invalid DF: {df}"),
                 ));
             }
 
@@ -292,14 +293,20 @@ impl IterativeMultiCurveBootstrapper {
             let t = self.year_fraction(instrument.pillar_date());
             if t > 0.0 {
                 // Calculate implied spread from instrument vs discount curve
-                let _disc_fwd = discount.forward_rate(0.0, t).unwrap_or(self.config.initial_rate);
+                let _disc_fwd = discount
+                    .forward_rate(0.0, t)
+                    .unwrap_or(self.config.initial_rate);
                 // For simplicity, use a small spread adjustment
                 total_spread += 0.001; // 10bp default spread
                 count += 1;
             }
         }
 
-        let avg_spread = if count > 0 { total_spread / count as f64 } else { 0.0 };
+        let avg_spread = if count > 0 {
+            total_spread / f64::from(count)
+        } else {
+            0.0
+        };
 
         // Build forward curve with the discount curve as base
         ForwardCurveBuilder::new()
@@ -413,16 +420,8 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Short-end deposits
-        let dep_3m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 4, 15).unwrap(),
-            0.050,
-        );
-        let dep_6m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.052,
-        );
+        let dep_3m = Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050);
+        let dep_6m = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052);
 
         // Longer OIS
         let ois_1y = OIS::from_tenor(ref_date, "1Y", 0.048).unwrap();

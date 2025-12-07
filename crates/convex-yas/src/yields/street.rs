@@ -72,7 +72,12 @@ pub fn street_convention_yield(
 }
 
 /// Calculate price and its derivative with respect to yield.
-fn price_and_derivative(yield_val: f64, cash_flows: &[f64], times: &[f64], freq: f64) -> (f64, f64) {
+fn price_and_derivative(
+    yield_val: f64,
+    cash_flows: &[f64],
+    times: &[f64],
+    freq: f64,
+) -> (f64, f64) {
     let periodic_rate = yield_val / freq;
     let mut pv = 0.0;
     let mut dpv = 0.0;

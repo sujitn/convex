@@ -110,15 +110,15 @@ impl PriceQuoteConvention {
     #[must_use]
     pub fn tick_size(&self) -> Decimal {
         match self {
-            PriceQuoteConvention::Decimal => Decimal::new(1, 2),         // 0.01
+            PriceQuoteConvention::Decimal => Decimal::new(1, 2), // 0.01
             PriceQuoteConvention::ThirtySeconds => Decimal::new(3125, 6), // 1/32 = 0.03125
             PriceQuoteConvention::ThirtySecondsPlus => Decimal::new(15625, 7), // 1/64 = 0.015625
             PriceQuoteConvention::SixtyFourths => Decimal::new(15625, 7), // 1/64
             PriceQuoteConvention::OneHundredTwentyEighths => Decimal::new(78125, 8), // 1/128
-            PriceQuoteConvention::Discount => Decimal::new(1, 4),        // 0.0001 (1 bp)
-            PriceQuoteConvention::Yield => Decimal::new(1, 4),           // 0.0001 (1 bp)
-            PriceQuoteConvention::Percentage => Decimal::new(1, 2),      // 0.01
-            PriceQuoteConvention::PerUnit => Decimal::new(1, 4),         // 0.0001
+            PriceQuoteConvention::Discount => Decimal::new(1, 4), // 0.0001 (1 bp)
+            PriceQuoteConvention::Yield => Decimal::new(1, 4),   // 0.0001 (1 bp)
+            PriceQuoteConvention::Percentage => Decimal::new(1, 2), // 0.01
+            PriceQuoteConvention::PerUnit => Decimal::new(1, 4), // 0.0001
         }
     }
 }
@@ -136,7 +136,7 @@ impl std::fmt::Display for PriceQuoteConvention {
             PriceQuoteConvention::Percentage => "Percentage",
             PriceQuoteConvention::PerUnit => "Per Unit",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -186,7 +186,7 @@ impl PriceQuote {
     /// * `plus` - Whether to add 1/64 (the "+" notation)
     ///
     /// # Errors
-    /// Returns error if thirty_seconds > 31.
+    /// Returns error if `thirty_seconds` > 31.
     pub fn from_thirty_seconds(
         handle: u32,
         thirty_seconds: u32,
@@ -194,10 +194,7 @@ impl PriceQuote {
     ) -> Result<Self, BondError> {
         if thirty_seconds > 31 {
             return Err(BondError::InvalidPrice {
-                reason: format!(
-                    "32nds value must be 0-31, got {}",
-                    thirty_seconds
-                ),
+                reason: format!("32nds value must be 0-31, got {thirty_seconds}"),
             });
         }
 
@@ -217,9 +214,9 @@ impl PriceQuote {
         };
 
         let original = if plus {
-            format!("{}-{}+", handle, thirty_seconds)
+            format!("{handle}-{thirty_seconds}+")
         } else {
-            format!("{}-{:02}", handle, thirty_seconds)
+            format!("{handle}-{thirty_seconds:02}")
         };
 
         Ok(Self {
@@ -232,11 +229,11 @@ impl PriceQuote {
     /// Creates a price quote from 64ths notation.
     ///
     /// # Errors
-    /// Returns error if sixty_fourths > 63.
+    /// Returns error if `sixty_fourths` > 63.
     pub fn from_sixty_fourths(handle: u32, sixty_fourths: u32) -> Result<Self, BondError> {
         if sixty_fourths > 63 {
             return Err(BondError::InvalidPrice {
-                reason: format!("64ths value must be 0-63, got {}", sixty_fourths),
+                reason: format!("64ths value must be 0-63, got {sixty_fourths}"),
             });
         }
 
@@ -247,7 +244,7 @@ impl PriceQuote {
         Ok(Self {
             decimal,
             convention: PriceQuoteConvention::SixtyFourths,
-            original: Some(format!("{}-{:02}", handle, sixty_fourths)),
+            original: Some(format!("{handle}-{sixty_fourths:02}")),
         })
     }
 
@@ -266,7 +263,7 @@ impl PriceQuote {
         match convention {
             PriceQuoteConvention::Decimal | PriceQuoteConvention::Percentage => {
                 let decimal = Decimal::from_str(s).map_err(|e| BondError::InvalidPrice {
-                    reason: format!("Invalid decimal price '{}': {}", s, e),
+                    reason: format!("Invalid decimal price '{s}': {e}"),
                 })?;
                 Ok(Self {
                     decimal,
@@ -284,7 +281,7 @@ impl PriceQuote {
             PriceQuoteConvention::Discount | PriceQuoteConvention::Yield => {
                 // For rate quotes, store the rate as-is
                 let rate = Decimal::from_str(s).map_err(|e| BondError::InvalidPrice {
-                    reason: format!("Invalid rate '{}': {}", s, e),
+                    reason: format!("Invalid rate '{s}': {e}"),
                 })?;
                 Ok(Self {
                     decimal: rate,
@@ -295,7 +292,7 @@ impl PriceQuote {
 
             _ => {
                 let decimal = Decimal::from_str(s).map_err(|e| BondError::InvalidPrice {
-                    reason: format!("Invalid price '{}': {}", s, e),
+                    reason: format!("Invalid price '{s}': {e}"),
                 })?;
                 Ok(Self {
                     decimal,
@@ -314,19 +311,16 @@ impl PriceQuote {
         let parts: Vec<&str> = s.split('-').collect();
         if parts.len() != 2 {
             return Err(BondError::InvalidPrice {
-                reason: format!(
-                    "Invalid 32nds format '{}': expected 'handle-32nds'",
-                    s
-                ),
+                reason: format!("Invalid 32nds format '{s}': expected 'handle-32nds'"),
             });
         }
 
         let handle: u32 = parts[0].parse().map_err(|_| BondError::InvalidPrice {
-            reason: format!("Invalid handle in '{}'", s),
+            reason: format!("Invalid handle in '{s}'"),
         })?;
 
         let thirty_seconds: u32 = parts[1].parse().map_err(|_| BondError::InvalidPrice {
-            reason: format!("Invalid 32nds value in '{}'", s),
+            reason: format!("Invalid 32nds value in '{s}'"),
         })?;
 
         Self::from_thirty_seconds(handle, thirty_seconds, plus)
@@ -337,19 +331,16 @@ impl PriceQuote {
         let parts: Vec<&str> = s.split('-').collect();
         if parts.len() != 2 {
             return Err(BondError::InvalidPrice {
-                reason: format!(
-                    "Invalid 64ths format '{}': expected 'handle-64ths'",
-                    s
-                ),
+                reason: format!("Invalid 64ths format '{s}': expected 'handle-64ths'"),
             });
         }
 
         let handle: u32 = parts[0].parse().map_err(|_| BondError::InvalidPrice {
-            reason: format!("Invalid handle in '{}'", s),
+            reason: format!("Invalid handle in '{s}'"),
         })?;
 
         let sixty_fourths: u32 = parts[1].parse().map_err(|_| BondError::InvalidPrice {
-            reason: format!("Invalid 64ths value in '{}'", s),
+            reason: format!("Invalid 64ths value in '{s}'"),
         })?;
 
         Self::from_sixty_fourths(handle, sixty_fourths)
@@ -375,7 +366,7 @@ impl PriceQuote {
 
     /// Formats the price in 32nds notation.
     ///
-    /// Returns (handle, thirty_seconds, has_plus).
+    /// Returns (handle, `thirty_seconds`, `has_plus`).
     #[must_use]
     pub fn to_thirty_seconds(&self) -> (u32, u32, bool) {
         let handle = self.decimal.trunc();
@@ -401,9 +392,9 @@ impl PriceQuote {
     pub fn format_thirty_seconds(&self) -> String {
         let (handle, thirty_seconds, has_plus) = self.to_thirty_seconds();
         if has_plus {
-            format!("{}-{:02}+", handle, thirty_seconds)
+            format!("{handle}-{thirty_seconds:02}+")
         } else {
-            format!("{}-{:02}", handle, thirty_seconds)
+            format!("{handle}-{thirty_seconds:02}")
         }
     }
 
@@ -479,10 +470,7 @@ mod tests {
         assert!(PriceQuoteConvention::Yield.is_rate_quote());
         assert!(!PriceQuoteConvention::Decimal.is_rate_quote());
 
-        assert_eq!(
-            PriceQuoteConvention::ThirtySeconds.denominator(),
-            Some(32)
-        );
+        assert_eq!(PriceQuoteConvention::ThirtySeconds.denominator(), Some(32));
         assert_eq!(PriceQuoteConvention::SixtyFourths.denominator(), Some(64));
         assert_eq!(PriceQuoteConvention::Decimal.denominator(), None);
     }

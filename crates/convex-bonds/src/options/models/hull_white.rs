@@ -116,6 +116,7 @@ impl HullWhite {
     /// Returns the B(t,T) function used in Hull-White pricing.
     ///
     /// B(t,T) = (1 - exp(-a*(T-t))) / a
+    #[allow(dead_code)]
     fn b_factor(&self, t: f64, big_t: f64) -> f64 {
         let a = self.mean_reversion;
         let tau = big_t - t;
@@ -130,6 +131,7 @@ impl HullWhite {
     /// θ(t) = ∂f(0,t)/∂t + a*f(0,t) + σ²*(1-exp(-2at))/(2a)
     ///
     /// where f(0,t) is the instantaneous forward rate.
+    #[allow(clippy::similar_names)]
     fn theta_at(&self, t: f64, zero_rates: &dyn Fn(f64) -> f64) -> f64 {
         let a = self.mean_reversion;
         let sigma = self.volatility;
@@ -162,7 +164,7 @@ impl HullWhite {
             let dr_minus = (r_minus_eps - r_minus) / epsilon;
             r_minus + (t_safe - epsilon) * dr_minus
         } else {
-            forward  // Use same value at boundary
+            forward // Use same value at boundary
         };
 
         let df_dt = (forward_plus - forward_minus) / (2.0 * epsilon);
@@ -211,7 +213,7 @@ impl ShortRateModel for HullWhite {
                 let r_down = r + drift * dt - dr;
 
                 // Set rates at next step
-                if j + 1 <= i + 1 {
+                if j < i + 1 {
                     tree.set_rate(i + 1, j + 1, r_up);
                 }
                 tree.set_rate(i + 1, j, r_down);

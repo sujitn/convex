@@ -76,7 +76,7 @@ pub struct TreasuryBond {
     maturity_date: Date,
     /// Annual coupon rate (e.g., 0.04125 for 4.125%)
     coupon_rate: f64,
-    /// Payment frequency (always SemiAnnual for US Treasuries)
+    /// Payment frequency (always `SemiAnnual` for US Treasuries)
     frequency: Frequency,
     /// Clean price per 100 face
     clean_price: f64,
@@ -142,7 +142,13 @@ impl TreasuryBond {
         ytm: f64,
     ) -> Self {
         // Create a temporary bond at par to get cash flows
-        let temp_bond = Self::new(cusip.into(), settlement_date, maturity_date, coupon_rate, 100.0);
+        let temp_bond = Self::new(
+            cusip.into(),
+            settlement_date,
+            maturity_date,
+            coupon_rate,
+            100.0,
+        );
         let flows = temp_bond.cash_flows();
 
         // Calculate dirty price from YTM
@@ -193,24 +199,42 @@ impl TreasuryBond {
     ) -> CurveResult<Self> {
         let cusip = cusip.into();
         match quote.quote_type {
-            QuoteType::Bond(BondQuoteType::CleanPrice) => {
-                Ok(Self::new(cusip, settlement_date, maturity_date, coupon_rate, quote.mid()))
-            }
+            QuoteType::Bond(BondQuoteType::CleanPrice) => Ok(Self::new(
+                cusip,
+                settlement_date,
+                maturity_date,
+                coupon_rate,
+                quote.mid(),
+            )),
             QuoteType::Bond(BondQuoteType::DirtyPrice) => {
                 // Convert dirty to clean by subtracting accrued
-                let temp_bond = Self::new(cusip.clone(), settlement_date, maturity_date, coupon_rate, 100.0);
+                let temp_bond = Self::new(
+                    cusip.clone(),
+                    settlement_date,
+                    maturity_date,
+                    coupon_rate,
+                    100.0,
+                );
                 let accrued = temp_bond.accrued_interest();
                 let clean_price = quote.mid() - accrued;
-                Ok(Self::new(cusip, settlement_date, maturity_date, coupon_rate, clean_price))
-            }
-            QuoteType::Bond(BondQuoteType::YieldToMaturity) => {
-                Ok(Self::from_ytm(cusip, settlement_date, maturity_date, coupon_rate, quote.mid()))
-            }
-            QuoteType::Bond(BondQuoteType::DiscountRate) => {
-                Err(CurveError::invalid_data(
-                    "Discount rate not supported for coupon bonds. Use YTM or Clean Price."
+                Ok(Self::new(
+                    cusip,
+                    settlement_date,
+                    maturity_date,
+                    coupon_rate,
+                    clean_price,
                 ))
             }
+            QuoteType::Bond(BondQuoteType::YieldToMaturity) => Ok(Self::from_ytm(
+                cusip,
+                settlement_date,
+                maturity_date,
+                coupon_rate,
+                quote.mid(),
+            )),
+            QuoteType::Bond(BondQuoteType::DiscountRate) => Err(CurveError::invalid_data(
+                "Discount rate not supported for coupon bonds. Use YTM or Clean Price.",
+            )),
             _ => Err(CurveError::invalid_data(format!(
                 "Unsupported quote type {:?} for Treasury Bond",
                 quote.quote_type
@@ -263,7 +287,7 @@ impl TreasuryBond {
     /// Returns the semi-annual coupon amount.
     #[must_use]
     pub fn coupon_amount(&self) -> f64 {
-        self.face_value * self.coupon_rate / self.frequency.periods_per_year() as f64
+        self.face_value * self.coupon_rate / f64::from(self.frequency.periods_per_year())
     }
 
     /// Generates all cash flows after settlement.
@@ -315,7 +339,7 @@ impl TreasuryBond {
 
         let prev_coupon = next_coupon
             .add_months(-months_per_period)
-            .unwrap_or_else(|_| self.settlement_date);
+            .unwrap_or(self.settlement_date);
 
         (prev_coupon, next_coupon)
     }

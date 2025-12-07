@@ -150,7 +150,7 @@ pub struct RepricingCheck {
     /// Model-implied PV from the curve
     pub model_pv: f64,
 
-    /// Absolute error |model_pv - target_pv|
+    /// Absolute error |`model_pv` - `target_pv`|
     pub error: f64,
 
     /// Tolerance for this instrument type
@@ -262,9 +262,7 @@ impl RepricingReport {
     /// Creates a new repricing report from individual checks.
     #[must_use]
     pub fn new(checks: Vec<RepricingCheck>) -> Self {
-        let max_error = checks.iter()
-            .map(|c| c.error)
-            .fold(0.0_f64, f64::max);
+        let max_error = checks.iter().map(|c| c.error).fold(0.0_f64, f64::max);
 
         let rms_error = if checks.is_empty() {
             0.0
@@ -363,8 +361,17 @@ impl fmt::Display for RepricingReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Repricing Report")?;
         writeln!(f, "================")?;
-        writeln!(f, "Status: {}", if self.all_passed { "PASSED" } else { "FAILED" })?;
-        writeln!(f, "Instruments: {}/{} passed", self.passed_count, self.checks.len())?;
+        writeln!(
+            f,
+            "Status: {}",
+            if self.all_passed { "PASSED" } else { "FAILED" }
+        )?;
+        writeln!(
+            f,
+            "Instruments: {}/{} passed",
+            self.passed_count,
+            self.checks.len()
+        )?;
         writeln!(f, "Max Error: {:.2e}", self.max_error)?;
         writeln!(f, "RMS Error: {:.2e}", self.rms_error)?;
 
@@ -536,7 +543,9 @@ impl BuildTimer {
     /// Starts a new timer.
     #[must_use]
     pub fn start() -> Self {
-        Self { start: Instant::now() }
+        Self {
+            start: Instant::now(),
+        }
     }
 
     /// Returns the elapsed duration.
@@ -559,8 +568,8 @@ mod tests {
             "Deposit 3M".to_string(),
             InstrumentType::Deposit,
             0.0,
-            1e-10,  // Very small error
-            1e-6,   // Tolerance
+            1e-10, // Very small error
+            1e-6,  // Tolerance
         );
 
         assert!(check.passed);
@@ -573,8 +582,8 @@ mod tests {
             "Deposit 3M".to_string(),
             InstrumentType::Deposit,
             0.0,
-            0.01,   // Large error
-            1e-6,   // Tolerance
+            0.01, // Large error
+            1e-6, // Tolerance
         );
 
         assert!(!check.passed);
@@ -584,8 +593,20 @@ mod tests {
     #[test]
     fn test_repricing_report_all_passed() {
         let checks = vec![
-            RepricingCheck::new("Dep 1".to_string(), InstrumentType::Deposit, 0.0, 1e-10, 1e-6),
-            RepricingCheck::new("Dep 2".to_string(), InstrumentType::Deposit, 0.0, 1e-9, 1e-6),
+            RepricingCheck::new(
+                "Dep 1".to_string(),
+                InstrumentType::Deposit,
+                0.0,
+                1e-10,
+                1e-6,
+            ),
+            RepricingCheck::new(
+                "Dep 2".to_string(),
+                InstrumentType::Deposit,
+                0.0,
+                1e-9,
+                1e-6,
+            ),
         ];
 
         let report = RepricingReport::new(checks);
@@ -599,8 +620,20 @@ mod tests {
     #[test]
     fn test_repricing_report_some_failed() {
         let checks = vec![
-            RepricingCheck::new("Dep 1".to_string(), InstrumentType::Deposit, 0.0, 1e-10, 1e-6),
-            RepricingCheck::new("Dep 2".to_string(), InstrumentType::Deposit, 0.0, 0.01, 1e-6),
+            RepricingCheck::new(
+                "Dep 1".to_string(),
+                InstrumentType::Deposit,
+                0.0,
+                1e-10,
+                1e-6,
+            ),
+            RepricingCheck::new(
+                "Dep 2".to_string(),
+                InstrumentType::Deposit,
+                0.0,
+                0.01,
+                1e-6,
+            ),
         ];
 
         let report = RepricingReport::new(checks);
@@ -620,14 +653,18 @@ mod tests {
             .build()
             .unwrap();
 
-        let report = RepricingReport::new(vec![
-            RepricingCheck::new("Dep 1".to_string(), InstrumentType::Deposit, 0.0, 1e-10, 1e-6),
-        ]);
+        let report = RepricingReport::new(vec![RepricingCheck::new(
+            "Dep 1".to_string(),
+            InstrumentType::Deposit,
+            0.0,
+            1e-10,
+            1e-6,
+        )]);
 
         let result = BootstrapResult::new(curve, report, Duration::from_micros(100));
 
         assert!(result.is_valid());
-        let _ = result.into_curve();  // Should not panic
+        let _ = result.into_curve(); // Should not panic
     }
 
     #[test]
@@ -640,21 +677,34 @@ mod tests {
             .build()
             .unwrap();
 
-        let report = RepricingReport::new(vec![
-            RepricingCheck::new("Dep 1".to_string(), InstrumentType::Deposit, 0.0, 0.01, 1e-6),
-        ]);
+        let report = RepricingReport::new(vec![RepricingCheck::new(
+            "Dep 1".to_string(),
+            InstrumentType::Deposit,
+            0.0,
+            0.01,
+            1e-6,
+        )]);
 
         let result = BootstrapResult::new(curve, report, Duration::from_micros(100));
 
         assert!(!result.is_valid());
-        let _ = result.into_curve();  // Should panic
+        let _ = result.into_curve(); // Should panic
     }
 
     #[test]
     fn test_tolerance_for_instrument() {
-        assert_eq!(tolerances::for_instrument(InstrumentType::Deposit), tolerances::DEPOSIT);
-        assert_eq!(tolerances::for_instrument(InstrumentType::Swap), tolerances::SWAP);
-        assert_eq!(tolerances::for_instrument(InstrumentType::OIS), tolerances::OIS);
+        assert_eq!(
+            tolerances::for_instrument(InstrumentType::Deposit),
+            tolerances::DEPOSIT
+        );
+        assert_eq!(
+            tolerances::for_instrument(InstrumentType::Swap),
+            tolerances::SWAP
+        );
+        assert_eq!(
+            tolerances::for_instrument(InstrumentType::OIS),
+            tolerances::OIS
+        );
     }
 
     #[test]
@@ -693,9 +743,13 @@ mod tests {
 
     #[test]
     fn test_repricing_report_display() {
-        let checks = vec![
-            RepricingCheck::new("Dep 1".to_string(), InstrumentType::Deposit, 0.0, 1e-10, 1e-6),
-        ];
+        let checks = vec![RepricingCheck::new(
+            "Dep 1".to_string(),
+            InstrumentType::Deposit,
+            0.0,
+            1e-10,
+            1e-6,
+        )];
         let report = RepricingReport::new(checks);
 
         let display = format!("{report}");

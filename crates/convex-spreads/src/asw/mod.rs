@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Different conventions for calculating asset swap spreads, each with
 /// different economics and use cases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum ASWType {
     /// Par-par asset swap: exchange bond at par, spread compensates.
     ///
@@ -47,6 +47,7 @@ pub enum ASWType {
     ///
     /// The spread compensates for the difference between par and market price.
     /// This is the most common convention for investment-grade bonds.
+    #[default]
     ParPar,
 
     /// Market value asset swap: notional equals market value of bond.
@@ -95,12 +96,6 @@ impl std::fmt::Display for ASWType {
     }
 }
 
-impl Default for ASWType {
-    fn default() -> Self {
-        Self::ParPar
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,7 +103,10 @@ mod tests {
     #[test]
     fn test_asw_type_description() {
         assert_eq!(ASWType::ParPar.description(), "Par-Par Asset Swap");
-        assert_eq!(ASWType::MarketValue.description(), "Market Value Asset Swap");
+        assert_eq!(
+            ASWType::MarketValue.description(),
+            "Market Value Asset Swap"
+        );
         assert_eq!(ASWType::Proceeds.description(), "Proceeds Asset Swap");
     }
 

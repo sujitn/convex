@@ -76,9 +76,10 @@ impl LinearInterpolator {
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
         // Binary search
-        match self.xs.binary_search_by(|probe| {
-            probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal)
-        }) {
+        match self
+            .xs
+            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
+        {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
@@ -88,14 +89,12 @@ impl LinearInterpolator {
 impl Interpolator for LinearInterpolator {
     fn interpolate(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -112,14 +111,12 @@ impl Interpolator for LinearInterpolator {
 
     fn derivative(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -184,7 +181,9 @@ mod tests {
         let xs = vec![0.0, 1.0, 2.0];
         let ys = vec![0.0, 1.0, 2.0];
 
-        let interp = LinearInterpolator::new(xs, ys).unwrap().with_extrapolation();
+        let interp = LinearInterpolator::new(xs, ys)
+            .unwrap()
+            .with_extrapolation();
 
         // Should extrapolate linearly
         assert_relative_eq!(interp.interpolate(-1.0).unwrap(), -1.0, epsilon = 1e-10);

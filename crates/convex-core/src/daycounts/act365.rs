@@ -184,7 +184,7 @@ mod tests {
         let start = Date::from_ymd(2024, 1, 1).unwrap();
         let end = Date::from_ymd(2024, 3, 1).unwrap();
         assert_eq!(dc.day_count(start, end), 60); // 31 + 29
-        // Should use 366 as basis
+                                                  // Should use 366 as basis
         assert_eq!(dc.year_fraction(start, end), dec!(60) / dec!(366));
     }
 
@@ -196,7 +196,7 @@ mod tests {
         let start = Date::from_ymd(2025, 1, 1).unwrap();
         let end = Date::from_ymd(2025, 3, 1).unwrap();
         assert_eq!(dc.day_count(start, end), 59); // 31 + 28
-        // Should use 365 as basis
+                                                  // Should use 365 as basis
         assert_eq!(dc.year_fraction(start, end), dec!(59) / dec!(365));
     }
 
@@ -208,7 +208,7 @@ mod tests {
         let start = Date::from_ymd(2024, 3, 1).unwrap();
         let end = Date::from_ymd(2024, 6, 1).unwrap();
         assert_eq!(dc.day_count(start, end), 92); // 31 + 30 + 31
-        // Does not contain Feb 29, so use 365
+                                                  // Does not contain Feb 29, so use 365
         assert_eq!(dc.year_fraction(start, end), dec!(92) / dec!(365));
     }
 
@@ -220,7 +220,7 @@ mod tests {
         let start = Date::from_ymd(2023, 12, 1).unwrap();
         let end = Date::from_ymd(2024, 3, 1).unwrap();
         assert_eq!(dc.day_count(start, end), 91); // 31 + 31 + 29
-        // Contains Feb 29, 2024
+                                                  // Contains Feb 29, 2024
         assert_eq!(dc.year_fraction(start, end), dec!(91) / dec!(366));
     }
 

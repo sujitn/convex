@@ -81,7 +81,7 @@ impl ForwardCurve {
     pub fn from_months(base_curve: Arc<dyn Curve>, tenor_months: u32) -> Self {
         Self {
             base_curve,
-            tenor: tenor_months as f64 / 12.0,
+            tenor: f64::from(tenor_months) / 12.0,
             spread: 0.0,
         }
     }
@@ -232,7 +232,7 @@ impl ForwardCurveBuilder {
     /// Sets the tenor in months.
     #[must_use]
     pub fn tenor_months(mut self, months: u32) -> Self {
-        self.tenor = months as f64 / 12.0;
+        self.tenor = f64::from(months) / 12.0;
         self
     }
 
@@ -252,9 +252,9 @@ impl ForwardCurveBuilder {
 
     /// Builds the forward curve.
     pub fn build(self) -> CurveResult<ForwardCurve> {
-        let base = self.base_curve.ok_or_else(|| {
-            crate::error::CurveError::invalid_data("Base curve is required")
-        })?;
+        let base = self
+            .base_curve
+            .ok_or_else(|| crate::error::CurveError::invalid_data("Base curve is required"))?;
 
         Ok(ForwardCurve {
             base_curve: base,
@@ -283,7 +283,7 @@ mod tests {
                 .with_interpolation(InterpolationMethod::LogLinear)
                 .with_extrapolation()
                 .build()
-                .unwrap()
+                .unwrap(),
         )
     }
 

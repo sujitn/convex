@@ -7,9 +7,10 @@ use std::fmt;
 use std::ops::{Add, Neg, Sub};
 
 /// Types of spreads used in fixed income analytics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum SpreadType {
     /// Zero-volatility spread over benchmark curve.
+    #[default]
     ZSpread,
     /// Spread over government curve at specific tenor (G-Spread).
     GSpread,
@@ -214,17 +215,11 @@ impl Neg for Spread {
 
 impl PartialOrd for Spread {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.spread_type != other.spread_type {
-            None // Can't compare spreads of different types
-        } else {
+        if self.spread_type == other.spread_type {
             self.value_bps.partial_cmp(&other.value_bps)
+        } else {
+            None // Can't compare spreads of different types
         }
-    }
-}
-
-impl Default for SpreadType {
-    fn default() -> Self {
-        SpreadType::ZSpread
     }
 }
 

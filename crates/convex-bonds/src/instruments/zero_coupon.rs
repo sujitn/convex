@@ -95,7 +95,7 @@ impl std::fmt::Display for Compounding {
             Compounding::Monthly => "Monthly",
             Compounding::Continuous => "Continuous",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -132,21 +132,19 @@ pub fn convert_yield(yield_rate: Decimal, from: Compounding, to: Compounding) ->
     let rate = yield_rate.to_string().parse::<f64>().unwrap_or(0.0);
 
     // First convert to continuous
-    let continuous = match from {
-        Compounding::Continuous => rate,
-        _ => {
-            let m = from.periods_per_year() as f64;
-            m * (1.0 + rate / m).ln()
-        }
+    let continuous = if from == Compounding::Continuous {
+        rate
+    } else {
+        let m = f64::from(from.periods_per_year());
+        m * (1.0 + rate / m).ln()
     };
 
     // Then convert from continuous to target
-    let result = match to {
-        Compounding::Continuous => continuous,
-        _ => {
-            let m = to.periods_per_year() as f64;
-            m * ((continuous / m).exp() - 1.0)
-        }
+    let result = if to == Compounding::Continuous {
+        continuous
+    } else {
+        let m = f64::from(to.periods_per_year());
+        m * ((continuous / m).exp() - 1.0)
     };
 
     Decimal::try_from(result).unwrap_or(Decimal::ZERO)
@@ -322,7 +320,10 @@ impl ZeroCouponBond {
     /// Calculates the year fraction from settlement to maturity.
     fn years_to_maturity(&self, settlement: Date) -> f64 {
         let dc = self.day_count.to_day_count();
-        dc.year_fraction(settlement, self.maturity).to_string().parse::<f64>().unwrap_or(0.0)
+        dc.year_fraction(settlement, self.maturity)
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(0.0)
     }
 
     /// Calculates the clean price from a yield.
@@ -334,7 +335,7 @@ impl ZeroCouponBond {
     ///
     /// # Returns
     ///
-    /// The clean price (per 100 face value if face_value is 100).
+    /// The clean price (per 100 face value if `face_value` is 100).
     #[must_use]
     pub fn price_from_yield(&self, yield_rate: Decimal, settlement: Date) -> Decimal {
         if settlement >= self.maturity {
@@ -345,16 +346,13 @@ impl ZeroCouponBond {
         let rate = yield_rate.to_string().parse::<f64>().unwrap_or(0.0);
         let face = self.face_value.to_string().parse::<f64>().unwrap_or(100.0);
 
-        let price = match self.compounding {
-            Compounding::Continuous => {
-                face * (-rate * years).exp()
-            }
-            _ => {
-                let periods_per_year = self.compounding.periods_per_year() as f64;
-                let n = years * periods_per_year;
-                let rate_per_period = rate / periods_per_year;
-                face / (1.0 + rate_per_period).powf(n)
-            }
+        let price = if self.compounding == Compounding::Continuous {
+            face * (-rate * years).exp()
+        } else {
+            let periods_per_year = f64::from(self.compounding.periods_per_year());
+            let n = years * periods_per_year;
+            let rate_per_period = rate / periods_per_year;
+            face / (1.0 + rate_per_period).powf(n)
         };
 
         Decimal::try_from(price).unwrap_or(self.face_value)
@@ -385,15 +383,12 @@ impl ZeroCouponBond {
         let face = self.face_value.to_string().parse::<f64>().unwrap_or(100.0);
         let price_ratio = face / price_f;
 
-        let yield_rate = match self.compounding {
-            Compounding::Continuous => {
-                price_ratio.ln() / years
-            }
-            _ => {
-                let periods_per_year = self.compounding.periods_per_year() as f64;
-                let n = years * periods_per_year;
-                (price_ratio.powf(1.0 / n) - 1.0) * periods_per_year
-            }
+        let yield_rate = if self.compounding == Compounding::Continuous {
+            price_ratio.ln() / years
+        } else {
+            let periods_per_year = f64::from(self.compounding.periods_per_year());
+            let n = years * periods_per_year;
+            (price_ratio.powf(1.0 / n) - 1.0) * periods_per_year
         };
 
         Decimal::try_from(yield_rate).unwrap_or(Decimal::ZERO)
@@ -504,7 +499,10 @@ impl Bond for ZeroCouponBond {
         if from >= self.maturity {
             vec![]
         } else {
-            vec![BondCashFlow::principal(self.maturity, self.redemption_value)]
+            vec![BondCashFlow::principal(
+                self.maturity,
+                self.redemption_value,
+            )]
         }
     }
 
@@ -855,13 +853,12 @@ mod tests {
 
     #[test]
     fn test_zero_coupon_bond() {
-        let bond = ZeroCouponBond::new(
-            "US912796XY12",
-            date(2025, 6, 15),
-            Currency::USD,
-        );
+        let bond = ZeroCouponBond::new("US912796XY12", date(2025, 6, 15), Currency::USD);
 
-        assert_eq!(bond.identifiers().isin().map(|i| i.as_str()), Some("US912796XY12"));
+        assert_eq!(
+            bond.identifiers().isin().map(|i| i.as_str()),
+            Some("US912796XY12")
+        );
         assert_eq!(bond.face_value(), dec!(100));
         assert_eq!(bond.bond_type(), BondType::ZeroCoupon);
         assert_eq!(bond.accrued_interest(date(2024, 6, 15)), Decimal::ZERO);
@@ -869,12 +866,8 @@ mod tests {
 
     #[test]
     fn test_with_face_value() {
-        let bond = ZeroCouponBond::new(
-            "TEST",
-            date(2025, 6, 15),
-            Currency::USD,
-        )
-        .with_face_value(dec!(1000));
+        let bond = ZeroCouponBond::new("TEST", date(2025, 6, 15), Currency::USD)
+            .with_face_value(dec!(1000));
 
         assert_eq!(bond.face_value(), dec!(1000));
     }
@@ -1003,13 +996,18 @@ mod tests {
         let semi_annual = dec!(0.05);
 
         // Convert to continuous
-        let continuous = convert_yield(semi_annual, Compounding::SemiAnnual, Compounding::Continuous);
+        let continuous = convert_yield(
+            semi_annual,
+            Compounding::SemiAnnual,
+            Compounding::Continuous,
+        );
         // 2 * ln(1 + 0.05/2) = 2 * ln(1.025) = 0.04939...
         assert!(continuous > dec!(0.049));
         assert!(continuous < dec!(0.05));
 
         // Convert back
-        let back_to_semi = convert_yield(continuous, Compounding::Continuous, Compounding::SemiAnnual);
+        let back_to_semi =
+            convert_yield(continuous, Compounding::Continuous, Compounding::SemiAnnual);
         let diff = (semi_annual - back_to_semi).abs();
         assert!(diff < dec!(0.0001));
     }
@@ -1081,9 +1079,7 @@ mod tests {
         let result = ZeroCouponBond::builder().build();
         assert!(result.is_err());
 
-        let result = ZeroCouponBond::builder()
-            .cusip_unchecked("TEST")
-            .build();
+        let result = ZeroCouponBond::builder().cusip_unchecked("TEST").build();
         assert!(result.is_err()); // Missing maturity
     }
 }

@@ -24,7 +24,7 @@ pub use sinking_fund::{
     AccelerationOption, SinkingFundBond, SinkingFundBondBuilder, SinkingFundPayment,
     SinkingFundSchedule,
 };
-pub use zero_coupon::{Compounding, ZeroCouponBond, ZeroCouponBondBuilder, convert_yield};
+pub use zero_coupon::{convert_yield, Compounding, ZeroCouponBond, ZeroCouponBondBuilder};
 
 use convex_core::types::{Currency, Date, Frequency};
 use rust_decimal::Decimal;

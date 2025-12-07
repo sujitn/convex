@@ -22,7 +22,12 @@
       "Bash(cargo clippy:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(cmd /c \"if exist C:\\Users\\sujit\\source\\convex\\.github\\workflows (echo exists) else (echo not_exists)\")",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo doc:*)",
+      "Bash(cargo publish:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

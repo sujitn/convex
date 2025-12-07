@@ -178,10 +178,7 @@ impl Calendar for WeekendCalendar {
 
     fn is_business_day(&self, date: Date) -> bool {
         let weekday = date.as_naive_date().weekday();
-        !matches!(
-            weekday,
-            chrono::Weekday::Sat | chrono::Weekday::Sun
-        )
+        !matches!(weekday, chrono::Weekday::Sat | chrono::Weekday::Sun)
     }
 }
 

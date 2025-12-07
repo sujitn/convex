@@ -79,20 +79,52 @@ pub enum ValidationError {
 impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::RepriceFailed { instrument, pv, tolerance } => {
-                write!(f, "Reprice failed for {}: PV = {:.6} (tolerance: {:.1e})", instrument, pv, tolerance)
+            Self::RepriceFailed {
+                instrument,
+                pv,
+                tolerance,
+            } => {
+                write!(
+                    f,
+                    "Reprice failed for {instrument}: PV = {pv:.6} (tolerance: {tolerance:.1e})"
+                )
             }
             Self::NegativeForward { time, rate } => {
-                write!(f, "Negative forward at t={:.2}Y: {:.4}%", time, rate * 100.0)
+                write!(
+                    f,
+                    "Negative forward at t={:.2}Y: {:.4}%",
+                    time,
+                    rate * 100.0
+                )
             }
             Self::NonMonotonicDF { time, df, prev_df } => {
-                write!(f, "Non-monotonic DF at t={:.2}Y: DF={:.6} >= prev={:.6}", time, df, prev_df)
+                write!(
+                    f,
+                    "Non-monotonic DF at t={time:.2}Y: DF={df:.6} >= prev={prev_df:.6}"
+                )
             }
-            Self::NotSmooth { time, curvature, threshold } => {
-                write!(f, "Not smooth at t={:.2}Y: curvature={:.4} > threshold={:.4}", time, curvature, threshold)
+            Self::NotSmooth {
+                time,
+                curvature,
+                threshold,
+            } => {
+                write!(
+                    f,
+                    "Not smooth at t={time:.2}Y: curvature={curvature:.4} > threshold={threshold:.4}"
+                )
             }
-            Self::ForwardTooHigh { time, rate, max_rate } => {
-                write!(f, "Forward too high at t={:.2}Y: {:.4}% > max {:.4}%", time, rate * 100.0, max_rate * 100.0)
+            Self::ForwardTooHigh {
+                time,
+                rate,
+                max_rate,
+            } => {
+                write!(
+                    f,
+                    "Forward too high at t={:.2}Y: {:.4}% > max {:.4}%",
+                    time,
+                    rate * 100.0,
+                    max_rate * 100.0
+                )
             }
         }
     }
@@ -130,13 +162,24 @@ impl std::fmt::Display for ValidationWarning {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::RepriceImprecise { instrument, pv } => {
-                write!(f, "Imprecise reprice for {}: PV = {:.6}", instrument, pv)
+                write!(f, "Imprecise reprice for {instrument}: PV = {pv:.6}")
             }
-            Self::InvertedCurve { start_time, end_time } => {
-                write!(f, "Inverted curve from t={:.2}Y to t={:.2}Y", start_time, end_time)
+            Self::InvertedCurve {
+                start_time,
+                end_time,
+            } => {
+                write!(
+                    f,
+                    "Inverted curve from t={start_time:.2}Y to t={end_time:.2}Y"
+                )
             }
             Self::UnusualZeroRate { time, rate } => {
-                write!(f, "Unusual zero rate at t={:.2}Y: {:.4}%", time, rate * 100.0)
+                write!(
+                    f,
+                    "Unusual zero rate at t={:.2}Y: {:.4}%",
+                    time,
+                    rate * 100.0
+                )
             }
         }
     }
@@ -226,21 +269,25 @@ impl ValidationReport {
 impl std::fmt::Display for ValidationReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Validation Report:")?;
-        writeln!(f, "  Status: {}", if self.is_valid() { "PASSED" } else { "FAILED" })?;
+        writeln!(
+            f,
+            "  Status: {}",
+            if self.is_valid() { "PASSED" } else { "FAILED" }
+        )?;
         writeln!(f, "  Max Residual: {:.2e}", self.max_residual)?;
         writeln!(f, "  RMS Residual: {:.2e}", self.rms_residual)?;
 
         if !self.errors.is_empty() {
             writeln!(f, "  Errors ({}):", self.errors.len())?;
             for err in &self.errors {
-                writeln!(f, "    - {}", err)?;
+                writeln!(f, "    - {err}")?;
             }
         }
 
         if !self.warnings.is_empty() {
             writeln!(f, "  Warnings ({}):", self.warnings.len())?;
             for warn in &self.warnings {
-                writeln!(f, "    - {}", warn)?;
+                writeln!(f, "    - {warn}")?;
             }
         }
 
@@ -270,13 +317,13 @@ pub struct CurveValidator {
 impl Default for CurveValidator {
     fn default() -> Self {
         Self {
-            reprice_tolerance: 1e-6,       // 0.0001 bps
-            forward_floor: -0.01,          // Allow slightly negative (for market stress)
-            forward_ceiling: 0.30,         // 30% max forward rate
-            smoothness_threshold: 0.1,     // Max curvature
+            reprice_tolerance: 1e-6,   // 0.0001 bps
+            forward_floor: -0.01,      // Allow slightly negative (for market stress)
+            forward_ceiling: 0.30,     // 30% max forward rate
+            smoothness_threshold: 0.1, // Max curvature
             reprice_warning_threshold: 1e-4,
             forward_check_interval: 1.0 / 12.0, // Monthly
-            max_maturity_check: 50.0,      // 50 years
+            max_maturity_check: 50.0,           // 50 years
         }
     }
 }
@@ -433,10 +480,7 @@ impl CurveValidator {
             if let Ok(fwd) = curve.instantaneous_forward(t) {
                 // Check floor
                 if fwd < self.forward_floor {
-                    report.add_error(ValidationError::NegativeForward {
-                        time: t,
-                        rate: fwd,
-                    });
+                    report.add_error(ValidationError::NegativeForward { time: t, rate: fwd });
                 }
 
                 // Check ceiling
@@ -625,7 +669,9 @@ mod tests {
         let report = validator.validate(&curve, &[]).unwrap();
 
         // Should pass since curve is monotonic
-        let df_errors: Vec<_> = report.errors.iter()
+        let df_errors: Vec<_> = report
+            .errors
+            .iter()
             .filter(|e| matches!(e, ValidationError::NonMonotonicDF { .. }))
             .collect();
         assert!(df_errors.is_empty());

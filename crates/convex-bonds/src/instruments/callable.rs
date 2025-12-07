@@ -7,9 +7,9 @@
 //! - Yield to worst (YTW) calculation
 //! - Make-whole call price calculation
 
-use rust_decimal::Decimal;
 use convex_core::types::{Currency, Date};
 use convex_math::solvers::{newton_raphson, SolverConfig};
+use rust_decimal::Decimal;
 
 use crate::error::{BondError, BondResult};
 use crate::instruments::FixedRateBond;
@@ -138,12 +138,15 @@ impl CallableBond {
         call_date: Date,
     ) -> BondResult<Decimal> {
         if call_date <= settlement {
-            return Err(BondError::invalid_spec("call_date must be after settlement"));
+            return Err(BondError::invalid_spec(
+                "call_date must be after settlement",
+            ));
         }
 
-        let call_price = self.call_schedule.call_price_on(call_date).ok_or_else(|| {
-            BondError::invalid_spec("bond is not callable on the specified date")
-        })?;
+        let call_price = self
+            .call_schedule
+            .call_price_on(call_date)
+            .ok_or_else(|| BondError::invalid_spec("bond is not callable on the specified date"))?;
 
         // Generate cash flows to call date
         let flows = self.cash_flows_to_workout(settlement, call_date, call_price);
@@ -163,9 +166,9 @@ impl CallableBond {
         clean_price: Decimal,
         settlement: Date,
     ) -> BondResult<Decimal> {
-        let first_call = self.first_call_date().ok_or_else(|| {
-            BondError::invalid_spec("bond has no call dates after settlement")
-        })?;
+        let first_call = self
+            .first_call_date()
+            .ok_or_else(|| BondError::invalid_spec("bond has no call dates after settlement"))?;
 
         if first_call <= settlement {
             // Find next call date after settlement
@@ -179,13 +182,14 @@ impl CallableBond {
     }
 
     /// Calculates yield to maturity for the base bond.
-    pub fn yield_to_maturity(
-        &self,
-        clean_price: Decimal,
-        settlement: Date,
-    ) -> BondResult<Decimal> {
+    pub fn yield_to_maturity(&self, clean_price: Decimal, settlement: Date) -> BondResult<Decimal> {
         let maturity = self.base.maturity().unwrap();
-        let redemption = self.base.redemption_value().to_string().parse().unwrap_or(100.0);
+        let redemption = self
+            .base
+            .redemption_value()
+            .to_string()
+            .parse()
+            .unwrap_or(100.0);
         let flows = self.cash_flows_to_workout(settlement, maturity, redemption);
         self.solve_yield(&flows, clean_price, settlement)
     }
@@ -249,11 +253,16 @@ impl CallableBond {
         let discount_rate = treasury_rate + spread_bps / 10000.0;
 
         let maturity = self.base.maturity().unwrap();
-        let redemption = self.base.redemption_value().to_string().parse().unwrap_or(100.0);
+        let redemption = self
+            .base
+            .redemption_value()
+            .to_string()
+            .parse()
+            .unwrap_or(100.0);
         let flows = self.cash_flows_to_workout(call_date, maturity, redemption);
 
         let mut pv = 0.0;
-        let freq = self.base.frequency().periods_per_year() as f64;
+        let freq = f64::from(self.base.frequency().periods_per_year());
 
         for flow in flows {
             let t = call_date.days_between(&flow.date) as f64 / 365.0;
@@ -263,9 +272,11 @@ impl CallableBond {
         }
 
         // Apply floor if specified
-        let floor = self.call_schedule.entries.first()
-            .map(|e| e.call_price)
-            .unwrap_or(100.0);
+        let floor = self
+            .call_schedule
+            .entries
+            .first()
+            .map_or(100.0, |e| e.call_price);
 
         Ok(Decimal::from_f64_retain(pv.max(floor)).unwrap_or(Decimal::ONE_HUNDRED))
     }
@@ -353,8 +364,7 @@ impl CallableBond {
         // Remove flows after workout date
         flows.retain(|cf| cf.date <= workout_date);
 
-        let redemption = Decimal::from_f64_retain(redemption_price)
-            .unwrap_or(Decimal::ONE_HUNDRED);
+        let redemption = Decimal::from_f64_retain(redemption_price).unwrap_or(Decimal::ONE_HUNDRED);
 
         if let Some(last) = flows.last_mut() {
             if last.date == workout_date {
@@ -389,8 +399,13 @@ impl CallableBond {
         let target_dirty = clean_price + accrued;
         let target = target_dirty.to_string().parse::<f64>().unwrap_or(100.0);
 
-        let freq = self.base.frequency().periods_per_year() as f64;
-        let coupon_rate = self.base.coupon_rate().to_string().parse::<f64>().unwrap_or(0.05);
+        let freq = f64::from(self.base.frequency().periods_per_year());
+        let coupon_rate = self
+            .base
+            .coupon_rate()
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(0.05);
         let initial_guess = coupon_rate;
 
         // Collect flow data for closures
@@ -661,8 +676,8 @@ mod tests {
         let base = create_base_bond();
         let call_schedule = CallSchedule::new(CallType::American)
             .with_entry(CallEntry::new(date(2025, 6, 15), 102.0));
-        let put_schedule = PutSchedule::new(PutType::European)
-            .with_entry(PutEntry::new(date(2026, 6, 15), 100.0));
+        let put_schedule =
+            PutSchedule::new(PutType::European).with_entry(PutEntry::new(date(2026, 6, 15), 100.0));
 
         let bond = CallableBond::builder()
             .base_bond(base)

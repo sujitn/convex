@@ -34,9 +34,7 @@ pub fn effective_convexity(
     }
 
     if bump_size.abs() < 1e-12 {
-        return Err(RiskError::InvalidInput(
-            "bump size too small".to_string(),
-        ));
+        return Err(RiskError::InvalidInput("bump size too small".to_string()));
     }
 
     let conv = (price_down + price_up - 2.0 * price_base) / (price_base * bump_size.powi(2));
@@ -55,7 +53,7 @@ mod tests {
 
         // If convexity ≈ 50, for ±100bps:
         // Convexity effect = 0.5 × 50 × 100 × 0.01² = 0.025 on each side
-        let price_up = 95.025;   // down from duration, up from convexity
+        let price_up = 95.025; // down from duration, up from convexity
         let price_down = 105.025; // up from duration, up from convexity
 
         let conv = effective_convexity(price_up, price_down, price_base, bump).unwrap();

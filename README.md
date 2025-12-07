@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/convex.svg)](https://crates.io/crates/convex)
 [![Documentation](https://docs.rs/convex/badge.svg)](https://docs.rs/convex)
 [![Build Status](https://github.com/yourusername/convex/workflows/CI/badge.svg)](https://github.com/yourusername/convex/actions)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics capabilities comparable to Bloomberg YAS (Yield Analysis System).
 
@@ -401,12 +401,7 @@ Results are tracked in [BENCHMARKS.md](BENCHMARKS.md).
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

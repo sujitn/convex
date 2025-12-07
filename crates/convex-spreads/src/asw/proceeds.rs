@@ -15,11 +15,10 @@ use crate::error::{SpreadError, SpreadResult};
 /// Converts coupon frequency (payments per year) to months between payments.
 fn frequency_to_months(frequency: u32) -> i32 {
     match frequency {
-        1 => 12,  // Annual
-        2 => 6,   // Semi-annual
-        4 => 3,   // Quarterly
-        12 => 1,  // Monthly
-        _ => 6,   // Default to semi-annual
+        1 => 12, // Annual
+        4 => 3,  // Quarterly
+        12 => 1, // Monthly
+        _ => 6,  // Default to semi-annual
     }
 }
 
@@ -115,10 +114,17 @@ impl<'a> ProceedsAssetSwap<'a> {
 
         // Calculate annuity (PV01 of swap floating leg)
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(settlement, maturity, months_between, bond.coupon_frequency())?;
+        let annuity = self.calculate_annuity(
+            settlement,
+            maturity,
+            months_between,
+            bond.coupon_frequency(),
+        )?;
 
         if annuity.is_zero() {
-            return Err(SpreadError::invalid_input("Annuity is zero - no future payments"));
+            return Err(SpreadError::invalid_input(
+                "Annuity is zero - no future payments",
+            ));
         }
 
         // Par-Par component
@@ -183,7 +189,8 @@ impl<'a> ProceedsAssetSwap<'a> {
 
         // Calculate annuity for adjustment
         let years_to_mat = settlement.days_between(&maturity) as f64 / 365.0;
-        let annual_adjustment = price_adjustment / Decimal::from_f64_retain(years_to_mat).unwrap_or(Decimal::ONE);
+        let annual_adjustment =
+            price_adjustment / Decimal::from_f64_retain(years_to_mat).unwrap_or(Decimal::ONE);
 
         let total_spread = mv_spread + annual_adjustment;
         let spread_bps = (total_spread * Decimal::from(10_000)).round();
@@ -216,7 +223,9 @@ impl<'a> ProceedsAssetSwap<'a> {
         }
 
         if payment_dates.is_empty() {
-            return Err(SpreadError::invalid_input("No payment dates after settlement"));
+            return Err(SpreadError::invalid_input(
+                "No payment dates after settlement",
+            ));
         }
 
         // Calculate annuity
@@ -395,7 +404,11 @@ mod tests {
         let spread = calc.calculate(&bond, clean_price, settlement).unwrap();
 
         // At par, proceeds ASW should also be near zero
-        assert!(spread.as_bps().abs() < dec!(5), "Expected near-zero spread at par, got {}", spread.as_bps());
+        assert!(
+            spread.as_bps().abs() < dec!(5),
+            "Expected near-zero spread at par, got {}",
+            spread.as_bps()
+        );
     }
 
     #[test]
@@ -409,13 +422,20 @@ mod tests {
         let clean_price = Price::new(dec!(95.0), convex_core::Currency::USD);
         let settlement = date(2024, 1, 17);
 
-        let par_par = par_par_calc.calculate(&bond, clean_price, settlement).unwrap();
-        let proceeds = proceeds_calc.calculate(&bond, clean_price, settlement).unwrap();
+        let par_par = par_par_calc
+            .calculate(&bond, clean_price, settlement)
+            .unwrap();
+        let proceeds = proceeds_calc
+            .calculate(&bond, clean_price, settlement)
+            .unwrap();
 
         // For discount bonds (DP < 100), proceeds ASW > par-par ASW
-        assert!(proceeds.as_bps() > par_par.as_bps(),
+        assert!(
+            proceeds.as_bps() > par_par.as_bps(),
             "Expected proceeds ({}) > par-par ({}) for discount bond",
-            proceeds.as_bps(), par_par.as_bps());
+            proceeds.as_bps(),
+            par_par.as_bps()
+        );
     }
 
     #[test]
@@ -429,19 +449,32 @@ mod tests {
         let clean_price = Price::new(dec!(105.0), convex_core::Currency::USD);
         let settlement = date(2024, 1, 17);
 
-        let par_par = par_par_calc.calculate(&bond, clean_price, settlement).unwrap();
-        let proceeds = proceeds_calc.calculate(&bond, clean_price, settlement).unwrap();
+        let par_par = par_par_calc
+            .calculate(&bond, clean_price, settlement)
+            .unwrap();
+        let proceeds = proceeds_calc
+            .calculate(&bond, clean_price, settlement)
+            .unwrap();
 
         // Both should be negative for premium bonds
-        assert!(par_par.as_bps() < Decimal::ZERO, "Par-par should be negative for premium bond");
-        assert!(proceeds.as_bps() < Decimal::ZERO, "Proceeds should be negative for premium bond");
+        assert!(
+            par_par.as_bps() < Decimal::ZERO,
+            "Par-par should be negative for premium bond"
+        );
+        assert!(
+            proceeds.as_bps() < Decimal::ZERO,
+            "Proceeds should be negative for premium bond"
+        );
 
         // For premium bonds (DP > 100), proceeds ASW > par-par ASW (less negative)
         // Because: Proceeds = Par-Par × (100/DP), and 100/DP < 1 when DP > 100
         // Multiplying negative by factor < 1 makes it less negative
-        assert!(proceeds.as_bps() > par_par.as_bps(),
+        assert!(
+            proceeds.as_bps() > par_par.as_bps(),
             "Expected proceeds ({}) > par-par ({}) for premium bond (less negative)",
-            proceeds.as_bps(), par_par.as_bps());
+            proceeds.as_bps(),
+            par_par.as_bps()
+        );
     }
 
     #[test]
@@ -454,13 +487,18 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         let proceeds = calc.calculate(&bond, clean_price, settlement).unwrap();
-        let z_equiv = calc.z_spread_equivalent(&bond, clean_price, settlement).unwrap();
+        let z_equiv = calc
+            .z_spread_equivalent(&bond, clean_price, settlement)
+            .unwrap();
 
         // Z-spread equivalent should be less than proceeds ASW for discount bonds
         // Because proceeds is scaled up by 100/DP
-        assert!(z_equiv.as_bps().abs() < proceeds.as_bps().abs(),
+        assert!(
+            z_equiv.as_bps().abs() < proceeds.as_bps().abs(),
             "Expected |z_equiv| ({}) < |proceeds| ({})",
-            z_equiv.as_bps().abs(), proceeds.as_bps().abs());
+            z_equiv.as_bps().abs(),
+            proceeds.as_bps().abs()
+        );
     }
 
     #[test]

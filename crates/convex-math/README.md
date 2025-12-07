@@ -74,6 +74,15 @@ let x = solve_linear_system(&a, &b).unwrap();
 - Interpolation: O(log n) lookup with binary search
 - Tridiagonal solver: O(n) complexity
 
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+convex-math = "0.1"
+```
+
 ## License
 
-MIT OR Apache-2.0
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.

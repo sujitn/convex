@@ -9,16 +9,16 @@ use serde::{Deserialize, Serialize};
 
 /// Standard key rate tenors
 pub const STANDARD_KEY_RATE_TENORS: &[f64] = &[
-    0.25,  // 3 months
-    0.5,   // 6 months
-    1.0,   // 1 year
-    2.0,   // 2 years
-    3.0,   // 3 years
-    5.0,   // 5 years
-    7.0,   // 7 years
-    10.0,  // 10 years
-    20.0,  // 20 years
-    30.0,  // 30 years
+    0.25, // 3 months
+    0.5,  // 6 months
+    1.0,  // 1 year
+    2.0,  // 2 years
+    3.0,  // 3 years
+    5.0,  // 5 years
+    7.0,  // 7 years
+    10.0, // 10 years
+    20.0, // 20 years
+    30.0, // 30 years
 ];
 
 /// Key rate duration for a specific tenor point
@@ -51,7 +51,9 @@ impl KeyRateDurations {
 
     /// Get duration at a specific tenor
     pub fn at_tenor(&self, tenor: f64) -> Option<&KeyRateDuration> {
-        self.durations.iter().find(|krd| (krd.tenor - tenor).abs() < 0.001)
+        self.durations
+            .iter()
+            .find(|krd| (krd.tenor - tenor).abs() < 0.001)
     }
 }
 
@@ -96,9 +98,18 @@ mod tests {
     #[test]
     fn test_key_rate_duration_collection() {
         let krds = KeyRateDurations::new(vec![
-            KeyRateDuration { tenor: 2.0, duration: Duration::from(1.5) },
-            KeyRateDuration { tenor: 5.0, duration: Duration::from(2.0) },
-            KeyRateDuration { tenor: 10.0, duration: Duration::from(1.5) },
+            KeyRateDuration {
+                tenor: 2.0,
+                duration: Duration::from(1.5),
+            },
+            KeyRateDuration {
+                tenor: 5.0,
+                duration: Duration::from(2.0),
+            },
+            KeyRateDuration {
+                tenor: 10.0,
+                duration: Duration::from(1.5),
+            },
         ]);
 
         let total = krds.total_duration();
@@ -108,8 +119,14 @@ mod tests {
     #[test]
     fn test_key_rate_at_tenor() {
         let krds = KeyRateDurations::new(vec![
-            KeyRateDuration { tenor: 2.0, duration: Duration::from(1.5) },
-            KeyRateDuration { tenor: 5.0, duration: Duration::from(2.0) },
+            KeyRateDuration {
+                tenor: 2.0,
+                duration: Duration::from(1.5),
+            },
+            KeyRateDuration {
+                tenor: 5.0,
+                duration: Duration::from(2.0),
+            },
         ]);
 
         let krd_5y = krds.at_tenor(5.0).unwrap();

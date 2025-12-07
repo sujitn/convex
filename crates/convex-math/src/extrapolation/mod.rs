@@ -61,11 +61,12 @@ pub trait Extrapolator: Send + Sync {
 }
 
 /// Configuration for extrapolation beyond curve boundaries.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum ExtrapolationMethod {
     /// No extrapolation - return error outside range
     None,
     /// Constant value from boundary
+    #[default]
     Flat,
     /// Linear continuation with boundary slope
     Linear,
@@ -76,12 +77,6 @@ pub enum ExtrapolationMethod {
         /// Convergence speed (alpha)
         alpha: f64,
     },
-}
-
-impl Default for ExtrapolationMethod {
-    fn default() -> Self {
-        Self::Flat
-    }
 }
 
 #[cfg(test)]

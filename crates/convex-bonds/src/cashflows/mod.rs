@@ -137,6 +137,7 @@ impl CashFlowGenerator {
     /// * `face_value` - Face value of the bond
     /// * `day_count` - Day count convention for year fraction calculation
     /// * `settlement` - Settlement date (cash flows on or before are excluded)
+    #[must_use]
     pub fn fixed_rate_from_schedule(
         schedule: &Schedule,
         coupon_rate: Decimal,
@@ -198,7 +199,7 @@ impl CashFlowGenerator {
     ///
     /// # Notes
     ///
-    /// If forward_rates doesn't provide enough rates, remaining periods
+    /// If `forward_rates` doesn't provide enough rates, remaining periods
     /// use the last provided rate or zero if none provided.
     pub fn floating_rate(
         schedule: &Schedule,
@@ -269,6 +270,7 @@ impl CashFlowGenerator {
     /// * `initial_face` - Initial face value
     /// * `day_count` - Day count convention
     /// * `settlement` - Settlement date
+    #[must_use]
     pub fn amortizing(
         schedule: &Schedule,
         coupon_rate: Decimal,
@@ -351,10 +353,8 @@ impl CashFlowGenerator {
         let periods: Vec<_> = schedule.unadjusted_periods().collect();
         let adjusted_dates: Vec<_> = schedule.dates().to_vec();
 
-        let periods_per_year = Decimal::from(
-            (12 / (schedule.dates().len().saturating_sub(1).max(1) as u32))
-                .max(1),
-        );
+        let periods_per_year =
+            Decimal::from((12 / (schedule.dates().len().saturating_sub(1).max(1) as u32)).max(1));
 
         let mut flows = CashFlowSchedule::with_capacity(periods.len());
 
@@ -617,7 +617,7 @@ mod tests {
             settlement,
             last_coupon,
             next_coupon,
-            dec!(0.075),  // 7.5%
+            dec!(0.075), // 7.5%
             dec!(1_000_000),
             DayCountConvention::Thirty360US,
             Frequency::SemiAnnual,

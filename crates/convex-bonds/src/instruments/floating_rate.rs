@@ -106,7 +106,7 @@ pub struct FloatingRateNote {
 }
 
 impl FloatingRateNote {
-    /// Creates a new builder for FloatingRateNote.
+    /// Creates a new builder for `FloatingRateNote`.
     #[must_use]
     pub fn builder() -> FloatingRateNoteBuilder {
         FloatingRateNoteBuilder::default()
@@ -219,7 +219,12 @@ impl FloatingRateNote {
 
     /// Calculates the coupon amount for a period given the index rate.
     #[must_use]
-    pub fn period_coupon(&self, period_start: Date, period_end: Date, index_rate: Decimal) -> Decimal {
+    pub fn period_coupon(
+        &self,
+        period_start: Date,
+        period_end: Date,
+        index_rate: Decimal,
+    ) -> Decimal {
         let dc = self.day_count.to_day_count();
         let year_frac = dc.year_fraction(period_start, period_end);
         let effective_rate = self.effective_rate(index_rate);
@@ -323,8 +328,7 @@ impl FloatingRateNote {
             let rate = daily_rates
                 .iter()
                 .find(|(d, _)| *d == rate_date)
-                .map(|(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0))
-                .unwrap_or(0.0);
+                .map_or(0.0, |(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0));
 
             // Compound: (1 + rate * days/360)
             compounded *= 1.0 + rate * weight_days as f64 / 360.0;
@@ -364,8 +368,7 @@ impl FloatingRateNote {
             let rate = daily_rates
                 .iter()
                 .find(|(d, _)| *d == observation_date)
-                .map(|(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0))
-                .unwrap_or(0.0);
+                .map_or(0.0, |(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0));
 
             sum += rate;
             count += 1;
@@ -376,7 +379,7 @@ impl FloatingRateNote {
             return Decimal::ZERO;
         }
 
-        Decimal::try_from(sum / count as f64).unwrap_or(Decimal::ZERO)
+        Decimal::try_from(sum / f64::from(count)).unwrap_or(Decimal::ZERO)
     }
 
     /// Returns an identifier string for display.
@@ -448,7 +451,9 @@ impl FloatingRateNote {
                 forward_curve.forward_rate(t1, t2).unwrap_or(0.0)
             } else {
                 // Historical period - use spot rate
-                forward_curve.zero_rate(t2.abs(), convex_curves::Compounding::Simple).unwrap_or(0.0)
+                forward_curve
+                    .zero_rate(t2.abs(), convex_curves::Compounding::Simple)
+                    .unwrap_or(0.0)
             };
 
             // Apply spread, cap, and floor
@@ -458,7 +463,8 @@ impl FloatingRateNote {
             // Calculate coupon using day count
             let dc = self.day_count.to_day_count();
             let year_frac = dc.year_fraction(start, end);
-            let coupon_amount = self.face_value * effective_rate
+            let coupon_amount = self.face_value
+                * effective_rate
                 * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO);
 
             if end == self.maturity {
@@ -502,7 +508,10 @@ impl FloatingRateNote {
         let mut dates = Vec::new();
 
         // Determine if this is an overnight compounding index
-        let is_overnight = matches!(self.index, RateIndex::SOFR | RateIndex::SONIA | RateIndex::ESTR);
+        let is_overnight = matches!(
+            self.index,
+            RateIndex::SOFR | RateIndex::SONIA | RateIndex::ESTR
+        );
 
         for (start, end) in schedule.unadjusted_periods() {
             if end <= from {
@@ -584,7 +593,9 @@ impl FloatingRateNote {
                     let dc = self.day_count.to_day_count();
                     let year_frac = dc.year_fraction(last_coupon, settlement);
                     let effective = self.effective_rate(r);
-                    return self.face_value * effective * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO);
+                    return self.face_value
+                        * effective
+                        * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO);
                 }
             }
         }
@@ -695,7 +706,7 @@ impl Bond for FloatingRateNote {
             .dates()
             .iter()
             .filter(|&&d| d < before)
-            .last()
+            .next_back()
             .copied()
     }
 
@@ -747,7 +758,7 @@ impl FloatingCouponBond for FloatingRateNote {
     fn lookback_days(&self) -> u32 {
         self.sofr_convention
             .as_ref()
-            .and_then(|c| c.lookback_days())
+            .and_then(crate::types::SOFRConvention::lookback_days)
             .unwrap_or(0)
     }
 
@@ -1034,9 +1045,9 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Builds the FloatingRateNote.
+    /// Builds the `FloatingRateNote`.
     pub fn build(self) -> BondResult<FloatingRateNote> {
-        let identifiers = self.identifiers.unwrap_or_else(BondIdentifiers::new);
+        let identifiers = self.identifiers.unwrap_or_default();
         let index = self.index.ok_or(BondError::MissingField {
             field: "index".to_string(),
         })?;
@@ -1292,7 +1303,7 @@ mod tests {
             .index(RateIndex::SOFR)
             .spread_bps(50)
             .floor(dec!(0.02)) // 2% floor
-            .cap(dec!(0.06))   // 6% cap
+            .cap(dec!(0.06)) // 6% cap
             .maturity(date(2026, 6, 15))
             .issue_date(date(2024, 6, 15))
             .build()

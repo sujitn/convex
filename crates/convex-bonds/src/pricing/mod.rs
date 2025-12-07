@@ -91,10 +91,17 @@ impl BondPricer {
         let accrued = CashFlowGenerator::accrued_interest(bond, settlement)?;
 
         let target_dirty_price = clean_price.as_percentage() + accrued;
-        let target = target_dirty_price.to_string().parse::<f64>().unwrap_or(100.0);
+        let target = target_dirty_price
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(100.0);
 
         // Initial guess based on coupon rate
-        let coupon_rate = bond.coupon_rate().to_string().parse::<f64>().unwrap_or(0.05);
+        let coupon_rate = bond
+            .coupon_rate()
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(0.05);
         let initial_guess = coupon_rate;
 
         // Objective: PV(yield) - target_price = 0
