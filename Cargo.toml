@@ -17,7 +17,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.10.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Sujit Nair"]
@@ -29,15 +29,15 @@ categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
 # Internal crates
-convex-core = { path = "crates/convex-core", version = "0.1.0" }
-convex-math = { path = "crates/convex-math", version = "0.1.0" }
-convex-curves = { path = "crates/convex-curves", version = "0.1.0" }
-convex-bonds = { path = "crates/convex-bonds", version = "0.1.0" }
-convex-spreads = { path = "crates/convex-spreads", version = "0.1.0" }
-convex-risk = { path = "crates/convex-risk", version = "0.1.0" }
-convex-yas = { path = "crates/convex-yas", version = "0.1.0" }
-convex-ffi = { path = "crates/convex-ffi", version = "0.1.0" }
-convex-wasm = { path = "crates/convex-wasm", version = "0.1.0" }
+convex-core = { path = "crates/convex-core", version = "0.10.1" }
+convex-math = { path = "crates/convex-math", version = "0.10.1" }
+convex-curves = { path = "crates/convex-curves", version = "0.10.1" }
+convex-bonds = { path = "crates/convex-bonds", version = "0.10.1" }
+convex-spreads = { path = "crates/convex-spreads", version = "0.10.1" }
+convex-risk = { path = "crates/convex-risk", version = "0.10.1" }
+convex-yas = { path = "crates/convex-yas", version = "0.10.1" }
+convex-ffi = { path = "crates/convex-ffi", version = "0.10.1" }
+convex-wasm = { path = "crates/convex-wasm", version = "0.10.1" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
