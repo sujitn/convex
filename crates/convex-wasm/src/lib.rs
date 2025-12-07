@@ -84,8 +84,8 @@ pub struct AnalysisResult {
     pub money_market_yield: Option<f64>,
 
     // Callable bond yields
-    pub ytc: Option<f64>,           // Yield to first call
-    pub ytw: Option<f64>,           // Yield to worst
+    pub ytc: Option<f64>,             // Yield to first call
+    pub ytw: Option<f64>,             // Yield to worst
     pub workout_date: Option<String>, // Date for YTW (call date or maturity)
     pub workout_price: Option<f64>,   // Call price or par at workout
 
@@ -269,7 +269,8 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
     let calculator = YASCalculator::new(&curve);
     let settlement_naive = date_to_naive(settlement);
 
-    let yas_result = match calculator.analyze(&bond, settlement_naive, f64_to_decimal(clean_price)) {
+    let yas_result = match calculator.analyze(&bond, settlement_naive, f64_to_decimal(clean_price))
+    {
         Ok(result) => result,
         Err(e) => {
             return AnalysisResult {
@@ -291,7 +292,8 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
             let mut call_schedule = CallSchedule::new(CallType::American);
             for entry in call_entries {
                 if let Ok(call_date) = parse_date(&entry.date) {
-                    call_schedule = call_schedule.with_entry(CallEntry::new(call_date, entry.price));
+                    call_schedule =
+                        call_schedule.with_entry(CallEntry::new(call_date, entry.price));
                 }
             }
 
@@ -305,7 +307,9 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
             }
 
             // Calculate yield to worst with workout date
-            if let Ok((ytw, workout_date)) = callable.yield_to_worst_with_date(price_decimal, settlement) {
+            if let Ok((ytw, workout_date)) =
+                callable.yield_to_worst_with_date(price_decimal, settlement)
+            {
                 result.ytw = Some(decimal_to_f64(ytw) * 100.0); // Convert to percentage
                 result.workout_date = Some(format!("{}", workout_date));
 
@@ -647,6 +651,7 @@ mod tests {
             day_count: Some("30/360".to_string()),
             currency: Some("USD".to_string()),
             first_coupon_date: None,
+            call_schedule: None,
         };
 
         let bond = create_bond(&params).unwrap();
