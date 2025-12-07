@@ -82,19 +82,25 @@ jobs:
       - name: Update CHANGELOG.md
         run: |
           NEW_VERSION="${{ steps.new.outputs.VERSION }}"
+          PREV_VERSION="${{ steps.current.outputs.VERSION }}"
           DATE=$(date +%Y-%m-%d)
 
-          # Insert new version header after [Unreleased]
-          sed -i "/^## \[Unreleased\]/a\\
-\\
-## [$NEW_VERSION] - $DATE" CHANGELOG.md
+          # Insert new version header after [Unreleased] using awk for cleaner multiline handling
+          awk -v ver="$NEW_VERSION" -v date="$DATE" '
+            /^## \[Unreleased\]/ {
+              print
+              print ""
+              print "## [" ver "] - " date
+              next
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
 
-          # Update links at the bottom
+          # Update the Unreleased comparison link
           sed -i "s|\[Unreleased\]: .*|[Unreleased]: https://github.com/sujitn/convex/compare/v$NEW_VERSION...HEAD|" CHANGELOG.md
 
-          # Add new version link before the first version link
-          sed -i "/^\[Unreleased\]:/a\\
-[$NEW_VERSION]: https://github.com/sujitn/convex/compare/v${{ steps.current.outputs.VERSION }}...v$NEW_VERSION" CHANGELOG.md
+          # Add new version link after Unreleased link
+          sed -i "/^\[Unreleased\]:/a [$NEW_VERSION]: https://github.com/sujitn/convex/compare/v$PREV_VERSION...v$NEW_VERSION" CHANGELOG.md
 
           echo "Updated CHANGELOG.md for version $NEW_VERSION"
 
