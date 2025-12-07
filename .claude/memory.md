@@ -7,64 +7,153 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-06 (SPREAD-004 OAS Calculator Complete)
+**Last Updated**: 2025-12-07 (SPREAD-005 Discount Margin Calculator Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
 
-## Session Summary: 2025-12-06
+## Implementation Status Overview
+
+### Test Summary by Crate
+
+| Crate | Tests | Status | Description |
+|-------|-------|--------|-------------|
+| convex-core | 222 | ✅ Complete | Types, calendars, day counts |
+| convex-math | 118 | ✅ Complete | Solvers, interpolation, extrapolation |
+| convex-curves | 236 | ✅ Complete | Curves, bootstrap, multi-curve |
+| convex-bonds | 267 | ✅ Complete | Instruments, pricing, options |
+| convex-spreads | 90 | ✅ Complete | G/I/Z-spread, OAS, ASW, DM |
+| convex-risk | 30 | 🟡 Partial | Duration, convexity, VaR framework |
+| convex-yas | 24 | 🟡 Partial | Bloomberg YAS replication |
+| convex-ffi | 4 | 🟡 Minimal | C FFI bindings (Date only) |
+| **Total** | **991** | | |
+
+---
+
+## Crate Implementation Details
+
+### convex-core (Foundation) ✅
+- **types/**: Currency, Date, Price, Yield, Frequency, CashFlow, Spread, YieldType
+- **calendars/**: SIFMA, USGovernment, Target2, UK, Japan, WeekendOnly (O(1) lookups ~10ns)
+- **daycounts/**: All 11 major conventions (ACT/360, ACT/365, ACT/ACT, 30/360 variants)
+- **traits/**: Core abstractions for Curve, DayCount, Calendar
+
+### convex-math (Numerical) ✅
+- **solvers/**: Newton-Raphson, Brent, Bisection, Secant, Hybrid (Newton+Brent fallback)
+- **interpolation/**: Linear, Log-Linear, Cubic Spline, Monotone Convex, Nelson-Siegel, Svensson
+- **extrapolation/**: Flat, Linear, Smith-Wilson (EIOPA regulatory)
+
+### convex-curves (Yield Curves) ✅
+- **curves/**: ZeroCurve, DiscountCurve, ForwardCurve, SpreadCurve
+- **bootstrap/**: Sequential, Global, Iterative Multi-Curve bootstrappers
+- **instruments/**: Deposits, FRAs, Futures, OIS, Swaps, Treasury Bills/Bonds, Basis Swaps
+- **multicurve/**: MultiCurveBuilder, CurveSet, FxForwardCurve, CurveSensitivityCalculator
+
+### convex-bonds (Instruments) ✅
+- **instruments/**: FixedBond, FixedRateBond, ZeroCouponBond, FloatingRateNote, CallableBond, SinkingFundBond
+- **pricing/**: YieldSolver (Bloomberg YAS methodology), BondPricer, current_yield
+- **cashflows/**: Schedule generation, AccruedInterestCalculator, ex-dividend support
+- **conventions/**: US Corporate, US Treasury, UK Gilt, Eurobond, German Bund, Japanese JGB
+- **indices/**: IndexFixingStore, SOFRConvention, OvernightCompounding, ArrearConvention
+- **options/**: BinomialTree, HullWhite model, ShortRateModel trait
+- **types/**: CUSIP, ISIN, SEDOL, FIGI identifiers; CallSchedule, PutSchedule, AmortizationSchedule
+
+### convex-spreads (Spread Analytics) ✅
+- **zspread.rs**: Z-spread (constant spread over spot curve)
+- **gspread.rs**: G-spread with BenchmarkSpec, GovernmentCurve, multi-sovereign support
+- **ispread.rs**: I-spread (over swap curve)
+- **oas.rs**: OASCalculator with Hull-White, effective duration/convexity
+- **asw/**: ParParAssetSwap, ProceedsAssetSwap, ASWType
+- **discount_margin.rs**: DiscountMarginCalculator for FRNs, simple_margin, spread DV01/duration
+
+### convex-risk (Risk Analytics) 🟡
+- **duration/**: Macaulay, Modified, Effective, KeyRate, SpreadDuration
+- **convexity/**: Analytical, Effective
+- **dv01.rs**: Dollar value of a basis point
+- **var/**: Historical, Parametric VaR (framework)
+- **hedging/**: HedgeRatio, Portfolio (framework)
+
+### convex-yas (Bloomberg Replication) 🟡
+- **yas.rs**: YasAnalysis main engine
+- **yields/**: StreetConvention, TrueYield, CurrentYield, SimpleYield, MoneyMarketYield
+- **invoice/**: Settlement calculations
+- Reference: Boeing 7.5% 06/15/2025 (CUSIP: 097023AH7)
+
+### convex-ffi (C Bindings) 🟡
+- Date creation/parsing/extraction
+- Error handling with thread-local storage
+- Both cdylib and staticlib targets
+
+---
+
+## Known TODOs in Codebase
+
+| Location | Issue | Priority |
+|----------|-------|----------|
+| `convex-bonds/pricing/yield_solver.rs:357` | `discount_margin()` stub (full impl in convex-spreads) | Low |
+| `convex-curves/multicurve/builder.rs:410` | Basis adjustment TODO | Medium |
+| `convex-curves/bootstrap/sequential.rs:622` | Tighten tolerance after improvements | Low |
+| `convex-spreads/asw/` | Test placeholder `unimplemented!()` | Low |
+| `convex-spreads/oas.rs:250` | Unused variable `maturity_years` | Low |
+
+---
+
+## Open Issues
+
+1. **Performance benchmarking**: No criterion benchmarks yet; targets defined but not measured
+2. **Bloomberg validation**: Boeing bond partially validated; need more real-world comparisons
+3. **OAS models**: Only Hull-White; BDT and Black-Karasinski not implemented
+4. **FFI coverage**: Only Date operations; need bonds, curves, pricing
+5. **Discount margin**: FRN discount margin calculation not implemented
+
+---
+
+## Next Steps
+
+### High Priority
+1. **RISK-001**: Complete duration/convexity/DV01 module with full tests
+2. **Performance benchmarks**: Add criterion benchmarks for key operations
+3. **Bloomberg validation**: Validate full Boeing bond analytics vs YAS
+
+### Medium Priority
+4. **Discount margin**: Implement for floating rate notes
+5. **Multi-curve basis**: Complete basis adjustment in MultiCurveBuilder
+6. **OAS models**: Implement BDT and Black-Karasinski for comparison
+
+### Lower Priority
+7. **FFI expansion**: Add bond/curve/pricing to C bindings
+8. **VaR completion**: Finish Historical and Parametric VaR implementations
+9. **ASW tests**: Complete asset swap spread test coverage
+
+---
+
+## Session: 2025-12-07
 
 ### Implemented Today
+- **SPREAD-005**: Discount Margin Calculator for FRNs
+- **DiscountMarginCalculator**: calculate(), price_with_dm(), spread_dv01(), spread_duration()
+- **simple_margin()**: Quick approximation for FRN discount margin
+- **SpreadType::DiscountMargin**: Added new variant to core spread types
+- 13 new tests for discount margin functionality
 
-**SPREAD-004: OAS Calculator (Option-Adjusted Spread)**
+### Files Changed
+- `convex-spreads/src/discount_margin.rs` (new)
+- `convex-spreads/src/lib.rs` (exports)
+- `convex-core/src/types/spread.rs` (SpreadType::DiscountMargin)
 
-1. **Hull-White Short Rate Model** (`convex-bonds/src/options/`)
-   - One-factor mean-reverting model: `dr = (θ(t) - a*r)dt + σ*dW`
-   - θ(t) calibration to fit initial yield curve exactly
-   - Parameters: mean_reversion (typical 1-10%), volatility (typical 50-200 bps)
+---
 
-2. **BinomialTree Infrastructure** (`convex-bonds/src/options/binomial_tree.rs`)
-   - Recombining binomial tree for backward induction pricing
-   - Supports OAS spread overlay: DF = exp(-(r + spread) × dt)
-   - Risk-neutral probabilities (0.5/0.5 for symmetric tree)
+## Session: 2025-12-06
 
-3. **OASCalculator** (`convex-spreads/src/oas.rs`)
-   - `calculate()` - OAS from market price via binary search
-   - `price_with_oas()` - Price callable bond given OAS
-   - `effective_duration()` / `effective_convexity()` - Option-adjusted risk
-   - `option_value()` - Embedded call premium
-   - `oas_duration()` - Spread sensitivity
+### Implemented Today
+- **SPREAD-004**: OAS Calculator with Hull-White model
+- **BinomialTree**: Recombining tree for backward induction
+- **OASCalculator**: calculate(), price_with_oas(), effective_duration/convexity
 
 ### Decisions Made
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Short rate model | Hull-White (not BDT/BK) | Analytically tractable, industry standard for callable bonds |
-| Tree type | Binomial (not trinomial) | Simpler, sufficient accuracy for OAS |
-| OAS search | Binary search | Robust, guaranteed convergence |
-| Bounds | -500 to +2000 bps | Covers all realistic scenarios |
-| Tolerance | ±0.5 bps | Industry standard precision |
-
-### Validation Status
-
-- **77 tests passing** in convex-spreads (up from 65)
-- **Hull-White model tests**: creation, B-factor, tree construction, probability sums
-- **Tree pricing tests**: zero-coupon bond PV approximates exp(-rt)
-- **OAS tests**: calculation, price roundtrip, basic sanity checks
-
-### Open Issues
-
-1. **Performance benchmarking needed**: Target is <10ms for 100 steps, not yet measured
-2. **Bloomberg validation pending**: No real callable bond comparison yet
-3. **Additional models**: Black-Derman-Toy, Black-Karasinski not yet implemented
-4. **Swaption calibration**: `from_swaption_vol()` is simplified, full calibration needed
-
-### Next Steps
-
-1. **RISK-001**: Duration/Convexity/DV01 analytics module
-2. **Benchmark validation**: Compare OAS to Bloomberg YAS for real callable bonds
-3. **Performance testing**: Add criterion benchmarks for OAS calculation
-4. **Extended models**: Implement BDT and Black-Karasinski for comparison
+- Hull-White over BDT/BK (analytically tractable, industry standard)
+- Binary search for OAS (robust, guaranteed convergence)
+- Bounds: -500 to +2000 bps; Tolerance: ±0.5 bps
 
 ---
 
@@ -718,9 +807,9 @@ let curve_set = MultiCurveBuilder::new(reference_date)
 | MBS | 0/10 | 0 | ⬜ |
 | Spreads | 77/20 | 77 | ✅ |
 | Risk | 0/25 | 0 | ⬜ |
-| **Total** | **866/665** | **866** | 🟡 |
+| **Total** | **978/665** | **978** | 🟡 |
 
-> **Note**: Total workspace tests: 600+ (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
+> **Note**: Total workspace tests: 978 (includes unit + doc tests). Matrix above tracks Bloomberg-specific validation.
 
 ### Primary Validation Bond Status
 
@@ -834,6 +923,22 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-07 - Discount Margin Calculator (SPREAD-005) Complete
+
+**Implemented Discount Margin calculator for Floating Rate Notes:**
+- `DiscountMarginCalculator<C: Curve + ?Sized>` - generic over discount curve types
+- `calculate()` - solves for DM using Brent root finder
+- `price_with_dm()` - prices FRN with given discount margin
+- `spread_dv01()` / `spread_duration()` - risk sensitivities
+- `effective_duration()` - accounts for embedded options (caps/floors)
+- `simple_margin()` - quick approximation (flat forward assumption)
+- `z_discount_margin()` - convenience function
+- Projects coupons using forward rates from ForwardCurve
+- Applies FRN caps/floors via `effective_rate()`
+- 13 tests covering roundtrip, caps, floors, edge cases
+
+---
 
 ### 2025-12-06 - OAS Calculator (SPREAD-004) Complete
 
