@@ -36,12 +36,16 @@
 //! println!("Modified Duration: {}", analysis.modified_duration);
 //! ```
 
+pub mod calculator;
 pub mod yas;
 pub mod yields;
 pub mod invoice;
 pub mod formatting;
 mod error;
 
+pub use calculator::{
+    BatchYASCalculator, BloombergReference, ValidationFailure, YASCalculator, YASResult,
+};
 pub use error::YasError;
 pub use yas::YasAnalysis;
 

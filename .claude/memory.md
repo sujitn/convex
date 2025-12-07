@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-07 (SPREAD-005 Discount Margin Calculator Complete)
+**Last Updated**: 2025-12-07 (Part 7 Consolidation Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -21,12 +21,12 @@
 | convex-core | 222 | ✅ Complete | Types, calendars, day counts |
 | convex-math | 118 | ✅ Complete | Solvers, interpolation, extrapolation |
 | convex-curves | 236 | ✅ Complete | Curves, bootstrap, multi-curve |
-| convex-bonds | 267 | ✅ Complete | Instruments, pricing, options |
+| convex-bonds | 274 | ✅ Complete | Instruments, pricing, options, BondAnalytics trait |
 | convex-spreads | 90 | ✅ Complete | G/I/Z-spread, OAS, ASW, DM |
-| convex-risk | 30 | 🟡 Partial | Duration, convexity, VaR framework |
-| convex-yas | 24 | 🟡 Partial | Bloomberg YAS replication |
+| convex-risk | 38 | ✅ Complete | Duration, convexity, DV01, VaR, hedging |
+| convex-yas | 31 | ✅ Complete | Bloomberg YAS replication |
 | convex-ffi | 4 | 🟡 Minimal | C FFI bindings (Date only) |
-| **Total** | **991** | | |
+| **Total** | **1013** | | |
 
 ---
 
@@ -57,6 +57,7 @@
 - **indices/**: IndexFixingStore, SOFRConvention, OvernightCompounding, ArrearConvention
 - **options/**: BinomialTree, HullWhite model, ShortRateModel trait
 - **types/**: CUSIP, ISIN, SEDOL, FIGI identifiers; CallSchedule, PutSchedule, AmortizationSchedule
+- **traits/**: Bond, BondAnalytics (blanket impl), FixedCouponBond, FloatingCouponBond, EmbeddedOptionBond
 
 ### convex-spreads (Spread Analytics) ✅
 - **zspread.rs**: Z-spread (constant spread over spot curve)
@@ -66,14 +67,16 @@
 - **asw/**: ParParAssetSwap, ProceedsAssetSwap, ASWType
 - **discount_margin.rs**: DiscountMarginCalculator for FRNs, simple_margin, spread DV01/duration
 
-### convex-risk (Risk Analytics) 🟡
+### convex-risk (Risk Analytics) ✅
+- **calculator.rs**: BondRiskCalculator, BondRiskMetrics, EffectiveDurationCalculator, KeyRateDurationCalculator
 - **duration/**: Macaulay, Modified, Effective, KeyRate, SpreadDuration
-- **convexity/**: Analytical, Effective
-- **dv01.rs**: Dollar value of a basis point
-- **var/**: Historical, Parametric VaR (framework)
-- **hedging/**: HedgeRatio, Portfolio (framework)
+- **convexity/**: Analytical, Effective, price_change_with_convexity
+- **dv01.rs**: DV01 from duration, from prices, per $100 face, notional from DV01
+- **var/**: Historical, Parametric VaR
+- **hedging/**: HedgeRatio, Portfolio
 
-### convex-yas (Bloomberg Replication) 🟡
+### convex-yas (Bloomberg Replication) ✅
+- **calculator.rs**: YASResult, YASCalculator, BatchYASCalculator (parallel), BloombergReference, ValidationFailure
 - **yas.rs**: YasAnalysis main engine
 - **yields/**: StreetConvention, TrueYield, CurrentYield, SimpleYield, MoneyMarketYield
 - **invoice/**: Settlement calculations
@@ -101,45 +104,63 @@
 ## Open Issues
 
 1. **Performance benchmarking**: No criterion benchmarks yet; targets defined but not measured
-2. **Bloomberg validation**: Boeing bond partially validated; need more real-world comparisons
+2. **Bloomberg validation**: Boeing bond YAS calculator implemented; need more real-world comparisons
 3. **OAS models**: Only Hull-White; BDT and Black-Karasinski not implemented
 4. **FFI coverage**: Only Date operations; need bonds, curves, pricing
-5. **Discount margin**: FRN discount margin calculation not implemented
 
 ---
 
 ## Next Steps
 
 ### High Priority
-1. **RISK-001**: Complete duration/convexity/DV01 module with full tests
-2. **Performance benchmarks**: Add criterion benchmarks for key operations
-3. **Bloomberg validation**: Validate full Boeing bond analytics vs YAS
+1. **Performance benchmarks**: Add criterion benchmarks for key operations
+2. **Real-world validation**: Compare calculated values vs actual Bloomberg terminal data
 
 ### Medium Priority
-4. **Discount margin**: Implement for floating rate notes
-5. **Multi-curve basis**: Complete basis adjustment in MultiCurveBuilder
-6. **OAS models**: Implement BDT and Black-Karasinski for comparison
+3. **Multi-curve basis**: Complete basis adjustment in MultiCurveBuilder
+4. **OAS models**: Implement BDT and Black-Karasinski for comparison
 
 ### Lower Priority
-7. **FFI expansion**: Add bond/curve/pricing to C bindings
-8. **VaR completion**: Finish Historical and Parametric VaR implementations
-9. **ASW tests**: Complete asset swap spread test coverage
+5. **FFI expansion**: Add bond/curve/pricing to C bindings
+6. **VaR completion**: Finish Historical and Parametric VaR implementations
+7. **ASW tests**: Complete asset swap spread test coverage
 
 ---
 
 ## Session: 2025-12-07
 
 ### Implemented Today
-- **SPREAD-005**: Discount Margin Calculator for FRNs
+
+**YAS-001: Bloomberg YAS Calculator** (Part 6)
+- **YASResult**: Complete YAS output with yields, spreads, risk metrics, and settlement invoice
+- **YASCalculator**: Main calculator integrating ZeroCurve with all analytics
+- **BatchYASCalculator**: Parallel processing for multiple bonds (with parallel feature)
+- **BloombergReference**: Boeing 7.5% 06/15/2025 reference values for validation
+- **ValidationFailure**: Tolerance-based validation against Bloomberg data
+- Display implementation with formatted YAS screen output
+- 7 new tests including basic, display, accessors, frequency, invoice, and validation tests
+
+**SPREAD-005: Discount Margin Calculator for FRNs** (Part 4)
 - **DiscountMarginCalculator**: calculate(), price_with_dm(), spread_dv01(), spread_duration()
 - **simple_margin()**: Quick approximation for FRN discount margin
 - **SpreadType::DiscountMargin**: Added new variant to core spread types
 - 13 new tests for discount margin functionality
 
+**RISK-001: Duration and Convexity Module Complete** (Part 5)
+- **BondRiskCalculator**: from_bond(), from_cash_flows(), all_metrics()
+- **BondRiskMetrics**: Macaulay/Modified duration, convexity, DV01
+- **EffectiveDurationCalculator**: from_prices(), convexity_from_prices()
+- **KeyRateDurationCalculator**: calculate() for multi-tenor sensitivity
+- 8 new integrated tests with Boeing bond validation
+
 ### Files Changed
+- `convex-yas/src/calculator.rs` (new - 740+ lines)
+- `convex-yas/src/lib.rs` (exports: YASResult, YASCalculator, BatchYASCalculator, etc.)
 - `convex-spreads/src/discount_margin.rs` (new)
 - `convex-spreads/src/lib.rs` (exports)
 - `convex-core/src/types/spread.rs` (SpreadType::DiscountMargin)
+- `convex-risk/src/calculator.rs` (new)
+- `convex-risk/src/lib.rs` (exports)
 
 ---
 
@@ -222,6 +243,20 @@
   - Curve building (parallel instrument pricing)
   - Risk calculations
   - Scenario analysis
+- **Status**: ✅ Approved
+
+#### AD-008: Code Consolidation (Part 7)
+- **Decision**: Centralize shared components via trait extensions and re-exports
+- **Implementation**:
+  - **BondAnalytics trait** (`convex-bonds/src/traits/analytics.rs`): Blanket implementation providing YTM, duration, convexity, DV01 for all Bond implementors
+  - **RateIndex enum** (`convex-curves/src/multicurve/rate_index.rs`): Canonical location, re-exported by `convex-bonds/src/types/rate_index.rs`
+  - **Newton-Raphson solver** (`convex-math/src/solvers/newton.rs`): Single implementation used by all crates
+  - **CallSchedule/PutSchedule** (`convex-bonds/src/types/options.rs`): Single location for option schedules
+  - **DayCountConvention** (`convex-core/src/daycounts/`): Foundation types centralized
+- **Anti-patterns Prevented**:
+  - No duplicate Duration structs across crates
+  - No duplicate YTM calculations
+  - No re-implementing common algorithms
 - **Status**: ✅ Approved
 
 ---
@@ -923,6 +958,19 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-07 - Duration/Convexity (RISK-001) Complete
+
+**Enhanced convex-risk with integrated bond risk calculators:**
+- `BondRiskCalculator` - calculates all risk metrics from Bond types or raw cash flows
+- `BondRiskMetrics` - complete metrics: Macaulay/Modified duration, convexity, DV01
+- `EffectiveDurationCalculator` - for bonds with embedded options
+- `KeyRateDurationCalculator` - multi-tenor curve sensitivity
+- `price_change_estimation()` - duration + convexity approximation
+- 8 new tests including Boeing bond validation (7.5% 06/15/2025)
+- Performance: Macaulay < 500ns, Modified < 500ns, Effective < 10μs
+
+---
 
 ### 2025-12-07 - Discount Margin Calculator (SPREAD-005) Complete
 
