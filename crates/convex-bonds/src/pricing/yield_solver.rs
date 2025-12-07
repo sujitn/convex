@@ -600,7 +600,7 @@ mod tests {
         // Expected YTM (Street): 4.905895% (approximately)
 
         let settlement = date(2020, 4, 29);
-        let maturity = date(2025, 6, 15);
+        let _maturity = date(2025, 6, 15);
 
         // Generate cash flows for Boeing bond
         // Issue: ~1990, 7.5% coupon, semi-annual

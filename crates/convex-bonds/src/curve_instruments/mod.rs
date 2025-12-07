@@ -1,7 +1,7 @@
 //! Curve instrument wrappers for yield curve bootstrapping.
 //!
 //! This module provides wrappers around generic bond types that implement
-//! the [`CurveInstrument`] trait from `convex-curves`, enabling these bonds
+//! the `CurveInstrument` trait from `convex-curves`, enabling these bonds
 //! to be used in curve construction.
 //!
 //! # Supported Bond Types
