@@ -20,7 +20,9 @@
       "WebFetch(domain:blog.deriscope.com)",
       "Bash(cmd /c \"tree /F src\")",
       "Bash(cargo clippy:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

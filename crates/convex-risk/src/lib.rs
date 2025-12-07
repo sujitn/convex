@@ -25,19 +25,24 @@
 //! let dv01 = dv01_from_duration(duration, dirty_price, face_value);
 //! ```
 
-pub mod duration;
+pub mod calculator;
 pub mod convexity;
+pub mod duration;
 pub mod dv01;
-pub mod var;
 pub mod hedging;
+pub mod var;
 mod error;
 
+pub use calculator::{
+    BondRiskCalculator, BondRiskMetrics, EffectiveDurationCalculator, KeyRateDurationCalculator,
+};
 pub use error::RiskError;
 
 /// Prelude for convenient imports
 pub mod prelude {
-    pub use crate::duration::*;
+    pub use crate::calculator::*;
     pub use crate::convexity::*;
+    pub use crate::duration::*;
     pub use crate::dv01::*;
     pub use crate::RiskError;
 }

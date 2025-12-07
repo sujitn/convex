@@ -94,8 +94,8 @@ pub mod prelude {
 
     // Traits
     pub use crate::traits::{
-        AmortizingBond, Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond,
-        FloatingCouponBond, InflationLinkedBond,
+        AmortizingBond, Bond, BondAnalytics, BondCashFlow, CashFlowType, EmbeddedOptionBond,
+        FixedCouponBond, FloatingCouponBond, InflationLinkedBond,
     };
 
     // Types
