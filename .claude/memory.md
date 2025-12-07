@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-07 (Part 7 Consolidation Complete)
+**Last Updated**: 2025-12-07 (YAS ASW Spread Integration Complete)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -24,9 +24,9 @@
 | convex-bonds | 274 | ✅ Complete | Instruments, pricing, options, BondAnalytics trait |
 | convex-spreads | 90 | ✅ Complete | G/I/Z-spread, OAS, ASW, DM |
 | convex-risk | 38 | ✅ Complete | Duration, convexity, DV01, VaR, hedging |
-| convex-yas | 31 | ✅ Complete | Bloomberg YAS replication |
+| convex-yas | 41 | ✅ Complete | Bloomberg YAS replication, MMY, ASW spread |
 | convex-ffi | 4 | 🟡 Minimal | C FFI bindings (Date only) |
-| **Total** | **1013** | | |
+| **Total** | **1023** | | |
 
 ---
 
@@ -77,8 +77,13 @@
 
 ### convex-yas (Bloomberg Replication) ✅
 - **calculator.rs**: YASResult, YASCalculator, BatchYASCalculator (parallel), BloombergReference, ValidationFailure
+  - `calculate_asw_spread()`: Par-Par ASW = (100 - Dirty Price) / Annuity
 - **yas.rs**: YasAnalysis main engine
-- **yields/**: StreetConvention, TrueYield, CurrentYield, SimpleYield, MoneyMarketYield
+- **yields/**: StreetConvention, TrueYield, CurrentYield, SimpleYield
+- **yields/money_market.rs**: Simple function interface matching other yield calcs
+  - `money_market_yield()`: Roll-forward MMY calculation
+  - `money_market_yield_with_horizon()`: MMY with custom horizon
+  - `discount_yield()`, `bond_equivalent_yield()`, `cd_equivalent_yield()`: T-Bill yields
 - **invoice/**: Settlement calculations
 - Reference: Boeing 7.5% 06/15/2025 (CUSIP: 097023AH7)
 

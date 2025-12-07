@@ -38,7 +38,64 @@ pub fn street_convention_yield(
         return Err(YasError::InvalidInput("no cash flows provided".to_string()));
     }
 
-    const TOLERANCE: f64 = 1e-10;
+    // Try multiple initial guesses for robustness
+    let initial_guesses = [
+        initial_guess,
+        estimate_current_yield(dirty_price, cash_flows, times, frequency),
+        0.01,
+        0.03,
+        0.05,
+        0.08,
+        0.10,
+        0.15,
+    ];
+
+    for guess in initial_guesses {
+        if let Ok(result) = newton_raphson_yield(dirty_price, cash_flows, times, frequency, guess) {
+            return Ok(result);
+        }
+    }
+
+    Err(YasError::SolverNoConvergence {
+        context: "street convention yield".to_string(),
+        iterations: 100,
+    })
+}
+
+/// Estimate current yield as starting point
+fn estimate_current_yield(
+    dirty_price: f64,
+    cash_flows: &[f64],
+    times: &[f64],
+    frequency: u32,
+) -> f64 {
+    // Find first coupon (non-principal) cash flow
+    let annual_coupon = if cash_flows.len() >= 2 {
+        // Assume first cash flow is coupon, multiply by frequency
+        cash_flows[0] * frequency as f64
+    } else {
+        // Single cash flow - estimate coupon from total
+        let total_cf: f64 = cash_flows.iter().sum();
+        let years = times.last().copied().unwrap_or(1.0);
+        (total_cf - 100.0) / years
+    };
+
+    if dirty_price > 0.0 {
+        (annual_coupon / dirty_price).clamp(0.001, 0.5)
+    } else {
+        0.05
+    }
+}
+
+/// Newton-Raphson solver for yield
+fn newton_raphson_yield(
+    dirty_price: f64,
+    cash_flows: &[f64],
+    times: &[f64],
+    frequency: u32,
+    initial_guess: f64,
+) -> Result<Decimal, YasError> {
+    const TOLERANCE: f64 = 1e-8;
     const MAX_ITERATIONS: u32 = 100;
 
     let freq = frequency as f64;
@@ -49,7 +106,10 @@ pub fn street_convention_yield(
         let error = pv - dirty_price;
 
         if error.abs() < TOLERANCE {
-            return Ok(Decimal::from_f64_retain(yield_val).unwrap_or(Decimal::ZERO));
+            // Validate result is reasonable
+            if yield_val > -0.5 && yield_val < 1.0 {
+                return Ok(Decimal::from_f64_retain(yield_val).unwrap_or(Decimal::ZERO));
+            }
         }
 
         if dpv.abs() < 1e-15 {
@@ -59,14 +119,22 @@ pub fn street_convention_yield(
             });
         }
 
-        yield_val -= error / dpv;
+        let step = error / dpv;
+        // Dampen large steps to prevent oscillation
+        let damped_step = if step.abs() > 0.1 {
+            step.signum() * 0.1
+        } else {
+            step
+        };
+
+        yield_val -= damped_step;
 
         // Bound yield to reasonable range
-        yield_val = yield_val.clamp(-0.2, 1.0);
+        yield_val = yield_val.clamp(-0.3, 1.0);
     }
 
     Err(YasError::SolverNoConvergence {
-        context: "street convention yield".to_string(),
+        context: "newton raphson".to_string(),
         iterations: MAX_ITERATIONS,
     })
 }

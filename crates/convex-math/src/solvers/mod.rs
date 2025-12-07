@@ -335,7 +335,7 @@ mod tests {
             .with_tolerance(1e-8)
             .with_max_iterations(50);
 
-        assert_eq!(config.tolerance, 1e-8);
+        assert!((config.tolerance - 1e-8).abs() < f64::EPSILON);
         assert_eq!(config.max_iterations, 50);
     }
 
@@ -486,10 +486,10 @@ mod tests {
         let df = |y: f64| bond_price_derivative(y, coupon, face, years, freq);
         let config = SolverConfig::default();
 
-        let newton_result = newton_raphson(&f, &df, 0.06, &config).unwrap();
-        let brent_result = brent(&f, 0.0, 0.20, &config).unwrap();
-        let hybrid_result = hybrid(&f, &df, 0.06, Some((0.0, 0.20)), &config).unwrap();
-        let secant_result = secant(&f, 0.05, 0.07, &config).unwrap();
+        let newton_result = newton_raphson(f, df, 0.06, &config).unwrap();
+        let brent_result = brent(f, 0.0, 0.20, &config).unwrap();
+        let hybrid_result = hybrid(f, df, 0.06, Some((0.0, 0.20)), &config).unwrap();
+        let secant_result = secant(f, 0.05, 0.07, &config).unwrap();
 
         // All should agree within tolerance
         assert_relative_eq!(newton_result.root, brent_result.root, epsilon = 1e-8);
@@ -533,8 +533,8 @@ mod tests {
         let df = |x: f64| 2.0 * x;
         let config = SolverConfig::default();
 
-        let newton_result = newton_raphson(&f, &df, 1.5, &config).unwrap();
-        let brent_result = brent(&f, 1.0, 2.0, &config).unwrap();
+        let newton_result = newton_raphson(f, df, 1.5, &config).unwrap();
+        let brent_result = brent(f, 1.0, 2.0, &config).unwrap();
 
         // Newton should use fewer iterations
         assert!(newton_result.iterations <= brent_result.iterations);

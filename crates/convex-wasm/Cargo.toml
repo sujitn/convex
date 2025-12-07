@@ -1,0 +1,37 @@
+[package]
+name = "convex-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly bindings for Convex fixed income analytics"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sujitn/convex"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+convex-core = { path = "../convex-core" }
+convex-math = { path = "../convex-math" }
+convex-curves = { path = "../convex-curves" }
+convex-bonds = { path = "../convex-bonds" }
+convex-spreads = { path = "../convex-spreads" }
+convex-yas = { path = "../convex-yas" }
+
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+console_error_panic_hook = { version = "0.1", optional = true }
+rust_decimal = { version = "1.36", features = ["serde"] }
+chrono = "0.4"
+getrandom = { version = "0.2", features = ["js"] }
+uuid = { version = "1.19", features = ["serde", "v4", "js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

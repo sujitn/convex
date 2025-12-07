@@ -333,7 +333,7 @@ mod tests {
     fn test_clone_and_copy() {
         let c1 = Currency::USD;
         let c2 = c1; // Copy
-        let c3 = c1.clone();
+        let c3 = c1; // Copy (Clone not needed for Copy types)
         assert_eq!(c1, c2);
         assert_eq!(c1, c3);
     }

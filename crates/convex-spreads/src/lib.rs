@@ -150,6 +150,5 @@ mod tests {
     #[test]
     fn test_placeholder() {
         // Placeholder test
-        assert!(true);
     }
 }

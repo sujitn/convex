@@ -18,7 +18,9 @@
 //! | Convexity       | 0.219     | ±0.001           |
 
 use crate::invoice::SettlementInvoice;
-use crate::yields::{current_yield, simple_yield, street_convention_yield};
+use crate::yields::{
+    current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield,
+};
 use crate::YasError;
 use chrono::NaiveDate;
 use convex_bonds::prelude::Bond;
@@ -49,6 +51,9 @@ pub struct YASResult {
 
     /// Simple yield
     pub simple_yield: Decimal,
+
+    /// Money market equivalent yield (roll-forward methodology)
+    pub money_market_yield: Option<Decimal>,
 
     // ===== Spread Metrics =====
     /// G-Spread (yield - interpolated government yield)
@@ -195,6 +200,13 @@ impl std::fmt::Display for YASResult {
             "║   Simple Yield:       {:>10.3}%                       ║",
             self.simple_yield
         )?;
+        if let Some(mmy) = self.money_market_yield {
+            writeln!(
+                f,
+                "║   Money Market Yield: {:>10.6}%                      ║",
+                mmy
+            )?;
+        }
         writeln!(
             f,
             "╠══════════════════════════════════════════════════════════╣"
@@ -498,8 +510,10 @@ impl<'a> YASCalculator<'a> {
         }
 
         // Calculate yields
-        let ytm =
+        let ytm_decimal =
             street_convention_yield(dirty_price_f64, &cf_values, &times, self.frequency, 0.05)?;
+        // Convert YTM from decimal (0.05) to percentage (5.0)
+        let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
 
         // Estimate annual coupon from first cash flow (assume semi-annual)
         let periodic_coupon = cash_flows
@@ -507,7 +521,7 @@ impl<'a> YASCalculator<'a> {
             .map(|cf| cf.amount)
             .unwrap_or(Decimal::ZERO);
         let annual_coupon = periodic_coupon * Decimal::from(self.frequency);
-        let current = current_yield(annual_coupon, clean_price)?;
+        let current = current_yield_from_amount(annual_coupon, clean_price)?;
 
         // Calculate years to maturity for simple yield
         let years_decimal =
@@ -531,6 +545,11 @@ impl<'a> YASCalculator<'a> {
 
         // Calculate Z-spread
         let z_spread_value = self.calculate_z_spread(&cash_flows, dirty_price, settlement_date)?;
+
+        // Calculate ASW spread (par-par)
+        let asw_spread_value = self
+            .calculate_asw_spread(dirty_price, settlement_date, maturity_date)
+            .ok();
 
         // Calculate risk metrics
         let ytm_f64 = ytm
@@ -563,15 +582,38 @@ impl<'a> YASCalculator<'a> {
             .build()
             .map_err(|e| YasError::MissingData(e.to_string()))?;
 
+        // Calculate Money Market Yield using roll-forward method
+        // YTM for MMY should be expressed as decimal (e.g., 0.05 for 5%)
+        let ytm_decimal = ytm / dec!(100);
+        let days_per_year = match bond.currency() {
+            convex_core::Currency::GBP
+            | convex_core::Currency::AUD
+            | convex_core::Currency::NZD => 365,
+            _ => 360, // USD, EUR, JPY, etc.
+        };
+
+        let mmy_result = money_market_yield(
+            &cash_flows,
+            dirty_price,
+            ytm_decimal,
+            settlement_date,
+            maturity_date,
+            self.frequency,
+            days_per_year,
+        )
+        .map(|mmy| mmy * dec!(100)) // Convert to percentage
+        .ok();
+
         Ok(YASResult {
             ytm,
             true_yield: ytm, // For now, true yield = street convention
             current_yield: current,
             simple_yield: simple,
+            money_market_yield: mmy_result,
             g_spread: g_spread_value,
             z_spread: z_spread_value,
-            asw_spread: None, // TODO: implement ASW spread
-            oas: None,        // Only for callable/putable bonds
+            asw_spread: asw_spread_value,
+            oas: None, // Only for callable/putable bonds
             risk,
             invoice,
         })
@@ -589,6 +631,76 @@ impl<'a> YASCalculator<'a> {
         calculator
             .calculate_from_cash_flows(cash_flows, dirty_price, settlement)
             .map_err(|e| YasError::CalculationFailed(format!("z-spread: {e}")))
+    }
+
+    /// Calculates Par-Par Asset Swap spread.
+    ///
+    /// Par-Par ASW = (100 - Dirty Price) / Annuity
+    ///
+    /// Where Annuity = Σ DF(t_i) × τ_i is the PV01 of the swap floating leg.
+    fn calculate_asw_spread(
+        &self,
+        dirty_price: Decimal,
+        settlement: Date,
+        maturity: Date,
+    ) -> Result<Spread, YasError> {
+        if settlement >= maturity {
+            return Err(YasError::InvalidInput(
+                "settlement must be before maturity".to_string(),
+            ));
+        }
+
+        // Calculate payment dates going backwards from maturity
+        let months_between: i32 = match self.frequency {
+            1 => 12, // Annual
+            4 => 3,  // Quarterly
+            12 => 1, // Monthly
+            _ => 6,  // Default to semi-annual
+        };
+
+        let mut payment_dates = Vec::new();
+        let mut current_date = maturity;
+
+        while current_date > settlement {
+            payment_dates.push(current_date);
+            // Go back by months_between
+            current_date = current_date
+                .add_months(-months_between)
+                .map_err(|e| YasError::CalculationFailed(format!("date calc: {e}")))?;
+        }
+
+        if payment_dates.is_empty() {
+            return Err(YasError::InvalidInput(
+                "no payment dates after settlement".to_string(),
+            ));
+        }
+
+        // Calculate annuity: Σ DF(t_i) × τ_i
+        let year_fraction = Decimal::ONE / Decimal::from(self.frequency);
+        let mut annuity = Decimal::ZERO;
+
+        for payment_date in &payment_dates {
+            let df = self
+                .spot_curve
+                .discount_factor_at(*payment_date)
+                .map_err(|e| YasError::CurveError(format!("discount factor: {e}")))?;
+            annuity += df * year_fraction;
+        }
+
+        if annuity.is_zero() {
+            return Err(YasError::CalculationFailed(
+                "annuity is zero - cannot calculate ASW".to_string(),
+            ));
+        }
+
+        // Par-Par ASW = (100 - Dirty Price) / Annuity
+        // Positive when bond trades at discount (spread income to investor)
+        // Negative when bond trades at premium (spread cost to investor)
+        let upfront = Decimal::ONE_HUNDRED - dirty_price;
+        let spread_decimal = upfront / annuity;
+        let spread_bps = (spread_decimal * Decimal::from(10_000)).round();
+
+        Ok(Spread::new(spread_bps, SpreadType::AssetSwapPar))
     }
 
     /// Calculates accrued days from last coupon.
@@ -858,5 +970,90 @@ mod tests {
         assert_eq!(result.invoice.clean_price, dec!(110.503));
         assert!(result.invoice.accrued_interest >= Decimal::ZERO);
         assert!(result.invoice.dirty_price > result.invoice.clean_price);
+    }
+
+    #[test]
+    fn test_asw_spread_calculation() {
+        let curve = create_test_curve();
+        let calculator = YASCalculator::new(&curve);
+
+        let bond = create_test_bond();
+        let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
+
+        // Premium bond (trading above par)
+        let result = calculator
+            .analyze(&bond, settlement, dec!(110.503))
+            .unwrap();
+
+        // ASW spread should be calculated
+        assert!(
+            result.asw_spread.is_some(),
+            "ASW spread should be calculated"
+        );
+
+        let asw = result.asw_spread.unwrap();
+
+        // For a premium bond (dirty price > 100), ASW should be negative
+        // because investor pays more than par and receives spread adjustment
+        assert!(
+            asw.as_bps() < Decimal::ZERO,
+            "ASW should be negative for premium bond, got {}",
+            asw.as_bps()
+        );
+
+        // ASW spread type should be correct
+        assert_eq!(asw.spread_type(), SpreadType::AssetSwapPar);
+    }
+
+    #[test]
+    fn test_asw_spread_discount_bond() {
+        let curve = create_test_curve();
+        let calculator = YASCalculator::new(&curve);
+
+        let bond = create_test_bond();
+        let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
+
+        // Discount bond (trading below par)
+        let result = calculator.analyze(&bond, settlement, dec!(95.0)).unwrap();
+
+        // ASW spread should be calculated
+        assert!(
+            result.asw_spread.is_some(),
+            "ASW spread should be calculated"
+        );
+
+        let asw = result.asw_spread.unwrap();
+
+        // For a discount bond (dirty price < 100), ASW should be positive
+        // because investor pays less than par and receives spread income
+        assert!(
+            asw.as_bps() > Decimal::ZERO,
+            "ASW should be positive for discount bond, got {}",
+            asw.as_bps()
+        );
+    }
+
+    #[test]
+    fn test_asw_spread_near_par() {
+        let curve = create_test_curve();
+        let calculator = YASCalculator::new(&curve);
+
+        let bond = create_test_bond();
+        let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
+
+        // Near-par bond - accounting for accrued interest
+        // Accrued for Boeing 7.5% from 12/15 to 04/29 is about 2.75
+        // So clean price ~97.25 gives dirty ~100
+        let result = calculator.analyze(&bond, settlement, dec!(97.25)).unwrap();
+
+        if let Some(asw) = result.asw_spread {
+            // At near-par, ASW should be relatively small compared to
+            // the premium/discount bond cases (which are 100s of bps)
+            assert!(
+                asw.as_bps().abs() < dec!(150),
+                "ASW should be relatively small near par, got {}",
+                asw.as_bps()
+            );
+        }
     }
 }

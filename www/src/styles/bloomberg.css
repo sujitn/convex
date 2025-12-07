@@ -1,0 +1,913 @@
+/* ============================================================================
+   Bloomberg Terminal Inspired Theme for Convex YAS
+   ============================================================================ */
+
+/* CSS Variables */
+:root {
+  /* Background Colors */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-panel: #0f0f23;
+  --bg-input: #2d2d44;
+  --bg-hover: #3d3d5c;
+
+  /* Text Colors */
+  --text-primary: #00ff00;
+  --text-secondary: #ffffff;
+  --text-muted: #888888;
+  --text-header: #ff6600;
+  --text-error: #ff4444;
+  --text-warning: #ffaa00;
+
+  /* Accent Colors */
+  --accent-orange: #ff6600;
+  --accent-blue: #00ccff;
+  --accent-green: #00ff00;
+  --accent-red: #ff4444;
+  --accent-yellow: #ffff00;
+
+  /* Border Colors */
+  --border-primary: #3d3d5c;
+  --border-light: #4d4d6c;
+  --border-input: #5d5d7c;
+
+  /* Fonts */
+  --font-mono: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* Border Radius */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+}
+
+/* ============================================================================
+   Base Styles
+   ============================================================================ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   Header
+   ============================================================================ */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  border-bottom: 2px solid var(--accent-orange);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-orange);
+  color: var(--bg-primary);
+  font-weight: 700;
+  font-size: 18px;
+  border-radius: var(--radius-sm);
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+}
+
+.header-subtitle {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+}
+
+.header-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.header-input-group label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.bond-name-input {
+  width: 300px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.date-input,
+.currency-select {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.header-right {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* ============================================================================
+   Buttons
+   ============================================================================ */
+
+.btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--accent-orange);
+  color: var(--bg-primary);
+}
+
+.btn-primary:hover {
+  background: #ff8533;
+}
+
+.btn-primary:disabled {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.btn-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 10px;
+}
+
+.btn-icon {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.btn-remove:hover {
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+/* ============================================================================
+   Error Banner
+   ============================================================================ */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: rgba(255, 68, 68, 0.15);
+  border-bottom: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  font-size: 11px;
+}
+
+.error-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-red);
+  color: var(--bg-primary);
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+/* ============================================================================
+   Main Content Layout
+   ============================================================================ */
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.left-panel {
+  width: 280px;
+  min-width: 280px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-primary);
+  overflow-y: auto;
+}
+
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border-primary);
+  overflow-y: auto;
+}
+
+.right-panel {
+  width: 380px;
+  min-width: 380px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-primary);
+  overflow-y: auto;
+}
+
+.bottom-panel {
+  height: 300px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   Panels
+   ============================================================================ */
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.panel-header h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-header);
+}
+
+/* ============================================================================
+   Bond Input Panel
+   ============================================================================ */
+
+.bond-input-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-section {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.input-section h4 {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.input-row label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.input-row input,
+.input-row select {
+  width: 120px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+
+.input-row input:focus,
+.input-row select:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+}
+
+.input-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+  font-style: italic;
+}
+
+/* Settlement date highlight */
+.settlement-date {
+  color: var(--accent-orange);
+  font-weight: 600;
+}
+
+/* Collapsible Sections */
+.collapsible .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: var(--spacing-sm) 0;
+}
+
+.toggle-icon {
+  color: var(--accent-orange);
+  font-weight: 700;
+}
+
+.call-schedule,
+.curve-inputs {
+  margin-top: var(--spacing-sm);
+}
+
+.call-entry,
+.curve-row {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.call-entry input,
+.curve-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.curve-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-xs);
+  padding: 0 var(--spacing-xs);
+}
+
+/* ============================================================================
+   Yield Analysis Panel
+   ============================================================================ */
+
+.yield-analysis-panel {
+  background: var(--bg-panel);
+}
+
+.yield-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-primary);
+}
+
+.yield-section {
+  padding: var(--spacing-md);
+  background: var(--bg-panel);
+}
+
+.yield-section.primary {
+  background: var(--bg-secondary);
+}
+
+.yield-section.info {
+  background: var(--bg-panel);
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) 0;
+}
+
+.metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-value.highlight {
+  color: var(--accent-orange);
+}
+
+.metric-value.ytm {
+  font-size: 16px;
+  color: var(--accent-yellow);
+}
+
+.metric-unit {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-left: var(--spacing-xs);
+}
+
+.primary-metric {
+  padding: var(--spacing-sm) 0;
+  border-top: 1px solid var(--border-primary);
+  margin-top: var(--spacing-xs);
+}
+
+.price-input {
+  width: 100px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--accent-orange);
+  color: var(--accent-yellow);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.price-input:focus {
+  outline: none;
+  background: var(--bg-hover);
+}
+
+/* ============================================================================
+   Spread Analysis Panel
+   ============================================================================ */
+
+.spread-analysis-panel {
+  background: var(--bg-panel);
+}
+
+.spread-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-primary);
+  padding: 1px;
+}
+
+.spread-item {
+  padding: var(--spacing-md);
+  background: var(--bg-panel);
+  text-align: center;
+}
+
+.spread-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--spacing-xs);
+}
+
+.spread-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.spread-desc {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.spread-tight .spread-value {
+  color: var(--accent-green);
+}
+
+.spread-medium .spread-value {
+  color: var(--accent-yellow);
+}
+
+.spread-wide .spread-value {
+  color: var(--accent-red);
+}
+
+.spread-notes {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+}
+
+.note {
+  font-size: 10px;
+}
+
+.note-label {
+  color: var(--text-muted);
+  margin-right: var(--spacing-xs);
+}
+
+.note-value {
+  color: var(--text-secondary);
+}
+
+/* ============================================================================
+   Risk Metrics Panel
+   ============================================================================ */
+
+.risk-metrics-panel {
+  background: var(--bg-panel);
+}
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-primary);
+}
+
+.risk-section {
+  padding: var(--spacing-md);
+  background: var(--bg-panel);
+}
+
+.risk-section h4 {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-header);
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.risk-summary {
+  grid-column: 1 / -1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  display: flex;
+  gap: var(--spacing-xl);
+}
+
+.summary-row {
+  font-size: 10px;
+}
+
+.summary-label {
+  color: var(--text-muted);
+  margin-right: var(--spacing-sm);
+}
+
+.summary-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Cash Flow Table
+   ============================================================================ */
+
+.cashflow-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.flow-count {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.cashflow-table-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cashflow-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.cashflow-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  padding: var(--spacing-sm) var(--spacing-xs);
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.cashflow-table th.number {
+  text-align: right;
+}
+
+.cashflow-table td {
+  padding: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.cashflow-table td.number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.cashflow-table td.principal {
+  color: var(--accent-orange);
+}
+
+.cashflow-table td.pv {
+  color: var(--accent-blue);
+}
+
+.cashflow-table td.cumulative {
+  color: var(--text-muted);
+}
+
+.cashflow-table td.date-cell {
+  font-size: 10px;
+}
+
+.cashflow-table .principal-row {
+  background: rgba(255, 102, 0, 0.1);
+}
+
+.cashflow-table tfoot {
+  background: var(--bg-secondary);
+}
+
+.cashflow-table .totals-row td {
+  font-weight: 600;
+  border-top: 2px solid var(--accent-orange);
+}
+
+.no-data {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* ============================================================================
+   Chart Panel
+   ============================================================================ */
+
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--spacing-md);
+}
+
+.chart-panel .panel-header {
+  background: transparent;
+  border-bottom: none;
+  padding: 0 0 var(--spacing-sm) 0;
+}
+
+.chart-controls {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.chart-toggle {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chart-toggle.active {
+  background: var(--accent-orange);
+  color: var(--bg-primary);
+  border-color: var(--accent-orange);
+}
+
+.chart-container {
+  flex: 1;
+  min-height: 200px;
+}
+
+.chart-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chart-tooltip {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  padding: var(--spacing-sm);
+  font-size: 11px;
+}
+
+.tooltip-price {
+  color: var(--text-secondary);
+}
+
+.tooltip-yield {
+  color: var(--accent-green);
+}
+
+.tooltip-duration {
+  color: var(--accent-blue);
+}
+
+.chart-legend {
+  display: flex;
+  gap: var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.legend-color {
+  width: 12px;
+  height: 3px;
+}
+
+/* ============================================================================
+   Scrollbars
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* ============================================================================
+   Form Elements
+   ============================================================================ */
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%2300ff00' d='M0 2l4 4 4-4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+/* ============================================================================
+   Responsive
+   ============================================================================ */
+
+@media (max-width: 1400px) {
+  .right-panel {
+    width: 320px;
+    min-width: 320px;
+  }
+
+  .left-panel {
+    width: 260px;
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .yield-grid,
+  .risk-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .spread-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+
+  .left-panel,
+  .right-panel {
+    width: 100%;
+    min-width: 100%;
+    max-height: 300px;
+  }
+
+  .bottom-panel {
+    height: 250px;
+  }
+}

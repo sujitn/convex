@@ -72,7 +72,7 @@ mod tests {
 
         // At 95% confidence with 10 observations, we take the worst return
         assert!(var.var > Decimal::ZERO);
-        assert_eq!(var.confidence_level, 0.95);
+        assert!((var.confidence_level - 0.95).abs() < f64::EPSILON);
         assert_eq!(var.horizon_days, 1);
     }
 

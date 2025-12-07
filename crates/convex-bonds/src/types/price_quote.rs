@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_price_quote_convention_default() {
-        let conv: PriceQuoteConvention = Default::default();
+        let conv = PriceQuoteConvention::default();
         assert_eq!(conv, PriceQuoteConvention::Decimal);
     }
 

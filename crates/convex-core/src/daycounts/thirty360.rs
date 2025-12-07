@@ -636,7 +636,8 @@ mod tests {
     #[test]
     fn test_bloomberg_corporate_accrued_interest() {
         // Generic corporate bond accrued interest calculation
-        let _dc = Thirty360US;
+        let dc = Thirty360US;
+        let _ = dc; // Acknowledge the day count convention used
 
         // Semi-annual coupon, 7.5% rate, $1M face
         let coupon_rate = dec!(0.075);

@@ -357,7 +357,7 @@ mod tests {
             dec!(1.25)
         }
 
-        fn day_count_convention(&self) -> &str {
+        fn day_count_convention(&self) -> &'static str {
             "ACT/ACT"
         }
 
