@@ -344,6 +344,42 @@ function App({ wasmModule }) {
     URL.revokeObjectURL(url);
   }, [bond, price, treasuryCurve, analysis, cashFlows]);
 
+  // Import from JSON
+  const handleImport = useCallback((data) => {
+    try {
+      // Import bond parameters
+      if (data.bond) {
+        setBond(prev => ({
+          ...prev,
+          ...data.bond,
+        }));
+      }
+
+      // Import price
+      if (typeof data.price === 'number') {
+        setPrice(data.price);
+      }
+
+      // Import Treasury curve
+      if (data.treasuryCurve) {
+        setTreasuryCurve(prev => ({
+          ...prev,
+          ...data.treasuryCurve,
+        }));
+      }
+
+      // Clear previous analysis - user should recalculate
+      setAnalysis(null);
+      setCashFlows([]);
+      setError(null);
+
+      // Auto-calculate after import
+      setTimeout(() => calculate(), 100);
+    } catch (err) {
+      setError('Failed to import data: ' + err.message);
+    }
+  }, [calculate]);
+
   return (
     <div className="app">
       <Header
@@ -356,6 +392,7 @@ function App({ wasmModule }) {
         onCalculate={calculate}
         onReset={handleReset}
         onExport={handleExport}
+        onImport={handleImport}
         isCalculating={isCalculating}
       />
 
