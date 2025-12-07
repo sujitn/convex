@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-07 (YAS ASW Spread Integration Complete)
+**Last Updated**: 2025-12-07 (Callable Bond YTC/YTW + Currency-Specific Rate Fetching)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -132,7 +132,73 @@
 
 ---
 
-## Session: 2025-12-07
+## Session: 2025-12-07 (Continued)
+
+### Implemented Today (Session 2)
+
+**CALLABLE-001: Callable Bond Support with YTC/YTW**
+- **WASM Interface Updates** (`convex-wasm/src/lib.rs`):
+  - Added `CallScheduleEntry` struct for call schedule input (date + price)
+  - Added `call_schedule: Option<Vec<CallScheduleEntry>>` to `BondParams`
+  - Added `ytc`, `ytw`, `workout_date`, `workout_price`, `is_callable` to `AnalysisResult`
+  - Updated `analyze_bond_impl` to create `CallableBond` and calculate YTC/YTW
+  - Leverages existing `CallableBond` from `convex-bonds::instruments::callable`
+
+- **UI Updates**:
+  - Call schedule input already existed in `BondInput.jsx` (collapsible section)
+  - Added `call_schedule` mapping in `App.jsx` calculate function
+  - Added YTC/YTW/Workout display in `YieldAnalysis.jsx` (conditional on `is_callable`)
+  - Added CSS styles for `.ytc` (blue), `.ytw` (green), `.workout-date` in `bloomberg.css`
+
+**CURRENCY-001: Currency-Specific Treasury Curve Fetching**
+- **Rate Fetching Functions** (`www/src/App.jsx`):
+  - `fetchUSDRates()`: Treasury.gov XML feed with real-time rates
+  - `fetchEURRates()`: ECB Statistical Data Warehouse API with fallback
+  - `fetchGBPRates()`: Bank of England with fallback
+  - `fetchJPYRates()`, CHF, AUD, CAD, NZD: Static fallback curves
+  - `fetchRatesForCurrency(currency)`: Dispatcher for all currencies
+  - Auto-fetch on page load and currency change via `useEffect`
+  - CORS proxy support via `api.allorigins.win`
+
+**WASM-001: WASM Initialization Fix**
+- **Issue**: `Cannot read properties of undefined (reading 'analyze_bond')`
+- **Root Cause**: With `--target web`, WASM requires `wasm.default()` init before use
+- **Fix** (`www/src/index.js`): Added `if (wasm.default) { await wasm.default(); }`
+
+**CI-001: Format and Test Fixes**
+- Applied `cargo fmt` to fix formatting issues
+- Added `call_schedule: None` to test in `convex-wasm/src/lib.rs`
+- All CI checks now pass: fmt, clippy, tests (1023+ tests)
+
+### Decisions Made
+- **YTC/YTW Methodology**: Using existing `CallableBond::yield_to_first_call()` and `yield_to_worst_with_date()` from convex-bonds
+- **Call Schedule Input**: American-style calls assumed (CallType::American) for simplicity
+- **Currency Data Sources**: Real-time for USD/EUR/GBP, static fallbacks for other currencies
+- **WASM Target**: Using `--target web` which requires explicit init call
+
+### Validation Status
+- ✅ `cargo fmt --check` passes
+- ✅ `cargo clippy --all-targets --all-features -- -D warnings` passes
+- ✅ `cargo test` passes (1023+ tests across all crates)
+- ✅ WASM builds successfully
+- ⚠️ Web app requires browser testing for callable bond functionality
+
+### Files Changed
+- `convex-wasm/src/lib.rs` (CallScheduleEntry, BondParams.call_schedule, AnalysisResult YTC/YTW fields)
+- `www/src/index.js` (WASM init fix)
+- `www/src/App.jsx` (currency-specific rate fetching, call_schedule mapping)
+- `www/src/components/YieldAnalysis.jsx` (YTC/YTW/Workout display)
+- `www/src/styles/bloomberg.css` (YTC/YTW styling)
+
+### Open Issues / Next Steps
+1. **OAS Implementation**: OAS requires interest rate tree - more complex than YTC/YTW
+2. **Benchmark Risk / Risk Hedge / Proceeds Hedge**: Bloomberg hedge analytics (discussed but not implemented)
+3. **GitHub Pages**: Still requires manual enablement in GitHub settings
+4. **Browser Testing**: Need to verify callable bond UI works end-to-end
+
+---
+
+## Session: 2025-12-07 (Earlier)
 
 ### Implemented Today
 
