@@ -4,7 +4,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/convex.svg)](https://crates.io/crates/convex)
 [![Documentation](https://docs.rs/convex/badge.svg)](https://docs.rs/convex)
-[![Build Status](https://github.com/yourusername/convex/workflows/CI/badge.svg)](https://github.com/yourusername/convex/actions)
+[![Build Status](https://github.com/sujitn/convex/workflows/CI/badge.svg)](https://github.com/sujitn/convex/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics capabilities comparable to Bloomberg YAS (Yield Analysis System).
@@ -275,7 +275,7 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/convex.git
+git clone https://github.com/sujitn/convex.git
 cd convex
 
 # Build all crates
@@ -414,19 +414,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use Convex in academic work, please cite:
 
 ```bibtex
-@software{convex2024,
+@software{convex2025,
   title = {Convex: High-Performance Fixed Income Analytics Library},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/convex}
+  author = {Sujit Nair},
+  year = {2025},
+  url = {https://github.com/sujitn/convex}
 }
 ```
 
 ## Contact
 
-- GitHub Issues: [Bug reports and feature requests](https://github.com/yourusername/convex/issues)
+- GitHub Issues: [Bug reports and feature requests](https://github.com/sujitn/convex/issues)
 - Email: your.email@example.com
-- Twitter: @yourusername
+- Twitter: @sujitn
 
 ---
 
