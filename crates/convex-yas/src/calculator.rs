@@ -696,9 +696,12 @@ impl<'a> YASCalculator<'a> {
         // Par-Par ASW = (100 - Dirty Price) / Annuity
         // Positive when bond trades at discount (spread income to investor)
         // Negative when bond trades at premium (spread cost to investor)
+        // Note: upfront is in percentage terms (e.g., -6.2 for 106.2 dirty price)
+        // So spread_pct = upfront / annuity gives percentage spread
+        // Multiply by 100 to convert to bps (not 10000, since already in %)
         let upfront = Decimal::ONE_HUNDRED - dirty_price;
-        let spread_decimal = upfront / annuity;
-        let spread_bps = (spread_decimal * Decimal::from(10_000)).round();
+        let spread_pct = upfront / annuity;
+        let spread_bps = (spread_pct * Decimal::from(100)).round();
 
         Ok(Spread::new(spread_bps, SpreadType::AssetSwapPar))
     }

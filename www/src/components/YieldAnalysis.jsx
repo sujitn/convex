@@ -79,6 +79,39 @@ function YieldAnalysis({ analysis, price, onPriceChange, onCalculate, settlement
             </div>
           </div>
 
+          {/* Callable Bond Yields - only show if bond is callable */}
+          {analysis?.is_callable && (
+            <>
+              <div className="metric-row">
+                <div className="metric-label">Yield to Call</div>
+                <div className="metric-value ytc">
+                  {analysis?.ytc != null ? formatPercent(analysis.ytc) : '---'}
+                </div>
+              </div>
+
+              <div className="metric-row primary-metric">
+                <div className="metric-label">Yield to Worst</div>
+                <div className="metric-value ytw">
+                  {analysis?.ytw != null ? formatPercent(analysis.ytw) : '---'}
+                </div>
+              </div>
+
+              <div className="metric-row">
+                <div className="metric-label">Workout Date</div>
+                <div className="metric-value workout-date">
+                  {analysis?.workout_date || '---'}
+                </div>
+              </div>
+
+              <div className="metric-row">
+                <div className="metric-label">Workout Price</div>
+                <div className="metric-value">
+                  {analysis?.workout_price != null ? formatValue(analysis.workout_price, 3) : '---'}
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="metric-row">
             <div className="metric-label">Current Yield</div>
             <div className="metric-value">

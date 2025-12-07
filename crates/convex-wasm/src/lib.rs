@@ -8,8 +8,10 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use convex_bonds::instruments::CallableBond;
 use convex_bonds::prelude::BondIdentifiers;
-use convex_bonds::traits::{Bond, FixedCouponBond};
+use convex_bonds::traits::{Bond, EmbeddedOptionBond, FixedCouponBond};
+use convex_bonds::types::{CallEntry, CallSchedule, CallType};
 use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
@@ -33,6 +35,15 @@ pub fn init() {
 // Input/Output Types
 // ============================================================================
 
+/// Call schedule entry for callable bonds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CallScheduleEntry {
+    /// Call date as "YYYY-MM-DD"
+    pub date: String,
+    /// Call price as percentage of par (e.g., 102.0 for 102%)
+    pub price: f64,
+}
+
 /// Bond parameters for creating a fixed coupon bond.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondParams {
@@ -54,6 +65,8 @@ pub struct BondParams {
     pub currency: Option<String>,
     /// First coupon date as "YYYY-MM-DD" (optional)
     pub first_coupon_date: Option<String>,
+    /// Call schedule for callable bonds (optional)
+    pub call_schedule: Option<Vec<CallScheduleEntry>>,
 }
 
 /// Analysis results returned from bond calculations.
@@ -70,6 +83,12 @@ pub struct AnalysisResult {
     pub simple_yield: Option<f64>,
     pub money_market_yield: Option<f64>,
 
+    // Callable bond yields
+    pub ytc: Option<f64>,             // Yield to first call
+    pub ytw: Option<f64>,             // Yield to worst
+    pub workout_date: Option<String>, // Date for YTW (call date or maturity)
+    pub workout_price: Option<f64>,   // Call price or par at workout
+
     // Risk metrics
     pub modified_duration: Option<f64>,
     pub macaulay_duration: Option<f64>,
@@ -84,6 +103,7 @@ pub struct AnalysisResult {
     // Additional info
     pub days_to_maturity: Option<i64>,
     pub years_to_maturity: Option<f64>,
+    pub is_callable: Option<bool>,
 
     // Error message if calculation failed
     pub error: Option<String>,
@@ -249,13 +269,65 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
     let calculator = YASCalculator::new(&curve);
     let settlement_naive = date_to_naive(settlement);
 
-    match calculator.analyze(&bond, settlement_naive, f64_to_decimal(clean_price)) {
-        Ok(result) => convert_yas_result(&result, &bond, settlement),
-        Err(e) => AnalysisResult {
-            error: Some(format!("Analysis failed: {:?}", e)),
-            ..Default::default()
-        },
+    let yas_result = match calculator.analyze(&bond, settlement_naive, f64_to_decimal(clean_price))
+    {
+        Ok(result) => result,
+        Err(e) => {
+            return AnalysisResult {
+                error: Some(format!("Analysis failed: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Convert base result
+    let mut result = convert_yas_result(&yas_result, &bond, settlement);
+
+    // Handle callable bond yields if call schedule is provided
+    if let Some(ref call_entries) = bond_params.call_schedule {
+        if !call_entries.is_empty() {
+            result.is_callable = Some(true);
+
+            // Build call schedule
+            let mut call_schedule = CallSchedule::new(CallType::American);
+            for entry in call_entries {
+                if let Ok(call_date) = parse_date(&entry.date) {
+                    call_schedule =
+                        call_schedule.with_entry(CallEntry::new(call_date, entry.price));
+                }
+            }
+
+            // Create callable bond
+            let callable = CallableBond::new(bond.clone(), call_schedule);
+            let price_decimal = f64_to_decimal(clean_price);
+
+            // Calculate yield to first call
+            if let Ok(ytc) = callable.yield_to_first_call(price_decimal, settlement) {
+                result.ytc = Some(decimal_to_f64(ytc) * 100.0); // Convert to percentage
+            }
+
+            // Calculate yield to worst with workout date
+            if let Ok((ytw, workout_date)) =
+                callable.yield_to_worst_with_date(price_decimal, settlement)
+            {
+                result.ytw = Some(decimal_to_f64(ytw) * 100.0); // Convert to percentage
+                result.workout_date = Some(format!("{}", workout_date));
+
+                // Get workout price (call price or par if maturity)
+                if let Some(maturity) = bond.maturity() {
+                    if workout_date == maturity {
+                        result.workout_price = Some(100.0); // Par at maturity
+                    } else if let Some(call_schedule) = callable.call_schedule() {
+                        result.workout_price = call_schedule.call_price_on(workout_date);
+                    }
+                }
+            }
+        }
+    } else {
+        result.is_callable = Some(false);
     }
+
+    result
 }
 
 /// Get bond cash flows.
@@ -498,6 +570,12 @@ fn convert_yas_result(
         simple_yield: Some(decimal_to_f64(result.simple_yield)),
         money_market_yield: result.money_market_yield.map(decimal_to_f64),
 
+        // Callable bond fields - populated later if applicable
+        ytc: None,
+        ytw: None,
+        workout_date: None,
+        workout_price: None,
+
         modified_duration: Some(decimal_to_f64(result.modified_duration())),
         macaulay_duration: Some(decimal_to_f64(result.risk.macaulay_duration.years())),
         convexity: Some(decimal_to_f64(result.convexity())),
@@ -512,6 +590,7 @@ fn convert_yas_result(
 
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),
+        is_callable: None, // Set by caller
 
         error: None,
     }
@@ -572,6 +651,7 @@ mod tests {
             day_count: Some("30/360".to_string()),
             currency: Some("USD".to_string()),
             first_coupon_date: None,
+            call_schedule: None,
         };
 
         let bond = create_bond(&params).unwrap();

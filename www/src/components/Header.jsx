@@ -12,8 +12,33 @@ function Header({
   onCalculate,
   onReset,
   onExport,
+  onImport,
   isCalculating,
 }) {
+  // Hidden file input for import
+  const fileInputRef = React.useRef(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          onImport(data);
+        } catch (err) {
+          alert('Failed to parse JSON file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      // Reset input so same file can be imported again
+      e.target.value = '';
+    }
+  };
   return (
     <header className="header">
       <div className="header-left">
@@ -71,9 +96,19 @@ function Header({
         <button className="btn btn-secondary" onClick={onReset}>
           RESET
         </button>
+        <button className="btn btn-secondary" onClick={handleImportClick}>
+          IMPORT
+        </button>
         <button className="btn btn-secondary" onClick={onExport}>
           EXPORT
         </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".json"
+          style={{ display: 'none' }}
+        />
       </div>
     </header>
   );
