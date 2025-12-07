@@ -74,8 +74,8 @@ jobs:
         env:
           RUSTDOCFLAGS: -Dwarnings
 
-  dry-run:
-    name: Publish Dry Run
+  package-check:
+    name: Package Check
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
@@ -87,23 +87,14 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      - name: Dry run publish convex-core
-        run: cargo publish --dry-run -p convex-core
-
-      - name: Dry run publish convex-math
-        run: cargo publish --dry-run -p convex-math
-
-      - name: Dry run publish convex-curves
-        run: cargo publish --dry-run -p convex-curves
-
-      - name: Dry run publish convex-bonds
-        run: cargo publish --dry-run -p convex-bonds
-
-      - name: Dry run publish convex-spreads
-        run: cargo publish --dry-run -p convex-spreads
-
-      - name: Dry run publish convex-risk
-        run: cargo publish --dry-run -p convex-risk
-
-      - name: Dry run publish convex-yas
-        run: cargo publish --dry-run -p convex-yas
+      - name: Verify crates can be packaged
+        run: |
+          # Use --no-verify to skip dependency resolution from crates.io
+          # This checks metadata and packaging without requiring deps to be published
+          cargo package --no-verify -p convex-core
+          cargo package --no-verify -p convex-math
+          cargo package --no-verify -p convex-curves
+          cargo package --no-verify -p convex-bonds
+          cargo package --no-verify -p convex-spreads
+          cargo package --no-verify -p convex-risk
+          cargo package --no-verify -p convex-yas
