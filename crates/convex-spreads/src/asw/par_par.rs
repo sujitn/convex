@@ -134,8 +134,10 @@ impl<'a> ParParAssetSwap<'a> {
         }
 
         // Spread = upfront / annuity
-        let spread_decimal = upfront / annuity;
-        let spread_bps = (spread_decimal * Decimal::from(10_000)).round();
+        // Note: upfront is in percentage terms, so spread is already in %
+        // Multiply by 100 to convert to bps (not 10000)
+        let spread_pct = upfront / annuity;
+        let spread_bps = (spread_pct * Decimal::from(100)).round();
 
         Ok(Spread::new(spread_bps, SpreadType::AssetSwapPar))
     }

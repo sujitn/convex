@@ -132,8 +132,9 @@ impl<'a> ProceedsAssetSwap<'a> {
         let par_par_spread = upfront / annuity;
 
         // Proceeds adjustment: scale by par / dirty price
+        // Result is in percentage terms, multiply by 100 to get bps
         let proceeds_spread = par_par_spread * Decimal::ONE_HUNDRED / dirty_price;
-        let spread_bps = (proceeds_spread * Decimal::from(10_000)).round();
+        let spread_bps = (proceeds_spread * Decimal::from(100)).round();
 
         Ok(Spread::new(spread_bps, SpreadType::AssetSwapProceeds))
     }
