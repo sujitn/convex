@@ -23,6 +23,8 @@ pub enum SpreadType {
     OAS,
     /// Generic credit spread.
     Credit,
+    /// Discount margin for floating rate notes.
+    DiscountMargin,
 }
 
 impl fmt::Display for SpreadType {
@@ -35,6 +37,7 @@ impl fmt::Display for SpreadType {
             SpreadType::AssetSwapProceeds => "ASW (Proceeds)",
             SpreadType::OAS => "OAS",
             SpreadType::Credit => "Credit",
+            SpreadType::DiscountMargin => "Discount Margin",
         };
         write!(f, "{name}")
     }

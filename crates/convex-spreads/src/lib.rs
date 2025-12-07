@@ -29,12 +29,26 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod asw;
+pub mod benchmark;
+pub mod discount_margin;
 pub mod error;
+pub mod government_curve;
 pub mod gspread;
 pub mod ispread;
+pub mod oas;
+pub mod sovereign;
 pub mod zspread;
 
+pub use asw::{ASWType, ParParAssetSwap, ProceedsAssetSwap};
+pub use benchmark::{BenchmarkSpec, SecurityId};
+pub use discount_margin::{simple_margin, z_discount_margin, DiscountMarginCalculator};
 pub use error::{SpreadError, SpreadResult};
+pub use government_curve::{GovernmentBenchmark, GovernmentCurve};
+pub use gspread::{BenchmarkInfo, GSpreadCalculator, GSpreadResult, TreasuryBenchmark};
+pub use oas::OASCalculator;
+pub use sovereign::{Sovereign, SupranationalIssuer};
+pub use zspread::ZSpreadCalculator;
 
 use rust_decimal::Decimal;
 
