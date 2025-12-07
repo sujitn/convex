@@ -159,37 +159,134 @@ impl YASResult {
 
 impl std::fmt::Display for YASResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "╔══════════════════════════════════════════════════════════╗")?;
-        writeln!(f, "║                    YAS ANALYSIS                          ║")?;
-        writeln!(f, "╠══════════════════════════════════════════════════════════╣")?;
-        writeln!(f, "║ YIELDS                                                   ║")?;
-        writeln!(f, "║   Street Convention:  {:>10.6}%                      ║", self.ytm)?;
-        writeln!(f, "║   True Yield:         {:>10.6}%                      ║", self.true_yield)?;
-        writeln!(f, "║   Current Yield:      {:>10.3}%                       ║", self.current_yield)?;
-        writeln!(f, "║   Simple Yield:       {:>10.3}%                       ║", self.simple_yield)?;
-        writeln!(f, "╠══════════════════════════════════════════════════════════╣")?;
-        writeln!(f, "║ SPREADS                                                  ║")?;
-        writeln!(f, "║   G-Spread:           {:>10.1} bps                    ║", self.g_spread.as_bps())?;
-        writeln!(f, "║   Z-Spread:           {:>10.1} bps                    ║", self.z_spread.as_bps())?;
+        writeln!(
+            f,
+            "╔══════════════════════════════════════════════════════════╗"
+        )?;
+        writeln!(
+            f,
+            "║                    YAS ANALYSIS                          ║"
+        )?;
+        writeln!(
+            f,
+            "╠══════════════════════════════════════════════════════════╣"
+        )?;
+        writeln!(
+            f,
+            "║ YIELDS                                                   ║"
+        )?;
+        writeln!(
+            f,
+            "║   Street Convention:  {:>10.6}%                      ║",
+            self.ytm
+        )?;
+        writeln!(
+            f,
+            "║   True Yield:         {:>10.6}%                      ║",
+            self.true_yield
+        )?;
+        writeln!(
+            f,
+            "║   Current Yield:      {:>10.3}%                       ║",
+            self.current_yield
+        )?;
+        writeln!(
+            f,
+            "║   Simple Yield:       {:>10.3}%                       ║",
+            self.simple_yield
+        )?;
+        writeln!(
+            f,
+            "╠══════════════════════════════════════════════════════════╣"
+        )?;
+        writeln!(
+            f,
+            "║ SPREADS                                                  ║"
+        )?;
+        writeln!(
+            f,
+            "║   G-Spread:           {:>10.1} bps                    ║",
+            self.g_spread.as_bps()
+        )?;
+        writeln!(
+            f,
+            "║   Z-Spread:           {:>10.1} bps                    ║",
+            self.z_spread.as_bps()
+        )?;
         if let Some(asw) = &self.asw_spread {
-            writeln!(f, "║   ASW Spread:         {:>10.1} bps                    ║", asw.as_bps())?;
+            writeln!(
+                f,
+                "║   ASW Spread:         {:>10.1} bps                    ║",
+                asw.as_bps()
+            )?;
         }
         if let Some(oas) = &self.oas {
-            writeln!(f, "║   OAS:                {:>10.1} bps                    ║", oas.as_bps())?;
+            writeln!(
+                f,
+                "║   OAS:                {:>10.1} bps                    ║",
+                oas.as_bps()
+            )?;
         }
-        writeln!(f, "╠══════════════════════════════════════════════════════════╣")?;
-        writeln!(f, "║ RISK METRICS                                             ║")?;
-        writeln!(f, "║   Macaulay Duration:  {:>10.3}                        ║", self.risk.macaulay_duration.years())?;
-        writeln!(f, "║   Modified Duration:  {:>10.3}                        ║", self.modified_duration())?;
-        writeln!(f, "║   Convexity:          {:>10.3}                        ║", self.convexity())?;
-        writeln!(f, "║   DV01 (per $100):    ${:>9.4}                        ║", self.dv01())?;
-        writeln!(f, "╠══════════════════════════════════════════════════════════╣")?;
-        writeln!(f, "║ SETTLEMENT                                               ║")?;
-        writeln!(f, "║   Date:               {}                         ║", self.invoice.settlement_date)?;
-        writeln!(f, "║   Clean Price:        {:>10.6}%                      ║", self.invoice.clean_price)?;
-        writeln!(f, "║   Accrued Interest:   {:>10.6}%                      ║", self.invoice.accrued_interest)?;
-        writeln!(f, "║   Dirty Price:        {:>10.6}%                      ║", self.invoice.dirty_price)?;
-        writeln!(f, "╚══════════════════════════════════════════════════════════╝")?;
+        writeln!(
+            f,
+            "╠══════════════════════════════════════════════════════════╣"
+        )?;
+        writeln!(
+            f,
+            "║ RISK METRICS                                             ║"
+        )?;
+        writeln!(
+            f,
+            "║   Macaulay Duration:  {:>10.3}                        ║",
+            self.risk.macaulay_duration.years()
+        )?;
+        writeln!(
+            f,
+            "║   Modified Duration:  {:>10.3}                        ║",
+            self.modified_duration()
+        )?;
+        writeln!(
+            f,
+            "║   Convexity:          {:>10.3}                        ║",
+            self.convexity()
+        )?;
+        writeln!(
+            f,
+            "║   DV01 (per $100):    ${:>9.4}                        ║",
+            self.dv01()
+        )?;
+        writeln!(
+            f,
+            "╠══════════════════════════════════════════════════════════╣"
+        )?;
+        writeln!(
+            f,
+            "║ SETTLEMENT                                               ║"
+        )?;
+        writeln!(
+            f,
+            "║   Date:               {}                         ║",
+            self.invoice.settlement_date
+        )?;
+        writeln!(
+            f,
+            "║   Clean Price:        {:>10.6}%                      ║",
+            self.invoice.clean_price
+        )?;
+        writeln!(
+            f,
+            "║   Accrued Interest:   {:>10.6}%                      ║",
+            self.invoice.accrued_interest
+        )?;
+        writeln!(
+            f,
+            "║   Dirty Price:        {:>10.6}%                      ║",
+            self.invoice.dirty_price
+        )?;
+        writeln!(
+            f,
+            "╚══════════════════════════════════════════════════════════╝"
+        )?;
         Ok(())
     }
 }
@@ -401,21 +498,31 @@ impl<'a> YASCalculator<'a> {
         }
 
         // Calculate yields
-        let ytm = street_convention_yield(dirty_price_f64, &cf_values, &times, self.frequency, 0.05)?;
+        let ytm =
+            street_convention_yield(dirty_price_f64, &cf_values, &times, self.frequency, 0.05)?;
 
         // Estimate annual coupon from first cash flow (assume semi-annual)
-        let periodic_coupon = cash_flows.first().map(|cf| cf.amount).unwrap_or(Decimal::ZERO);
+        let periodic_coupon = cash_flows
+            .first()
+            .map(|cf| cf.amount)
+            .unwrap_or(Decimal::ZERO);
         let annual_coupon = periodic_coupon * Decimal::from(self.frequency);
         let current = current_yield(annual_coupon, clean_price)?;
 
         // Calculate years to maturity for simple yield
-        let years_decimal = Decimal::from_f64_retain(times.last().copied().unwrap_or(1.0)).unwrap_or(dec!(1));
+        let years_decimal =
+            Decimal::from_f64_retain(times.last().copied().unwrap_or(1.0)).unwrap_or(dec!(1));
         let simple = simple_yield(annual_coupon, clean_price, dec!(100), years_decimal)?;
 
         // Calculate G-spread
         // Get the maturity date from the last cash flow
-        let maturity_date = cash_flows.last().map(|cf| cf.date).unwrap_or(settlement_date);
-        let benchmark_rate = self.govt_curve.zero_rate_at(maturity_date)
+        let maturity_date = cash_flows
+            .last()
+            .map(|cf| cf.date)
+            .unwrap_or(settlement_date);
+        let benchmark_rate = self
+            .govt_curve
+            .zero_rate_at(maturity_date)
             .map_err(|e| YasError::CurveError(format!("benchmark rate: {e}")))?;
         // Convert benchmark rate to percentage and calculate spread
         let benchmark_pct = benchmark_rate * Decimal::ONE_HUNDRED;
@@ -602,13 +709,13 @@ mod tests {
         // Create a simple upward-sloping curve
         ZeroCurveBuilder::new()
             .reference_date(date(2020, 4, 29))
-            .add_rate(date(2020, 7, 29), dec!(0.005))  // 3M: 0.5%
+            .add_rate(date(2020, 7, 29), dec!(0.005)) // 3M: 0.5%
             .add_rate(date(2020, 10, 29), dec!(0.006)) // 6M: 0.6%
-            .add_rate(date(2021, 4, 29), dec!(0.008))  // 1Y: 0.8%
-            .add_rate(date(2022, 4, 29), dec!(0.012))  // 2Y: 1.2%
-            .add_rate(date(2023, 4, 29), dec!(0.015))  // 3Y: 1.5%
-            .add_rate(date(2025, 4, 29), dec!(0.020))  // 5Y: 2.0%
-            .add_rate(date(2030, 4, 29), dec!(0.025))  // 10Y: 2.5%
+            .add_rate(date(2021, 4, 29), dec!(0.008)) // 1Y: 0.8%
+            .add_rate(date(2022, 4, 29), dec!(0.012)) // 2Y: 1.2%
+            .add_rate(date(2023, 4, 29), dec!(0.015)) // 3Y: 1.5%
+            .add_rate(date(2025, 4, 29), dec!(0.020)) // 5Y: 2.0%
+            .add_rate(date(2030, 4, 29), dec!(0.025)) // 10Y: 2.5%
             .interpolation(InterpolationMethod::Linear)
             .build()
             .unwrap()
@@ -648,8 +755,14 @@ mod tests {
         assert!(yas.ytm > Decimal::ZERO, "YTM should be positive");
         // G-spread can be positive or negative depending on benchmark curve level
         // For a 7.5% coupon bond with our low test curve, it should be large positive
-        assert!(yas.g_spread.as_bps() != Decimal::ZERO, "G-spread should be calculated");
-        assert!(yas.modified_duration() > Decimal::ZERO, "Duration should be positive");
+        assert!(
+            yas.g_spread.as_bps() != Decimal::ZERO,
+            "G-spread should be calculated"
+        );
+        assert!(
+            yas.modified_duration() > Decimal::ZERO,
+            "Duration should be positive"
+        );
     }
 
     #[test]
@@ -660,7 +773,9 @@ mod tests {
         let bond = create_test_bond();
         let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
 
-        let result = calculator.analyze(&bond, settlement, dec!(110.503)).unwrap();
+        let result = calculator
+            .analyze(&bond, settlement, dec!(110.503))
+            .unwrap();
 
         let display = format!("{}", result);
         assert!(display.contains("YAS ANALYSIS"));
@@ -702,7 +817,9 @@ mod tests {
         let bond = create_test_bond();
         let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
 
-        let result = calculator.analyze(&bond, settlement, dec!(110.503)).unwrap();
+        let result = calculator
+            .analyze(&bond, settlement, dec!(110.503))
+            .unwrap();
 
         // Test convenience accessors
         assert_eq!(
@@ -733,7 +850,9 @@ mod tests {
         let bond = create_test_bond();
         let settlement = NaiveDate::from_ymd_opt(2020, 4, 29).unwrap();
 
-        let result = calculator.analyze(&bond, settlement, dec!(110.503)).unwrap();
+        let result = calculator
+            .analyze(&bond, settlement, dec!(110.503))
+            .unwrap();
 
         // Invoice should have correct values
         assert_eq!(result.invoice.clean_price, dec!(110.503));

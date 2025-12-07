@@ -98,7 +98,9 @@ impl SettlementInvoiceBuilder {
     /// Build the settlement invoice
     pub fn build(self) -> Result<SettlementInvoice, &'static str> {
         let clean_price = self.clean_price.ok_or("clean_price is required")?;
-        let accrued_interest = self.accrued_interest.ok_or("accrued_interest is required")?;
+        let accrued_interest = self
+            .accrued_interest
+            .ok_or("accrued_interest is required")?;
         let face_value = self.face_value.ok_or("face_value is required")?;
 
         let dirty_price = clean_price + accrued_interest;
@@ -107,7 +109,9 @@ impl SettlementInvoiceBuilder {
         let settlement_amount = principal_amount + accrued_amount;
 
         Ok(SettlementInvoice {
-            settlement_date: self.settlement_date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
+            settlement_date: self
+                .settlement_date
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(2000, 1, 1).unwrap()),
             clean_price,
             accrued_interest,
             dirty_price,

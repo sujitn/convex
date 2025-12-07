@@ -180,7 +180,7 @@ impl YieldConvention {
             [b'D', b'E', ..] => YieldConvention::Moosmuller,
             [b'J', b'P', ..] => YieldConvention::SimpleYield,
             [b'E', b'U', ..] => YieldConvention::ISMA, // Eurobond
-            _ => YieldConvention::ISMA,               // International default
+            _ => YieldConvention::ISMA,                // International default
         }
     }
 }
@@ -200,7 +200,7 @@ impl std::fmt::Display for YieldConvention {
             YieldConvention::Annual => "Annual",
             YieldConvention::Continuous => "Continuous",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -250,7 +250,7 @@ impl AccruedConvention {
 
     /// Returns the typical ex-dividend period in business days.
     ///
-    /// Only relevant for ExDividend convention.
+    /// Only relevant for `ExDividend` convention.
     #[must_use]
     pub const fn ex_dividend_days(&self) -> Option<u32> {
         match self {
@@ -269,7 +269,7 @@ impl std::fmt::Display for AccruedConvention {
             AccruedConvention::RecordDate => "Record Date",
             AccruedConvention::CumDividend => "Cum-Dividend",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

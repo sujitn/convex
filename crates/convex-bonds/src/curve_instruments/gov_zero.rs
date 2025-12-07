@@ -195,7 +195,7 @@ mod tests {
         let gov_zero = GovernmentZeroCoupon::new(
             bond,
             settlement,
-            97.50,  // Price at discount
+            97.50, // Price at discount
             MarketConvention::UKGilt,
         );
 
@@ -217,7 +217,7 @@ mod tests {
         let gov_zero = GovernmentZeroCoupon::from_discount_rate(
             bond,
             settlement,
-            0.05,  // 5% discount rate
+            0.05, // 5% discount rate
             MarketConvention::USTreasury,
         );
 
@@ -236,12 +236,8 @@ mod tests {
         let df = (-0.05 * yf).exp();
         let fair_price = 100.0 * df;
 
-        let gov_zero = GovernmentZeroCoupon::new(
-            bond,
-            settlement,
-            fair_price,
-            MarketConvention::UKGilt,
-        );
+        let gov_zero =
+            GovernmentZeroCoupon::new(bond, settlement, fair_price, MarketConvention::UKGilt);
 
         // Create a flat 5% curve
         let curve = DiscountCurveBuilder::new(settlement)
@@ -263,12 +259,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
         let price = 97.50;
 
-        let gov_zero = GovernmentZeroCoupon::new(
-            bond,
-            settlement,
-            price,
-            MarketConvention::UKGilt,
-        );
+        let gov_zero = GovernmentZeroCoupon::new(bond, settlement, price, MarketConvention::UKGilt);
 
         // Create a dummy curve (not used for zero-coupon implied_df)
         let curve = DiscountCurveBuilder::new(settlement)
@@ -287,13 +278,11 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_zero = GovernmentZeroCoupon::new(
-            bond,
-            settlement,
-            97.50,
-            MarketConvention::UKGilt,
-        );
+        let gov_zero = GovernmentZeroCoupon::new(bond, settlement, 97.50, MarketConvention::UKGilt);
 
-        assert_eq!(gov_zero.instrument_type(), InstrumentType::GovernmentZeroCoupon);
+        assert_eq!(
+            gov_zero.instrument_type(),
+            InstrumentType::GovernmentZeroCoupon
+        );
     }
 }

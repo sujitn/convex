@@ -12,24 +12,19 @@ use crate::error::{CurveError, CurveResult};
 use crate::traits::Curve;
 
 /// Type of spread adjustment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SpreadType {
-    /// Additive spread: z_spread(t) = z_base(t) + spread(t)
+    /// Additive spread: `z_spread(t)` = `z_base(t)` + spread(t)
     ///
     /// This is the most common type, used for Z-spreads and credit spreads.
     /// The discount factor is: DF(t) = exp(-(r_base + spread) * t)
+    #[default]
     Additive,
 
-    /// Multiplicative spread: DF_spread(t) = DF_base(t) * spread_factor(t)
+    /// Multiplicative spread: `DF_spread(t)` = `DF_base(t)` * `spread_factor(t)`
     ///
     /// Used for certain FX and basis adjustments.
     Multiplicative,
-}
-
-impl Default for SpreadType {
-    fn default() -> Self {
-        Self::Additive
-    }
 }
 
 impl std::fmt::Display for SpreadType {
@@ -235,14 +230,11 @@ impl SpreadCurve {
     /// Builds the interpolator for spread values.
     fn build_interpolator(&mut self) -> CurveResult<()> {
         if self.pillar_times.len() >= 2 {
-            let interp = LinearInterpolator::new(
-                self.pillar_times.clone(),
-                self.spreads.clone(),
-            )
-            .map_err(|e| CurveError::InterpolationFailed {
-                reason: e.to_string(),
-            })?
-            .with_extrapolation();
+            let interp = LinearInterpolator::new(self.pillar_times.clone(), self.spreads.clone())
+                .map_err(|e| CurveError::InterpolationFailed {
+                    reason: e.to_string(),
+                })?
+                .with_extrapolation();
 
             self.interpolator = Some(Arc::new(interp));
         }
@@ -346,9 +338,9 @@ impl SpreadCurveBuilder {
 
     /// Builds the spread curve.
     pub fn build(mut self) -> CurveResult<SpreadCurve> {
-        let base = self.base_curve.ok_or_else(|| {
-            CurveError::invalid_data("Base curve is required")
-        })?;
+        let base = self
+            .base_curve
+            .ok_or_else(|| CurveError::invalid_data("Base curve is required"))?;
 
         if self.pillars.is_empty() {
             return Err(CurveError::EmptyCurve);
@@ -386,7 +378,7 @@ mod tests {
                 .with_interpolation(InterpolationMethod::LogLinear)
                 .with_extrapolation()
                 .build()
-                .unwrap()
+                .unwrap(),
         )
     }
 
@@ -434,7 +426,8 @@ mod tests {
         let base = base_curve();
 
         // Multiplicative spread of 0.99 (1% discount)
-        let spread_curve = SpreadCurve::constant_spread(base.clone(), 0.99, SpreadType::Multiplicative);
+        let spread_curve =
+            SpreadCurve::constant_spread(base.clone(), 0.99, SpreadType::Multiplicative);
 
         let df_base = base.discount_factor(1.0).unwrap();
         let df_spread = spread_curve.discount_factor(1.0).unwrap();
@@ -448,8 +441,8 @@ mod tests {
 
         let spread_curve = SpreadCurveBuilder::new()
             .base_curve(base)
-            .add_spread_bps(1.0, 50.0)   // 50bp
-            .add_spread_bps(5.0, 100.0)  // 100bp
+            .add_spread_bps(1.0, 50.0) // 50bp
+            .add_spread_bps(5.0, 100.0) // 100bp
             .add_spread_bps(10.0, 150.0) // 150bp
             .spread_type(SpreadType::Additive)
             .with_extrapolation()
@@ -457,7 +450,11 @@ mod tests {
             .unwrap();
 
         assert_relative_eq!(spread_curve.spread_at(1.0).unwrap(), 0.005, epsilon = 1e-10);
-        assert_relative_eq!(spread_curve.spread_at(10.0).unwrap(), 0.015, epsilon = 1e-10);
+        assert_relative_eq!(
+            spread_curve.spread_at(10.0).unwrap(),
+            0.015,
+            epsilon = 1e-10
+        );
     }
 
     #[test]
@@ -473,7 +470,11 @@ mod tests {
         let base = base_curve();
         let spread_curve = SpreadCurve::constant_spread(base, 0.01, SpreadType::Additive);
 
-        assert_relative_eq!(spread_curve.discount_factor(0.0).unwrap(), 1.0, epsilon = 1e-10);
+        assert_relative_eq!(
+            spread_curve.discount_factor(0.0).unwrap(),
+            1.0,
+            epsilon = 1e-10
+        );
     }
 
     #[test]

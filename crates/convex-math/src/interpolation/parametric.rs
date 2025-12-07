@@ -75,8 +75,7 @@ impl NelsonSiegel {
     pub fn new(beta0: f64, beta1: f64, beta2: f64, tau: f64) -> MathResult<Self> {
         if tau <= 0.0 {
             return Err(MathError::invalid_input(format!(
-                "tau must be positive, got {}",
-                tau
+                "tau must be positive, got {tau}"
             )));
         }
 
@@ -250,14 +249,12 @@ impl Svensson {
     ) -> MathResult<Self> {
         if tau1 <= 0.0 {
             return Err(MathError::invalid_input(format!(
-                "tau1 must be positive, got {}",
-                tau1
+                "tau1 must be positive, got {tau1}"
             )));
         }
         if tau2 <= 0.0 {
             return Err(MathError::invalid_input(format!(
-                "tau2 must be positive, got {}",
-                tau2
+                "tau2 must be positive, got {tau2}"
             )));
         }
 
@@ -282,10 +279,7 @@ impl Svensson {
         let exp_x1 = (-x1).exp();
         let exp_x2 = (-x2).exp();
 
-        self.beta0
-            + self.beta1 * exp_x1
-            + self.beta2 * x1 * exp_x1
-            + self.beta3 * x2 * exp_x2
+        self.beta0 + self.beta1 * exp_x1 + self.beta2 * x1 * exp_x1 + self.beta3 * x2 * exp_x2
     }
 
     /// Returns the model parameters as (β₀, β₁, β₂, β₃, τ₁, τ₂).

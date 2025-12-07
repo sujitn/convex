@@ -140,12 +140,13 @@ impl std::fmt::Display for SOFRConvention {
 ///
 /// Represents the specific inflation index used to adjust principal
 /// and/or coupon payments.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum InflationIndexType {
     // ==================== US Indices ====================
     /// US CPI-U (All Urban Consumers) - used for TIPS
     USCPIUrban,
     /// US CPI-U NSA (Not Seasonally Adjusted) - primary TIPS index
+    #[default]
     USCPIUNSA,
 
     // ==================== UK Indices ====================
@@ -301,15 +302,9 @@ impl std::fmt::Display for InflationIndexType {
             InflationIndexType::CanadianCPI => "Canadian CPI",
             InflationIndexType::AustralianCPI => "Australian CPI",
             InflationIndexType::SwedishCPI => "Swedish CPI",
-            InflationIndexType::Custom(name) => return write!(f, "{}", name),
+            InflationIndexType::Custom(name) => return write!(f, "{name}"),
         };
-        write!(f, "{}", s)
-    }
-}
-
-impl Default for InflationIndexType {
-    fn default() -> Self {
-        InflationIndexType::USCPIUNSA
+        write!(f, "{s}")
     }
 }
 

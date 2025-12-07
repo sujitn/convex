@@ -132,9 +132,9 @@ impl OASCalculator {
         curve: &dyn Curve,
         settlement: Date,
     ) -> SpreadResult<Spread> {
-        let maturity = bond.maturity().ok_or_else(|| {
-            SpreadError::invalid_input("Bond has no maturity (perpetual)")
-        })?;
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| SpreadError::invalid_input("Bond has no maturity (perpetual)"))?;
 
         if settlement >= maturity {
             return Err(SpreadError::SettlementAfterMaturity {
@@ -143,10 +143,7 @@ impl OASCalculator {
             });
         }
 
-        let target_price = dirty_price
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(100.0);
+        let target_price = dirty_price.to_string().parse::<f64>().unwrap_or(100.0);
 
         // Binary search for OAS
         let mut low = -0.05; // -500 bps
@@ -202,9 +199,9 @@ impl OASCalculator {
         oas: f64,
         settlement: Date,
     ) -> SpreadResult<f64> {
-        let maturity = bond.maturity().ok_or_else(|| {
-            SpreadError::invalid_input("Bond has no maturity (perpetual)")
-        })?;
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| SpreadError::invalid_input("Bond has no maturity (perpetual)"))?;
 
         let maturity_years = settlement.days_between(&maturity) as f64 / 365.0;
         if maturity_years <= 0.0 {
@@ -220,7 +217,9 @@ impl OASCalculator {
         };
 
         // Build tree
-        let tree = self.model.build_tree(&zero_rates, maturity_years, self.tree_steps);
+        let tree = self
+            .model
+            .build_tree(&zero_rates, maturity_years, self.tree_steps);
 
         // Backward induction with option exercise
         self.backward_induction(bond, &tree, oas, settlement)
@@ -235,9 +234,9 @@ impl OASCalculator {
         settlement: Date,
     ) -> SpreadResult<f64> {
         let base_bond = bond.base_bond();
-        let call_schedule = bond.call_schedule().ok_or_else(|| {
-            SpreadError::invalid_input("Bond has no call schedule")
-        })?;
+        let call_schedule = bond
+            .call_schedule()
+            .ok_or_else(|| SpreadError::invalid_input("Bond has no call schedule"))?;
         let cash_flows = base_bond.cash_flows(settlement);
         let face_value = base_bond
             .face_value()
@@ -247,11 +246,15 @@ impl OASCalculator {
 
         let n = tree.steps;
         let maturity = bond.maturity().unwrap();
-        let maturity_years = settlement.days_between(&maturity) as f64 / 365.0;
+        let _maturity_years = settlement.days_between(&maturity) as f64 / 365.0;
 
         // Get coupon rate and frequency for adding coupons
-        let coupon_rate = base_bond.coupon_rate().to_string().parse::<f64>().unwrap_or(0.05);
-        let frequency = base_bond.coupon_frequency() as f64;
+        let coupon_rate = base_bond
+            .coupon_rate()
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(0.05);
+        let frequency = f64::from(base_bond.coupon_frequency());
         let coupon_payment = face_value * coupon_rate / frequency;
 
         // Initialize values at maturity with face value + final coupon
@@ -265,12 +268,7 @@ impl OASCalculator {
             let tree_date = settlement.add_days(tree_days);
 
             // Check for cash flow at this time step
-            let cf_at_step = self.cash_flow_at_time(
-                &cash_flows,
-                settlement,
-                t,
-                tree.dt,
-            );
+            let cf_at_step = self.cash_flow_at_time(&cash_flows, settlement, t, tree.dt);
 
             // Create new values array for this time step (i+1 states)
             let mut new_values = vec![0.0; i + 1];
@@ -289,8 +287,7 @@ impl OASCalculator {
 
                 // Check for call exercise
                 new_values[j] = if call_schedule.is_callable_on(tree_date) {
-                    let call_price = call_schedule.call_price_on(tree_date)
-                        .unwrap_or(100.0);
+                    let call_price = call_schedule.call_price_on(tree_date).unwrap_or(100.0);
                     value_with_cf.min(call_price)
                 } else {
                     value_with_cf
@@ -454,9 +451,9 @@ mod tests {
         // Include short-term pillars for proper interpolation near t=0
         let ref_date = date(2024, 1, 15);
         DiscountCurveBuilder::new(ref_date)
-            .add_pillar(0.01, (-rate * 0.01).exp())  // ~4 days
-            .add_pillar(0.25, (-rate * 0.25).exp())  // 3 months
-            .add_pillar(0.5, (-rate * 0.5).exp())    // 6 months
+            .add_pillar(0.01, (-rate * 0.01).exp()) // ~4 days
+            .add_pillar(0.25, (-rate * 0.25).exp()) // 3 months
+            .add_pillar(0.5, (-rate * 0.5).exp()) // 6 months
             .add_pillar(1.0, (-rate * 1.0).exp())
             .add_pillar(2.0, (-rate * 2.0).exp())
             .add_pillar(5.0, (-rate * 5.0).exp())
@@ -511,7 +508,11 @@ mod tests {
         let pv = tree.backward_induction_simple(100.0, 0.0);
 
         // Should be approximately 100 * exp(-0.05 * 5) ≈ 77.88
-        assert!((pv - 77.88).abs() < 5.0, "Tree PV {} should be near 77.88", pv);
+        assert!(
+            (pv - 77.88).abs() < 5.0,
+            "Tree PV {} should be near 77.88",
+            pv
+        );
     }
 
     #[test]
@@ -528,7 +529,11 @@ mod tests {
         // Price should be reasonable (between 80 and 120 for typical bond)
         // Note: For a 5% coupon bond with 5% rates, price is near par
         // But callable bonds trade below par value of straight bond
-        assert!(p > 70.0 && p < 130.0, "Price {} is out of reasonable range", p);
+        assert!(
+            p > 70.0 && p < 130.0,
+            "Price {} is out of reasonable range",
+            p
+        );
     }
 
     #[test]
@@ -539,10 +544,15 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         let price_0 = calc.price_with_oas(&bond, &curve, 0.0, settlement).unwrap();
-        let price_neg = calc.price_with_oas(&bond, &curve, -0.01, settlement).unwrap();
+        let price_neg = calc
+            .price_with_oas(&bond, &curve, -0.01, settlement)
+            .unwrap();
 
         // Negative OAS (lower discount rates) should increase price
-        assert!(price_neg > price_0, "Price with negative OAS should be higher");
+        assert!(
+            price_neg > price_0,
+            "Price with negative OAS should be higher"
+        );
     }
 
     #[test]
@@ -553,10 +563,15 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         let price_0 = calc.price_with_oas(&bond, &curve, 0.0, settlement).unwrap();
-        let price_pos = calc.price_with_oas(&bond, &curve, 0.01, settlement).unwrap();
+        let price_pos = calc
+            .price_with_oas(&bond, &curve, 0.01, settlement)
+            .unwrap();
 
         // Positive OAS (higher discount rates) should decrease price
-        assert!(price_pos < price_0, "Price with positive OAS should be lower");
+        assert!(
+            price_pos < price_0,
+            "Price with positive OAS should be lower"
+        );
     }
 
     #[test]
@@ -567,7 +582,9 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         // First get a price
-        let model_price = calc.price_with_oas(&bond, &curve, 0.0050, settlement).unwrap();
+        let model_price = calc
+            .price_with_oas(&bond, &curve, 0.0050, settlement)
+            .unwrap();
 
         // Now calculate OAS from that price
         let dirty_price = Decimal::from_f64_retain(model_price).unwrap();
@@ -578,7 +595,11 @@ mod tests {
 
         // OAS should be close to 50 bps
         let diff = (oas_val.as_bps() - dec!(50)).abs();
-        assert!(diff < dec!(10), "OAS {} bps should be close to 50 bps", oas_val.as_bps());
+        assert!(
+            diff < dec!(10),
+            "OAS {} bps should be close to 50 bps",
+            oas_val.as_bps()
+        );
     }
 
     #[test]
@@ -623,7 +644,11 @@ mod tests {
 
         let val = opt_val.unwrap();
         // Option value should be non-negative (issuer has the option)
-        assert!(val >= -1.0, "Option value {} should be non-negative (or small negative due to approximation)", val);
+        assert!(
+            val >= -1.0,
+            "Option value {} should be non-negative (or small negative due to approximation)",
+            val
+        );
     }
 
     #[test]

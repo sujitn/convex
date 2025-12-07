@@ -29,10 +29,7 @@ pub fn true_yield(street_yield: Decimal, settlement_adjustment: Decimal) -> Deci
 ///
 /// This is a simplified calculation. A full implementation would consider
 /// the actual settlement mechanics for the specific bond type.
-pub fn settlement_adjustment(
-    _days_to_settlement: i32,
-    _yield_level: f64,
-) -> Decimal {
+pub fn settlement_adjustment(_days_to_settlement: i32, _yield_level: f64) -> Decimal {
     // Simplified: typically a small adjustment
     // Full implementation would depend on bond type and market
     Decimal::ZERO

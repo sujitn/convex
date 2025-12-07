@@ -340,13 +340,13 @@ mod tests {
         // Create a simple upward-sloping curve
         ZeroCurveBuilder::new()
             .reference_date(date(2025, 1, 15))
-            .add_rate(date(2025, 4, 15), dec!(0.04))   // 3M: 4%
-            .add_rate(date(2025, 7, 15), dec!(0.042))  // 6M: 4.2%
-            .add_rate(date(2026, 1, 15), dec!(0.045))  // 1Y: 4.5%
-            .add_rate(date(2027, 1, 15), dec!(0.047))  // 2Y: 4.7%
-            .add_rate(date(2028, 1, 15), dec!(0.048))  // 3Y: 4.8%
-            .add_rate(date(2030, 1, 15), dec!(0.049))  // 5Y: 4.9%
-            .add_rate(date(2035, 1, 15), dec!(0.050))  // 10Y: 5.0%
+            .add_rate(date(2025, 4, 15), dec!(0.04)) // 3M: 4%
+            .add_rate(date(2025, 7, 15), dec!(0.042)) // 6M: 4.2%
+            .add_rate(date(2026, 1, 15), dec!(0.045)) // 1Y: 4.5%
+            .add_rate(date(2027, 1, 15), dec!(0.047)) // 2Y: 4.7%
+            .add_rate(date(2028, 1, 15), dec!(0.048)) // 3Y: 4.8%
+            .add_rate(date(2030, 1, 15), dec!(0.049)) // 5Y: 4.9%
+            .add_rate(date(2035, 1, 15), dec!(0.050)) // 10Y: 5.0%
             .interpolation(InterpolationMethod::Linear)
             .build()
             .unwrap()
@@ -425,7 +425,11 @@ mod tests {
 
         // Now calculate Z-spread from that price - should get back ~200 bps
         let result = calc
-            .calculate_from_cash_flows(&cash_flows, Decimal::from_f64_retain(price_at_200bps).unwrap(), settlement)
+            .calculate_from_cash_flows(
+                &cash_flows,
+                Decimal::from_f64_retain(price_at_200bps).unwrap(),
+                settlement,
+            )
             .unwrap();
 
         // Use as_bps() not as_decimal() - as_decimal returns 0.02 for 200 bps
@@ -485,7 +489,11 @@ mod tests {
             let price = calc.price_with_spread(&cash_flows, spread, settlement);
 
             let calculated_spread = calc
-                .calculate_from_cash_flows(&cash_flows, Decimal::from_f64_retain(price).unwrap(), settlement)
+                .calculate_from_cash_flows(
+                    &cash_flows,
+                    Decimal::from_f64_retain(price).unwrap(),
+                    settlement,
+                )
                 .unwrap();
 
             // Use as_bps() not as_decimal() - as_decimal returns decimal form (e.g., 0.02)

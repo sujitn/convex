@@ -46,7 +46,7 @@ pub struct BinomialTree {
     pub rates: Vec<Vec<f64>>,
 
     /// Transition probabilities at each node.
-    /// `probabilities[i][j]` = (prob_up, prob_down) from node (i,j).
+    /// `probabilities[i][j]` = (`prob_up`, `prob_down`) from node (i,j).
     /// Dimensions: steps x (step + 1).
     pub probabilities: Vec<Vec<(f64, f64)>>,
 }
@@ -144,7 +144,13 @@ impl BinomialTree {
     }
 
     /// Sets the transition probabilities at the given node.
-    pub fn set_probabilities(&mut self, time_step: usize, state: usize, prob_up: f64, prob_down: f64) {
+    pub fn set_probabilities(
+        &mut self,
+        time_step: usize,
+        state: usize,
+        prob_up: f64,
+        prob_down: f64,
+    ) {
         if time_step < self.steps && state <= time_step {
             self.probabilities[time_step][state] = (prob_up, prob_down);
         }

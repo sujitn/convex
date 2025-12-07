@@ -13,7 +13,7 @@ categories = ["finance", "mathematics"]
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
-convex-math = { path = "../convex-math" }
+convex-math = { workspace = true }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }
@@ -39,3 +39,7 @@ criterion = { workspace = true }
 [features]
 default = []
 parallel = []  # Enable parallel curve building
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

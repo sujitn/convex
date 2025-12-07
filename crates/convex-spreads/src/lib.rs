@@ -28,6 +28,28 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::derivable_impls)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::unused_self)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 pub mod asw;
 pub mod benchmark;
@@ -52,9 +74,9 @@ pub use zspread::ZSpreadCalculator;
 
 use rust_decimal::Decimal;
 
+use convex_bonds::instruments::FixedBond;
 use convex_core::types::{Date, Price, Spread};
 use convex_curves::curves::ZeroCurve;
-use convex_bonds::instruments::FixedBond;
 
 /// Spread calculator providing various spread calculations.
 pub struct SpreadCalculator;

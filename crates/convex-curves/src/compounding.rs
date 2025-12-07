@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// |-------------|------------------------|
 /// | Continuous | `DF = exp(-r * t)` |
 /// | Annual | `DF = (1 + r)^(-t)` |
-/// | SemiAnnual | `DF = (1 + r/2)^(-2t)` |
+/// | `SemiAnnual` | `DF = (1 + r/2)^(-2t)` |
 /// | Quarterly | `DF = (1 + r/4)^(-4t)` |
 /// | Monthly | `DF = (1 + r/12)^(-12t)` |
 /// | Simple | `DF = 1 / (1 + r * t)` |

@@ -48,6 +48,7 @@ pub struct BasisSwap {
 
 impl BasisSwap {
     /// Creates a new basis swap.
+    #[must_use]
     pub fn new(
         effective_date: Date,
         termination_date: Date,
@@ -66,6 +67,7 @@ impl BasisSwap {
     }
 
     /// Creates a tenor basis swap (same currency, different tenors).
+    #[must_use]
     pub fn tenor_basis(
         effective_date: Date,
         termination_date: Date,
@@ -73,7 +75,13 @@ impl BasisSwap {
         long_tenor: RateIndex,
         spread: f64,
     ) -> Self {
-        Self::new(effective_date, termination_date, short_tenor, long_tenor, spread)
+        Self::new(
+            effective_date,
+            termination_date,
+            short_tenor,
+            long_tenor,
+            spread,
+        )
     }
 
     /// Sets the notional.

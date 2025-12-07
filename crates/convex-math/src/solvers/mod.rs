@@ -224,15 +224,8 @@ impl Solver for BrentSolver {
         F: Fn(f64) -> f64,
         D: Fn(f64) -> f64,
     {
-        match bounds {
-            Some((a, b)) => brent(f, a, b, config),
-            None => {
-                // Try to find a bracket around the initial guess
-                let a = initial_guess - 1.0;
-                let b = initial_guess + 1.0;
-                brent(f, a, b, config)
-            }
-        }
+        let (a, b) = bounds.unwrap_or((initial_guess - 1.0, initial_guess + 1.0));
+        brent(f, a, b, config)
     }
 
     fn name(&self) -> &'static str {
@@ -257,14 +250,8 @@ impl Solver for BisectionSolver {
         F: Fn(f64) -> f64,
         D: Fn(f64) -> f64,
     {
-        match bounds {
-            Some((a, b)) => bisection(f, a, b, config),
-            None => {
-                let a = initial_guess - 1.0;
-                let b = initial_guess + 1.0;
-                bisection(f, a, b, config)
-            }
-        }
+        let (a, b) = bounds.unwrap_or((initial_guess - 1.0, initial_guess + 1.0));
+        bisection(f, a, b, config)
     }
 
     fn name(&self) -> &'static str {
@@ -410,18 +397,22 @@ mod tests {
     }
 
     /// Helper to calculate derivative of bond price w.r.t. yield
-    fn bond_price_derivative(yield_rate: f64, coupon: f64, face: f64, years: i32, freq: i32) -> f64 {
+    fn bond_price_derivative(
+        yield_rate: f64,
+        coupon: f64,
+        face: f64,
+        years: i32,
+        freq: i32,
+    ) -> f64 {
         let periods = years * freq;
         let coupon_per_period = coupon / freq as f64;
         let discount_rate = yield_rate / freq as f64;
 
         let mut dpv = 0.0;
         for t in 1..=periods {
-            dpv -= (t as f64 / freq as f64) * coupon_per_period
-                   / (1.0 + discount_rate).powi(t + 1);
+            dpv -= (t as f64 / freq as f64) * coupon_per_period / (1.0 + discount_rate).powi(t + 1);
         }
-        dpv -= (periods as f64 / freq as f64) * face
-               / (1.0 + discount_rate).powi(periods + 1);
+        dpv -= (periods as f64 / freq as f64) * face / (1.0 + discount_rate).powi(periods + 1);
         dpv
     }
 

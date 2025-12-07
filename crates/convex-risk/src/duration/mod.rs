@@ -9,16 +9,16 @@
 //! - **Key Rate Duration**: Sensitivity to specific points on the yield curve
 //! - **Spread Duration**: Sensitivity to spread changes
 
-mod macaulay;
-mod modified;
 mod effective;
 mod key_rate;
+mod macaulay;
+mod modified;
 mod spread_duration;
 
-pub use macaulay::*;
-pub use modified::*;
 pub use effective::*;
 pub use key_rate::*;
+pub use macaulay::*;
+pub use modified::*;
 pub use spread_duration::*;
 
 use rust_decimal::Decimal;

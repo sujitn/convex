@@ -126,24 +126,8 @@ impl ZeroCurve {
 
         let rate = match self.interpolation {
             InterpolationMethod::Linear => {
-                let interp = LinearInterpolator::new(
-                    self.time_fractions.clone(),
-                    self.rates_f64.clone(),
-                )
-                .map_err(|e| CurveError::InterpolationFailed {
-                    reason: e.to_string(),
-                })?
-                .with_extrapolation();
-
-                interp
-                    .interpolate(t)
-                    .map_err(|e| CurveError::InterpolationFailed {
-                        reason: e.to_string(),
-                    })?
-            }
-            InterpolationMethod::CubicSpline if self.time_fractions.len() >= 3 => {
                 let interp =
-                    CubicSpline::new(self.time_fractions.clone(), self.rates_f64.clone())
+                    LinearInterpolator::new(self.time_fractions.clone(), self.rates_f64.clone())
                         .map_err(|e| CurveError::InterpolationFailed {
                             reason: e.to_string(),
                         })?
@@ -155,16 +139,27 @@ impl ZeroCurve {
                         reason: e.to_string(),
                     })?
             }
+            InterpolationMethod::CubicSpline if self.time_fractions.len() >= 3 => {
+                let interp = CubicSpline::new(self.time_fractions.clone(), self.rates_f64.clone())
+                    .map_err(|e| CurveError::InterpolationFailed {
+                        reason: e.to_string(),
+                    })?
+                    .with_extrapolation();
+
+                interp
+                    .interpolate(t)
+                    .map_err(|e| CurveError::InterpolationFailed {
+                        reason: e.to_string(),
+                    })?
+            }
             _ => {
                 // Fall back to linear for other methods
-                let interp = LinearInterpolator::new(
-                    self.time_fractions.clone(),
-                    self.rates_f64.clone(),
-                )
-                .map_err(|e| CurveError::InterpolationFailed {
-                    reason: e.to_string(),
-                })?
-                .with_extrapolation();
+                let interp =
+                    LinearInterpolator::new(self.time_fractions.clone(), self.rates_f64.clone())
+                        .map_err(|e| CurveError::InterpolationFailed {
+                            reason: e.to_string(),
+                        })?
+                        .with_extrapolation();
 
                 interp
                     .interpolate(t)
@@ -200,10 +195,11 @@ impl YieldCurve for ZeroCurve {
     }
 
     fn discount_factor(&self, date: Date) -> ConvexResult<Decimal> {
-        self.discount_factor_at(date)
-            .map_err(|e| convex_core::ConvexError::CurveConstructionFailed {
+        self.discount_factor_at(date).map_err(|e| {
+            convex_core::ConvexError::CurveConstructionFailed {
                 reason: e.to_string(),
-            })
+            }
+        })
     }
 
     fn zero_rate(&self, date: Date) -> ConvexResult<Decimal> {

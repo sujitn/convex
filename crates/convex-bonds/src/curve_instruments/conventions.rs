@@ -37,6 +37,7 @@ pub enum MarketConvention {
 impl MarketConvention {
     /// Returns the day count convention name.
     #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn day_count_name(&self) -> &'static str {
         match self {
             Self::USTreasury => "ACT/ACT",
@@ -54,15 +55,16 @@ impl MarketConvention {
 
     /// Returns the coupon frequency (payments per year).
     #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn coupons_per_year(&self) -> u32 {
         match self {
-            Self::USTreasury => 2,      // Semi-annual
-            Self::UKGilt => 2,          // Semi-annual
-            Self::GermanBund => 1,      // Annual
-            Self::FrenchOAT => 1,       // Annual
-            Self::JapaneseJGB => 2,     // Semi-annual
-            Self::CanadianGovt => 2,    // Semi-annual
-            Self::AustralianGovt => 2,  // Semi-annual
+            Self::USTreasury => 2,     // Semi-annual
+            Self::UKGilt => 2,         // Semi-annual
+            Self::GermanBund => 1,     // Annual
+            Self::FrenchOAT => 1,      // Annual
+            Self::JapaneseJGB => 2,    // Semi-annual
+            Self::CanadianGovt => 2,   // Semi-annual
+            Self::AustralianGovt => 2, // Semi-annual
             Self::Generic365 => 2,
             Self::Generic360 => 2,
             Self::GenericActAct => 2,
@@ -71,15 +73,16 @@ impl MarketConvention {
 
     /// Returns the settlement period in business days.
     #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn settlement_days(&self) -> u32 {
         match self {
-            Self::USTreasury => 1,      // T+1
-            Self::UKGilt => 1,          // T+1
-            Self::GermanBund => 2,      // T+2
-            Self::FrenchOAT => 2,       // T+2
-            Self::JapaneseJGB => 2,     // T+2
-            Self::CanadianGovt => 2,    // T+2
-            Self::AustralianGovt => 2,  // T+2
+            Self::USTreasury => 1,     // T+1
+            Self::UKGilt => 1,         // T+1
+            Self::GermanBund => 2,     // T+2
+            Self::FrenchOAT => 2,      // T+2
+            Self::JapaneseJGB => 2,    // T+2
+            Self::CanadianGovt => 2,   // T+2
+            Self::AustralianGovt => 2, // T+2
             Self::Generic365 => 2,
             Self::Generic360 => 2,
             Self::GenericActAct => 2,
@@ -88,14 +91,15 @@ impl MarketConvention {
 
     /// Returns the days-per-year divisor for the day count.
     #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn year_basis(&self) -> f64 {
         match self {
-            Self::USTreasury => 365.0,  // ACT/ACT uses actual, approx 365
-            Self::UKGilt => 365.0,      // ACT/365F
-            Self::GermanBund => 365.0,  // ACT/ACT ICMA
-            Self::FrenchOAT => 365.0,   // ACT/ACT ICMA
-            Self::JapaneseJGB => 365.0, // ACT/365F
-            Self::CanadianGovt => 365.0, // ACT/365F
+            Self::USTreasury => 365.0,     // ACT/ACT uses actual, approx 365
+            Self::UKGilt => 365.0,         // ACT/365F
+            Self::GermanBund => 365.0,     // ACT/ACT ICMA
+            Self::FrenchOAT => 365.0,      // ACT/ACT ICMA
+            Self::JapaneseJGB => 365.0,    // ACT/365F
+            Self::CanadianGovt => 365.0,   // ACT/365F
             Self::AustralianGovt => 365.0, // ACT/ACT ICMA
             Self::Generic365 => 365.0,
             Self::Generic360 => 360.0,
@@ -146,7 +150,10 @@ mod tests {
     fn test_market_convention_day_counts() {
         assert_eq!(MarketConvention::USTreasury.day_count_name(), "ACT/ACT");
         assert_eq!(MarketConvention::UKGilt.day_count_name(), "ACT/365F");
-        assert_eq!(MarketConvention::GermanBund.day_count_name(), "ACT/ACT ICMA");
+        assert_eq!(
+            MarketConvention::GermanBund.day_count_name(),
+            "ACT/ACT ICMA"
+        );
         assert_eq!(MarketConvention::Generic360.year_basis(), 360.0);
     }
 

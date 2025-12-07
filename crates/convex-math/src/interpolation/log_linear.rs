@@ -80,8 +80,7 @@ impl LogLinearInterpolator {
         for (i, &y) in ys.iter().enumerate() {
             if y <= 0.0 {
                 return Err(MathError::invalid_input(format!(
-                    "y[{}] = {} is not positive; log-linear requires positive values",
-                    i, y
+                    "y[{i}] = {y} is not positive; log-linear requires positive values"
                 )));
             }
             log_ys.push(y.ln());
@@ -104,15 +103,17 @@ impl LogLinearInterpolator {
 
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
-        match self.xs.binary_search_by(|probe| {
-            probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal)
-        }) {
+        match self
+            .xs
+            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
+        {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
     }
 
     /// Returns the original y values.
+    #[must_use]
     pub fn y_values(&self) -> &[f64] {
         &self.ys
     }
@@ -121,14 +122,12 @@ impl LogLinearInterpolator {
 impl Interpolator for LogLinearInterpolator {
     fn interpolate(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -147,14 +146,12 @@ impl Interpolator for LogLinearInterpolator {
 
     fn derivative(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -276,7 +273,9 @@ mod tests {
         let xs = vec![0.0, 1.0, 2.0];
         let ys = vec![1.0, 0.9, 0.81];
 
-        let interp = LogLinearInterpolator::new(xs, ys).unwrap().with_extrapolation();
+        let interp = LogLinearInterpolator::new(xs, ys)
+            .unwrap()
+            .with_extrapolation();
 
         // Should allow extrapolation and produce positive values
         let y_left = interp.interpolate(-0.5).unwrap();

@@ -67,11 +67,7 @@ mod tests {
         let cy = current_yield(coupon, price).unwrap();
 
         // At par, current yield = coupon rate
-        assert_relative_eq!(
-            cy.to_string().parse::<f64>().unwrap(),
-            5.0,
-            epsilon = 0.001
-        );
+        assert_relative_eq!(cy.to_string().parse::<f64>().unwrap(), 5.0, epsilon = 0.001);
     }
 
     #[test]
@@ -83,11 +79,7 @@ mod tests {
         let cy = current_yield(coupon, price).unwrap();
 
         // Expected: 7.5 / 110.503 × 100 ≈ 6.79%
-        assert_relative_eq!(
-            cy.to_string().parse::<f64>().unwrap(),
-            6.79,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(cy.to_string().parse::<f64>().unwrap(), 6.79, epsilon = 0.01);
     }
 
     #[test]
@@ -98,11 +90,7 @@ mod tests {
 
         let cy = current_yield_from_amount(coupon, price).unwrap();
 
-        assert_relative_eq!(
-            cy.to_string().parse::<f64>().unwrap(),
-            6.79,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(cy.to_string().parse::<f64>().unwrap(), 6.79, epsilon = 0.01);
     }
 
     #[test]

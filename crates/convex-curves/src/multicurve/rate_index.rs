@@ -406,7 +406,9 @@ impl RateIndex {
             | RateIndex::TIBOR { tenor }
             | RateIndex::TermSONIA { tenor }
             | RateIndex::LIBOR { tenor, .. }
-            | RateIndex::Custom { tenor: Some(tenor), .. } => Some(*tenor),
+            | RateIndex::Custom {
+                tenor: Some(tenor), ..
+            } => Some(*tenor),
             _ => None,
         }
     }

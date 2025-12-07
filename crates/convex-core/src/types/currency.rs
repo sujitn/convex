@@ -6,10 +6,11 @@ use std::fmt;
 /// ISO 4217 currency codes.
 ///
 /// Represents currencies commonly used in fixed income markets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[non_exhaustive]
 pub enum Currency {
     /// United States Dollar
+    #[default]
     USD,
     /// Euro
     EUR,
@@ -171,11 +172,7 @@ impl Currency {
     pub fn is_emerging(&self) -> bool {
         matches!(
             self,
-            Currency::CNY
-                | Currency::INR
-                | Currency::BRL
-                | Currency::MXN
-                | Currency::ZAR
+            Currency::CNY | Currency::INR | Currency::BRL | Currency::MXN | Currency::ZAR
         )
     }
 
@@ -229,12 +226,6 @@ impl Currency {
 impl fmt::Display for Currency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.code())
-    }
-}
-
-impl Default for Currency {
-    fn default() -> Self {
-        Currency::USD
     }
 }
 

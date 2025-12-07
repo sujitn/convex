@@ -6,7 +6,7 @@ use crate::solvers::{SolverConfig, SolverResult};
 /// Newton-Raphson root-finding algorithm.
 ///
 /// Uses the iteration:
-/// $$x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$$
+/// `x_{n+1} = x_n - f(x_n) / f'(x_n)`
 ///
 /// This method has quadratic convergence near the root but requires
 /// the derivative of the function.

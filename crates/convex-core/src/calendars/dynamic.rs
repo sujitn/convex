@@ -138,11 +138,10 @@ impl DynamicCalendar {
     /// }
     /// ```
     pub fn from_json(json: &str) -> ConvexResult<Self> {
-        let data: CalendarData = serde_json::from_str(json).map_err(|e| {
-            ConvexError::CalendarError {
+        let data: CalendarData =
+            serde_json::from_str(json).map_err(|e| ConvexError::CalendarError {
                 reason: format!("Failed to parse JSON: {}", e),
-            }
-        })?;
+            })?;
         Self::from_calendar_data(data)
     }
 
@@ -152,11 +151,10 @@ impl DynamicCalendar {
     ///
     /// * `path` - Path to JSON file
     pub fn from_json_file(path: impl AsRef<Path>) -> ConvexResult<Self> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
-            ConvexError::CalendarError {
+        let content =
+            std::fs::read_to_string(path.as_ref()).map_err(|e| ConvexError::CalendarError {
                 reason: format!("Failed to read file: {}", e),
-            }
-        })?;
+            })?;
         Self::from_json(&content)
     }
 
@@ -170,12 +168,12 @@ impl DynamicCalendar {
 
         // Add holidays from date strings
         for date_str in data.holidays {
-            let date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d").map_err(|e| {
+            let holiday_date = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d").map_err(|e| {
                 ConvexError::CalendarError {
                     reason: format!("Invalid date '{}': {}", date_str, e),
                 }
             })?;
-            cal.bitmap.add_holiday(date);
+            cal.bitmap.add_holiday(holiday_date);
         }
 
         Ok(cal)
@@ -597,7 +595,8 @@ impl CustomCalendarBuilder {
         occurrence: u32,
     ) -> Self {
         for year in self.start_year..=self.end_year {
-            if let Some(date) = super::bitmap::nth_weekday_of_month(year, month, weekday, occurrence)
+            if let Some(date) =
+                super::bitmap::nth_weekday_of_month(year, month, weekday, occurrence)
             {
                 self.holidays.insert(date);
             }

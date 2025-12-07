@@ -243,7 +243,7 @@ impl SinkingFundSchedule {
 
     /// Calculates the average life of the sinking fund.
     ///
-    /// Average life = sum(time_i * principal_i) / total_principal
+    /// Average life = `sum(time_i` * `principal_i`) / `total_principal`
     ///
     /// # Arguments
     ///
@@ -305,14 +305,15 @@ impl SinkingFundSchedule {
         self.payments.iter().map(|p| p.amount_pct).sum()
     }
 
-    /// Converts to an AmortizationSchedule for use with standard calculations.
+    /// Converts to an `AmortizationSchedule` for use with standard calculations.
     #[must_use]
     pub fn to_amortization_schedule(&self) -> AmortizationSchedule {
         let mut schedule = AmortizationSchedule::new(AmortizationType::SinkingFund);
         for payment in &self.payments {
-            schedule = schedule.with_entry(
-                crate::types::AmortizationEntry::new(payment.date, payment.amount_pct),
-            );
+            schedule = schedule.with_entry(crate::types::AmortizationEntry::new(
+                payment.date,
+                payment.amount_pct,
+            ));
         }
         schedule.compute_remaining_factors();
         schedule
@@ -438,8 +439,7 @@ impl SinkingFundBond {
     /// Returns the remaining principal at settlement.
     #[must_use]
     pub fn remaining_principal(&self, settlement: Date) -> Decimal {
-        let factor = Decimal::try_from(self.current_factor(settlement))
-            .unwrap_or(Decimal::ONE);
+        let factor = Decimal::try_from(self.current_factor(settlement)).unwrap_or(Decimal::ONE);
         self.original_face * factor
     }
 
@@ -525,20 +525,22 @@ impl SinkingFundBond {
                 };
 
                 if coupon_amount > Decimal::ZERO {
-                    flows.push(BondCashFlow::coupon(cf.date, coupon_amount)
-                        .with_accrual(
-                            cf.accrual_start.unwrap_or(settlement),
-                            cf.accrual_end.unwrap_or(cf.date),
-                        )
-                        .with_factor(coupon_factor));
+                    flows.push(
+                        BondCashFlow::coupon(cf.date, coupon_amount)
+                            .with_accrual(
+                                cf.accrual_start.unwrap_or(settlement),
+                                cf.accrual_end.unwrap_or(cf.date),
+                            )
+                            .with_factor(coupon_factor),
+                    );
                 }
             }
         }
 
         // Add final redemption at end_date if there's remaining principal
         if remaining_factor > 0.0 && end_date <= maturity {
-            let final_amount = self.original_face
-                * Decimal::try_from(remaining_factor).unwrap_or(Decimal::ZERO);
+            let final_amount =
+                self.original_face * Decimal::try_from(remaining_factor).unwrap_or(Decimal::ZERO);
             flows.push(BondCashFlow::principal(end_date, final_amount));
         }
 
@@ -558,8 +560,13 @@ impl SinkingFundBond {
         let target_dirty = adjusted_price + accrued;
         let target = target_dirty.to_string().parse::<f64>().unwrap_or(100.0);
 
-        let freq = self.base.coupon_frequency() as f64;
-        let coupon_rate = self.base.coupon_rate().to_string().parse::<f64>().unwrap_or(0.05);
+        let freq = f64::from(self.base.coupon_frequency());
+        let coupon_rate = self
+            .base
+            .coupon_rate()
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(0.05);
         let initial_guess = coupon_rate;
 
         // Collect flow data for closures
@@ -573,7 +580,9 @@ impl SinkingFundBond {
             .collect();
 
         if flow_data.is_empty() {
-            return Err(BondError::invalid_spec("no cash flows for yield calculation"));
+            return Err(BondError::invalid_spec(
+                "no cash flows for yield calculation",
+            ));
         }
 
         let objective = |y: f64| {
@@ -651,8 +660,7 @@ impl Bond for SinkingFundBond {
 
     fn accrued_interest(&self, settlement: Date) -> Decimal {
         // Accrued is based on remaining principal
-        let factor = Decimal::try_from(self.current_factor(settlement))
-            .unwrap_or(Decimal::ONE);
+        let factor = Decimal::try_from(self.current_factor(settlement)).unwrap_or(Decimal::ONE);
         self.base.accrued_interest(settlement) * factor
     }
 

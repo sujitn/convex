@@ -58,7 +58,7 @@ impl IndexFixing {
 /// Storage for historical rate fixings.
 ///
 /// Provides efficient lookup of rate fixings by index and date.
-/// Internally uses a BTreeMap for ordered date access, enabling
+/// Internally uses a `BTreeMap` for ordered date access, enabling
 /// efficient range queries for overnight compounding calculations.
 ///
 /// # Example
@@ -95,19 +95,16 @@ impl IndexFixingStore {
 
     /// Returns the index key for storage lookup.
     fn index_key(index: &RateIndex) -> String {
-        format!("{:?}", index)
+        format!("{index:?}")
     }
 
     /// Adds a single fixing to the store.
     pub fn add_fixing(&mut self, date: Date, index: RateIndex, rate: Decimal) {
         let key = Self::index_key(&index);
-        self.fixings
-            .entry(key)
-            .or_default()
-            .insert(date, rate);
+        self.fixings.entry(key).or_default().insert(date, rate);
     }
 
-    /// Adds a fixing using an IndexFixing struct.
+    /// Adds a fixing using an `IndexFixing` struct.
     pub fn add(&mut self, fixing: IndexFixing) {
         self.add_fixing(fixing.date, fixing.index, fixing.rate);
     }
@@ -123,7 +120,9 @@ impl IndexFixingStore {
     #[must_use]
     pub fn get_fixing(&self, index: &RateIndex, date: Date) -> Option<Decimal> {
         let key = Self::index_key(index);
-        self.fixings.get(&key).and_then(|dates| dates.get(&date).copied())
+        self.fixings
+            .get(&key)
+            .and_then(|dates| dates.get(&date).copied())
     }
 
     /// Retrieves all fixings for an index between start and end dates (inclusive).
@@ -134,12 +133,7 @@ impl IndexFixingStore {
         let key = Self::index_key(index);
         self.fixings
             .get(&key)
-            .map(|dates| {
-                dates
-                    .range(start..=end)
-                    .map(|(d, r)| (*d, *r))
-                    .collect()
-            })
+            .map(|dates| dates.range(start..=end).map(|(d, r)| (*d, *r)).collect())
             .unwrap_or_default()
     }
 
@@ -157,16 +151,18 @@ impl IndexFixingStore {
     #[must_use]
     pub fn last_fixing_before(&self, index: &RateIndex, date: Date) -> Option<(Date, Decimal)> {
         let key = Self::index_key(index);
-        self.fixings.get(&key).and_then(|dates| {
-            dates.range(..=date).last().map(|(d, r)| (*d, *r))
-        })
+        self.fixings
+            .get(&key)
+            .and_then(|dates| dates.range(..=date).last().map(|(d, r)| (*d, *r)))
     }
 
     /// Returns the count of fixings for an index.
     #[must_use]
     pub fn count(&self, index: &RateIndex) -> usize {
         let key = Self::index_key(index);
-        self.fixings.get(&key).map_or(0, |dates| dates.len())
+        self.fixings
+            .get(&key)
+            .map_or(0, std::collections::BTreeMap::len)
     }
 
     /// Returns true if the store has any fixings for the given index.
@@ -271,9 +267,18 @@ mod tests {
         store.add_fixing(date(2024, 1, 2), RateIndex::SONIA, dec!(0.0520));
         store.add_fixing(date(2024, 1, 2), RateIndex::ESTR, dec!(0.0395));
 
-        assert_eq!(store.get_fixing(&RateIndex::SOFR, date(2024, 1, 2)), Some(dec!(0.0530)));
-        assert_eq!(store.get_fixing(&RateIndex::SONIA, date(2024, 1, 2)), Some(dec!(0.0520)));
-        assert_eq!(store.get_fixing(&RateIndex::ESTR, date(2024, 1, 2)), Some(dec!(0.0395)));
+        assert_eq!(
+            store.get_fixing(&RateIndex::SOFR, date(2024, 1, 2)),
+            Some(dec!(0.0530))
+        );
+        assert_eq!(
+            store.get_fixing(&RateIndex::SONIA, date(2024, 1, 2)),
+            Some(dec!(0.0520))
+        );
+        assert_eq!(
+            store.get_fixing(&RateIndex::ESTR, date(2024, 1, 2)),
+            Some(dec!(0.0395))
+        );
     }
 
     #[test]
@@ -300,7 +305,10 @@ mod tests {
             dec!(0.053),
             "Federal Reserve",
         );
-        assert_eq!(fixing_with_source.source, Some("Federal Reserve".to_string()));
+        assert_eq!(
+            fixing_with_source.source,
+            Some("Federal Reserve".to_string())
+        );
     }
 
     #[test]
@@ -313,7 +321,10 @@ mod tests {
         let store = IndexFixingStore::from_rates(RateIndex::SOFR, rates);
 
         assert_eq!(store.count(&RateIndex::SOFR), 3);
-        assert_eq!(store.get_fixing(&RateIndex::SOFR, date(2024, 1, 3)), Some(dec!(0.0532)));
+        assert_eq!(
+            store.get_fixing(&RateIndex::SOFR, date(2024, 1, 3)),
+            Some(dec!(0.0532))
+        );
     }
 
     #[test]

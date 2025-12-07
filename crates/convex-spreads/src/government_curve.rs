@@ -474,8 +474,7 @@ mod tests {
             create_test_benchmark(Tenor::Y10, 4.25),
         ];
 
-        let curve =
-            GovernmentCurve::from_benchmarks(Sovereign::UST, date(2024, 1, 15), benchmarks);
+        let curve = GovernmentCurve::from_benchmarks(Sovereign::UST, date(2024, 1, 15), benchmarks);
 
         assert_eq!(curve.benchmark_count(), 2);
     }

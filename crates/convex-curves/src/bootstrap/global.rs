@@ -10,23 +10,16 @@ use crate::curves::{DiscountCurve, DiscountCurveBuilder};
 use crate::error::{CurveError, CurveResult};
 use crate::instruments::CurveInstrument;
 use crate::interpolation::InterpolationMethod;
-use crate::repricing::{
-    BootstrapResult, BuildTimer, RepricingCheck, RepricingReport, tolerances,
-};
+use crate::repricing::{tolerances, BootstrapResult, BuildTimer, RepricingCheck, RepricingReport};
 
 /// Type of curve to fit in global bootstrap.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GlobalCurveType {
     /// Piecewise zero rates at pillar points (most flexible).
+    #[default]
     PiecewiseZero,
     /// Piecewise discount factors at pillar points.
     PiecewiseDiscount,
-}
-
-impl Default for GlobalCurveType {
-    fn default() -> Self {
-        Self::PiecewiseZero
-    }
 }
 
 /// Configuration for global bootstrap.
@@ -72,7 +65,7 @@ impl Default for GlobalBootstrapConfig {
 /// ```
 ///
 /// where:
-/// - PVi is the present value of instrument i
+/// - `PVi` is the present value of instrument i
 /// - wi is the weight for instrument i (default 1.0)
 /// - λ is the roughness penalty
 /// - R(curve) is a roughness measure (e.g., integral of squared second derivative)
@@ -112,6 +105,7 @@ impl GlobalBootstrapper {
     /// # Arguments
     ///
     /// * `reference_date` - The curve's reference/valuation date
+    #[must_use]
     pub fn new(reference_date: Date) -> Self {
         Self {
             reference_date,
@@ -184,7 +178,9 @@ impl GlobalBootstrapper {
     /// - Curve construction fails
     pub fn bootstrap(self) -> CurveResult<DiscountCurve> {
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for bootstrap"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for bootstrap",
+            ));
         }
 
         // Sort instruments by pillar date
@@ -269,7 +265,9 @@ impl GlobalBootstrapper {
         let timer = BuildTimer::start();
 
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for bootstrap"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for bootstrap",
+            ));
         }
 
         // Sort instruments by pillar date
@@ -349,7 +347,11 @@ impl GlobalBootstrapper {
 
         let build_duration = timer.elapsed();
 
-        Ok(BootstrapResult::new(curve, repricing_report, build_duration))
+        Ok(BootstrapResult::new(
+            curve,
+            repricing_report,
+            build_duration,
+        ))
     }
 
     /// Bootstraps the curve with strict repricing validation.
@@ -362,7 +364,11 @@ impl GlobalBootstrapper {
             return Err(CurveError::repricing_failed(
                 result.repricing_report.failed_count(),
                 result.repricing_report.max_error(),
-                result.failed_instruments().into_iter().map(String::from).collect(),
+                result
+                    .failed_instruments()
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
             ));
         }
 
@@ -641,11 +647,7 @@ mod tests {
     fn test_global_bootstrap_with_diagnostics() {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let deposit = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.05,
-        );
+        let deposit = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.05);
 
         let (curve, diagnostics) = GlobalBootstrapper::new(ref_date)
             .add_instrument(deposit)
@@ -682,8 +684,7 @@ mod tests {
             Deposit::new(ref_date, Date::from_ymd(2025, 10, 15).unwrap(), 0.048),
         ];
 
-        let mut bootstrapper = GlobalBootstrapper::new(ref_date)
-            .with_roughness_penalty(0.001);
+        let mut bootstrapper = GlobalBootstrapper::new(ref_date).with_roughness_penalty(0.001);
 
         for d in deposits {
             bootstrapper = bootstrapper.add_instrument(d);

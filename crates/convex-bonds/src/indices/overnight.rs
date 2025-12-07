@@ -73,9 +73,14 @@ impl OvernightCompounding {
                 *lockout_days,
                 calendar,
             ),
-            SOFRConvention::SimpleAverage { lookback_days } => {
-                Self::simple_average(store, index, period_start, period_end, *lookback_days, calendar)
-            }
+            SOFRConvention::SimpleAverage { lookback_days } => Self::simple_average(
+                store,
+                index,
+                period_start,
+                period_end,
+                *lookback_days,
+                calendar,
+            ),
             _ => None, // Term SOFR and CompoundedInAdvance don't use daily compounding
         }
     }
@@ -97,9 +102,8 @@ impl OvernightCompounding {
         let mut current = period_start;
 
         // Determine lockout start date
-        let lockout_start = lockout_days.map(|lock| {
-            calendar.add_business_days(period_end, -(lock as i32))
-        });
+        let lockout_start =
+            lockout_days.map(|lock| calendar.add_business_days(period_end, -(lock as i32)));
 
         // Track the locked rate if in lockout period
         let mut locked_rate: Option<f64> = None;
@@ -190,7 +194,7 @@ impl OvernightCompounding {
             return Some(Decimal::ZERO);
         }
 
-        Decimal::try_from(sum / count as f64).ok()
+        Decimal::try_from(sum / f64::from(count)).ok()
     }
 
     /// Returns all fixing dates needed for a period.
@@ -323,7 +327,7 @@ mod tests {
         };
 
         let dates = OvernightCompounding::required_fixing_dates(
-            date(2024, 1, 8), // Monday
+            date(2024, 1, 8),  // Monday
             date(2024, 1, 12), // Friday (4 business days)
             &convention,
             &calendar,

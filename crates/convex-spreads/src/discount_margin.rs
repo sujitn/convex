@@ -171,9 +171,8 @@ impl<'a, C: Curve + ?Sized> DiscountMarginCalculator<'a, C> {
     ///
     /// The dirty price as a percentage of par.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
-        let maturity = match frn.maturity() {
-            Some(m) => m,
-            None => return 0.0,
+        let Some(maturity) = frn.maturity() else {
+            return 0.0;
         };
 
         if settlement >= maturity {
@@ -213,23 +212,24 @@ impl<'a, C: Curve + ?Sized> DiscountMarginCalculator<'a, C> {
             let cf_amount = if cf.is_principal() {
                 // For principal payment, include both coupon and principal
                 // Coupon portion: project using forward rate
-                let coupon_amount = if let (Some(start), Some(end)) = (cf.accrual_start, cf.accrual_end) {
-                    let t1 = ref_date.days_between(&start) as f64 / 365.0;
-                    let period_years = start.days_between(&end) as f64 / 365.0;
+                let coupon_amount =
+                    if let (Some(start), Some(end)) = (cf.accrual_start, cf.accrual_end) {
+                        let t1 = ref_date.days_between(&start) as f64 / 365.0;
+                        let period_years = start.days_between(&end) as f64 / 365.0;
 
-                    // Get forward rate for this period
-                    let fwd_rate = self.forward_curve.forward_rate_at(t1).unwrap_or(0.05);
+                        // Get forward rate for this period
+                        let fwd_rate = self.forward_curve.forward_rate_at(t1).unwrap_or(0.05);
 
-                    // Effective coupon rate = forward + quoted spread
-                    let coupon_rate = fwd_rate + quoted_spread;
-                    let effective_rate = frn.effective_rate(
-                        Decimal::from_f64_retain(coupon_rate).unwrap_or(Decimal::ZERO),
-                    );
+                        // Effective coupon rate = forward + quoted spread
+                        let coupon_rate = fwd_rate + quoted_spread;
+                        let effective_rate = frn.effective_rate(
+                            Decimal::from_f64_retain(coupon_rate).unwrap_or(Decimal::ZERO),
+                        );
 
-                    face_value * effective_rate.to_f64().unwrap_or(0.0) * period_years
-                } else {
-                    cf.amount.to_f64().unwrap_or(0.0) - face_value
-                };
+                        face_value * effective_rate.to_f64().unwrap_or(0.0) * period_years
+                    } else {
+                        cf.amount.to_f64().unwrap_or(0.0) - face_value
+                    };
 
                 coupon_amount + face_value
             } else {
@@ -271,12 +271,7 @@ impl<'a, C: Curve + ?Sized> DiscountMarginCalculator<'a, C> {
     /// # Returns
     ///
     /// The price change for a 1 basis point increase in DM.
-    pub fn spread_dv01(
-        &self,
-        frn: &FloatingRateNote,
-        dm: Spread,
-        settlement: Date,
-    ) -> Decimal {
+    pub fn spread_dv01(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
 
         let base_price = self.price_with_dm(frn, base_dm, settlement);
@@ -297,12 +292,7 @@ impl<'a, C: Curve + ?Sized> DiscountMarginCalculator<'a, C> {
     /// # Returns
     ///
     /// Spread duration = DV01 / Price × 10000
-    pub fn spread_duration(
-        &self,
-        frn: &FloatingRateNote,
-        dm: Spread,
-        settlement: Date,
-    ) -> Decimal {
+    pub fn spread_duration(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
         let base_price = self.price_with_dm(frn, base_dm, settlement);
 
@@ -386,9 +376,8 @@ pub fn simple_margin(
     current_index: Decimal,
     settlement: Date,
 ) -> Spread {
-    let maturity = match frn.maturity() {
-        Some(m) => m,
-        None => return Spread::new(Decimal::ZERO, SpreadType::DiscountMargin),
+    let Some(maturity) = frn.maturity() else {
+        return Spread::new(Decimal::ZERO, SpreadType::DiscountMargin);
     };
 
     let remaining_years = settlement.days_between(&maturity) as f64 / 365.0;
@@ -409,7 +398,8 @@ pub fn simple_margin(
     let current_yield = annual_coupon / price;
 
     // Redemption adjustment = (face - price) / (price × remaining_years)
-    let redemption_effect = (face - price) / (price * Decimal::from_f64_retain(remaining_years).unwrap_or(Decimal::ONE));
+    let redemption_effect = (face - price)
+        / (price * Decimal::from_f64_retain(remaining_years).unwrap_or(Decimal::ONE));
 
     // Simple margin = current yield + redemption effect - current index
     let simple_margin = current_yield + redemption_effect - current_index;
@@ -443,8 +433,11 @@ pub fn z_discount_margin<C: Curve + ?Sized>(
     discount_curve: &C,
     settlement: Date,
 ) -> SpreadResult<Spread> {
-    DiscountMarginCalculator::new(forward_curve, discount_curve)
-        .calculate(frn, dirty_price, settlement)
+    DiscountMarginCalculator::new(forward_curve, discount_curve).calculate(
+        frn,
+        dirty_price,
+        settlement,
+    )
 }
 
 #[cfg(test)]
@@ -476,10 +469,10 @@ mod tests {
     fn create_sample_discount_curve() -> impl Curve {
         DiscountCurveBuilder::new(date(2025, 6, 15))
             .add_pillar(0.25, 0.9875) // 3M: ~5%
-            .add_pillar(0.5, 0.975)   // 6M: ~5%
-            .add_pillar(1.0, 0.95)    // 1Y: ~5.13%
-            .add_pillar(2.0, 0.90)    // 2Y: ~5.27%
-            .add_pillar(5.0, 0.78)    // 5Y: ~5.0%
+            .add_pillar(0.5, 0.975) // 6M: ~5%
+            .add_pillar(1.0, 0.95) // 1Y: ~5.13%
+            .add_pillar(2.0, 0.90) // 2Y: ~5.27%
+            .add_pillar(5.0, 0.78) // 5Y: ~5.0%
             .with_interpolation(InterpolationMethod::LogLinear)
             .with_extrapolation()
             .build()
@@ -513,7 +506,11 @@ mod tests {
 
         // Price with zero DM
         let price_zero_dm = calc.price_with_dm(&frn, 0.0, settlement);
-        assert!(price_zero_dm > 90.0 && price_zero_dm < 110.0, "Price {} out of range", price_zero_dm);
+        assert!(
+            price_zero_dm > 90.0 && price_zero_dm < 110.0,
+            "Price {} out of range",
+            price_zero_dm
+        );
 
         // Price with positive DM should be lower
         let price_50bps = calc.price_with_dm(&frn, 0.0050, settlement);
@@ -521,7 +518,10 @@ mod tests {
 
         // Price with negative DM should be higher
         let price_neg = calc.price_with_dm(&frn, -0.0050, settlement);
-        assert!(price_neg > price_zero_dm, "Price with negative DM should be higher");
+        assert!(
+            price_neg > price_zero_dm,
+            "Price with negative DM should be higher"
+        );
     }
 
     #[test]
@@ -594,7 +594,10 @@ mod tests {
 
         // DV01 should be positive and reasonable
         assert!(dv01 > Decimal::ZERO, "DV01 should be positive");
-        assert!(dv01 < dec!(0.1), "DV01 should be less than 10 cents per 100");
+        assert!(
+            dv01 < dec!(0.1),
+            "DV01 should be less than 10 cents per 100"
+        );
     }
 
     #[test]
@@ -627,7 +630,10 @@ mod tests {
         // Simple margin should be positive for discount bond
         // and include both current yield spread and redemption effect
         let margin_bps = margin.as_bps();
-        assert!(margin_bps > Decimal::ZERO, "Margin should be positive for discount bond");
+        assert!(
+            margin_bps > Decimal::ZERO,
+            "Margin should be positive for discount bond"
+        );
     }
 
     #[test]
@@ -744,6 +750,9 @@ mod tests {
         let eff_dur = calc.effective_duration(&frn, dm, settlement, 0.01);
 
         // Effective duration should be positive for FRN
-        assert!(eff_dur > Decimal::ZERO, "Effective duration should be positive");
+        assert!(
+            eff_dur > Decimal::ZERO,
+            "Effective duration should be positive"
+        );
     }
 }

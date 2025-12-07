@@ -53,9 +53,7 @@ pub use global::{
     GlobalBootstrapConfig, GlobalBootstrapDiagnostics, GlobalBootstrapper, GlobalCurveType,
 };
 pub use iterative::{IterativeBootstrapConfig, IterativeMultiCurveBootstrapper, MultiCurveResult};
-pub use sequential::{
-    bootstrap_discount_curve, SequentialBootstrapConfig, SequentialBootstrapper,
-};
+pub use sequential::{bootstrap_discount_curve, SequentialBootstrapConfig, SequentialBootstrapper};
 
 // Re-export repricing types for convenience
-pub use crate::repricing::{BootstrapResult, RepricingCheck, RepricingReport, tolerances};
+pub use crate::repricing::{tolerances, BootstrapResult, RepricingCheck, RepricingReport};

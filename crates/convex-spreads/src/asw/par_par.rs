@@ -17,11 +17,10 @@ use crate::error::{SpreadError, SpreadResult};
 /// Converts coupon frequency (payments per year) to months between payments.
 fn frequency_to_months(frequency: u32) -> i32 {
     match frequency {
-        1 => 12,  // Annual
-        2 => 6,   // Semi-annual
-        4 => 3,   // Quarterly
-        12 => 1,  // Monthly
-        _ => 6,   // Default to semi-annual
+        1 => 12, // Annual
+        4 => 3,  // Quarterly
+        12 => 1, // Monthly
+        _ => 6,  // Default to semi-annual
     }
 }
 
@@ -121,10 +120,17 @@ impl<'a> ParParAssetSwap<'a> {
 
         // Calculate annuity (PV01 of swap floating leg)
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(settlement, maturity, months_between, bond.coupon_frequency())?;
+        let annuity = self.calculate_annuity(
+            settlement,
+            maturity,
+            months_between,
+            bond.coupon_frequency(),
+        )?;
 
         if annuity.is_zero() {
-            return Err(SpreadError::invalid_input("Annuity is zero - no future payments"));
+            return Err(SpreadError::invalid_input(
+                "Annuity is zero - no future payments",
+            ));
         }
 
         // Spread = upfront / annuity
@@ -220,7 +226,9 @@ impl<'a> ParParAssetSwap<'a> {
         }
 
         if payment_dates.is_empty() {
-            return Err(SpreadError::invalid_input("No payment dates after settlement"));
+            return Err(SpreadError::invalid_input(
+                "No payment dates after settlement",
+            ));
         }
 
         // Calculate annuity
@@ -251,7 +259,12 @@ impl<'a> ParParAssetSwap<'a> {
             .ok_or_else(|| SpreadError::invalid_input("Bond has no maturity (perpetual)"))?;
 
         let months_between = frequency_to_months(bond.coupon_frequency());
-        self.calculate_annuity(settlement, maturity, months_between, bond.coupon_frequency())
+        self.calculate_annuity(
+            settlement,
+            maturity,
+            months_between,
+            bond.coupon_frequency(),
+        )
     }
 
     /// Calculates the implied bond price from a given ASW spread.
@@ -281,7 +294,12 @@ impl<'a> ParParAssetSwap<'a> {
         }
 
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(settlement, maturity, months_between, bond.coupon_frequency())?;
+        let annuity = self.calculate_annuity(
+            settlement,
+            maturity,
+            months_between,
+            bond.coupon_frequency(),
+        )?;
 
         // Convert spread from bps to decimal
         let spread_decimal = asw_spread.as_bps() / Decimal::from(10_000);
@@ -435,7 +453,11 @@ mod tests {
         let spread = calc.calculate(&bond, clean_price, settlement).unwrap();
 
         // At par (dirty ≈ 100), ASW should be close to 0
-        assert!(spread.as_bps().abs() < dec!(5), "Expected near-zero spread at par, got {}", spread.as_bps());
+        assert!(
+            spread.as_bps().abs() < dec!(5),
+            "Expected near-zero spread at par, got {}",
+            spread.as_bps()
+        );
     }
 
     #[test]
@@ -451,7 +473,10 @@ mod tests {
         let spread = calc.calculate(&bond, clean_price, settlement).unwrap();
 
         // Discount bond should have positive ASW (spread income)
-        assert!(spread.as_bps() > Decimal::ZERO, "Expected positive spread for discount bond");
+        assert!(
+            spread.as_bps() > Decimal::ZERO,
+            "Expected positive spread for discount bond"
+        );
     }
 
     #[test]
@@ -467,7 +492,10 @@ mod tests {
         let spread = calc.calculate(&bond, clean_price, settlement).unwrap();
 
         // Premium bond should have negative ASW (spread cost)
-        assert!(spread.as_bps() < Decimal::ZERO, "Expected negative spread for premium bond");
+        assert!(
+            spread.as_bps() < Decimal::ZERO,
+            "Expected negative spread for premium bond"
+        );
     }
 
     #[test]
@@ -481,11 +509,16 @@ mod tests {
         let repo_rate = dec!(0.05);
 
         let gross = calc.gross_spread(&bond, clean_price, settlement).unwrap();
-        let net = calc.net_spread(&bond, clean_price, settlement, repo_rate).unwrap();
+        let net = calc
+            .net_spread(&bond, clean_price, settlement, repo_rate)
+            .unwrap();
 
         // For discount bond, net spread should be higher than gross
         // (benefit from funding at discount)
-        assert!(net.as_bps() > gross.as_bps(), "Expected net > gross for discount bond");
+        assert!(
+            net.as_bps() > gross.as_bps(),
+            "Expected net > gross for discount bond"
+        );
     }
 
     #[test]
@@ -513,7 +546,11 @@ mod tests {
 
         // Annuity should be roughly the years to maturity for a flat curve
         // 5 years × 2 payments/year × 0.5 year fraction × DF ≈ 4-5
-        assert!(annuity > dec!(3) && annuity < dec!(6), "Annuity {} seems wrong", annuity);
+        assert!(
+            annuity > dec!(3) && annuity < dec!(6),
+            "Annuity {} seems wrong",
+            annuity
+        );
     }
 
     #[test]
@@ -531,6 +568,11 @@ mod tests {
         // Clean = 100 - accrued (1.25) = 98.75
         let expected_clean = dec!(98.75);
         let diff = (implied.as_percentage() - expected_clean).abs();
-        assert!(diff < dec!(0.01), "Expected clean price ~{}, got {}", expected_clean, implied.as_percentage());
+        assert!(
+            diff < dec!(0.01),
+            "Expected clean price ~{}, got {}",
+            expected_clean,
+            implied.as_percentage()
+        );
     }
 }

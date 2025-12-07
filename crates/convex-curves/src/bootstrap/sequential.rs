@@ -9,9 +9,7 @@ use crate::curves::{DiscountCurve, DiscountCurveBuilder};
 use crate::error::{CurveError, CurveResult};
 use crate::instruments::CurveInstrument;
 use crate::interpolation::InterpolationMethod;
-use crate::repricing::{
-    BootstrapResult, BuildTimer, RepricingCheck, RepricingReport, tolerances,
-};
+use crate::repricing::{tolerances, BootstrapResult, BuildTimer, RepricingCheck, RepricingReport};
 
 /// Configuration for sequential bootstrap.
 #[derive(Debug, Clone, Copy)]
@@ -72,6 +70,7 @@ impl SequentialBootstrapper {
     /// # Arguments
     ///
     /// * `reference_date` - The curve's reference/valuation date
+    #[must_use]
     pub fn new(reference_date: Date) -> Self {
         Self {
             reference_date,
@@ -134,12 +133,13 @@ impl SequentialBootstrapper {
     /// - Curve construction fails
     pub fn bootstrap(mut self) -> CurveResult<DiscountCurve> {
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for bootstrap"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for bootstrap",
+            ));
         }
 
         // Sort instruments by pillar date
-        self.instruments
-            .sort_by_key(|inst| inst.pillar_date());
+        self.instruments.sort_by_key(|inst| inst.pillar_date());
 
         // Initialize with DF(0) = 1.0 at reference date
         let mut pillars: Vec<(f64, f64)> = vec![(0.0, 1.0)];
@@ -153,7 +153,7 @@ impl SequentialBootstrapper {
             let df = instrument.implied_df(&partial_curve, 0.0).map_err(|e| {
                 CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Failed to solve for DF: {}", e),
+                    format!("Failed to solve for DF: {e}"),
                 )
             })?;
 
@@ -161,7 +161,7 @@ impl SequentialBootstrapper {
             if df <= 0.0 || df > 1.0 {
                 return Err(CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Invalid discount factor: {} (must be in (0, 1])", df),
+                    format!("Invalid discount factor: {df} (must be in (0, 1])"),
                 ));
             }
 
@@ -223,7 +223,9 @@ impl SequentialBootstrapper {
         let timer = BuildTimer::start();
 
         if self.instruments.is_empty() {
-            return Err(CurveError::invalid_data("No instruments provided for bootstrap"));
+            return Err(CurveError::invalid_data(
+                "No instruments provided for bootstrap",
+            ));
         }
 
         // Sort instruments by pillar date
@@ -241,7 +243,7 @@ impl SequentialBootstrapper {
             let df = instrument.implied_df(&partial_curve, 0.0).map_err(|e| {
                 CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Failed to solve for DF: {}", e),
+                    format!("Failed to solve for DF: {e}"),
                 )
             })?;
 
@@ -249,7 +251,7 @@ impl SequentialBootstrapper {
             if df <= 0.0 || df > 1.0 {
                 return Err(CurveError::bootstrap_failed(
                     instrument.description(),
-                    format!("Invalid discount factor: {} (must be in (0, 1])", df),
+                    format!("Invalid discount factor: {df} (must be in (0, 1])"),
                 ));
             }
 
@@ -275,7 +277,11 @@ impl SequentialBootstrapper {
 
         let build_duration = timer.elapsed();
 
-        Ok(BootstrapResult::new(curve, repricing_report, build_duration))
+        Ok(BootstrapResult::new(
+            curve,
+            repricing_report,
+            build_duration,
+        ))
     }
 
     /// Bootstraps the curve with strict repricing validation.
@@ -298,7 +304,11 @@ impl SequentialBootstrapper {
             return Err(CurveError::repricing_failed(
                 result.repricing_report.failed_count(),
                 result.repricing_report.max_error(),
-                result.failed_instruments().into_iter().map(String::from).collect(),
+                result
+                    .failed_instruments()
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
             ));
         }
 
@@ -316,7 +326,7 @@ impl SequentialBootstrapper {
             checks.push(RepricingCheck::new(
                 inst.description(),
                 inst.instrument_type(),
-                0.0,  // Target PV is always 0 for bootstrapped instruments
+                0.0, // Target PV is always 0 for bootstrapped instruments
                 model_pv,
                 tolerance,
             ));
@@ -413,7 +423,7 @@ pub fn bootstrap_discount_curve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::{Deposit, OIS, Swap};
+    use crate::instruments::{Deposit, Swap, OIS};
     use crate::traits::Curve;
     use approx::assert_relative_eq;
     use convex_core::types::Frequency;
@@ -447,21 +457,9 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         let deposits = vec![
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 2, 15).unwrap(),
-                0.045,
-            ),
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 4, 15).unwrap(),
-                0.050,
-            ),
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 7, 15).unwrap(),
-                0.052,
-            ),
+            Deposit::new(ref_date, Date::from_ymd(2025, 2, 15).unwrap(), 0.045),
+            Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050),
+            Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052),
         ];
 
         let curve = SequentialBootstrapper::new(ref_date)
@@ -521,16 +519,8 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Short end: deposits
-        let deposit_3m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 4, 15).unwrap(),
-            0.050,
-        );
-        let deposit_6m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.052,
-        );
+        let deposit_3m = Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050);
+        let deposit_6m = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052);
 
         // Long end: swaps
         let swap_2y = Swap::new(
@@ -566,16 +556,8 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Add instruments out of order
-        let deposit_6m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.052,
-        );
-        let deposit_3m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 4, 15).unwrap(),
-            0.050,
-        );
+        let deposit_6m = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052);
+        let deposit_3m = Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050);
 
         // Should still work - bootstrapper sorts by maturity
         let curve = SequentialBootstrapper::new(ref_date)
@@ -637,21 +619,9 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         let deposits = vec![
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 2, 15).unwrap(),
-                0.045,
-            ),
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 4, 15).unwrap(),
-                0.050,
-            ),
-            Deposit::new(
-                ref_date,
-                Date::from_ymd(2025, 7, 15).unwrap(),
-                0.052,
-            ),
+            Deposit::new(ref_date, Date::from_ymd(2025, 2, 15).unwrap(), 0.045),
+            Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050),
+            Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052),
         ];
 
         let result = SequentialBootstrapper::new(ref_date)
@@ -691,16 +661,8 @@ mod tests {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Short end: deposits
-        let deposit_3m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 4, 15).unwrap(),
-            0.050,
-        );
-        let deposit_6m = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.052,
-        );
+        let deposit_3m = Deposit::new(ref_date, Date::from_ymd(2025, 4, 15).unwrap(), 0.050);
+        let deposit_6m = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.052);
 
         // Long end: swap
         let swap_2y = Swap::new(
@@ -745,11 +707,7 @@ mod tests {
     #[test]
     fn test_bootstrap_validated_into_curve() {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
-        let deposit = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.05,
-        );
+        let deposit = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.05);
 
         let result = SequentialBootstrapper::new(ref_date)
             .add_instrument(deposit)
@@ -784,11 +742,7 @@ mod tests {
     #[test]
     fn test_bootstrap_validated_build_duration() {
         let ref_date = Date::from_ymd(2025, 1, 15).unwrap();
-        let deposit = Deposit::new(
-            ref_date,
-            Date::from_ymd(2025, 7, 15).unwrap(),
-            0.05,
-        );
+        let deposit = Deposit::new(ref_date, Date::from_ymd(2025, 7, 15).unwrap(), 0.05);
 
         let result = SequentialBootstrapper::new(ref_date)
             .add_instrument(deposit)

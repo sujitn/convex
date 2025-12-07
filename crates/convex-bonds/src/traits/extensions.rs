@@ -125,14 +125,12 @@ pub trait EmbeddedOptionBond: Bond {
 
     /// Returns true if the bond is currently callable.
     fn is_callable_on(&self, date: Date) -> bool {
-        self.call_schedule()
-            .map_or(false, |s| s.is_callable_on(date))
+        self.call_schedule().is_some_and(|s| s.is_callable_on(date))
     }
 
     /// Returns true if the bond is currently puttable.
     fn is_puttable_on(&self, date: Date) -> bool {
-        self.put_schedule()
-            .map_or(false, |s| s.is_puttable_on(date))
+        self.put_schedule().is_some_and(|s| s.is_puttable_on(date))
     }
 
     /// Returns the call price on the given date if callable.
@@ -147,12 +145,14 @@ pub trait EmbeddedOptionBond: Bond {
 
     /// Returns the first call date.
     fn first_call_date(&self) -> Option<Date> {
-        self.call_schedule().and_then(|s| s.first_call_date())
+        self.call_schedule()
+            .and_then(crate::types::CallSchedule::first_call_date)
     }
 
     /// Returns the first put date.
     fn first_put_date(&self) -> Option<Date> {
-        self.put_schedule().and_then(|s| s.first_put_date())
+        self.put_schedule()
+            .and_then(crate::types::PutSchedule::first_put_date)
     }
 
     /// Returns true if the bond has any optionality.
@@ -203,12 +203,10 @@ pub trait AmortizingBond: Bond {
 
     /// Returns the principal payment amount for a specific date.
     fn principal_payment(&self, date: Date) -> Option<Decimal> {
-        self.amortization_schedule()
-            .principal_on(date)
-            .map(|pct| {
-                let pct_dec = Decimal::try_from(pct / 100.0).unwrap_or(Decimal::ZERO);
-                self.face_value() * pct_dec
-            })
+        self.amortization_schedule().principal_on(date).map(|pct| {
+            let pct_dec = Decimal::try_from(pct / 100.0).unwrap_or(Decimal::ZERO);
+            self.face_value() * pct_dec
+        })
     }
 
     /// Returns the weighted average life (WAL) from the given date.
@@ -237,11 +235,7 @@ pub trait InflationLinkedBond: Bond {
     }
 
     /// Returns the inflation-adjusted principal for settlement.
-    fn inflation_adjusted_principal(
-        &self,
-        settlement: Date,
-        settlement_index: Decimal,
-    ) -> Decimal {
+    fn inflation_adjusted_principal(&self, settlement: Date, settlement_index: Decimal) -> Decimal {
         let ratio = self.index_ratio(settlement, settlement_index);
         self.face_value() * ratio
     }
@@ -276,8 +270,11 @@ pub trait InflationLinkedBond: Bond {
     /// Returns the reference index for a specific settlement date.
     ///
     /// This interpolates between monthly index values per the bond's convention.
-    fn reference_index(&self, settlement: Date, monthly_indices: &[(Date, Decimal)])
-        -> Option<Decimal>;
+    fn reference_index(
+        &self,
+        settlement: Date,
+        monthly_indices: &[(Date, Decimal)],
+    ) -> Option<Decimal>;
 
     /// Returns the real yield given price and settlement info.
     fn real_yield(&self, _price: Decimal, _settlement: Date) -> Option<Decimal> {
@@ -285,11 +282,7 @@ pub trait InflationLinkedBond: Bond {
     }
 
     /// Returns the breakeven inflation rate.
-    fn breakeven_inflation(
-        &self,
-        _nominal_yield: Decimal,
-        _real_yield: Decimal,
-    ) -> Decimal {
+    fn breakeven_inflation(&self, _nominal_yield: Decimal, _real_yield: Decimal) -> Decimal {
         Decimal::ZERO // To be implemented
     }
 }

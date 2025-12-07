@@ -31,4 +31,4 @@ pub mod binomial_tree;
 pub mod models;
 
 pub use binomial_tree::BinomialTree;
-pub use models::{HullWhite, ShortRateModel, ModelError};
+pub use models::{HullWhite, ModelError, ShortRateModel};

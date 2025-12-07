@@ -218,15 +218,15 @@ All calendars use bitmap storage for O(1) holiday lookups:
 | `is_holiday()` | < 10 ns | - |
 | Calendar initialization | ~1 ms | ~12 KB |
 
-## Usage
+## Installation
 
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-convex-core = { path = "../convex-core" }
+convex-core = "0.1"
 ```
 
 ## License
 
-MIT OR Apache-2.0
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.

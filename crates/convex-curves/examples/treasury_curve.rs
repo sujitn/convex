@@ -102,12 +102,17 @@ fn main() {
         .expect("Simple curve should build");
 
     println!("Simple Curve Results:");
-    println!("{:<8} {:<12} {:<12} {:<12}", "Tenor", "Yield (%)", "DF", "Zero (CC)");
+    println!(
+        "{:<8} {:<12} {:<12} {:<12}",
+        "Tenor", "Yield (%)", "DF", "Zero (CC)"
+    );
     println!("{}", "-".repeat(48));
 
     for (tenor, market_yield, label) in &market_yields {
         let df = simple_curve.discount_factor(*tenor).unwrap();
-        let zero_cc = simple_curve.zero_rate(*tenor, Compounding::Continuous).unwrap();
+        let zero_cc = simple_curve
+            .zero_rate(*tenor, Compounding::Continuous)
+            .unwrap();
         println!(
             "{:<8} {:<12.3} {:<12.6} {:<12.4}",
             label,
@@ -124,7 +129,9 @@ fn main() {
 
     for (tenor, label) in [(4.0, "4Y"), (8.0, "8Y"), (15.0, "15Y"), (25.0, "25Y")] {
         let df = simple_curve.discount_factor(tenor).unwrap();
-        let zero_cc = simple_curve.zero_rate(tenor, Compounding::Continuous).unwrap();
+        let zero_cc = simple_curve
+            .zero_rate(tenor, Compounding::Continuous)
+            .unwrap();
         println!("{:<8} {:<12.4}% {:<12.6}", label, zero_cc * 100.0, df);
     }
 
@@ -288,7 +295,10 @@ fn main() {
 
     // Repricing report
     println!("\nRepricing Quality:");
-    println!("Max error: ${:.6} per $100 notional", result.repricing_report.max_error());
+    println!(
+        "Max error: ${:.6} per $100 notional",
+        result.repricing_report.max_error()
+    );
 
     // Forward rates - this explains the zero rate "hump"
     println!("\nForward Rates (explains zero rate behavior):");
@@ -315,7 +325,13 @@ fn main() {
     );
     println!("{}", "-".repeat(52));
 
-    for (t, label) in [(1.0, "1Y"), (2.0, "2Y"), (5.0, "5Y"), (10.0, "10Y"), (30.0, "30Y")] {
+    for (t, label) in [
+        (1.0, "1Y"),
+        (2.0, "2Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (30.0, "30Y"),
+    ] {
         let simple_df = simple_curve.discount_factor(t).unwrap();
         let boot_df = boot_curve.discount_factor(t).unwrap();
 
@@ -333,7 +349,8 @@ fn main() {
     println!("\n=========================================");
     println!("  KEY TAKEAWAYS");
     println!("=========================================");
-    println!("
+    println!(
+        "
 Simple Interpolated Curve:
   - Uses market yields directly with linear interpolation
   - Fast to construct, good for quick yield lookups
@@ -345,5 +362,6 @@ Bootstrapped Curve:
   - Uses actual T-Bill prices and bond cash flows
   - More accurate for pricing and risk management
   - Suitable for: production pricing, hedging, trading
-");
+"
+    );
 }

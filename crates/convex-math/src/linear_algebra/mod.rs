@@ -27,6 +27,7 @@ use nalgebra::{DMatrix, DVector};
 /// # Returns
 ///
 /// Solution vector x.
+#[allow(clippy::many_single_char_names)]
 pub fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> MathResult<Vec<f64>> {
     let n = b.len();
 
@@ -77,7 +78,9 @@ pub fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> MathResu
 pub fn lu_decomposition(matrix: &DMatrix<f64>) -> MathResult<(DMatrix<f64>, DMatrix<f64>)> {
     let n = matrix.nrows();
     if n != matrix.ncols() {
-        return Err(MathError::invalid_input("Matrix must be square for LU decomposition"));
+        return Err(MathError::invalid_input(
+            "Matrix must be square for LU decomposition",
+        ));
     }
 
     let mut l = DMatrix::identity(n, n);
@@ -102,6 +105,7 @@ pub fn lu_decomposition(matrix: &DMatrix<f64>) -> MathResult<(DMatrix<f64>, DMat
 }
 
 /// Solves a linear system Ax = b using LU decomposition.
+#[allow(clippy::many_single_char_names)]
 pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVector<f64>> {
     let n = a.nrows();
     if n != a.ncols() {

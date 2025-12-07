@@ -25,13 +25,35 @@
 //! let dv01 = dv01_from_duration(duration, dirty_price, face_value);
 //! ```
 
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_wrap)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(dead_code)]
+
 pub mod calculator;
 pub mod convexity;
 pub mod duration;
 pub mod dv01;
+mod error;
 pub mod hedging;
 pub mod var;
-mod error;
 
 pub use calculator::{
     BondRiskCalculator, BondRiskMetrics, EffectiveDurationCalculator, KeyRateDurationCalculator,

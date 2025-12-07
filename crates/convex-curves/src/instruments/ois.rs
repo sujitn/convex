@@ -59,6 +59,7 @@ impl OIS {
     /// * `effective_date` - Swap start date
     /// * `termination_date` - Swap end date
     /// * `fixed_rate` - Fixed rate
+    #[must_use]
     pub fn new(effective_date: Date, termination_date: Date, fixed_rate: f64) -> Self {
         Self {
             effective_date,
@@ -159,7 +160,8 @@ impl CurveInstrument for OIS {
 
     fn description(&self) -> String {
         let years = self.year_fraction();
-        format!("OIS {:.1}Y at {:.4}%", years, self.fixed_rate * 100.0)
+        let rate = self.fixed_rate * 100.0;
+        format!("OIS {years:.1}Y at {rate:.4}%")
     }
 }
 
@@ -169,27 +171,26 @@ fn parse_swap_tenor(start: Date, tenor: &str) -> CurveResult<Date> {
 
     if tenor.ends_with('Y') {
         let years: i32 = tenor[..tenor.len() - 1].parse().map_err(|_| {
-            crate::error::CurveError::invalid_data(format!("Invalid tenor: {}", tenor))
+            crate::error::CurveError::invalid_data(format!("Invalid tenor: {tenor}"))
         })?;
         start.add_years(years).map_err(|e| {
-            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {}", e))
+            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {e}"))
         })
     } else if tenor.ends_with('M') {
         let months: i32 = tenor[..tenor.len() - 1].parse().map_err(|_| {
-            crate::error::CurveError::invalid_data(format!("Invalid tenor: {}", tenor))
+            crate::error::CurveError::invalid_data(format!("Invalid tenor: {tenor}"))
         })?;
         start.add_months(months).map_err(|e| {
-            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {}", e))
+            crate::error::CurveError::invalid_data(format!("Failed to calculate end date: {e}"))
         })
     } else if tenor.ends_with('W') {
         let weeks: i64 = tenor[..tenor.len() - 1].parse().map_err(|_| {
-            crate::error::CurveError::invalid_data(format!("Invalid tenor: {}", tenor))
+            crate::error::CurveError::invalid_data(format!("Invalid tenor: {tenor}"))
         })?;
         Ok(start.add_days(weeks * 7))
     } else {
         Err(crate::error::CurveError::invalid_data(format!(
-            "Invalid tenor format: {}",
-            tenor
+            "Invalid tenor format: {tenor}"
         )))
     }
 }

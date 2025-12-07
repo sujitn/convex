@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_dv01_from_prices() {
-        let price_up = 99.95;   // -0.05 from base
+        let price_up = 99.95; // -0.05 from base
         let price_down = 100.05; // +0.05 from base
 
         let dv01 = dv01_from_prices(price_up, price_down);

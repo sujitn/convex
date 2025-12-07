@@ -58,6 +58,7 @@ impl Deposit {
     /// * `start_date` - Deposit start date (spot)
     /// * `end_date` - Deposit maturity date
     /// * `rate` - Simple interest rate
+    #[must_use]
     pub fn new(start_date: Date, end_date: Date, rate: f64) -> Self {
         Self {
             start_date,
@@ -162,12 +163,10 @@ impl CurveInstrument for Deposit {
     }
 
     fn description(&self) -> String {
-        format!(
-            "Deposit {:.4}% {} to {}",
-            self.rate * 100.0,
-            self.start_date,
-            self.end_date
-        )
+        let rate = self.rate * 100.0;
+        let start_date = self.start_date;
+        let end_date = self.end_date;
+        format!("Deposit {rate:.4}% {start_date} to {end_date}")
     }
 }
 
@@ -189,23 +188,22 @@ fn parse_tenor(start: Date, tenor: &str) -> CurveResult<Date> {
                 (&tenor[..tenor.len() - 1], 'Y')
             } else {
                 return Err(crate::error::CurveError::invalid_data(format!(
-                    "Invalid tenor format: {}",
-                    tenor
+                    "Invalid tenor format: {tenor}"
                 )));
             };
 
             let num: i64 = num_str.parse().map_err(|_| {
-                crate::error::CurveError::invalid_data(format!("Invalid tenor number: {}", num_str))
+                crate::error::CurveError::invalid_data(format!("Invalid tenor number: {num_str}"))
             })?;
 
             match unit {
                 'W' => Ok(start.add_days(num * 7)),
-                'M' => start.add_months(num as i32).map_err(|e| {
-                    CurveError::invalid_data(format!("Failed to add months: {}", e))
-                }),
-                'Y' => start.add_years(num as i32).map_err(|e| {
-                    CurveError::invalid_data(format!("Failed to add years: {}", e))
-                }),
+                'M' => start
+                    .add_months(num as i32)
+                    .map_err(|e| CurveError::invalid_data(format!("Failed to add months: {e}"))),
+                'Y' => start
+                    .add_years(num as i32)
+                    .map_err(|e| CurveError::invalid_data(format!("Failed to add years: {e}"))),
                 _ => unreachable!(),
             }
         }

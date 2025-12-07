@@ -107,8 +107,8 @@ impl Yield {
             return *self;
         }
 
-        let n1 = self.compounding.periods_per_year() as f64;
-        let n2 = target.periods_per_year() as f64;
+        let n1 = f64::from(self.compounding.periods_per_year());
+        let n2 = f64::from(target.periods_per_year());
         let r1 = self.value.to_string().parse::<f64>().unwrap_or(0.0);
 
         // (1 + r1/n1)^n1 = (1 + r2/n2)^n2

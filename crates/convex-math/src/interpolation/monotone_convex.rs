@@ -52,7 +52,7 @@ pub struct MonotoneConvex {
     times: Vec<f64>,
     /// Zero rates at each time point
     zero_rates: Vec<f64>,
-    /// Discrete forward rates f_i for interval [t_{i-1}, t_i]
+    /// Discrete forward rates `f_i` for interval `[t_{i-1}, t_i]`
     discrete_forwards: Vec<f64>,
     /// Instantaneous forward rate estimates at each pillar
     f_inst: Vec<f64>,
@@ -120,8 +120,7 @@ impl MonotoneConvex {
 
             if f < 0.0 {
                 return Err(MathError::invalid_input(format!(
-                    "negative forward rate {} between t={} and t={}",
-                    f, t_prev, t_curr
+                    "negative forward rate {f} between t={t_prev} and t={t_curr}"
                 )));
             }
 
@@ -176,7 +175,7 @@ impl MonotoneConvex {
             // g_i controls the shape of the forward curve in interval i
             // We use a simple monotonicity-preserving approach
             if f_d > 0.0 {
-                g[i] = (f_i / f_d).max(0.0).min(2.0);
+                g[i] = (f_i / f_d).clamp(0.0, 2.0);
             } else {
                 g[i] = 1.0;
             }
@@ -212,7 +211,12 @@ impl MonotoneConvex {
         // Get interval boundaries
         let (t_lo, t_hi, f_lo, f_hi) = if i == 0 {
             // Before first pillar: flat forward
-            (0.0, self.times[0], self.discrete_forwards[0], self.f_inst[0])
+            (
+                0.0,
+                self.times[0],
+                self.discrete_forwards[0],
+                self.f_inst[0],
+            )
         } else if i >= self.times.len() {
             // After last pillar: flat extrapolation
             let last = self.times.len() - 1;
@@ -236,9 +240,10 @@ impl MonotoneConvex {
 
     /// Finds the interval index containing time t.
     fn find_interval(&self, t: f64) -> usize {
-        match self.times.binary_search_by(|probe| {
-            probe.partial_cmp(&t).unwrap_or(std::cmp::Ordering::Equal)
-        }) {
+        match self
+            .times
+            .binary_search_by(|probe| probe.partial_cmp(&t).unwrap_or(std::cmp::Ordering::Equal))
+        {
             Ok(i) => i + 1,
             Err(i) => i,
         }
@@ -252,16 +257,19 @@ impl MonotoneConvex {
     }
 
     /// Returns the discrete forward rates.
+    #[must_use]
     pub fn discrete_forwards(&self) -> &[f64] {
         &self.discrete_forwards
     }
 
     /// Returns the time points.
+    #[must_use]
     pub fn times(&self) -> &[f64] {
         &self.times
     }
 
     /// Returns the zero rates.
+    #[must_use]
     pub fn zero_rates(&self) -> &[f64] {
         &self.zero_rates
     }
@@ -275,14 +283,12 @@ impl Interpolator for MonotoneConvex {
         }
 
         // Check bounds
-        if !self.allow_extrapolation {
-            if t > self.times[self.times.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x: t,
-                    min: 0.0,
-                    max: self.times[self.times.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && t > self.times[self.times.len() - 1] {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x: t,
+                min: 0.0,
+                max: self.times[self.times.len() - 1],
+            });
         }
 
         // Find the interval containing t
@@ -386,7 +392,12 @@ mod tests {
         // All forward rates should be positive
         for t in [0.1, 0.5, 1.0, 1.5, 2.5, 4.0, 7.5] {
             let fwd = interp.forward_rate(t).unwrap();
-            assert!(fwd >= 0.0, "Forward rate at t={} is {}, should be >= 0", t, fwd);
+            assert!(
+                fwd >= 0.0,
+                "Forward rate at t={} is {}, should be >= 0",
+                t,
+                fwd
+            );
         }
     }
 

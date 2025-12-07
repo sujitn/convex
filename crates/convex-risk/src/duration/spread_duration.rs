@@ -50,7 +50,7 @@ mod tests {
         let price_base = 100.0;
         let bump = 0.0001; // 1 bp
 
-        let price_up = 99.95;   // spread +1bp
+        let price_up = 99.95; // spread +1bp
         let price_down = 100.05; // spread -1bp
 
         let dur = spread_duration(price_up, price_down, price_base, bump).unwrap();

@@ -122,12 +122,12 @@ impl GovernmentCouponBond {
 
         // Use appropriate compounding frequency
         let periods_per_year = convention.coupons_per_year();
-        let y_periodic = ytm / periods_per_year as f64;
+        let y_periodic = ytm / f64::from(periods_per_year);
 
         let mut dirty_price = 0.0;
         for cf in &flows {
             let t = temp.year_fraction(cf.date);
-            let n = t * periods_per_year as f64;
+            let n = t * f64::from(periods_per_year);
             let df = (1.0 + y_periodic).powf(-n);
             dirty_price += cf.amount * df;
         }
@@ -247,7 +247,7 @@ impl GovernmentCouponBond {
 
         let prev_coupon = next_coupon
             .add_months(-months_per_period)
-            .unwrap_or_else(|_| self.settlement);
+            .unwrap_or(self.settlement);
 
         (prev_coupon, next_coupon)
     }
@@ -362,16 +362,14 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            98.50,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 98.50, MarketConvention::UKGilt);
 
         assert_eq!(gov_bond.clean_price(), 98.50);
         assert_eq!(gov_bond.convention(), MarketConvention::UKGilt);
-        assert_eq!(gov_bond.instrument_type(), InstrumentType::GovernmentCouponBond);
+        assert_eq!(
+            gov_bond.instrument_type(),
+            InstrumentType::GovernmentCouponBond
+        );
     }
 
     #[test]
@@ -379,12 +377,7 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::UKGilt);
 
         // 4% annual, semi-annual = 2% per period = 2.0 on 100 face
         assert!((gov_bond.coupon_per_period() - 2.0).abs() < 1e-10);
@@ -395,12 +388,7 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::UKGilt);
 
         let flows = gov_bond.cash_flows();
 
@@ -430,12 +418,7 @@ mod tests {
         // Settlement 1 month after last coupon
         let settlement = Date::from_ymd(2025, 8, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::UKGilt);
 
         let accrued = gov_bond.accrued_interest();
 
@@ -449,12 +432,7 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            98.50,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 98.50, MarketConvention::UKGilt);
 
         let dirty = gov_bond.dirty_price();
         let clean = gov_bond.clean_price();
@@ -469,12 +447,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
         // At 4% curve, 4% coupon bond should be near par
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::UKGilt);
 
         let curve = flat_curve(settlement, 0.04);
         let pv = gov_bond.pv(&curve).unwrap();
@@ -496,12 +469,7 @@ mod tests {
 
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::UKGilt);
 
         let curve = flat_curve(settlement, 0.04);
         let implied = gov_bond.implied_df(&curve, 0.0).unwrap();
@@ -517,12 +485,8 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
         // When coupon = YTM, price should be ~100
-        let gov_bond = GovernmentCouponBond::from_ytm(
-            bond,
-            settlement,
-            0.04,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond =
+            GovernmentCouponBond::from_ytm(bond, settlement, 0.04, MarketConvention::UKGilt);
 
         // Should be close to par
         assert!((gov_bond.clean_price() - 100.0).abs() < 1.0);
@@ -534,12 +498,8 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Higher YTM than coupon = discount bond
-        let gov_bond = GovernmentCouponBond::from_ytm(
-            bond,
-            settlement,
-            0.06,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond =
+            GovernmentCouponBond::from_ytm(bond, settlement, 0.06, MarketConvention::UKGilt);
 
         assert!(gov_bond.clean_price() < 100.0);
     }
@@ -550,12 +510,8 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
         // Lower YTM than coupon = premium bond
-        let gov_bond = GovernmentCouponBond::from_ytm(
-            bond,
-            settlement,
-            0.02,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond =
+            GovernmentCouponBond::from_ytm(bond, settlement, 0.02, MarketConvention::UKGilt);
 
         assert!(gov_bond.clean_price() > 100.0);
     }
@@ -565,12 +521,7 @@ mod tests {
         let bond = create_test_bond();
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let gov_bond = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            98.50,
-            MarketConvention::UKGilt,
-        );
+        let gov_bond = GovernmentCouponBond::new(bond, settlement, 98.50, MarketConvention::UKGilt);
 
         let desc = gov_bond.description();
         assert!(desc.contains("GB0009997999"));
@@ -592,12 +543,7 @@ mod tests {
 
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
 
-        let bund = GovernmentCouponBond::new(
-            bond,
-            settlement,
-            100.0,
-            MarketConvention::GermanBund,
-        );
+        let bund = GovernmentCouponBond::new(bond, settlement, 100.0, MarketConvention::GermanBund);
 
         // 5 years, annual = 5 cash flows
         let flows = bund.cash_flows();

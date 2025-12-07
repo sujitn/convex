@@ -62,7 +62,7 @@ impl CubicSpline {
             }
         }
 
-        let y2s = compute_second_derivatives(&xs, &ys)?;
+        let y2s = compute_second_derivatives(&xs, &ys);
 
         Ok(Self {
             xs,
@@ -81,9 +81,10 @@ impl CubicSpline {
 
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
-        match self.xs.binary_search_by(|probe| {
-            probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal)
-        }) {
+        match self
+            .xs
+            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
+        {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
@@ -91,16 +92,16 @@ impl CubicSpline {
 }
 
 impl Interpolator for CubicSpline {
+    #[allow(clippy::many_single_char_names)]
+    #[allow(clippy::similar_names)]
     fn interpolate(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -124,16 +125,16 @@ impl Interpolator for CubicSpline {
         Ok(y)
     }
 
+    #[allow(clippy::many_single_char_names)]
+    #[allow(clippy::similar_names)]
     fn derivative(&self, x: f64) -> MathResult<f64> {
         // Check bounds
-        if !self.allow_extrapolation {
-            if x < self.xs[0] || x > self.xs[self.xs.len() - 1] {
-                return Err(MathError::ExtrapolationNotAllowed {
-                    x,
-                    min: self.xs[0],
-                    max: self.xs[self.xs.len() - 1],
-                });
-            }
+        if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
+            return Err(MathError::ExtrapolationNotAllowed {
+                x,
+                min: self.xs[0],
+                max: self.xs[self.xs.len() - 1],
+            });
         }
 
         let i = self.find_segment(x);
@@ -151,8 +152,7 @@ impl Interpolator for CubicSpline {
 
         // Derivative of cubic spline formula
         // dy/dx = (y_hi - y_lo)/h - (3*a^2 - 1)/6 * h * y2_lo + (3*b^2 - 1)/6 * h * y2_hi
-        let dy = (y_hi - y_lo) / h
-            - (3.0 * a * a - 1.0) / 6.0 * h * y2_lo
+        let dy = (y_hi - y_lo) / h - (3.0 * a * a - 1.0) / 6.0 * h * y2_lo
             + (3.0 * b * b - 1.0) / 6.0 * h * y2_hi;
 
         Ok(dy)
@@ -172,7 +172,7 @@ impl Interpolator for CubicSpline {
 }
 
 /// Computes the second derivatives for natural cubic spline.
-fn compute_second_derivatives(xs: &[f64], ys: &[f64]) -> MathResult<Vec<f64>> {
+fn compute_second_derivatives(xs: &[f64], ys: &[f64]) -> Vec<f64> {
     let n = xs.len();
     let mut y2s = vec![0.0; n];
     let mut u = vec![0.0; n - 1];
@@ -186,8 +186,8 @@ fn compute_second_derivatives(xs: &[f64], ys: &[f64]) -> MathResult<Vec<f64>> {
         let sig = (xs[i] - xs[i - 1]) / (xs[i + 1] - xs[i - 1]);
         let p = sig * y2s[i - 1] + 2.0;
         y2s[i] = (sig - 1.0) / p;
-        u[i] = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i])
-            - (ys[i] - ys[i - 1]) / (xs[i] - xs[i - 1]);
+        u[i] =
+            (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]) - (ys[i] - ys[i - 1]) / (xs[i] - xs[i - 1]);
         u[i] = (6.0 * u[i] / (xs[i + 1] - xs[i - 1]) - sig * u[i - 1]) / p;
     }
 
@@ -199,7 +199,7 @@ fn compute_second_derivatives(xs: &[f64], ys: &[f64]) -> MathResult<Vec<f64>> {
         y2s[i] = y2s[i] * y2s[i + 1] + u[i];
     }
 
-    Ok(y2s)
+    y2s
 }
 
 #[cfg(test)]

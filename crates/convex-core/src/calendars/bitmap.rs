@@ -305,7 +305,9 @@ impl HolidayCalendarBuilder {
     pub fn add_easter_holiday(mut self, offset_days: i32) -> Self {
         for year in self.start_year..=self.end_year {
             if let Some(easter) = easter_sunday(year) {
-                if let Some(date) = easter.checked_add_signed(chrono::Duration::days(offset_days as i64)) {
+                if let Some(date) =
+                    easter.checked_add_signed(chrono::Duration::days(offset_days as i64))
+                {
                     self.holidays.insert(date);
                 }
             }
@@ -381,6 +383,7 @@ pub fn last_weekday_of_month(year: i32, month: u32, weekday: chrono::Weekday) ->
 }
 
 /// Calculate Easter Sunday using the Anonymous Gregorian algorithm.
+#[allow(clippy::many_single_char_names)]
 pub fn easter_sunday(year: i32) -> Option<NaiveDate> {
     let a = year % 19;
     let b = year / 100;

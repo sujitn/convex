@@ -134,12 +134,12 @@ impl YieldSolver {
             });
         }
 
-        let periods_per_year = frequency.periods_per_year() as f64;
+        let periods_per_year = f64::from(frequency.periods_per_year());
 
         // Initial guess based on current yield approximation
         let total_coupons: f64 = cf_data.iter().map(|(_, amt)| amt).sum();
-        let years_to_mat = cf_data.last().map(|(y, _)| *y).unwrap_or(1.0);
-        let face = cf_data.last().map(|(_, amt)| *amt).unwrap_or(100.0).min(100.0);
+        let years_to_mat = cf_data.last().map_or(1.0, |(y, _)| *y);
+        let face = cf_data.last().map_or(100.0, |(_, amt)| *amt).min(100.0);
         let annual_coupon = if years_to_mat > 0.0 {
             (total_coupons - face) / years_to_mat
         } else {
@@ -153,14 +153,10 @@ impl YieldSolver {
         };
 
         // Objective function: PV(yield) - target = 0
-        let objective = |y: f64| {
-            self.pv_at_yield(&cf_data, y, periods_per_year) - target
-        };
+        let objective = |y: f64| self.pv_at_yield(&cf_data, y, periods_per_year) - target;
 
         // Analytical derivative for Newton-Raphson
-        let derivative = |y: f64| {
-            self.pv_derivative(&cf_data, y, periods_per_year)
-        };
+        let derivative = |y: f64| self.pv_derivative(&cf_data, y, periods_per_year);
 
         // Try Newton-Raphson first
         match newton_raphson(objective, derivative, initial_guess, &self.config) {
@@ -214,32 +210,44 @@ impl YieldSolver {
         match self.convention {
             YieldConvention::TrueYield => {
                 // True yield: exact time discounting
-                cf_data.iter().map(|(years, amount)| {
-                    let df = (1.0 + yield_rate).powf(-years);
-                    amount * df
-                }).sum()
+                cf_data
+                    .iter()
+                    .map(|(years, amount)| {
+                        let df = (1.0 + yield_rate).powf(-years);
+                        amount * df
+                    })
+                    .sum()
             }
             YieldConvention::Continuous => {
                 // Continuous compounding
-                cf_data.iter().map(|(years, amount)| {
-                    let df = (-yield_rate * years).exp();
-                    amount * df
-                }).sum()
+                cf_data
+                    .iter()
+                    .map(|(years, amount)| {
+                        let df = (-yield_rate * years).exp();
+                        amount * df
+                    })
+                    .sum()
             }
             YieldConvention::SimpleYield => {
                 // Japanese convention - simple interest
-                cf_data.iter().map(|(years, amount)| {
-                    let df = 1.0 / (1.0 + yield_rate * years);
-                    amount * df
-                }).sum()
+                cf_data
+                    .iter()
+                    .map(|(years, amount)| {
+                        let df = 1.0 / (1.0 + yield_rate * years);
+                        amount * df
+                    })
+                    .sum()
             }
             _ => {
                 // Street Convention and others: periodic compounding
-                cf_data.iter().map(|(years, amount)| {
-                    let periods = years * periods_per_year;
-                    let df = 1.0 / (1.0 + rate_per_period).powf(periods);
-                    amount * df
-                }).sum()
+                cf_data
+                    .iter()
+                    .map(|(years, amount)| {
+                        let periods = years * periods_per_year;
+                        let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+                        amount * df
+                    })
+                    .sum()
             }
         }
     }
@@ -249,39 +257,44 @@ impl YieldSolver {
         let rate_per_period = yield_rate / periods_per_year;
 
         match self.convention {
-            YieldConvention::TrueYield => {
-                cf_data.iter().map(|(years, amount)| {
+            YieldConvention::TrueYield => cf_data
+                .iter()
+                .map(|(years, amount)| {
                     let df = (1.0 + yield_rate).powf(-years);
                     let ddf_dy = -years * df / (1.0 + yield_rate);
                     amount * ddf_dy
-                }).sum()
-            }
-            YieldConvention::Continuous => {
-                cf_data.iter().map(|(years, amount)| {
+                })
+                .sum(),
+            YieldConvention::Continuous => cf_data
+                .iter()
+                .map(|(years, amount)| {
                     let df = (-yield_rate * years).exp();
                     let ddf_dy = -years * df;
                     amount * ddf_dy
-                }).sum()
-            }
-            YieldConvention::SimpleYield => {
-                cf_data.iter().map(|(years, amount)| {
+                })
+                .sum(),
+            YieldConvention::SimpleYield => cf_data
+                .iter()
+                .map(|(years, amount)| {
                     let denom = 1.0 + yield_rate * years;
                     let ddf_dy = -years / (denom * denom);
                     amount * ddf_dy
-                }).sum()
-            }
-            _ => {
-                cf_data.iter().map(|(years, amount)| {
+                })
+                .sum(),
+            _ => cf_data
+                .iter()
+                .map(|(years, amount)| {
                     let periods = years * periods_per_year;
                     let df = 1.0 / (1.0 + rate_per_period).powf(periods);
                     let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
                     amount * ddf_dy
-                }).sum()
-            }
+                })
+                .sum(),
         }
     }
 
     /// Calculates dirty price from yield.
+    #[must_use]
     pub fn dirty_price_from_yield(
         &self,
         cash_flows: &[BondCashFlow],
@@ -300,11 +313,12 @@ impl YieldSolver {
             })
             .collect();
 
-        let periods_per_year = frequency.periods_per_year() as f64;
+        let periods_per_year = f64::from(frequency.periods_per_year());
         self.pv_at_yield(&cf_data, yield_rate, periods_per_year)
     }
 
     /// Calculates clean price from yield.
+    #[must_use]
     pub fn clean_price_from_yield(
         &self,
         cash_flows: &[BondCashFlow],
@@ -314,7 +328,8 @@ impl YieldSolver {
         day_count: DayCountConvention,
         frequency: Frequency,
     ) -> f64 {
-        let dirty = self.dirty_price_from_yield(cash_flows, yield_rate, settlement, day_count, frequency);
+        let dirty =
+            self.dirty_price_from_yield(cash_flows, yield_rate, settlement, day_count, frequency);
         dirty - accrued.to_f64().unwrap_or(0.0)
     }
 }
@@ -344,6 +359,7 @@ pub fn current_yield_from_bond(bond: &dyn FixedCouponBond, clean_price: Decimal)
 ///
 /// Discount margin is the spread over the reference rate that makes
 /// the present value of projected cash flows equal to the dirty price.
+#[allow(dead_code)]
 pub fn discount_margin(
     _projected_cash_flows: &[BondCashFlow],
     _dirty_price: Decimal,
@@ -437,14 +453,16 @@ mod tests {
         );
 
         let solver = YieldSolver::new();
-        let result = solver.solve(
-            &cash_flows,
-            dec!(100), // Clean price at par
-            dec!(0),   // No accrued for simplicity
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                dec!(100), // Clean price at par
+                dec!(0),   // No accrued for simplicity
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // YTM should be approximately equal to coupon rate
         assert!((result.yield_value - 0.05).abs() < 0.001);
@@ -467,14 +485,16 @@ mod tests {
         );
 
         let solver = YieldSolver::new();
-        let result = solver.solve(
-            &cash_flows,
-            dec!(95), // Discount price
-            dec!(0),
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                dec!(95), // Discount price
+                dec!(0),
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // YTM should be higher than coupon rate
         assert!(result.yield_value > 0.05);
@@ -498,14 +518,16 @@ mod tests {
         );
 
         let solver = YieldSolver::new();
-        let result = solver.solve(
-            &cash_flows,
-            dec!(105), // Premium price
-            dec!(0),
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                dec!(105), // Premium price
+                dec!(0),
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // YTM should be lower than coupon rate
         assert!(result.yield_value < 0.05);
@@ -532,14 +554,16 @@ mod tests {
         let accrued = dec!(1.25);
 
         // Calculate YTM from price
-        let result = solver.solve(
-            &cash_flows,
-            original_price,
-            accrued,
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                original_price,
+                accrued,
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // Calculate clean price from YTM
         let calculated_clean = solver.clean_price_from_yield(
@@ -625,14 +649,16 @@ mod tests {
             .with_convention(YieldConvention::StreetConvention)
             .with_tolerance(1e-10);
 
-        let result = solver.solve(
-            &cash_flows,
-            clean_price,
-            accrued,
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                clean_price,
+                accrued,
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // Expected YTM around 4.9-5.2%
         // Note: Exact match to Bloomberg requires precise day count handling
@@ -668,31 +694,33 @@ mod tests {
             Frequency::SemiAnnual,
         );
 
-        let street_solver = YieldSolver::new()
-            .with_convention(YieldConvention::StreetConvention);
-        let true_solver = YieldSolver::new()
-            .with_convention(YieldConvention::TrueYield);
+        let street_solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
+        let true_solver = YieldSolver::new().with_convention(YieldConvention::TrueYield);
 
         let price = dec!(98.50);
         let accrued = dec!(0);
 
-        let street_result = street_solver.solve(
-            &cash_flows,
-            price,
-            accrued,
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let street_result = street_solver
+            .solve(
+                &cash_flows,
+                price,
+                accrued,
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
-        let true_result = true_solver.solve(
-            &cash_flows,
-            price,
-            accrued,
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let true_result = true_solver
+            .solve(
+                &cash_flows,
+                price,
+                accrued,
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // True yield should be slightly different from street yield
         // but both should converge
@@ -701,7 +729,11 @@ mod tests {
 
         // Both should be close but not identical
         let diff = (street_result.yield_value - true_result.yield_value).abs();
-        assert!(diff < 0.005, "Street vs True yield difference too large: {}", diff);
+        assert!(
+            diff < 0.005,
+            "Street vs True yield difference too large: {}",
+            diff
+        );
     }
 
     #[test]
@@ -734,7 +766,11 @@ mod tests {
 
             assert!(result.is_ok(), "Failed to converge for price {}", price);
             let result = result.unwrap();
-            assert!(result.residual.abs() < 1e-8, "Large residual for price {}", price);
+            assert!(
+                result.residual.abs() < 1e-8,
+                "Large residual for price {}",
+                price
+            );
         }
     }
 
@@ -754,14 +790,16 @@ mod tests {
         );
 
         let solver = YieldSolver::new();
-        let result = solver.solve(
-            &cash_flows,
-            dec!(100),
-            dec!(0),
-            settlement,
-            DayCountConvention::ActActIcma,
-            Frequency::Annual,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                dec!(100),
+                dec!(0),
+                settlement,
+                DayCountConvention::ActActIcma,
+                Frequency::Annual,
+            )
+            .unwrap();
 
         // At par, YTM = coupon rate
         assert!((result.yield_value - 0.04).abs() < 0.001);
@@ -783,14 +821,16 @@ mod tests {
         );
 
         let solver = YieldSolver::new();
-        let result = solver.solve(
-            &cash_flows,
-            dec!(100),
-            dec!(0),
-            settlement,
-            DayCountConvention::Act360,
-            Frequency::Quarterly,
-        ).unwrap();
+        let result = solver
+            .solve(
+                &cash_flows,
+                dec!(100),
+                dec!(0),
+                settlement,
+                DayCountConvention::Act360,
+                Frequency::Quarterly,
+            )
+            .unwrap();
 
         // At par, YTM = coupon rate
         assert!((result.yield_value - 0.06).abs() < 0.001);

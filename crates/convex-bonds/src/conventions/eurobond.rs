@@ -99,7 +99,7 @@ pub fn french_oat() -> BondConventions {
         .build()
 }
 
-/// Returns conventions for French inflation-linked bonds (OATi, OAT€i).
+/// Returns conventions for French inflation-linked bonds (`OATi`, OAT€i).
 ///
 /// - Day count: Actual/Actual (ICMA)
 /// - Frequency: Annual
@@ -220,7 +220,7 @@ pub fn commercial_paper() -> BondConventions {
         .price_quote(PriceQuoteConvention::Discount)
         .quote_clean(true)
         .face_denomination(100)
-        .minimum_denomination(100000)
+        .minimum_denomination(100_000)
         .description("Euro Commercial Paper")
         .build()
 }

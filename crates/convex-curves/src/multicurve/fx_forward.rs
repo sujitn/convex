@@ -239,7 +239,7 @@ impl FxForwardCurve {
 
     /// Returns the implied forward rate differential.
     ///
-    /// This is approximately: r_domestic - r_foreign
+    /// This is approximately: `r_domestic` - `r_foreign`
     pub fn implied_rate_differential(&self, t: f64) -> CurveResult<f64> {
         if t <= 0.0 {
             return Ok(0.0);
@@ -411,8 +411,8 @@ mod tests {
         // USD curve ~5% rate
         DiscountCurveBuilder::new(ref_date)
             .add_pillar(0.0, 1.0)
-            .add_pillar(1.0, 0.9524)  // ≈ exp(-0.05)
-            .add_pillar(5.0, 0.7788)  // ≈ exp(-0.05*5)
+            .add_pillar(1.0, 0.9524) // ≈ exp(-0.05)
+            .add_pillar(5.0, 0.7788) // ≈ exp(-0.05*5)
             .with_interpolation(InterpolationMethod::LogLinear)
             .with_extrapolation()
             .build()
@@ -423,8 +423,8 @@ mod tests {
         // EUR curve ~3% rate
         DiscountCurveBuilder::new(ref_date)
             .add_pillar(0.0, 1.0)
-            .add_pillar(1.0, 0.9704)  // ≈ exp(-0.03)
-            .add_pillar(5.0, 0.8607)  // ≈ exp(-0.03*5)
+            .add_pillar(1.0, 0.9704) // ≈ exp(-0.03)
+            .add_pillar(5.0, 0.8607) // ≈ exp(-0.03*5)
             .with_interpolation(InterpolationMethod::LogLinear)
             .with_extrapolation()
             .build()
@@ -479,7 +479,7 @@ mod tests {
         // 1Y forward: USD rate > EUR rate, so EUR/USD should appreciate
         // F = S × DF_EUR / DF_USD = 1.10 × 0.9704 / 0.9524 ≈ 1.121
         let fwd_1y = fx.forward_rate(1.0).unwrap();
-        assert!(fwd_1y > fx.spot_rate());  // EUR appreciates vs USD
+        assert!(fwd_1y > fx.spot_rate()); // EUR appreciates vs USD
 
         // Forward points should be positive
         let points = fx.forward_points(1.0).unwrap();
@@ -501,7 +501,7 @@ mod tests {
             .spot_rate(1.10)
             .domestic_curve(usd_curve(ref_date))
             .foreign_curve(eur_curve(ref_date))
-            .constant_basis_bps(-20.0)  // 20bp negative basis
+            .constant_basis_bps(-20.0) // 20bp negative basis
             .build()
             .unwrap();
 

@@ -3,8 +3,8 @@
 //! Provides comprehensive convention definitions for all major rate indices,
 //! including publication times, fixing calendars, and data source information.
 
-use convex_core::types::Currency;
 use convex_core::daycounts::DayCountConvention;
+use convex_core::types::Currency;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{CalendarId, RateIndex, Tenor};
@@ -167,12 +167,13 @@ impl Default for ArrearConvention {
 }
 
 /// How observation dates relate to accrual dates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum ShiftType {
     /// Shift observation dates back (ISDA standard).
     ///
     /// The observation period is shifted backward by lookback days,
     /// maintaining a 1:1 relationship between observation and accrual days.
+    #[default]
     ObservationShift,
 
     /// Shift payment weights (alternative).
@@ -185,12 +186,6 @@ pub enum ShiftType {
     ///
     /// Each accrual day looks back N business days for its rate.
     Lookback,
-}
-
-impl Default for ShiftType {
-    fn default() -> Self {
-        Self::ObservationShift
-    }
 }
 
 /// Publication time for rate fixings.
@@ -250,7 +245,7 @@ impl std::fmt::Display for IndexSource {
             IndexSource::ONS => write!(f, "Office for National Statistics"),
             IndexSource::Eurostat => write!(f, "Eurostat"),
             IndexSource::IBA => write!(f, "ICE Benchmark Administration"),
-            IndexSource::Custom(s) => write!(f, "{}", s),
+            IndexSource::Custom(s) => write!(f, "{s}"),
         }
     }
 }

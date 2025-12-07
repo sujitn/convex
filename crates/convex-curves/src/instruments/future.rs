@@ -115,6 +115,7 @@ impl RateFuture {
     /// * `accrual_start` - Start of accrual period
     /// * `accrual_end` - End of accrual period
     /// * `price` - Quoted price (e.g., 94.75)
+    #[must_use]
     pub fn new(
         future_type: FutureType,
         last_trading_date: Date,
@@ -268,13 +269,14 @@ impl CurveInstrument for RateFuture {
 /// Calculates the IMM date (third Wednesday) for a given month.
 ///
 /// IMM dates are the standard expiry dates for rate futures.
+#[must_use]
 pub fn imm_date(year: i32, month: u32) -> Option<Date> {
     // Start from the first of the month
     let first = Date::from_ymd(year, month, 1).ok()?;
 
     // Find the first Wednesday
     // chrono::Weekday: Monday=0, Tuesday=1, Wednesday=2, etc.
-    let weekday = first.weekday().num_days_from_monday() as i64;
+    let weekday = i64::from(first.weekday().num_days_from_monday());
     let days_to_wed = (2 - weekday + 7) % 7; // Wednesday = 2 in chrono
 
     // Third Wednesday = first Wednesday + 14 days
@@ -283,6 +285,7 @@ pub fn imm_date(year: i32, month: u32) -> Option<Date> {
 }
 
 /// Returns the next IMM dates from a given date.
+#[must_use]
 pub fn next_imm_dates(from: Date, count: usize) -> Vec<Date> {
     let mut dates = Vec::with_capacity(count);
     let mut year = from.year();

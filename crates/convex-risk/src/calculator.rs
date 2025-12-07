@@ -199,7 +199,11 @@ impl BondRiskCalculator {
     /// Calculates DV01 for the full position.
     pub fn dv01(&self) -> Result<DV01, RiskError> {
         let mod_dur = self.modified_duration()?;
-        Ok(dv01_from_duration(mod_dur, self.dirty_price, self.face_value))
+        Ok(dv01_from_duration(
+            mod_dur,
+            self.dirty_price,
+            self.face_value,
+        ))
     }
 
     /// Calculates all risk metrics at once.
@@ -244,6 +248,13 @@ pub struct EffectiveDurationCalculator {
     bump_size: f64,
 }
 
+impl Default for EffectiveDurationCalculator {
+    /// Default calculator with 10bp bump.
+    fn default() -> Self {
+        Self::new(10.0)
+    }
+}
+
 impl EffectiveDurationCalculator {
     /// Creates a new effective duration calculator.
     ///
@@ -254,11 +265,6 @@ impl EffectiveDurationCalculator {
         Self {
             bump_size: bump_bps / 10_000.0,
         }
-    }
-
-    /// Default calculator with 10bp bump.
-    pub fn default() -> Self {
-        Self::new(10.0)
     }
 
     /// Calculates effective duration from pre-computed prices.
@@ -351,7 +357,13 @@ impl KeyRateDurationCalculator {
         let durations: Result<Vec<_>, _> = tenor_prices
             .iter()
             .map(|(tenor, price_up, price_down)| {
-                key_rate_duration_at_tenor(*price_up, *price_down, base_price, self.bump_size, *tenor)
+                key_rate_duration_at_tenor(
+                    *price_up,
+                    *price_down,
+                    base_price,
+                    self.bump_size,
+                    *tenor,
+                )
             })
             .collect();
 
@@ -376,9 +388,7 @@ mod tests {
         let cash_flows = vec![2.5, 2.5, 2.5, 102.5];
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times,
-            cash_flows,
-            0.05,  // 5% YTM
+            times, cash_flows, 0.05,  // 5% YTM
             2,     // semi-annual
             100.0, // at par
             100.0, // $100 face
@@ -408,9 +418,7 @@ mod tests {
         let cash_flows = vec![100.0];
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times,
-            cash_flows,
-            0.05,  // 5% YTM
+            times, cash_flows, 0.05,  // 5% YTM
             1,     // annual
             100.0, // at par (for simplicity)
             100.0,
@@ -432,7 +440,7 @@ mod tests {
 
         // Simulate bond with mod dur ≈ 5
         let price_base = 100.0;
-        let price_up = 99.5;   // -0.5% for +10 bps
+        let price_up = 99.5; // -0.5% for +10 bps
         let price_down = 100.5; // +0.5% for -10 bps
 
         let dur = calc.from_prices(price_base, price_up, price_down).unwrap();
@@ -442,8 +450,7 @@ mod tests {
 
     #[test]
     fn test_key_rate_duration_calculator() {
-        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0])
-            .with_bump_bps(1.0);
+        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0]).with_bump_bps(1.0);
 
         let base_price = 100.0;
         // Simulate a bond with key rate exposures
@@ -459,25 +466,32 @@ mod tests {
 
         // Check total is reasonable (1 + 5 + 2 = 8)
         let total = krds.total_duration().as_f64();
-        assert!(total > 7.0 && total < 9.0, "Total KRD {} not in expected range", total);
+        assert!(
+            total > 7.0 && total < 9.0,
+            "Total KRD {} not in expected range",
+            total
+        );
 
         // Check we can retrieve individual KRDs
         let krd_5y = krds.at_tenor(5.0).unwrap();
-        assert!(krd_5y.duration.as_f64() > 4.0, "5Y KRD {} not as expected", krd_5y.duration.as_f64());
+        assert!(
+            krd_5y.duration.as_f64() > 4.0,
+            "5Y KRD {} not as expected",
+            krd_5y.duration.as_f64()
+        );
     }
 
     #[test]
     fn test_price_change_estimation() {
         let times = vec![0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
-        let cash_flows: Vec<f64> = (0..9).map(|_| 3.75).chain(std::iter::once(103.75)).collect();
+        let cash_flows: Vec<f64> = (0..9)
+            .map(|_| 3.75)
+            .chain(std::iter::once(103.75))
+            .collect();
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times,
-            cash_flows,
-            0.075, // 7.5% YTM
-            2,
-            100.0,
-            100.0,
+            times, cash_flows, 0.075, // 7.5% YTM
+            2, 100.0, 100.0,
         )
         .unwrap();
 
@@ -501,15 +515,14 @@ mod tests {
 
         // 5-year bond, 7.5% semi-annual coupon
         let times: Vec<f64> = (1..=10).map(|i| i as f64 * 0.5).collect();
-        let cash_flows: Vec<f64> = (0..9).map(|_| 3.75).chain(std::iter::once(103.75)).collect();
+        let cash_flows: Vec<f64> = (0..9)
+            .map(|_| 3.75)
+            .chain(std::iter::once(103.75))
+            .collect();
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times,
-            cash_flows,
-            0.075, // 7.5% YTM (at par for simplicity)
-            2,
-            100.0,
-            100.0,
+            times, cash_flows, 0.075, // 7.5% YTM (at par for simplicity)
+            2, 100.0, 100.0,
         )
         .unwrap();
 
@@ -531,14 +544,7 @@ mod tests {
 
     #[test]
     fn test_empty_cash_flows_error() {
-        let result = BondRiskCalculator::from_cash_flows(
-            vec![],
-            vec![],
-            0.05,
-            2,
-            100.0,
-            100.0,
-        );
+        let result = BondRiskCalculator::from_cash_flows(vec![], vec![], 0.05, 2, 100.0, 100.0);
 
         assert!(result.is_err());
     }

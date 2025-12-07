@@ -33,7 +33,7 @@ use crate::traits::Curve;
 /// - τ = year fraction of the FRA period
 /// - F = forward rate = (DF(start)/DF(end) - 1) / τ
 /// - K = fixed (contracted) rate
-/// - payment_date = start date (FRA settles at period start)
+/// - `payment_date` = start date (FRA settles at period start)
 ///
 /// # Example
 ///
@@ -73,6 +73,7 @@ impl FRA {
     /// * `start_date` - Accrual period start
     /// * `end_date` - Accrual period end
     /// * `fixed_rate` - The contracted fixed rate
+    #[must_use]
     pub fn new(trade_date: Date, start_date: Date, end_date: Date, fixed_rate: f64) -> Self {
         Self {
             trade_date,
@@ -99,11 +100,11 @@ impl FRA {
         fixed_rate: f64,
     ) -> CurveResult<Self> {
         let start_date = trade_date.add_months(start_months).map_err(|e| {
-            CurveError::invalid_data(format!("Failed to calculate start date: {}", e))
+            CurveError::invalid_data(format!("Failed to calculate start date: {e}"))
         })?;
-        let end_date = trade_date.add_months(end_months).map_err(|e| {
-            CurveError::invalid_data(format!("Failed to calculate end date: {}", e))
-        })?;
+        let end_date = trade_date
+            .add_months(end_months)
+            .map_err(|e| CurveError::invalid_data(format!("Failed to calculate end date: {e}")))?;
 
         Ok(Self::new(trade_date, start_date, end_date, fixed_rate))
     }
@@ -223,7 +224,8 @@ impl CurveInstrument for FRA {
             (self.start_date.days_between(&self.trade_date).abs() as f64 / 30.0).round() as i32;
         let end_months =
             (self.end_date.days_between(&self.trade_date).abs() as f64 / 30.0).round() as i32;
-        format!("FRA {}x{} at {:.4}%", start_months, end_months, self.fixed_rate * 100.0)
+        let rate = self.fixed_rate * 100.0;
+        format!("FRA {start_months}x{end_months} at {rate:.4}%")
     }
 }
 

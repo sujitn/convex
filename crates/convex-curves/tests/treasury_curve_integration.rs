@@ -151,7 +151,10 @@ fn test_build_treasury_curve_from_market_data() {
     println!("\n=== T-NOTE/BOND PRICES ===");
     println!("2Y: coupon=3.375%, price=99.25");
     println!("3Y: coupon=3.500%, price=100.00");
-    println!("5Y: coupon=3.500%, price={:.5}", parse_price_32nds(99.0, 5.0));
+    println!(
+        "5Y: coupon=3.500%, price={:.5}",
+        parse_price_32nds(99.0, 5.0)
+    );
     println!("7Y: coupon=3.750%, price=99.25");
     println!(
         "10Y: coupon=4.000%, price={:.5}",
@@ -336,7 +339,9 @@ fn test_build_treasury_curve_from_market_data() {
     );
 
     println!("\nNote: 20Y-30Y forward < 10Y-20Y forward → 30Y zero < 20Y zero");
-    println!("This 'hump' in zero rates is mathematically consistent with the flat 20Y-30Y par spread.");
+    println!(
+        "This 'hump' in zero rates is mathematically consistent with the flat 20Y-30Y par spread."
+    );
 
     println!("\n=== CURVE BUILD SUCCESSFUL ===");
 }

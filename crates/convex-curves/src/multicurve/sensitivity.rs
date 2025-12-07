@@ -144,7 +144,7 @@ impl CurveSensitivityCalculator {
 
     /// Calculates DV01 (dollar value of 1 bp) for a pricing function.
     ///
-    /// DV01 = -(P+ - P-) / (2 * bump_size)
+    /// DV01 = -(P+ - P-) / (2 * `bump_size`)
     ///
     /// # Arguments
     ///
@@ -310,7 +310,8 @@ impl CurveSensitivityCalculator {
         let mut results = Vec::with_capacity(buckets.len());
 
         for &(start, end) in buckets {
-            let bumped = self.bump_curve_bucket(curve, start.years(), end.years(), self.bump_size)?;
+            let bumped =
+                self.bump_curve_bucket(curve, start.years(), end.years(), self.bump_size)?;
             let bumped_value = price_fn(&bumped)?;
 
             let sensitivity = (bumped_value - base_value) / self.bump_size;
@@ -332,7 +333,9 @@ impl CurveSensitivityCalculator {
         let ref_date = curve.reference_date();
 
         // Sample the curve at standard tenors and bump
-        let tenors = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+        let tenors = [
+            0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+        ];
 
         let mut builder = DiscountCurveBuilder::new(ref_date)
             .with_interpolation(InterpolationMethod::LogLinear)
@@ -343,7 +346,11 @@ impl CurveSensitivityCalculator {
             // Convert DF to zero rate, bump, convert back
             let zero_rate = if t > 0.0 { -df.ln() / t } else { 0.0 };
             let bumped_rate = zero_rate + shift;
-            let bumped_df = if t > 0.0 { (-bumped_rate * t).exp() } else { 1.0 };
+            let bumped_df = if t > 0.0 {
+                (-bumped_rate * t).exp()
+            } else {
+                1.0
+            };
             builder = builder.add_pillar(t, bumped_df);
         }
 
@@ -360,7 +367,9 @@ impl CurveSensitivityCalculator {
         let ref_date = curve.reference_date();
 
         // Sample curve at standard tenors, bump only at the target tenor
-        let tenors = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+        let tenors = [
+            0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+        ];
 
         let mut builder = DiscountCurveBuilder::new(ref_date)
             .with_interpolation(InterpolationMethod::LogLinear)
@@ -380,7 +389,11 @@ impl CurveSensitivityCalculator {
 
             let zero_rate = if t > 0.0 { -df.ln() / t } else { 0.0 };
             let bumped_rate = zero_rate + shift * weight;
-            let bumped_df = if t > 0.0 { (-bumped_rate * t).exp() } else { 1.0 };
+            let bumped_df = if t > 0.0 {
+                (-bumped_rate * t).exp()
+            } else {
+                1.0
+            };
 
             builder = builder.add_pillar(t, bumped_df);
         }
@@ -398,7 +411,9 @@ impl CurveSensitivityCalculator {
     ) -> CurveResult<DiscountCurve> {
         let ref_date = curve.reference_date();
 
-        let tenors = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+        let tenors = [
+            0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+        ];
 
         let mut builder = DiscountCurveBuilder::new(ref_date)
             .with_interpolation(InterpolationMethod::LogLinear)
@@ -420,7 +435,11 @@ impl CurveSensitivityCalculator {
 
             let zero_rate = if t > 0.0 { -df.ln() / t } else { 0.0 };
             let bumped_rate = zero_rate + shift * weight.max(0.0);
-            let bumped_df = if t > 0.0 { (-bumped_rate * t).exp() } else { 1.0 };
+            let bumped_df = if t > 0.0 {
+                (-bumped_rate * t).exp()
+            } else {
+                1.0
+            };
 
             builder = builder.add_pillar(t, bumped_df);
         }
@@ -430,7 +449,7 @@ impl CurveSensitivityCalculator {
 }
 
 /// Trait for instruments that can be priced on a curve set.
-pub trait Priceable: Send + Sync {
+pub trait _Priceable: Send + Sync {
     /// Calculates the present value using the curve set.
     fn pv(&self, curves: &CurveSet) -> CurveResult<f64>;
 }
@@ -530,7 +549,11 @@ mod tests {
         let calculator = CurveSensitivityCalculator::new();
 
         let price_fn = zero_coupon_pricer(5.0);
-        let buckets = [(Tenor::M12, Tenor::Y2), (Tenor::Y2, Tenor::Y5), (Tenor::Y5, Tenor::Y10)];
+        let buckets = [
+            (Tenor::M12, Tenor::Y2),
+            (Tenor::Y2, Tenor::Y5),
+            (Tenor::Y5, Tenor::Y10),
+        ];
 
         let sensitivities = calculator
             .bucket_sensitivities(&price_fn, &curve, &buckets)
@@ -545,8 +568,8 @@ mod tests {
         // The 2Y-5Y bucket should have the largest sensitivity for a 5Y zero
         let bucket_2y_5y = &sensitivities[1];
         assert!(
-            bucket_2y_5y.sensitivity.abs() >= sensitivities[0].sensitivity.abs() ||
-            bucket_2y_5y.sensitivity.abs() >= sensitivities[2].sensitivity.abs(),
+            bucket_2y_5y.sensitivity.abs() >= sensitivities[0].sensitivity.abs()
+                || bucket_2y_5y.sensitivity.abs() >= sensitivities[2].sensitivity.abs(),
             "2Y-5Y bucket should have significant sensitivity for 5Y zero"
         );
     }
@@ -595,8 +618,12 @@ mod tests {
 
         let price_fn = zero_coupon_pricer(5.0);
 
-        let result_central = calc_central.parallel_sensitivity(&price_fn, &curve).unwrap();
-        let result_forward = calc_forward.parallel_sensitivity(&price_fn, &curve).unwrap();
+        let result_central = calc_central
+            .parallel_sensitivity(&price_fn, &curve)
+            .unwrap();
+        let result_forward = calc_forward
+            .parallel_sensitivity(&price_fn, &curve)
+            .unwrap();
 
         // Both should give similar results
         assert!((result_central.sensitivity - result_forward.sensitivity).abs() < 1.0);

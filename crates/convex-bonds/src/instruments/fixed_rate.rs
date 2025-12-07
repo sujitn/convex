@@ -5,7 +5,7 @@
 //! - Market conventions (US Corporate, US Treasury, UK Gilt, etc.)
 //! - Schedule caching
 //! - Ex-dividend support
-//! - Full Bond and FixedCouponBond trait implementation
+//! - Full Bond and `FixedCouponBond` trait implementation
 
 use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
@@ -195,7 +195,7 @@ impl FixedRateBond {
     /// The schedule is lazily computed and cached for performance.
     ///
     /// Uses backward generation from maturity to ensure correct regular coupon dates
-    /// regardless of the dated_date.
+    /// regardless of the `dated_date`.
     fn schedule(&self) -> &Schedule {
         self.schedule.get_or_init(|| {
             // Determine stub type based on whether we have explicit first/penultimate dates
@@ -731,9 +731,7 @@ impl FixedRateBondBuilder {
 
         // Validate
         if maturity <= issue_date {
-            return Err(BondError::invalid_spec(
-                "maturity must be after issue_date",
-            ));
+            return Err(BondError::invalid_spec("maturity must be after issue_date"));
         }
         if coupon_rate < Decimal::ZERO {
             return Err(BondError::invalid_spec("coupon_rate cannot be negative"));
@@ -767,7 +765,7 @@ impl FixedRateBondBuilder {
     }
 }
 
-/// Helper function to convert DayCountConvention to string for serialization.
+/// Helper function to convert `DayCountConvention` to string for serialization.
 fn day_count_to_string(dc: &DayCountConvention) -> &'static str {
     match dc {
         DayCountConvention::Act360 => "Act360",
@@ -783,7 +781,7 @@ fn day_count_to_string(dc: &DayCountConvention) -> &'static str {
     }
 }
 
-/// Helper function to convert string to DayCountConvention for deserialization.
+/// Helper function to convert string to `DayCountConvention` for deserialization.
 fn string_to_day_count(s: &str) -> DayCountConvention {
     match s {
         "Act360" => DayCountConvention::Act360,

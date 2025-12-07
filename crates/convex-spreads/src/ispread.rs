@@ -2,9 +2,9 @@
 
 use rust_decimal::Decimal;
 
+use convex_bonds::instruments::{Bond, FixedBond};
 use convex_core::types::{Date, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
-use convex_bonds::instruments::{Bond, FixedBond};
 
 use crate::error::{SpreadError, SpreadResult};
 

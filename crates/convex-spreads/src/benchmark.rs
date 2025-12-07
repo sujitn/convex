@@ -138,13 +138,14 @@ impl fmt::Display for SecurityId {
 /// // Use explicit benchmark yield
 /// let spec = BenchmarkSpec::explicit(Yield::from_percent(4.25));
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum BenchmarkSpec {
     /// Interpolate treasury curve at bond's exact maturity (most common).
     ///
     /// This is the standard G-spread definition - the benchmark yield is
     /// linearly interpolated from the government curve at the bond's
     /// remaining time to maturity.
+    #[default]
     Interpolated,
 
     /// Use a specific on-the-run tenor, regardless of bond maturity.
@@ -299,12 +300,6 @@ impl BenchmarkSpec {
     #[must_use]
     pub fn is_specific_security(&self) -> bool {
         matches!(self, Self::SpecificSecurity(_))
-    }
-}
-
-impl Default for BenchmarkSpec {
-    fn default() -> Self {
-        Self::Interpolated
     }
 }
 

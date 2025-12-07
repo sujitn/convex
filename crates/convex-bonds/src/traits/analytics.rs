@@ -72,10 +72,16 @@ pub trait BondAnalytics: Bond {
         let accrued = self.accrued_interest(settlement);
         let day_count = self.parse_day_count()?;
 
-        let solver = YieldSolver::new()
-            .with_convention(YieldConvention::StreetConvention);
+        let solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
 
-        solver.solve(&cash_flows, clean_price, accrued, settlement, day_count, frequency)
+        solver.solve(
+            &cash_flows,
+            clean_price,
+            accrued,
+            settlement,
+            day_count,
+            frequency,
+        )
     }
 
     /// Calculates yield to maturity with a specific yield convention.
@@ -97,7 +103,14 @@ pub trait BondAnalytics: Bond {
         let day_count = self.parse_day_count()?;
 
         let solver = YieldSolver::new().with_convention(convention);
-        solver.solve(&cash_flows, clean_price, accrued, settlement, day_count, frequency)
+        solver.solve(
+            &cash_flows,
+            clean_price,
+            accrued,
+            settlement,
+            day_count,
+            frequency,
+        )
     }
 
     // ==================== Price Calculations ====================
@@ -150,7 +163,14 @@ pub trait BondAnalytics: Bond {
         let day_count = self.parse_day_count()?;
         let solver = YieldSolver::new();
 
-        Ok(solver.clean_price_from_yield(&cash_flows, ytm, accrued, settlement, day_count, frequency))
+        Ok(solver.clean_price_from_yield(
+            &cash_flows,
+            ytm,
+            accrued,
+            settlement,
+            day_count,
+            frequency,
+        ))
     }
 
     // ==================== Duration Calculations ====================
@@ -179,7 +199,7 @@ pub trait BondAnalytics: Bond {
         }
 
         let day_count = self.parse_day_count()?;
-        let periods_per_year = frequency.periods_per_year() as f64;
+        let periods_per_year = f64::from(frequency.periods_per_year());
         let rate_per_period = ytm / periods_per_year;
 
         let mut weighted_time = 0.0;
@@ -223,7 +243,7 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
     ) -> BondResult<f64> {
         let mac_dur = self.macaulay_duration(settlement, ytm, frequency)?;
-        let periods_per_year = frequency.periods_per_year() as f64;
+        let periods_per_year = f64::from(frequency.periods_per_year());
         Ok(mac_dur / (1.0 + ytm / periods_per_year))
     }
 
@@ -232,7 +252,7 @@ pub trait BondAnalytics: Bond {
     /// Effective duration is computed by repricing the bond with
     /// yield shifts and using the central difference formula:
     ///
-    /// D_eff = (P_down - P_up) / (2 × P_0 × Δy)
+    /// `D_eff` = (`P_down` - `P_up`) / (2 × `P_0` × Δy)
     ///
     /// # Arguments
     ///
@@ -268,12 +288,7 @@ pub trait BondAnalytics: Bond {
     ///
     /// Convexity measures the curvature of the price-yield relationship.
     /// It captures the second-order effect that duration misses.
-    fn convexity(
-        &self,
-        settlement: Date,
-        ytm: f64,
-        frequency: Frequency,
-    ) -> BondResult<f64> {
+    fn convexity(&self, settlement: Date, ytm: f64, frequency: Frequency) -> BondResult<f64> {
         let cash_flows = self.cash_flows(settlement);
         if cash_flows.is_empty() {
             return Err(BondError::InvalidSpec {
@@ -282,7 +297,7 @@ pub trait BondAnalytics: Bond {
         }
 
         let day_count = self.parse_day_count()?;
-        let periods_per_year = frequency.periods_per_year() as f64;
+        let periods_per_year = f64::from(frequency.periods_per_year());
         let rate_per_period = ytm / periods_per_year;
 
         let mut weighted_convexity = 0.0;
@@ -319,7 +334,7 @@ pub trait BondAnalytics: Bond {
 
     /// Calculates effective convexity using numerical bumping.
     ///
-    /// C_eff = (P_up + P_down - 2 × P_0) / (P_0 × Δy²)
+    /// `C_eff` = (`P_up` + `P_down` - 2 × `P_0`) / (`P_0` × Δy²)
     fn effective_convexity(
         &self,
         settlement: Date,
@@ -349,7 +364,13 @@ pub trait BondAnalytics: Bond {
     /// DV01 = Modified Duration × Dirty Price × 0.0001
     ///
     /// Returns the price change per $100 face value for a 1bp yield move.
-    fn dv01(&self, settlement: Date, ytm: f64, dirty_price: f64, frequency: Frequency) -> BondResult<f64> {
+    fn dv01(
+        &self,
+        settlement: Date,
+        ytm: f64,
+        dirty_price: f64,
+        frequency: Frequency,
+    ) -> BondResult<f64> {
         let mod_dur = self.modified_duration(settlement, ytm, frequency)?;
         Ok(mod_dur * dirty_price * 0.0001)
     }
@@ -373,7 +394,7 @@ pub trait BondAnalytics: Bond {
     /// Estimates price change for a given yield shift.
     ///
     /// Uses duration + convexity approximation:
-    /// ΔP/P ≈ -D_mod × Δy + (1/2) × C × (Δy)²
+    /// ΔP/P ≈ -`D_mod` × Δy + (1/2) × C × (Δy)²
     fn estimate_price_change(
         &self,
         settlement: Date,
@@ -411,7 +432,7 @@ pub trait BondAnalytics: Bond {
             "30E/360 ISDA" => Ok(DayCountConvention::Thirty360EIsda),
             "30/360 German" => Ok(DayCountConvention::Thirty360German),
             _ => Err(BondError::InvalidSpec {
-                reason: format!("unknown day count convention: {}", dcc_str),
+                reason: format!("unknown day count convention: {dcc_str}"),
             }),
         }
     }
@@ -464,14 +485,14 @@ mod tests {
         let clean_price = dec!(105);
 
         // Calculate YTM from price
-        let ytm_result = bond.yield_to_maturity(settlement, clean_price, Frequency::SemiAnnual).unwrap();
+        let ytm_result = bond
+            .yield_to_maturity(settlement, clean_price, Frequency::SemiAnnual)
+            .unwrap();
 
         // Calculate clean price from YTM
-        let calculated_clean = bond.clean_price_from_yield(
-            settlement,
-            ytm_result.yield_value,
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let calculated_clean = bond
+            .clean_price_from_yield(settlement, ytm_result.yield_value, Frequency::SemiAnnual)
+            .unwrap();
 
         // Should round-trip
         let diff = (calculated_clean - clean_price.to_f64().unwrap()).abs();
@@ -489,7 +510,11 @@ mod tests {
 
         let dur = mod_dur.unwrap();
         // 5-year bond should have duration around 4.0-4.5
-        assert!(dur > 3.5 && dur < 5.0, "Modified duration {} out of range", dur);
+        assert!(
+            dur > 3.5 && dur < 5.0,
+            "Modified duration {} out of range",
+            dur
+        );
     }
 
     #[test]
@@ -529,12 +554,21 @@ mod tests {
         let settlement = date(2020, 6, 15);
         let ytm = 0.075;
 
-        let mod_dur = bond.modified_duration(settlement, ytm, Frequency::SemiAnnual).unwrap();
-        let eff_dur = bond.effective_duration(settlement, ytm, Frequency::SemiAnnual, 10.0).unwrap();
+        let mod_dur = bond
+            .modified_duration(settlement, ytm, Frequency::SemiAnnual)
+            .unwrap();
+        let eff_dur = bond
+            .effective_duration(settlement, ytm, Frequency::SemiAnnual, 10.0)
+            .unwrap();
 
         // For vanilla bonds, effective should be close to analytical
         let diff = (mod_dur - eff_dur).abs();
-        assert!(diff < 0.1, "Duration mismatch: analytical={}, effective={}", mod_dur, eff_dur);
+        assert!(
+            diff < 0.1,
+            "Duration mismatch: analytical={}, effective={}",
+            mod_dur,
+            eff_dur
+        );
     }
 
     #[test]
@@ -545,17 +579,23 @@ mod tests {
         let dirty_price = 100.0;
 
         // Estimate price change for +100 bps
-        let change = bond.estimate_price_change(
-            settlement,
-            ytm,
-            dirty_price,
-            0.01, // 100 bps
-            Frequency::SemiAnnual,
-        ).unwrap();
+        let change = bond
+            .estimate_price_change(
+                settlement,
+                ytm,
+                dirty_price,
+                0.01, // 100 bps
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // Price should drop when yield rises
         assert!(change < 0.0);
         // For ~4 duration, expect ~4% drop
-        assert!(change > -5.0 && change < -3.0, "Price change {} out of range", change);
+        assert!(
+            change > -5.0 && change < -3.0,
+            "Price change {} out of range",
+            change
+        );
     }
 }

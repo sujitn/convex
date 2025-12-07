@@ -115,9 +115,9 @@ impl BenchmarkInfo {
     #[must_use]
     pub fn sovereign(&self) -> Option<Sovereign> {
         match self {
-            Self::Interpolated { sovereign, .. } => Some(*sovereign),
-            Self::Benchmark { sovereign, .. } => Some(*sovereign),
-            Self::SpecificSecurity { sovereign, .. } => Some(*sovereign),
+            Self::Interpolated { sovereign, .. }
+            | Self::Benchmark { sovereign, .. }
+            | Self::SpecificSecurity { sovereign, .. } => Some(*sovereign),
             Self::Explicit => None,
         }
     }
@@ -232,12 +232,11 @@ impl<'a> GSpreadCalculator<'a> {
             }
 
             BenchmarkSpec::OnTheRunTenor(tenor) => {
-                let b = self
-                    .government_curve
-                    .benchmark(tenor)
-                    .ok_or_else(|| SpreadError::BenchmarkNotFound {
+                let b = self.government_curve.benchmark(tenor).ok_or_else(|| {
+                    SpreadError::BenchmarkNotFound {
                         description: format!("{} {}", self.sovereign(), tenor),
-                    })?;
+                    }
+                })?;
                 let info = BenchmarkInfo::Benchmark {
                     sovereign: b.sovereign,
                     tenor,
@@ -262,12 +261,11 @@ impl<'a> GSpreadCalculator<'a> {
             }
 
             BenchmarkSpec::SpecificSecurity(ref id) => {
-                let b = self
-                    .government_curve
-                    .security_by_id(id)
-                    .ok_or_else(|| SpreadError::BenchmarkNotFound {
+                let b = self.government_curve.security_by_id(id).ok_or_else(|| {
+                    SpreadError::BenchmarkNotFound {
                         description: id.to_string(),
-                    })?;
+                    }
+                })?;
                 let info = BenchmarkInfo::SpecificSecurity {
                     sovereign: b.sovereign,
                     id: id.clone(),
@@ -346,7 +344,12 @@ impl<'a> GSpreadCalculator<'a> {
         settlement: Date,
     ) -> SpreadResult<Spread> {
         Ok(self
-            .calculate(bond_yield, maturity, settlement, BenchmarkSpec::Interpolated)?
+            .calculate(
+                bond_yield,
+                maturity,
+                settlement,
+                BenchmarkSpec::Interpolated,
+            )?
             .spread)
     }
 
@@ -362,7 +365,7 @@ impl<'a> GSpreadCalculator<'a> {
             .government_curve
             .benchmark_yield(benchmark_tenor)
             .ok_or_else(|| SpreadError::BenchmarkNotFound {
-                description: format!("{}", benchmark_tenor),
+                description: format!("{benchmark_tenor}"),
             })?;
 
         let spread_decimal = bond_yield.value() - benchmark_yield.value();
@@ -579,7 +582,12 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         let result = calc
-            .calculate(bond_yield, maturity, settlement, BenchmarkSpec::interpolated())
+            .calculate(
+                bond_yield,
+                maturity,
+                settlement,
+                BenchmarkSpec::interpolated(),
+            )
             .unwrap();
 
         // ~5.5% bond vs ~4.2% Treasury = ~130 bps spread
@@ -707,21 +715,27 @@ mod tests {
         let maturity = date(2024, 1, 15);
         let settlement = date(2024, 6, 15); // After maturity
 
-        let result = calc.calculate(bond_yield, maturity, settlement, BenchmarkSpec::interpolated());
+        let result = calc.calculate(
+            bond_yield,
+            maturity,
+            settlement,
+            BenchmarkSpec::interpolated(),
+        );
         assert!(result.is_err());
     }
 
     #[test]
     fn test_gspread_benchmark_not_found() {
-        let curve = GovernmentCurve::us_treasury(date(2024, 1, 15))
-            .with_benchmark(GovernmentBenchmark::with_cusip_unchecked(
+        let curve = GovernmentCurve::us_treasury(date(2024, 1, 15)).with_benchmark(
+            GovernmentBenchmark::with_cusip_unchecked(
                 Sovereign::UST,
                 Tenor::Y10,
                 "91282CJQ9",
                 date(2034, 1, 15),
                 dec!(0.04),
                 Yield::new(dec!(0.0425), Compounding::SemiAnnual),
-            ));
+            ),
+        );
 
         let calc = GSpreadCalculator::new(&curve);
         let bond_yield = Yield::new(dec!(0.055), Compounding::SemiAnnual);

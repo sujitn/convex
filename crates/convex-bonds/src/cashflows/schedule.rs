@@ -27,7 +27,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use convex_core::calendars::{BusinessDayConvention, Calendar, SIFMACalendar, Target2Calendar, WeekendCalendar};
+use convex_core::calendars::{
+    BusinessDayConvention, Calendar, SIFMACalendar, Target2Calendar, WeekendCalendar,
+};
 use convex_core::types::{Date, Frequency};
 
 use crate::error::{BondError, BondResult};
@@ -298,7 +300,7 @@ impl Schedule {
                 calendar
                     .adjust(date, config.business_day_convention)
                     .map_err(|e| BondError::InvalidSchedule {
-                        message: format!("Failed to adjust date {}: {}", date, e),
+                        message: format!("Failed to adjust date {date}: {e}"),
                     })
             })
             .collect()
@@ -358,10 +360,8 @@ impl CalendarId {
     #[must_use]
     pub fn to_calendar(&self) -> Box<dyn Calendar> {
         match self.as_str() {
-            "US_GOVERNMENT" | "US-GOV" => Box::new(SIFMACalendar::new()),
-            "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
+            "US_GOVERNMENT" | "US-GOV" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
             "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
-            "WEEKEND" => Box::new(WeekendCalendar),
             _ => Box::new(WeekendCalendar),
         }
     }
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn test_schedule_with_front_stub() {
         let config = ScheduleConfig::new(
-            Date::from_ymd(2020, 3, 15).unwrap(),  // Odd start
+            Date::from_ymd(2020, 3, 15).unwrap(), // Odd start
             Date::from_ymd(2025, 6, 15).unwrap(),
             Frequency::SemiAnnual,
         )
@@ -451,7 +451,7 @@ mod tests {
     fn test_invalid_schedule() {
         let config = ScheduleConfig::new(
             Date::from_ymd(2025, 1, 15).unwrap(),
-            Date::from_ymd(2020, 1, 15).unwrap(),  // End before start
+            Date::from_ymd(2020, 1, 15).unwrap(), // End before start
             Frequency::SemiAnnual,
         );
 

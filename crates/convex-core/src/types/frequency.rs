@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Payment frequency for coupon bonds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Frequency {
     /// Annual payments (1 per year)
     Annual,
     /// Semi-annual payments (2 per year) - most common for US bonds
+    #[default]
     SemiAnnual,
     /// Quarterly payments (4 per year)
     Quarterly,
@@ -63,20 +64,15 @@ impl fmt::Display for Frequency {
     }
 }
 
-impl Default for Frequency {
-    fn default() -> Self {
-        Frequency::SemiAnnual // Most common for US bonds
-    }
-}
-
 /// Interest compounding convention.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Compounding {
     /// Simple interest (no compounding)
     Simple,
     /// Annual compounding (1x per year)
     Annual,
     /// Semi-annual compounding (2x per year)
+    #[default]
     SemiAnnual,
     /// Quarterly compounding (4x per year)
     Quarterly,
@@ -130,12 +126,6 @@ impl fmt::Display for Compounding {
             Compounding::Continuous => "Continuous",
         };
         write!(f, "{name}")
-    }
-}
-
-impl Default for Compounding {
-    fn default() -> Self {
-        Compounding::SemiAnnual // Most common for US bond yields
     }
 }
 

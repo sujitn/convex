@@ -66,6 +66,7 @@ impl ModelError {
     }
 
     /// Creates an invalid parameter error.
+    #[must_use]
     pub fn invalid_parameter(name: &'static str, value: f64) -> Self {
         Self::InvalidParameter { name, value }
     }

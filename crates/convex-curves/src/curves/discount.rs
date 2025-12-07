@@ -42,12 +42,12 @@ use crate::traits::Curve;
 ///
 /// | Method | Property | Use Case |
 /// |--------|----------|----------|
-/// | LogLinear | Preserves DF monotonicity | Production default |
+/// | `LogLinear` | Preserves DF monotonicity | Production default |
 /// | Linear | Simple, fast | Quick prototyping |
-/// | CubicSpline | Smooth curves | Presentation |
-/// | MonotoneConvex | Positive forwards | Zero rates |
+/// | `CubicSpline` | Smooth curves | Presentation |
+/// | `MonotoneConvex` | Positive forwards | Zero rates |
 ///
-/// For discount factor curves, **LogLinear** is recommended as it:
+/// For discount factor curves, **`LogLinear`** is recommended as it:
 /// - Ensures discount factors are always positive
 /// - Equivalent to linear interpolation on continuously compounded rates
 /// - Produces sensible forward rates
@@ -127,8 +127,7 @@ impl DiscountCurve {
         for (i, &df) in discount_factors.iter().enumerate() {
             if df <= 0.0 {
                 return Err(CurveError::invalid_data(format!(
-                    "discount_factor[{}] = {} is not positive",
-                    i, df
+                    "discount_factor[{i}] = {df} is not positive"
                 )));
             }
         }
@@ -281,34 +280,41 @@ impl DiscountCurve {
         if !self.allow_extrapolation && (t < self.min_time() || t > self.max_time()) {
             return Err(CurveError::DateOutOfRange {
                 date: self.reference_date.add_days((t * 365.0) as i64),
-                min_date: self.reference_date.add_days((self.min_time() * 365.0) as i64),
-                max_date: self.reference_date.add_days((self.max_time() * 365.0) as i64),
+                min_date: self
+                    .reference_date
+                    .add_days((self.min_time() * 365.0) as i64),
+                max_date: self
+                    .reference_date
+                    .add_days((self.max_time() * 365.0) as i64),
             });
         }
 
-        let interp = self.interpolator.as_ref().ok_or_else(|| {
-            CurveError::InterpolationFailed {
+        let interp = self
+            .interpolator
+            .as_ref()
+            .ok_or_else(|| CurveError::InterpolationFailed {
                 reason: "Interpolator not built".to_string(),
-            }
-        })?;
+            })?;
 
         match self.interpolation {
             InterpolationMethod::CubicSpline | InterpolationMethod::CubicSplineOnDiscount => {
                 // Spline is on log(DF), so convert back
-                let log_df = interp
-                    .interpolate(t)
-                    .map_err(|e| CurveError::InterpolationFailed {
-                        reason: e.to_string(),
-                    })?;
+                let log_df =
+                    interp
+                        .interpolate(t)
+                        .map_err(|e| CurveError::InterpolationFailed {
+                            reason: e.to_string(),
+                        })?;
                 Ok(log_df.exp())
             }
             InterpolationMethod::MonotoneConvex => {
                 // Monotone convex gives zero rate, convert to DF
-                let zero_rate = interp
-                    .interpolate(t)
-                    .map_err(|e| CurveError::InterpolationFailed {
-                        reason: e.to_string(),
-                    })?;
+                let zero_rate =
+                    interp
+                        .interpolate(t)
+                        .map_err(|e| CurveError::InterpolationFailed {
+                            reason: e.to_string(),
+                        })?;
                 Ok((-zero_rate * t).exp())
             }
             _ => {
@@ -334,8 +340,7 @@ impl Curve for DiscountCurve {
 
     fn max_date(&self) -> Date {
         let max_t = self.max_time();
-        self.reference_date
-            .add_days((max_t * 365.0).round() as i64)
+        self.reference_date.add_days((max_t * 365.0).round() as i64)
     }
 }
 
@@ -424,7 +429,12 @@ impl DiscountCurveBuilder {
     /// * `rate` - Zero rate
     /// * `compounding` - Compounding convention for the rate
     #[must_use]
-    pub fn add_zero_rate_compounded(mut self, time: f64, rate: f64, compounding: Compounding) -> Self {
+    pub fn add_zero_rate_compounded(
+        mut self,
+        time: f64,
+        rate: f64,
+        compounding: Compounding,
+    ) -> Self {
         let df = compounding.discount_factor(rate, time);
         self.pillars.push((time, df));
         self
