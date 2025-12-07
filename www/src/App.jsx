@@ -34,8 +34,35 @@ const getDefaultBond = () => {
   };
 };
 
-// Default benchmark yield (comparable Treasury yield)
-const DEFAULT_BENCHMARK_YIELD = 4.25;
+// Default Treasury curve (approximate rates)
+const DEFAULT_TREASURY_CURVE = {
+  '1M': 4.30,
+  '3M': 4.32,
+  '6M': 4.28,
+  '1Y': 4.15,
+  '2Y': 4.00,
+  '3Y': 3.95,
+  '5Y': 3.95,
+  '7Y': 4.00,
+  '10Y': 4.10,
+  '20Y': 4.40,
+  '30Y': 4.30,
+};
+
+// Tenor to years mapping
+const TENOR_YEARS = {
+  '1M': 1/12,
+  '3M': 0.25,
+  '6M': 0.5,
+  '1Y': 1,
+  '2Y': 2,
+  '3Y': 3,
+  '5Y': 5,
+  '7Y': 7,
+  '10Y': 10,
+  '20Y': 20,
+  '30Y': 30,
+};
 
 function addYears(date, years) {
   const result = new Date(date);
@@ -44,27 +71,121 @@ function addYears(date, years) {
   return result.toISOString().split('T')[0];
 }
 
-// Generate curve points from benchmark yield (flat curve at benchmark rate)
-function generateCurveFromBenchmark(benchmarkYield, maturityDate) {
+// Generate curve points from Treasury curve object
+function generateCurvePoints(treasuryCurve, maturityDate) {
   const baseDate = new Date();
   const maturity = new Date(maturityDate);
-  const yearsToMaturity = Math.max(1, (maturity - baseDate) / (365.25 * 24 * 60 * 60 * 1000));
+  const yearsToMaturity = Math.max(0.5, (maturity - baseDate) / (365.25 * 24 * 60 * 60 * 1000));
 
-  // Create a simple curve with points at key tenors up to maturity
-  const tenors = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30].filter(t => t <= yearsToMaturity + 1);
-  if (tenors.length === 0) tenors.push(1);
+  // Filter tenors up to maturity + buffer, keep at least a few points
+  const relevantTenors = Object.entries(TENOR_YEARS)
+    .filter(([_, years]) => years <= yearsToMaturity + 2)
+    .sort((a, b) => a[1] - b[1]);
 
-  return tenors.map(years => ({
+  if (relevantTenors.length < 2) {
+    // Ensure at least 2 points
+    return [
+      { date: addYears(baseDate, 0.25), rate: treasuryCurve['3M'] || 4.0 },
+      { date: addYears(baseDate, 1), rate: treasuryCurve['1Y'] || 4.0 },
+    ];
+  }
+
+  return relevantTenors.map(([tenor, years]) => ({
     date: addYears(baseDate, years),
-    rate: benchmarkYield,
+    rate: treasuryCurve[tenor] || 4.0,
   }));
+}
+
+// Fetch Treasury rates from Treasury.gov XML feed
+async function fetchTreasuryRates() {
+  try {
+    // Treasury.gov XML endpoint - use CORS proxy for browser access
+    const year = new Date().getFullYear();
+    const treasuryUrl = `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=${year}`;
+
+    // Try direct fetch first (works if CORS is allowed)
+    let response;
+    try {
+      response = await fetch(treasuryUrl);
+    } catch (corsError) {
+      // Fallback to CORS proxy
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(treasuryUrl)}`;
+      response = await fetch(proxyUrl);
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+
+    // Parse XML to extract latest rates
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+    // Get all entries and find the most recent one
+    const entries = xmlDoc.querySelectorAll('entry');
+    if (entries.length === 0) {
+      throw new Error('No data entries found');
+    }
+
+    // Get the last entry (most recent)
+    const latestEntry = entries[entries.length - 1];
+    const content = latestEntry.querySelector('content');
+    if (!content) {
+      throw new Error('No content in entry');
+    }
+
+    // Extract rates from the m:properties element
+    const props = content.querySelector('properties');
+    if (!props) {
+      throw new Error('No properties found');
+    }
+
+    const rates = {};
+    const mappings = {
+      'BC_1MONTH': '1M',
+      'BC_3MONTH': '3M',
+      'BC_6MONTH': '6M',
+      'BC_1YEAR': '1Y',
+      'BC_2YEAR': '2Y',
+      'BC_3YEAR': '3Y',
+      'BC_5YEAR': '5Y',
+      'BC_7YEAR': '7Y',
+      'BC_10YEAR': '10Y',
+      'BC_20YEAR': '20Y',
+      'BC_30YEAR': '30Y',
+    };
+
+    for (const [xmlKey, tenorKey] of Object.entries(mappings)) {
+      const elem = props.querySelector(xmlKey);
+      if (elem && elem.textContent) {
+        const rate = parseFloat(elem.textContent);
+        if (!isNaN(rate)) {
+          rates[tenorKey] = rate;
+        }
+      }
+    }
+
+    // Check if we got any rates
+    if (Object.keys(rates).length === 0) {
+      throw new Error('No rates parsed from XML');
+    }
+
+    return rates;
+  } catch (error) {
+    console.error('Failed to fetch Treasury rates:', error);
+    throw error;
+  }
 }
 
 function App({ wasmModule }) {
   // Bond parameters
   const [bond, setBond] = useState(getDefaultBond);
   const [price, setPrice] = useState(100.0);
-  const [benchmarkYield, setBenchmarkYield] = useState(DEFAULT_BENCHMARK_YIELD);
+  const [treasuryCurve, setTreasuryCurve] = useState(DEFAULT_TREASURY_CURVE);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [ratesLastUpdated, setRatesLastUpdated] = useState(null);
 
   // Analysis results
   const [analysis, setAnalysis] = useState(null);
@@ -97,8 +218,8 @@ function App({ wasmModule }) {
         first_coupon_date: bond.firstCouponDate || null,
       };
 
-      // Generate curve points from benchmark yield
-      const curvePoints = generateCurveFromBenchmark(benchmarkYield, bond.maturityDate);
+      // Generate curve points from Treasury curve
+      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
 
       // Call WASM analytics
       const result = wasmModule.analyze_bond(bondParams, price, curvePoints);
@@ -124,7 +245,7 @@ function App({ wasmModule }) {
     } finally {
       setIsCalculating(false);
     }
-  }, [wasmModule, bond, price, benchmarkYield]);
+  }, [wasmModule, bond, price, treasuryCurve]);
 
   // Generate price/yield curve for chart
   const generatePriceYieldCurve = useCallback((bondParams, curvePoints) => {
@@ -166,16 +287,36 @@ function App({ wasmModule }) {
     setPrice(newPrice);
   }, []);
 
-  // Handle benchmark yield change
-  const handleBenchmarkChange = useCallback((newYield) => {
-    setBenchmarkYield(newYield);
+  // Handle Treasury curve rate change
+  const handleCurveChange = useCallback((tenor, rate) => {
+    setTreasuryCurve(prev => ({
+      ...prev,
+      [tenor]: rate,
+    }));
+  }, []);
+
+  // Fetch live Treasury rates
+  const handleFetchRates = useCallback(async () => {
+    setIsFetchingRates(true);
+    setError(null);
+    try {
+      const rates = await fetchTreasuryRates();
+      setTreasuryCurve(prev => ({ ...prev, ...rates }));
+      setRatesLastUpdated(new Date().toLocaleString());
+    } catch (err) {
+      setError('Failed to fetch Treasury rates. Using default values.');
+      console.error(err);
+    } finally {
+      setIsFetchingRates(false);
+    }
   }, []);
 
   // Reset to defaults
   const handleReset = useCallback(() => {
     setBond(getDefaultBond());
     setPrice(100.0);
-    setBenchmarkYield(DEFAULT_BENCHMARK_YIELD);
+    setTreasuryCurve(DEFAULT_TREASURY_CURVE);
+    setRatesLastUpdated(null);
     setAnalysis(null);
     setCashFlows([]);
     setError(null);
@@ -188,7 +329,7 @@ function App({ wasmModule }) {
     const exportData = {
       bond,
       price,
-      benchmarkYield,
+      treasuryCurve,
       analysis,
       cashFlows,
       exportDate: new Date().toISOString(),
@@ -201,7 +342,7 @@ function App({ wasmModule }) {
     a.download = `bond-analysis-${bond.name.replace(/\s+/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [bond, price, benchmarkYield, analysis, cashFlows]);
+  }, [bond, price, treasuryCurve, analysis, cashFlows]);
 
   return (
     <div className="app">
@@ -230,8 +371,11 @@ function App({ wasmModule }) {
           <BondInput
             bond={bond}
             onChange={handleBondChange}
-            benchmarkYield={benchmarkYield}
-            onBenchmarkChange={handleBenchmarkChange}
+            treasuryCurve={treasuryCurve}
+            onCurveChange={handleCurveChange}
+            onFetchRates={handleFetchRates}
+            isFetchingRates={isFetchingRates}
+            ratesLastUpdated={ratesLastUpdated}
           />
         </div>
 

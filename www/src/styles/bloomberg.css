@@ -869,6 +869,81 @@ select {
 }
 
 /* ============================================================================
+   Treasury Curve Input
+   ============================================================================ */
+
+.treasury-curve {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.curve-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-fetch {
+  background: var(--bg-tertiary);
+  color: var(--text-highlight);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-fetch:hover:not(:disabled) {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.btn-fetch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rates-updated {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.curve-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.curve-point {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.curve-point label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.curve-point input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.curve-point input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+/* ============================================================================
    Responsive
    ============================================================================ */
 
