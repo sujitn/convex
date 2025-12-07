@@ -27,7 +27,10 @@
       "Bash(cargo fmt:*)",
       "Bash(cargo doc:*)",
       "Bash(cargo publish:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(wasm-pack build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm start)"
     ],
     "deny": [],
     "ask": []

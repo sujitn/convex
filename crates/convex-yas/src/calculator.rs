@@ -18,7 +18,7 @@
 //! | Convexity       | 0.219     | ±0.001           |
 
 use crate::invoice::SettlementInvoice;
-use crate::yields::{current_yield, money_market_yield, simple_yield, street_convention_yield};
+use crate::yields::{current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield};
 use crate::YasError;
 use chrono::NaiveDate;
 use convex_bonds::prelude::Bond;
@@ -508,8 +508,10 @@ impl<'a> YASCalculator<'a> {
         }
 
         // Calculate yields
-        let ytm =
+        let ytm_decimal =
             street_convention_yield(dirty_price_f64, &cf_values, &times, self.frequency, 0.05)?;
+        // Convert YTM from decimal (0.05) to percentage (5.0)
+        let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
 
         // Estimate annual coupon from first cash flow (assume semi-annual)
         let periodic_coupon = cash_flows
@@ -517,7 +519,7 @@ impl<'a> YASCalculator<'a> {
             .map(|cf| cf.amount)
             .unwrap_or(Decimal::ZERO);
         let annual_coupon = periodic_coupon * Decimal::from(self.frequency);
-        let current = current_yield(annual_coupon, clean_price)?;
+        let current = current_yield_from_amount(annual_coupon, clean_price)?;
 
         // Calculate years to maturity for simple yield
         let years_decimal =

@@ -49,3 +49,10 @@ Thumbs.db
 # Editor temp files
 *.orig
 *.rej
+
+# Node.js / Web
+node_modules/
+www/dist/
+www/pkg/
+*.log
+npm-debug.log*
