@@ -111,7 +111,7 @@ pub struct AnalysisResult {
     pub benchmark_tenor: Option<String>,
     pub z_spread: Option<f64>,
     pub asw_spread: Option<f64>,
-    pub oas: Option<f64>,              // Option-Adjusted Spread (for callable bonds)
+    pub oas: Option<f64>, // Option-Adjusted Spread (for callable bonds)
 
     // OAS-related metrics (for callable bonds)
     pub effective_duration: Option<f64>,
@@ -373,13 +373,28 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
 
                             // Calculate effective duration and convexity
                             let oas_decimal = decimal_to_f64(oas.as_bps()) / 10000.0;
-                            if let Ok(eff_dur) = oas_calc.effective_duration(&callable, &discount_curve, oas_decimal, settlement) {
+                            if let Ok(eff_dur) = oas_calc.effective_duration(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
                                 result.effective_duration = Some(eff_dur);
                             }
-                            if let Ok(eff_conv) = oas_calc.effective_convexity(&callable, &discount_curve, oas_decimal, settlement) {
+                            if let Ok(eff_conv) = oas_calc.effective_convexity(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
                                 result.effective_convexity = Some(eff_conv);
                             }
-                            if let Ok(opt_val) = oas_calc.option_value(&callable, &discount_curve, oas_decimal, settlement) {
+                            if let Ok(opt_val) = oas_calc.option_value(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
                                 result.option_value = Some(opt_val);
                             }
                         }
@@ -617,7 +632,10 @@ fn create_curve(reference_date: Date, points: &[CurvePoint]) -> Result<ZeroCurve
 }
 
 /// Create a DiscountCurve for OAS calculations (implements Curve trait)
-fn create_discount_curve(reference_date: Date, points: &[CurvePoint]) -> Result<DiscountCurve, String> {
+fn create_discount_curve(
+    reference_date: Date,
+    points: &[CurvePoint],
+) -> Result<DiscountCurve, String> {
     if points.is_empty() {
         return Err("Curve must have at least one point".to_string());
     }

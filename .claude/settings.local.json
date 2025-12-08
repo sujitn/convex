@@ -37,7 +37,9 @@
       "Bash(npm run build:wasm:*)",
       "Bash(cat:*)",
       "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex\\www && npm run build\")",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git config:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

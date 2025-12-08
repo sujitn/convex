@@ -458,9 +458,7 @@ mod tests {
         let price_zero = calc
             .price_with_spread(&bond, Decimal::ZERO, settlement)
             .unwrap();
-        assert!(
-            price_zero.as_percentage() > dec!(90) && price_zero.as_percentage() < dec!(110)
-        );
+        assert!(price_zero.as_percentage() > dec!(90) && price_zero.as_percentage() < dec!(110));
 
         // Price with positive spread should be lower
         let price_100bps = calc
@@ -496,9 +494,7 @@ mod tests {
         let bond = create_test_bond();
         let settlement = date(2025, 1, 15);
 
-        let duration = calc
-            .spread_duration(&bond, dec!(0.01), settlement)
-            .unwrap();
+        let duration = calc.spread_duration(&bond, dec!(0.01), settlement).unwrap();
 
         // Duration should be positive and reasonable (around 2.7 for 3Y bond)
         assert!(duration > Decimal::ZERO);
@@ -522,9 +518,7 @@ mod tests {
                 .unwrap();
 
             // Calculate I-spread from that price
-            let calculated_spread = calc
-                .calculate_from_price(&bond, price, settlement)
-                .unwrap();
+            let calculated_spread = calc.calculate_from_price(&bond, price, settlement).unwrap();
 
             let calculated_bps = calculated_spread.as_bps().to_f64().unwrap();
             let expected_bps = spread_bps as f64;

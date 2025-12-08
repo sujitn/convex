@@ -320,7 +320,8 @@ mod accrued_interest_validation {
         // Accrued = 100 × (0.04375/2) × (25/181) = 100 × 0.021875 × 0.138122
         // Accrued = 0.302144
 
-        let accrued = face_value * (coupon_rate / frequency)
+        let accrued = face_value
+            * (coupon_rate / frequency)
             * (Decimal::from(days_accrued) / Decimal::from(days_in_period));
 
         // Exact: 100 × 0.021875 × (25/181) = 2.1875 × 0.138121... = 0.302145...
@@ -687,7 +688,10 @@ mod spread_validation {
         // Verify Z-spread is in reasonable range
         // For a discount bond (price < par) with coupon ~= spot rates,
         // the Z-spread should be positive
-        assert!(z_spread > 0.0, "Z-spread should be positive for discount bond");
+        assert!(
+            z_spread > 0.0,
+            "Z-spread should be positive for discount bond"
+        );
 
         // The Z-spread compensates for the discount to par
         // With this setup, expect Z-spread around 50-60 bps
