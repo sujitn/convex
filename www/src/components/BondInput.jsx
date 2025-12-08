@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
 const dayCountOptions = [
-  { value: '30/360', label: '30/360' },
+  { value: '30/360', label: '30/360 US (NASD)' },
+  { value: '30E/360', label: '30E/360 EU (ISMA)' },
   { value: 'ACT/360', label: 'ACT/360' },
   { value: 'ACT/365', label: 'ACT/365' },
   { value: 'ACT/ACT', label: 'ACT/ACT ICMA' },
