@@ -696,7 +696,11 @@ fn price_from_yield_impl(
 ///
 /// Given a target Z-spread (in basis points), calculates the clean price.
 #[wasm_bindgen]
-pub fn price_from_spread(params: JsValue, target_spread_bps: f64, curve_points: JsValue) -> JsValue {
+pub fn price_from_spread(
+    params: JsValue,
+    target_spread_bps: f64,
+    curve_points: JsValue,
+) -> JsValue {
     let result = price_from_spread_impl(params, target_spread_bps, curve_points);
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }

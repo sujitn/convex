@@ -477,7 +477,7 @@ impl<'a> YASCalculator<'a> {
 
     /// Standard on-the-run Treasury tenors by currency.
     /// Each market has different standard benchmark tenors.
-
+    ///
     /// USD Treasury tenors
     const USD_TENORS: [(f64, &'static str); 10] = [
         (0.25, "3M"),
@@ -493,12 +493,8 @@ impl<'a> YASCalculator<'a> {
     ];
 
     /// EUR (German Bund) tenors
-    const EUR_TENORS: [(f64, &'static str); 4] = [
-        (2.0, "2Y"),
-        (5.0, "5Y"),
-        (10.0, "10Y"),
-        (30.0, "30Y"),
-    ];
+    const EUR_TENORS: [(f64, &'static str); 4] =
+        [(2.0, "2Y"), (5.0, "5Y"), (10.0, "10Y"), (30.0, "30Y")];
 
     /// GBP (UK Gilt) tenors
     const GBP_TENORS: [(f64, &'static str); 5] = [
@@ -520,12 +516,8 @@ impl<'a> YASCalculator<'a> {
     ];
 
     /// AUD (Australian Government Bond) tenors
-    const AUD_TENORS: [(f64, &'static str); 4] = [
-        (3.0, "3Y"),
-        (5.0, "5Y"),
-        (10.0, "10Y"),
-        (30.0, "30Y"),
-    ];
+    const AUD_TENORS: [(f64, &'static str); 4] =
+        [(3.0, "3Y"), (5.0, "5Y"), (10.0, "10Y"), (30.0, "30Y")];
 
     /// CAD (Canadian Government Bond) tenors
     const CAD_TENORS: [(f64, &'static str); 5] = [
