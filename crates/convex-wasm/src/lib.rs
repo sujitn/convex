@@ -59,7 +59,12 @@ pub struct BondParams {
     pub face_value: Option<f64>,
     /// Coupon frequency: 1=annual, 2=semi-annual, 4=quarterly, 12=monthly
     pub frequency: Option<u32>,
-    /// Day count convention: "30/360", "ACT/360", "ACT/365", "ACT/ACT"
+    /// Day count convention:
+    /// - "30/360" or "30/360 US" - US (NASD) method
+    /// - "30E/360" or "30/360 EU" - European (ISMA) method
+    /// - "ACT/360" - Actual/360
+    /// - "ACT/365" - Actual/365 Fixed
+    /// - "ACT/ACT" - Actual/Actual ICMA
     pub day_count: Option<String>,
     /// Currency: "USD", "EUR", "GBP", etc.
     pub currency: Option<String>,
@@ -157,12 +162,27 @@ fn date_to_naive(date: Date) -> chrono::NaiveDate {
 }
 
 fn parse_day_count(s: &str) -> DayCountConvention {
-    match s.to_uppercase().as_str() {
-        "30/360" | "30_360" | "THIRTY_360" => DayCountConvention::Thirty360US,
-        "ACT/360" | "ACT_360" | "ACTUAL_360" => DayCountConvention::Act360,
-        "ACT/365" | "ACT_365" | "ACTUAL_365" => DayCountConvention::Act365Fixed,
-        "ACT/ACT" | "ACT_ACT" | "ACTUAL_ACTUAL" => DayCountConvention::ActActIcma,
-        _ => DayCountConvention::Thirty360US, // Default for US bonds
+    let normalized = s.to_uppercase().replace(' ', "");
+    match normalized.as_str() {
+        // 30/360 US (NASD) - default for US bonds
+        "30/360" | "30/360US" | "30_360" | "THIRTY_360" | "30/360NASD" => {
+            DayCountConvention::Thirty360US
+        }
+        // 30E/360 European (ISMA)
+        "30E/360" | "30/360E" | "30/360EU" | "30/360EURO" | "30/360EUROPEAN" | "30E_360"
+        | "THIRTY360E" | "30/360ISMA" => DayCountConvention::Thirty360E,
+        // Actual/360
+        "ACT/360" | "ACT_360" | "ACTUAL_360" | "ACTUAL/360" => DayCountConvention::Act360,
+        // Actual/365 Fixed
+        "ACT/365" | "ACT_365" | "ACTUAL_365" | "ACTUAL/365" | "ACT/365F" | "ACT/365FIXED" => {
+            DayCountConvention::Act365Fixed
+        }
+        // Actual/Actual ICMA
+        "ACT/ACT" | "ACT_ACT" | "ACTUAL_ACTUAL" | "ACTUAL/ACTUAL" | "ACT/ACTICMA" => {
+            DayCountConvention::ActActIcma
+        }
+        // Default for US bonds
+        _ => DayCountConvention::Thirty360US,
     }
 }
 
@@ -1091,10 +1111,29 @@ mod tests {
 
     #[test]
     fn test_parse_day_count() {
+        // US 30/360
         assert!(matches!(
             parse_day_count("30/360"),
             DayCountConvention::Thirty360US
         ));
+        assert!(matches!(
+            parse_day_count("30/360 US"),
+            DayCountConvention::Thirty360US
+        ));
+        // EU 30E/360
+        assert!(matches!(
+            parse_day_count("30E/360"),
+            DayCountConvention::Thirty360E
+        ));
+        assert!(matches!(
+            parse_day_count("30/360 EU"),
+            DayCountConvention::Thirty360E
+        ));
+        assert!(matches!(
+            parse_day_count("30/360E"),
+            DayCountConvention::Thirty360E
+        ));
+        // Other conventions
         assert!(matches!(
             parse_day_count("ACT/365"),
             DayCountConvention::Act365Fixed
