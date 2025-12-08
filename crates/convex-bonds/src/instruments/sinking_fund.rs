@@ -9,7 +9,7 @@
 
 use rust_decimal::Decimal;
 
-use convex_core::types::{Currency, Date};
+use convex_core::types::{Currency, Date, Frequency};
 use convex_math::solvers::{newton_raphson, SolverConfig};
 
 use crate::error::{BondError, BondResult};
@@ -643,6 +643,10 @@ impl Bond for SinkingFundBond {
 
     fn face_value(&self) -> Decimal {
         self.original_face
+    }
+
+    fn frequency(&self) -> Frequency {
+        self.base.frequency()
     }
 
     fn cash_flows(&self, from: Date) -> Vec<BondCashFlow> {

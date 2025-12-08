@@ -660,6 +660,10 @@ impl Bond for FloatingRateNote {
         self.face_value
     }
 
+    fn frequency(&self) -> Frequency {
+        self.frequency
+    }
+
     fn cash_flows(&self, from: Date) -> Vec<BondCashFlow> {
         if from >= self.maturity {
             return Vec::new();

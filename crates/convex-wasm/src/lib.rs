@@ -97,6 +97,8 @@ pub struct AnalysisResult {
 
     // Spread metrics (in basis points)
     pub g_spread: Option<f64>,
+    pub benchmark_spread: Option<f64>,
+    pub benchmark_tenor: Option<String>,
     pub z_spread: Option<f64>,
     pub asw_spread: Option<f64>,
 
@@ -582,6 +584,8 @@ fn convert_yas_result(
         dv01: Some(decimal_to_f64(result.dv01())),
 
         g_spread: Some(decimal_to_f64(result.g_spread.as_bps())),
+        benchmark_spread: Some(decimal_to_f64(result.benchmark_spread.as_bps())),
+        benchmark_tenor: Some(result.benchmark_tenor.clone()),
         z_spread: Some(decimal_to_f64(result.z_spread.as_bps())),
         asw_spread: result
             .asw_spread
@@ -593,6 +597,475 @@ fn convert_yas_result(
         is_callable: None, // Set by caller
 
         error: None,
+    }
+}
+
+// ============================================================================
+// Solve-for Functions (Price from Yield/Spread)
+// ============================================================================
+
+/// Calculate clean price from target yield.
+///
+/// Given a target YTM, calculates the clean price that would produce that yield.
+#[wasm_bindgen]
+pub fn price_from_yield(params: JsValue, target_ytm: f64, curve_points: JsValue) -> JsValue {
+    let result = price_from_yield_impl(params, target_ytm, curve_points);
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+
+/// Result from price-from-yield calculation.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PriceFromYieldResult {
+    pub clean_price: Option<f64>,
+    pub dirty_price: Option<f64>,
+    pub accrued_interest: Option<f64>,
+    pub error: Option<String>,
+}
+
+fn price_from_yield_impl(
+    params: JsValue,
+    target_ytm: f64,
+    _curve_points: JsValue,
+) -> PriceFromYieldResult {
+    use convex_bonds::pricing::YieldSolver;
+
+    // Parse parameters
+    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the bond
+    let bond = match create_bond(&bond_params) {
+        Ok(b) => b,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse settlement date
+    let settlement = match parse_date(&bond_params.settlement_date) {
+        Ok(d) => d,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Get cash flows and accrued interest
+    let cash_flows = bond.cash_flows(settlement);
+    let accrued = bond.accrued_interest(settlement);
+    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
+    let frequency = bond.frequency();
+
+    // Convert target yield from percentage to decimal
+    let yield_decimal = target_ytm / 100.0;
+
+    // Calculate clean price from yield
+    let solver = YieldSolver::new();
+    let clean_price = solver.clean_price_from_yield(
+        &cash_flows,
+        yield_decimal,
+        accrued,
+        settlement,
+        day_count,
+        frequency,
+    );
+
+    let dirty_price = clean_price + decimal_to_f64(accrued);
+
+    PriceFromYieldResult {
+        clean_price: Some(clean_price),
+        dirty_price: Some(dirty_price),
+        accrued_interest: Some(decimal_to_f64(accrued)),
+        error: None,
+    }
+}
+
+/// Calculate clean price from target Z-spread.
+///
+/// Given a target Z-spread (in basis points), calculates the clean price.
+#[wasm_bindgen]
+pub fn price_from_spread(
+    params: JsValue,
+    target_spread_bps: f64,
+    curve_points: JsValue,
+) -> JsValue {
+    let result = price_from_spread_impl(params, target_spread_bps, curve_points);
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+
+fn price_from_spread_impl(
+    params: JsValue,
+    target_spread_bps: f64,
+    curve_points: JsValue,
+) -> PriceFromYieldResult {
+    use convex_spreads::ZSpreadCalculator;
+
+    // Parse parameters
+    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse curve points
+    let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse curve points: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the bond
+    let bond = match create_bond(&bond_params) {
+        Ok(b) => b,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse settlement date
+    let settlement = match parse_date(&bond_params.settlement_date) {
+        Ok(d) => d,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the curve
+    let curve = match create_curve(settlement, &points) {
+        Ok(c) => c,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Get cash flows and accrued interest
+    let cash_flows = bond.cash_flows(settlement);
+    let accrued = bond.accrued_interest(settlement);
+
+    // Convert spread from bps to decimal (e.g., 100 bps = 0.01)
+    let spread_decimal = target_spread_bps / 10000.0;
+
+    // Calculate price from Z-spread
+    let calculator = ZSpreadCalculator::new(&curve);
+    let dirty_price = calculator.price_with_spread(&cash_flows, spread_decimal, settlement);
+    let clean_price = dirty_price - decimal_to_f64(accrued);
+
+    PriceFromYieldResult {
+        clean_price: Some(clean_price),
+        dirty_price: Some(dirty_price),
+        accrued_interest: Some(decimal_to_f64(accrued)),
+        error: None,
+    }
+}
+
+/// Calculate clean price from target G-spread.
+///
+/// Given a target G-spread (in basis points), calculates the clean price.
+/// G-spread = YTM - interpolated benchmark rate at maturity.
+#[wasm_bindgen]
+pub fn price_from_g_spread(
+    params: JsValue,
+    target_g_spread_bps: f64,
+    curve_points: JsValue,
+) -> JsValue {
+    let result = price_from_g_spread_impl(params, target_g_spread_bps, curve_points);
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+
+fn price_from_g_spread_impl(
+    params: JsValue,
+    target_g_spread_bps: f64,
+    curve_points: JsValue,
+) -> PriceFromYieldResult {
+    use convex_bonds::pricing::YieldSolver;
+
+    // Parse parameters
+    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse curve points
+    let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse curve points: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the bond
+    let bond = match create_bond(&bond_params) {
+        Ok(b) => b,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse settlement date
+    let settlement = match parse_date(&bond_params.settlement_date) {
+        Ok(d) => d,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the curve
+    let curve = match create_curve(settlement, &points) {
+        Ok(c) => c,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Get maturity date
+    let maturity = match bond.maturity() {
+        Some(m) => m,
+        None => {
+            return PriceFromYieldResult {
+                error: Some("Bond has no maturity date".to_string()),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Get interpolated benchmark rate at maturity
+    let benchmark_rate = match curve.zero_rate_at(maturity) {
+        Ok(r) => decimal_to_f64(r),
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to get benchmark rate: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Calculate target YTM from G-spread: YTM = G-spread + benchmark_rate
+    // G-spread is in bps, benchmark_rate is decimal (0.04 = 4%)
+    let target_ytm = (target_g_spread_bps / 100.0) + (benchmark_rate * 100.0);
+
+    // Get cash flows and accrued interest
+    let cash_flows = bond.cash_flows(settlement);
+    let accrued = bond.accrued_interest(settlement);
+    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
+    let frequency = bond.frequency();
+
+    // Convert target yield from percentage to decimal
+    let yield_decimal = target_ytm / 100.0;
+
+    // Calculate clean price from yield
+    let solver = YieldSolver::new();
+    let clean_price = solver.clean_price_from_yield(
+        &cash_flows,
+        yield_decimal,
+        accrued,
+        settlement,
+        day_count,
+        frequency,
+    );
+
+    let dirty_price = clean_price + decimal_to_f64(accrued);
+
+    PriceFromYieldResult {
+        clean_price: Some(clean_price),
+        dirty_price: Some(dirty_price),
+        accrued_interest: Some(decimal_to_f64(accrued)),
+        error: None,
+    }
+}
+
+/// Calculate clean price from target benchmark spread.
+///
+/// Given a target benchmark spread (in basis points), calculates the clean price.
+/// Benchmark spread = YTM - nearest on-the-run tenor rate.
+#[wasm_bindgen]
+pub fn price_from_benchmark_spread(
+    params: JsValue,
+    target_benchmark_spread_bps: f64,
+    benchmark_tenor: String,
+    curve_points: JsValue,
+) -> JsValue {
+    let result = price_from_benchmark_spread_impl(
+        params,
+        target_benchmark_spread_bps,
+        benchmark_tenor,
+        curve_points,
+    );
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+
+fn price_from_benchmark_spread_impl(
+    params: JsValue,
+    target_benchmark_spread_bps: f64,
+    benchmark_tenor: String,
+    curve_points: JsValue,
+) -> PriceFromYieldResult {
+    use convex_bonds::pricing::YieldSolver;
+
+    // Parse parameters
+    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse curve points
+    let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
+        Ok(p) => p,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to parse curve points: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the bond
+    let bond = match create_bond(&bond_params) {
+        Ok(b) => b,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse settlement date
+    let settlement = match parse_date(&bond_params.settlement_date) {
+        Ok(d) => d,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Build the curve
+    let curve = match create_curve(settlement, &points) {
+        Ok(c) => c,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Parse tenor string to years (e.g., "5Y" -> 5.0, "10Y" -> 10.0, "6M" -> 0.5)
+    let tenor_years = parse_tenor_to_years(&benchmark_tenor);
+
+    // Calculate benchmark date from settlement
+    let benchmark_days = (tenor_years * 365.25) as i64;
+    let benchmark_date = settlement.add_days(benchmark_days);
+
+    // Get benchmark tenor rate
+    let benchmark_rate = match curve.zero_rate_at(benchmark_date) {
+        Ok(r) => decimal_to_f64(r),
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(format!("Failed to get benchmark rate: {:?}", e)),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Calculate target YTM from benchmark spread: YTM = benchmark_spread + benchmark_tenor_rate
+    let target_ytm = (target_benchmark_spread_bps / 100.0) + (benchmark_rate * 100.0);
+
+    // Get cash flows and accrued interest
+    let cash_flows = bond.cash_flows(settlement);
+    let accrued = bond.accrued_interest(settlement);
+    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
+    let frequency = bond.frequency();
+
+    // Convert target yield from percentage to decimal
+    let yield_decimal = target_ytm / 100.0;
+
+    // Calculate clean price from yield
+    let solver = YieldSolver::new();
+    let clean_price = solver.clean_price_from_yield(
+        &cash_flows,
+        yield_decimal,
+        accrued,
+        settlement,
+        day_count,
+        frequency,
+    );
+
+    let dirty_price = clean_price + decimal_to_f64(accrued);
+
+    PriceFromYieldResult {
+        clean_price: Some(clean_price),
+        dirty_price: Some(dirty_price),
+        accrued_interest: Some(decimal_to_f64(accrued)),
+        error: None,
+    }
+}
+
+/// Parse a tenor string like "5Y", "10Y", "6M", "3M" to years
+fn parse_tenor_to_years(tenor: &str) -> f64 {
+    let tenor = tenor.trim().to_uppercase();
+    if tenor.ends_with('Y') {
+        tenor[..tenor.len() - 1].parse::<f64>().unwrap_or(10.0)
+    } else if tenor.ends_with('M') {
+        tenor[..tenor.len() - 1]
+            .parse::<f64>()
+            .map(|m| m / 12.0)
+            .unwrap_or(1.0)
+    } else {
+        // Try parsing as just a number (years)
+        tenor.parse::<f64>().unwrap_or(10.0)
     }
 }
 

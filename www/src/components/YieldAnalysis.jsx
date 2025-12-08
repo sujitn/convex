@@ -1,23 +1,52 @@
 import React, { useState, useEffect } from 'react';
 
-function YieldAnalysis({ analysis, price, onPriceChange, onCalculate, settlementDate }) {
+function YieldAnalysis({
+  analysis,
+  price,
+  onPriceChange,
+  onYieldChange,
+  settlementDate
+}) {
   const [localPrice, setLocalPrice] = useState(price);
+  const [localYtm, setLocalYtm] = useState(analysis?.ytm || '');
+  const [editingYield, setEditingYield] = useState(false);
 
   useEffect(() => {
     setLocalPrice(price);
   }, [price]);
 
+  useEffect(() => {
+    // Only update localYtm from analysis if user is not editing
+    if (!editingYield && analysis?.ytm != null) {
+      setLocalYtm(analysis.ytm);
+    }
+  }, [analysis?.ytm, editingYield]);
+
   const handlePriceBlur = () => {
     if (localPrice !== price) {
       onPriceChange(localPrice);
-      onCalculate();
     }
   };
 
   const handlePriceKeyDown = (e) => {
     if (e.key === 'Enter') {
       onPriceChange(localPrice);
-      onCalculate();
+    }
+  };
+
+  const handleYieldBlur = () => {
+    setEditingYield(false);
+    if (onYieldChange && localYtm !== analysis?.ytm) {
+      onYieldChange(parseFloat(localYtm) || 0);
+    }
+  };
+
+  const handleYieldKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setEditingYield(false);
+      if (onYieldChange) {
+        onYieldChange(parseFloat(localYtm) || 0);
+      }
     }
   };
 
@@ -72,10 +101,24 @@ function YieldAnalysis({ analysis, price, onPriceChange, onCalculate, settlement
 
         {/* Yield Metrics */}
         <div className="yield-section">
-          <div className="metric-row primary-metric">
+          <div className="metric-row primary-metric editable">
             <div className="metric-label">Yield to Maturity</div>
             <div className="metric-value ytm">
-              {formatPercent(analysis?.ytm)}
+              <input
+                type="number"
+                value={editingYield ? localYtm : (analysis?.ytm != null ? Number(analysis.ytm).toFixed(4) : '')}
+                onChange={(e) => {
+                  setEditingYield(true);
+                  setLocalYtm(e.target.value);
+                }}
+                onBlur={handleYieldBlur}
+                onKeyDown={handleYieldKeyDown}
+                onFocus={() => setEditingYield(true)}
+                step="0.0001"
+                className="yield-input"
+                placeholder="---"
+              />
+              <span className="unit">%</span>
             </div>
           </div>
 

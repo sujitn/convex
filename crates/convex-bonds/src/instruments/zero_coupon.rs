@@ -10,7 +10,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Currency, Date};
+use convex_core::types::{Currency, Date, Frequency};
 
 use crate::error::{BondError, BondResult};
 use crate::traits::{Bond, BondCashFlow};
@@ -493,6 +493,10 @@ impl Bond for ZeroCouponBond {
 
     fn face_value(&self) -> Decimal {
         self.face_value
+    }
+
+    fn frequency(&self) -> Frequency {
+        Frequency::Zero
     }
 
     fn cash_flows(&self, from: Date) -> Vec<BondCashFlow> {

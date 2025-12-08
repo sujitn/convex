@@ -33,7 +33,8 @@
       "Bash(npm start)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(npm run build:wasm:*)"
     ],
     "deny": [],
     "ask": []

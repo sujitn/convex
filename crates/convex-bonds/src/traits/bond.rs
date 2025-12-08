@@ -2,6 +2,7 @@
 //!
 //! The `Bond` trait defines the common interface for all bond types.
 
+use convex_core::types::Frequency;
 use convex_core::{Currency, Date};
 use rust_decimal::Decimal;
 
@@ -187,6 +188,9 @@ pub trait Bond {
 
     /// Returns the face/par value per unit.
     fn face_value(&self) -> Decimal;
+
+    /// Returns the coupon payment frequency.
+    fn frequency(&self) -> Frequency;
 
     // ==================== Cash Flow Generation ====================
 
