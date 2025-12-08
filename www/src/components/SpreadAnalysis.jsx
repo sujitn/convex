@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 function SpreadAnalysis({
   analysis,
   onSpreadChange,
-  onGSpreadChange,
-  onBenchmarkSpreadChange
+  onGSpreadChange
 }) {
   // Z-Spread state
   const [localZSpread, setLocalZSpread] = useState(analysis?.z_spread || '');
@@ -14,9 +13,42 @@ function SpreadAnalysis({
   const [localGSpread, setLocalGSpread] = useState(analysis?.g_spread || '');
   const [editingGSpread, setEditingGSpread] = useState(false);
 
-  // Benchmark Spread state
-  const [localBenchmarkSpread, setLocalBenchmarkSpread] = useState(analysis?.benchmark_spread || '');
-  const [editingBenchmarkSpread, setEditingBenchmarkSpread] = useState(false);
+  // Debounce refs
+  const zSpreadTimer = useRef(null);
+  const gSpreadTimer = useRef(null);
+
+  // Debounced spread change handlers
+  const debouncedZSpreadChange = useCallback((value) => {
+    if (zSpreadTimer.current) clearTimeout(zSpreadTimer.current);
+    zSpreadTimer.current = setTimeout(() => {
+      if (onSpreadChange) {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          onSpreadChange(numValue);
+        }
+      }
+    }, 300);
+  }, [onSpreadChange]);
+
+  const debouncedGSpreadChange = useCallback((value) => {
+    if (gSpreadTimer.current) clearTimeout(gSpreadTimer.current);
+    gSpreadTimer.current = setTimeout(() => {
+      if (onGSpreadChange) {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          onGSpreadChange(numValue);
+        }
+      }
+    }, 300);
+  }, [onGSpreadChange]);
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      if (zSpreadTimer.current) clearTimeout(zSpreadTimer.current);
+      if (gSpreadTimer.current) clearTimeout(gSpreadTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!editingZSpread && analysis?.z_spread != null) {
@@ -29,12 +61,6 @@ function SpreadAnalysis({
       setLocalGSpread(analysis.g_spread);
     }
   }, [analysis?.g_spread, editingGSpread]);
-
-  useEffect(() => {
-    if (!editingBenchmarkSpread && analysis?.benchmark_spread != null) {
-      setLocalBenchmarkSpread(analysis.benchmark_spread);
-    }
-  }, [analysis?.benchmark_spread, editingBenchmarkSpread]);
 
   const formatBps = (value) => {
     if (value === null || value === undefined) return '---';
@@ -50,52 +76,44 @@ function SpreadAnalysis({
 
   // Z-Spread handlers
   const handleZSpreadBlur = () => {
-    setEditingZSpread(false);
-    if (onSpreadChange && localZSpread !== analysis?.z_spread) {
-      onSpreadChange(parseFloat(localZSpread) || 0);
+    // Clear any pending debounce and trigger immediately
+    if (zSpreadTimer.current) clearTimeout(zSpreadTimer.current);
+    if (onSpreadChange) {
+      const numValue = parseFloat(localZSpread);
+      if (!isNaN(numValue)) {
+        onSpreadChange(numValue);
+      }
     }
+    setEditingZSpread(false);
   };
 
   const handleZSpreadKeyDown = (e) => {
     if (e.key === 'Enter') {
+      e.target.blur();
+    } else if (e.key === 'Escape') {
+      setLocalZSpread(analysis?.z_spread || '');
       setEditingZSpread(false);
-      if (onSpreadChange) {
-        onSpreadChange(parseFloat(localZSpread) || 0);
-      }
     }
   };
 
   // G-Spread handlers
   const handleGSpreadBlur = () => {
-    setEditingGSpread(false);
-    if (onGSpreadChange && localGSpread !== analysis?.g_spread) {
-      onGSpreadChange(parseFloat(localGSpread) || 0);
+    if (gSpreadTimer.current) clearTimeout(gSpreadTimer.current);
+    if (onGSpreadChange) {
+      const numValue = parseFloat(localGSpread);
+      if (!isNaN(numValue)) {
+        onGSpreadChange(numValue);
+      }
     }
+    setEditingGSpread(false);
   };
 
   const handleGSpreadKeyDown = (e) => {
     if (e.key === 'Enter') {
+      e.target.blur();
+    } else if (e.key === 'Escape') {
+      setLocalGSpread(analysis?.g_spread || '');
       setEditingGSpread(false);
-      if (onGSpreadChange) {
-        onGSpreadChange(parseFloat(localGSpread) || 0);
-      }
-    }
-  };
-
-  // Benchmark Spread handlers
-  const handleBenchmarkSpreadBlur = () => {
-    setEditingBenchmarkSpread(false);
-    if (onBenchmarkSpreadChange && localBenchmarkSpread !== analysis?.benchmark_spread) {
-      onBenchmarkSpreadChange(parseFloat(localBenchmarkSpread) || 0, analysis?.benchmark_tenor);
-    }
-  };
-
-  const handleBenchmarkSpreadKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      setEditingBenchmarkSpread(false);
-      if (onBenchmarkSpreadChange) {
-        onBenchmarkSpreadChange(parseFloat(localBenchmarkSpread) || 0, analysis?.benchmark_tenor);
-      }
     }
   };
 
@@ -115,6 +133,7 @@ function SpreadAnalysis({
               onChange={(e) => {
                 setEditingGSpread(true);
                 setLocalGSpread(e.target.value);
+                debouncedGSpreadChange(e.target.value);
               }}
               onBlur={handleGSpreadBlur}
               onKeyDown={handleGSpreadKeyDown}
@@ -128,28 +147,6 @@ function SpreadAnalysis({
           <div className="spread-desc">vs Interpolated</div>
         </div>
 
-        <div className={`spread-item editable ${getSpreadClass(analysis?.benchmark_spread)}`}>
-          <div className="spread-label">Benchmark</div>
-          <div className="spread-value">
-            <input
-              type="number"
-              value={editingBenchmarkSpread ? localBenchmarkSpread : (analysis?.benchmark_spread != null ? Number(analysis.benchmark_spread).toFixed(1) : '')}
-              onChange={(e) => {
-                setEditingBenchmarkSpread(true);
-                setLocalBenchmarkSpread(e.target.value);
-              }}
-              onBlur={handleBenchmarkSpreadBlur}
-              onKeyDown={handleBenchmarkSpreadKeyDown}
-              onFocus={() => setEditingBenchmarkSpread(true)}
-              step="0.1"
-              className="spread-input"
-              placeholder="---"
-            />
-            <span className="unit">bps</span>
-          </div>
-          <div className="spread-desc">vs {analysis?.benchmark_tenor || '---'}</div>
-        </div>
-
         <div className={`spread-item editable ${getSpreadClass(analysis?.z_spread)}`}>
           <div className="spread-label">Z-Spread</div>
           <div className="spread-value">
@@ -159,6 +156,7 @@ function SpreadAnalysis({
               onChange={(e) => {
                 setEditingZSpread(true);
                 setLocalZSpread(e.target.value);
+                debouncedZSpreadChange(e.target.value);
               }}
               onBlur={handleZSpreadBlur}
               onKeyDown={handleZSpreadKeyDown}
@@ -183,17 +181,21 @@ function SpreadAnalysis({
           <div className="spread-desc">Asset Swap</div>
         </div>
 
-        <div className="spread-item">
+        <div className={`spread-item ${getSpreadClass(analysis?.oas)}`}>
           <div className="spread-label">OAS</div>
-          <div className="spread-value">---</div>
-          <div className="spread-desc">Option Adj</div>
-        </div>
-      </div>
-
-      <div className="spread-notes">
-        <div className="note">
-          <span className="note-label">Benchmark:</span>
-          <span className="note-value">US Treasury Curve</span>
+          <div className="spread-value">
+            {analysis?.oas != null && Math.abs(analysis.oas) < 999
+              ? formatBps(analysis.oas)
+              : (analysis?.is_callable
+                  ? (analysis?.z_spread != null ? `~${formatBps(analysis.z_spread)}` : '---')
+                  : 'N/A')}
+            <span className="unit">bps</span>
+          </div>
+          <div className="spread-desc">
+            {analysis?.is_callable
+              ? (analysis?.oas != null && Math.abs(analysis.oas) < 999 ? 'Option Adj' : '≈ Z-Sprd')
+              : 'No Call'}
+          </div>
         </div>
       </div>
     </div>

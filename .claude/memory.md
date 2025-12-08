@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-07 (Callable Bond YTC/YTW + Currency-Specific Rate Fetching)
+**Last Updated**: 2025-12-08 (UI Layout Overhaul + OAS Volatility + Benchmark Tenor Fix)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -3036,6 +3036,131 @@ let krds = calculator.key_rate_durations(
 | Real-time | ❌ | ✅ | ✅ | Phase I |
 
 Legend: ✅ Full support, ⚠️ Partial, ❌ Not available
+
+---
+
+## Session: 2025-12-08
+
+### Implemented Today
+
+**UI-001: Complete Layout Overhaul**
+- **New 3-Column Grid Layout** (`App.jsx`, `bloomberg.css`):
+  - Row 1: Bond Details | Yield Analysis | Invoice
+  - Row 2: Call Schedule | Spread Analysis | Benchmark
+  - Row 3: Risk Metrics | Benchmark Curve + Price/Yield Chart | Cash Flows
+  - All rows use consistent column widths (`1fr 1.5fr 1fr`)
+  - Responsive breakpoints for smaller screens
+
+**UI-002: Price/Yield Chart Restoration**
+- Brought back PriceYieldChart component in center column of Row 3
+- Stacked vertically below Treasury Curve with proper panel headers
+- Fixed chart clipping issue - increased top margin from 10px to 25px
+- Charts now use `height: 100%` for dynamic sizing
+
+**OAS-001: Volatility Input (Manual)**
+- Added volatility input field to Call Schedule panel
+- Default value: 1.0% (typical normal environment)
+- Volatility passed to OAS calculation via Hull-White model
+- **Removed**: FRED MOVE Index fetching (unreliable CORS proxy issues)
+- User guidance: Low vol 0.5-0.7%, Normal 0.8-1.2%, Elevated 1.3-2.0%
+
+**BENCH-001: Benchmark Tenor Dropdown Fix**
+- **Issue**: Changing tenor dropdown had no visible effect
+- **Root Cause**: Spread was calculated from `analysis.g_spread` (interpolated), not selected tenor
+- **Fix**: Added `calculatedSpread` memo that computes spread as `(Bond YTM - Benchmark Yield) * 100 bps`
+- Spread now updates immediately when tenor dropdown changes
+
+**CALLABLE-002: Workout Date Logic Clarification**
+- Documented yield-to-worst workout behavior:
+  - Premium bonds (price > call price): Workout = call date, Price = call price
+  - Discount bonds (price < call price): Workout = maturity, Price = 100 (par)
+- All 13 callable bond unit tests pass
+
+### Decisions Made
+
+1. **Volatility Fetching Removed**: FRED MOVE Index fetch via CORS proxy was unreliable; keeping manual input only for now
+2. **Benchmark Spread Calculation**: Changed from backend interpolated G-spread to frontend calculation based on selected tenor
+3. **Grid Layout**: Adopted 3-column consistent grid vs previous left/center/right panel approach
+
+### Validation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| UI Layout | ✅ Verified | All panels render correctly |
+| Price/Yield Chart | ✅ Verified | Labels no longer clipped |
+| Benchmark Tenor | ✅ Verified | Dropdown updates spread immediately |
+| OAS Volatility | ✅ Verified | Manual input works, affects OAS calculation |
+| Callable Bond YTW | ✅ 13/13 tests | Workout logic correct for premium/discount |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `www/src/App.jsx` | Grid layout structure, removed vol fetch functions |
+| `www/src/styles/bloomberg.css` | Grid CSS, curves-cell, responsive breakpoints |
+| `www/src/components/CallSchedule.jsx` | Simplified props (removed fetch button) |
+| `www/src/components/Benchmark.jsx` | Added `calculatedSpread` memo for tenor-based spread |
+| `www/src/components/PriceYieldChart.jsx` | Increased margins, dynamic height |
+| `crates/convex-bonds/src/instruments/callable.rs` | Minor comment update |
+
+### Open Issues
+
+1. **OAS Calculation Bounds**: OAS sometimes hits 1000 bps upper bound (falls back to Z-spread display)
+2. **Volatility Data Source**: No automated vol fetching - consider API key-based solution in future
+
+### Next Session Suggestions
+
+1. Investigate OAS convergence issues for edge cases
+2. Consider adding benchmark price input (currently calculated from yield)
+3. Test with real callable bonds from Bloomberg to validate YTW/workout logic
+
+---
+
+## Session Log: 2025-12-08 (Continuation)
+
+### Summary
+Validated that the plan file (`temporal-crunching-widget.md`) items were already complete. Fixed a test compilation error.
+
+### Validation Status - All Items Complete
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| **I-Spread Implementation** | ✅ COMPLETE | Full `ISpreadCalculator` with 11 tests passing |
+| **OAS Effective Duration** | ✅ COMPLETE | Uses `ShiftedCurve` for proper curve shifts |
+| **Z-Spread Validation Test** | ✅ COMPLETE | `test_zsp_001_canonical_example` exists and passes |
+
+### Test Results
+
+- **I-Spread tests**: 11 passed
+- **OAS tests**: 12 passed (including `test_effective_duration`, `test_effective_convexity`)
+- **Validation tests**: 39 passed
+- **Full workspace**: All tests pass
+
+### Bug Fix
+
+**File**: `crates/convex-wasm/src/lib.rs:1258`
+**Issue**: Missing `volatility` field in `BondParams` test struct
+**Fix**: Added `volatility: None,` to the test
+
+### Implementation Notes
+
+The I-Spread implementation includes:
+- `ISpreadCalculator` struct with swap curve reference
+- `calculate()` - from bond yield
+- `calculate_from_yield()` - direct calculation
+- `calculate_from_price()` - via YTM first
+- `price_with_spread()` - forward pricing
+- `spread_dv01()` - sensitivity calculation
+- `spread_duration()` - percentage sensitivity
+- Comprehensive test suite covering roundtrips, negative spreads, validation
+
+The OAS effective duration properly shifts the entire yield curve using `ShiftedCurve` wrapper:
+```rust
+let curve_up = ShiftedCurve::new(curve, shift);
+let curve_down = ShiftedCurve::new(curve, -shift);
+let price_up = self.price_with_oas(bond, &curve_up, oas, settlement)?;
+let price_down = self.price_with_oas(bond, &curve_down, oas, settlement)?;
+```
 
 ---
 

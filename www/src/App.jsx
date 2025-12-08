@@ -6,6 +6,10 @@ import SpreadAnalysis from './components/SpreadAnalysis';
 import RiskMetrics from './components/RiskMetrics';
 import CashFlowTable from './components/CashFlowTable';
 import PriceYieldChart from './components/PriceYieldChart';
+import Benchmark from './components/Benchmark';
+import Invoice from './components/Invoice';
+import TreasuryCurve from './components/TreasuryCurve';
+import CallSchedule from './components/CallSchedule';
 
 // Default bond parameters
 const getDefaultBond = () => {
@@ -31,6 +35,7 @@ const getDefaultBond = () => {
     currency: 'USD',
     firstCouponDate: '',
     callSchedule: [],
+    volatility: 1.0, // Interest rate volatility for OAS (%)
   };
 };
 
@@ -146,9 +151,67 @@ async function fetchUSDRates() {
   return rates;
 }
 
-// Fetch EUR rates from ECB (approximate using AAA-rated euro area yields)
-async function fetchEURRates() {
-  // ECB Statistical Data Warehouse - AAA-rated euro area central government bonds
+// European government bond curves by country
+const EUR_CURVE_DEFAULTS = {
+  // German Bunds (DBR) - lowest yields, AAA rated
+  DBR: {
+    '1M': 2.85, '3M': 2.80, '6M': 2.70, '1Y': 2.45,
+    '2Y': 2.20, '3Y': 2.15, '5Y': 2.10, '7Y': 2.15,
+    '10Y': 2.25, '20Y': 2.45, '30Y': 2.50
+  },
+  // French OATs - slightly higher than DBR
+  OAT: {
+    '1M': 2.90, '3M': 2.85, '6M': 2.78, '1Y': 2.55,
+    '2Y': 2.35, '3Y': 2.32, '5Y': 2.35, '7Y': 2.45,
+    '10Y': 2.85, '20Y': 3.20, '30Y': 3.35
+  },
+  // Italian BTPs - higher yields due to credit spread
+  BTP: {
+    '1M': 3.10, '3M': 3.05, '6M': 3.00, '1Y': 2.85,
+    '2Y': 2.75, '3Y': 2.80, '5Y': 3.00, '7Y': 3.25,
+    '10Y': 3.55, '20Y': 4.00, '30Y': 4.20
+  },
+  // Spanish Bonos
+  SPGB: {
+    '1M': 2.95, '3M': 2.90, '6M': 2.82, '1Y': 2.60,
+    '2Y': 2.45, '3Y': 2.48, '5Y': 2.55, '7Y': 2.70,
+    '10Y': 3.05, '20Y': 3.50, '30Y': 3.70
+  },
+  // Dutch DSL
+  DSL: {
+    '1M': 2.87, '3M': 2.82, '6M': 2.72, '1Y': 2.48,
+    '2Y': 2.25, '3Y': 2.20, '5Y': 2.18, '7Y': 2.25,
+    '10Y': 2.40, '20Y': 2.65, '30Y': 2.75
+  },
+  // Belgian OLO
+  OLO: {
+    '1M': 2.92, '3M': 2.87, '6M': 2.77, '1Y': 2.55,
+    '2Y': 2.38, '3Y': 2.35, '5Y': 2.40, '7Y': 2.52,
+    '10Y': 2.80, '20Y': 3.15, '30Y': 3.30
+  },
+  // Austrian RAGB
+  RAGB: {
+    '1M': 2.88, '3M': 2.83, '6M': 2.73, '1Y': 2.50,
+    '2Y': 2.28, '3Y': 2.24, '5Y': 2.25, '7Y': 2.35,
+    '10Y': 2.55, '20Y': 2.85, '30Y': 2.95
+  },
+  // Portuguese PGB
+  PGB: {
+    '1M': 3.00, '3M': 2.95, '6M': 2.88, '1Y': 2.70,
+    '2Y': 2.58, '3Y': 2.62, '5Y': 2.75, '7Y': 2.92,
+    '10Y': 3.15, '20Y': 3.60, '30Y': 3.80
+  },
+  // Greek GGB
+  GGB: {
+    '1M': 3.20, '3M': 3.15, '6M': 3.10, '1Y': 3.00,
+    '2Y': 2.95, '3Y': 3.05, '5Y': 3.25, '7Y': 3.50,
+    '10Y': 3.75, '20Y': 4.20, '30Y': 4.40
+  },
+};
+
+// Fetch EUR rates - try ECB first, fallback to defaults
+async function fetchEURRates(curveType = 'DBR') {
+  // ECB Statistical Data Warehouse - try to get AAA euro area yields
   const baseUrl = 'https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM';
   const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl + '?lastNObservations=1&format=jsondata')}`;
 
@@ -176,7 +239,6 @@ async function fetchEURRates() {
         if (obs) {
           const latestValue = Object.values(obs).pop()?.[0];
           if (latestValue !== undefined) {
-            // Extract maturity from key
             const keyParts = key.split(':');
             const maturityIdx = parseInt(keyParts[4]);
             const maturity = maturityDim.values[maturityIdx]?.id;
@@ -188,16 +250,25 @@ async function fetchEURRates() {
       }
     }
 
-    if (Object.keys(rates).length > 0) return rates;
+    if (Object.keys(rates).length > 0) {
+      // Apply spread adjustment based on curve type (DBR as base)
+      const spreads = {
+        DBR: 0, OAT: 0.50, BTP: 1.20, SPGB: 0.70, DSL: 0.10,
+        OLO: 0.45, RAGB: 0.20, PGB: 0.85, GGB: 1.40
+      };
+      const spread = (spreads[curveType] || 0) / 100;
+
+      // Add spread to each tenor
+      Object.keys(rates).forEach(tenor => {
+        rates[tenor] = rates[tenor] + spread * 100;
+      });
+
+      return rates;
+    }
     throw new Error('No EUR rates parsed');
   } catch (error) {
     console.warn('ECB fetch failed, using defaults:', error);
-    // Return typical EUR rates as fallback
-    return {
-      '1M': 3.65, '3M': 3.60, '6M': 3.50, '1Y': 3.20,
-      '2Y': 2.80, '3Y': 2.70, '5Y': 2.60, '7Y': 2.65,
-      '10Y': 2.75, '20Y': 2.90, '30Y': 2.85
-    };
+    return EUR_CURVE_DEFAULTS[curveType] || EUR_CURVE_DEFAULTS.DBR;
   }
 }
 
@@ -253,21 +324,57 @@ async function fetchJPYRates() {
   };
 }
 
-// Main function to fetch rates based on currency
-async function fetchRatesForCurrency(currency) {
-  console.log(`Fetching rates for ${currency}...`);
+// Curve type mapping by currency
+const CURVE_TYPES_BY_CURRENCY = {
+  USD: ['UST'],
+  EUR: ['DBR', 'OAT', 'BTP', 'SPGB', 'DSL', 'OLO', 'RAGB', 'PGB', 'GGB'],
+  GBP: ['GILT'],
+  JPY: ['JGB'],
+  CHF: ['SWISS'],
+  AUD: ['ACGB'],
+  CAD: ['CAN'],
+  NZD: ['NZGB'],
+};
+
+const CURVE_TYPE_NAMES = {
+  UST: 'US Treasury',
+  DBR: 'German Bund',
+  OAT: 'French OAT',
+  BTP: 'Italian BTP',
+  SPGB: 'Spanish Bono',
+  DSL: 'Dutch DSL',
+  OLO: 'Belgian OLO',
+  RAGB: 'Austrian RAGB',
+  PGB: 'Portuguese PGB',
+  GGB: 'Greek GGB',
+  GILT: 'UK Gilt',
+  JGB: 'Japan JGB',
+  SWISS: 'Swiss Govt',
+  ACGB: 'Australian Govt',
+  CAN: 'Canadian Govt',
+  NZGB: 'NZ Govt',
+};
+
+// ============================================================================
+// Interest Rate Volatility Fetching
+// ============================================================================
+
+// Default volatility assumptions by currency (in %)
+
+// Main function to fetch rates based on currency and curve type
+async function fetchRatesForCurrency(currency, curveType) {
+  console.log(`Fetching rates for ${currency} (${curveType})...`);
 
   switch (currency) {
     case 'USD':
       return await fetchUSDRates();
     case 'EUR':
-      return await fetchEURRates();
+      return await fetchEURRates(curveType || 'DBR');
     case 'GBP':
       return await fetchGBPRates();
     case 'JPY':
       return await fetchJPYRates();
     case 'CHF':
-      // Swiss rates - use fallback
       return {
         '1M': 1.20, '3M': 1.15, '6M': 1.05, '1Y': 0.85,
         '2Y': 0.70, '3Y': 0.65, '5Y': 0.60, '7Y': 0.65,
@@ -301,8 +408,12 @@ function App({ wasmModule }) {
   const [bond, setBond] = useState(getDefaultBond);
   const [price, setPrice] = useState(100.0);
   const [treasuryCurve, setTreasuryCurve] = useState(DEFAULT_TREASURY_CURVE);
+  const [curveType, setCurveType] = useState('UST');
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [ratesLastUpdated, setRatesLastUpdated] = useState(null);
+
+  // Invoice face amount
+  const [faceAmount, setFaceAmount] = useState(1000000);
 
   // Analysis results
   const [analysis, setAnalysis] = useState(null);
@@ -336,6 +447,7 @@ function App({ wasmModule }) {
         call_schedule: bond.callSchedule && bond.callSchedule.length > 0
           ? bond.callSchedule.map(c => ({ date: c.date, price: c.price }))
           : null,
+        volatility: bond.volatility || 1.0, // Interest rate volatility for OAS
       };
 
       // Generate curve points from Treasury curve
@@ -389,22 +501,30 @@ function App({ wasmModule }) {
     setPriceYieldData(data);
   }, [wasmModule]);
 
-  // Auto-fetch rates on initial load and when currency changes
+  // Update curve type when currency changes
+  useEffect(() => {
+    const availableCurves = CURVE_TYPES_BY_CURRENCY[bond.currency] || ['UST'];
+    if (!availableCurves.includes(curveType)) {
+      setCurveType(availableCurves[0]);
+    }
+  }, [bond.currency, curveType]);
+
+  // Auto-fetch rates on initial load and when currency/curveType changes
   useEffect(() => {
     const fetchRates = async () => {
       setIsFetchingRates(true);
       try {
-        const rates = await fetchRatesForCurrency(bond.currency);
+        const rates = await fetchRatesForCurrency(bond.currency, curveType);
         setTreasuryCurve(prev => ({ ...prev, ...rates }));
         setRatesLastUpdated(new Date().toLocaleString());
       } catch (err) {
-        console.warn(`Failed to fetch ${bond.currency} rates, using defaults:`, err);
+        console.warn(`Failed to fetch ${bond.currency} (${curveType}) rates, using defaults:`, err);
       } finally {
         setIsFetchingRates(false);
       }
     };
     fetchRates();
-  }, [bond.currency]);
+  }, [bond.currency, curveType]);
 
   // Auto-calculate on any input change (debounced)
   useEffect(() => {
@@ -570,21 +690,25 @@ function App({ wasmModule }) {
   }, []);
 
   // Fetch live rates for current currency
-  const handleFetchRates = useCallback(async (currencyOverride) => {
-    const targetCurrency = currencyOverride || bond.currency;
+  const handleFetchRates = useCallback(async () => {
     setIsFetchingRates(true);
     setError(null);
     try {
-      const rates = await fetchRatesForCurrency(targetCurrency);
+      const rates = await fetchRatesForCurrency(bond.currency, curveType);
       setTreasuryCurve(prev => ({ ...prev, ...rates }));
       setRatesLastUpdated(new Date().toLocaleString());
     } catch (err) {
-      setError(`Failed to fetch ${targetCurrency} rates. Using default values.`);
+      setError(`Failed to fetch ${curveType} rates. Using default values.`);
       console.error(err);
     } finally {
       setIsFetchingRates(false);
     }
-  }, [bond.currency]);
+  }, [bond.currency, curveType]);
+
+  // Handle curve type change
+  const handleCurveTypeChange = useCallback((newCurveType) => {
+    setCurveType(newCurveType);
+  }, []);
 
   // Reset to defaults
   const handleReset = useCallback(() => {
@@ -678,50 +802,97 @@ function App({ wasmModule }) {
         </div>
       )}
 
-      <div className="main-content">
-        <div className="left-panel">
-          <BondInput
-            bond={bond}
-            onChange={handleBondChange}
-            treasuryCurve={treasuryCurve}
-            onCurveChange={handleCurveChange}
-            onFetchRates={handleFetchRates}
-            isFetchingRates={isFetchingRates}
-            ratesLastUpdated={ratesLastUpdated}
-          />
+      <div className="main-content grid-layout">
+        {/* Row 1: Bond Details | Yield Analysis | Invoice */}
+        <div className="grid-row row-1">
+          <div className="grid-cell">
+            <BondInput
+              bond={bond}
+              onChange={handleBondChange}
+            />
+          </div>
+          <div className="grid-cell">
+            <YieldAnalysis
+              analysis={analysis}
+              price={price}
+              onPriceChange={handlePriceChange}
+              onYieldChange={handleYieldChange}
+              settlementDate={bond.settlementDate}
+            />
+          </div>
+          <div className="grid-cell">
+            <Invoice
+              analysis={analysis}
+              price={price}
+              faceAmount={faceAmount}
+              onFaceAmountChange={setFaceAmount}
+            />
+          </div>
         </div>
 
-        <div className="center-panel">
-          <YieldAnalysis
-            analysis={analysis}
-            price={price}
-            onPriceChange={handlePriceChange}
-            onYieldChange={handleYieldChange}
-            settlementDate={bond.settlementDate}
-          />
-          <SpreadAnalysis
-            analysis={analysis}
-            onSpreadChange={handleSpreadChange}
-            onGSpreadChange={handleGSpreadChange}
-            onBenchmarkSpreadChange={handleBenchmarkSpreadChange}
-          />
-          <RiskMetrics analysis={analysis} />
+        {/* Row 2: Call Schedule | Spread Analysis | Benchmark */}
+        <div className="grid-row row-2">
+          <div className="grid-cell">
+            <CallSchedule
+              callSchedule={bond.callSchedule}
+              maturityDate={bond.maturityDate}
+              volatility={bond.volatility}
+              onChange={(schedule) => handleBondChange('callSchedule', schedule)}
+              onVolatilityChange={(vol) => handleBondChange('volatility', vol)}
+            />
+          </div>
+          <div className="grid-cell">
+            <SpreadAnalysis
+              analysis={analysis}
+              onSpreadChange={handleSpreadChange}
+              onGSpreadChange={handleGSpreadChange}
+            />
+          </div>
+          <div className="grid-cell">
+            <Benchmark
+              analysis={analysis}
+              treasuryCurve={treasuryCurve}
+              maturityDate={bond.maturityDate}
+              settlementDate={bond.settlementDate}
+              onBenchmarkSpreadChange={handleBenchmarkSpreadChange}
+            />
+          </div>
         </div>
 
-        <div className="right-panel">
-          <CashFlowTable
-            cashFlows={cashFlows}
-            analysis={analysis}
-          />
+        {/* Row 3: Risk Metrics | Benchmark Curve + Price/Yield Chart | Cash Flows */}
+        <div className="grid-row row-3">
+          <div className="grid-cell">
+            <RiskMetrics
+              analysis={analysis}
+              faceAmount={faceAmount}
+            />
+          </div>
+          <div className="grid-cell curves-cell">
+            <TreasuryCurve
+              treasuryCurve={treasuryCurve}
+              currency={bond.currency}
+              curveType={curveType}
+              availableCurveTypes={CURVE_TYPES_BY_CURRENCY[bond.currency] || ['UST']}
+              curveTypeNames={CURVE_TYPE_NAMES}
+              onCurveTypeChange={handleCurveTypeChange}
+              onCurveChange={handleCurveChange}
+              onFetchRates={handleFetchRates}
+              isFetchingRates={isFetchingRates}
+              ratesLastUpdated={ratesLastUpdated}
+            />
+            <PriceYieldChart
+              data={priceYieldData}
+              currentPrice={price}
+              currentYield={analysis?.ytm}
+            />
+          </div>
+          <div className="grid-cell">
+            <CashFlowTable
+              cashFlows={cashFlows}
+              analysis={analysis}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="bottom-panel">
-        <PriceYieldChart
-          data={priceYieldData}
-          currentPrice={price}
-          currentYield={analysis?.ytm}
-        />
       </div>
     </div>
   );
