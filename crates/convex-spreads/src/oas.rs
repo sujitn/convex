@@ -28,9 +28,69 @@ use convex_bonds::instruments::CallableBond;
 use convex_bonds::options::{BinomialTree, HullWhite, ShortRateModel};
 use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::{Compounding, Curve};
+use convex_curves::{Compounding, Curve, CurveResult};
 
 use crate::error::{SpreadError, SpreadResult};
+
+/// A wrapper curve that applies a parallel shift to all rates.
+///
+/// This is used for effective duration calculations where we need to
+/// shift the entire curve up/down and re-price.
+struct ShiftedCurve<'a> {
+    /// The underlying curve.
+    base: &'a dyn Curve,
+    /// The parallel shift to apply (in decimal, e.g., 0.0001 for 1bp).
+    shift: f64,
+}
+
+impl<'a> ShiftedCurve<'a> {
+    /// Creates a new shifted curve.
+    fn new(base: &'a dyn Curve, shift: f64) -> Self {
+        Self { base, shift }
+    }
+}
+
+impl Curve for ShiftedCurve<'_> {
+    fn discount_factor(&self, t: f64) -> CurveResult<f64> {
+        // Get base discount factor
+        let base_df = self.base.discount_factor(t)?;
+
+        if t <= 0.0 {
+            return Ok(base_df);
+        }
+
+        // Convert to zero rate, shift, convert back
+        // DF = exp(-r * t), so r = -ln(DF) / t
+        let base_rate = -base_df.ln() / t;
+        let shifted_rate = base_rate + self.shift;
+        let shifted_df = (-shifted_rate * t).exp();
+
+        Ok(shifted_df)
+    }
+
+    fn reference_date(&self) -> Date {
+        self.base.reference_date()
+    }
+
+    fn max_date(&self) -> Date {
+        self.base.max_date()
+    }
+
+    fn zero_rate(&self, t: f64, compounding: Compounding) -> CurveResult<f64> {
+        let base_rate = self.base.zero_rate(t, compounding)?;
+        Ok(base_rate + self.shift)
+    }
+
+    fn forward_rate(&self, t1: f64, t2: f64) -> CurveResult<f64> {
+        let base_fwd = self.base.forward_rate(t1, t2)?;
+        Ok(base_fwd + self.shift)
+    }
+
+    fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
+        let base_inst_fwd = self.base.instantaneous_forward(t)?;
+        Ok(base_inst_fwd + self.shift)
+    }
+}
 
 /// OAS Calculator for callable/puttable bonds.
 ///
@@ -322,13 +382,19 @@ impl OASCalculator {
     /// Calculates effective duration using OAS.
     ///
     /// Effective duration accounts for the embedded option by re-pricing
-    /// the bond under shifted rate curves.
+    /// the bond under parallel-shifted rate curves, keeping OAS constant.
     ///
     /// # Formula
     ///
     /// Effective Duration = (P- - P+) / (2 × P × Δr)
     ///
     /// Where P- and P+ are prices under down/up rate shifts.
+    ///
+    /// # Note
+    ///
+    /// This implementation properly shifts the entire yield curve rather
+    /// than approximating via OAS adjustment. This is more accurate for
+    /// callable bonds where option exercise depends on rate levels.
     pub fn effective_duration(
         &self,
         bond: &CallableBond,
@@ -340,26 +406,36 @@ impl OASCalculator {
 
         let price = self.price_with_oas(bond, curve, oas, settlement)?;
 
-        // Price with shifted curves (simulated by adjusting OAS)
-        // In a full implementation, we'd shift the entire curve
-        // For now, approximate with OAS adjustment
-        let price_up = self.price_with_oas(bond, curve, oas - shift, settlement)?;
-        let price_down = self.price_with_oas(bond, curve, oas + shift, settlement)?;
+        // Create shifted curves for proper effective duration
+        let curve_up = ShiftedCurve::new(curve, shift);
+        let curve_down = ShiftedCurve::new(curve, -shift);
+
+        // Re-price with shifted curves, keeping OAS constant
+        let price_up = self.price_with_oas(bond, &curve_up, oas, settlement)?;
+        let price_down = self.price_with_oas(bond, &curve_down, oas, settlement)?;
 
         if price.abs() < 1e-10 {
             return Err(SpreadError::invalid_input("Price is zero"));
         }
 
-        Ok((price_up - price_down) / (2.0 * price * shift))
+        // Effective duration = (P_down - P_up) / (2 * P * shift)
+        // Note: price_down > price when rates are down, price_up < price when rates are up
+        Ok((price_down - price_up) / (2.0 * price * shift))
     }
 
     /// Calculates effective convexity using OAS.
     ///
     /// Effective convexity measures the rate of change of duration.
+    /// Uses parallel-shifted rate curves for accurate option-adjusted convexity.
     ///
     /// # Formula
     ///
     /// Effective Convexity = (P- + P+ - 2×P) / (P × Δr²)
+    ///
+    /// # Note
+    ///
+    /// For callable bonds near the call price, effective convexity can be
+    /// negative due to the call option limiting price appreciation.
     pub fn effective_convexity(
         &self,
         bond: &CallableBond,
@@ -370,14 +446,21 @@ impl OASCalculator {
         let shift = 0.0001; // 1 bp
 
         let price = self.price_with_oas(bond, curve, oas, settlement)?;
-        let price_up = self.price_with_oas(bond, curve, oas - shift, settlement)?;
-        let price_down = self.price_with_oas(bond, curve, oas + shift, settlement)?;
+
+        // Create shifted curves for proper effective convexity
+        let curve_up = ShiftedCurve::new(curve, shift);
+        let curve_down = ShiftedCurve::new(curve, -shift);
+
+        // Re-price with shifted curves, keeping OAS constant
+        let price_up = self.price_with_oas(bond, &curve_up, oas, settlement)?;
+        let price_down = self.price_with_oas(bond, &curve_down, oas, settlement)?;
 
         if price.abs() < 1e-10 {
             return Err(SpreadError::invalid_input("Price is zero"));
         }
 
-        Ok((price_up + price_down - 2.0 * price) / (price * shift * shift))
+        // Effective convexity = (P_down + P_up - 2*P) / (P * shift^2)
+        Ok((price_down + price_up - 2.0 * price) / (price * shift * shift))
     }
 
     /// Returns the option value embedded in the callable bond.

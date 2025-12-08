@@ -68,6 +68,7 @@ pub use discount_margin::{simple_margin, z_discount_margin, DiscountMarginCalcul
 pub use error::{SpreadError, SpreadResult};
 pub use government_curve::{GovernmentBenchmark, GovernmentCurve};
 pub use gspread::{BenchmarkInfo, GSpreadCalculator, GSpreadResult, TreasuryBenchmark};
+pub use ispread::ISpreadCalculator;
 pub use oas::OASCalculator;
 pub use sovereign::{Sovereign, SupranationalIssuer};
 pub use zspread::ZSpreadCalculator;
