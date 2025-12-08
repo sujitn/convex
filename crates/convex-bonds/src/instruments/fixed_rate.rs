@@ -253,6 +253,7 @@ impl FixedRateBond {
     /// Calculates accrued interest at settlement.
     ///
     /// Handles both standard accrued and ex-dividend accrued (UK Gilts).
+    /// Also handles irregular (stub) first coupon periods by prorating the coupon.
     fn calculate_accrued(&self, settlement: Date) -> Decimal {
         if self.frequency.is_zero() {
             return Decimal::ZERO;
@@ -260,27 +261,63 @@ impl FixedRateBond {
 
         let (last_coupon, next_coupon) = self.coupon_dates_for_settlement(settlement);
 
-        match self.ex_dividend_days {
-            Some(ex_div_days) => AccruedInterestCalculator::ex_dividend(
+        // Check if we're in an irregular first period (short or long first coupon)
+        // This happens when the first coupon period doesn't match the regular period length
+        let is_first_period = last_coupon == self.dated_date;
+        let is_irregular_period = if is_first_period {
+            // Calculate regular period length in days (approximately)
+            let regular_days = 365 / self.frequency.periods_per_year() as i64;
+            // Calculate actual first period length in days
+            let actual_days = self.dated_date.days_between(&next_coupon).abs();
+            // If the first period differs by more than 30 days from regular, it's irregular
+            (actual_days - regular_days).abs() > 30
+        } else {
+            false
+        };
+
+        if is_irregular_period {
+            // For irregular first period, use the irregular period calculator
+            // which prorates based on reference period length
+            let regular_months = 12 / self.frequency.periods_per_year();
+            let ref_period_start = next_coupon
+                .add_months(-(regular_months as i32))
+                .unwrap_or(next_coupon);
+            let ref_period_end = next_coupon;
+
+            AccruedInterestCalculator::irregular_period(
                 settlement,
-                last_coupon,
-                next_coupon,
+                last_coupon, // period_start = dated_date
+                next_coupon, // period_end = first coupon
+                ref_period_start,
+                ref_period_end,
                 self.coupon_rate,
                 self.face_value,
                 self.day_count,
                 self.frequency,
-                ex_div_days,
-                &self.calendar,
-            ),
-            None => AccruedInterestCalculator::standard(
-                settlement,
-                last_coupon,
-                next_coupon,
-                self.coupon_rate,
-                self.face_value,
-                self.day_count,
-                self.frequency,
-            ),
+            )
+        } else {
+            match self.ex_dividend_days {
+                Some(ex_div_days) => AccruedInterestCalculator::ex_dividend(
+                    settlement,
+                    last_coupon,
+                    next_coupon,
+                    self.coupon_rate,
+                    self.face_value,
+                    self.day_count,
+                    self.frequency,
+                    ex_div_days,
+                    &self.calendar,
+                ),
+                None => AccruedInterestCalculator::standard(
+                    settlement,
+                    last_coupon,
+                    next_coupon,
+                    self.coupon_rate,
+                    self.face_value,
+                    self.day_count,
+                    self.frequency,
+                ),
+            }
         }
     }
 }
@@ -329,6 +366,9 @@ impl Bond for FixedRateBond {
         let dates = schedule.dates();
         let unadjusted = schedule.unadjusted_dates();
 
+        // Calculate regular period length for stub detection
+        let regular_days = 365 / self.frequency.periods_per_year() as i64;
+
         let mut flows = Vec::new();
 
         for (i, window) in unadjusted.windows(2).enumerate() {
@@ -340,7 +380,21 @@ impl Bond for FixedRateBond {
                 continue;
             }
 
-            let coupon = self.coupon_per_period();
+            // Check if this is the first period and it's a stub
+            let is_first_period = i == 0 && accrual_start == self.dated_date;
+            let actual_days = accrual_start.days_between(&accrual_end).abs();
+            let is_stub_period = is_first_period && (actual_days - regular_days).abs() > 30;
+
+            let coupon = if is_stub_period {
+                // Prorate first coupon based on actual period length vs regular period
+                // Use day count convention for proper calculation
+                let dc = self.day_count.to_day_count();
+                let year_frac = dc.year_fraction(accrual_start, accrual_end);
+                self.face_value * self.coupon_rate * year_frac
+            } else {
+                self.coupon_per_period()
+            };
+
             let is_final = i == unadjusted.len() - 2;
 
             if is_final {
@@ -1114,5 +1168,306 @@ mod tests {
         // Previous coupon should be Dec 15, 2023
         let prev = bond.previous_coupon_date(settlement);
         assert!(prev.is_some());
+    }
+
+    /// Test accrued interest for annual bond with short first coupon period.
+    ///
+    /// Bond: 3.375% annual coupon
+    /// Issue date: Sep 10, 2025
+    /// Maturity: Mar 10, 2032
+    /// First coupon: Mar 10, 2026 (only 6 months from issue - short first stub)
+    ///
+    /// For a regular annual bond, the period coupon is 3.375.
+    /// But for this short first period (6 months instead of 12), the first
+    /// coupon should be prorated to ~1.6875.
+    ///
+    /// Settlement: Dec 8, 2025
+    /// Days accrued (30/360): Sep 10 to Dec 8 = 88 days
+    /// Reference period (regular annual): 360 days
+    /// Accrued = 3.375 * 88 / 360 = 0.825 (approximately)
+    #[test]
+    fn test_short_first_coupon_accrued() {
+        // Annual bond with short first coupon (6 months instead of 12)
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("SHORTFIRST")
+            .coupon_percent(3.375)
+            .maturity(date(2032, 3, 10))
+            .issue_date(date(2025, 9, 10))
+            .frequency(Frequency::Annual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        let settlement = date(2025, 12, 8);
+        let accrued = bond.accrued_interest(settlement);
+
+        // The short first period should be detected (6 months vs 12 months regular)
+        // Accrued should be calculated on the prorated coupon
+        // Regular period = 360 days (30/360 annual)
+        // Accrued days = 88 (Sep 10 to Dec 8)
+        // Expected accrued ≈ 3.375 * 88/360 = 0.825
+
+        // Allow some tolerance for day count conventions
+        assert!(
+            accrued > dec!(0.8) && accrued < dec!(0.9),
+            "Accrued = {} (expected ~0.825 for short first coupon)",
+            accrued
+        );
+
+        // Compare with a regular semi-annual bond with same dates (should match closely)
+        let semi_bond = FixedRateBond::builder()
+            .cusip_unchecked("SEMIANNUAL")
+            .coupon_percent(3.375)
+            .maturity(date(2032, 3, 10))
+            .issue_date(date(2025, 9, 10))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        let semi_accrued = semi_bond.accrued_interest(settlement);
+
+        // The annual bond with short first should have similar accrued to semi-annual
+        // since both have a 6-month first period
+        let diff = (accrued - semi_accrued).abs();
+        assert!(
+            diff < dec!(0.1),
+            "Annual short first ({}) should be close to semi-annual ({}), diff = {}",
+            accrued,
+            semi_accrued,
+            diff
+        );
+    }
+
+    /// Test accrued interest for annual bond with LONG first coupon period.
+    ///
+    /// Bond: 5% annual coupon
+    /// Issue date: Jan 15, 2025
+    /// Maturity: Sep 15, 2030
+    /// First coupon: Sep 15, 2026 (20 months from issue - long first stub)
+    ///
+    /// For a regular annual bond, the period coupon is 5.0.
+    /// For this long first period (~20 months), the first coupon is larger than regular.
+    #[test]
+    fn test_long_first_coupon_accrued() {
+        // Annual bond with long first coupon (20 months instead of 12)
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("LONGFIRST")
+            .coupon_percent(5.0)
+            .maturity(date(2030, 9, 15))
+            .issue_date(date(2025, 1, 15))
+            .frequency(Frequency::Annual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        // Settlement 6 months into the long first period
+        let settlement = date(2025, 7, 15);
+        let accrued = bond.accrued_interest(settlement);
+
+        // Accrued should be calculated proportionally to the reference period
+        // 6 months into a 20-month period
+        // Using year fraction approach: accrued = 5.0 * (6/12) = 2.5 approximately
+        // (Reference period is 12 months for annual)
+        println!("Long first accrued: {}", accrued);
+
+        // Allow reasonable range
+        assert!(
+            accrued > dec!(2.0) && accrued < dec!(3.0),
+            "Accrued = {} (expected ~2.5 for 6 months into long first)",
+            accrued
+        );
+    }
+
+    /// Test that regular bonds (no stub) still work correctly.
+    ///
+    /// Bond: 4% semi-annual coupon
+    /// Issue date: Jun 15, 2020
+    /// Maturity: Jun 15, 2030
+    /// Regular schedule with no stubs
+    #[test]
+    fn test_regular_bond_no_stub() {
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("REGULAR01")
+            .coupon_percent(4.0)
+            .maturity(date(2030, 6, 15))
+            .issue_date(date(2020, 6, 15))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        // Settlement 3 months into a regular period
+        let settlement = date(2025, 9, 15);
+        let accrued = bond.accrued_interest(settlement);
+
+        // Semi-annual coupon = 4% / 2 = 2% = 2.0 per period
+        // 3 months of 6 months = 50%
+        // Accrued = 2.0 * 0.5 = 1.0
+        println!("Regular bond accrued: {}", accrued);
+
+        assert!(
+            accrued > dec!(0.9) && accrued < dec!(1.1),
+            "Accrued = {} (expected ~1.0 for regular bond)",
+            accrued
+        );
+
+        // Verify cash flows are all regular (2.0 per period)
+        use crate::traits::CashFlowType;
+        let flows = bond.cash_flows(date(2025, 1, 1));
+        let coupon_flows: Vec<_> = flows
+            .iter()
+            .filter(|cf| cf.flow_type == CashFlowType::Coupon)
+            .collect();
+
+        for cf in &coupon_flows {
+            let diff = (cf.amount - dec!(2.0)).abs();
+            assert!(
+                diff < dec!(0.01),
+                "Regular coupon should be 2.0, got {}",
+                cf.amount
+            );
+        }
+    }
+
+    /// Test short first coupon for semi-annual bond.
+    ///
+    /// Bond: 6% semi-annual coupon
+    /// Issue date: Apr 15, 2025
+    /// Maturity: Jul 15, 2030
+    /// First coupon: Jul 15, 2025 (3 months - short first stub)
+    #[test]
+    fn test_short_first_coupon_semiannual() {
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("SHORTSEMI")
+            .coupon_percent(6.0)
+            .maturity(date(2030, 7, 15))
+            .issue_date(date(2025, 4, 15))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        // Settlement 2 months into the short first period
+        let settlement = date(2025, 6, 15);
+        let accrued = bond.accrued_interest(settlement);
+
+        // Short first period: Apr 15 to Jul 15 = 3 months (vs regular 6 months)
+        // 2 months accrued in 3-month period, proportional to 12-month reference
+        // Accrued = 6% * (2/12) = 1.0 approximately
+        println!("Short semi-annual accrued: {}", accrued);
+
+        assert!(
+            accrued > dec!(0.9) && accrued < dec!(1.2),
+            "Accrued = {} (expected ~1.0 for short first semi-annual)",
+            accrued
+        );
+
+        // Verify first cash flow is prorated
+        let flows = bond.cash_flows(date(2025, 4, 15));
+        let first_coupon = flows.first().unwrap();
+        // First coupon should be ~1.5 (half of regular 3.0 for 3 months)
+        println!("First coupon amount: {}", first_coupon.amount);
+
+        assert!(
+            first_coupon.amount > dec!(1.0) && first_coupon.amount < dec!(2.0),
+            "First short stub coupon should be ~1.5, got {}",
+            first_coupon.amount
+        );
+    }
+
+    /// Test that cash flows are correctly generated for short first stub.
+    #[test]
+    fn test_cash_flows_short_first_stub() {
+        // Annual bond: Sep 10, 2025 to Mar 10, 2032
+        // First coupon Mar 10, 2026 (6 months - short stub)
+        // Subsequent coupons are regular (12 months each)
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("CFTEST001")
+            .coupon_percent(3.375)
+            .maturity(date(2032, 3, 10))
+            .issue_date(date(2025, 9, 10))
+            .frequency(Frequency::Annual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        let flows = bond.cash_flows(date(2025, 9, 10));
+        println!("Cash flows:");
+        for cf in &flows {
+            println!("  {} - {} ({:?})", cf.date, cf.amount, cf.flow_type);
+        }
+
+        // Should have 7 cash flows:
+        // Mar 2026 (short stub ~1.69), Mar 2027-2031 (regular 3.375 each), Mar 2032 (3.375 + 100)
+        assert_eq!(flows.len(), 7, "Expected 7 cash flows");
+
+        // First coupon should be prorated (~half of 3.375)
+        let first_coupon = &flows[0];
+        assert!(
+            first_coupon.amount > dec!(1.5) && first_coupon.amount < dec!(2.0),
+            "First coupon should be ~1.69 (6-month stub), got {}",
+            first_coupon.amount
+        );
+
+        // Second through sixth coupons should be regular (3.375)
+        for (i, cf) in flows.iter().enumerate().skip(1).take(5) {
+            let diff = (cf.amount - dec!(3.375)).abs();
+            assert!(
+                diff < dec!(0.01),
+                "Coupon {} should be 3.375, got {}",
+                i + 1,
+                cf.amount
+            );
+        }
+
+        // Final cash flow should be coupon + principal
+        let final_cf = flows.last().unwrap();
+        assert!(
+            final_cf.amount > dec!(103) && final_cf.amount < dec!(104),
+            "Final cash flow should be ~103.375, got {}",
+            final_cf.amount
+        );
+    }
+
+    /// Test quarterly bond with short first stub.
+    #[test]
+    fn test_quarterly_short_first() {
+        // Quarterly bond with 1-month first stub
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("QUARTERLY")
+            .coupon_percent(4.0)
+            .maturity(date(2027, 3, 15))
+            .issue_date(date(2025, 2, 15))
+            .frequency(Frequency::Quarterly)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        // First coupon Mar 15, 2025 (1 month from Feb 15)
+        // Regular quarterly coupon = 4% / 4 = 1.0
+        let flows = bond.cash_flows(date(2025, 2, 15));
+
+        // First coupon should be ~0.333 (1 month of 3-month period)
+        let first_coupon = &flows[0];
+        println!("Quarterly first coupon: {}", first_coupon.amount);
+
+        assert!(
+            first_coupon.amount > dec!(0.2) && first_coupon.amount < dec!(0.5),
+            "First quarterly stub should be ~0.33, got {}",
+            first_coupon.amount
+        );
+
+        // Settlement halfway through first period
+        let settlement = date(2025, 3, 1);
+        let accrued = bond.accrued_interest(settlement);
+        println!("Quarterly accrued (14 days): {}", accrued);
+
+        // Should be proportional to reference period
+        assert!(
+            accrued > dec!(0.1) && accrued < dec!(0.2),
+            "Accrued should be ~0.15, got {}",
+            accrued
+        );
     }
 }

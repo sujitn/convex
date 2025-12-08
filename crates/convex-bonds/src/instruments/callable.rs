@@ -846,4 +846,97 @@ mod tests {
             .build();
         assert!(result.is_err());
     }
+
+    /// Test yield calculations for annual callable bond with short first coupon.
+    ///
+    /// Bond: 3.375% annual coupon
+    /// Issue date: Sep 10, 2025
+    /// Maturity: Mar 10, 2032
+    /// Call date: Mar 10, 2031 at par (100)
+    /// Clean price: 99.498
+    ///
+    /// Expected (from Bloomberg):
+    /// - Accrued interest: ~0.84 (short first coupon)
+    /// - YTW: ~3.48% (yield to maturity, not call)
+    /// - YTC: ~3.66% (yield to call is higher, so YTW should be YTM)
+    #[test]
+    fn test_annual_callable_bond_ytw() {
+        use convex_core::daycounts::DayCountConvention;
+        use convex_core::types::Frequency;
+
+        // Create annual bond with short first coupon
+        let base = FixedRateBond::builder()
+            .cusip_unchecked("ANNUAL001")
+            .coupon_percent(3.375)
+            .maturity(date(2032, 3, 10))
+            .issue_date(date(2025, 9, 10))
+            .frequency(Frequency::Annual)
+            .day_count(DayCountConvention::Thirty360US)
+            .build()
+            .unwrap();
+
+        // Add call schedule at par on Mar 10, 2031
+        let call_schedule = CallSchedule::new(CallType::European)
+            .with_entry(CallEntry::new(date(2031, 3, 10), 100.0));
+
+        let callable = CallableBond::new(base, call_schedule);
+        let settlement = date(2025, 12, 8);
+        let clean_price = dec!(99.498);
+
+        // Test accrued interest (should be ~0.82-0.84 for short first coupon)
+        let accrued = callable.accrued_interest(settlement);
+        println!("Accrued interest: {}", accrued);
+        assert!(
+            accrued > dec!(0.7) && accrued < dec!(0.95),
+            "Accrued = {} (expected ~0.82-0.84)",
+            accrued
+        );
+
+        // Test YTM
+        let ytm_result = callable.yield_to_maturity(clean_price, settlement);
+        assert!(
+            ytm_result.is_ok(),
+            "YTM calculation failed: {:?}",
+            ytm_result
+        );
+        let ytm = ytm_result.unwrap();
+        println!("YTM: {}%", ytm * dec!(100));
+
+        // Test YTC
+        let ytc_result = callable.yield_to_first_call(clean_price, settlement);
+        assert!(
+            ytc_result.is_ok(),
+            "YTC calculation failed: {:?}",
+            ytc_result
+        );
+        let ytc = ytc_result.unwrap();
+        println!("YTC: {}%", ytc * dec!(100));
+
+        // Test YTW
+        let ytw_result = callable.yield_to_worst_with_date(clean_price, settlement);
+        assert!(
+            ytw_result.is_ok(),
+            "YTW calculation failed: {:?}",
+            ytw_result
+        );
+        let (ytw, workout_date) = ytw_result.unwrap();
+        println!("YTW: {}% (workout date: {})", ytw * dec!(100), workout_date);
+
+        // Since price is at slight discount (99.498 < 100), YTM should be slightly above coupon
+        // and YTC should be higher than YTM (call at par accelerates discount recovery)
+        // So YTW should equal YTM (the minimum)
+        assert!(
+            ytw == ytm || (ytw - ytm).abs() < dec!(0.0001),
+            "YTW ({}) should equal YTM ({}) since price < 100",
+            ytw,
+            ytm
+        );
+
+        // Workout date should be maturity for discount bond
+        assert_eq!(
+            workout_date,
+            date(2032, 3, 10),
+            "Workout date should be maturity for discount bond"
+        );
+    }
 }

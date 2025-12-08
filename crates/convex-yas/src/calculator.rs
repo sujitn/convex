@@ -617,26 +617,38 @@ impl<'a> YASCalculator<'a> {
         // Convert YTM from decimal (0.05) to percentage (5.0)
         let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
 
-        // Estimate annual coupon from coupon-only cash flows using bond's frequency
-        // Find a coupon-only cash flow (not CouponAndPrincipal) for accurate periodic coupon
+        // Calculate annual coupon from cash flows, avoiding potential short first stub
+        // For short first coupon periods, the first cash flow is prorated and not representative
+        // of the full periodic coupon.
         use convex_bonds::traits::CashFlowType;
-        let periodic_coupon = cash_flows
+
+        // Find all coupon-only cash flows (not CouponAndPrincipal which is the final payment)
+        let coupon_flows: Vec<_> = cash_flows
             .iter()
-            .find(|cf| cf.flow_type == CashFlowType::Coupon)
-            .or_else(|| {
-                // If no coupon-only flows, use first cash flow but be careful
-                // For CouponAndPrincipal, we need to extract just the coupon portion
-                cash_flows.first()
-            })
-            .map(|cf| {
-                if cf.flow_type == CashFlowType::CouponAndPrincipal {
-                    // Subtract face value to get coupon portion
-                    (cf.amount - bond.face_value()).max(Decimal::ZERO)
-                } else {
-                    cf.amount
-                }
-            })
-            .unwrap_or(Decimal::ZERO);
+            .filter(|cf| cf.flow_type == CashFlowType::Coupon)
+            .collect();
+
+        // Prefer second coupon (skip potential first stub) if available,
+        // otherwise use first coupon, or extract from CouponAndPrincipal
+        let periodic_coupon = if coupon_flows.len() >= 2 {
+            // Use second coupon flow to avoid potential short first stub
+            coupon_flows[1].amount
+        } else if !coupon_flows.is_empty() {
+            // Only one coupon flow, use it
+            coupon_flows[0].amount
+        } else {
+            // No coupon-only flows, extract from final CouponAndPrincipal
+            cash_flows
+                .last()
+                .map(|cf| {
+                    if cf.flow_type == CashFlowType::CouponAndPrincipal {
+                        (cf.amount - bond.face_value()).max(Decimal::ZERO)
+                    } else {
+                        cf.amount
+                    }
+                })
+                .unwrap_or(Decimal::ZERO)
+        };
         let annual_coupon = periodic_coupon * Decimal::from(bond_frequency);
         let current = current_yield_from_amount(annual_coupon, clean_price)?;
 
