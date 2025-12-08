@@ -539,6 +539,36 @@ body {
   background: var(--bg-hover);
 }
 
+/* Yield Input - for bidirectional calculation */
+.yield-input {
+  width: 90px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.yield-input:focus {
+  outline: none;
+  background: var(--bg-hover);
+  border-color: var(--accent-yellow);
+}
+
+.metric-value.ytm {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.metric-value.ytm .unit {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 /* ============================================================================
    Spread Analysis Panel
    ============================================================================ */
@@ -590,6 +620,37 @@ body {
 
 .spread-wide .spread-value {
   color: var(--accent-red);
+}
+
+/* Editable spread input */
+.spread-item.editable .spread-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.spread-input {
+  width: 70px;
+  padding: var(--spacing-xs);
+  background: var(--bg-input);
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.spread-input:focus {
+  outline: none;
+  background: var(--bg-hover);
+  border-color: var(--accent-yellow);
+}
+
+.spread-item .unit {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .spread-notes {

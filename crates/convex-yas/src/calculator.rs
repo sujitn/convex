@@ -62,6 +62,12 @@ pub struct YASResult {
     /// Z-Spread (constant spread over spot curve)
     pub z_spread: Spread,
 
+    /// Benchmark spread (yield - nearest on-the-run tenor rate)
+    pub benchmark_spread: Spread,
+
+    /// Benchmark tenor used for benchmark spread (e.g., "5Y", "10Y")
+    pub benchmark_tenor: String,
+
     /// Asset swap spread (par-par)
     pub asw_spread: Option<Spread>,
 
@@ -219,6 +225,12 @@ impl std::fmt::Display for YASResult {
             f,
             "║   G-Spread:           {:>10.1} bps                    ║",
             self.g_spread.as_bps()
+        )?;
+        writeln!(
+            f,
+            "║   Benchmark Spread:   {:>10.1} bps  ({:>3})            ║",
+            self.benchmark_spread.as_bps(),
+            self.benchmark_tenor
         )?;
         writeln!(
             f,
@@ -463,6 +475,101 @@ impl<'a> YASCalculator<'a> {
         self
     }
 
+    /// Standard on-the-run Treasury tenors by currency.
+    /// Each market has different standard benchmark tenors.
+
+    /// USD Treasury tenors
+    const USD_TENORS: [(f64, &'static str); 10] = [
+        (0.25, "3M"),
+        (0.5, "6M"),
+        (1.0, "1Y"),
+        (2.0, "2Y"),
+        (3.0, "3Y"),
+        (5.0, "5Y"),
+        (7.0, "7Y"),
+        (10.0, "10Y"),
+        (20.0, "20Y"),
+        (30.0, "30Y"),
+    ];
+
+    /// EUR (German Bund) tenors
+    const EUR_TENORS: [(f64, &'static str); 4] = [
+        (2.0, "2Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (30.0, "30Y"),
+    ];
+
+    /// GBP (UK Gilt) tenors
+    const GBP_TENORS: [(f64, &'static str); 5] = [
+        (2.0, "2Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (30.0, "30Y"),
+        (50.0, "50Y"),
+    ];
+
+    /// JPY (Japanese Government Bond) tenors
+    const JPY_TENORS: [(f64, &'static str); 6] = [
+        (2.0, "2Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (20.0, "20Y"),
+        (30.0, "30Y"),
+        (40.0, "40Y"),
+    ];
+
+    /// AUD (Australian Government Bond) tenors
+    const AUD_TENORS: [(f64, &'static str); 4] = [
+        (3.0, "3Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (30.0, "30Y"),
+    ];
+
+    /// CAD (Canadian Government Bond) tenors
+    const CAD_TENORS: [(f64, &'static str); 5] = [
+        (2.0, "2Y"),
+        (5.0, "5Y"),
+        (10.0, "10Y"),
+        (20.0, "20Y"),
+        (30.0, "30Y"),
+    ];
+
+    /// Finds the nearest standard on-the-run tenor for a given years to maturity.
+    ///
+    /// Returns the tenor in years and its label (e.g., (5.0, "5Y")).
+    /// Uses currency-specific benchmark tenors.
+    fn nearest_on_the_run_tenor(
+        years_to_maturity: f64,
+        currency: convex_core::Currency,
+    ) -> (f64, &'static str) {
+        // Select the appropriate tenor list based on currency
+        let tenors: &[(f64, &'static str)] = match currency {
+            convex_core::Currency::USD => &Self::USD_TENORS,
+            convex_core::Currency::EUR => &Self::EUR_TENORS,
+            convex_core::Currency::GBP => &Self::GBP_TENORS,
+            convex_core::Currency::JPY => &Self::JPY_TENORS,
+            convex_core::Currency::AUD | convex_core::Currency::NZD => &Self::AUD_TENORS,
+            convex_core::Currency::CAD => &Self::CAD_TENORS,
+            convex_core::Currency::CHF => &Self::EUR_TENORS, // Swiss follows EUR pattern
+            _ => &Self::USD_TENORS, // Default to USD tenors for other currencies
+        };
+
+        let mut best_tenor = tenors[0];
+        let mut min_diff = (years_to_maturity - best_tenor.0).abs();
+
+        for tenor in tenors {
+            let diff = (years_to_maturity - tenor.0).abs();
+            if diff < min_diff {
+                min_diff = diff;
+                best_tenor = *tenor;
+            }
+        }
+
+        best_tenor
+    }
+
     /// Performs a complete YAS analysis on a bond.
     ///
     /// # Arguments
@@ -518,10 +625,25 @@ impl<'a> YASCalculator<'a> {
         // Convert YTM from decimal (0.05) to percentage (5.0)
         let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
 
-        // Estimate annual coupon from first cash flow using bond's frequency
+        // Estimate annual coupon from coupon-only cash flows using bond's frequency
+        // Find a coupon-only cash flow (not CouponAndPrincipal) for accurate periodic coupon
+        use convex_bonds::traits::CashFlowType;
         let periodic_coupon = cash_flows
-            .first()
-            .map(|cf| cf.amount)
+            .iter()
+            .find(|cf| cf.flow_type == CashFlowType::Coupon)
+            .or_else(|| {
+                // If no coupon-only flows, use first cash flow but be careful
+                // For CouponAndPrincipal, we need to extract just the coupon portion
+                cash_flows.first()
+            })
+            .map(|cf| {
+                if cf.flow_type == CashFlowType::CouponAndPrincipal {
+                    // Subtract face value to get coupon portion
+                    (cf.amount - bond.face_value()).max(Decimal::ZERO)
+                } else {
+                    cf.amount
+                }
+            })
             .unwrap_or(Decimal::ZERO);
         let annual_coupon = periodic_coupon * Decimal::from(bond_frequency);
         let current = current_yield_from_amount(annual_coupon, clean_price)?;
@@ -545,6 +667,22 @@ impl<'a> YASCalculator<'a> {
         let benchmark_pct = benchmark_rate * Decimal::ONE_HUNDRED;
         let g_spread_bps = (ytm - benchmark_pct) * Decimal::ONE_HUNDRED;
         let g_spread_value = Spread::new(g_spread_bps, SpreadType::GSpread);
+
+        // Calculate Benchmark Spread (vs nearest on-the-run tenor)
+        let years_to_mat_f64 = times.last().copied().unwrap_or(1.0);
+        let bond_currency = bond.currency();
+        let (benchmark_tenor_years, benchmark_tenor_label) =
+            Self::nearest_on_the_run_tenor(years_to_mat_f64, bond_currency);
+        // Calculate benchmark date from settlement
+        let benchmark_days = (benchmark_tenor_years * 365.25) as i64;
+        let benchmark_date = settlement_date.add_days(benchmark_days);
+        let benchmark_tenor_rate = self
+            .govt_curve
+            .zero_rate_at(benchmark_date)
+            .unwrap_or(benchmark_rate); // Fall back to maturity rate
+        let benchmark_tenor_pct = benchmark_tenor_rate * Decimal::ONE_HUNDRED;
+        let benchmark_spread_bps = (ytm - benchmark_tenor_pct) * Decimal::ONE_HUNDRED;
+        let benchmark_spread_value = Spread::new(benchmark_spread_bps, SpreadType::GSpread);
 
         // Calculate Z-spread
         let z_spread_value = self.calculate_z_spread(&cash_flows, dirty_price, settlement_date)?;
@@ -614,6 +752,8 @@ impl<'a> YASCalculator<'a> {
             simple_yield: simple,
             money_market_yield: mmy_result,
             g_spread: g_spread_value,
+            benchmark_spread: benchmark_spread_value,
+            benchmark_tenor: benchmark_tenor_label.to_string(),
             z_spread: z_spread_value,
             asw_spread: asw_spread_value,
             oas: None, // Only for callable/putable bonds

@@ -406,13 +406,17 @@ function App({ wasmModule }) {
     fetchRates();
   }, [bond.currency]);
 
-  // Initial calculation
+  // Auto-calculate on any input change (debounced)
   useEffect(() => {
+    // Skip if no WASM module yet
+    if (!wasmModule) return;
+
     const timer = setTimeout(() => {
       calculate();
-    }, 100);
+    }, 300); // 300ms debounce
+
     return () => clearTimeout(timer);
-  }, []);
+  }, [wasmModule, bond, price, treasuryCurve, calculate]);
 
   // Handle bond parameter changes
   const handleBondChange = useCallback((field, value) => {
@@ -423,6 +427,139 @@ function App({ wasmModule }) {
   const handlePriceChange = useCallback((newPrice) => {
     setPrice(newPrice);
   }, []);
+
+  // Handle yield change - calculate price from target yield
+  const handleYieldChange = useCallback((targetYtm) => {
+    if (!wasmModule) return;
+
+    try {
+      const bondParams = {
+        coupon_rate: bond.couponRate,
+        maturity_date: bond.maturityDate,
+        issue_date: bond.issueDate,
+        settlement_date: bond.settlementDate,
+        face_value: bond.faceValue,
+        frequency: bond.frequency,
+        day_count: bond.dayCount,
+        currency: bond.currency,
+        first_coupon_date: bond.firstCouponDate || null,
+        call_schedule: null,
+      };
+
+      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
+      const result = wasmModule.price_from_yield(bondParams, targetYtm, curvePoints);
+
+      if (result.clean_price && !result.error) {
+        setPrice(result.clean_price);
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Yield solve error:', err);
+      setError('Failed to calculate price from yield');
+    }
+  }, [wasmModule, bond, treasuryCurve]);
+
+  // Handle spread change - calculate price from target Z-spread
+  const handleSpreadChange = useCallback((targetSpreadBps) => {
+    if (!wasmModule) return;
+
+    try {
+      const bondParams = {
+        coupon_rate: bond.couponRate,
+        maturity_date: bond.maturityDate,
+        issue_date: bond.issueDate,
+        settlement_date: bond.settlementDate,
+        face_value: bond.faceValue,
+        frequency: bond.frequency,
+        day_count: bond.dayCount,
+        currency: bond.currency,
+        first_coupon_date: bond.firstCouponDate || null,
+        call_schedule: null,
+      };
+
+      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
+      const result = wasmModule.price_from_spread(bondParams, targetSpreadBps, curvePoints);
+
+      if (result.clean_price && !result.error) {
+        setPrice(result.clean_price);
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Spread solve error:', err);
+      setError('Failed to calculate price from spread');
+    }
+  }, [wasmModule, bond, treasuryCurve]);
+
+  // Handle G-spread change - calculate price from target G-spread
+  const handleGSpreadChange = useCallback((targetGSpreadBps) => {
+    if (!wasmModule) return;
+
+    try {
+      const bondParams = {
+        coupon_rate: bond.couponRate,
+        maturity_date: bond.maturityDate,
+        issue_date: bond.issueDate,
+        settlement_date: bond.settlementDate,
+        face_value: bond.faceValue,
+        frequency: bond.frequency,
+        day_count: bond.dayCount,
+        currency: bond.currency,
+        first_coupon_date: bond.firstCouponDate || null,
+        call_schedule: null,
+      };
+
+      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
+      const result = wasmModule.price_from_g_spread(bondParams, targetGSpreadBps, curvePoints);
+
+      if (result.clean_price && !result.error) {
+        setPrice(result.clean_price);
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('G-spread solve error:', err);
+      setError('Failed to calculate price from G-spread');
+    }
+  }, [wasmModule, bond, treasuryCurve]);
+
+  // Handle Benchmark spread change - calculate price from target benchmark spread
+  const handleBenchmarkSpreadChange = useCallback((targetBenchmarkSpreadBps, benchmarkTenor) => {
+    if (!wasmModule) return;
+
+    try {
+      const bondParams = {
+        coupon_rate: bond.couponRate,
+        maturity_date: bond.maturityDate,
+        issue_date: bond.issueDate,
+        settlement_date: bond.settlementDate,
+        face_value: bond.faceValue,
+        frequency: bond.frequency,
+        day_count: bond.dayCount,
+        currency: bond.currency,
+        first_coupon_date: bond.firstCouponDate || null,
+        call_schedule: null,
+      };
+
+      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
+      const result = wasmModule.price_from_benchmark_spread(
+        bondParams,
+        targetBenchmarkSpreadBps,
+        benchmarkTenor || '10Y',
+        curvePoints
+      );
+
+      if (result.clean_price && !result.error) {
+        setPrice(result.clean_price);
+      } else if (result.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error('Benchmark spread solve error:', err);
+      setError('Failed to calculate price from benchmark spread');
+    }
+  }, [wasmModule, bond, treasuryCurve]);
 
   // Handle Treasury curve rate change
   const handleCurveChange = useCallback((tenor, rate) => {
@@ -559,10 +696,15 @@ function App({ wasmModule }) {
             analysis={analysis}
             price={price}
             onPriceChange={handlePriceChange}
-            onCalculate={calculate}
+            onYieldChange={handleYieldChange}
             settlementDate={bond.settlementDate}
           />
-          <SpreadAnalysis analysis={analysis} />
+          <SpreadAnalysis
+            analysis={analysis}
+            onSpreadChange={handleSpreadChange}
+            onGSpreadChange={handleGSpreadChange}
+            onBenchmarkSpreadChange={handleBenchmarkSpreadChange}
+          />
           <RiskMetrics analysis={analysis} />
         </div>
 
