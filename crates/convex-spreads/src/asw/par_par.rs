@@ -391,6 +391,10 @@ mod tests {
             Decimal::ONE_HUNDRED
         }
 
+        fn frequency(&self) -> convex_core::types::Frequency {
+            convex_core::types::Frequency::SemiAnnual
+        }
+
         fn cash_flows(&self, _from: Date) -> Vec<convex_bonds::traits::BondCashFlow> {
             Vec::new()
         }

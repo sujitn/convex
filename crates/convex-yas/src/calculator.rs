@@ -483,6 +483,9 @@ impl<'a> YASCalculator<'a> {
         // Convert settlement to Date type
         let settlement_date: Date = settlement.into();
 
+        // Get bond's actual frequency (not self.frequency which may default to semi-annual)
+        let bond_frequency = bond.frequency().periods_per_year();
+
         // Get cash flows
         let cash_flows = bond.cash_flows(settlement_date);
         if cash_flows.is_empty() {
@@ -511,16 +514,16 @@ impl<'a> YASCalculator<'a> {
 
         // Calculate yields
         let ytm_decimal =
-            street_convention_yield(dirty_price_f64, &cf_values, &times, self.frequency, 0.05)?;
+            street_convention_yield(dirty_price_f64, &cf_values, &times, bond_frequency, 0.05)?;
         // Convert YTM from decimal (0.05) to percentage (5.0)
         let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
 
-        // Estimate annual coupon from first cash flow (assume semi-annual)
+        // Estimate annual coupon from first cash flow using bond's frequency
         let periodic_coupon = cash_flows
             .first()
             .map(|cf| cf.amount)
             .unwrap_or(Decimal::ZERO);
-        let annual_coupon = periodic_coupon * Decimal::from(self.frequency);
+        let annual_coupon = periodic_coupon * Decimal::from(bond_frequency);
         let current = current_yield_from_amount(annual_coupon, clean_price)?;
 
         // Calculate years to maturity for simple yield
@@ -563,7 +566,7 @@ impl<'a> YASCalculator<'a> {
             settlement_date,
             dirty_price_f64,
             ytm_f64,
-            self.frequency,
+            bond_frequency,
         )
         .map_err(|e| YasError::CalculationFailed(format!("risk calculator: {e}")))?
         .all_metrics()
@@ -598,7 +601,7 @@ impl<'a> YASCalculator<'a> {
             ytm_decimal,
             settlement_date,
             maturity_date,
-            self.frequency,
+            bond_frequency,
             days_per_year,
         )
         .map(|mmy| mmy * dec!(100)) // Convert to percentage

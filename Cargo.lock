@@ -346,7 +346,7 @@ dependencies = [
 
 [[package]]
 name = "convex-bonds"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "convex-core",
@@ -365,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "convex-core"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "chrono",
@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "convex-curves"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "convex-core",
@@ -398,7 +398,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ffi"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "cbindgen",
  "convex-bonds",
@@ -412,7 +412,7 @@ dependencies = [
 
 [[package]]
 name = "convex-math"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "criterion",
@@ -427,7 +427,7 @@ dependencies = [
 
 [[package]]
 name = "convex-risk"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "chrono",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "convex-spreads"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "convex-bonds",
@@ -486,7 +486,7 @@ dependencies = [
 
 [[package]]
 name = "convex-yas"
-version = "0.1.0"
+version = "0.10.1"
 dependencies = [
  "approx",
  "chrono",
