@@ -300,7 +300,8 @@ impl CallableBond {
             let start = entry.start_date.max(settlement);
             let end = entry.end_date.unwrap_or(maturity).min(maturity);
 
-            if start >= end || start <= settlement {
+            // Skip if start is at or after end, or if entry start date is before/equal to settlement
+            if start >= end || entry.start_date <= settlement {
                 continue;
             }
 

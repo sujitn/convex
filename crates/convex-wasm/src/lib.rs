@@ -16,8 +16,10 @@ use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
+use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
 use convex_curves::interpolation::InterpolationMethod;
 use convex_curves::{ZeroCurve, ZeroCurveBuilder};
+use convex_spreads::oas::OASCalculator;
 use convex_yas::YASCalculator;
 
 // ============================================================================
@@ -59,7 +61,12 @@ pub struct BondParams {
     pub face_value: Option<f64>,
     /// Coupon frequency: 1=annual, 2=semi-annual, 4=quarterly, 12=monthly
     pub frequency: Option<u32>,
-    /// Day count convention: "30/360", "ACT/360", "ACT/365", "ACT/ACT"
+    /// Day count convention:
+    /// - "30/360" or "30/360 US" - US (NASD) method
+    /// - "30E/360" or "30/360 EU" - European (ISMA) method
+    /// - "ACT/360" - Actual/360
+    /// - "ACT/365" - Actual/365 Fixed
+    /// - "ACT/ACT" - Actual/Actual ICMA
     pub day_count: Option<String>,
     /// Currency: "USD", "EUR", "GBP", etc.
     pub currency: Option<String>,
@@ -67,6 +74,9 @@ pub struct BondParams {
     pub first_coupon_date: Option<String>,
     /// Call schedule for callable bonds (optional)
     pub call_schedule: Option<Vec<CallScheduleEntry>>,
+    /// Interest rate volatility for OAS calculation (as percentage, e.g., 1.0 for 1%)
+    /// Default is 1.0% if not provided
+    pub volatility: Option<f64>,
 }
 
 /// Analysis results returned from bond calculations.
@@ -101,6 +111,12 @@ pub struct AnalysisResult {
     pub benchmark_tenor: Option<String>,
     pub z_spread: Option<f64>,
     pub asw_spread: Option<f64>,
+    pub oas: Option<f64>, // Option-Adjusted Spread (for callable bonds)
+
+    // OAS-related metrics (for callable bonds)
+    pub effective_duration: Option<f64>,
+    pub effective_convexity: Option<f64>,
+    pub option_value: Option<f64>,
 
     // Additional info
     pub days_to_maturity: Option<i64>,
@@ -157,12 +173,27 @@ fn date_to_naive(date: Date) -> chrono::NaiveDate {
 }
 
 fn parse_day_count(s: &str) -> DayCountConvention {
-    match s.to_uppercase().as_str() {
-        "30/360" | "30_360" | "THIRTY_360" => DayCountConvention::Thirty360US,
-        "ACT/360" | "ACT_360" | "ACTUAL_360" => DayCountConvention::Act360,
-        "ACT/365" | "ACT_365" | "ACTUAL_365" => DayCountConvention::Act365Fixed,
-        "ACT/ACT" | "ACT_ACT" | "ACTUAL_ACTUAL" => DayCountConvention::ActActIcma,
-        _ => DayCountConvention::Thirty360US, // Default for US bonds
+    let normalized = s.to_uppercase().replace(' ', "");
+    match normalized.as_str() {
+        // 30/360 US (NASD) - default for US bonds
+        "30/360" | "30/360US" | "30_360" | "THIRTY_360" | "30/360NASD" => {
+            DayCountConvention::Thirty360US
+        }
+        // 30E/360 European (ISMA)
+        "30E/360" | "30/360E" | "30/360EU" | "30/360EURO" | "30/360EUROPEAN" | "30E_360"
+        | "THIRTY360E" | "30/360ISMA" => DayCountConvention::Thirty360E,
+        // Actual/360
+        "ACT/360" | "ACT_360" | "ACTUAL_360" | "ACTUAL/360" => DayCountConvention::Act360,
+        // Actual/365 Fixed
+        "ACT/365" | "ACT_365" | "ACTUAL_365" | "ACTUAL/365" | "ACT/365F" | "ACT/365FIXED" => {
+            DayCountConvention::Act365Fixed
+        }
+        // Actual/Actual ICMA
+        "ACT/ACT" | "ACT_ACT" | "ACTUAL_ACTUAL" | "ACTUAL/ACTUAL" | "ACT/ACTICMA" => {
+            DayCountConvention::ActActIcma
+        }
+        // Default for US bonds
+        _ => DayCountConvention::Thirty360US,
     }
 }
 
@@ -322,6 +353,62 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
                     } else if let Some(call_schedule) = callable.call_schedule() {
                         result.workout_price = call_schedule.call_price_on(workout_date);
                     }
+                }
+            }
+
+            // Calculate OAS using Hull-White model
+            // Volatility: default 1% if not provided
+            let volatility = bond_params.volatility.unwrap_or(1.0) / 100.0;
+            let oas_calc = OASCalculator::default_hull_white(volatility);
+            let accrued = decimal_to_f64(bond.accrued_interest(settlement));
+            let dirty_price_f64 = clean_price + accrued;
+            let dirty_price = f64_to_decimal(dirty_price_f64);
+
+            // Create discount curve for OAS calculation (implements Curve trait)
+            match create_discount_curve(settlement, &points) {
+                Ok(discount_curve) => {
+                    match oas_calc.calculate(&callable, dirty_price, &discount_curve, settlement) {
+                        Ok(oas) => {
+                            result.oas = Some(decimal_to_f64(oas.as_bps()));
+
+                            // Calculate effective duration and convexity
+                            let oas_decimal = decimal_to_f64(oas.as_bps()) / 10000.0;
+                            if let Ok(eff_dur) = oas_calc.effective_duration(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
+                                result.effective_duration = Some(eff_dur);
+                            }
+                            if let Ok(eff_conv) = oas_calc.effective_convexity(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
+                                result.effective_convexity = Some(eff_conv);
+                            }
+                            if let Ok(opt_val) = oas_calc.option_value(
+                                &callable,
+                                &discount_curve,
+                                oas_decimal,
+                                settlement,
+                            ) {
+                                result.option_value = Some(opt_val);
+                            }
+                        }
+                        Err(_e) => {
+                            // OAS calculation failed - this can happen if the model price
+                            // cannot match the market price within the search bounds
+                            // Return Z-spread as a fallback indicator
+                            result.oas = result.z_spread;
+                        }
+                    }
+                }
+                Err(_e) => {
+                    // Discount curve creation failed
+                    result.oas = None;
                 }
             }
         }
@@ -544,6 +631,53 @@ fn create_curve(reference_date: Date, points: &[CurvePoint]) -> Result<ZeroCurve
         .map_err(|e| format!("Failed to create curve: {:?}", e))
 }
 
+/// Create a DiscountCurve for OAS calculations (implements Curve trait)
+fn create_discount_curve(
+    reference_date: Date,
+    points: &[CurvePoint],
+) -> Result<DiscountCurve, String> {
+    if points.is_empty() {
+        return Err("Curve must have at least one point".to_string());
+    }
+
+    let mut builder = DiscountCurveBuilder::new(reference_date);
+
+    // Always add t=0 pillar with df=1.0 (spot date)
+    builder = builder.add_pillar(0.0, 1.0);
+
+    // Collect and sort pillars by time
+    let mut pillars: Vec<(f64, f64)> = Vec::new();
+
+    for point in points {
+        let date = parse_date(&point.date)?;
+        // Convert from zero rate to discount factor
+        // DF(t) = exp(-r * t)
+        let rate = point.rate / 100.0; // Convert percentage to decimal
+        let t = reference_date.days_between(&date) as f64 / 365.0;
+
+        // Skip points at or before reference date
+        if t <= 0.0 {
+            continue;
+        }
+
+        let df = (-rate * t).exp();
+        pillars.push((t, df));
+    }
+
+    // Sort by time
+    pillars.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Add sorted pillars
+    for (t, df) in pillars {
+        builder = builder.add_pillar(t, df);
+    }
+
+    builder
+        .with_extrapolation()
+        .build()
+        .map_err(|e| format!("Failed to create discount curve: {:?}", e))
+}
+
 fn convert_yas_result(
     result: &convex_yas::YASResult,
     bond: &FixedRateBond,
@@ -591,6 +725,12 @@ fn convert_yas_result(
             .asw_spread
             .as_ref()
             .map(|s| decimal_to_f64(s.as_bps())),
+        oas: None, // Set by caller for callable bonds
+
+        // OAS-related metrics - set by caller for callable bonds
+        effective_duration: None,
+        effective_convexity: None,
+        option_value: None,
 
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),
@@ -1091,10 +1231,29 @@ mod tests {
 
     #[test]
     fn test_parse_day_count() {
+        // US 30/360
         assert!(matches!(
             parse_day_count("30/360"),
             DayCountConvention::Thirty360US
         ));
+        assert!(matches!(
+            parse_day_count("30/360 US"),
+            DayCountConvention::Thirty360US
+        ));
+        // EU 30E/360
+        assert!(matches!(
+            parse_day_count("30E/360"),
+            DayCountConvention::Thirty360E
+        ));
+        assert!(matches!(
+            parse_day_count("30/360 EU"),
+            DayCountConvention::Thirty360E
+        ));
+        assert!(matches!(
+            parse_day_count("30/360E"),
+            DayCountConvention::Thirty360E
+        ));
+        // Other conventions
         assert!(matches!(
             parse_day_count("ACT/365"),
             DayCountConvention::Act365Fixed
@@ -1125,6 +1284,7 @@ mod tests {
             currency: Some("USD".to_string()),
             first_coupon_date: None,
             call_schedule: None,
+            volatility: None,
         };
 
         let bond = create_bond(&params).unwrap();

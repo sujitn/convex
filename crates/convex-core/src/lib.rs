@@ -66,6 +66,9 @@ pub mod error;
 pub mod traits;
 pub mod types;
 
+#[cfg(test)]
+mod validation_tests;
+
 /// Prelude module for convenient imports.
 pub mod prelude {
     pub use crate::calendars::{BusinessDayConvention, Calendar};
