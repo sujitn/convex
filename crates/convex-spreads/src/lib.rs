@@ -2,26 +2,25 @@
 //!
 //! Spread analytics for the Convex fixed income analytics library.
 //!
-//! This crate provides various spread calculations commonly used in fixed income:
+//! This crate provides spread calculations using generic `CashFlow` types:
 //!
-//! - **G-Spread**: Spread over interpolated government yield curve
-//! - **I-Spread**: Spread over swap rate curve
 //! - **Z-Spread**: Zero-volatility spread (constant spread over spot curve)
-//! - **OAS**: Option-adjusted spread (for bonds with embedded options)
-//! - **Asset Swap Spread**: Spread in asset swap transactions
+//! - **Government Curve**: Government benchmark curve utilities
+//! - **Benchmark**: Benchmark specification and security identification
+//! - **Sovereign**: Sovereign and supranational issuer types
 //!
 //! ## Example
 //!
 //! ```rust,ignore
-//! use convex_spreads::{ZSpread, SpreadCalculator};
-//! use convex_bonds::FixedBond;
-//! use convex_curves::ZeroCurve;
+//! use convex_spreads::ZSpreadCalculator;
+//! use convex_core::types::CashFlow;
+//! use convex_curves::curves::ZeroCurve;
 //!
-//! let bond = // ... create bond
 //! let curve = // ... create curve
-//! let market_price = dec!(98.50);
+//! let cash_flows = // ... create cash flows from any source
 //!
-//! let z_spread = SpreadCalculator::z_spread(&bond, &curve, market_price, settlement)?;
+//! let calculator = ZSpreadCalculator::new(&curve);
+//! let z_spread = calculator.calculate(&cash_flows, dec!(98.50), settlement)?;
 //! ```
 
 #![warn(missing_docs)]
@@ -51,100 +50,19 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-pub mod asw;
 pub mod benchmark;
-pub mod discount_margin;
 pub mod error;
 pub mod government_curve;
-pub mod gspread;
-pub mod ispread;
 pub mod oas;
 pub mod sovereign;
 pub mod zspread;
 
-pub use asw::{ASWType, ParParAssetSwap, ProceedsAssetSwap};
 pub use benchmark::{BenchmarkSpec, SecurityId};
-pub use discount_margin::{simple_margin, z_discount_margin, DiscountMarginCalculator};
 pub use error::{SpreadError, SpreadResult};
 pub use government_curve::{GovernmentBenchmark, GovernmentCurve};
-pub use gspread::{BenchmarkInfo, GSpreadCalculator, GSpreadResult, TreasuryBenchmark};
-pub use ispread::ISpreadCalculator;
 pub use oas::OASCalculator;
 pub use sovereign::{Sovereign, SupranationalIssuer};
 pub use zspread::ZSpreadCalculator;
-
-use rust_decimal::Decimal;
-
-use convex_bonds::instruments::FixedBond;
-use convex_core::types::{Date, Price, Spread};
-use convex_curves::curves::ZeroCurve;
-
-/// Spread calculator providing various spread calculations.
-pub struct SpreadCalculator;
-
-impl SpreadCalculator {
-    /// Calculates Z-spread for a bond.
-    ///
-    /// The Z-spread is the constant spread that, when added to all points on the
-    /// spot rate curve, makes the present value of cash flows equal to the market price.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond to calculate spread for
-    /// * `curve` - The zero/spot rate curve
-    /// * `market_price` - Market clean price
-    /// * `settlement` - Settlement date
-    ///
-    /// # Errors
-    ///
-    /// Returns `SpreadError` if the calculation fails to converge.
-    pub fn z_spread(
-        bond: &FixedBond,
-        curve: &ZeroCurve,
-        market_price: Price,
-        settlement: Date,
-    ) -> SpreadResult<Spread> {
-        zspread::calculate(bond, curve, market_price, settlement)
-    }
-
-    /// Calculates G-spread for a bond.
-    ///
-    /// The G-spread is the spread over the interpolated government bond yield curve.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond to calculate spread for
-    /// * `govt_curve` - Government bond yield curve
-    /// * `bond_yield` - The bond's yield to maturity
-    /// * `settlement` - Settlement date
-    pub fn g_spread(
-        bond: &FixedBond,
-        govt_curve: &ZeroCurve,
-        bond_yield: Decimal,
-        settlement: Date,
-    ) -> SpreadResult<Spread> {
-        gspread::calculate(bond, govt_curve, bond_yield, settlement)
-    }
-
-    /// Calculates I-spread for a bond.
-    ///
-    /// The I-spread is the spread over the swap rate curve (LIBOR/SOFR).
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond to calculate spread for
-    /// * `swap_curve` - Swap rate curve
-    /// * `bond_yield` - The bond's yield to maturity
-    /// * `settlement` - Settlement date
-    pub fn i_spread(
-        bond: &FixedBond,
-        swap_curve: &ZeroCurve,
-        bond_yield: Decimal,
-        settlement: Date,
-    ) -> SpreadResult<Spread> {
-        ispread::calculate(bond, swap_curve, bond_yield, settlement)
-    }
-}
 
 #[cfg(test)]
 mod tests {

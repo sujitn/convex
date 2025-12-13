@@ -135,8 +135,9 @@ pub mod prelude {
     pub use crate::types::{
         AccruedConvention, AmortizationEntry, AmortizationSchedule, AmortizationType,
         BondIdentifiers, BondType, CalendarId, CallEntry, CallSchedule, CallType, Cusip, Figi,
-        InflationIndexType, Isin, PriceQuote, PriceQuoteConvention, PutEntry, PutSchedule, PutType,
-        RateIndex, RoundingConvention, SOFRConvention, Sedol, Tenor, YieldConvention,
+        FirstPeriodDiscounting, InflationIndexType, Isin, PriceQuote, PriceQuoteConvention,
+        PutEntry, PutSchedule, PutType, RateIndex, RoundingConvention, SOFRConvention, Sedol,
+        Tenor, YieldMethod,
     };
 }
 

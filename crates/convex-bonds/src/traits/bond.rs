@@ -42,6 +42,37 @@ pub struct BondCashFlow {
     pub reference_rate: Option<Decimal>,
 }
 
+impl From<BondCashFlow> for convex_core::types::CashFlow {
+    fn from(bcf: BondCashFlow) -> Self {
+        let cf_type = match bcf.flow_type {
+            CashFlowType::Coupon => convex_core::types::CashFlowType::Coupon,
+            CashFlowType::Principal => convex_core::types::CashFlowType::Principal,
+            CashFlowType::CouponAndPrincipal => {
+                convex_core::types::CashFlowType::CouponAndPrincipal
+            }
+            CashFlowType::Fee => convex_core::types::CashFlowType::Coupon, // Map Fee to Coupon
+        };
+
+        let mut cf = convex_core::types::CashFlow::new(bcf.date, bcf.factored_amount(), cf_type);
+
+        if let (Some(start), Some(end)) = (bcf.accrual_start, bcf.accrual_end) {
+            cf = cf.with_accrual(start, end);
+        }
+
+        if let Some(rate) = bcf.reference_rate {
+            cf = cf.with_reference_rate(rate);
+        }
+
+        cf
+    }
+}
+
+impl From<&BondCashFlow> for convex_core::types::CashFlow {
+    fn from(bcf: &BondCashFlow) -> Self {
+        bcf.clone().into()
+    }
+}
+
 impl BondCashFlow {
     /// Creates a new coupon cash flow.
     #[must_use]

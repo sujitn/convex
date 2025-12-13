@@ -773,10 +773,15 @@ impl<'a> YASCalculator<'a> {
         dirty_price: Decimal,
         settlement: Date,
     ) -> Result<Spread, YasError> {
+        use convex_core::types::CashFlow;
+
+        // Convert BondCashFlow to CashFlow
+        let core_cash_flows: Vec<CashFlow> = cash_flows.iter().map(Into::into).collect();
+
         let calculator = ZSpreadCalculator::new(self.spot_curve);
 
         calculator
-            .calculate_from_cash_flows(cash_flows, dirty_price, settlement)
+            .calculate(&core_cash_flows, dirty_price, settlement)
             .map_err(|e| YasError::CalculationFailed(format!("z-spread: {e}")))
     }
 

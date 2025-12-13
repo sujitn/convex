@@ -8,7 +8,8 @@
 //! - [`CallSchedule`] / [`PutSchedule`]: Embedded option schedules
 //! - [`AmortizationSchedule`]: Principal amortization
 //! - [`RateIndex`]: Floating rate reference indices
-//! - [`YieldConvention`], [`AccruedConvention`]: Yield calculation conventions
+//! - [`YieldMethod`], [`AccruedConvention`]: Yield calculation conventions
+//! - [`FirstPeriodDiscounting`]: First-period discounting method
 //! - [`PriceQuoteConvention`], [`PriceQuote`]: Price quote formats
 
 mod amortization;
@@ -25,4 +26,6 @@ pub use identifiers::{BondIdentifiers, CalendarId, Cusip, Figi, Isin, Sedol};
 pub use options::{CallEntry, CallSchedule, CallType, PutEntry, PutSchedule, PutType};
 pub use price_quote::{PriceQuote, PriceQuoteConvention};
 pub use rate_index::{InflationIndexType, RateIndex, SOFRConvention, Tenor};
-pub use yield_convention::{AccruedConvention, RoundingConvention, YieldConvention};
+pub use yield_convention::{
+    AccruedConvention, FirstPeriodDiscounting, RoundingConvention, YieldMethod,
+};

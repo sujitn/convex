@@ -24,73 +24,13 @@
 
 use rust_decimal::Decimal;
 
+use crate::error::{SpreadError, SpreadResult};
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::options::{BinomialTree, HullWhite, ShortRateModel};
 use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::{Compounding, Curve, CurveResult};
-
-use crate::error::{SpreadError, SpreadResult};
-
-/// A wrapper curve that applies a parallel shift to all rates.
-///
-/// This is used for effective duration calculations where we need to
-/// shift the entire curve up/down and re-price.
-struct ShiftedCurve<'a> {
-    /// The underlying curve.
-    base: &'a dyn Curve,
-    /// The parallel shift to apply (in decimal, e.g., 0.0001 for 1bp).
-    shift: f64,
-}
-
-impl<'a> ShiftedCurve<'a> {
-    /// Creates a new shifted curve.
-    fn new(base: &'a dyn Curve, shift: f64) -> Self {
-        Self { base, shift }
-    }
-}
-
-impl Curve for ShiftedCurve<'_> {
-    fn discount_factor(&self, t: f64) -> CurveResult<f64> {
-        // Get base discount factor
-        let base_df = self.base.discount_factor(t)?;
-
-        if t <= 0.0 {
-            return Ok(base_df);
-        }
-
-        // Convert to zero rate, shift, convert back
-        // DF = exp(-r * t), so r = -ln(DF) / t
-        let base_rate = -base_df.ln() / t;
-        let shifted_rate = base_rate + self.shift;
-        let shifted_df = (-shifted_rate * t).exp();
-
-        Ok(shifted_df)
-    }
-
-    fn reference_date(&self) -> Date {
-        self.base.reference_date()
-    }
-
-    fn max_date(&self) -> Date {
-        self.base.max_date()
-    }
-
-    fn zero_rate(&self, t: f64, compounding: Compounding) -> CurveResult<f64> {
-        let base_rate = self.base.zero_rate(t, compounding)?;
-        Ok(base_rate + self.shift)
-    }
-
-    fn forward_rate(&self, t1: f64, t2: f64) -> CurveResult<f64> {
-        let base_fwd = self.base.forward_rate(t1, t2)?;
-        Ok(base_fwd + self.shift)
-    }
-
-    fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
-        let base_inst_fwd = self.base.instantaneous_forward(t)?;
-        Ok(base_inst_fwd + self.shift)
-    }
-}
+use convex_curves::curves::ShiftedCurve;
+use convex_curves::{Compounding, Curve};
 
 /// OAS Calculator for callable/puttable bonds.
 ///

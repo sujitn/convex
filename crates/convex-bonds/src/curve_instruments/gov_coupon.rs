@@ -3,30 +3,13 @@
 use rust_decimal::prelude::*;
 
 use convex_core::Date;
-use convex_curves::instruments::{CurveInstrument, InstrumentType};
+use convex_curves::instruments::{CashFlow, CurveInstrument, InstrumentType};
 use convex_curves::traits::Curve;
 use convex_curves::CurveResult;
 
 use crate::instruments::{Bond, FixedBond};
 
 use super::conventions::{day_count_factor, MarketConvention};
-
-/// A cash flow (coupon or principal payment).
-#[derive(Debug, Clone, Copy)]
-pub struct CashFlow {
-    /// Payment date
-    pub date: Date,
-    /// Payment amount
-    pub amount: f64,
-}
-
-impl CashFlow {
-    /// Creates a new cash flow.
-    #[must_use]
-    pub fn new(date: Date, amount: f64) -> Self {
-        Self { date, amount }
-    }
-}
 
 /// A fixed coupon government bond for curve bootstrapping.
 ///

@@ -13,10 +13,10 @@ categories = ["finance", "mathematics"]
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
-convex-math = { workspace = true }
 convex-bonds = { workspace = true }
 convex-curves = { workspace = true }
 convex-spreads = { workspace = true }
+convex-pricing = { workspace = true }
 convex-risk = { workspace = true }
 
 # Date/time handling

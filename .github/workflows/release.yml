@@ -98,6 +98,12 @@ jobs:
       - name: Wait for crates.io index update
         run: sleep 120
 
+      - name: Publish convex-pricing
+        run: cargo publish -p convex-pricing --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for crates.io index update
+        run: sleep 120
+
       - name: Publish convex-bonds
         run: cargo publish -p convex-bonds --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -171,6 +177,7 @@ jobs:
             convex-core = "${{ steps.tag.outputs.VERSION }}"
             convex-math = "${{ steps.tag.outputs.VERSION }}"
             convex-curves = "${{ steps.tag.outputs.VERSION }}"
+            convex-pricing = "${{ steps.tag.outputs.VERSION }}"
             convex-bonds = "${{ steps.tag.outputs.VERSION }}"
             convex-spreads = "${{ steps.tag.outputs.VERSION }}"
             convex-risk = "${{ steps.tag.outputs.VERSION }}"

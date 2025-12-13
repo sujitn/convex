@@ -6,6 +6,8 @@
 //! - [`PricingEngine`]: Trait for bond pricing implementations
 //! - [`RiskCalculator`]: Trait for risk metric calculations
 //! - [`Discountable`]: Trait for cash flows that can be discounted
+//! - [`CashFlowPricer`]: Generic trait for pricing cash flow streams
+//! - [`SpreadSolver`]: Generic trait for solving spread values
 
 use rust_decimal::Decimal;
 
@@ -198,6 +200,193 @@ pub trait SpreadCalculator: Send + Sync {
         price: Price,
         curve: &dyn YieldCurve,
         settlement_date: Date,
+    ) -> ConvexResult<Decimal>;
+}
+
+// ============================================================================
+// Generic Pricing Traits (Phase 1 - Foundation for convex-pricing)
+// ============================================================================
+
+/// Generic trait for pricing streams of cash flows.
+///
+/// This trait provides a unified interface for pricing any sequence of
+/// discountable cash flows, independent of the instrument type. It serves
+/// as the foundation for the `convex-pricing` crate and enables code reuse
+/// across bonds, spreads, and risk calculations.
+///
+/// # Design Rationale
+///
+/// Previously, PV calculations were duplicated across:
+/// - `convex-bonds/src/pricing/mod.rs` (BondPricer)
+/// - `convex-spreads/src/zspread.rs` (ZSpreadCalculator)
+/// - `convex-spreads/src/discount_margin.rs` (DiscountMarginCalculator)
+///
+/// This trait consolidates that logic into a single, generic abstraction.
+///
+/// # Example
+///
+/// ```ignore
+/// use convex_core::traits::CashFlowPricer;
+///
+/// // Any CashFlowPricer implementation can price any cash flow stream
+/// let pv = pricer.present_value(&cash_flows, settlement)?;
+/// let pv_with_spread = pricer.present_value_with_spread(&cash_flows, 0.0050, settlement)?;
+/// ```
+pub trait CashFlowPricer: Send + Sync {
+    /// Calculates the present value of a stream of cash flows.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows to price
+    /// * `settlement` - The settlement date (valuation date)
+    ///
+    /// # Returns
+    ///
+    /// The present value as a Decimal.
+    fn present_value(&self, cash_flows: &[CashFlow], settlement: Date) -> ConvexResult<Decimal>;
+
+    /// Calculates the present value with a constant spread added to all discount rates.
+    ///
+    /// This is the core calculation for Z-spread, OAS, and similar spread measures.
+    /// The spread is applied to the continuously compounded zero rate:
+    /// `DF_spread = exp(-(r + spread) * t)`
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows to price
+    /// * `spread` - The spread to add (as a decimal, e.g., 0.01 for 100 bps)
+    /// * `settlement` - The settlement date
+    ///
+    /// # Returns
+    ///
+    /// The present value with the spread applied.
+    fn present_value_with_spread(
+        &self,
+        cash_flows: &[CashFlow],
+        spread: f64,
+        settlement: Date,
+    ) -> ConvexResult<Decimal>;
+
+    /// Calculates individual discount factors for each cash flow.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows
+    /// * `settlement` - The settlement date
+    ///
+    /// # Returns
+    ///
+    /// A vector of (time_in_years, discount_factor) tuples.
+    fn discount_factors(
+        &self,
+        cash_flows: &[CashFlow],
+        settlement: Date,
+    ) -> ConvexResult<Vec<(f64, f64)>>;
+
+    /// Returns the reference date of the underlying curve.
+    fn reference_date(&self) -> Date;
+}
+
+/// Generic trait for solving spread values.
+///
+/// This trait provides a unified interface for finding the spread that
+/// equates the present value of cash flows to a target price. It is used
+/// for Z-spread, discount margin, and similar calculations.
+///
+/// # Design Rationale
+///
+/// Spread solving follows a common pattern:
+/// 1. Define objective function: `PV(spread) - target_price = 0`
+/// 2. Use root-finding algorithm (Brent, Newton-Raphson)
+/// 3. Return the spread that satisfies the equation
+///
+/// This trait abstracts that pattern for reuse.
+pub trait SpreadSolver: Send + Sync {
+    /// Solves for the spread that makes the PV equal to the target price.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows to price
+    /// * `target_price` - The target dirty price
+    /// * `settlement` - The settlement date
+    ///
+    /// # Returns
+    ///
+    /// The spread as a decimal (e.g., 0.0150 for 150 bps).
+    fn solve_spread(
+        &self,
+        cash_flows: &[CashFlow],
+        target_price: Decimal,
+        settlement: Date,
+    ) -> ConvexResult<f64>;
+
+    /// Solves for the spread with custom bounds.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows to price
+    /// * `target_price` - The target dirty price
+    /// * `settlement` - The settlement date
+    /// * `lower_bound` - Lower bound for spread search
+    /// * `upper_bound` - Upper bound for spread search
+    ///
+    /// # Returns
+    ///
+    /// The spread as a decimal.
+    fn solve_spread_bounded(
+        &self,
+        cash_flows: &[CashFlow],
+        target_price: Decimal,
+        settlement: Date,
+        lower_bound: f64,
+        upper_bound: f64,
+    ) -> ConvexResult<f64>;
+}
+
+/// Generic trait for yield solving.
+///
+/// This trait provides a unified interface for finding the yield that
+/// equates the present value of cash flows to a target price, using
+/// a specified compounding convention.
+pub trait YieldSolver: Send + Sync {
+    /// Solves for the yield given a target price.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows
+    /// * `target_price` - The target dirty price
+    /// * `settlement` - The settlement date
+    /// * `frequency` - Compounding frequency (e.g., 2 for semi-annual)
+    ///
+    /// # Returns
+    ///
+    /// The yield as a decimal (e.g., 0.0525 for 5.25%).
+    fn solve_yield(
+        &self,
+        cash_flows: &[CashFlow],
+        target_price: Decimal,
+        settlement: Date,
+        frequency: u32,
+    ) -> ConvexResult<f64>;
+
+    /// Calculates the price given a yield.
+    ///
+    /// # Arguments
+    ///
+    /// * `cash_flows` - The cash flows
+    /// * `yield_value` - The yield (as decimal)
+    /// * `settlement` - The settlement date
+    /// * `frequency` - Compounding frequency
+    ///
+    /// # Returns
+    ///
+    /// The dirty price.
+    fn price_from_yield(
+        &self,
+        cash_flows: &[CashFlow],
+        yield_value: f64,
+        settlement: Date,
+        frequency: u32,
     ) -> ConvexResult<Decimal>;
 }
 

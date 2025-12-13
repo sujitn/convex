@@ -13,9 +13,10 @@ categories = ["finance", "mathematics"]
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
+convex-bonds = { workspace = true }
 convex-math = { workspace = true }
 convex-curves = { workspace = true }
-convex-bonds = { workspace = true }
+convex-pricing = { workspace = true }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }

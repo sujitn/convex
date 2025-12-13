@@ -1,4 +1,4 @@
-//! Root-finding algorithms.
+//! Root-finding algorithms and calculator configuration.
 //!
 //! This module provides numerical solvers for finding roots of equations:
 //!
@@ -7,6 +7,9 @@
 //! - [`bisection`]: Simple and reliable bracketing method
 //! - [`secant`]: Derivative-free method using finite differences
 //! - [`hybrid`]: Newton-Raphson with Brent fallback for robust convergence
+//!
+//! Additionally, it provides the [`ConfigurableCalculator`] trait for building
+//! calculator types with consistent configuration patterns.
 //!
 //! # Choosing a Solver
 //!
@@ -322,6 +325,115 @@ pub struct SolverResult {
     pub iterations: u32,
     /// Final residual (function value at root).
     pub residual: f64,
+}
+
+// ============================================================================
+// Calculator Configuration Traits (Phase 1 - Foundation)
+// ============================================================================
+
+/// Trait for calculators with configurable solver parameters.
+///
+/// This trait provides a consistent builder pattern for calculators that
+/// use numerical solvers. It eliminates code duplication across:
+/// - `YieldSolver` (convex-bonds)
+/// - `ZSpreadCalculator` (convex-spreads)
+/// - `DiscountMarginCalculator` (convex-spreads)
+/// - `OASCalculator` (convex-spreads)
+///
+/// # Example
+///
+/// ```rust
+/// use convex_math::solvers::{ConfigurableCalculator, SolverConfig};
+///
+/// struct MyCalculator {
+///     config: SolverConfig,
+/// }
+///
+/// impl ConfigurableCalculator for MyCalculator {
+///     fn solver_config(&self) -> &SolverConfig {
+///         &self.config
+///     }
+///
+///     fn solver_config_mut(&mut self) -> &mut SolverConfig {
+///         &mut self.config
+///     }
+/// }
+///
+/// // Use the provided default implementations
+/// let calc = MyCalculator { config: SolverConfig::default() }
+///     .with_tolerance(1e-8)
+///     .with_max_iterations(50);
+/// ```
+pub trait ConfigurableCalculator: Sized {
+    /// Returns a reference to the solver configuration.
+    fn solver_config(&self) -> &SolverConfig;
+
+    /// Returns a mutable reference to the solver configuration.
+    fn solver_config_mut(&mut self) -> &mut SolverConfig;
+
+    /// Sets the convergence tolerance.
+    ///
+    /// # Arguments
+    ///
+    /// * `tolerance` - The convergence tolerance (e.g., 1e-10)
+    #[must_use]
+    fn with_tolerance(mut self, tolerance: f64) -> Self {
+        self.solver_config_mut().tolerance = tolerance;
+        self
+    }
+
+    /// Sets the maximum number of iterations.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_iterations` - Maximum iterations before failing
+    #[must_use]
+    fn with_max_iterations(mut self, max_iterations: u32) -> Self {
+        self.solver_config_mut().max_iterations = max_iterations;
+        self
+    }
+
+    /// Sets both tolerance and max iterations from another config.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The solver configuration to use
+    #[must_use]
+    fn with_config(mut self, config: SolverConfig) -> Self {
+        *self.solver_config_mut() = config;
+        self
+    }
+
+    /// Returns the current tolerance.
+    fn tolerance(&self) -> f64 {
+        self.solver_config().tolerance
+    }
+
+    /// Returns the current max iterations.
+    fn max_iterations(&self) -> u32 {
+        self.solver_config().max_iterations
+    }
+}
+
+/// Trait for calculators with configurable search bounds.
+///
+/// This extends `ConfigurableCalculator` for spread/yield solvers that
+/// need bounded search regions.
+pub trait BoundedCalculator: ConfigurableCalculator {
+    /// Returns the default lower bound for the search.
+    fn default_lower_bound(&self) -> f64;
+
+    /// Returns the default upper bound for the search.
+    fn default_upper_bound(&self) -> f64;
+
+    /// Sets custom search bounds.
+    ///
+    /// # Arguments
+    ///
+    /// * `lower` - Lower bound (e.g., -0.05 for -500 bps)
+    /// * `upper` - Upper bound (e.g., 0.20 for 2000 bps)
+    #[must_use]
+    fn with_bounds(self, lower: f64, upper: f64) -> Self;
 }
 
 #[cfg(test)]
