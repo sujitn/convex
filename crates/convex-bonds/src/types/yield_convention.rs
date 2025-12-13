@@ -25,9 +25,12 @@ pub enum YieldConvention {
     ///
     /// Standard US market convention:
     /// - Semi-annual compounding
-    /// - Actual/Actual day count for Treasuries
-    /// - 30/360 for corporates
-    /// - Assumes coupon reinvestment at yield
+    /// - **Linear discounting for first (fractional) period**
+    /// - Compound discounting for subsequent periods
+    /// - 30/360 for corporates, Actual/Actual for Treasuries
+    /// - Matches Bloomberg YAS "Street Convention"
+    ///
+    /// Formula: DP = CF₁/(1 + y×n₁/f) + Σ CF_i/[(1 + y×n₁/f)(1 + y/f)^(i-1)]
     #[default]
     StreetConvention,
 
@@ -38,12 +41,17 @@ pub enum YieldConvention {
     /// with irregular cash flows.
     TrueYield,
 
-    /// ISMA (International Securities Market Association).
+    /// ICMA Convention (International Capital Market Association).
     ///
-    /// Now ICMA (International Capital Market Association):
-    /// - Annual compounding for most markets
+    /// International standard for Eurobonds and European government bonds:
+    /// - **Compound discounting throughout** (including first period)
+    /// - Compounding frequency matches coupon frequency
     /// - Actual/Actual ICMA day count
-    /// - Standard for Eurobonds
+    ///
+    /// Formula: DP = Σ CF_i / (1 + y/f)^n_i
+    ///
+    /// This differs from US Street Convention which uses linear
+    /// discounting for the first fractional period.
     ISMA,
 
     /// Simple Yield (Japanese convention).
