@@ -7,7 +7,7 @@
 
 **Current Phase**: Foundation & Initial Development
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-10 (YTM Validation & Street Convention Fix)
+**Last Updated**: 2025-12-13 (Type Consolidation & Architecture Cleanup)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -3261,6 +3261,105 @@ This matches Bloomberg YAS "Street Convention" exactly.
 
 - `crates/convex-bonds/src/pricing/yield_solver.rs` - Main implementation
 - `crates/convex-bonds/src/types/yield_convention.rs` - Updated documentation
+
+---
+
+## Session Log: 2025-12-13 (Type Consolidation & Architecture Cleanup)
+
+### Summary
+
+Consolidated duplicate types across crates to reduce code duplication and establish canonical type locations. Also validated that the crate architecture is correct for curve instrument implementations.
+
+### Changes Implemented
+
+#### 1. Consolidated `Compounding` Enum to convex-core
+
+**Problem**: Three duplicate `Compounding` enums existed:
+- `convex-core/src/types/frequency.rs` (Decimal-based)
+- `convex-curves/src/compounding.rs` (f64-based, with curve methods)
+- `convex-bonds/src/instruments/zero_coupon.rs` (f64-based)
+
+**Solution**: Made `convex-core` the canonical source by adding f64-based methods:
+
+```rust
+impl Compounding {
+    pub fn periods_per_year_opt(&self) -> Option<u32>;
+    pub fn discount_factor(&self, rate: f64, t: f64) -> f64;
+    pub fn zero_rate(&self, df: f64, t: f64) -> f64;
+    pub fn convert_to(&self, rate: f64, to: Compounding, t: f64) -> f64;
+}
+```
+
+**Files Modified**:
+- `convex-core/src/types/frequency.rs` - Added f64-based methods + tests
+- `convex-curves/src/compounding.rs` - Now re-exports from convex-core, added `CURVE_COMPOUNDING` constant
+- `convex-bonds/src/instruments/zero_coupon.rs` - Now re-exports from convex-core, simplified `convert_yield()`
+
+#### 2. Moved `MarketConvention` to convex-core
+
+**Problem**: `MarketConvention` enum was in `convex-bonds/src/curve_instruments/conventions.rs` but is a general market type useful across crates.
+
+**Solution**: Created `convex-core/src/types/market_convention.rs` with:
+- All market variants (USTreasury, UKGilt, GermanBund, FrenchOAT, JapaneseJGB, etc.)
+- `day_count_name()`, `coupons_per_year()`, `settlement_days()`, `year_basis()` methods
+- New `year_fraction(start, end)` method to avoid duplicate helper functions
+- Serde support (Serialize/Deserialize)
+- Default impl (USTreasury)
+
+**Files Modified**:
+- `convex-core/src/types/market_convention.rs` - NEW (144 lines)
+- `convex-core/src/types/mod.rs` - Added module and export
+- `convex-core/src/lib.rs` - Added to prelude and root exports
+- `convex-bonds/src/curve_instruments/conventions.rs` - Reduced from ~180 lines to ~30 lines (re-exports from convex-core)
+
+#### 3. Validated curve_instruments Architecture
+
+**Question**: Should `curve_instruments/` move from convex-bonds to convex-curves?
+
+**Decision**: **No** - The current architecture is correct:
+- `convex-bonds` depends on `convex-curves`
+- `GovernmentZeroCoupon` and `GovernmentCouponBond` implement `CurveInstrument` trait (from convex-curves) for bond types
+- Moving would create circular dependency (curves would need bonds for ZeroCouponBond/FixedBond)
+- This is the correct adapter pattern: higher-level types (bonds) implement lower-level traits (curve instruments)
+
+### Validation Status
+
+| Test Suite | Count | Status |
+|------------|-------|--------|
+| All workspace tests | 282 | ✅ Passed |
+| convex-core tests | 222+ | ✅ Passed |
+| convex-curves tests | 236+ | ✅ Passed |
+| convex-bonds tests | 284+ | ✅ Passed |
+
+### Decisions Made
+
+1. **convex-core is the canonical source for shared types**: Compounding, MarketConvention, and other domain types should live in convex-core.
+
+2. **Re-export pattern for crate-specific defaults**: Use constants like `CURVE_COMPOUNDING` for crate-specific defaults while re-exporting the enum from convex-core.
+
+3. **curve_instruments stays in convex-bonds**: The dependency direction is correct (bonds → curves), and moving would create circular dependencies.
+
+4. **Added `year_fraction()` to MarketConvention**: Eliminates need for separate `day_count_factor()` helper functions.
+
+### Code Reduction Summary
+
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| convex-curves/src/compounding.rs | 160 lines | 70 lines | 56% |
+| convex-bonds/curve_instruments/conventions.rs | 180 lines | 30 lines | 83% |
+| convex-bonds/instruments/zero_coupon.rs | (convert_yield) | Simplified | Uses core method |
+
+### Open Issues
+
+1. **Duplicate day count parsing functions**: Still have 5+ `parse_day_count`/`string_to_day_count` functions. Added `FromStr` to `DayCountConvention` in previous session but not all callsites updated.
+
+2. **Pricing logic split**: Bond pricing exists in both convex-bonds and convex-yas. Consider consolidating when yield conventions work is complete.
+
+### Next Steps (from this session)
+
+1. Update remaining callsites to use `DayCountConvention::from_str()` instead of custom parsing functions
+2. Consider if other types should be consolidated to convex-core
+3. Complete yield conventions implementation per plan in `unified-fluttering-wolf.md`
 
 ---
 

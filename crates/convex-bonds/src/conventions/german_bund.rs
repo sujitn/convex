@@ -16,7 +16,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
 
 /// Returns conventions for German government bonds (Bunds).
 ///
@@ -45,7 +45,8 @@ pub fn bund() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::target2())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -67,7 +68,8 @@ pub fn bobl() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::target2())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -89,7 +91,8 @@ pub fn schatz() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::target2())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -115,7 +118,8 @@ pub fn bundei() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::target2())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -139,7 +143,8 @@ pub fn bubill() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::target2())
         .end_of_month(false)
-        .yield_convention(YieldConvention::DiscountYield)
+        .yield_method(YieldMethod::Discount)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::None)
         .price_quote(PriceQuoteConvention::Discount)
         .quote_clean(true)
@@ -159,7 +164,8 @@ mod tests {
         assert_eq!(conv.day_count(), DayCountConvention::ActActIcma);
         assert_eq!(conv.frequency(), Frequency::Annual);
         assert_eq!(conv.settlement_days(), 2);
-        assert_eq!(conv.yield_convention(), YieldConvention::ISMA);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
+        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Compound);
         assert_eq!(conv.payments_per_year(), 1);
     }
 

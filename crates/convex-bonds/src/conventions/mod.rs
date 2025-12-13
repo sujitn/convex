@@ -47,7 +47,7 @@ use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
 
 /// Re-export `DayCountConvention` for convenience as `DayCountBasis` alias
 pub type DayCountBasis = DayCountConvention;
@@ -97,8 +97,11 @@ pub struct BondConventions {
     /// End-of-month rule for schedule generation.
     end_of_month: bool,
 
-    /// Yield calculation convention.
-    yield_convention: YieldConvention,
+    /// Yield calculation method.
+    yield_method: YieldMethod,
+
+    /// First-period discounting method for compounded yields.
+    first_period_discounting: FirstPeriodDiscounting,
 
     /// Accrued interest convention.
     accrued_convention: AccruedConvention,
@@ -165,10 +168,16 @@ impl BondConventions {
         self.end_of_month
     }
 
-    /// Returns the yield calculation convention.
+    /// Returns the yield calculation method.
     #[must_use]
-    pub const fn yield_convention(&self) -> YieldConvention {
-        self.yield_convention
+    pub const fn yield_method(&self) -> YieldMethod {
+        self.yield_method
+    }
+
+    /// Returns the first-period discounting method.
+    #[must_use]
+    pub const fn first_period_discounting(&self) -> FirstPeriodDiscounting {
+        self.first_period_discounting
     }
 
     /// Returns the accrued interest convention.
@@ -230,7 +239,8 @@ impl Default for BondConventions {
             business_day_convention: BusinessDayConvention::ModifiedFollowing,
             calendar: CalendarId::target2(),
             end_of_month: true,
-            yield_convention: YieldConvention::ISMA,
+            yield_method: YieldMethod::Compounded,
+            first_period_discounting: FirstPeriodDiscounting::Compound, // ICMA default
             accrued_convention: AccruedConvention::Standard,
             price_quote: PriceQuoteConvention::Decimal,
             quote_clean: true,
@@ -251,7 +261,8 @@ pub struct BondConventionsBuilder {
     business_day_convention: Option<BusinessDayConvention>,
     calendar: Option<CalendarId>,
     end_of_month: Option<bool>,
-    yield_convention: Option<YieldConvention>,
+    yield_method: Option<YieldMethod>,
+    first_period_discounting: Option<FirstPeriodDiscounting>,
     accrued_convention: Option<AccruedConvention>,
     price_quote: Option<PriceQuoteConvention>,
     quote_clean: Option<bool>,
@@ -304,10 +315,17 @@ impl BondConventionsBuilder {
         self
     }
 
-    /// Sets the yield convention.
+    /// Sets the yield calculation method.
     #[must_use]
-    pub fn yield_convention(mut self, convention: YieldConvention) -> Self {
-        self.yield_convention = Some(convention);
+    pub fn yield_method(mut self, method: YieldMethod) -> Self {
+        self.yield_method = Some(method);
+        self
+    }
+
+    /// Sets the first-period discounting method.
+    #[must_use]
+    pub fn first_period_discounting(mut self, method: FirstPeriodDiscounting) -> Self {
+        self.first_period_discounting = Some(method);
         self
     }
 
@@ -374,7 +392,10 @@ impl BondConventionsBuilder {
                 .unwrap_or(default.business_day_convention),
             calendar: self.calendar.unwrap_or(default.calendar),
             end_of_month: self.end_of_month.unwrap_or(default.end_of_month),
-            yield_convention: self.yield_convention.unwrap_or(default.yield_convention),
+            yield_method: self.yield_method.unwrap_or(default.yield_method),
+            first_period_discounting: self
+                .first_period_discounting
+                .unwrap_or(default.first_period_discounting),
             accrued_convention: self
                 .accrued_convention
                 .unwrap_or(default.accrued_convention),
@@ -406,13 +427,15 @@ mod tests {
             .day_count(DayCountConvention::Thirty360US)
             .frequency(Frequency::SemiAnnual)
             .settlement_days(3)
-            .yield_convention(YieldConvention::StreetConvention)
+            .yield_method(YieldMethod::Compounded)
+            .first_period_discounting(FirstPeriodDiscounting::Linear)
             .build();
 
         assert_eq!(conv.day_count(), DayCountConvention::Thirty360US);
         assert_eq!(conv.frequency(), Frequency::SemiAnnual);
         assert_eq!(conv.settlement_days(), 3);
-        assert_eq!(conv.yield_convention(), YieldConvention::StreetConvention);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
+        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Linear);
     }
 
     #[test]

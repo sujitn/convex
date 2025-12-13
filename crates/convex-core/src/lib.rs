@@ -76,11 +76,11 @@ pub mod prelude {
     pub use crate::error::{ConvexError, ConvexResult};
     pub use crate::traits::{Discountable, PricingEngine, RiskCalculator, YieldCurve};
     pub use crate::types::{
-        CashFlow, CashFlowSchedule, CashFlowType, Compounding, Currency, Date, Frequency, Price,
-        Spread, SpreadType, Yield,
+        CashFlow, CashFlowSchedule, CashFlowType, Compounding, Currency, Date, Frequency,
+        MarketConvention, Price, Spread, SpreadType, Yield, YieldMethod,
     };
 }
 
 // Re-export commonly used types at crate root
 pub use error::{ConvexError, ConvexResult};
-pub use types::{Currency, Date, Price, Yield};
+pub use types::{Currency, Date, MarketConvention, Price, Yield, YieldMethod};

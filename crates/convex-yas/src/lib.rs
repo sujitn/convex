@@ -65,6 +65,7 @@ pub mod calculator;
 mod error;
 pub mod formatting;
 pub mod invoice;
+pub mod presets;
 pub mod yas;
 pub mod yields;
 
@@ -77,6 +78,7 @@ pub use yas::YasAnalysis;
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::invoice::*;
+    pub use crate::presets::*;
     pub use crate::yas::*;
     pub use crate::yields::*;
     pub use crate::YasError;

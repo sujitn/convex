@@ -1,216 +1,14 @@
 //! Yield and accrued interest conventions for bond analytics.
 //!
-//! This module defines the various conventions used for calculating yields
-//! and accrued interest across different bond markets.
+//! This module provides:
+//! - [`YieldMethod`]: Re-exported from `convex_core` - basic calculation methodology
+//! - [`AccruedConvention`]: Accrued interest calculation conventions
+//! - [`RoundingConvention`]: Rounding conventions for yield calculations
 
 use serde::{Deserialize, Serialize};
 
-/// Yield calculation convention.
-///
-/// Different markets and bond types use different conventions for
-/// computing yields. This affects how cash flows are discounted and
-/// how the yield is annualized.
-///
-/// # Example
-///
-/// ```rust
-/// use convex_bonds::types::YieldConvention;
-///
-/// let convention = YieldConvention::StreetConvention;
-/// assert!(convention.compounds_semi_annually());
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub enum YieldConvention {
-    /// US Street Convention (SIFMA).
-    ///
-    /// Standard US market convention:
-    /// - Semi-annual compounding
-    /// - **Linear discounting for first (fractional) period**
-    /// - Compound discounting for subsequent periods
-    /// - 30/360 for corporates, Actual/Actual for Treasuries
-    /// - Matches Bloomberg YAS "Street Convention"
-    ///
-    /// Formula: DP = CF₁/(1 + y×n₁/f) + Σ CF_i/[(1 + y×n₁/f)(1 + y/f)^(i-1)]
-    #[default]
-    StreetConvention,
-
-    /// True Yield (Academic/Theoretical).
-    ///
-    /// Uses actual cash flow timing without assuming
-    /// periodic compounding. More accurate for bonds
-    /// with irregular cash flows.
-    TrueYield,
-
-    /// ICMA Convention (International Capital Market Association).
-    ///
-    /// International standard for Eurobonds and European government bonds:
-    /// - **Compound discounting throughout** (including first period)
-    /// - Compounding frequency matches coupon frequency
-    /// - Actual/Actual ICMA day count
-    ///
-    /// Formula: DP = Σ CF_i / (1 + y/f)^n_i
-    ///
-    /// This differs from US Street Convention which uses linear
-    /// discounting for the first fractional period.
-    ISMA,
-
-    /// Simple Yield (Japanese convention).
-    ///
-    /// No compounding - simple interest calculation:
-    /// ```text
-    /// Simple Yield = (Annual Coupon + (100 - Price) / Years) / Price
-    /// ```
-    /// Used for JGBs and some Asian markets.
-    SimpleYield,
-
-    /// Discount Yield (Money market).
-    ///
-    /// Used for Treasury Bills and other discount instruments:
-    /// ```text
-    /// Discount Yield = (Face - Price) / Face * (360 / Days)
-    /// ```
-    DiscountYield,
-
-    /// Bond Equivalent Yield.
-    ///
-    /// Converts discount yield to a semi-annual bond basis
-    /// for comparison with coupon-bearing securities.
-    BondEquivalentYield,
-
-    /// Municipal Yield (Tax-equivalent).
-    ///
-    /// Adjusts yield for tax-exempt status:
-    /// ```text
-    /// Tax-Equivalent Yield = Municipal Yield / (1 - Tax Rate)
-    /// ```
-    MunicipalYield,
-
-    /// Moosmüller Yield.
-    ///
-    /// German convention that differs from ISMA in the
-    /// treatment of broken periods.
-    Moosmuller,
-
-    /// Braess-Fangmeyer Yield.
-    ///
-    /// Another German convention used for certain bond types.
-    BraessFangmeyer,
-
-    /// Annual Yield.
-    ///
-    /// Simple annual compounding convention.
-    Annual,
-
-    /// Continuous Yield.
-    ///
-    /// Continuous compounding (e^(rt)).
-    /// Used in derivatives pricing and theoretical models.
-    Continuous,
-}
-
-impl YieldConvention {
-    /// Returns true if this convention uses semi-annual compounding.
-    #[must_use]
-    pub const fn compounds_semi_annually(&self) -> bool {
-        matches!(
-            self,
-            YieldConvention::StreetConvention | YieldConvention::BondEquivalentYield
-        )
-    }
-
-    /// Returns true if this convention uses annual compounding.
-    #[must_use]
-    pub const fn compounds_annually(&self) -> bool {
-        matches!(
-            self,
-            YieldConvention::ISMA
-                | YieldConvention::Moosmuller
-                | YieldConvention::BraessFangmeyer
-                | YieldConvention::Annual
-        )
-    }
-
-    /// Returns true if this is a simple (non-compounding) yield.
-    #[must_use]
-    pub const fn is_simple(&self) -> bool {
-        matches!(
-            self,
-            YieldConvention::SimpleYield | YieldConvention::DiscountYield
-        )
-    }
-
-    /// Returns the compounding frequency per year.
-    ///
-    /// Returns `None` for simple yields and continuous compounding.
-    #[must_use]
-    pub const fn compounding_frequency(&self) -> Option<u32> {
-        match self {
-            YieldConvention::StreetConvention | YieldConvention::BondEquivalentYield => Some(2),
-            YieldConvention::ISMA
-            | YieldConvention::Moosmuller
-            | YieldConvention::BraessFangmeyer
-            | YieldConvention::Annual
-            | YieldConvention::MunicipalYield => Some(1),
-            YieldConvention::TrueYield => Some(2), // Default to semi-annual
-            YieldConvention::SimpleYield
-            | YieldConvention::DiscountYield
-            | YieldConvention::Continuous => None,
-        }
-    }
-
-    /// Returns the typical day count basis used with this convention.
-    ///
-    /// This is a hint; actual day count may vary by bond type.
-    #[must_use]
-    pub const fn typical_day_count(&self) -> &'static str {
-        match self {
-            YieldConvention::StreetConvention => "30/360 or Act/Act",
-            YieldConvention::TrueYield => "Actual/Actual",
-            YieldConvention::ISMA => "Actual/Actual ICMA",
-            YieldConvention::SimpleYield => "Actual/365",
-            YieldConvention::DiscountYield => "Actual/360",
-            YieldConvention::BondEquivalentYield => "Actual/365",
-            YieldConvention::MunicipalYield => "30/360",
-            YieldConvention::Moosmuller => "Actual/Actual German",
-            YieldConvention::BraessFangmeyer => "Actual/Actual German",
-            YieldConvention::Annual => "Actual/365",
-            YieldConvention::Continuous => "Actual/365",
-        }
-    }
-
-    /// Returns the standard convention for a given market.
-    #[must_use]
-    pub const fn for_market(market: &str) -> Self {
-        // Match on first 2 chars for efficiency
-        match market.as_bytes() {
-            [b'U', b'S', ..] => YieldConvention::StreetConvention,
-            [b'U', b'K', ..] | [b'G', b'B', ..] => YieldConvention::ISMA,
-            [b'D', b'E', ..] => YieldConvention::Moosmuller,
-            [b'J', b'P', ..] => YieldConvention::SimpleYield,
-            [b'E', b'U', ..] => YieldConvention::ISMA, // Eurobond
-            _ => YieldConvention::ISMA,                // International default
-        }
-    }
-}
-
-impl std::fmt::Display for YieldConvention {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            YieldConvention::StreetConvention => "Street Convention",
-            YieldConvention::TrueYield => "True Yield",
-            YieldConvention::ISMA => "ISMA/ICMA",
-            YieldConvention::SimpleYield => "Simple Yield",
-            YieldConvention::DiscountYield => "Discount Yield",
-            YieldConvention::BondEquivalentYield => "Bond Equivalent Yield",
-            YieldConvention::MunicipalYield => "Municipal Yield",
-            YieldConvention::Moosmuller => "Moosmüller",
-            YieldConvention::BraessFangmeyer => "Braess-Fangmeyer",
-            YieldConvention::Annual => "Annual",
-            YieldConvention::Continuous => "Continuous",
-        };
-        write!(f, "{s}")
-    }
-}
+// Re-export YieldMethod from convex-core for backwards compatibility
+pub use convex_core::types::YieldMethod;
 
 /// Accrued interest calculation convention.
 ///
@@ -315,68 +113,68 @@ impl RoundingConvention {
     }
 }
 
+/// First-period discounting method for yield calculations.
+///
+/// This controls how the first (fractional) period is discounted
+/// in yield calculations when using compounded methods.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum FirstPeriodDiscounting {
+    /// Linear/simple discounting for first period (US Street Convention).
+    ///
+    /// DF = 1 / (1 + y × n / f)
+    ///
+    /// This is the SIFMA standard for US markets.
+    #[default]
+    Linear,
+
+    /// Compound discounting for first period (ICMA/ISMA).
+    ///
+    /// DF = 1 / (1 + y/f)^n
+    ///
+    /// Used for Eurobonds and European government bonds.
+    Compound,
+}
+
+impl FirstPeriodDiscounting {
+    /// Returns true if this is the linear/simple method.
+    #[must_use]
+    pub const fn is_linear(&self) -> bool {
+        matches!(self, FirstPeriodDiscounting::Linear)
+    }
+
+    /// Returns true if this is the compound method.
+    #[must_use]
+    pub const fn is_compound(&self) -> bool {
+        matches!(self, FirstPeriodDiscounting::Compound)
+    }
+}
+
+impl std::fmt::Display for FirstPeriodDiscounting {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            FirstPeriodDiscounting::Linear => "Linear (Street)",
+            FirstPeriodDiscounting::Compound => "Compound (ICMA)",
+        };
+        write!(f, "{s}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_yield_convention_default() {
-        let conv = YieldConvention::default();
-        assert_eq!(conv, YieldConvention::StreetConvention);
+    fn test_yield_method_default() {
+        let method = YieldMethod::default();
+        assert_eq!(method, YieldMethod::Compounded);
     }
 
     #[test]
-    fn test_yield_convention_compounding() {
-        assert!(YieldConvention::StreetConvention.compounds_semi_annually());
-        assert!(!YieldConvention::StreetConvention.compounds_annually());
-
-        assert!(YieldConvention::ISMA.compounds_annually());
-        assert!(!YieldConvention::ISMA.compounds_semi_annually());
-
-        assert!(YieldConvention::SimpleYield.is_simple());
-        assert!(YieldConvention::DiscountYield.is_simple());
-        assert!(!YieldConvention::StreetConvention.is_simple());
-    }
-
-    #[test]
-    fn test_yield_convention_frequency() {
-        assert_eq!(
-            YieldConvention::StreetConvention.compounding_frequency(),
-            Some(2)
-        );
-        assert_eq!(YieldConvention::ISMA.compounding_frequency(), Some(1));
-        assert_eq!(YieldConvention::SimpleYield.compounding_frequency(), None);
-        assert_eq!(YieldConvention::Continuous.compounding_frequency(), None);
-    }
-
-    #[test]
-    fn test_yield_convention_for_market() {
-        assert_eq!(
-            YieldConvention::for_market("US"),
-            YieldConvention::StreetConvention
-        );
-        assert_eq!(YieldConvention::for_market("UK"), YieldConvention::ISMA);
-        assert_eq!(YieldConvention::for_market("GB"), YieldConvention::ISMA);
-        assert_eq!(
-            YieldConvention::for_market("DE"),
-            YieldConvention::Moosmuller
-        );
-        assert_eq!(
-            YieldConvention::for_market("JP"),
-            YieldConvention::SimpleYield
-        );
-        assert_eq!(YieldConvention::for_market("EU"), YieldConvention::ISMA);
-        assert_eq!(YieldConvention::for_market("FR"), YieldConvention::ISMA);
-    }
-
-    #[test]
-    fn test_yield_convention_display() {
-        assert_eq!(
-            format!("{}", YieldConvention::StreetConvention),
-            "Street Convention"
-        );
-        assert_eq!(format!("{}", YieldConvention::ISMA), "ISMA/ICMA");
-        assert_eq!(format!("{}", YieldConvention::SimpleYield), "Simple Yield");
+    fn test_yield_method_is_simple() {
+        assert!(!YieldMethod::Compounded.is_simple());
+        assert!(YieldMethod::Simple.is_simple());
+        assert!(YieldMethod::Discount.is_simple());
+        assert!(!YieldMethod::AddOn.is_simple());
     }
 
     #[test]
@@ -404,5 +202,13 @@ mod tests {
         assert_eq!(RoundingConvention::None.decimal_places(), None);
         assert_eq!(RoundingConvention::BasisPoint.decimal_places(), Some(4));
         assert_eq!(RoundingConvention::ThreeDecimals.decimal_places(), Some(5));
+    }
+
+    #[test]
+    fn test_first_period_discounting() {
+        assert!(FirstPeriodDiscounting::Linear.is_linear());
+        assert!(!FirstPeriodDiscounting::Linear.is_compound());
+        assert!(!FirstPeriodDiscounting::Compound.is_linear());
+        assert!(FirstPeriodDiscounting::Compound.is_compound());
     }
 }

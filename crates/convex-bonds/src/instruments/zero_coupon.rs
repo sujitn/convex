@@ -16,92 +16,13 @@ use crate::error::{BondError, BondResult};
 use crate::traits::{Bond, BondCashFlow};
 use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin};
 
-/// Compounding convention for yield calculations.
-///
-/// Determines how yields are annualized and how present values are computed.
-///
-/// # Example
-///
-/// ```rust
-/// use convex_bonds::instruments::Compounding;
-///
-/// // Convert yield from semi-annual to continuous
-/// use convex_bonds::instruments::convert_yield;
-/// use rust_decimal_macros::dec;
-///
-/// let semi_annual_yield = dec!(0.05); // 5%
-/// let continuous_yield = convert_yield(
-///     semi_annual_yield,
-///     Compounding::SemiAnnual,
-///     Compounding::Continuous,
-/// );
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub enum Compounding {
-    /// Annual compounding (1 period per year)
-    #[default]
-    Annual,
-    /// Semi-annual compounding (2 periods per year)
-    SemiAnnual,
-    /// Quarterly compounding (4 periods per year)
-    Quarterly,
-    /// Monthly compounding (12 periods per year)
-    Monthly,
-    /// Continuous compounding (e^rt)
-    Continuous,
-}
-
-impl Compounding {
-    /// Returns the number of compounding periods per year.
-    ///
-    /// # Panics
-    ///
-    /// Panics if called on `Compounding::Continuous` which has no discrete periods.
-    #[must_use]
-    pub fn periods_per_year(&self) -> u32 {
-        match self {
-            Compounding::Annual => 1,
-            Compounding::SemiAnnual => 2,
-            Compounding::Quarterly => 4,
-            Compounding::Monthly => 12,
-            Compounding::Continuous => {
-                panic!("Continuous compounding has no discrete periods")
-            }
-        }
-    }
-
-    /// Returns the number of periods per year, or None for continuous.
-    #[must_use]
-    pub fn periods_per_year_opt(&self) -> Option<u32> {
-        match self {
-            Compounding::Continuous => None,
-            other => Some(other.periods_per_year()),
-        }
-    }
-
-    /// Returns true if this is continuous compounding.
-    #[must_use]
-    pub fn is_continuous(&self) -> bool {
-        matches!(self, Compounding::Continuous)
-    }
-}
-
-impl std::fmt::Display for Compounding {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Compounding::Annual => "Annual",
-            Compounding::SemiAnnual => "Semi-Annual",
-            Compounding::Quarterly => "Quarterly",
-            Compounding::Monthly => "Monthly",
-            Compounding::Continuous => "Continuous",
-        };
-        write!(f, "{s}")
-    }
-}
+// Re-export Compounding from convex-core as the canonical implementation
+pub use convex_core::types::Compounding;
 
 /// Converts a yield from one compounding convention to another.
 ///
-/// Uses continuous compounding as an intermediate step.
+/// Uses the f64-based `convert_to` method from `Compounding`, then converts
+/// back to `Decimal`.
 ///
 /// # Arguments
 ///
@@ -131,21 +52,9 @@ pub fn convert_yield(yield_rate: Decimal, from: Compounding, to: Compounding) ->
 
     let rate = yield_rate.to_string().parse::<f64>().unwrap_or(0.0);
 
-    // First convert to continuous
-    let continuous = if from == Compounding::Continuous {
-        rate
-    } else {
-        let m = f64::from(from.periods_per_year());
-        m * (1.0 + rate / m).ln()
-    };
-
-    // Then convert from continuous to target
-    let result = if to == Compounding::Continuous {
-        continuous
-    } else {
-        let m = f64::from(to.periods_per_year());
-        m * ((continuous / m).exp() - 1.0)
-    };
+    // Use the f64-based convert_to method from Compounding
+    // Using t=1.0 as the standard time period for yield conversion
+    let result = from.convert_to(rate, to, 1.0);
 
     Decimal::try_from(result).unwrap_or(Decimal::ZERO)
 }

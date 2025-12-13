@@ -16,7 +16,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
 
 /// Returns conventions for US Treasury notes and bonds.
 ///
@@ -43,7 +43,8 @@ pub fn note_bond() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::us_government())
         .end_of_month(true)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::ThirtySeconds)
         .quote_clean(true)
@@ -78,7 +79,8 @@ pub fn bill() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::us_government())
         .end_of_month(false)
-        .yield_convention(YieldConvention::DiscountYield)
+        .yield_method(YieldMethod::Discount)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::None)
         .price_quote(PriceQuoteConvention::Discount)
         .quote_clean(true)
@@ -109,7 +111,8 @@ pub fn tips() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::us_government())
         .end_of_month(true)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::ThirtySeconds)
         .quote_clean(true)
@@ -140,7 +143,8 @@ pub fn frn() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::us_government())
         .end_of_month(false)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -166,7 +170,8 @@ pub fn strips() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::us_government())
         .end_of_month(false)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::None)
         .price_quote(PriceQuoteConvention::SixtyFourths)
         .quote_clean(true)
@@ -187,7 +192,8 @@ mod tests {
         assert_eq!(conv.frequency(), Frequency::SemiAnnual);
         assert_eq!(conv.settlement_days(), 1);
         assert_eq!(conv.price_quote(), PriceQuoteConvention::ThirtySeconds);
-        assert_eq!(conv.yield_convention(), YieldConvention::StreetConvention);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
+        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Linear);
         assert_eq!(conv.payments_per_year(), 2);
     }
 
@@ -197,7 +203,7 @@ mod tests {
         assert_eq!(conv.day_count(), DayCountConvention::Act360);
         assert_eq!(conv.frequency(), Frequency::Zero);
         assert_eq!(conv.price_quote(), PriceQuoteConvention::Discount);
-        assert_eq!(conv.yield_convention(), YieldConvention::DiscountYield);
+        assert_eq!(conv.yield_method(), YieldMethod::Discount);
         assert_eq!(conv.accrued_convention(), AccruedConvention::None);
     }
 

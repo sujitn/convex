@@ -15,7 +15,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldMethod};
 
 /// Returns conventions for Japanese Government Bonds (JGBs).
 ///
@@ -28,10 +28,10 @@ use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldCon
 ///
 /// ```rust
 /// use convex_bonds::conventions::japanese_jgb;
-/// use convex_bonds::types::YieldConvention;
+/// use convex_bonds::types::YieldMethod;
 ///
 /// let conv = japanese_jgb::jgb();
-/// assert_eq!(conv.yield_convention(), YieldConvention::SimpleYield);
+/// assert_eq!(conv.yield_method(), YieldMethod::Simple);
 /// ```
 ///
 /// # Notes
@@ -47,7 +47,7 @@ pub fn jgb() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::japan())
         .end_of_month(true)
-        .yield_convention(YieldConvention::SimpleYield)
+        .yield_method(YieldMethod::Simple)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -72,7 +72,7 @@ pub fn jgb_inflation_linked() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::japan())
         .end_of_month(true)
-        .yield_convention(YieldConvention::SimpleYield)
+        .yield_method(YieldMethod::Simple)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -97,7 +97,7 @@ pub fn jgb_frn() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::japan())
         .end_of_month(false)
-        .yield_convention(YieldConvention::SimpleYield)
+        .yield_method(YieldMethod::Simple)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -121,7 +121,7 @@ pub fn t_bill() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::japan())
         .end_of_month(false)
-        .yield_convention(YieldConvention::DiscountYield)
+        .yield_method(YieldMethod::Discount)
         .accrued_convention(AccruedConvention::None)
         .price_quote(PriceQuoteConvention::Discount)
         .quote_clean(true)
@@ -141,7 +141,7 @@ mod tests {
         assert_eq!(conv.day_count(), DayCountConvention::Act365Fixed);
         assert_eq!(conv.frequency(), Frequency::SemiAnnual);
         assert_eq!(conv.settlement_days(), 2);
-        assert_eq!(conv.yield_convention(), YieldConvention::SimpleYield);
+        assert_eq!(conv.yield_method(), YieldMethod::Simple);
         assert_eq!(conv.payments_per_year(), 2);
     }
 
@@ -149,7 +149,7 @@ mod tests {
     fn test_jgb_inflation_linked_conventions() {
         let conv = jgb_inflation_linked();
         assert_eq!(conv.day_count(), DayCountConvention::Act365Fixed);
-        assert_eq!(conv.yield_convention(), YieldConvention::SimpleYield);
+        assert_eq!(conv.yield_method(), YieldMethod::Simple);
     }
 
     #[test]

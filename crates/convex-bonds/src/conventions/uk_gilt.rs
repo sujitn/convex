@@ -14,7 +14,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
 
 /// Returns conventions for UK conventional gilts.
 ///
@@ -42,7 +42,8 @@ pub fn conventional() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::uk())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::ExDividend)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -74,7 +75,8 @@ pub fn index_linked_old() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::uk())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::ExDividend)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -105,7 +107,8 @@ pub fn index_linked_new() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::uk())
         .end_of_month(true)
-        .yield_convention(YieldConvention::ISMA)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Compound)
         .accrued_convention(AccruedConvention::ExDividend)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -137,7 +140,8 @@ pub fn treasury_bill() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::uk())
         .end_of_month(false)
-        .yield_convention(YieldConvention::DiscountYield)
+        .yield_method(YieldMethod::Discount)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::None)
         .price_quote(PriceQuoteConvention::Discount)
         .quote_clean(true)
@@ -159,7 +163,8 @@ mod tests {
         assert_eq!(conv.settlement_days(), 1);
         assert_eq!(conv.ex_dividend_days(), Some(7));
         assert_eq!(conv.accrued_convention(), AccruedConvention::ExDividend);
-        assert_eq!(conv.yield_convention(), YieldConvention::ISMA);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
+        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Compound);
     }
 
     #[test]

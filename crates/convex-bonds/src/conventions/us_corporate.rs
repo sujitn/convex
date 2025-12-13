@@ -15,7 +15,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, PriceQuoteConvention, YieldConvention};
+use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
 
 /// Returns conventions for investment grade corporate bonds.
 ///
@@ -44,7 +44,8 @@ pub fn investment_grade() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::sifma())
         .end_of_month(true)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -72,7 +73,8 @@ pub fn high_yield() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::sifma())
         .end_of_month(true)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -103,7 +105,8 @@ pub fn municipal() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::sifma())
         .end_of_month(true)
-        .yield_convention(YieldConvention::MunicipalYield)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -128,7 +131,8 @@ pub fn agency() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::sifma())
         .end_of_month(true)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::Decimal)
         .quote_clean(true)
@@ -158,7 +162,8 @@ pub fn mbs() -> BondConventions {
         .business_day_convention(BusinessDayConvention::Following)
         .calendar(CalendarId::sifma())
         .end_of_month(false)
-        .yield_convention(YieldConvention::StreetConvention)
+        .yield_method(YieldMethod::Compounded)
+        .first_period_discounting(FirstPeriodDiscounting::Linear)
         .accrued_convention(AccruedConvention::Standard)
         .price_quote(PriceQuoteConvention::OneHundredTwentyEighths)
         .quote_clean(true)
@@ -179,7 +184,8 @@ mod tests {
         assert_eq!(conv.frequency(), Frequency::SemiAnnual);
         assert_eq!(conv.settlement_days(), 2);
         assert_eq!(conv.price_quote(), PriceQuoteConvention::Decimal);
-        assert_eq!(conv.yield_convention(), YieldConvention::StreetConvention);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
+        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Linear);
     }
 
     #[test]
@@ -192,7 +198,7 @@ mod tests {
     #[test]
     fn test_municipal_conventions() {
         let conv = municipal();
-        assert_eq!(conv.yield_convention(), YieldConvention::MunicipalYield);
+        assert_eq!(conv.yield_method(), YieldMethod::Compounded);
         assert_eq!(conv.minimum_denomination(), Some(5000));
     }
 

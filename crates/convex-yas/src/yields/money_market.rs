@@ -5,13 +5,17 @@
 //! - T-Bill bond equivalent yield
 //! - CD equivalent yield
 //! - Money Market Equivalent Yield for coupon bonds
+//! - Newton-Raphson solver for money market yield from price
 
 use crate::YasError;
 use convex_bonds::traits::BondCashFlow;
+use convex_core::daycounts::DayCount;
 use convex_core::types::Date;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+
+use super::{DEFAULT_MAX_ITERATIONS, DEFAULT_TOLERANCE};
 
 // ============================================================================
 // Money Market Equivalent Yield (Roll-Forward)
@@ -218,6 +222,190 @@ fn pow_decimal(base: Decimal, exp: Decimal) -> Decimal {
     let b = base.to_f64().unwrap_or(1.0);
     let e = exp.to_f64().unwrap_or(0.0);
     Decimal::from_f64_retain(b.powf(e)).unwrap_or(Decimal::ONE)
+}
+
+// ============================================================================
+// Newton-Raphson Solver for Money Market Yield
+// ============================================================================
+
+/// Solve for money market yield from dirty price using Newton-Raphson iteration.
+///
+/// This finds the yield `y` such that the present value of all cash flows,
+/// discounted using the money market (add-on) method, equals the dirty price.
+///
+/// # Formula
+///
+/// For money market yield, we discount using simple interest:
+/// ```text
+/// PV = Σ CF_i / (1 + y × t_i)
+/// ```
+///
+/// where `t_i` is the year fraction to each cash flow using the bond's day count.
+///
+/// # Arguments
+///
+/// * `cash_flows` - Bond cash flows from settlement forward
+/// * `dirty_price` - Target dirty price (clean + accrued)
+/// * `settlement` - Settlement date
+/// * `day_count` - Day count convention from the bond
+/// * `tolerance` - Convergence tolerance (default: 1e-10)
+/// * `max_iterations` - Maximum Newton-Raphson iterations (default: 100)
+///
+/// # Returns
+///
+/// Money market yield as a decimal (e.g., 0.05 for 5%)
+#[allow(clippy::too_many_arguments)]
+pub fn solve_money_market_yield(
+    cash_flows: &[BondCashFlow],
+    dirty_price: Decimal,
+    settlement: Date,
+    day_count: &dyn DayCount,
+    tolerance: Option<f64>,
+    max_iterations: Option<u32>,
+) -> Result<Decimal, YasError> {
+    let tol = tolerance.unwrap_or(DEFAULT_TOLERANCE);
+    let max_iter = max_iterations.unwrap_or(DEFAULT_MAX_ITERATIONS);
+
+    if cash_flows.is_empty() {
+        return Err(YasError::InvalidInput("no cash flows provided".to_string()));
+    }
+
+    if dirty_price <= Decimal::ZERO {
+        return Err(YasError::InvalidInput(
+            "dirty price must be positive".to_string(),
+        ));
+    }
+
+    // Filter cash flows to those after settlement
+    let future_cfs: Vec<_> = cash_flows
+        .iter()
+        .filter(|cf| cf.date > settlement)
+        .collect();
+
+    if future_cfs.is_empty() {
+        return Err(YasError::InvalidInput(
+            "no cash flows after settlement".to_string(),
+        ));
+    }
+
+    // Precompute year fractions for each cash flow
+    let year_fracs: Vec<f64> = future_cfs
+        .iter()
+        .map(|cf| {
+            day_count
+                .year_fraction(settlement, cf.date)
+                .to_f64()
+                .unwrap_or(0.0)
+        })
+        .collect();
+
+    let cf_amounts: Vec<f64> = future_cfs
+        .iter()
+        .map(|cf| cf.amount.to_f64().unwrap_or(0.0))
+        .collect();
+
+    let target = dirty_price.to_f64().unwrap_or(100.0);
+
+    // Initial guess: simple yield approximation
+    let total_cf: f64 = cf_amounts.iter().sum();
+    let avg_t: f64 = year_fracs.iter().sum::<f64>() / year_fracs.len() as f64;
+    let mut y = if avg_t > 0.0 && target > 0.0 {
+        (total_cf / target - 1.0) / avg_t
+    } else {
+        0.05 // fallback
+    };
+
+    // Newton-Raphson iteration
+    for _ in 0..max_iter {
+        let (pv, dpv_dy) = pv_and_derivative_mm(&cf_amounts, &year_fracs, y);
+
+        let f = pv - target;
+
+        if f.abs() < tol {
+            return Ok(Decimal::from_f64_retain(y).unwrap_or(Decimal::ZERO));
+        }
+
+        if dpv_dy.abs() < 1e-15 {
+            return Err(YasError::CalculationFailed(
+                "derivative too small in Newton-Raphson".to_string(),
+            ));
+        }
+
+        let dy = f / dpv_dy;
+        y -= dy;
+
+        // Prevent negative yields going too extreme
+        if y < -0.99 {
+            y = -0.99;
+        }
+    }
+
+    Err(YasError::CalculationFailed(format!(
+        "Newton-Raphson did not converge after {} iterations",
+        max_iter
+    )))
+}
+
+/// Calculate PV and its derivative for money market yield.
+///
+/// For money market yield with simple discounting:
+/// ```text
+/// PV = Σ CF_i / (1 + y × t_i)
+/// dPV/dy = Σ -CF_i × t_i / (1 + y × t_i)²
+/// ```
+#[inline]
+fn pv_and_derivative_mm(cf_amounts: &[f64], year_fracs: &[f64], y: f64) -> (f64, f64) {
+    let mut pv = 0.0;
+    let mut dpv = 0.0;
+
+    for (cf, t) in cf_amounts.iter().zip(year_fracs.iter()) {
+        let disc = 1.0 + y * t;
+        if disc.abs() > 1e-10 {
+            pv += cf / disc;
+            dpv -= cf * t / (disc * disc);
+        }
+    }
+
+    (pv, dpv)
+}
+
+/// Calculate price from money market yield.
+///
+/// Given a money market yield, calculate the present value (dirty price)
+/// using simple interest discounting.
+///
+/// # Formula
+///
+/// ```text
+/// PV = Σ CF_i / (1 + y × t_i)
+/// ```
+pub fn price_from_money_market_yield(
+    cash_flows: &[BondCashFlow],
+    yield_decimal: Decimal,
+    settlement: Date,
+    day_count: &dyn DayCount,
+) -> Result<Decimal, YasError> {
+    if cash_flows.is_empty() {
+        return Err(YasError::InvalidInput("no cash flows provided".to_string()));
+    }
+
+    let y = yield_decimal.to_f64().unwrap_or(0.0);
+    let mut pv = 0.0;
+
+    for cf in cash_flows.iter().filter(|cf| cf.date > settlement) {
+        let t = day_count.year_fraction(settlement, cf.date).to_f64().unwrap_or(0.0);
+        let disc = 1.0 + y * t;
+
+        if disc.abs() < 1e-10 {
+            return Err(YasError::CalculationFailed(
+                "discount factor too small".to_string(),
+            ));
+        }
+
+        pv += cf.amount.to_f64().unwrap_or(0.0) / disc;
+    }
+
+    Ok(Decimal::from_f64_retain(pv).unwrap_or(Decimal::ZERO))
 }
 
 // ============================================================================
@@ -538,5 +726,190 @@ mod tests {
     fn test_bey_invalid() {
         assert!(bond_equivalent_yield(dec!(0), dec!(100), 90).is_err());
         assert!(bond_equivalent_yield(dec!(98.5), dec!(100), 0).is_err());
+    }
+
+    // ========================================================================
+    // Newton-Raphson Solver Tests
+    // ========================================================================
+
+    #[test]
+    fn test_solve_mm_yield_simple_case() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29); // ~6 months
+
+        // Single cash flow: coupon + principal at maturity
+        let cash_flows = vec![BondCashFlow::coupon_and_principal(
+            maturity,
+            dec!(2.5),   // 5% annual coupon, semi-annual = 2.5%
+            dec!(100.0), // principal
+        )];
+
+        let day_count = Act360;
+
+        // At par, yield should be close to the coupon rate
+        let yield_result =
+            solve_money_market_yield(&cash_flows, dec!(100.0), settlement, &day_count, None, None);
+
+        assert!(yield_result.is_ok());
+        let y = yield_result.unwrap().to_f64().unwrap();
+
+        // Should converge to a reasonable yield
+        assert!(y > 0.0);
+        assert!(y < 0.15); // Less than 15%
+    }
+
+    #[test]
+    fn test_solve_mm_yield_discount_bond() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29);
+
+        let cash_flows =
+            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+
+        let day_count = Act360;
+
+        // Bond trading at discount - yield should be higher
+        let yield_result =
+            solve_money_market_yield(&cash_flows, dec!(98.0), settlement, &day_count, None, None);
+
+        assert!(yield_result.is_ok());
+        let y = yield_result.unwrap().to_f64().unwrap();
+
+        // At discount, yield > coupon rate
+        assert!(y > 0.05);
+    }
+
+    #[test]
+    fn test_solve_mm_yield_premium_bond() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29);
+
+        let cash_flows =
+            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+
+        let day_count = Act360;
+
+        // Bond trading at premium - yield should be lower
+        let yield_result =
+            solve_money_market_yield(&cash_flows, dec!(102.0), settlement, &day_count, None, None);
+
+        assert!(yield_result.is_ok());
+        let y = yield_result.unwrap().to_f64().unwrap();
+
+        // At premium, yield < coupon rate
+        assert!(y < 0.05);
+        assert!(y > 0.0);
+    }
+
+    #[test]
+    fn test_solve_mm_yield_roundtrip() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29);
+
+        let cash_flows =
+            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+
+        let day_count = Act360;
+        let original_price = dec!(99.5);
+
+        // Solve for yield
+        let yield_result = solve_money_market_yield(
+            &cash_flows,
+            original_price,
+            settlement,
+            &day_count,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Calculate price from yield
+        let recovered_price =
+            price_from_money_market_yield(&cash_flows, yield_result, settlement, &day_count)
+                .unwrap();
+
+        // Should roundtrip within tolerance
+        let diff = (original_price - recovered_price).abs();
+        assert!(diff < dec!(0.0001), "Roundtrip error: {}", diff);
+    }
+
+    #[test]
+    fn test_solve_mm_yield_multiple_coupons() {
+        use convex_core::daycounts::Act365Fixed;
+
+        let settlement = date(2020, 1, 15);
+        let maturity = date(2021, 1, 15);
+
+        let cash_flows = vec![
+            BondCashFlow::coupon(date(2020, 7, 15), dec!(2.5)),
+            BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100)),
+        ];
+
+        let day_count = Act365Fixed;
+
+        let yield_result =
+            solve_money_market_yield(&cash_flows, dec!(100.0), settlement, &day_count, None, None);
+
+        assert!(yield_result.is_ok());
+        let y = yield_result.unwrap().to_f64().unwrap();
+
+        // At par with 5% coupon, yield should be close to 5%
+        assert_relative_eq!(y, 0.05, epsilon = 0.005);
+    }
+
+    #[test]
+    fn test_solve_mm_yield_invalid_inputs() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29);
+        let day_count = Act360;
+
+        // Empty cash flows
+        assert!(
+            solve_money_market_yield(&[], dec!(100), settlement, &day_count, None, None).is_err()
+        );
+
+        // Zero price
+        let cfs = vec![BondCashFlow::coupon(maturity, dec!(5))];
+        assert!(
+            solve_money_market_yield(&cfs, dec!(0), settlement, &day_count, None, None).is_err()
+        );
+
+        // Negative price
+        assert!(
+            solve_money_market_yield(&cfs, dec!(-100), settlement, &day_count, None, None).is_err()
+        );
+    }
+
+    #[test]
+    fn test_price_from_mm_yield() {
+        use convex_core::daycounts::Act360;
+
+        let settlement = date(2020, 4, 29);
+        let maturity = date(2020, 10, 29);
+
+        let cash_flows =
+            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+
+        let day_count = Act360;
+
+        // Calculate price at 5% yield
+        let price =
+            price_from_money_market_yield(&cash_flows, dec!(0.05), settlement, &day_count).unwrap();
+
+        // PV = CF / (1 + y * t)
+        // For ~6 months (183 days), t ≈ 183/360 = 0.5083
+        // PV = 102.5 / (1 + 0.05 * 0.5083) ≈ 99.97
+        assert!(price > dec!(99.0));
+        assert!(price < dec!(103.0));
     }
 }

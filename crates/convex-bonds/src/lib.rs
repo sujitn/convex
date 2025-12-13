@@ -136,7 +136,8 @@ pub mod prelude {
         AccruedConvention, AmortizationEntry, AmortizationSchedule, AmortizationType,
         BondIdentifiers, BondType, CalendarId, CallEntry, CallSchedule, CallType, Cusip, Figi,
         InflationIndexType, Isin, PriceQuote, PriceQuoteConvention, PutEntry, PutSchedule, PutType,
-        RateIndex, RoundingConvention, SOFRConvention, Sedol, Tenor, YieldConvention,
+        RateIndex, RoundingConvention, SOFRConvention, Sedol, Tenor, YieldMethod,
+        FirstPeriodDiscounting,
     };
 }
 

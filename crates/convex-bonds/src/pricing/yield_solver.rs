@@ -7,10 +7,11 @@
 //!
 //! ```rust,ignore
 //! use convex_bonds::pricing::{YieldSolver, YieldResult};
-//! use convex_bonds::types::YieldConvention;
+//! use convex_bonds::types::{YieldMethod, FirstPeriodDiscounting};
 //!
 //! let solver = YieldSolver::new()
-//!     .with_convention(YieldConvention::StreetConvention);
+//!     .with_method(YieldMethod::Compounded)
+//!     .with_first_period(FirstPeriodDiscounting::Linear);
 //!
 //! let result = solver.solve(&cash_flows, clean_price, settlement, day_count, frequency)?;
 //! println!("YTM: {:.6}%", result.yield_value * 100.0);
@@ -20,12 +21,12 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
 use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Date, Frequency};
+use convex_core::types::{Date, Frequency, YieldMethod};
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
 use crate::error::{BondError, BondResult};
 use crate::traits::{BondCashFlow, FixedCouponBond};
-use crate::types::YieldConvention;
+use crate::types::FirstPeriodDiscounting;
 
 /// Result of a yield calculation.
 #[derive(Debug, Clone, Copy)]
@@ -46,8 +47,10 @@ pub struct YieldResult {
 pub struct YieldSolver {
     /// Solver configuration.
     config: SolverConfig,
-    /// Yield convention to use.
-    convention: YieldConvention,
+    /// Yield calculation method.
+    method: YieldMethod,
+    /// First-period discounting method (for Compounded yields).
+    first_period: FirstPeriodDiscounting,
 }
 
 impl Default for YieldSolver {
@@ -61,19 +64,27 @@ impl YieldSolver {
     ///
     /// Default tolerance: 1e-10
     /// Default max iterations: 100
-    /// Default convention: Street Convention
+    /// Default method: Compounded with Linear first period (Street Convention)
     #[must_use]
     pub fn new() -> Self {
         Self {
             config: SolverConfig::new(1e-10, 100),
-            convention: YieldConvention::StreetConvention,
+            method: YieldMethod::Compounded,
+            first_period: FirstPeriodDiscounting::Linear,
         }
     }
 
-    /// Sets the yield convention.
+    /// Sets the yield calculation method.
     #[must_use]
-    pub fn with_convention(mut self, convention: YieldConvention) -> Self {
-        self.convention = convention;
+    pub fn with_method(mut self, method: YieldMethod) -> Self {
+        self.method = method;
+        self
+    }
+
+    /// Sets the first-period discounting method.
+    #[must_use]
+    pub fn with_first_period(mut self, first_period: FirstPeriodDiscounting) -> Self {
+        self.first_period = first_period;
         self
     }
 
@@ -281,30 +292,8 @@ impl YieldSolver {
     fn pv_at_yield(&self, cf_data: &[(f64, f64)], yield_rate: f64, periods_per_year: f64) -> f64 {
         let rate_per_period = yield_rate / periods_per_year;
 
-        match self.convention {
-            YieldConvention::TrueYield => {
-                // True yield: annual compounding with fractional periods converted to years
-                cf_data
-                    .iter()
-                    .map(|(periods, amount)| {
-                        let years = periods / periods_per_year;
-                        let df = (1.0 + yield_rate).powf(-years);
-                        amount * df
-                    })
-                    .sum()
-            }
-            YieldConvention::Continuous => {
-                // Continuous compounding
-                cf_data
-                    .iter()
-                    .map(|(periods, amount)| {
-                        let years = periods / periods_per_year;
-                        let df = (-yield_rate * years).exp();
-                        amount * df
-                    })
-                    .sum()
-            }
-            YieldConvention::SimpleYield => {
+        match self.method {
+            YieldMethod::Simple => {
                 // Japanese convention - simple interest
                 cf_data
                     .iter()
@@ -315,64 +304,71 @@ impl YieldSolver {
                     })
                     .sum()
             }
-            YieldConvention::ISMA => {
-                // ICMA Convention: compound discounting throughout
-                // DP = Σ CF_i / (1 + y/f)^n_i
-                // Used for Eurobonds and European government bonds
+            YieldMethod::Discount | YieldMethod::AddOn => {
+                // Money market methods - simple interest for short-dated
                 cf_data
                     .iter()
                     .map(|(periods, amount)| {
-                        let df = 1.0 / (1.0 + rate_per_period).powf(*periods);
+                        let years = periods / periods_per_year;
+                        let df = 1.0 / (1.0 + yield_rate * years);
                         amount * df
                     })
                     .sum()
             }
-            _ => {
-                // Street Convention (SIFMA standard):
-                // - First period (fractional): linear/simple interest
-                // - Subsequent periods: compound discounting
-                //
-                // Formula: DP = CF₁/(1 + y×n₁/f) + Σ CF_i/(1 + y/f)^(i-1+n₁) for i>1
-                //
-                // Where n₁ is the fractional first period (DSC/E)
-                //
-                // This matches Bloomberg YAS Street Convention exactly.
+            YieldMethod::Compounded => {
+                // Compound discounting - behavior depends on first_period setting
+                match self.first_period {
+                    FirstPeriodDiscounting::Compound => {
+                        // ICMA Convention: compound discounting throughout
+                        // DP = Σ CF_i / (1 + y/f)^n_i
+                        // Used for Eurobonds and European government bonds
+                        cf_data
+                            .iter()
+                            .map(|(periods, amount)| {
+                                let df = 1.0 / (1.0 + rate_per_period).powf(*periods);
+                                amount * df
+                            })
+                            .sum()
+                    }
+                    FirstPeriodDiscounting::Linear => {
+                        // Street Convention (SIFMA standard):
+                        // - First period (fractional): linear/simple interest
+                        // - Subsequent periods: compound discounting
+                        //
+                        // Formula: DP = CF₁/(1 + y×n₁/f) + Σ CF_i/(1 + y/f)^(i-1+n₁) for i>1
+                        //
+                        // Where n₁ is the fractional first period (DSC/E)
+                        //
+                        // This matches Bloomberg YAS Street Convention exactly.
 
-                if cf_data.is_empty() {
-                    return 0.0;
-                }
-
-                // Get the fractional first period
-                let first_period = cf_data[0].0;
-
-                cf_data
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (periods, amount))| {
-                        if i == 0 {
-                            // First cash flow: linear discounting for fractional period
-                            // DF = 1 / (1 + y × n / f)
-                            let df = 1.0 / (1.0 + yield_rate * periods / periods_per_year);
-                            amount * df
-                        } else {
-                            // Subsequent cash flows: compound discounting
-                            // Period = (i) + fractional_first_period
-                            // But cf_data already has cumulative periods, so use directly
-                            // DF = 1 / (1 + y/f)^n
-                            //
-                            // However, for Street Convention, we need to adjust:
-                            // The exponent for cash flow i should be (i-1) + first_period for compound part
-                            // combined with the linear first period discount
-                            //
-                            // Full formula: DF_i = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
-                            // Which simplifies the first period to linear, rest to compound
-                            let whole_periods = (i) as f64;
-                            let compound_df = 1.0 / (1.0 + rate_per_period).powf(whole_periods);
-                            let linear_df = 1.0 / (1.0 + yield_rate * first_period / periods_per_year);
-                            amount * linear_df * compound_df
+                        if cf_data.is_empty() {
+                            return 0.0;
                         }
-                    })
-                    .sum()
+
+                        // Get the fractional first period
+                        let first_period_frac = cf_data[0].0;
+
+                        cf_data
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (periods, amount))| {
+                                if i == 0 {
+                                    // First cash flow: linear discounting for fractional period
+                                    // DF = 1 / (1 + y × n / f)
+                                    let df = 1.0 / (1.0 + yield_rate * periods / periods_per_year);
+                                    amount * df
+                                } else {
+                                    // Subsequent cash flows: compound discounting
+                                    // Full formula: DF_i = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
+                                    let whole_periods = i as f64;
+                                    let compound_df = 1.0 / (1.0 + rate_per_period).powf(whole_periods);
+                                    let linear_df = 1.0 / (1.0 + yield_rate * first_period_frac / periods_per_year);
+                                    amount * linear_df * compound_df
+                                }
+                            })
+                            .sum()
+                    }
+                }
             }
         }
     }
@@ -383,88 +379,77 @@ impl YieldSolver {
     fn pv_derivative(&self, cf_data: &[(f64, f64)], yield_rate: f64, periods_per_year: f64) -> f64 {
         let rate_per_period = yield_rate / periods_per_year;
 
-        match self.convention {
-            YieldConvention::TrueYield => cf_data
-                .iter()
-                .map(|(periods, amount)| {
-                    let years = periods / periods_per_year;
-                    let df = (1.0 + yield_rate).powf(-years);
-                    let ddf_dy = -years * df / (1.0 + yield_rate);
-                    amount * ddf_dy
-                })
-                .sum(),
-            YieldConvention::Continuous => cf_data
-                .iter()
-                .map(|(periods, amount)| {
-                    let years = periods / periods_per_year;
-                    let df = (-yield_rate * years).exp();
-                    let ddf_dy = -years * df;
-                    amount * ddf_dy
-                })
-                .sum(),
-            YieldConvention::SimpleYield => cf_data
-                .iter()
-                .map(|(periods, amount)| {
-                    let years = periods / periods_per_year;
-                    let denom = 1.0 + yield_rate * years;
-                    let ddf_dy = -years / (denom * denom);
-                    amount * ddf_dy
-                })
-                .sum(),
-            YieldConvention::ISMA => {
-                // ICMA Convention: compound discounting derivative
-                // d/dy [1/(1 + y/f)^n] = -n/f × (1 + y/f)^(-n-1)
+        match self.method {
+            YieldMethod::Simple | YieldMethod::Discount | YieldMethod::AddOn => {
+                // Simple interest derivative
                 cf_data
                     .iter()
                     .map(|(periods, amount)| {
-                        let df = 1.0 / (1.0 + rate_per_period).powf(*periods);
-                        let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
+                        let years = periods / periods_per_year;
+                        let denom = 1.0 + yield_rate * years;
+                        let ddf_dy = -years / (denom * denom);
                         amount * ddf_dy
                     })
                     .sum()
             }
-            _ => {
-                // Street Convention derivative
-                // Matches the PV formula with linear first period
-                if cf_data.is_empty() {
-                    return 0.0;
-                }
-
-                let first_period = cf_data[0].0;
-
-                cf_data
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (periods, amount))| {
-                        if i == 0 {
-                            // Derivative of linear discount: d/dy [1/(1 + y×n/f)]
-                            // = -n/f / (1 + y×n/f)²
-                            let denom = 1.0 + yield_rate * periods / periods_per_year;
-                            let ddf_dy = -(periods / periods_per_year) / (denom * denom);
-                            amount * ddf_dy
-                        } else {
-                            // Derivative of combined linear × compound discount
-                            // DF = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
-                            // Using product rule: d(uv) = u'v + uv'
-                            let whole_periods = i as f64;
-                            let linear_denom = 1.0 + yield_rate * first_period / periods_per_year;
-                            let compound_base = 1.0 + rate_per_period;
-
-                            let linear_df = 1.0 / linear_denom;
-                            let compound_df = 1.0 / compound_base.powf(whole_periods);
-
-                            // d(linear_df)/dy = -(first_period/f) / linear_denom²
-                            let d_linear = -(first_period / periods_per_year) / (linear_denom * linear_denom);
-
-                            // d(compound_df)/dy = -whole_periods × compound_df / compound_base / f
-                            let d_compound = -whole_periods * compound_df / compound_base / periods_per_year;
-
-                            // Product rule: d(linear × compound) = d_linear × compound + linear × d_compound
-                            let ddf_dy = d_linear * compound_df + linear_df * d_compound;
-                            amount * ddf_dy
+            YieldMethod::Compounded => {
+                match self.first_period {
+                    FirstPeriodDiscounting::Compound => {
+                        // ICMA Convention: compound discounting derivative
+                        // d/dy [1/(1 + y/f)^n] = -n/f × (1 + y/f)^(-n-1)
+                        cf_data
+                            .iter()
+                            .map(|(periods, amount)| {
+                                let df = 1.0 / (1.0 + rate_per_period).powf(*periods);
+                                let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
+                                amount * ddf_dy
+                            })
+                            .sum()
+                    }
+                    FirstPeriodDiscounting::Linear => {
+                        // Street Convention derivative
+                        // Matches the PV formula with linear first period
+                        if cf_data.is_empty() {
+                            return 0.0;
                         }
-                    })
-                    .sum()
+
+                        let first_period_frac = cf_data[0].0;
+
+                        cf_data
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (periods, amount))| {
+                                if i == 0 {
+                                    // Derivative of linear discount: d/dy [1/(1 + y×n/f)]
+                                    // = -n/f / (1 + y×n/f)²
+                                    let denom = 1.0 + yield_rate * periods / periods_per_year;
+                                    let ddf_dy = -(periods / periods_per_year) / (denom * denom);
+                                    amount * ddf_dy
+                                } else {
+                                    // Derivative of combined linear × compound discount
+                                    // DF = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
+                                    // Using product rule: d(uv) = u'v + uv'
+                                    let whole_periods = i as f64;
+                                    let linear_denom = 1.0 + yield_rate * first_period_frac / periods_per_year;
+                                    let compound_base = 1.0 + rate_per_period;
+
+                                    let linear_df = 1.0 / linear_denom;
+                                    let compound_df = 1.0 / compound_base.powf(whole_periods);
+
+                                    // d(linear_df)/dy = -(first_period/f) / linear_denom²
+                                    let d_linear = -(first_period_frac / periods_per_year) / (linear_denom * linear_denom);
+
+                                    // d(compound_df)/dy = -whole_periods × compound_df / compound_base / f
+                                    let d_compound = -whole_periods * compound_df / compound_base / periods_per_year;
+
+                                    // Product rule: d(linear × compound) = d_linear × compound + linear × d_compound
+                                    let ddf_dy = d_linear * compound_df + linear_df * d_compound;
+                                    amount * ddf_dy
+                                }
+                            })
+                            .sum()
+                    }
+                }
             }
         }
     }
@@ -830,7 +815,8 @@ mod tests {
         let clean_price = dec!(110.503);
 
         let solver = YieldSolver::new()
-            .with_convention(YieldConvention::StreetConvention)
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Linear)
             .with_tolerance(1e-10);
 
         let result = solver
@@ -864,7 +850,7 @@ mod tests {
     }
 
     #[test]
-    fn test_true_yield_convention() {
+    fn test_street_vs_icma_convention() {
         let settlement = date(2025, 1, 15);
         let maturity = date(2030, 6, 15);
         let coupon_rate = dec!(0.05);
@@ -878,8 +864,15 @@ mod tests {
             Frequency::SemiAnnual,
         );
 
-        let street_solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
-        let true_solver = YieldSolver::new().with_convention(YieldConvention::TrueYield);
+        // Street Convention: linear first period
+        let street_solver = YieldSolver::new()
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Linear);
+
+        // ICMA Convention: compound throughout
+        let icma_solver = YieldSolver::new()
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Compound);
 
         let price = dec!(98.50);
         let accrued = dec!(0);
@@ -895,7 +888,7 @@ mod tests {
             )
             .unwrap();
 
-        let true_result = true_solver
+        let icma_result = icma_solver
             .solve(
                 &cash_flows,
                 price,
@@ -906,16 +899,15 @@ mod tests {
             )
             .unwrap();
 
-        // True yield should be slightly different from street yield
-        // but both should converge
+        // Both should converge
         assert!(street_result.iterations < 20);
-        assert!(true_result.iterations < 20);
+        assert!(icma_result.iterations < 20);
 
         // Both should be close but not identical
-        let diff = (street_result.yield_value - true_result.yield_value).abs();
+        let diff = (street_result.yield_value - icma_result.yield_value).abs();
         assert!(
             diff < 0.005,
-            "Street vs True yield difference too large: {}",
+            "Street vs ICMA yield difference too large: {}",
             diff
         );
     }
@@ -1133,7 +1125,7 @@ mod tests {
     }
 
     #[test]
-    fn test_icma_vs_street_convention() {
+    fn test_icma_vs_street_short_dated() {
         // Test that ICMA (compound throughout) differs from Street (linear first period)
         // Using the same short-dated bond
 
@@ -1151,7 +1143,9 @@ mod tests {
         let clean_price = dec!(99.412);
 
         // Test Street Convention (linear first period)
-        let street_solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
+        let street_solver = YieldSolver::new()
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Linear);
         let street_result = street_solver
             .solve(
                 &cash_flows,
@@ -1164,7 +1158,9 @@ mod tests {
             .unwrap();
 
         // Test ICMA Convention (compound throughout)
-        let icma_solver = YieldSolver::new().with_convention(YieldConvention::ISMA);
+        let icma_solver = YieldSolver::new()
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Compound);
         let icma_result = icma_solver
             .solve(
                 &cash_flows,

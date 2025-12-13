@@ -28,7 +28,7 @@ use convex_core::types::{Date, Frequency};
 use crate::error::{BondError, BondResult};
 use crate::pricing::{YieldResult, YieldSolver};
 use crate::traits::Bond;
-use crate::types::YieldConvention;
+use crate::types::{FirstPeriodDiscounting, YieldMethod};
 
 /// Analytics extension trait for bonds.
 ///
@@ -72,7 +72,9 @@ pub trait BondAnalytics: Bond {
         let accrued = self.accrued_interest(settlement);
         let day_count = self.parse_day_count()?;
 
-        let solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
+        let solver = YieldSolver::new()
+            .with_method(YieldMethod::Compounded)
+            .with_first_period(FirstPeriodDiscounting::Linear);
 
         solver.solve(
             &cash_flows,
@@ -84,13 +86,14 @@ pub trait BondAnalytics: Bond {
         )
     }
 
-    /// Calculates yield to maturity with a specific yield convention.
-    fn yield_to_maturity_with_convention(
+    /// Calculates yield to maturity with a specific yield method.
+    fn yield_to_maturity_with_method(
         &self,
         settlement: Date,
         clean_price: Decimal,
         frequency: Frequency,
-        convention: YieldConvention,
+        method: YieldMethod,
+        first_period: FirstPeriodDiscounting,
     ) -> BondResult<YieldResult> {
         let cash_flows = self.cash_flows(settlement);
         if cash_flows.is_empty() {
@@ -102,7 +105,9 @@ pub trait BondAnalytics: Bond {
         let accrued = self.accrued_interest(settlement);
         let day_count = self.parse_day_count()?;
 
-        let solver = YieldSolver::new().with_convention(convention);
+        let solver = YieldSolver::new()
+            .with_method(method)
+            .with_first_period(first_period);
         solver.solve(
             &cash_flows,
             clean_price,
