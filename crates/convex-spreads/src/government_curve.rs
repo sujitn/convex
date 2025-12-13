@@ -5,14 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use convex_bonds::error::IdentifierError;
-use convex_bonds::types::Tenor;
 use convex_core::types::{Date, Yield};
 use convex_math::interpolation::{Interpolator, LinearInterpolator};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::benchmark::SecurityId;
+use crate::benchmark::{SecurityId, Tenor};
 use crate::sovereign::Sovereign;
 
 /// A government bond benchmark (on-the-run or designated benchmark).
@@ -63,58 +61,8 @@ impl GovernmentBenchmark {
     }
 
     /// Creates a benchmark with CUSIP (typically US).
-    ///
-    /// # Errors
-    ///
-    /// Returns `IdentifierError` if the CUSIP is invalid.
-    pub fn with_cusip(
-        sovereign: Sovereign,
-        tenor: Tenor,
-        cusip: &str,
-        maturity: Date,
-        coupon: Decimal,
-        yield_rate: Yield,
-    ) -> Result<Self, IdentifierError> {
-        Ok(Self {
-            sovereign,
-            tenor,
-            id: SecurityId::cusip(cusip)?,
-            maturity,
-            coupon,
-            yield_rate,
-            price: None,
-            is_on_the_run: true,
-        })
-    }
-
-    /// Creates a benchmark with ISIN (international standard).
-    ///
-    /// # Errors
-    ///
-    /// Returns `IdentifierError` if the ISIN is invalid.
-    pub fn with_isin(
-        sovereign: Sovereign,
-        tenor: Tenor,
-        isin: &str,
-        maturity: Date,
-        coupon: Decimal,
-        yield_rate: Yield,
-    ) -> Result<Self, IdentifierError> {
-        Ok(Self {
-            sovereign,
-            tenor,
-            id: SecurityId::isin(isin)?,
-            maturity,
-            coupon,
-            yield_rate,
-            price: None,
-            is_on_the_run: true,
-        })
-    }
-
-    /// Creates a benchmark with CUSIP without validation.
     #[must_use]
-    pub fn with_cusip_unchecked(
+    pub fn with_cusip(
         sovereign: Sovereign,
         tenor: Tenor,
         cusip: &str,
@@ -125,7 +73,7 @@ impl GovernmentBenchmark {
         Self {
             sovereign,
             tenor,
-            id: SecurityId::cusip_unchecked(cusip),
+            id: SecurityId::cusip(cusip),
             maturity,
             coupon,
             yield_rate,
@@ -134,9 +82,9 @@ impl GovernmentBenchmark {
         }
     }
 
-    /// Creates a benchmark with ISIN without validation.
+    /// Creates a benchmark with ISIN (international standard).
     #[must_use]
-    pub fn with_isin_unchecked(
+    pub fn with_isin(
         sovereign: Sovereign,
         tenor: Tenor,
         isin: &str,
@@ -147,7 +95,7 @@ impl GovernmentBenchmark {
         Self {
             sovereign,
             tenor,
-            id: SecurityId::isin_unchecked(isin),
+            id: SecurityId::isin(isin),
             maturity,
             coupon,
             yield_rate,
@@ -265,7 +213,7 @@ impl GovernmentCurve {
     #[must_use]
     pub fn with_benchmark(mut self, benchmark: GovernmentBenchmark) -> Self {
         let months = benchmark.tenor.months();
-        let years = benchmark.tenor.years();
+        let years = benchmark.tenor.years() as f64;
         let yield_f64 = benchmark.yield_f64();
 
         // Add to curve points
@@ -406,7 +354,7 @@ mod tests {
             Decimal::from_f64_retain(yield_pct / 100.0).unwrap(),
             Compounding::SemiAnnual,
         );
-        GovernmentBenchmark::with_cusip_unchecked(
+        GovernmentBenchmark::with_cusip(
             Sovereign::UST,
             tenor,
             "912828XX0",
@@ -506,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_security_by_id() {
-        let benchmark = GovernmentBenchmark::with_cusip_unchecked(
+        let benchmark = GovernmentBenchmark::with_cusip(
             Sovereign::UST,
             Tenor::Y10,
             "912828XX0",

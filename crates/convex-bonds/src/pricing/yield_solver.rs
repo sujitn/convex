@@ -139,12 +139,8 @@ impl YieldSolver {
             .iter()
             .filter(|cf| cf.date > settlement)
             .map(|cf| {
-                let fractional_periods = self.calculate_fractional_periods(
-                    settlement,
-                    cf,
-                    dc.as_ref(),
-                    frequency,
-                );
+                let fractional_periods =
+                    self.calculate_fractional_periods(settlement, cf, dc.as_ref(), frequency);
                 let amount = cf.amount.to_f64().unwrap_or(0.0);
                 (fractional_periods, amount)
             })
@@ -244,32 +240,29 @@ impl YieldSolver {
         let dsc = day_count.day_count(settlement, cf.date);
 
         // Days in the coupon period
-        let days_in_period = match (cf.accrual_start, cf.accrual_end) {
-            (Some(start), Some(end)) => {
-                // Use actual period boundaries from cash flow
-                day_count.day_count(start, end)
-            }
-            _ => {
-                // Fall back to standard period length based on day count convention
-                // For 30/360: 360 / periods_per_year
-                // For ACT/ACT: approximate with 365 / periods_per_year
-                let periods_per_year = frequency.periods_per_year() as i64;
-                if periods_per_year > 0 {
-                    // Check if this is a 30/360 type day count by testing a known period
-                    // A 6-month period in 30/360 is exactly 180 days
-                    let test_start = Date::from_ymd(2025, 1, 1).unwrap();
-                    let test_end = Date::from_ymd(2025, 7, 1).unwrap();
-                    let test_days = day_count.day_count(test_start, test_end);
-                    if test_days == 180 {
-                        // 30/360 convention
-                        360 / periods_per_year
-                    } else {
-                        // ACT/ACT or similar
-                        365 / periods_per_year
-                    }
+        let days_in_period = if let (Some(start), Some(end)) = (cf.accrual_start, cf.accrual_end) {
+            // Use actual period boundaries from cash flow
+            day_count.day_count(start, end)
+        } else {
+            // Fall back to standard period length based on day count convention
+            // For 30/360: 360 / periods_per_year
+            // For ACT/ACT: approximate with 365 / periods_per_year
+            let periods_per_year = frequency.periods_per_year() as i64;
+            if periods_per_year > 0 {
+                // Check if this is a 30/360 type day count by testing a known period
+                // A 6-month period in 30/360 is exactly 180 days
+                let test_start = Date::from_ymd(2025, 1, 1).unwrap();
+                let test_end = Date::from_ymd(2025, 7, 1).unwrap();
+                let test_days = day_count.day_count(test_start, test_end);
+                if test_days == 180 {
+                    // 30/360 convention
+                    360 / periods_per_year
                 } else {
-                    365 // Fallback for zero-coupon
+                    // ACT/ACT or similar
+                    365 / periods_per_year
                 }
+            } else {
+                365 // Fallback for zero-coupon
             }
         };
 
@@ -277,7 +270,10 @@ impl YieldSolver {
             dsc as f64 / days_in_period as f64
         } else {
             // Fallback to year fraction if period is invalid
-            day_count.year_fraction(settlement, cf.date).to_f64().unwrap_or(0.0)
+            day_count
+                .year_fraction(settlement, cf.date)
+                .to_f64()
+                .unwrap_or(0.0)
                 * frequency.periods_per_year() as f64
         }
     }
@@ -361,8 +357,10 @@ impl YieldSolver {
                                     // Subsequent cash flows: compound discounting
                                     // Full formula: DF_i = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
                                     let whole_periods = i as f64;
-                                    let compound_df = 1.0 / (1.0 + rate_per_period).powf(whole_periods);
-                                    let linear_df = 1.0 / (1.0 + yield_rate * first_period_frac / periods_per_year);
+                                    let compound_df =
+                                        1.0 / (1.0 + rate_per_period).powf(whole_periods);
+                                    let linear_df = 1.0
+                                        / (1.0 + yield_rate * first_period_frac / periods_per_year);
                                     amount * linear_df * compound_df
                                 }
                             })
@@ -401,7 +399,8 @@ impl YieldSolver {
                             .iter()
                             .map(|(periods, amount)| {
                                 let df = 1.0 / (1.0 + rate_per_period).powf(*periods);
-                                let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
+                                let ddf_dy =
+                                    -periods * df / (1.0 + rate_per_period) / periods_per_year;
                                 amount * ddf_dy
                             })
                             .sum()
@@ -430,17 +429,21 @@ impl YieldSolver {
                                     // DF = 1/[(1 + y×n₁/f) × (1 + y/f)^(i-1)]
                                     // Using product rule: d(uv) = u'v + uv'
                                     let whole_periods = i as f64;
-                                    let linear_denom = 1.0 + yield_rate * first_period_frac / periods_per_year;
+                                    let linear_denom =
+                                        1.0 + yield_rate * first_period_frac / periods_per_year;
                                     let compound_base = 1.0 + rate_per_period;
 
                                     let linear_df = 1.0 / linear_denom;
                                     let compound_df = 1.0 / compound_base.powf(whole_periods);
 
                                     // d(linear_df)/dy = -(first_period/f) / linear_denom²
-                                    let d_linear = -(first_period_frac / periods_per_year) / (linear_denom * linear_denom);
+                                    let d_linear = -(first_period_frac / periods_per_year)
+                                        / (linear_denom * linear_denom);
 
                                     // d(compound_df)/dy = -whole_periods × compound_df / compound_base / f
-                                    let d_compound = -whole_periods * compound_df / compound_base / periods_per_year;
+                                    let d_compound = -whole_periods * compound_df
+                                        / compound_base
+                                        / periods_per_year;
 
                                     // Product rule: d(linear × compound) = d_linear × compound + linear × d_compound
                                     let ddf_dy = d_linear * compound_df + linear_df * d_compound;
@@ -472,12 +475,8 @@ impl YieldSolver {
             .iter()
             .filter(|cf| cf.date > settlement)
             .map(|cf| {
-                let fractional_periods = self.calculate_fractional_periods(
-                    settlement,
-                    cf,
-                    dc.as_ref(),
-                    frequency,
-                );
+                let fractional_periods =
+                    self.calculate_fractional_periods(settlement, cf, dc.as_ref(), frequency);
                 let amount = cf.amount.to_f64().unwrap_or(0.0);
                 (fractional_periods, amount)
             })
@@ -1079,7 +1078,7 @@ mod tests {
 
         // Also verify we're close to Bloomberg's published value
         let _bbg_street = 3.959703; // Bloomberg Street Convention YTW (includes settlement adjustment)
-        let bbg_true = 3.958148;   // Bloomberg True Yield
+        let bbg_true = 3.958148; // Bloomberg True Yield
         assert!(
             (ytm_pct - bbg_true).abs() < 0.01,
             "Should be within 1bp of Bloomberg True Yield. Expected {:.6}%, got {:.6}%",
@@ -1099,8 +1098,7 @@ mod tests {
         let maturity = date(2026, 4, 7);
         let last_coupon = date(2025, 10, 7);
 
-        let cf = BondCashFlow::coupon(maturity, dec!(1.0625))
-            .with_accrual(last_coupon, maturity);
+        let cf = BondCashFlow::coupon(maturity, dec!(1.0625)).with_accrual(last_coupon, maturity);
 
         let solver = YieldSolver::new();
         let dc = DayCountConvention::Thirty360US.to_day_count();

@@ -47,7 +47,9 @@ use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
-use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
+use crate::types::{
+    AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod,
+};
 
 /// Re-export `DayCountConvention` for convenience as `DayCountBasis` alias
 pub type DayCountBasis = DayCountConvention;
@@ -435,7 +437,10 @@ mod tests {
         assert_eq!(conv.frequency(), Frequency::SemiAnnual);
         assert_eq!(conv.settlement_days(), 3);
         assert_eq!(conv.yield_method(), YieldMethod::Compounded);
-        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Linear);
+        assert_eq!(
+            conv.first_period_discounting(),
+            FirstPeriodDiscounting::Linear
+        );
     }
 
     #[test]

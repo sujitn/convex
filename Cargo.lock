@@ -427,6 +427,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex-pricing"
+version = "0.10.1"
+dependencies = [
+ "approx",
+ "convex-core",
+ "convex-curves",
+ "convex-math",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "thiserror",
+]
+
+[[package]]
 name = "convex-risk"
 version = "0.10.1"
 dependencies = [
@@ -454,6 +467,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "convex-math",
+ "convex-pricing",
  "criterion",
  "log",
  "proptest",
@@ -494,7 +508,7 @@ dependencies = [
  "convex-bonds",
  "convex-core",
  "convex-curves",
- "convex-math",
+ "convex-pricing",
  "convex-risk",
  "convex-spreads",
  "criterion",

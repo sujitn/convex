@@ -908,8 +908,12 @@ fn price_from_spread_impl(
     };
 
     // Get cash flows and accrued interest
-    let cash_flows = bond.cash_flows(settlement);
+    let bond_cash_flows = bond.cash_flows(settlement);
     let accrued = bond.accrued_interest(settlement);
+
+    // Convert BondCashFlow to CashFlow
+    use convex_core::types::CashFlow;
+    let cash_flows: Vec<CashFlow> = bond_cash_flows.iter().map(|bcf| bcf.into()).collect();
 
     // Convert spread from bps to decimal (e.g., 100 bps = 0.01)
     let spread_decimal = target_spread_bps / 10000.0;

@@ -158,9 +158,13 @@ mod tests {
 
     #[test]
     fn test_yield_method_description() {
-        assert!(YieldMethod::Compounded.description().contains("Newton-Raphson"));
+        assert!(YieldMethod::Compounded
+            .description()
+            .contains("Newton-Raphson"));
         assert!(YieldMethod::Simple.description().contains("Japanese"));
-        assert!(YieldMethod::Discount.description().contains("bank discount"));
+        assert!(YieldMethod::Discount
+            .description()
+            .contains("bank discount"));
         assert!(YieldMethod::AddOn.description().contains("money market"));
     }
 

@@ -6,6 +6,9 @@
 //! - [`DiscountCurve`]: Discount factor curve (primary curve type)
 //! - [`ForwardCurve`]: Forward rate curve for specific tenors
 //! - [`SpreadCurve`]: Spread over base curve (credit, basis)
+//! - [`ShiftedCurve`]: Parallel-shifted curve (for spread/risk calculations)
+//! - [`ScaledCurve`]: Scaled curve (for stress testing)
+//! - [`BlendedCurve`]: Weighted blend of two curves
 //!
 //! # Curve Hierarchy
 //!
@@ -20,6 +23,13 @@
 //! │ Forward │ │ SpreadCurve │ ← Derived curves
 //! │  Curve  │ │             │
 //! └─────────┘ └─────────────┘
+//!           │
+//!     ┌─────┴─────┐
+//!     ▼           ▼
+//! ┌─────────┐ ┌────────────┐
+//! │ Shifted │ │   Scaled   │ ← Transformation wrappers
+//! │  Curve  │ │   Curve    │
+//! └─────────┘ └────────────┘
 //! ```
 //!
 //! # Example
@@ -47,10 +57,12 @@
 
 mod discount;
 mod forward;
+pub mod shifted;
 mod spread;
 mod zero;
 
 pub use discount::{DiscountCurve, DiscountCurveBuilder};
 pub use forward::{ForwardCurve, ForwardCurveBuilder};
+pub use shifted::{BlendedCurve, ScaledCurve, ShiftedCurve};
 pub use spread::{SpreadCurve, SpreadCurveBuilder, SpreadType};
 pub use zero::{ZeroCurve, ZeroCurveBuilder};

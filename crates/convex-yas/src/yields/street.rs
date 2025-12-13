@@ -2,11 +2,16 @@
 //!
 //! The street convention yield is the standard market quote for bond yields.
 //! It assumes reinvestment at the yield rate and standard day count conventions.
+//!
+//! This module uses `GenericYieldSolver` from `convex-pricing` for the core
+//! calculations, providing a thin wrapper for backward compatibility.
 
 use crate::YasError;
+use convex_core::types::{CashFlow, Date};
+use convex_pricing::GenericYieldSolver;
 use rust_decimal::Decimal;
 
-/// Calculate street convention yield using Newton-Raphson.
+/// Calculate street convention yield using GenericYieldSolver.
 ///
 /// This is the standard yield-to-maturity calculation using market conventions.
 ///
@@ -16,7 +21,7 @@ use rust_decimal::Decimal;
 /// * `cash_flows` - Vector of cash flow amounts
 /// * `times` - Vector of times to each cash flow (in years)
 /// * `frequency` - Compounding frequency per year
-/// * `initial_guess` - Initial yield guess (as decimal)
+/// * `_initial_guess` - Initial yield guess (ignored, solver uses adaptive guessing)
 ///
 /// # Returns
 ///
@@ -26,7 +31,7 @@ pub fn street_convention_yield(
     cash_flows: &[f64],
     times: &[f64],
     frequency: u32,
-    initial_guess: f64,
+    _initial_guess: f64,
 ) -> Result<Decimal, YasError> {
     if cash_flows.len() != times.len() {
         return Err(YasError::InvalidInput(
@@ -38,127 +43,81 @@ pub fn street_convention_yield(
         return Err(YasError::InvalidInput("no cash flows provided".to_string()));
     }
 
-    // Try multiple initial guesses for robustness
-    let initial_guesses = [
-        initial_guess,
-        estimate_current_yield(dirty_price, cash_flows, times, frequency),
-        0.01,
-        0.03,
-        0.05,
-        0.08,
-        0.10,
-        0.15,
-    ];
+    // Convert to CashFlow format for GenericYieldSolver
+    // We use a reference date and create cash flows at the appropriate times
+    let ref_date = Date::from_ymd(2000, 1, 1).unwrap();
+    let core_cash_flows = convert_to_cash_flows(cash_flows, times, ref_date);
 
-    for guess in initial_guesses {
-        if let Ok(result) = newton_raphson_yield(dirty_price, cash_flows, times, frequency, guess) {
-            return Ok(result);
-        }
-    }
+    let solver = GenericYieldSolver::new();
 
-    Err(YasError::SolverNoConvergence {
-        context: "street convention yield".to_string(),
-        iterations: 100,
-    })
+    solver
+        .solve_yield_f64(&core_cash_flows, dirty_price, ref_date, frequency)
+        .map(|y| Decimal::from_f64_retain(y).unwrap_or(Decimal::ZERO))
+        .map_err(|e| YasError::SolverNoConvergence {
+            context: format!("street convention yield: {e}"),
+            iterations: 100,
+        })
 }
 
-/// Estimate current yield as starting point
-fn estimate_current_yield(
+/// Calculate street convention yield from CashFlow slice.
+///
+/// This is the preferred method when you already have `CashFlow` objects.
+pub fn street_convention_yield_from_cash_flows(
     dirty_price: f64,
-    cash_flows: &[f64],
-    times: &[f64],
+    cash_flows: &[CashFlow],
+    settlement: Date,
     frequency: u32,
-) -> f64 {
-    // Find first coupon (non-principal) cash flow
-    let annual_coupon = if cash_flows.len() >= 2 {
-        // Assume first cash flow is coupon, multiply by frequency
-        cash_flows[0] * frequency as f64
-    } else {
-        // Single cash flow - estimate coupon from total
-        let total_cf: f64 = cash_flows.iter().sum();
-        let years = times.last().copied().unwrap_or(1.0);
-        (total_cf - 100.0) / years
-    };
-
-    if dirty_price > 0.0 {
-        (annual_coupon / dirty_price).clamp(0.001, 0.5)
-    } else {
-        0.05
-    }
-}
-
-/// Newton-Raphson solver for yield
-fn newton_raphson_yield(
-    dirty_price: f64,
-    cash_flows: &[f64],
-    times: &[f64],
-    frequency: u32,
-    initial_guess: f64,
 ) -> Result<Decimal, YasError> {
-    const TOLERANCE: f64 = 1e-8;
-    const MAX_ITERATIONS: u32 = 100;
-
-    let freq = frequency as f64;
-    let mut yield_val = initial_guess;
-
-    for iteration in 0..MAX_ITERATIONS {
-        let (pv, dpv) = price_and_derivative(yield_val, cash_flows, times, freq);
-        let error = pv - dirty_price;
-
-        if error.abs() < TOLERANCE {
-            // Validate result is reasonable
-            if yield_val > -0.5 && yield_val < 1.0 {
-                return Ok(Decimal::from_f64_retain(yield_val).unwrap_or(Decimal::ZERO));
-            }
-        }
-
-        if dpv.abs() < 1e-15 {
-            return Err(YasError::SolverNoConvergence {
-                context: "derivative too small".to_string(),
-                iterations: iteration,
-            });
-        }
-
-        let step = error / dpv;
-        // Dampen large steps to prevent oscillation
-        let damped_step = if step.abs() > 0.1 {
-            step.signum() * 0.1
-        } else {
-            step
-        };
-
-        yield_val -= damped_step;
-
-        // Bound yield to reasonable range
-        yield_val = yield_val.clamp(-0.3, 1.0);
+    if cash_flows.is_empty() {
+        return Err(YasError::InvalidInput("no cash flows provided".to_string()));
     }
 
-    Err(YasError::SolverNoConvergence {
-        context: "newton raphson".to_string(),
-        iterations: MAX_ITERATIONS,
-    })
+    let solver = GenericYieldSolver::new();
+
+    solver
+        .solve_yield_f64(cash_flows, dirty_price, settlement, frequency)
+        .map(|y| Decimal::from_f64_retain(y).unwrap_or(Decimal::ZERO))
+        .map_err(|e| YasError::SolverNoConvergence {
+            context: format!("street convention yield: {e}"),
+            iterations: 100,
+        })
 }
 
-/// Calculate price and its derivative with respect to yield.
-fn price_and_derivative(
-    yield_val: f64,
-    cash_flows: &[f64],
-    times: &[f64],
-    freq: f64,
-) -> (f64, f64) {
-    let periodic_rate = yield_val / freq;
-    let mut pv = 0.0;
-    let mut dpv = 0.0;
-
-    for (cf, t) in cash_flows.iter().zip(times.iter()) {
-        let periods = t * freq;
-        let df = (1.0 + periodic_rate).powf(-periods);
-        pv += cf * df;
-        // Derivative: d/dy [CF × (1+y/f)^(-tf)] = -t × CF × (1+y/f)^(-tf-1)
-        dpv -= t * cf * (1.0 + periodic_rate).powf(-periods - 1.0);
+/// Calculate price from yield using GenericYieldSolver.
+pub fn price_from_yield(
+    yield_value: f64,
+    cash_flows: &[CashFlow],
+    settlement: Date,
+    frequency: u32,
+) -> Result<f64, YasError> {
+    if cash_flows.is_empty() {
+        return Err(YasError::InvalidInput("no cash flows provided".to_string()));
     }
 
-    (pv, dpv)
+    let solver = GenericYieldSolver::new();
+
+    solver
+        .price_from_yield_f64(cash_flows, yield_value, settlement, frequency)
+        .map_err(|e| YasError::CalculationFailed(format!("price from yield: {e}")))
+}
+
+/// Convert raw cash flow arrays to CashFlow objects.
+fn convert_to_cash_flows(amounts: &[f64], times: &[f64], ref_date: Date) -> Vec<CashFlow> {
+    use convex_core::types::CashFlowType;
+
+    amounts
+        .iter()
+        .zip(times.iter())
+        .map(|(amount, time)| {
+            let days = (time * 365.0).round() as i64;
+            let cf_date = ref_date + days;
+            CashFlow::new(
+                cf_date,
+                Decimal::from_f64_retain(*amount).unwrap_or(Decimal::ZERO),
+                CashFlowType::Coupon,
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -194,5 +153,56 @@ mod tests {
 
         // Premium bond should have YTM < coupon
         assert!(ytm.to_string().parse::<f64>().unwrap() < 0.05);
+    }
+
+    #[test]
+    fn test_street_convention_discount_bond() {
+        // 5% coupon, 2-year, semi-annual, priced at 98
+        let times = vec![0.5, 1.0, 1.5, 2.0];
+        let cash_flows = vec![2.5, 2.5, 2.5, 102.5];
+        let dirty_price = 98.0;
+
+        let ytm = street_convention_yield(dirty_price, &cash_flows, &times, 2, 0.05).unwrap();
+
+        // Discount bond should have YTM > coupon
+        assert!(ytm.to_string().parse::<f64>().unwrap() > 0.05);
+    }
+
+    #[test]
+    fn test_street_convention_from_cash_flows() {
+        let settlement = Date::from_ymd(2025, 1, 1).unwrap();
+
+        let cash_flows = vec![
+            CashFlow::new(
+                settlement.add_months(6).unwrap(),
+                Decimal::from_f64_retain(2.5).unwrap(),
+                convex_core::types::CashFlowType::Coupon,
+            ),
+            CashFlow::new(
+                settlement.add_months(12).unwrap(),
+                Decimal::from_f64_retain(2.5).unwrap(),
+                convex_core::types::CashFlowType::Coupon,
+            ),
+            CashFlow::new(
+                settlement.add_months(18).unwrap(),
+                Decimal::from_f64_retain(2.5).unwrap(),
+                convex_core::types::CashFlowType::Coupon,
+            ),
+            CashFlow::new(
+                settlement.add_months(24).unwrap(),
+                Decimal::from_f64_retain(102.5).unwrap(),
+                convex_core::types::CashFlowType::CouponAndPrincipal,
+            ),
+        ];
+
+        let ytm =
+            street_convention_yield_from_cash_flows(100.0, &cash_flows, settlement, 2).unwrap();
+
+        // At par, YTM should be close to coupon rate
+        assert_relative_eq!(
+            ytm.to_string().parse::<f64>().unwrap(),
+            0.05,
+            epsilon = 0.001
+        );
     }
 }

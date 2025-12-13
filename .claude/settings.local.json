@@ -46,7 +46,14 @@
       "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo test --package convex-core -- --test-threads=1 2>&1\")",
       "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo test --package convex-core 2>&1 | head -100\")",
       "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo test --package convex-yas --package convex-core 2>&1\")",
-      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo test --workspace 2>&1\")"
+      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo test --workspace 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && tree /F crates /A 2>nul || dir /s /b crates 2>nul\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo check --package convex-pricing 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex && cargo check --workspace 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\Users\\sujit\\source\\convex\\crates\\convex-wasm && wasm-pack build --target bundler --out-dir ../../www/pkg 2>&1\")",
+      "Bash(pushd:*)",
+      "Bash(popd)",
+      "Bash(cmd /c \"dir /b C:\\Users\\sujit\\source\\convex\\crates\")"
     ],
     "deny": [],
     "ask": []

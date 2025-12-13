@@ -6,6 +6,7 @@ members = [
     "crates/convex-core",
     "crates/convex-math",
     "crates/convex-curves",
+    "crates/convex-pricing",
     "crates/convex-bonds",
     "crates/convex-spreads",
     "crates/convex-risk",
@@ -32,6 +33,7 @@ categories = ["finance", "mathematics", "science"]
 convex-core = { path = "crates/convex-core", version = "0.10.1" }
 convex-math = { path = "crates/convex-math", version = "0.10.1" }
 convex-curves = { path = "crates/convex-curves", version = "0.10.1" }
+convex-pricing = { path = "crates/convex-pricing", version = "0.10.1" }
 convex-bonds = { path = "crates/convex-bonds", version = "0.10.1" }
 convex-spreads = { path = "crates/convex-spreads", version = "0.10.1" }
 convex-risk = { path = "crates/convex-risk", version = "0.10.1" }

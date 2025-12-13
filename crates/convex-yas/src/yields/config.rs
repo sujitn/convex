@@ -6,8 +6,11 @@
 
 use convex_core::types::YieldMethod;
 
-// Re-export solver constants from convex-math for consistency
-pub use convex_math::solvers::{DEFAULT_MAX_ITERATIONS, DEFAULT_TOLERANCE};
+/// Default solver tolerance for yield calculations.
+pub const DEFAULT_TOLERANCE: f64 = 1e-10;
+
+/// Default maximum iterations for yield calculations.
+pub const DEFAULT_MAX_ITERATIONS: u32 = 100;
 
 /// Money market threshold for US markets (182 days).
 ///
@@ -99,7 +102,7 @@ impl YieldCalculatorConfig {
     #[must_use]
     pub fn should_use_money_market(&self, days_to_maturity: u32) -> bool {
         self.money_market_threshold
-            .map_or(false, |threshold| days_to_maturity <= threshold)
+            .is_some_and(|threshold| days_to_maturity <= threshold)
     }
 
     /// Returns the effective yield method based on days to maturity.
@@ -145,9 +148,7 @@ impl YieldCalculatorConfig {
     /// - No money market threshold
     #[must_use]
     pub fn european_govt() -> Self {
-        Self::builder()
-            .method(YieldMethod::Compounded)
-            .build()
+        Self::builder().method(YieldMethod::Compounded).build()
     }
 
     /// Creates a configuration for Japanese Government Bonds.
@@ -156,9 +157,7 @@ impl YieldCalculatorConfig {
     /// - No money market threshold
     #[must_use]
     pub fn japanese_jgb() -> Self {
-        Self::builder()
-            .method(YieldMethod::Simple)
-            .build()
+        Self::builder().method(YieldMethod::Simple).build()
     }
 
     /// Creates a configuration for T-Bills.
@@ -167,9 +166,7 @@ impl YieldCalculatorConfig {
     /// - No money market threshold (always discount)
     #[must_use]
     pub fn t_bill() -> Self {
-        Self::builder()
-            .method(YieldMethod::Discount)
-            .build()
+        Self::builder().method(YieldMethod::Discount).build()
     }
 
     /// Creates a configuration for Canadian Government bonds.

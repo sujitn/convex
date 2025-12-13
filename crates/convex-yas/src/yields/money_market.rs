@@ -393,7 +393,10 @@ pub fn price_from_money_market_yield(
     let mut pv = 0.0;
 
     for cf in cash_flows.iter().filter(|cf| cf.date > settlement) {
-        let t = day_count.year_fraction(settlement, cf.date).to_f64().unwrap_or(0.0);
+        let t = day_count
+            .year_fraction(settlement, cf.date)
+            .to_f64()
+            .unwrap_or(0.0);
         let disc = 1.0 + y * t;
 
         if disc.abs() < 1e-10 {
@@ -767,8 +770,11 @@ mod tests {
         let settlement = date(2020, 4, 29);
         let maturity = date(2020, 10, 29);
 
-        let cash_flows =
-            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+        let cash_flows = vec![BondCashFlow::coupon_and_principal(
+            maturity,
+            dec!(2.5),
+            dec!(100.0),
+        )];
 
         let day_count = Act360;
 
@@ -790,8 +796,11 @@ mod tests {
         let settlement = date(2020, 4, 29);
         let maturity = date(2020, 10, 29);
 
-        let cash_flows =
-            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+        let cash_flows = vec![BondCashFlow::coupon_and_principal(
+            maturity,
+            dec!(2.5),
+            dec!(100.0),
+        )];
 
         let day_count = Act360;
 
@@ -814,8 +823,11 @@ mod tests {
         let settlement = date(2020, 4, 29);
         let maturity = date(2020, 10, 29);
 
-        let cash_flows =
-            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+        let cash_flows = vec![BondCashFlow::coupon_and_principal(
+            maturity,
+            dec!(2.5),
+            dec!(100.0),
+        )];
 
         let day_count = Act360;
         let original_price = dec!(99.5);
@@ -897,8 +909,11 @@ mod tests {
         let settlement = date(2020, 4, 29);
         let maturity = date(2020, 10, 29);
 
-        let cash_flows =
-            vec![BondCashFlow::coupon_and_principal(maturity, dec!(2.5), dec!(100.0))];
+        let cash_flows = vec![BondCashFlow::coupon_and_principal(
+            maturity,
+            dec!(2.5),
+            dec!(100.0),
+        )];
 
         let day_count = Act360;
 

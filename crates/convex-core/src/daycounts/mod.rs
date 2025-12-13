@@ -272,8 +272,8 @@ impl std::str::FromStr for DayCountConvention {
             }
 
             // ACT/ACT ISDA
-            "ACT/ACT" | "ACT/ACT ISDA" | "ACTUAL/ACTUAL" | "ACTUAL/ACTUAL ISDA"
-            | "ACTACTISDA" | "ACTACT" => Ok(DayCountConvention::ActActIsda),
+            "ACT/ACT" | "ACT/ACT ISDA" | "ACTUAL/ACTUAL" | "ACTUAL/ACTUAL ISDA" | "ACTACTISDA"
+            | "ACTACT" => Ok(DayCountConvention::ActActIsda),
 
             // ACT/ACT ICMA
             "ACT/ACT ICMA" | "ACTUAL/ACTUAL ICMA" | "ACTACTICMA" | "ISMA" => {

@@ -16,7 +16,9 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
+use crate::types::{
+    AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod,
+};
 
 /// Returns conventions for German government bonds (Bunds).
 ///
@@ -165,7 +167,10 @@ mod tests {
         assert_eq!(conv.frequency(), Frequency::Annual);
         assert_eq!(conv.settlement_days(), 2);
         assert_eq!(conv.yield_method(), YieldMethod::Compounded);
-        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Compound);
+        assert_eq!(
+            conv.first_period_discounting(),
+            FirstPeriodDiscounting::Compound
+        );
         assert_eq!(conv.payments_per_year(), 1);
     }
 

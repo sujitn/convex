@@ -14,7 +14,9 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
+use crate::types::{
+    AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod,
+};
 
 /// Returns conventions for UK conventional gilts.
 ///
@@ -164,7 +166,10 @@ mod tests {
         assert_eq!(conv.ex_dividend_days(), Some(7));
         assert_eq!(conv.accrued_convention(), AccruedConvention::ExDividend);
         assert_eq!(conv.yield_method(), YieldMethod::Compounded);
-        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Compound);
+        assert_eq!(
+            conv.first_period_discounting(),
+            FirstPeriodDiscounting::Compound
+        );
     }
 
     #[test]

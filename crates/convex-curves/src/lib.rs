@@ -96,8 +96,8 @@ pub mod prelude {
     pub use crate::compounding::Compounding;
     pub use crate::conventions;
     pub use crate::curves::{
-        DiscountCurve, DiscountCurveBuilder, ForwardCurve, SpreadCurve, SpreadType, ZeroCurve,
-        ZeroCurveBuilder,
+        BlendedCurve, DiscountCurve, DiscountCurveBuilder, ForwardCurve, ScaledCurve, ShiftedCurve,
+        SpreadCurve, SpreadType, ZeroCurve, ZeroCurveBuilder,
     };
     pub use crate::error::{CurveError, CurveResult};
     pub use crate::instruments::{

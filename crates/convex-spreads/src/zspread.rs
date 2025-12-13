@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use convex_spreads::zspread::ZSpreadCalculator;
+//! use convex_spreads::ZSpreadCalculator;
 //! use convex_curves::curves::ZeroCurve;
 //!
 //! let curve = // ... create spot curve
@@ -16,7 +16,7 @@
 //! // Calculate Z-spread from price
 //! let z_spread = calculator.calculate(&cash_flows, dec!(98.50), settlement)?;
 //!
-//! // Price bond with a given spread
+//! // Price with a given spread
 //! let price = calculator.price_with_spread(&cash_flows, 0.02, settlement);
 //!
 //! // Calculate spread DV01
@@ -26,10 +26,7 @@
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
-use convex_bonds::cashflows::CashFlowGenerator;
-use convex_bonds::instruments::{Bond, FixedBond};
-use convex_bonds::traits::BondCashFlow;
-use convex_core::types::{Date, Price, Spread, SpreadType};
+use convex_core::types::{CashFlow, Date, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 use convex_math::solvers::{brent, SolverConfig};
 
@@ -37,15 +34,15 @@ use crate::error::{SpreadError, SpreadResult};
 
 /// Z-Spread calculator.
 ///
-/// Calculates the zero-volatility spread (Z-spread) for a bond. The Z-spread
-/// is the constant spread that, when added to each point on the spot rate curve,
+/// Calculates the zero-volatility spread (Z-spread). The Z-spread is the
+/// constant spread that, when added to each point on the spot rate curve,
 /// makes the present value of cash flows equal to the market price.
 ///
 /// # Bloomberg Methodology
 ///
 /// The calculation matches Bloomberg YAS:
 /// ```text
-/// Price = Σ CF_i / (1 + r_i + z)^t_i
+/// Price = Σ CF_i × exp(-(r_i + z) × t_i)
 /// ```
 ///
 /// where:
@@ -55,18 +52,12 @@ use crate::error::{SpreadError, SpreadResult};
 /// - t_i is the time to the cash flow in years
 #[derive(Debug, Clone)]
 pub struct ZSpreadCalculator<'a> {
-    /// Reference to the spot/zero curve.
     curve: &'a ZeroCurve,
-    /// Solver configuration.
     config: SolverConfig,
 }
 
 impl<'a> ZSpreadCalculator<'a> {
     /// Creates a new Z-spread calculator.
-    ///
-    /// # Arguments
-    ///
-    /// * `curve` - The zero/spot rate curve to use for discounting
     #[must_use]
     pub fn new(curve: &'a ZeroCurve) -> Self {
         Self {
@@ -89,32 +80,41 @@ impl<'a> ZSpreadCalculator<'a> {
         self
     }
 
+    /// Returns a reference to the underlying curve.
+    pub fn curve(&self) -> &ZeroCurve {
+        self.curve
+    }
+
+    /// Returns the solver configuration.
+    pub fn solver_config(&self) -> &SolverConfig {
+        &self.config
+    }
+
     /// Calculates Z-spread from cash flows and dirty price.
     ///
     /// # Arguments
     ///
-    /// * `cash_flows` - Vector of bond cash flows
+    /// * `cash_flows` - Vector of cash flows
     /// * `dirty_price` - Market dirty price (clean + accrued)
     /// * `settlement` - Settlement date
     ///
     /// # Returns
     ///
     /// The Z-spread as a `Spread` in basis points.
-    pub fn calculate_from_cash_flows(
+    pub fn calculate(
         &self,
-        cash_flows: &[BondCashFlow],
+        cash_flows: &[CashFlow],
         dirty_price: Decimal,
         settlement: Date,
     ) -> SpreadResult<Spread> {
         let target = dirty_price.to_f64().unwrap_or(100.0);
 
-        // Convert cash flows to (time, amount) pairs
         let cf_data: Vec<(f64, f64)> = cash_flows
             .iter()
-            .filter(|cf| cf.date > settlement)
+            .filter(|cf| cf.date() > settlement)
             .map(|cf| {
-                let t = settlement.days_between(&cf.date) as f64 / 365.0;
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
+                let t = settlement.days_between(&cf.date()) as f64 / 365.0;
+                let amount = cf.amount().to_f64().unwrap_or(0.0);
                 (t, amount)
             })
             .collect();
@@ -123,28 +123,23 @@ impl<'a> ZSpreadCalculator<'a> {
             return Err(SpreadError::NoFutureCashFlows);
         }
 
-        // Get spot rates for each cash flow time
         let spot_rates: Vec<f64> = cf_data
             .iter()
             .map(|(t, _)| self.spot_rate_at_time(*t))
             .collect();
 
-        // Objective function: PV(z) - target = 0
         let objective = |z: f64| {
             let mut pv = 0.0;
             for (i, (t, amount)) in cf_data.iter().enumerate() {
-                // Continuously compounded discounting with spread
                 let df = (-(spot_rates[i] + z) * t).exp();
                 pv += amount * df;
             }
             pv - target
         };
 
-        // Search for Z-spread between -5% and +50%
         let result = brent(objective, -0.05, 0.50, &self.config)
             .map_err(|_| SpreadError::convergence_failed(self.config.max_iterations))?;
 
-        // Convert to basis points
         let z_spread_bps = (result.root * 10_000.0).round();
         Ok(Spread::new(
             Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
@@ -152,97 +147,44 @@ impl<'a> ZSpreadCalculator<'a> {
         ))
     }
 
-    /// Calculates Z-spread for a bond given market price.
+    /// Prices cash flows with a given Z-spread.
     ///
     /// # Arguments
     ///
-    /// * `bond` - The fixed-rate bond
-    /// * `market_price` - Market clean price
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// The Z-spread in basis points.
-    pub fn calculate_for_bond(
-        &self,
-        bond: &FixedBond,
-        market_price: Price,
-        settlement: Date,
-    ) -> SpreadResult<Spread> {
-        let maturity = bond.maturity();
-
-        if settlement >= maturity {
-            return Err(SpreadError::SettlementAfterMaturity {
-                settlement: settlement.to_string(),
-                maturity: maturity.to_string(),
-            });
-        }
-
-        let schedule = CashFlowGenerator::generate(bond, settlement)
-            .map_err(|e| SpreadError::bond_error(e.to_string()))?;
-
-        let accrued = CashFlowGenerator::accrued_interest(bond, settlement)
-            .map_err(|e| SpreadError::bond_error(e.to_string()))?;
-
-        let dirty_price = market_price.as_percentage() + accrued;
-
-        // Convert old CashFlow to BondCashFlow for internal calculation
-        let bond_cash_flows: Vec<BondCashFlow> = schedule
-            .iter()
-            .map(|cf| BondCashFlow::coupon(cf.date(), cf.amount()))
-            .collect();
-
-        self.calculate_from_cash_flows(&bond_cash_flows, dirty_price, settlement)
-    }
-
-    /// Prices a bond with a given Z-spread.
-    ///
-    /// # Arguments
-    ///
-    /// * `cash_flows` - Vector of bond cash flows
+    /// * `cash_flows` - Vector of cash flows
     /// * `z_spread` - Z-spread as a decimal (e.g., 0.02 for 200 bps)
     /// * `settlement` - Settlement date
     ///
     /// # Returns
     ///
-    /// The dirty price of the bond.
+    /// The dirty price.
     pub fn price_with_spread(
         &self,
-        cash_flows: &[BondCashFlow],
+        cash_flows: &[CashFlow],
         z_spread: f64,
         settlement: Date,
     ) -> f64 {
         let mut price = 0.0;
 
         for cf in cash_flows {
-            if cf.date <= settlement {
+            if cf.date() <= settlement {
                 continue;
             }
 
-            let t = settlement.days_between(&cf.date) as f64 / 365.0;
+            let t = settlement.days_between(&cf.date()) as f64 / 365.0;
             let spot_rate = self.spot_rate_at_time(t);
             let df = (-(spot_rate + z_spread) * t).exp();
 
-            price += cf.amount.to_f64().unwrap_or(0.0) * df;
+            price += cf.amount().to_f64().unwrap_or(0.0) * df;
         }
 
         price
     }
 
     /// Calculates spread DV01 (price sensitivity to 1bp spread change).
-    ///
-    /// # Arguments
-    ///
-    /// * `cash_flows` - Vector of bond cash flows
-    /// * `z_spread` - Current Z-spread
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// The price change for a 1 basis point increase in spread.
     pub fn spread_dv01(
         &self,
-        cash_flows: &[BondCashFlow],
+        cash_flows: &[CashFlow],
         z_spread: Spread,
         settlement: Date,
     ) -> Decimal {
@@ -252,24 +194,13 @@ impl<'a> ZSpreadCalculator<'a> {
         let base_price = self.price_with_spread(cash_flows, base_spread, settlement);
         let bumped_price = self.price_with_spread(cash_flows, base_spread + 0.0001, settlement);
 
-        // DV01 is positive (price decrease for spread increase)
         Decimal::from_f64_retain(base_price - bumped_price).unwrap_or(Decimal::ZERO)
     }
 
     /// Calculates spread duration (percentage price sensitivity).
-    ///
-    /// # Arguments
-    ///
-    /// * `cash_flows` - Vector of bond cash flows
-    /// * `z_spread` - Current Z-spread
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// Spread duration = DV01 / Price * 10000
     pub fn spread_duration(
         &self,
-        cash_flows: &[BondCashFlow],
+        cash_flows: &[CashFlow],
         z_spread: Spread,
         settlement: Date,
     ) -> Decimal {
@@ -286,13 +217,11 @@ impl<'a> ZSpreadCalculator<'a> {
         dv01 / Decimal::from_f64_retain(base_price).unwrap_or(Decimal::ONE) * Decimal::from(10_000)
     }
 
-    /// Gets the spot rate at a given time from the curve.
     fn spot_rate_at_time(&self, t: f64) -> f64 {
         if t <= 0.0 {
             return 0.0;
         }
 
-        // Convert time to a date for curve lookup
         let days = (t * 365.0).round() as i64;
         let target_date = self.curve.reference_date() + days;
 
@@ -301,29 +230,6 @@ impl<'a> ZSpreadCalculator<'a> {
             .map(|r| r.to_f64().unwrap_or(0.0))
             .unwrap_or(0.0)
     }
-}
-
-/// Calculates Z-spread for a bond.
-///
-/// This is a convenience function that wraps `ZSpreadCalculator`.
-///
-/// # Arguments
-///
-/// * `bond` - The bond to calculate spread for
-/// * `curve` - The zero/spot rate curve
-/// * `market_price` - Market clean price
-/// * `settlement` - Settlement date
-///
-/// # Returns
-///
-/// The Z-spread in basis points.
-pub fn calculate(
-    bond: &FixedBond,
-    curve: &ZeroCurve,
-    market_price: Price,
-    settlement: Date,
-) -> SpreadResult<Spread> {
-    ZSpreadCalculator::new(curve).calculate_for_bond(bond, market_price, settlement)
 }
 
 #[cfg(test)]
@@ -337,24 +243,22 @@ mod tests {
     }
 
     fn create_test_curve() -> ZeroCurve {
-        // Create a simple upward-sloping curve
         ZeroCurveBuilder::new()
             .reference_date(date(2025, 1, 15))
-            .add_rate(date(2025, 4, 15), dec!(0.04)) // 3M: 4%
-            .add_rate(date(2025, 7, 15), dec!(0.042)) // 6M: 4.2%
-            .add_rate(date(2026, 1, 15), dec!(0.045)) // 1Y: 4.5%
-            .add_rate(date(2027, 1, 15), dec!(0.047)) // 2Y: 4.7%
-            .add_rate(date(2028, 1, 15), dec!(0.048)) // 3Y: 4.8%
-            .add_rate(date(2030, 1, 15), dec!(0.049)) // 5Y: 4.9%
-            .add_rate(date(2035, 1, 15), dec!(0.050)) // 10Y: 5.0%
+            .add_rate(date(2025, 4, 15), dec!(0.04))
+            .add_rate(date(2025, 7, 15), dec!(0.042))
+            .add_rate(date(2026, 1, 15), dec!(0.045))
+            .add_rate(date(2027, 1, 15), dec!(0.047))
+            .add_rate(date(2028, 1, 15), dec!(0.048))
+            .add_rate(date(2030, 1, 15), dec!(0.049))
+            .add_rate(date(2035, 1, 15), dec!(0.050))
             .interpolation(InterpolationMethod::Linear)
             .build()
             .unwrap()
     }
 
-    fn create_test_cash_flows(settlement: Date, _maturity: Date) -> Vec<BondCashFlow> {
-        // Create simple semi-annual coupon bond cash flows
-        let coupon = dec!(2.5); // 5% coupon / 2
+    fn create_test_cash_flows(settlement: Date) -> Vec<CashFlow> {
+        let coupon = dec!(2.5);
         let face = dec!(100);
 
         let mut flows = Vec::new();
@@ -371,9 +275,9 @@ mod tests {
                 continue;
             }
             if i == coupon_dates.len() - 1 {
-                flows.push(BondCashFlow::coupon_and_principal(cf_date, coupon, face));
+                flows.push(CashFlow::final_payment(cf_date, coupon, face));
             } else {
-                flows.push(BondCashFlow::coupon(cf_date, coupon));
+                flows.push(CashFlow::coupon(cf_date, coupon));
             }
         }
 
@@ -397,17 +301,14 @@ mod tests {
         let calc = ZSpreadCalculator::new(&curve);
 
         let settlement = date(2025, 1, 15);
-        let cash_flows = create_test_cash_flows(settlement, date(2027, 6, 15));
+        let cash_flows = create_test_cash_flows(settlement);
 
-        // Price with zero spread
         let price_zero = calc.price_with_spread(&cash_flows, 0.0, settlement);
         assert!(price_zero > 90.0 && price_zero < 120.0);
 
-        // Price with positive spread should be lower
         let price_200bps = calc.price_with_spread(&cash_flows, 0.02, settlement);
         assert!(price_200bps < price_zero);
 
-        // Price with negative spread should be higher
         let price_neg = calc.price_with_spread(&cash_flows, -0.01, settlement);
         assert!(price_neg > price_zero);
     }
@@ -418,21 +319,18 @@ mod tests {
         let calc = ZSpreadCalculator::new(&curve);
 
         let settlement = date(2025, 1, 15);
-        let cash_flows = create_test_cash_flows(settlement, date(2027, 6, 15));
+        let cash_flows = create_test_cash_flows(settlement);
 
-        // Calculate price at 200 bps spread
         let price_at_200bps = calc.price_with_spread(&cash_flows, 0.02, settlement);
 
-        // Now calculate Z-spread from that price - should get back ~200 bps
         let result = calc
-            .calculate_from_cash_flows(
+            .calculate(
                 &cash_flows,
                 Decimal::from_f64_retain(price_at_200bps).unwrap(),
                 settlement,
             )
             .unwrap();
 
-        // Use as_bps() not as_decimal() - as_decimal returns 0.02 for 200 bps
         let spread_bps = result.as_bps().to_f64().unwrap();
         assert!(
             (spread_bps - 200.0).abs() < 1.0,
@@ -447,15 +345,14 @@ mod tests {
         let calc = ZSpreadCalculator::new(&curve);
 
         let settlement = date(2025, 1, 15);
-        let cash_flows = create_test_cash_flows(settlement, date(2027, 6, 15));
+        let cash_flows = create_test_cash_flows(settlement);
 
-        let z_spread = Spread::new(dec!(200), SpreadType::ZSpread); // 200 bps
+        let z_spread = Spread::new(dec!(200), SpreadType::ZSpread);
 
         let dv01 = calc.spread_dv01(&cash_flows, z_spread, settlement);
 
-        // DV01 should be positive and reasonable
         assert!(dv01 > Decimal::ZERO);
-        assert!(dv01 < dec!(0.1)); // Less than 10 cents per 100 face
+        assert!(dv01 < dec!(0.1));
     }
 
     #[test]
@@ -464,13 +361,12 @@ mod tests {
         let calc = ZSpreadCalculator::new(&curve);
 
         let settlement = date(2025, 1, 15);
-        let cash_flows = create_test_cash_flows(settlement, date(2027, 6, 15));
+        let cash_flows = create_test_cash_flows(settlement);
 
         let z_spread = Spread::new(dec!(200), SpreadType::ZSpread);
 
         let duration = calc.spread_duration(&cash_flows, z_spread, settlement);
 
-        // Duration should be positive and reasonable (around 2 for 2.5Y bond)
         assert!(duration > Decimal::ZERO);
         assert!(duration < dec!(10));
     }
@@ -481,22 +377,20 @@ mod tests {
         let calc = ZSpreadCalculator::new(&curve);
 
         let settlement = date(2025, 1, 15);
-        let cash_flows = create_test_cash_flows(settlement, date(2027, 6, 15));
+        let cash_flows = create_test_cash_flows(settlement);
 
-        // Test at various spread levels
         for spread_bps in [50.0, 100.0, 200.0, 300.0, 400.0] {
             let spread = spread_bps / 10_000.0;
             let price = calc.price_with_spread(&cash_flows, spread, settlement);
 
             let calculated_spread = calc
-                .calculate_from_cash_flows(
+                .calculate(
                     &cash_flows,
                     Decimal::from_f64_retain(price).unwrap(),
                     settlement,
                 )
                 .unwrap();
 
-            // Use as_bps() not as_decimal() - as_decimal returns decimal form (e.g., 0.02)
             let calculated_bps = calculated_spread.as_bps().to_f64().unwrap();
             assert!(
                 (calculated_bps - spread_bps).abs() < 0.5,
@@ -513,10 +407,10 @@ mod tests {
         let curve = create_test_curve();
         let calc = ZSpreadCalculator::new(&curve);
 
-        let settlement = date(2030, 1, 15); // After all cash flows
-        let cash_flows = create_test_cash_flows(date(2025, 1, 15), date(2027, 6, 15));
+        let settlement = date(2030, 1, 15);
+        let cash_flows = create_test_cash_flows(date(2025, 1, 15));
 
-        let result = calc.calculate_from_cash_flows(&cash_flows, dec!(100), settlement);
+        let result = calc.calculate(&cash_flows, dec!(100), settlement);
         assert!(result.is_err());
     }
 }

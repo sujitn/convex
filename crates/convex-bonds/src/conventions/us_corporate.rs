@@ -15,7 +15,9 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Frequency;
 
 use super::BondConventions;
-use crate::types::{AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod};
+use crate::types::{
+    AccruedConvention, CalendarId, FirstPeriodDiscounting, PriceQuoteConvention, YieldMethod,
+};
 
 /// Returns conventions for investment grade corporate bonds.
 ///
@@ -185,7 +187,10 @@ mod tests {
         assert_eq!(conv.settlement_days(), 2);
         assert_eq!(conv.price_quote(), PriceQuoteConvention::Decimal);
         assert_eq!(conv.yield_method(), YieldMethod::Compounded);
-        assert_eq!(conv.first_period_discounting(), FirstPeriodDiscounting::Linear);
+        assert_eq!(
+            conv.first_period_discounting(),
+            FirstPeriodDiscounting::Linear
+        );
     }
 
     #[test]

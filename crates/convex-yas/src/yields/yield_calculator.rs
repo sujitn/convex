@@ -36,8 +36,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use super::{
-    price_from_money_market_yield, simple_yield, solve_money_market_yield,
-    street_convention_yield, YieldCalculatorConfig,
+    price_from_money_market_yield, simple_yield, solve_money_market_yield, street_convention_yield,
+    YieldCalculatorConfig,
 };
 
 /// Unified yield calculator.
@@ -123,9 +123,9 @@ impl YieldCalculator {
             ));
         }
 
-        let maturity = bond.maturity().ok_or_else(|| {
-            YasError::InvalidInput("perpetual bonds not supported".to_string())
-        })?;
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| YasError::InvalidInput("perpetual bonds not supported".to_string()))?;
 
         if settlement >= maturity {
             return Err(YasError::InvalidInput("bond has matured".to_string()));
@@ -145,15 +145,18 @@ impl YieldCalculator {
         let day_count = parse_day_count(bond.day_count_convention())?;
 
         match method {
-            YieldMethod::Compounded => {
-                self.yield_compounded(&cash_flows, dirty_price, settlement, frequency.periods_per_year())
-            }
+            YieldMethod::Compounded => self.yield_compounded(
+                &cash_flows,
+                dirty_price,
+                settlement,
+                frequency.periods_per_year(),
+            ),
             YieldMethod::Simple => {
                 self.yield_simple(bond, clean_price, settlement, days_to_maturity)
             }
-            YieldMethod::Discount => self.yield_discount(clean_price, days_to_maturity, &day_count),
+            YieldMethod::Discount => self.yield_discount(clean_price, days_to_maturity, day_count),
             YieldMethod::AddOn => {
-                self.yield_add_on(&cash_flows, dirty_price, settlement, &day_count)
+                self.yield_add_on(&cash_flows, dirty_price, settlement, day_count)
             }
         }
     }
@@ -175,9 +178,9 @@ impl YieldCalculator {
         settlement: Date,
         yield_decimal: Decimal,
     ) -> Result<Decimal, YasError> {
-        let maturity = bond.maturity().ok_or_else(|| {
-            YasError::InvalidInput("perpetual bonds not supported".to_string())
-        })?;
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| YasError::InvalidInput("perpetual bonds not supported".to_string()))?;
 
         if settlement >= maturity {
             return Err(YasError::InvalidInput("bond has matured".to_string()));
@@ -193,16 +196,16 @@ impl YieldCalculator {
 
         let dirty_price = match method {
             YieldMethod::Compounded => {
-                self.price_compounded(&cash_flows, yield_decimal, frequency.periods_per_year())
+                Ok(self.price_compounded(&cash_flows, yield_decimal, frequency.periods_per_year()))
             }
             YieldMethod::Simple => {
                 self.price_simple(bond, yield_decimal, settlement, days_to_maturity)
             }
             YieldMethod::Discount => {
-                self.price_discount(yield_decimal, days_to_maturity, &day_count)
+                Ok(self.price_discount(yield_decimal, days_to_maturity, day_count))
             }
             YieldMethod::AddOn => {
-                self.price_add_on(&cash_flows, yield_decimal, settlement, &day_count)
+                self.price_add_on(&cash_flows, yield_decimal, settlement, day_count)
             }
         }?;
 
@@ -274,7 +277,7 @@ impl YieldCalculator {
         &self,
         clean_price: Decimal,
         days_to_maturity: u32,
-        day_count: &DayCountConvention,
+        day_count: DayCountConvention,
     ) -> Result<Decimal, YasError> {
         // Discount yield = (Face - Price) / Face × (Basis / Days)
         let face = dec!(100);
@@ -296,7 +299,7 @@ impl YieldCalculator {
         cash_flows: &[BondCashFlow],
         dirty_price: Decimal,
         settlement: Date,
-        day_count: &DayCountConvention,
+        day_count: DayCountConvention,
     ) -> Result<Decimal, YasError> {
         let dc = day_count.to_day_count();
         solve_money_market_yield(
@@ -314,7 +317,7 @@ impl YieldCalculator {
         cash_flows: &[BondCashFlow],
         yield_decimal: Decimal,
         frequency: u32,
-    ) -> Result<Decimal, YasError> {
+    ) -> Decimal {
         let y = yield_decimal.to_f64().unwrap_or(0.0);
         let freq = frequency as f64;
         let periodic_rate = y / freq;
@@ -349,7 +352,7 @@ impl YieldCalculator {
             }
         }
 
-        Ok(Decimal::from_f64_retain(pv).unwrap_or(Decimal::ZERO))
+        Decimal::from_f64_retain(pv).unwrap_or(Decimal::ZERO)
     }
 
     fn price_simple<B: Bond>(
@@ -389,14 +392,14 @@ impl YieldCalculator {
         &self,
         yield_decimal: Decimal,
         days_to_maturity: u32,
-        day_count: &DayCountConvention,
-    ) -> Result<Decimal, YasError> {
+        day_count: DayCountConvention,
+    ) -> Decimal {
         // Invert discount yield: Price = Face × (1 - y × days / basis)
         let face = dec!(100);
         let basis = day_count_basis(day_count);
         let days = Decimal::from(days_to_maturity);
 
-        Ok(face * (Decimal::ONE - yield_decimal * days / basis))
+        face * (Decimal::ONE - yield_decimal * days / basis)
     }
 
     fn price_add_on(
@@ -404,7 +407,7 @@ impl YieldCalculator {
         cash_flows: &[BondCashFlow],
         yield_decimal: Decimal,
         settlement: Date,
-        day_count: &DayCountConvention,
+        day_count: DayCountConvention,
     ) -> Result<Decimal, YasError> {
         let dc = day_count.to_day_count();
         price_from_money_market_yield(cash_flows, yield_decimal, settlement, dc.as_ref())
@@ -431,7 +434,7 @@ fn parse_day_count(s: &str) -> Result<DayCountConvention, YasError> {
 
 /// Get the day count basis (days per year) for a convention.
 #[inline]
-fn day_count_basis(dc: &DayCountConvention) -> Decimal {
+fn day_count_basis(dc: DayCountConvention) -> Decimal {
     Decimal::from(dc.basis())
 }
 
@@ -495,9 +498,9 @@ mod tests {
 
     #[test]
     fn test_day_count_basis() {
-        assert_eq!(day_count_basis(&DayCountConvention::Act360), dec!(360));
-        assert_eq!(day_count_basis(&DayCountConvention::Act365Fixed), dec!(365));
-        assert_eq!(day_count_basis(&DayCountConvention::Thirty360US), dec!(360));
+        assert_eq!(day_count_basis(DayCountConvention::Act360), dec!(360));
+        assert_eq!(day_count_basis(DayCountConvention::Act365Fixed), dec!(365));
+        assert_eq!(day_count_basis(DayCountConvention::Thirty360US), dec!(360));
     }
 
     #[test]
@@ -527,7 +530,7 @@ mod tests {
 
         // T-Bill at 98.5 with 90 days to maturity
         // Discount yield = (100 - 98.5) / 100 × (360 / 90) = 6%
-        let yield_result = calc.yield_discount(dec!(98.5), 90, &day_count).unwrap();
+        let yield_result = calc.yield_discount(dec!(98.5), 90, day_count).unwrap();
         assert_relative_eq!(yield_result.to_f64().unwrap(), 0.06, epsilon = 0.0001);
     }
 
@@ -537,7 +540,7 @@ mod tests {
         let day_count = DayCountConvention::Act360;
 
         // At 6% discount yield, 90 days: Price = 100 × (1 - 0.06 × 90/360) = 98.5
-        let price = calc.price_discount(dec!(0.06), 90, &day_count).unwrap();
+        let price = calc.price_discount(dec!(0.06), 90, day_count);
         assert_relative_eq!(price.to_f64().unwrap(), 98.5, epsilon = 0.0001);
     }
 
@@ -549,8 +552,10 @@ mod tests {
         let original_price = dec!(97.25);
         let days = 180;
 
-        let y = calc.yield_discount(original_price, days, &day_count).unwrap();
-        let recovered = calc.price_discount(y, days, &day_count).unwrap();
+        let y = calc
+            .yield_discount(original_price, days, day_count)
+            .unwrap();
+        let recovered = calc.price_discount(y, days, day_count);
 
         let diff = (original_price - recovered).abs();
         assert!(diff < dec!(0.0001), "Roundtrip error: {}", diff);
@@ -578,7 +583,9 @@ mod tests {
         let settlement = date(2020, 4, 29);
         let clean_price = dec!(110.503);
 
-        let ytm = calc.yield_from_price(&bond, settlement, clean_price).unwrap();
+        let ytm = calc
+            .yield_from_price(&bond, settlement, clean_price)
+            .unwrap();
 
         // YTM should be positive and reasonable (between 1% and 10%)
         let ytm_pct = ytm.to_f64().unwrap() * 100.0;
@@ -642,11 +649,16 @@ mod tests {
         let settlement = date(2020, 7, 15);
         let clean_price = dec!(100.50);
 
-        let ytm = calc.yield_from_price(&bond, settlement, clean_price).unwrap();
+        let ytm = calc
+            .yield_from_price(&bond, settlement, clean_price)
+            .unwrap();
 
         // At slight premium, yield should be slightly less than coupon
         let ytm_pct = ytm.to_f64().unwrap() * 100.0;
-        assert!(ytm_pct < 2.5, "YTM should be less than coupon for premium bond");
+        assert!(
+            ytm_pct < 2.5,
+            "YTM should be less than coupon for premium bond"
+        );
         assert!(ytm_pct > 0.0, "YTM should be positive");
     }
 
@@ -669,7 +681,9 @@ mod tests {
         let clean_price = dec!(100.25);
 
         // Should automatically use AddOn (money market) method
-        let ytm = calc.yield_from_price(&bond, settlement, clean_price).unwrap();
+        let ytm = calc
+            .yield_from_price(&bond, settlement, clean_price)
+            .unwrap();
 
         // Money market yield should be positive
         assert!(ytm > Decimal::ZERO);

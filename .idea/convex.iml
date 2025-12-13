@@ -13,6 +13,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-curves/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-risk/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-yas/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-pricing/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-wasm/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

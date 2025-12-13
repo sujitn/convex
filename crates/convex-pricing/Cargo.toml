@@ -1,48 +1,33 @@
 [package]
-name = "convex-yas"
-description = "Bloomberg YAS (Yield Analysis System) replication for the Convex fixed income library"
+name = "convex-pricing"
+description = "Generic cash flow pricing framework for the Convex fixed income analytics library"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-keywords = ["finance", "bloomberg", "yield", "analytics", "yas"]
+keywords = ["finance", "fixed-income", "pricing", "discounting", "present-value"]
 categories = ["finance", "mathematics"]
 
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
-convex-bonds = { workspace = true }
+convex-math = { workspace = true }
 convex-curves = { workspace = true }
-convex-spreads = { workspace = true }
-convex-pricing = { workspace = true }
-convex-risk = { workspace = true }
-
-# Date/time handling
-chrono = { workspace = true }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 
-# Serialization
-serde = { workspace = true }
-
 # Error handling
 thiserror = { workspace = true }
 
-# Parallel processing (optional)
-rayon = { workspace = true, optional = true }
-
 [dev-dependencies]
 approx = { workspace = true }
-proptest = { workspace = true }
-criterion = { workspace = true }
 
 [features]
 default = []
-parallel = ["rayon"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -21,9 +21,10 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(conv.coupons_per_year(), 2); // Semi-annual
 /// assert_eq!(conv.settlement_days(), 1);  // T+1
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum MarketConvention {
     /// US Treasury: ACT/ACT, semi-annual, T+1
+    #[default]
     USTreasury,
     /// UK Gilt: ACT/365 Fixed, semi-annual, T+1
     UKGilt,
@@ -132,12 +133,6 @@ impl MarketConvention {
     pub fn year_fraction(&self, start: Date, end: Date) -> f64 {
         let days = start.days_between(&end) as f64;
         days / self.year_basis()
-    }
-}
-
-impl Default for MarketConvention {
-    fn default() -> Self {
-        Self::USTreasury
     }
 }
 
