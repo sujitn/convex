@@ -330,30 +330,29 @@ impl YieldEngine for StandardYieldEngine {
         let config = SolverConfig::new(self.tolerance, self.max_iterations);
 
         // Try Newton-Raphson first
-        match newton_raphson(objective, derivative, initial_guess, &config) {
-            Ok(result) => Ok(YieldEngineResult {
+        if let Ok(result) = newton_raphson(objective, derivative, initial_guess, &config) {
+            Ok(YieldEngineResult {
                 yield_value: result.root,
                 iterations: result.iterations,
                 residual: result.residual,
                 convention: rules.convention,
-            }),
-            Err(_) => {
-                // Try multiple initial guesses
-                let guesses = [0.01, 0.03, 0.05, 0.08, 0.10, 0.15];
-                for guess in guesses {
-                    if let Ok(result) = newton_raphson(objective, derivative, guess, &config) {
-                        return Ok(YieldEngineResult {
-                            yield_value: result.root,
-                            iterations: result.iterations,
-                            residual: result.residual,
-                            convention: rules.convention,
-                        });
-                    }
+            })
+        } else {
+            // Try multiple initial guesses
+            let guesses = [0.01, 0.03, 0.05, 0.08, 0.10, 0.15];
+            for guess in guesses {
+                if let Ok(result) = newton_raphson(objective, derivative, guess, &config) {
+                    return Ok(YieldEngineResult {
+                        yield_value: result.root,
+                        iterations: result.iterations,
+                        residual: result.residual,
+                        convention: rules.convention,
+                    });
                 }
-
-                // Fallback to Brent's method
-                self.solve_with_brent(objective, initial_guess, rules.convention)
             }
+
+            // Fallback to Brent's method
+            self.solve_with_brent(objective, initial_guess, rules.convention)
         }
     }
 

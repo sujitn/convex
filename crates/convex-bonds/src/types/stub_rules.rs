@@ -244,7 +244,7 @@ impl std::fmt::Display for ReferenceMethod {
 }
 
 /// Position of the stub period in the bond's life.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum StubPosition {
     /// Stub at the beginning (first coupon period).
     First,
@@ -253,6 +253,7 @@ pub enum StubPosition {
     /// Both first and last periods are irregular.
     Both,
     /// No stub periods (regular bond).
+    #[default]
     None,
 }
 
@@ -273,12 +274,6 @@ impl StubPosition {
     #[must_use]
     pub const fn is_regular(&self) -> bool {
         matches!(self, Self::None)
-    }
-}
-
-impl Default for StubPosition {
-    fn default() -> Self {
-        Self::None
     }
 }
 

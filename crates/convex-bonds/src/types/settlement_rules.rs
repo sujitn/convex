@@ -255,9 +255,10 @@ impl std::fmt::Display for SettlementAdjustment {
 }
 
 /// Special settlement situations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum SettlementType {
     /// Regular settlement (standard T+n).
+    #[default]
     Regular,
     /// Cash settlement (same day or next day).
     Cash,
@@ -267,12 +268,6 @@ pub enum SettlementType {
     WhenIssued,
     /// Corporate action related settlement.
     CorporateAction,
-}
-
-impl Default for SettlementType {
-    fn default() -> Self {
-        Self::Regular
-    }
 }
 
 impl std::fmt::Display for SettlementType {
