@@ -202,6 +202,36 @@ function YieldAnalysis({
             </div>
           </div>
         </div>
+
+        {/* Convention Info - show if available */}
+        {(analysis?.yield_convention || analysis?.market) && (
+          <div className="yield-section convention-info">
+            {analysis?.market && (
+              <div className="metric-row">
+                <div className="metric-label">Market</div>
+                <div className="metric-value">{analysis.market}</div>
+              </div>
+            )}
+            {analysis?.yield_convention && (
+              <div className="metric-row">
+                <div className="metric-label">Convention</div>
+                <div className="metric-value">{analysis.yield_convention}</div>
+              </div>
+            )}
+            {analysis?.compounding_method && (
+              <div className="metric-row">
+                <div className="metric-label">Compounding</div>
+                <div className="metric-value">{analysis.compounding_method}</div>
+              </div>
+            )}
+            {analysis?.is_ex_dividend && (
+              <div className="metric-row ex-dividend-warning">
+                <div className="metric-label">Status</div>
+                <div className="metric-value warning">Ex-Dividend</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

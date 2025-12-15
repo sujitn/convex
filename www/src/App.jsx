@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import BondInput from './components/BondInput';
+import ConventionSettings from './components/ConventionSettings';
 import YieldAnalysis from './components/YieldAnalysis';
 import SpreadAnalysis from './components/SpreadAnalysis';
 import RiskMetrics from './components/RiskMetrics';
@@ -403,6 +404,16 @@ async function fetchRatesForCurrency(currency, curveType) {
   }
 }
 
+// Default conventions
+const getDefaultConventions = () => ({
+  market: 'US',
+  instrumentType: 'GovernmentBond',
+  yieldConvention: 'Street',
+  compounding: 'SemiAnnual',
+  settlementDays: 1,
+  exDividendDays: null,
+});
+
 function App({ wasmModule }) {
   // Bond parameters
   const [bond, setBond] = useState(getDefaultBond);
@@ -411,6 +422,11 @@ function App({ wasmModule }) {
   const [curveType, setCurveType] = useState('UST');
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [ratesLastUpdated, setRatesLastUpdated] = useState(null);
+
+  // Market conventions
+  const [conventions, setConventions] = useState(getDefaultConventions);
+  const [conventionsExpanded, setConventionsExpanded] = useState(false);
+  const [compoundingLinked, setCompoundingLinked] = useState(true);
 
   // Invoice face amount
   const [faceAmount, setFaceAmount] = useState(1000000);
@@ -433,7 +449,7 @@ function App({ wasmModule }) {
     setError(null);
 
     try {
-      // Prepare bond parameters
+      // Prepare bond parameters with conventions
       const bondParams = {
         coupon_rate: bond.couponRate,
         maturity_date: bond.maturityDate,
@@ -448,6 +464,14 @@ function App({ wasmModule }) {
           ? bond.callSchedule.map(c => ({ date: c.date, price: c.price }))
           : null,
         volatility: bond.volatility || 1.0, // Interest rate volatility for OAS
+        // Convention parameters
+        market: conventions.market,
+        instrument_type: conventions.instrumentType,
+        yield_convention: conventions.yieldConvention,
+        compounding: conventions.compounding,
+        settlement_days: conventions.settlementDays,
+        ex_dividend_days: conventions.exDividendDays,
+        use_business_days: true,
       };
 
       // Generate curve points from Treasury curve
@@ -477,7 +501,7 @@ function App({ wasmModule }) {
     } finally {
       setIsCalculating(false);
     }
-  }, [wasmModule, bond, price, treasuryCurve]);
+  }, [wasmModule, bond, price, treasuryCurve, conventions]);
 
   // Generate price/yield curve for chart
   const generatePriceYieldCurve = useCallback((bondParams, curvePoints) => {
@@ -541,6 +565,43 @@ function App({ wasmModule }) {
   // Handle bond parameter changes
   const handleBondChange = useCallback((field, value) => {
     setBond(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Handle convention changes
+  const handleConventionChange = useCallback((field, value) => {
+    setConventions(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Map bond frequency to compounding value
+  const frequencyToCompounding = (freq) => {
+    switch (freq) {
+      case 1: return 'Annual';
+      case 2: return 'SemiAnnual';
+      case 4: return 'Quarterly';
+      case 12: return 'Monthly';
+      default: return 'SemiAnnual';
+    }
+  };
+
+  // Link compounding to bond frequency - when frequency changes, update compounding (only if linked)
+  useEffect(() => {
+    if (!compoundingLinked) return;
+
+    const newCompounding = frequencyToCompounding(bond.frequency);
+    setConventions(prev => {
+      if (prev.compounding !== newCompounding) {
+        return { ...prev, compounding: newCompounding };
+      }
+      return prev;
+    });
+  }, [bond.frequency, compoundingLinked]);
+
+  // Handle defaults applied from ConventionSettings (for non-compounding fields)
+  const handleApplyDefaults = useCallback((defaultData) => {
+    // Compounding is linked to bond frequency, so we don't override it from market defaults
+    // But we could update bond frequency to match market convention if desired
+    // For now, just log that defaults were applied
+    console.log('Market defaults applied:', defaultData);
   }, []);
 
   // Handle price change with auto-calculate
@@ -809,6 +870,16 @@ function App({ wasmModule }) {
             <BondInput
               bond={bond}
               onChange={handleBondChange}
+            />
+            <ConventionSettings
+              conventions={conventions}
+              onChange={handleConventionChange}
+              onApplyDefaults={handleApplyDefaults}
+              wasmModule={wasmModule}
+              expanded={conventionsExpanded}
+              onToggle={() => setConventionsExpanded(!conventionsExpanded)}
+              compoundingLinked={compoundingLinked}
+              onCompoundingLinkToggle={setCompoundingLinked}
             />
           </div>
           <div className="grid-cell">

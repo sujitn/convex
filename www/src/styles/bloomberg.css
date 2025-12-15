@@ -310,12 +310,32 @@ body {
   flex-direction: column;
 }
 
+/* First cell in row-1 contains expandable content - allow scrolling */
+.grid-row.row-1 .grid-cell:first-child {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling for bond/convention cell */
+.grid-row.row-1 .grid-cell:first-child::-webkit-scrollbar {
+  width: 6px;
+}
+
+.grid-row.row-1 .grid-cell:first-child::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.grid-row.row-1 .grid-cell:first-child::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
 .grid-cell.wide {
   /* Spans 2 columns worth of space in row-3 */
 }
 
 .grid-cell > * {
-  flex: 1;
+  flex-shrink: 0;
   min-height: 0;
 }
 
@@ -993,8 +1013,20 @@ body {
    Form Elements
    ============================================================================ */
 
+/* Style date inputs consistently */
+input[type="date"] {
+  position: relative;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.8);
+  cursor: pointer;
+  position: relative;
+}
+
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button {
+  display: none;
 }
 
 select {
@@ -1811,4 +1843,183 @@ select {
   color: var(--text-muted);
   margin-top: var(--spacing-xs);
   font-style: italic;
+}
+
+/* ============================================================================
+   Convention Settings Panel
+   ============================================================================ */
+
+.convention-settings-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-primary);
+  margin-top: var(--spacing-md);
+}
+
+.convention-settings-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--bg-panel) 100%);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.convention-settings-panel .panel-header.clickable {
+  cursor: pointer;
+}
+
+.convention-settings-panel .panel-header.clickable:hover {
+  background: linear-gradient(90deg, var(--bg-hover) 0%, var(--bg-secondary) 100%);
+}
+
+.convention-settings-panel .panel-header h3 {
+  color: var(--accent-orange);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.expand-icon {
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.expand-icon.expanded {
+  color: var(--accent-orange);
+}
+
+.convention-content {
+  /* No extra padding - use input-section padding like bond-input-panel */
+}
+
+.convention-content .input-section {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.convention-content .input-section:last-child {
+  border-bottom: none;
+}
+
+.convention-content .input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.convention-content .input-row:last-child {
+  margin-bottom: 0;
+}
+
+.convention-content .input-row label {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.convention-content .input-row select,
+.convention-content .input-row input {
+  width: 100px;
+  padding: 2px var(--spacing-xs);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: right;
+}
+
+.convention-content .input-row select:focus,
+.convention-content .input-row input:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+}
+
+/* Linked field styling (compounding linked to bond frequency) */
+.convention-content .input-row.linked-field select {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: var(--bg-secondary);
+}
+
+/* Link toggle button */
+.convention-content .link-toggle {
+  background: none;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: 4px;
+  opacity: 0.8;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.convention-content .link-toggle:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.convention-content .link-toggle.linked {
+  color: var(--accent-blue);
+}
+
+.convention-content .link-toggle.unlinked {
+  color: var(--accent-orange);
+}
+
+.apply-defaults-btn {
+  width: 100%;
+  padding: 2px var(--spacing-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: var(--spacing-xs);
+}
+
+.apply-defaults-btn:hover {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+}
+
+.defaults-info {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-left: 2px solid var(--accent-blue);
+}
+
+.defaults-info small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+/* Convention Info in Yield Analysis */
+.yield-section.convention-info {
+  border-top: 1px solid var(--border-primary);
+  padding-top: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.convention-info .metric-value {
+  color: var(--accent-blue);
+  font-size: 10px;
+}
+
+.ex-dividend-warning .metric-value.warning {
+  color: var(--accent-orange);
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

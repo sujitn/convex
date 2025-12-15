@@ -8,10 +8,15 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use convex_bonds::conventions::{ConventionKey, ConventionRegistry, InstrumentType, Market};
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::prelude::BondIdentifiers;
+use convex_bonds::pricing::{StandardYieldEngine, YieldEngine};
 use convex_bonds::traits::{Bond, EmbeddedOptionBond, FixedCouponBond};
-use convex_bonds::types::{CallEntry, CallSchedule, CallType};
+use convex_bonds::types::{
+    CallEntry, CallSchedule, CallType, CompoundingMethod, ExDivAccruedMethod, ExDividendRules,
+    SettlementRules, YieldCalculationRules, YieldConvention,
+};
 use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
@@ -77,6 +82,23 @@ pub struct BondParams {
     /// Interest rate volatility for OAS calculation (as percentage, e.g., 1.0 for 1%)
     /// Default is 1.0% if not provided
     pub volatility: Option<f64>,
+
+    // === New convention parameters ===
+
+    /// Market: "US", "UK", "Germany", "France", "Italy", "Japan", etc.
+    pub market: Option<String>,
+    /// Instrument type: "GovernmentBond", "Corporate", "Municipal", "Agency", etc.
+    pub instrument_type: Option<String>,
+    /// Yield convention: "Street", "True", "ISMA", "Japanese", "USMunicipal", etc.
+    pub yield_convention: Option<String>,
+    /// Compounding method: "SemiAnnual", "Annual", "Quarterly", "Continuous", "Simple"
+    pub compounding: Option<String>,
+    /// Settlement days (T+N)
+    pub settlement_days: Option<u32>,
+    /// Ex-dividend days before coupon
+    pub ex_dividend_days: Option<u32>,
+    /// Whether this market uses business days for settlement
+    pub use_business_days: Option<bool>,
 }
 
 /// Analysis results returned from bond calculations.
@@ -122,6 +144,15 @@ pub struct AnalysisResult {
     pub days_to_maturity: Option<i64>,
     pub years_to_maturity: Option<f64>,
     pub is_callable: Option<bool>,
+
+    // Convention info (returned for display)
+    pub market: Option<String>,
+    pub instrument_type: Option<String>,
+    pub yield_convention: Option<String>,
+    pub compounding_method: Option<String>,
+    pub settlement_days: Option<u32>,
+    pub ex_dividend_days: Option<u32>,
+    pub is_ex_dividend: Option<bool>,
 
     // Error message if calculation failed
     pub error: Option<String>,
@@ -229,6 +260,253 @@ fn f64_to_decimal(f: f64) -> Decimal {
     Decimal::from_f64_retain(f).unwrap_or(Decimal::ZERO)
 }
 
+fn parse_market(s: &str) -> Market {
+    match s.to_uppercase().as_str() {
+        "US" | "USA" | "UNITED STATES" => Market::US,
+        "UK" | "GB" | "UNITED KINGDOM" => Market::UK,
+        "GERMANY" | "DE" | "GER" => Market::Germany,
+        "FRANCE" | "FR" | "FRA" => Market::France,
+        "ITALY" | "IT" | "ITA" => Market::Italy,
+        "SPAIN" | "ES" | "ESP" => Market::Spain,
+        "JAPAN" | "JP" | "JPN" => Market::Japan,
+        "SWITZERLAND" | "CH" | "CHE" => Market::Switzerland,
+        "AUSTRALIA" | "AU" | "AUS" => Market::Australia,
+        "CANADA" | "CA" | "CAN" => Market::Canada,
+        "NETHERLANDS" | "NL" | "NLD" => Market::Netherlands,
+        "BELGIUM" | "BE" | "BEL" => Market::Belgium,
+        "AUSTRIA" | "AT" | "AUT" => Market::Austria,
+        "PORTUGAL" | "PT" | "PRT" => Market::Portugal,
+        "IRELAND" | "IE" | "IRL" => Market::Ireland,
+        "SWEDEN" | "SE" | "SWE" => Market::Sweden,
+        "NORWAY" | "NO" | "NOR" => Market::Norway,
+        "DENMARK" | "DK" | "DNK" => Market::Denmark,
+        "FINLAND" | "FI" | "FIN" => Market::Finland,
+        "EUROZONE" | "EUR" | "EU" => Market::Eurozone,
+        _ => Market::US, // Default
+    }
+}
+
+fn parse_instrument_type(s: &str) -> InstrumentType {
+    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+        "GOVERNMENTBOND" | "GOVT" | "SOVEREIGN" | "GOV" => InstrumentType::GovernmentBond,
+        "TREASURYBILL" | "TBILL" | "BILL" => InstrumentType::TreasuryBill,
+        "CORPORATEIG" | "IG" | "INVESTMENTGRADE" | "CORPORATE" => InstrumentType::CorporateIG,
+        "CORPORATEHY" | "HY" | "HIGHYIELD" | "JUNK" => InstrumentType::CorporateHY,
+        "MUNICIPAL" | "MUNI" => InstrumentType::Municipal,
+        "AGENCY" | "GSE" => InstrumentType::Agency,
+        "INFLATIONLINKED" | "TIPS" | "LINKER" | "ILB" => InstrumentType::InflationLinked,
+        "GOVERNMENTFRN" | "GOVFRN" => InstrumentType::GovernmentFRN,
+        "CORPORATEFRN" | "CORPFRN" | "FRN" | "FLOATER" => InstrumentType::CorporateFRN,
+        "COVERED" | "COVEREDBOND" | "PFANDBRIEF" => InstrumentType::CoveredBond,
+        "ABS" | "ASSETBACKED" => InstrumentType::ABS,
+        "MBS" | "MORTGAGEBACKED" => InstrumentType::MBS,
+        "SUPRANATIONAL" | "SUPRA" => InstrumentType::Supranational,
+        "COMMERCIALPAPER" | "CP" => InstrumentType::CommercialPaper,
+        "CONVERTIBLE" | "CONV" => InstrumentType::Convertible,
+        "STRIPS" | "STRIP" => InstrumentType::Strips,
+        _ => InstrumentType::GovernmentBond, // Default
+    }
+}
+
+fn parse_yield_convention(s: &str) -> YieldConvention {
+    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+        "STREET" | "STREETCONVENTION" | "US" => YieldConvention::StreetConvention,
+        "TRUE" | "TRUEYIELD" => YieldConvention::TrueYield,
+        "ISMA" | "ICMA" => YieldConvention::ISMA,
+        "SIMPLE" | "SIMPLEYIELD" | "JAPANESE" | "JGB" => YieldConvention::SimpleYield,
+        "DISCOUNT" | "DISCOUNTYIELD" => YieldConvention::DiscountYield,
+        "BONDEQUIVALENT" | "BEY" => YieldConvention::BondEquivalentYield,
+        "MUNICIPAL" | "MUNI" | "TAXEQUIVALENT" => YieldConvention::MunicipalYield,
+        "MOOSMULLER" | "GERMAN" => YieldConvention::Moosmuller,
+        "BRAESSFANGMEYER" | "BRAESS" => YieldConvention::BraessFangmeyer,
+        "ANNUAL" => YieldConvention::Annual,
+        "CONTINUOUS" | "CONT" => YieldConvention::Continuous,
+        _ => YieldConvention::StreetConvention, // Default
+    }
+}
+
+fn parse_compounding(s: &str) -> CompoundingMethod {
+    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+        "SEMIANNUAL" | "SEMI" | "2" => CompoundingMethod::Periodic { frequency: 2 },
+        "ANNUAL" | "1" => CompoundingMethod::Periodic { frequency: 1 },
+        "QUARTERLY" | "4" => CompoundingMethod::Periodic { frequency: 4 },
+        "MONTHLY" | "12" => CompoundingMethod::Periodic { frequency: 12 },
+        "CONTINUOUS" | "CONT" => CompoundingMethod::Continuous,
+        "SIMPLE" | "NONE" => CompoundingMethod::Simple,
+        "DISCOUNT" => CompoundingMethod::Discount,
+        _ => CompoundingMethod::Periodic { frequency: 2 }, // Default semi-annual
+    }
+}
+
+/// Get yield calculation rules from parameters, using registry if market/type specified
+fn get_yield_rules(params: &BondParams) -> YieldCalculationRules {
+    // If market and instrument type specified, try to get from registry
+    if let (Some(market_str), Some(inst_str)) = (&params.market, &params.instrument_type) {
+        let market = parse_market(market_str);
+        let instrument_type = parse_instrument_type(inst_str);
+
+        let registry = ConventionRegistry::global();
+        let key = ConventionKey::new(market, instrument_type);
+
+        if let Some(rules) = registry.rules(&key) {
+            return rules.clone();
+        }
+
+        // Fallback to market default if specific type not found
+        return registry.default_rules_for_market(market);
+    }
+
+    // If only market specified, get default rules for that market
+    if let Some(market_str) = &params.market {
+        let market = parse_market(market_str);
+        let registry = ConventionRegistry::global();
+        return registry.default_rules_for_market(market);
+    }
+
+    // Build rules from individual parameters if specified
+    let convention = params
+        .yield_convention
+        .as_ref()
+        .map(|s| parse_yield_convention(s))
+        .unwrap_or(YieldConvention::StreetConvention);
+
+    let compounding = params
+        .compounding
+        .as_ref()
+        .map(|s| parse_compounding(s))
+        .unwrap_or(CompoundingMethod::Periodic { frequency: 2 });
+
+    let day_count = parse_day_count(params.day_count.as_deref().unwrap_or("30/360"));
+
+    let settlement_rules = SettlementRules {
+        days: params.settlement_days.unwrap_or(1),
+        use_business_days: params.use_business_days.unwrap_or(true),
+        ..Default::default()
+    };
+
+    let ex_dividend_rules = params.ex_dividend_days.map(|days| ExDividendRules {
+        days,
+        day_type: convex_bonds::types::DayType::BusinessDays,
+        accrued_method: ExDivAccruedMethod::NegativeAccrued,
+    });
+
+    YieldCalculationRules {
+        convention,
+        compounding,
+        accrual_day_count: day_count,
+        discount_day_count: day_count,
+        settlement_rules,
+        ex_dividend_rules,
+        ..Default::default()
+    }
+}
+
+/// Calculate yield using StandardYieldEngine with convention rules.
+/// Returns yield as a decimal (e.g., 0.05 for 5%).
+fn calculate_convention_yield(
+    bond: &FixedRateBond,
+    settlement: Date,
+    clean_price: f64,
+    rules: &YieldCalculationRules,
+) -> Option<f64> {
+    // Get cash flows from the bond (from settlement date onwards)
+    let cash_flows = bond.cash_flows(settlement);
+
+    if cash_flows.is_empty() {
+        log(&format!("Convention yield: No cash flows"));
+        return None;
+    }
+
+    // Calculate accrued interest using the convention rules
+    let accrued = bond.accrued_interest(settlement);
+
+    // Use StandardYieldEngine for convention-aware yield calculation
+    let engine = StandardYieldEngine::default();
+    let clean_price_dec = f64_to_decimal(clean_price);
+
+    log(&format!(
+        "Convention yield calc: compounding={:?}, convention={:?}, cash_flows={}, price={}, accrued={}",
+        rules.compounding, rules.convention, cash_flows.len(), clean_price, decimal_to_f64(accrued)
+    ));
+
+    match engine.yield_from_price(&cash_flows, clean_price_dec, accrued, settlement, rules) {
+        Ok(result) => {
+            log(&format!("Convention yield result: {:.6} ({:.4}%)", result.yield_value, result.yield_value * 100.0));
+            Some(result.yield_value)
+        }
+        Err(e) => {
+            log(&format!("Convention yield error: {:?}", e));
+            // Fall back to YASCalculator result if convention engine fails
+            None
+        }
+    }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+/// Format market name for display
+fn format_market_name(market: Market) -> String {
+    format!("{:?}", market)
+}
+
+/// Format instrument type for display
+fn format_instrument_type(inst: InstrumentType) -> String {
+    match inst {
+        InstrumentType::GovernmentBond => "Government Bond".to_string(),
+        InstrumentType::TreasuryBill => "Treasury Bill".to_string(),
+        InstrumentType::GovernmentFRN => "Government FRN".to_string(),
+        InstrumentType::InflationLinked => "Inflation Linked".to_string(),
+        InstrumentType::Strips => "STRIPS".to_string(),
+        InstrumentType::CorporateIG => "Corporate IG".to_string(),
+        InstrumentType::CorporateHY => "Corporate HY".to_string(),
+        InstrumentType::CorporateFRN => "Corporate FRN".to_string(),
+        InstrumentType::Convertible => "Convertible".to_string(),
+        InstrumentType::CommercialPaper => "Commercial Paper".to_string(),
+        InstrumentType::Municipal => "Municipal".to_string(),
+        InstrumentType::Agency => "Agency".to_string(),
+        InstrumentType::Supranational => "Supranational".to_string(),
+        InstrumentType::CoveredBond => "Covered Bond".to_string(),
+        InstrumentType::ABS => "ABS".to_string(),
+        InstrumentType::MBS => "MBS".to_string(),
+    }
+}
+
+/// Format yield convention for display
+fn format_yield_convention(conv: YieldConvention) -> String {
+    match conv {
+        YieldConvention::StreetConvention => "Street Convention".to_string(),
+        YieldConvention::TrueYield => "True Yield".to_string(),
+        YieldConvention::ISMA => "ISMA/ICMA".to_string(),
+        YieldConvention::SimpleYield => "Simple Yield".to_string(),
+        YieldConvention::DiscountYield => "Discount Yield".to_string(),
+        YieldConvention::BondEquivalentYield => "Bond Equivalent".to_string(),
+        YieldConvention::MunicipalYield => "Municipal (Tax-Equiv)".to_string(),
+        YieldConvention::Moosmuller => "Moosmuller".to_string(),
+        YieldConvention::BraessFangmeyer => "Braess-Fangmeyer".to_string(),
+        YieldConvention::Annual => "Annual".to_string(),
+        YieldConvention::Continuous => "Continuous".to_string(),
+    }
+}
+
+/// Format compounding method for display
+fn format_compounding(method: CompoundingMethod) -> String {
+    match method {
+        CompoundingMethod::Periodic { frequency: 1 } => "Annual".to_string(),
+        CompoundingMethod::Periodic { frequency: 2 } => "Semi-Annual".to_string(),
+        CompoundingMethod::Periodic { frequency: 4 } => "Quarterly".to_string(),
+        CompoundingMethod::Periodic { frequency: 12 } => "Monthly".to_string(),
+        CompoundingMethod::Periodic { frequency: n } => format!("{n}x/year"),
+        CompoundingMethod::Continuous => "Continuous".to_string(),
+        CompoundingMethod::Simple => "Simple".to_string(),
+        CompoundingMethod::Discount => "Discount".to_string(),
+        CompoundingMethod::ActualPeriod { .. } => "Actual Period".to_string(),
+    }
+}
+
 // ============================================================================
 // Core WASM Functions
 // ============================================================================
@@ -298,7 +576,10 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
         }
     };
 
-    // Create calculator and analyze
+    // Get yield calculation rules from parameters (using registry if market/type specified)
+    let yield_rules = get_yield_rules(&bond_params);
+
+    // Create calculator and analyze (for spreads, duration, etc.)
     let calculator = YASCalculator::new(&curve);
     let settlement_naive = date_to_naive(settlement);
 
@@ -313,8 +594,14 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
         }
     };
 
-    // Convert base result
-    let mut result = convert_yas_result(&yas_result, &bond, settlement);
+    // Convert base result with convention info
+    let mut result = convert_yas_result(&yas_result, &bond, settlement, &yield_rules, &bond_params);
+
+    // Calculate convention-aware yield using StandardYieldEngine
+    // This properly applies compounding method, day count, and other convention rules
+    if let Some(convention_ytm) = calculate_convention_yield(&bond, settlement, clean_price, &yield_rules) {
+        result.ytm = Some(convention_ytm * 100.0); // Convert to percentage
+    }
 
     // Handle callable bond yields if call schedule is provided
     if let Some(ref call_entries) = bond_params.call_schedule {
@@ -682,6 +969,8 @@ fn convert_yas_result(
     result: &convex_yas::YASResult,
     bond: &FixedRateBond,
     settlement: Date,
+    rules: &YieldCalculationRules,
+    bond_params: &BondParams,
 ) -> AnalysisResult {
     let (days_to_mat, years_to_mat) = match bond.maturity() {
         Some(maturity) => {
@@ -695,6 +984,29 @@ fn convert_yas_result(
     let clean_price = decimal_to_f64(result.invoice.clean_price);
     let accrued = decimal_to_f64(result.invoice.accrued_interest);
     let dirty_price = decimal_to_f64(result.invoice.dirty_price);
+
+    // Determine market and instrument type for display
+    let market_display = bond_params
+        .market
+        .as_ref()
+        .map(|s| format_market_name(parse_market(s)));
+    let instrument_display = bond_params
+        .instrument_type
+        .as_ref()
+        .map(|s| format_instrument_type(parse_instrument_type(s)));
+
+    // Check if in ex-dividend period
+    let is_ex_dividend = if let Some(ref ex_rules) = rules.ex_dividend_rules {
+        // Check if settlement is within ex-div days of next coupon
+        if let Some(next_coupon) = bond.next_coupon_date(settlement) {
+            let days_to_coupon = settlement.days_between(&next_coupon);
+            days_to_coupon <= ex_rules.days as i64
+        } else {
+            false
+        }
+    } else {
+        false
+    };
 
     AnalysisResult {
         clean_price: Some(clean_price),
@@ -735,6 +1047,15 @@ fn convert_yas_result(
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),
         is_callable: None, // Set by caller
+
+        // Convention info
+        market: market_display,
+        instrument_type: instrument_display,
+        yield_convention: Some(format_yield_convention(rules.convention)),
+        compounding_method: Some(format_compounding(rules.compounding.clone())),
+        settlement_days: Some(rules.settlement_rules.days),
+        ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
+        is_ex_dividend: Some(is_ex_dividend),
 
         error: None,
     }
@@ -1210,6 +1531,121 @@ fn parse_tenor_to_years(tenor: &str) -> f64 {
 }
 
 // ============================================================================
+// Convention Options for UI
+// ============================================================================
+
+/// Available convention options for UI dropdowns.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConventionOptions {
+    pub markets: Vec<ConventionOption>,
+    pub instrument_types: Vec<ConventionOption>,
+    pub yield_conventions: Vec<ConventionOption>,
+    pub compounding_methods: Vec<ConventionOption>,
+}
+
+/// Single option for dropdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConventionOption {
+    pub value: String,
+    pub label: String,
+}
+
+/// Get available convention options for UI dropdowns.
+#[wasm_bindgen]
+pub fn get_convention_options() -> JsValue {
+    let options = ConventionOptions {
+        markets: vec![
+            ConventionOption { value: "US".to_string(), label: "United States".to_string() },
+            ConventionOption { value: "UK".to_string(), label: "United Kingdom".to_string() },
+            ConventionOption { value: "Germany".to_string(), label: "Germany".to_string() },
+            ConventionOption { value: "France".to_string(), label: "France".to_string() },
+            ConventionOption { value: "Italy".to_string(), label: "Italy".to_string() },
+            ConventionOption { value: "Spain".to_string(), label: "Spain".to_string() },
+            ConventionOption { value: "Japan".to_string(), label: "Japan".to_string() },
+            ConventionOption { value: "Switzerland".to_string(), label: "Switzerland".to_string() },
+            ConventionOption { value: "Australia".to_string(), label: "Australia".to_string() },
+            ConventionOption { value: "Canada".to_string(), label: "Canada".to_string() },
+            ConventionOption { value: "Netherlands".to_string(), label: "Netherlands".to_string() },
+            ConventionOption { value: "Belgium".to_string(), label: "Belgium".to_string() },
+            ConventionOption { value: "Austria".to_string(), label: "Austria".to_string() },
+            ConventionOption { value: "Eurozone".to_string(), label: "Eurozone".to_string() },
+        ],
+        instrument_types: vec![
+            ConventionOption { value: "GovernmentBond".to_string(), label: "Government Bond".to_string() },
+            ConventionOption { value: "TreasuryBill".to_string(), label: "Treasury Bill".to_string() },
+            ConventionOption { value: "CorporateIG".to_string(), label: "Corporate IG".to_string() },
+            ConventionOption { value: "CorporateHY".to_string(), label: "Corporate HY".to_string() },
+            ConventionOption { value: "Municipal".to_string(), label: "Municipal".to_string() },
+            ConventionOption { value: "Agency".to_string(), label: "Agency".to_string() },
+            ConventionOption { value: "InflationLinked".to_string(), label: "Inflation Linked".to_string() },
+            ConventionOption { value: "CorporateFRN".to_string(), label: "Corporate FRN".to_string() },
+            ConventionOption { value: "Supranational".to_string(), label: "Supranational".to_string() },
+            ConventionOption { value: "CoveredBond".to_string(), label: "Covered Bond".to_string() },
+        ],
+        yield_conventions: vec![
+            ConventionOption { value: "Street".to_string(), label: "Street Convention".to_string() },
+            ConventionOption { value: "True".to_string(), label: "True Yield".to_string() },
+            ConventionOption { value: "ISMA".to_string(), label: "ISMA/ICMA".to_string() },
+            ConventionOption { value: "Simple".to_string(), label: "Simple Yield".to_string() },
+            ConventionOption { value: "Municipal".to_string(), label: "Municipal (Tax-Equiv)".to_string() },
+            ConventionOption { value: "Discount".to_string(), label: "Discount Yield".to_string() },
+            ConventionOption { value: "BondEquivalent".to_string(), label: "Bond Equivalent".to_string() },
+            ConventionOption { value: "Annual".to_string(), label: "Annual".to_string() },
+            ConventionOption { value: "Continuous".to_string(), label: "Continuous".to_string() },
+        ],
+        compounding_methods: vec![
+            ConventionOption { value: "SemiAnnual".to_string(), label: "Semi-Annual".to_string() },
+            ConventionOption { value: "Annual".to_string(), label: "Annual".to_string() },
+            ConventionOption { value: "Quarterly".to_string(), label: "Quarterly".to_string() },
+            ConventionOption { value: "Monthly".to_string(), label: "Monthly".to_string() },
+            ConventionOption { value: "Continuous".to_string(), label: "Continuous".to_string() },
+            ConventionOption { value: "Simple".to_string(), label: "Simple".to_string() },
+        ],
+    };
+    serde_wasm_bindgen::to_value(&options).unwrap_or(JsValue::NULL)
+}
+
+/// Get default conventions for a given market and instrument type.
+#[wasm_bindgen]
+pub fn get_default_conventions(market: String, instrument_type: String) -> JsValue {
+    let market_enum = parse_market(&market);
+    let inst_enum = parse_instrument_type(&instrument_type);
+
+    let registry = ConventionRegistry::global();
+    let key = ConventionKey::new(market_enum, inst_enum);
+
+    // Try to get specific rules for this market/instrument combination
+    let rules = if let Some(specific_rules) = registry.rules(&key) {
+        specific_rules.clone()
+    } else {
+        // Fallback to market default
+        registry.default_rules_for_market(market_enum)
+    };
+
+    let defaults = DefaultConventions {
+        day_count: format!("{:?}", rules.accrual_day_count),
+        yield_convention: format_yield_convention(rules.convention),
+        compounding: format_compounding(rules.compounding.clone()),
+        settlement_days: rules.settlement_rules.days,
+        ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
+        use_business_days: rules.settlement_rules.use_business_days,
+    };
+
+    serde_wasm_bindgen::to_value(&defaults).unwrap_or(JsValue::NULL)
+}
+
+/// Default convention values.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DefaultConventions {
+    pub day_count: String,
+    pub yield_convention: String,
+    pub compounding: String,
+    pub settlement_days: u32,
+    pub ex_dividend_days: Option<u32>,
+    pub use_business_days: bool,
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -1285,6 +1721,13 @@ mod tests {
             first_coupon_date: None,
             call_schedule: None,
             volatility: None,
+            market: None,
+            instrument_type: None,
+            yield_convention: None,
+            compounding: None,
+            settlement_days: None,
+            ex_dividend_days: None,
+            use_business_days: None,
         };
 
         let bond = create_bond(&params).unwrap();

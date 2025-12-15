@@ -40,7 +40,9 @@
       "Bash(npm run build:*)",
       "Bash(git config:*)",
       "Bash(echo:*)",
-      "Bash(wc -l \"C:\\Users\\sujit\\source\\convex\\crates\\convex-bonds\\src\"/**/*.rs)"
+      "Bash(wc -l \"C:\\Users\\sujit\\source\\convex\\crates\\convex-bonds\\src\"/**/*.rs)",
+      "Bash(cd:*)",
+      "Bash(npm start --prefix www)"
     ],
     "deny": [],
     "ask": []
