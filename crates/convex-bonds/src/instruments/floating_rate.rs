@@ -706,12 +706,7 @@ impl Bond for FloatingRateNote {
 
     fn previous_coupon_date(&self, before: Date) -> Option<Date> {
         let schedule = self.schedule().ok()?;
-        schedule
-            .dates()
-            .iter()
-            .filter(|&&d| d < before)
-            .next_back()
-            .copied()
+        schedule.dates().iter().rfind(|&&d| d < before).copied()
     }
 
     fn accrued_interest(&self, settlement: Date) -> Decimal {
