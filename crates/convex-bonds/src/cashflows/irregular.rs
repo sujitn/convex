@@ -45,11 +45,7 @@ impl IrregularPeriodHandler {
     /// A first period is irregular if the days from issue to first coupon
     /// doesn't match the regular period length.
     #[must_use]
-    pub fn is_first_irregular(
-        issue_date: Date,
-        first_coupon: Date,
-        frequency: Frequency,
-    ) -> bool {
+    pub fn is_first_irregular(issue_date: Date, first_coupon: Date, frequency: Frequency) -> bool {
         if frequency == Frequency::Zero {
             return false; // Zero coupon bonds don't have irregular periods
         }
@@ -67,11 +63,7 @@ impl IrregularPeriodHandler {
     /// A last period is irregular if the days from last coupon to maturity
     /// doesn't match the regular period length.
     #[must_use]
-    pub fn is_last_irregular(
-        last_coupon: Date,
-        maturity: Date,
-        frequency: Frequency,
-    ) -> bool {
+    pub fn is_last_irregular(last_coupon: Date, maturity: Date, frequency: Frequency) -> bool {
         if frequency == Frequency::Zero {
             return false;
         }
@@ -255,7 +247,14 @@ impl IrregularPeriodHandler {
         day_count: DayCountConvention,
         frequency: Frequency,
     ) -> Decimal {
-        Self::day_count_fraction(period_start, settlement, ref_start, ref_end, day_count, frequency)
+        Self::day_count_fraction(
+            period_start,
+            settlement,
+            ref_start,
+            ref_end,
+            day_count,
+            frequency,
+        )
     }
 
     /// Returns the regular period length in days for a frequency.
@@ -299,7 +298,9 @@ impl IrregularPeriodHandler {
         }
 
         let regular_fraction = Decimal::ONE / periods_per_year;
-        let actual_fraction = day_count.to_day_count().year_fraction(period_start, period_end);
+        let actual_fraction = day_count
+            .to_day_count()
+            .year_fraction(period_start, period_end);
 
         if regular_fraction.is_zero() {
             Decimal::ONE
@@ -319,11 +320,8 @@ mod tests {
         let issue = Date::from_ymd(2025, 3, 1).unwrap();
         let first = Date::from_ymd(2025, 6, 15).unwrap(); // ~3.5 months, short for semi-annual
 
-        let is_irregular = IrregularPeriodHandler::is_first_irregular(
-            issue,
-            first,
-            Frequency::SemiAnnual,
-        );
+        let is_irregular =
+            IrregularPeriodHandler::is_first_irregular(issue, first, Frequency::SemiAnnual);
         assert!(is_irregular);
     }
 
@@ -332,11 +330,8 @@ mod tests {
         let issue = Date::from_ymd(2024, 12, 15).unwrap();
         let first = Date::from_ymd(2025, 6, 15).unwrap(); // ~6 months, regular for semi-annual
 
-        let is_irregular = IrregularPeriodHandler::is_first_irregular(
-            issue,
-            first,
-            Frequency::SemiAnnual,
-        );
+        let is_irregular =
+            IrregularPeriodHandler::is_first_irregular(issue, first, Frequency::SemiAnnual);
         assert!(!is_irregular);
     }
 
@@ -345,11 +340,8 @@ mod tests {
         let issue = Date::from_ymd(2025, 4, 1).unwrap();
         let first = Date::from_ymd(2025, 6, 15).unwrap();
 
-        let stub_type = IrregularPeriodHandler::first_period_stub_type(
-            issue,
-            first,
-            Frequency::SemiAnnual,
-        );
+        let stub_type =
+            IrregularPeriodHandler::first_period_stub_type(issue, first, Frequency::SemiAnnual);
         assert_eq!(stub_type, StubType::ShortStub);
     }
 
@@ -358,11 +350,8 @@ mod tests {
         let issue = Date::from_ymd(2024, 10, 1).unwrap();
         let first = Date::from_ymd(2025, 6, 15).unwrap(); // ~8.5 months, long for semi-annual
 
-        let stub_type = IrregularPeriodHandler::first_period_stub_type(
-            issue,
-            first,
-            Frequency::SemiAnnual,
-        );
+        let stub_type =
+            IrregularPeriodHandler::first_period_stub_type(issue, first, Frequency::SemiAnnual);
         assert_eq!(stub_type, StubType::LongStub);
     }
 
@@ -422,15 +411,30 @@ mod tests {
 
     #[test]
     fn test_regular_period_days() {
-        assert_eq!(IrregularPeriodHandler::regular_period_days(Frequency::Annual), 365);
-        assert_eq!(IrregularPeriodHandler::regular_period_days(Frequency::SemiAnnual), 182);
-        assert_eq!(IrregularPeriodHandler::regular_period_days(Frequency::Quarterly), 91);
+        assert_eq!(
+            IrregularPeriodHandler::regular_period_days(Frequency::Annual),
+            365
+        );
+        assert_eq!(
+            IrregularPeriodHandler::regular_period_days(Frequency::SemiAnnual),
+            182
+        );
+        assert_eq!(
+            IrregularPeriodHandler::regular_period_days(Frequency::Quarterly),
+            91
+        );
     }
 
     #[test]
     fn test_period_months() {
         assert_eq!(IrregularPeriodHandler::period_months(Frequency::Annual), 12);
-        assert_eq!(IrregularPeriodHandler::period_months(Frequency::SemiAnnual), 6);
-        assert_eq!(IrregularPeriodHandler::period_months(Frequency::Quarterly), 3);
+        assert_eq!(
+            IrregularPeriodHandler::period_months(Frequency::SemiAnnual),
+            6
+        );
+        assert_eq!(
+            IrregularPeriodHandler::period_months(Frequency::Quarterly),
+            3
+        );
     }
 }

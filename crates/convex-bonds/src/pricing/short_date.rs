@@ -199,7 +199,7 @@ mod tests {
         let calc = ShortDateCalculator::default();
 
         // Very short-dated (< 1 month) should use money market
-        assert!(calc.use_money_market_below(0.02));  // ~1 week
+        assert!(calc.use_money_market_below(0.02)); // ~1 week
         assert!(!calc.use_money_market_below(0.5)); // 6 months
     }
 

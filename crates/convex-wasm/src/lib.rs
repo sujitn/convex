@@ -84,7 +84,6 @@ pub struct BondParams {
     pub volatility: Option<f64>,
 
     // === New convention parameters ===
-
     /// Market: "US", "UK", "Germany", "France", "Italy", "Japan", etc.
     pub market: Option<String>,
     /// Instrument type: "GovernmentBond", "Corporate", "Municipal", "Agency", etc.
@@ -413,7 +412,7 @@ fn calculate_convention_yield(
     let cash_flows = bond.cash_flows(settlement);
 
     if cash_flows.is_empty() {
-        log(&format!("Convention yield: No cash flows"));
+        log("Convention yield: No cash flows");
         return None;
     }
 
@@ -431,7 +430,11 @@ fn calculate_convention_yield(
 
     match engine.yield_from_price(&cash_flows, clean_price_dec, accrued, settlement, rules) {
         Ok(result) => {
-            log(&format!("Convention yield result: {:.6} ({:.4}%)", result.yield_value, result.yield_value * 100.0));
+            log(&format!(
+                "Convention yield result: {:.6} ({:.4}%)",
+                result.yield_value,
+                result.yield_value * 100.0
+            ));
             Some(result.yield_value)
         }
         Err(e) => {
@@ -599,7 +602,9 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
 
     // Calculate convention-aware yield using StandardYieldEngine
     // This properly applies compounding method, day count, and other convention rules
-    if let Some(convention_ytm) = calculate_convention_yield(&bond, settlement, clean_price, &yield_rules) {
+    if let Some(convention_ytm) =
+        calculate_convention_yield(&bond, settlement, clean_price, &yield_rules)
+    {
         result.ytm = Some(convention_ytm * 100.0); // Convert to percentage
     }
 
@@ -1052,7 +1057,7 @@ fn convert_yas_result(
         market: market_display,
         instrument_type: instrument_display,
         yield_convention: Some(format_yield_convention(rules.convention)),
-        compounding_method: Some(format_compounding(rules.compounding.clone())),
+        compounding_method: Some(format_compounding(rules.compounding)),
         settlement_days: Some(rules.settlement_rules.days),
         ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
         is_ex_dividend: Some(is_ex_dividend),
@@ -1555,51 +1560,168 @@ pub struct ConventionOption {
 pub fn get_convention_options() -> JsValue {
     let options = ConventionOptions {
         markets: vec![
-            ConventionOption { value: "US".to_string(), label: "United States".to_string() },
-            ConventionOption { value: "UK".to_string(), label: "United Kingdom".to_string() },
-            ConventionOption { value: "Germany".to_string(), label: "Germany".to_string() },
-            ConventionOption { value: "France".to_string(), label: "France".to_string() },
-            ConventionOption { value: "Italy".to_string(), label: "Italy".to_string() },
-            ConventionOption { value: "Spain".to_string(), label: "Spain".to_string() },
-            ConventionOption { value: "Japan".to_string(), label: "Japan".to_string() },
-            ConventionOption { value: "Switzerland".to_string(), label: "Switzerland".to_string() },
-            ConventionOption { value: "Australia".to_string(), label: "Australia".to_string() },
-            ConventionOption { value: "Canada".to_string(), label: "Canada".to_string() },
-            ConventionOption { value: "Netherlands".to_string(), label: "Netherlands".to_string() },
-            ConventionOption { value: "Belgium".to_string(), label: "Belgium".to_string() },
-            ConventionOption { value: "Austria".to_string(), label: "Austria".to_string() },
-            ConventionOption { value: "Eurozone".to_string(), label: "Eurozone".to_string() },
+            ConventionOption {
+                value: "US".to_string(),
+                label: "United States".to_string(),
+            },
+            ConventionOption {
+                value: "UK".to_string(),
+                label: "United Kingdom".to_string(),
+            },
+            ConventionOption {
+                value: "Germany".to_string(),
+                label: "Germany".to_string(),
+            },
+            ConventionOption {
+                value: "France".to_string(),
+                label: "France".to_string(),
+            },
+            ConventionOption {
+                value: "Italy".to_string(),
+                label: "Italy".to_string(),
+            },
+            ConventionOption {
+                value: "Spain".to_string(),
+                label: "Spain".to_string(),
+            },
+            ConventionOption {
+                value: "Japan".to_string(),
+                label: "Japan".to_string(),
+            },
+            ConventionOption {
+                value: "Switzerland".to_string(),
+                label: "Switzerland".to_string(),
+            },
+            ConventionOption {
+                value: "Australia".to_string(),
+                label: "Australia".to_string(),
+            },
+            ConventionOption {
+                value: "Canada".to_string(),
+                label: "Canada".to_string(),
+            },
+            ConventionOption {
+                value: "Netherlands".to_string(),
+                label: "Netherlands".to_string(),
+            },
+            ConventionOption {
+                value: "Belgium".to_string(),
+                label: "Belgium".to_string(),
+            },
+            ConventionOption {
+                value: "Austria".to_string(),
+                label: "Austria".to_string(),
+            },
+            ConventionOption {
+                value: "Eurozone".to_string(),
+                label: "Eurozone".to_string(),
+            },
         ],
         instrument_types: vec![
-            ConventionOption { value: "GovernmentBond".to_string(), label: "Government Bond".to_string() },
-            ConventionOption { value: "TreasuryBill".to_string(), label: "Treasury Bill".to_string() },
-            ConventionOption { value: "CorporateIG".to_string(), label: "Corporate IG".to_string() },
-            ConventionOption { value: "CorporateHY".to_string(), label: "Corporate HY".to_string() },
-            ConventionOption { value: "Municipal".to_string(), label: "Municipal".to_string() },
-            ConventionOption { value: "Agency".to_string(), label: "Agency".to_string() },
-            ConventionOption { value: "InflationLinked".to_string(), label: "Inflation Linked".to_string() },
-            ConventionOption { value: "CorporateFRN".to_string(), label: "Corporate FRN".to_string() },
-            ConventionOption { value: "Supranational".to_string(), label: "Supranational".to_string() },
-            ConventionOption { value: "CoveredBond".to_string(), label: "Covered Bond".to_string() },
+            ConventionOption {
+                value: "GovernmentBond".to_string(),
+                label: "Government Bond".to_string(),
+            },
+            ConventionOption {
+                value: "TreasuryBill".to_string(),
+                label: "Treasury Bill".to_string(),
+            },
+            ConventionOption {
+                value: "CorporateIG".to_string(),
+                label: "Corporate IG".to_string(),
+            },
+            ConventionOption {
+                value: "CorporateHY".to_string(),
+                label: "Corporate HY".to_string(),
+            },
+            ConventionOption {
+                value: "Municipal".to_string(),
+                label: "Municipal".to_string(),
+            },
+            ConventionOption {
+                value: "Agency".to_string(),
+                label: "Agency".to_string(),
+            },
+            ConventionOption {
+                value: "InflationLinked".to_string(),
+                label: "Inflation Linked".to_string(),
+            },
+            ConventionOption {
+                value: "CorporateFRN".to_string(),
+                label: "Corporate FRN".to_string(),
+            },
+            ConventionOption {
+                value: "Supranational".to_string(),
+                label: "Supranational".to_string(),
+            },
+            ConventionOption {
+                value: "CoveredBond".to_string(),
+                label: "Covered Bond".to_string(),
+            },
         ],
         yield_conventions: vec![
-            ConventionOption { value: "Street".to_string(), label: "Street Convention".to_string() },
-            ConventionOption { value: "True".to_string(), label: "True Yield".to_string() },
-            ConventionOption { value: "ISMA".to_string(), label: "ISMA/ICMA".to_string() },
-            ConventionOption { value: "Simple".to_string(), label: "Simple Yield".to_string() },
-            ConventionOption { value: "Municipal".to_string(), label: "Municipal (Tax-Equiv)".to_string() },
-            ConventionOption { value: "Discount".to_string(), label: "Discount Yield".to_string() },
-            ConventionOption { value: "BondEquivalent".to_string(), label: "Bond Equivalent".to_string() },
-            ConventionOption { value: "Annual".to_string(), label: "Annual".to_string() },
-            ConventionOption { value: "Continuous".to_string(), label: "Continuous".to_string() },
+            ConventionOption {
+                value: "Street".to_string(),
+                label: "Street Convention".to_string(),
+            },
+            ConventionOption {
+                value: "True".to_string(),
+                label: "True Yield".to_string(),
+            },
+            ConventionOption {
+                value: "ISMA".to_string(),
+                label: "ISMA/ICMA".to_string(),
+            },
+            ConventionOption {
+                value: "Simple".to_string(),
+                label: "Simple Yield".to_string(),
+            },
+            ConventionOption {
+                value: "Municipal".to_string(),
+                label: "Municipal (Tax-Equiv)".to_string(),
+            },
+            ConventionOption {
+                value: "Discount".to_string(),
+                label: "Discount Yield".to_string(),
+            },
+            ConventionOption {
+                value: "BondEquivalent".to_string(),
+                label: "Bond Equivalent".to_string(),
+            },
+            ConventionOption {
+                value: "Annual".to_string(),
+                label: "Annual".to_string(),
+            },
+            ConventionOption {
+                value: "Continuous".to_string(),
+                label: "Continuous".to_string(),
+            },
         ],
         compounding_methods: vec![
-            ConventionOption { value: "SemiAnnual".to_string(), label: "Semi-Annual".to_string() },
-            ConventionOption { value: "Annual".to_string(), label: "Annual".to_string() },
-            ConventionOption { value: "Quarterly".to_string(), label: "Quarterly".to_string() },
-            ConventionOption { value: "Monthly".to_string(), label: "Monthly".to_string() },
-            ConventionOption { value: "Continuous".to_string(), label: "Continuous".to_string() },
-            ConventionOption { value: "Simple".to_string(), label: "Simple".to_string() },
+            ConventionOption {
+                value: "SemiAnnual".to_string(),
+                label: "Semi-Annual".to_string(),
+            },
+            ConventionOption {
+                value: "Annual".to_string(),
+                label: "Annual".to_string(),
+            },
+            ConventionOption {
+                value: "Quarterly".to_string(),
+                label: "Quarterly".to_string(),
+            },
+            ConventionOption {
+                value: "Monthly".to_string(),
+                label: "Monthly".to_string(),
+            },
+            ConventionOption {
+                value: "Continuous".to_string(),
+                label: "Continuous".to_string(),
+            },
+            ConventionOption {
+                value: "Simple".to_string(),
+                label: "Simple".to_string(),
+            },
         ],
     };
     serde_wasm_bindgen::to_value(&options).unwrap_or(JsValue::NULL)
@@ -1625,7 +1747,7 @@ pub fn get_default_conventions(market: String, instrument_type: String) -> JsVal
     let defaults = DefaultConventions {
         day_count: format!("{:?}", rules.accrual_day_count),
         yield_convention: format_yield_convention(rules.convention),
-        compounding: format_compounding(rules.compounding.clone()),
+        compounding: format_compounding(rules.compounding),
         settlement_days: rules.settlement_rules.days,
         ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
         use_business_days: rules.settlement_rules.use_business_days,

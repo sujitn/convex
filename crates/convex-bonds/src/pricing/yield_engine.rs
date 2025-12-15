@@ -500,7 +500,9 @@ pub fn bond_equivalent_yield(discount_yield: f64, days_to_maturity: i64) -> f64 
         // This is an approximation
         let face = 100.0;
         let gain = face - price;
-        2.0 * ((gain / price) / term + ((gain / price).powi(2) / term.powi(2) + 2.0 * gain / (price * term)).sqrt()) / 2.0
+        2.0 * ((gain / price) / term
+            + ((gain / price).powi(2) / term.powi(2) + 2.0 * gain / (price * term)).sqrt())
+            / 2.0
     }
 }
 
@@ -668,7 +670,8 @@ mod tests {
             .unwrap();
 
         // Yield -> Price
-        let calculated_dirty = engine.price_from_yield(&cash_flows, result.yield_value, settlement, &rules);
+        let calculated_dirty =
+            engine.price_from_yield(&cash_flows, result.yield_value, settlement, &rules);
         let calculated_clean = calculated_dirty - accrued.to_f64().unwrap();
 
         // Should round-trip

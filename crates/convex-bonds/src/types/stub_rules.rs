@@ -110,8 +110,7 @@ impl StubPeriodRules {
     /// Returns true if any irregular period handling is needed.
     #[must_use]
     pub const fn has_irregular_period(&self) -> bool {
-        !matches!(self.first_period, StubType::None)
-            || !matches!(self.last_period, StubType::None)
+        !matches!(self.first_period, StubType::None) || !matches!(self.last_period, StubType::None)
     }
 }
 

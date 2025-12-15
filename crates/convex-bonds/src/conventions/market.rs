@@ -462,7 +462,10 @@ impl InstrumentType {
     /// Returns true if this is a discount instrument.
     #[must_use]
     pub const fn is_discount(&self) -> bool {
-        matches!(self, Self::TreasuryBill | Self::CommercialPaper | Self::Strips)
+        matches!(
+            self,
+            Self::TreasuryBill | Self::CommercialPaper | Self::Strips
+        )
     }
 
     /// Returns true if this is an inflation-linked instrument.
@@ -637,7 +640,10 @@ mod tests {
 
     #[test]
     fn test_instrument_type_display() {
-        assert_eq!(format!("{}", InstrumentType::GovernmentBond), "Government Bond");
+        assert_eq!(
+            format!("{}", InstrumentType::GovernmentBond),
+            "Government Bond"
+        );
         assert_eq!(format!("{}", InstrumentType::CorporateIG), "Corporate IG");
     }
 }

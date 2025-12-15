@@ -91,11 +91,7 @@ impl SettlementCalculator {
     /// * `next_coupon` - Next coupon payment date
     /// * `rules` - Ex-dividend rules
     #[must_use]
-    pub fn is_ex_dividend(
-        settlement: Date,
-        next_coupon: Date,
-        rules: &ExDividendRules,
-    ) -> bool {
+    pub fn is_ex_dividend(settlement: Date, next_coupon: Date, rules: &ExDividendRules) -> bool {
         let ex_date = Self::ex_dividend_date(next_coupon, rules);
         settlement >= ex_date && settlement < next_coupon
     }
@@ -117,7 +113,11 @@ impl SettlementCalculator {
 
     /// Validates that settlement date is not before trade date.
     #[must_use]
-    pub fn is_valid_settlement(trade_date: Date, settlement: Date, rules: &SettlementRules) -> bool {
+    pub fn is_valid_settlement(
+        trade_date: Date,
+        settlement: Date,
+        rules: &SettlementRules,
+    ) -> bool {
         if settlement < trade_date {
             return false;
         }
@@ -150,10 +150,10 @@ impl SettlementCalculator {
     pub fn standard_settlement_days(calendar: &CalendarId) -> u32 {
         // Most markets are T+2, with some exceptions
         match calendar.as_str() {
-            "USGov" | "NYC" | "SIFMA" => 1,  // US Treasuries are T+1
-            "UK" => 1,                       // UK Gilts are T+1
-            "Japan" => 2,                    // JGBs are T+2
-            _ => 2,                          // Default T+2
+            "USGov" | "NYC" | "SIFMA" => 1, // US Treasuries are T+1
+            "UK" => 1,                      // UK Gilts are T+1
+            "Japan" => 2,                   // JGBs are T+2
+            _ => 2,                         // Default T+2
         }
     }
 }
@@ -274,11 +274,19 @@ mod tests {
 
         // In ex-div period
         let settlement_in = Date::from_ymd(2025, 6, 10).unwrap();
-        assert!(SettlementCalculator::is_ex_dividend(settlement_in, coupon, &rules));
+        assert!(SettlementCalculator::is_ex_dividend(
+            settlement_in,
+            coupon,
+            &rules
+        ));
 
         // Before ex-div period
         let settlement_before = Date::from_ymd(2025, 6, 1).unwrap();
-        assert!(!SettlementCalculator::is_ex_dividend(settlement_before, coupon, &rules));
+        assert!(!SettlementCalculator::is_ex_dividend(
+            settlement_before,
+            coupon,
+            &rules
+        ));
     }
 
     #[test]
@@ -287,12 +295,7 @@ mod tests {
         let coupon = Date::from_ymd(2025, 6, 15).unwrap();
         let maturity = Date::from_ymd(2030, 6, 15).unwrap();
 
-        let status = SettlementStatus::for_settlement(
-            settlement,
-            Some(coupon),
-            maturity,
-            None,
-        );
+        let status = SettlementStatus::for_settlement(settlement, Some(coupon), maturity, None);
 
         assert_eq!(status, SettlementStatus::Regular);
         assert!(status.receives_coupon());
@@ -310,12 +313,8 @@ mod tests {
         let coupon = Date::from_ymd(2025, 6, 15).unwrap();
         let maturity = Date::from_ymd(2030, 6, 15).unwrap();
 
-        let status = SettlementStatus::for_settlement(
-            settlement,
-            Some(coupon),
-            maturity,
-            Some(&rules),
-        );
+        let status =
+            SettlementStatus::for_settlement(settlement, Some(coupon), maturity, Some(&rules));
 
         assert_eq!(status, SettlementStatus::ExDividend);
         assert!(!status.receives_coupon());
@@ -327,12 +326,7 @@ mod tests {
         let settlement = Date::from_ymd(2030, 7, 1).unwrap();
         let maturity = Date::from_ymd(2030, 6, 15).unwrap();
 
-        let status = SettlementStatus::for_settlement(
-            settlement,
-            None,
-            maturity,
-            None,
-        );
+        let status = SettlementStatus::for_settlement(settlement, None, maturity, None);
 
         assert_eq!(status, SettlementStatus::PostMaturity);
     }
@@ -344,11 +338,15 @@ mod tests {
 
         // Valid: settlement after trade
         let valid = Date::from_ymd(2025, 3, 11).unwrap();
-        assert!(SettlementCalculator::is_valid_settlement(trade, valid, &rules));
+        assert!(SettlementCalculator::is_valid_settlement(
+            trade, valid, &rules
+        ));
 
         // Invalid: settlement before trade
         let invalid = Date::from_ymd(2025, 3, 9).unwrap();
-        assert!(!SettlementCalculator::is_valid_settlement(trade, invalid, &rules));
+        assert!(!SettlementCalculator::is_valid_settlement(
+            trade, invalid, &rules
+        ));
     }
 
     #[test]

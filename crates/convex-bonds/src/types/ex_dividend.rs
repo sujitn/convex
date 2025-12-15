@@ -264,10 +264,7 @@ mod tests {
         assert_eq!(rules.days, 2);
         assert!(rules.uses_business_days());
         assert!(rules.uses_record_date());
-        assert_eq!(
-            rules.accrued_method.record_date_days(),
-            Some(3)
-        );
+        assert_eq!(rules.accrued_method.record_date_days(), Some(3));
     }
 
     #[test]

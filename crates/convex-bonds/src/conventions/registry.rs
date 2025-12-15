@@ -342,7 +342,12 @@ impl ConventionRegistry {
     // Registration methods
     // =========================================================================
 
-    fn register(&mut self, key: ConventionKey, conventions: BondConventions, rules: YieldCalculationRules) {
+    fn register(
+        &mut self,
+        key: ConventionKey,
+        conventions: BondConventions,
+        rules: YieldCalculationRules,
+    ) {
         self.conventions.insert(key.clone(), conventions);
         self.rules.insert(key, rules);
     }
@@ -551,10 +556,7 @@ impl ConventionRegistry {
         // EM markets typically follow either US or EUR conventions
         // with some local variations
 
-        let em_markets_usd_style = [
-            Market::Mexico,
-            Market::Brazil,
-        ];
+        let em_markets_usd_style = [Market::Mexico, Market::Brazil];
 
         for market in em_markets_usd_style {
             self.register(
@@ -675,11 +677,8 @@ mod tests {
         assert!(display.contains("US"));
         assert!(display.contains("Government Bond"));
 
-        let key_with_variant = ConventionKey::with_variant(
-            Market::US,
-            InstrumentType::GovernmentBond,
-            "10Y",
-        );
+        let key_with_variant =
+            ConventionKey::with_variant(Market::US, InstrumentType::GovernmentBond, "10Y");
         let display = format!("{}", key_with_variant);
         assert!(display.contains("10Y"));
     }
@@ -722,11 +721,8 @@ mod tests {
         let registry = ConventionRegistry::global();
 
         // Key with variant that doesn't exist
-        let key = ConventionKey::with_variant(
-            Market::US,
-            InstrumentType::GovernmentBond,
-            "nonexistent",
-        );
+        let key =
+            ConventionKey::with_variant(Market::US, InstrumentType::GovernmentBond, "nonexistent");
 
         // Should fall back to base key
         let rules = registry.rules(&key);
@@ -747,11 +743,7 @@ mod tests {
         ];
 
         for key in &tier1_keys {
-            assert!(
-                registry.rules(key).is_some(),
-                "Missing rules for {:?}",
-                key
-            );
+            assert!(registry.rules(key).is_some(), "Missing rules for {:?}", key);
         }
     }
 }

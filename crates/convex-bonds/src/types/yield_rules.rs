@@ -551,10 +551,7 @@ mod tests {
         let rules = YieldCalculationRules::uk_gilt();
         assert_eq!(rules.convention, YieldConvention::ISMA);
         assert!(rules.has_ex_dividend());
-        assert_eq!(
-            rules.ex_dividend_rules.as_ref().unwrap().days,
-            7
-        );
+        assert_eq!(rules.ex_dividend_rules.as_ref().unwrap().days, 7);
     }
 
     #[test]
@@ -576,11 +573,7 @@ mod tests {
     fn test_italian_btp_rules() {
         let rules = YieldCalculationRules::italian_btp();
         assert!(rules.has_ex_dividend());
-        assert!(rules
-            .ex_dividend_rules
-            .as_ref()
-            .unwrap()
-            .uses_record_date());
+        assert!(rules.ex_dividend_rules.as_ref().unwrap().uses_record_date());
     }
 
     #[test]
