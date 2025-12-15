@@ -12,10 +12,14 @@
 //! - Accrued calculation: < 100ns
 
 mod accrued;
+pub mod irregular;
 mod schedule;
+pub mod settlement;
 
 pub use accrued::AccruedInterestCalculator;
+pub use irregular::IrregularPeriodHandler;
 pub use schedule::{Schedule, ScheduleConfig, StubType};
+pub use settlement::{SettlementCalculator, SettlementStatus};
 
 use rust_decimal::Decimal;
 

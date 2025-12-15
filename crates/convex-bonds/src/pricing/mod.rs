@@ -2,12 +2,21 @@
 //!
 //! This module provides:
 //! - [`YieldSolver`]: Bloomberg YAS-style yield-to-maturity solver
+//! - [`YieldEngine`]: Unified yield calculation trait
+//! - [`StandardYieldEngine`]: Standard implementation of `YieldEngine`
 //! - [`BondPricer`]: High-level pricing interface
 //! - [`PriceResult`]: Result type for pricing calculations
 //! - [`current_yield`]: Current yield calculation
 
+pub mod short_date;
+mod yield_engine;
 mod yield_solver;
 
+pub use short_date::{RollForwardMethod, ShortDateCalculator};
+pub use yield_engine::{
+    bond_equivalent_yield, current_yield_simple, discount_yield, simple_yield, StandardYieldEngine,
+    YieldEngine, YieldEngineResult,
+};
 pub use yield_solver::{current_yield, current_yield_from_bond, YieldResult, YieldSolver};
 
 use rust_decimal::Decimal;

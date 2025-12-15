@@ -32,6 +32,8 @@
 pub mod eurobond;
 pub mod german_bund;
 pub mod japanese_jgb;
+pub mod market;
+pub mod registry;
 pub mod uk_gilt;
 pub mod us_corporate;
 pub mod us_treasury;
@@ -39,6 +41,8 @@ pub mod us_treasury;
 pub use eurobond::*;
 pub use german_bund::*;
 pub use japanese_jgb::*;
+pub use market::{InstrumentType, Market, MarketTier};
+pub use registry::{ConventionKey, ConventionRegistry};
 pub use uk_gilt::*;
 pub use us_corporate::*;
 pub use us_treasury::*;
