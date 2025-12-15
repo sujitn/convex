@@ -109,7 +109,7 @@ pub trait DayCount: Send + Sync {
 /// let end = Date::from_ymd(2025, 7, 1).unwrap();
 /// let yf = dc.year_fraction(start, end);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DayCountConvention {
     // =========================================================================
     // ACT Family
