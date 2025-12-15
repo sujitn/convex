@@ -231,7 +231,7 @@ mod tests {
 
         // T+1 with business days should be approximately 1-3 calendar days later
         let days = trade.days_between(&settlement);
-        assert!(days >= 1 && days <= 5);
+        assert!((1..=5).contains(&days));
     }
 
     #[test]
@@ -258,7 +258,7 @@ mod tests {
 
         // UK Gilt: 7 business days ~ 9-11 calendar days before
         let days = ex_date.days_between(&coupon);
-        assert!(days >= 7 && days <= 14);
+        assert!((7..=14).contains(&days));
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
         };
 
         let coupon = Date::from_ymd(2025, 6, 15).unwrap();
-        let ex_date = Date::from_ymd(2025, 6, 8).unwrap(); // 7 days before
+        let _ex_date = Date::from_ymd(2025, 6, 8).unwrap(); // 7 days before
 
         // In ex-div period
         let settlement_in = Date::from_ymd(2025, 6, 10).unwrap();

@@ -20,12 +20,13 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(market.region(), "North America");
 /// assert_eq!(market.currency_code(), "USD");
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Market {
     // =========================================================================
     // Tier 1: Full Coverage (US, EUR, GBP)
     // =========================================================================
     /// United States bond market
+    #[default]
     US,
     /// United Kingdom bond market
     UK,
@@ -350,12 +351,6 @@ impl Market {
 impl std::fmt::Display for Market {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.country_code())
-    }
-}
-
-impl Default for Market {
-    fn default() -> Self {
-        Self::US
     }
 }
 

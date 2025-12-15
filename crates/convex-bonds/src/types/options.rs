@@ -275,8 +275,7 @@ impl CallSchedule {
         // Find the active entry (last one with start_date <= date)
         self.entries
             .iter()
-            .filter(|e| e.start_date <= date)
-            .next_back()
+            .rfind(|e| e.start_date <= date)
             .map(|e| e.call_price)
     }
 
@@ -347,8 +346,7 @@ impl PutSchedule {
 
         self.entries
             .iter()
-            .filter(|e| e.start_date <= date)
-            .next_back()
+            .rfind(|e| e.start_date <= date)
             .map(|e| e.put_price)
     }
 
