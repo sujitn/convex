@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Consolidated convex-spreads, convex-risk, convex-yas into convex-analytics crate
+- Updated convex-wasm to use StandardYieldEngine for consistent yield calculations
+
+### Fixed
+- Fixed f64 to Decimal conversion precision issue in WASM bindings
+- Fixed YTM roundtrip inconsistency in price_from_yield calculations
+- Fixed missing documentation warnings in convex-analytics
+
+### Improved
+- UI input field tracking to preserve user-entered values (YieldAnalysis, SpreadAnalysis, Benchmark components)
+
 ## [0.10.1] - 2025-12-07
 
 ## [0.1.0] - 2025-12-07
@@ -51,29 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cash flow generation and schedule management
 - Accrued interest calculations with all day count conventions
 
-#### convex-spreads
-- G-Spread calculation
-- I-Spread calculation
-- Z-Spread calculation with curve bootstrapping
-- Asset swap spread (par-par and proceeds methods)
-- Discount margin for floating rate notes
-- OAS framework for callable bonds
-
-#### convex-risk
-- Duration metrics: Macaulay, modified, effective, key rate, spread duration
-- Convexity: Analytical and effective
-- DV01/PV01/PVBP calculations
-- Portfolio risk aggregation
-- VaR framework (historical and parametric)
-
-#### convex-yas
-- Bloomberg YAS-compatible analytics
-- Street convention yield
-- True yield
-- Current yield
-- Simple yield
-- Money market yields
-- Settlement invoice calculations
+#### convex-analytics
+- Unified analytics crate consolidating spreads, risk, and YAS functionality
+- Cash flow generation: Schedule, accrued interest, settlement calculations
+- Yield calculations: YTM solver, money market yields, current yield, simple yield
+- Pricing: BondPricer with Bloomberg YAS methodology
+- Spread analytics: G-Spread, I-Spread, Z-Spread, OAS, ASW, Discount Margin
+- Risk metrics: Duration (Macaulay, modified, effective, key rate, spread), Convexity, DV01
+- Portfolio analytics: VaR framework, hedging calculations
+- Options: Hull-White model, binomial trees for callable bonds
+- Bloomberg YAS-compatible: Street convention, true yield, settlement invoice
 
 #### convex-ffi
 - C FFI bindings for cross-language integration

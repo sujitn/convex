@@ -8,6 +8,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use convex_analytics::spreads::OASCalculator;
+use convex_analytics::yas::YASCalculator;
 use convex_bonds::conventions::{ConventionKey, ConventionRegistry, InstrumentType, Market};
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::prelude::BondIdentifiers;
@@ -24,8 +26,6 @@ use convex_core::types::{Currency, Date, Frequency};
 use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
 use convex_curves::interpolation::InterpolationMethod;
 use convex_curves::{ZeroCurve, ZeroCurveBuilder};
-use convex_spreads::oas::OASCalculator;
-use convex_yas::YASCalculator;
 
 // ============================================================================
 // Initialization
@@ -255,8 +255,14 @@ fn decimal_to_f64(d: Decimal) -> f64 {
     d.to_f64().unwrap_or(0.0)
 }
 
+/// Converts an f64 to Decimal with rounding to avoid floating-point artifacts.
+///
+/// Rounds to 10 decimal places to prevent values like 0.05000000000000001
+/// from appearing when converting floating-point numbers.
 fn f64_to_decimal(f: f64) -> Decimal {
-    Decimal::from_f64_retain(f).unwrap_or(Decimal::ZERO)
+    Decimal::from_f64_retain(f)
+        .map(|d| d.round_dp(10))
+        .unwrap_or(Decimal::ZERO)
 }
 
 fn parse_market(s: &str) -> Market {
@@ -971,7 +977,7 @@ fn create_discount_curve(
 }
 
 fn convert_yas_result(
-    result: &convex_yas::YASResult,
+    result: &convex_analytics::yas::YASResult,
     bond: &FixedRateBond,
     settlement: Date,
     rules: &YieldCalculationRules,
@@ -1093,8 +1099,6 @@ fn price_from_yield_impl(
     target_ytm: f64,
     _curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    use convex_bonds::pricing::YieldSolver;
-
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
         Ok(p) => p,
@@ -1131,24 +1135,19 @@ fn price_from_yield_impl(
     // Get cash flows and accrued interest
     let cash_flows = bond.cash_flows(settlement);
     let accrued = bond.accrued_interest(settlement);
-    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
-    let frequency = bond.frequency();
+
+    // Get yield calculation rules - MUST use the same rules as analyze_bond
+    // to ensure YTM roundtrip consistency
+    let yield_rules = get_yield_rules(&bond_params);
 
     // Convert target yield from percentage to decimal
     let yield_decimal = target_ytm / 100.0;
 
-    // Calculate clean price from yield
-    let solver = YieldSolver::new();
-    let clean_price = solver.clean_price_from_yield(
-        &cash_flows,
-        yield_decimal,
-        accrued,
-        settlement,
-        day_count,
-        frequency,
-    );
-
-    let dirty_price = clean_price + decimal_to_f64(accrued);
+    // Calculate dirty price from yield using StandardYieldEngine
+    // This uses the same engine as calculate_convention_yield in analyze_bond
+    let engine = StandardYieldEngine::default();
+    let dirty_price = engine.price_from_yield(&cash_flows, yield_decimal, settlement, &yield_rules);
+    let clean_price = dirty_price - decimal_to_f64(accrued);
 
     PriceFromYieldResult {
         clean_price: Some(clean_price),
@@ -1176,7 +1175,7 @@ fn price_from_spread_impl(
     target_spread_bps: f64,
     curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    use convex_spreads::ZSpreadCalculator;
+    use convex_analytics::spreads::ZSpreadCalculator;
 
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
@@ -1222,8 +1221,8 @@ fn price_from_spread_impl(
         }
     };
 
-    // Build the curve
-    let curve = match create_curve(settlement, &points) {
+    // Build the curve (use DiscountCurve which implements Curve trait)
+    let curve = match create_discount_curve(settlement, &points) {
         Ok(c) => c,
         Err(e) => {
             return PriceFromYieldResult {
@@ -1233,8 +1232,7 @@ fn price_from_spread_impl(
         }
     };
 
-    // Get cash flows and accrued interest
-    let cash_flows = bond.cash_flows(settlement);
+    // Get accrued interest
     let accrued = bond.accrued_interest(settlement);
 
     // Convert spread from bps to decimal (e.g., 100 bps = 0.01)
@@ -1242,7 +1240,7 @@ fn price_from_spread_impl(
 
     // Calculate price from Z-spread
     let calculator = ZSpreadCalculator::new(&curve);
-    let dirty_price = calculator.price_with_spread(&cash_flows, spread_decimal, settlement);
+    let dirty_price = calculator.price_with_spread(&bond, spread_decimal, settlement);
     let clean_price = dirty_price - decimal_to_f64(accrued);
 
     PriceFromYieldResult {
@@ -1272,8 +1270,6 @@ fn price_from_g_spread_impl(
     target_g_spread_bps: f64,
     curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    use convex_bonds::pricing::YieldSolver;
-
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
         Ok(p) => p,
@@ -1358,24 +1354,17 @@ fn price_from_g_spread_impl(
     // Get cash flows and accrued interest
     let cash_flows = bond.cash_flows(settlement);
     let accrued = bond.accrued_interest(settlement);
-    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
-    let frequency = bond.frequency();
+
+    // Get yield calculation rules - MUST use the same rules as analyze_bond
+    let yield_rules = get_yield_rules(&bond_params);
 
     // Convert target yield from percentage to decimal
     let yield_decimal = target_ytm / 100.0;
 
-    // Calculate clean price from yield
-    let solver = YieldSolver::new();
-    let clean_price = solver.clean_price_from_yield(
-        &cash_flows,
-        yield_decimal,
-        accrued,
-        settlement,
-        day_count,
-        frequency,
-    );
-
-    let dirty_price = clean_price + decimal_to_f64(accrued);
+    // Calculate dirty price from yield using StandardYieldEngine
+    let engine = StandardYieldEngine::default();
+    let dirty_price = engine.price_from_yield(&cash_flows, yield_decimal, settlement, &yield_rules);
+    let clean_price = dirty_price - decimal_to_f64(accrued);
 
     PriceFromYieldResult {
         clean_price: Some(clean_price),
@@ -1411,8 +1400,6 @@ fn price_from_benchmark_spread_impl(
     benchmark_tenor: String,
     curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    use convex_bonds::pricing::YieldSolver;
-
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
         Ok(p) => p,
@@ -1492,24 +1479,17 @@ fn price_from_benchmark_spread_impl(
     // Get cash flows and accrued interest
     let cash_flows = bond.cash_flows(settlement);
     let accrued = bond.accrued_interest(settlement);
-    let day_count = parse_day_count(bond_params.day_count.as_deref().unwrap_or("30/360"));
-    let frequency = bond.frequency();
+
+    // Get yield calculation rules - MUST use the same rules as analyze_bond
+    let yield_rules = get_yield_rules(&bond_params);
 
     // Convert target yield from percentage to decimal
     let yield_decimal = target_ytm / 100.0;
 
-    // Calculate clean price from yield
-    let solver = YieldSolver::new();
-    let clean_price = solver.clean_price_from_yield(
-        &cash_flows,
-        yield_decimal,
-        accrued,
-        settlement,
-        day_count,
-        frequency,
-    );
-
-    let dirty_price = clean_price + decimal_to_f64(accrued);
+    // Calculate dirty price from yield using StandardYieldEngine
+    let engine = StandardYieldEngine::default();
+    let dirty_price = engine.price_from_yield(&cash_flows, yield_decimal, settlement, &yield_rules);
+    let clean_price = dirty_price - decimal_to_f64(accrued);
 
     PriceFromYieldResult {
         clean_price: Some(clean_price),

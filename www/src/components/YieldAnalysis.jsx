@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function YieldAnalysis({
   analysis,
@@ -9,35 +9,75 @@ function YieldAnalysis({
 }) {
   const [localPrice, setLocalPrice] = useState(price);
   const [localYtm, setLocalYtm] = useState(analysis?.ytm || '');
+  const [editingPrice, setEditingPrice] = useState(false);
   const [editingYield, setEditingYield] = useState(false);
+  // Track when user has explicitly set a value - don't overwrite until other input changes
+  const userSetPriceRef = useRef(false);
+  const userSetYtmRef = useRef(false);
+  const lastPriceRef = useRef(price);
 
   useEffect(() => {
-    setLocalPrice(price);
+    // Only update localPrice from prop if user is not editing and hasn't just set it
+    if (!editingPrice && !userSetPriceRef.current) {
+      setLocalPrice(price);
+    }
+  }, [price, editingPrice]);
+
+  useEffect(() => {
+    // If price changed externally (not from YTM solve), allow YTM to update
+    if (price !== lastPriceRef.current) {
+      // Only clear userSetYtm if price changed significantly (not just from our solve)
+      // Small changes might be from the solve, large changes are from user editing price
+      const priceDiff = Math.abs(price - lastPriceRef.current);
+      if (priceDiff > 0.01) {
+        userSetYtmRef.current = false;
+      }
+      lastPriceRef.current = price;
+    }
   }, [price]);
 
   useEffect(() => {
-    // Only update localYtm from analysis if user is not editing
-    if (!editingYield && analysis?.ytm != null) {
+    // Only update localYtm from analysis if:
+    // 1. User is not currently editing
+    // 2. User hasn't just set a YTM value
+    if (!editingYield && !userSetYtmRef.current && analysis?.ytm != null) {
       setLocalYtm(analysis.ytm);
     }
   }, [analysis?.ytm, editingYield]);
 
   const handlePriceBlur = () => {
+    setEditingPrice(false);
     if (localPrice !== price) {
+      // User changed price, so YTM should be recalculated
+      userSetPriceRef.current = true;
+      userSetYtmRef.current = false;
       onPriceChange(localPrice);
     }
   };
 
   const handlePriceKeyDown = (e) => {
     if (e.key === 'Enter') {
+      setEditingPrice(false);
+      // User changed price, so YTM should be recalculated
+      userSetPriceRef.current = true;
+      userSetYtmRef.current = false;
       onPriceChange(localPrice);
+    } else if (e.key === 'Escape') {
+      setLocalPrice(price);
+      setEditingPrice(false);
+      userSetPriceRef.current = false;
     }
   };
 
   const handleYieldBlur = () => {
     setEditingYield(false);
-    if (onYieldChange && localYtm !== analysis?.ytm) {
-      onYieldChange(parseFloat(localYtm) || 0);
+    const newYtm = parseFloat(localYtm) || 0;
+    if (onYieldChange && newYtm !== analysis?.ytm) {
+      // User set a YTM, don't overwrite it with calculated value
+      // But price should be allowed to update from the yield solve
+      userSetYtmRef.current = true;
+      userSetPriceRef.current = false;
+      onYieldChange(newYtm);
     }
   };
 
@@ -45,8 +85,17 @@ function YieldAnalysis({
     if (e.key === 'Enter') {
       setEditingYield(false);
       if (onYieldChange) {
-        onYieldChange(parseFloat(localYtm) || 0);
+        const newYtm = parseFloat(localYtm) || 0;
+        // User set a YTM, don't overwrite it with calculated value
+        // But price should be allowed to update from the yield solve
+        userSetYtmRef.current = true;
+        userSetPriceRef.current = false;
+        onYieldChange(newYtm);
       }
+    } else if (e.key === 'Escape') {
+      setLocalYtm(analysis?.ytm ?? '');
+      setEditingYield(false);
+      userSetYtmRef.current = false;
     }
   };
 
@@ -74,10 +123,16 @@ function YieldAnalysis({
             <div className="metric-value">
               <input
                 type="number"
-                value={localPrice}
-                onChange={(e) => setLocalPrice(parseFloat(e.target.value) || 0)}
+                value={editingPrice || userSetPriceRef.current
+                  ? localPrice
+                  : (price != null ? Number(price).toFixed(4) : '')}
+                onChange={(e) => {
+                  setEditingPrice(true);
+                  setLocalPrice(parseFloat(e.target.value) || 0);
+                }}
                 onBlur={handlePriceBlur}
                 onKeyDown={handlePriceKeyDown}
+                onFocus={() => setEditingPrice(true)}
                 step="0.001"
                 className="price-input"
               />
@@ -106,7 +161,9 @@ function YieldAnalysis({
             <div className="metric-value ytm">
               <input
                 type="number"
-                value={editingYield ? localYtm : (analysis?.ytm != null ? Number(analysis.ytm).toFixed(4) : '')}
+                value={editingYield || userSetYtmRef.current
+                  ? localYtm
+                  : (analysis?.ytm != null ? Number(analysis.ytm).toFixed(4) : '')}
                 onChange={(e) => {
                   setEditingYield(true);
                   setLocalYtm(e.target.value);

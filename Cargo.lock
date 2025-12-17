@@ -356,6 +356,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex-analytics"
+version = "0.10.1"
+dependencies = [
+ "approx",
+ "chrono",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+ "convex-math",
+ "criterion",
+ "log",
+ "proptest",
+ "rayon",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "convex-bonds"
 version = "0.10.1"
 dependencies = [
@@ -437,54 +457,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "convex-risk"
-version = "0.10.1"
-dependencies = [
- "approx",
- "chrono",
- "convex-bonds",
- "convex-core",
- "convex-curves",
- "convex-math",
- "criterion",
- "proptest",
- "rayon",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "convex-spreads"
-version = "0.10.1"
-dependencies = [
- "approx",
- "convex-bonds",
- "convex-core",
- "convex-curves",
- "convex-math",
- "criterion",
- "log",
- "proptest",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "convex-wasm"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
+ "convex-analytics",
  "convex-bonds",
  "convex-core",
  "convex-curves",
  "convex-math",
- "convex-spreads",
- "convex-yas",
  "getrandom 0.2.16",
  "js-sys",
  "rust_decimal",
@@ -493,27 +475,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "convex-yas"
-version = "0.10.1"
-dependencies = [
- "approx",
- "chrono",
- "convex-bonds",
- "convex-core",
- "convex-curves",
- "convex-math",
- "convex-risk",
- "convex-spreads",
- "criterion",
- "proptest",
- "rayon",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "thiserror",
 ]
 
 [[package]]

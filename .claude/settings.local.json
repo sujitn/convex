@@ -42,7 +42,9 @@
       "Bash(echo:*)",
       "Bash(wc -l \"C:\\Users\\sujit\\source\\convex\\crates\\convex-bonds\\src\"/**/*.rs)",
       "Bash(cd:*)",
-      "Bash(npm start --prefix www)"
+      "Bash(npm start --prefix www)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

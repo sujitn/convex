@@ -104,20 +104,8 @@ jobs:
       - name: Wait for crates.io index update
         run: sleep 120
 
-      - name: Publish convex-spreads
-        run: cargo publish -p convex-spreads --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-risk
-        run: cargo publish -p convex-risk --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-yas
-        run: cargo publish -p convex-yas --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish convex-analytics
+        run: cargo publish -p convex-analytics --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   github-release:
     name: Create GitHub Release
@@ -172,10 +160,16 @@ jobs:
             convex-math = "${{ steps.tag.outputs.VERSION }}"
             convex-curves = "${{ steps.tag.outputs.VERSION }}"
             convex-bonds = "${{ steps.tag.outputs.VERSION }}"
-            convex-spreads = "${{ steps.tag.outputs.VERSION }}"
-            convex-risk = "${{ steps.tag.outputs.VERSION }}"
-            convex-yas = "${{ steps.tag.outputs.VERSION }}"
+            convex-analytics = "${{ steps.tag.outputs.VERSION }}"
             ```
+
+            ## Crate Overview
+
+            - **convex-core**: Core types, traits, and utilities
+            - **convex-math**: Day count conventions, solvers, and mathematical utilities
+            - **convex-curves**: Yield curves, discount curves, and interpolation
+            - **convex-bonds**: Bond instruments, cash flows, and pricing
+            - **convex-analytics**: Unified analytics (yields, spreads, risk metrics, YAS)
 
             ## Links
 
