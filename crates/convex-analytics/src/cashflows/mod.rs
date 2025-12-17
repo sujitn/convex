@@ -30,22 +30,9 @@ pub use settlement::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_bonds::instruments::FixedBondBuilder;
     use convex_core::daycounts::DayCountConvention;
-    use convex_core::types::{Currency, Date, Frequency};
-    use rust_decimal::Decimal;
+    use convex_core::types::{Date, Frequency};
     use rust_decimal_macros::dec;
-
-    fn create_test_bond() -> convex_bonds::instruments::FixedBond {
-        FixedBondBuilder::new()
-            .isin("TEST")
-            .coupon_rate(dec!(0.05))
-            .maturity(Date::from_ymd(2027, 6, 15).unwrap())
-            .frequency(Frequency::SemiAnnual)
-            .currency(Currency::USD)
-            .build()
-            .unwrap()
-    }
 
     #[test]
     fn test_fixed_rate_from_schedule() {

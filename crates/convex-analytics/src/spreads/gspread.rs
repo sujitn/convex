@@ -175,7 +175,6 @@ mod tests {
     }
 
     fn create_test_curve() -> GovernmentCurve {
-        use super::super::benchmark::SecurityId;
         use super::super::government_curve::GovernmentBenchmark;
         use super::super::sovereign::Sovereign;
 
