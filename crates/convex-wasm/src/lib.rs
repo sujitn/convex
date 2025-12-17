@@ -8,6 +8,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+use convex_analytics::spreads::OASCalculator;
+use convex_analytics::yas::YASCalculator;
 use convex_bonds::conventions::{ConventionKey, ConventionRegistry, InstrumentType, Market};
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::prelude::BondIdentifiers;
@@ -24,8 +26,6 @@ use convex_core::types::{Currency, Date, Frequency};
 use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
 use convex_curves::interpolation::InterpolationMethod;
 use convex_curves::{ZeroCurve, ZeroCurveBuilder};
-use convex_spreads::oas::OASCalculator;
-use convex_yas::YASCalculator;
 
 // ============================================================================
 // Initialization
@@ -971,7 +971,7 @@ fn create_discount_curve(
 }
 
 fn convert_yas_result(
-    result: &convex_yas::YASResult,
+    result: &convex_analytics::yas::YASResult,
     bond: &FixedRateBond,
     settlement: Date,
     rules: &YieldCalculationRules,
@@ -1176,7 +1176,7 @@ fn price_from_spread_impl(
     target_spread_bps: f64,
     curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    use convex_spreads::ZSpreadCalculator;
+    use convex_analytics::spreads::ZSpreadCalculator;
 
     // Parse parameters
     let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
@@ -1222,8 +1222,8 @@ fn price_from_spread_impl(
         }
     };
 
-    // Build the curve
-    let curve = match create_curve(settlement, &points) {
+    // Build the curve (use DiscountCurve which implements Curve trait)
+    let curve = match create_discount_curve(settlement, &points) {
         Ok(c) => c,
         Err(e) => {
             return PriceFromYieldResult {
@@ -1233,8 +1233,7 @@ fn price_from_spread_impl(
         }
     };
 
-    // Get cash flows and accrued interest
-    let cash_flows = bond.cash_flows(settlement);
+    // Get accrued interest
     let accrued = bond.accrued_interest(settlement);
 
     // Convert spread from bps to decimal (e.g., 100 bps = 0.01)
@@ -1242,7 +1241,7 @@ fn price_from_spread_impl(
 
     // Calculate price from Z-spread
     let calculator = ZSpreadCalculator::new(&curve);
-    let dirty_price = calculator.price_with_spread(&cash_flows, spread_decimal, settlement);
+    let dirty_price = calculator.price_with_spread(&bond, spread_decimal, settlement);
     let clean_price = dirty_price - decimal_to_f64(accrued);
 
     PriceFromYieldResult {

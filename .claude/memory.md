@@ -5,10 +5,196 @@
 
 ## Project Status
 
-**Current Phase**: Foundation & Initial Development
+**Current Phase**: Architecture Refactoring (convex-analytics consolidation)
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-08 (UI Layout Overhaul + OAS Volatility + Benchmark Tenor Fix)
+**Last Updated**: 2025-12-17 (Architecture Refactoring - Phase 7 Complete)
 **Target**: Production-grade fixed income analytics
+
+---
+
+## Active Refactoring: convex-analytics Consolidation
+
+### Goal
+Consolidate all calculation code into a new `convex-analytics` crate:
+- **convex-bonds**: Pure instrument definitions (types, conventions, NO calculations)
+- **convex-analytics**: ALL calculation logic consolidated here
+- **convex-spreads, convex-risk, convex-yas**: To be absorbed into convex-analytics
+
+### User Decisions (2025-12-15)
+1. Cash flow generation → Move to convex-analytics
+2. convex-spreads and convex-risk → Absorb into convex-analytics
+3. convex-yas → Absorb into convex-analytics (crate will be deleted)
+4. BondAnalytics trait → Convert to standalone functions in convex-analytics
+
+### Progress
+
+#### Completed ✅
+- **Phase 1a: convex-analytics foundation**
+  - Created `crates/convex-analytics/Cargo.toml`
+  - Created `src/lib.rs` with module structure
+  - Created `src/error.rs` with unified `AnalyticsError` type
+
+- **Phase 1b: cashflows module migrated**
+  - `cashflows/schedule.rs` - Schedule, ScheduleConfig, StubType
+  - `cashflows/accrued.rs` - AccruedInterestCalculator
+  - `cashflows/generator.rs` - CashFlowGenerator (fixed/floating/amortizing/inflation-linked)
+  - `cashflows/irregular.rs` - IrregularPeriodHandler, ReferenceMethod
+  - `cashflows/settlement.rs` - SettlementCalculator, SettlementRules, SettlementStatus
+  - **40 tests passing** in convex-analytics
+
+- **Phase 1c: yields/pricing modules migrated**
+  - `yields/mod.rs` - Module organization and exports
+  - `yields/solver.rs` - YieldSolver, YieldResult (Bloomberg YAS methodology)
+  - `yields/engine.rs` - YieldEngine trait, StandardYieldEngine, YieldEngineResult
+  - `yields/money_market.rs` - money_market_yield, discount_yield, bond_equivalent_yield, cd_equivalent_yield
+  - `yields/current.rs` - current_yield, current_yield_from_amount, current_yield_from_bond
+  - `yields/simple.rs` - simple_yield (Japanese convention)
+  - `yields/street.rs` - street_convention_yield (Newton-Raphson solver)
+  - `yields/true_yield.rs` - true_yield, settlement_adjustment
+  - `yields/short_date.rs` - ShortDateCalculator, RollForwardMethod
+  - `pricing/mod.rs` - BondPricer, PriceResult
+  - **101 tests passing** in convex-analytics
+
+- **Phase 2: convex-risk absorbed into convex-analytics**
+  - `risk/mod.rs` - Module organization, re-exports, prelude
+  - `risk/duration/mod.rs` - Duration type definition
+  - `risk/duration/macaulay.rs` - macaulay_duration from cash flows
+  - `risk/duration/modified.rs` - modified_duration, modified_from_macaulay, price_change_from_duration
+  - `risk/duration/effective.rs` - effective_duration using finite differences
+  - `risk/duration/key_rate.rs` - key_rate_duration_at_tenor, KeyRateDuration, KeyRateDurations
+  - `risk/duration/spread_duration.rs` - spread_duration for credit spread sensitivity
+  - `risk/convexity/mod.rs` - Convexity type definition, price_change_with_convexity
+  - `risk/convexity/analytical.rs` - analytical_convexity from cash flows
+  - `risk/convexity/effective.rs` - effective_convexity using finite differences
+  - `risk/dv01.rs` - DV01 type, dv01_from_duration, dv01_from_prices, dv01_per_100_face, notional_from_dv01
+  - `risk/calculator.rs` - BondRiskCalculator, BondRiskMetrics, EffectiveDurationCalculator, KeyRateDurationCalculator
+  - `risk/var/mod.rs` - VaRResult, VaRMethod types
+  - `risk/var/parametric.rs` - parametric_var, parametric_var_from_dv01, z-score interpolation
+  - `risk/var/historical.rs` - historical_var from returns
+  - `risk/hedging/mod.rs` - Hedging submodule re-exports
+  - `risk/hedging/hedge_ratio.rs` - dv01_hedge_ratio, duration_hedge_ratio, HedgeRecommendation, HedgeDirection
+  - `risk/hedging/portfolio.rs` - PortfolioRisk, Position, aggregate_portfolio_risk
+  - **138 tests passing** in convex-analytics
+
+- **Phase 3: convex-spreads absorbed into convex-analytics**
+  - `spreads/mod.rs` - Module organization, re-exports
+  - `spreads/sovereign.rs` - Sovereign enum (40+ countries), SupranationalIssuer enum
+  - `spreads/benchmark.rs` - BenchmarkSpec enum, SecurityId (CUSIP/ISIN/FIGI)
+  - `spreads/government_curve.rs` - GovernmentCurve, GovernmentBenchmark, yield interpolation
+  - `spreads/zspread.rs` - ZSpreadCalculator, z_spread, z_spread_from_curve (Brent solver)
+  - `spreads/gspread.rs` - GSpreadCalculator, g_spread, g_spread_with_benchmark
+  - `spreads/ispread.rs` - ISpreadCalculator, i_spread, implied_yield
+  - `spreads/oas.rs` - OASCalculator (Hull-White model, binomial trees)
+  - `spreads/discount_margin.rs` - DiscountMarginCalculator, simple_margin, z_discount_margin
+  - `spreads/asw/mod.rs` - ASWType enum (ParPar, MarketValue, Proceeds)
+  - `spreads/asw/par_par.rs` - ParParAssetSwap calculator
+  - `spreads/asw/proceeds.rs` - ProceedsAssetSwap calculator
+  - **201 tests passing** in convex-analytics
+
+- **Phase 4: convex-yas absorbed into convex-analytics**
+  - `yas/mod.rs` - Module organization, re-exports
+  - `yas/invoice.rs` - SettlementInvoice, SettlementInvoiceBuilder, calculate_proceeds, calculate_accrued_amount, calculate_settlement_date
+  - `yas/analysis.rs` - YasAnalysis, YasAnalysisBuilder
+  - `yas/calculator.rs` - YASCalculator, YASResult, BloombergReference, ValidationFailure, BatchYASCalculator
+  - Bloomberg YAS replication with currency-specific benchmark tenors
+  - **219 tests passing** in convex-analytics
+
+- **Phase 5: options module moved from convex-bonds**
+  - `options/mod.rs` - Module organization, re-exports (BinomialTree, HullWhite, ModelError, ShortRateModel)
+  - `options/binomial_tree.rs` - BinomialTree for interest rate modeling, backward induction pricing
+  - `options/models/mod.rs` - ModelError enum, ShortRateModel trait
+  - `options/models/hull_white.rs` - Hull-White one-factor short rate model (industry standard for callable bonds)
+  - **240 tests passing** in convex-analytics
+
+- **Phase 6: BondAnalytics trait converted to standalone functions**
+  - `functions/mod.rs` - Standalone bond-level analytics functions replacing BondAnalytics trait
+  - Functions provided:
+    - `yield_to_maturity`, `yield_to_maturity_with_convention` - YTM from clean price
+    - `dirty_price_from_yield`, `clean_price_from_yield` - price calculations
+    - `macaulay_duration`, `modified_duration`, `effective_duration` - duration metrics
+    - `convexity`, `effective_convexity` - convexity metrics
+    - `dv01`, `dv01_notional` - DV01 calculations
+    - `estimate_price_change` - duration+convexity price change approximation
+    - `parse_day_count` - day count convention helper
+  - All functions take `&dyn Bond` for convenient bond-level API
+  - **248 tests passing** in convex-analytics
+
+- **Phase 7: Cleanup and integration complete**
+  - Updated convex-wasm to use convex-analytics imports
+  - Removed convex-spreads, convex-risk, convex-yas from workspace members
+  - Fixed `price_from_spread` function to use DiscountCurve (implements Curve trait)
+  - All workspace tests passing
+
+#### Architecture Refactoring Complete ✅
+- [x] **Phase 2**: Absorb convex-risk into convex-analytics ✅
+- [x] **Phase 3**: Absorb convex-spreads into convex-analytics ✅
+- [x] **Phase 4**: Absorb convex-yas into convex-analytics ✅
+- [x] **Phase 5**: Move options module from convex-bonds ✅
+- [x] **Phase 6**: Convert BondAnalytics trait to standalone functions ✅
+- [x] **Phase 7**: Clean up convex-bonds, update convex-wasm, remove absorbed crates ✅
+
+### Key Files Created
+- `crates/convex-analytics/Cargo.toml`
+- `crates/convex-analytics/src/lib.rs`
+- `crates/convex-analytics/src/error.rs`
+- `crates/convex-analytics/src/cashflows/mod.rs`
+- `crates/convex-analytics/src/cashflows/schedule.rs`
+- `crates/convex-analytics/src/cashflows/accrued.rs`
+- `crates/convex-analytics/src/cashflows/generator.rs`
+- `crates/convex-analytics/src/cashflows/irregular.rs`
+- `crates/convex-analytics/src/cashflows/settlement.rs`
+- `crates/convex-analytics/src/yields/mod.rs`
+- `crates/convex-analytics/src/yields/solver.rs`
+- `crates/convex-analytics/src/yields/engine.rs`
+- `crates/convex-analytics/src/yields/money_market.rs`
+- `crates/convex-analytics/src/yields/current.rs`
+- `crates/convex-analytics/src/yields/simple.rs`
+- `crates/convex-analytics/src/yields/street.rs`
+- `crates/convex-analytics/src/yields/true_yield.rs`
+- `crates/convex-analytics/src/yields/short_date.rs`
+- `crates/convex-analytics/src/pricing/mod.rs`
+- `crates/convex-analytics/src/risk/mod.rs`
+- `crates/convex-analytics/src/risk/calculator.rs`
+- `crates/convex-analytics/src/risk/dv01.rs`
+- `crates/convex-analytics/src/risk/duration/mod.rs`
+- `crates/convex-analytics/src/risk/duration/macaulay.rs`
+- `crates/convex-analytics/src/risk/duration/modified.rs`
+- `crates/convex-analytics/src/risk/duration/effective.rs`
+- `crates/convex-analytics/src/risk/duration/key_rate.rs`
+- `crates/convex-analytics/src/risk/duration/spread_duration.rs`
+- `crates/convex-analytics/src/risk/convexity/mod.rs`
+- `crates/convex-analytics/src/risk/convexity/analytical.rs`
+- `crates/convex-analytics/src/risk/convexity/effective.rs`
+- `crates/convex-analytics/src/risk/var/mod.rs`
+- `crates/convex-analytics/src/risk/var/parametric.rs`
+- `crates/convex-analytics/src/risk/var/historical.rs`
+- `crates/convex-analytics/src/risk/hedging/mod.rs`
+- `crates/convex-analytics/src/risk/hedging/hedge_ratio.rs`
+- `crates/convex-analytics/src/risk/hedging/portfolio.rs`
+- `crates/convex-analytics/src/spreads/mod.rs`
+- `crates/convex-analytics/src/spreads/sovereign.rs`
+- `crates/convex-analytics/src/spreads/benchmark.rs`
+- `crates/convex-analytics/src/spreads/government_curve.rs`
+- `crates/convex-analytics/src/spreads/zspread.rs`
+- `crates/convex-analytics/src/spreads/gspread.rs`
+- `crates/convex-analytics/src/spreads/ispread.rs`
+- `crates/convex-analytics/src/spreads/oas.rs`
+- `crates/convex-analytics/src/spreads/discount_margin.rs`
+- `crates/convex-analytics/src/spreads/asw/mod.rs`
+- `crates/convex-analytics/src/spreads/asw/par_par.rs`
+- `crates/convex-analytics/src/spreads/asw/proceeds.rs`
+- `crates/convex-analytics/src/yas/mod.rs`
+- `crates/convex-analytics/src/yas/invoice.rs`
+- `crates/convex-analytics/src/yas/analysis.rs`
+- `crates/convex-analytics/src/yas/calculator.rs`
+- `crates/convex-analytics/src/options/mod.rs`
+- `crates/convex-analytics/src/options/binomial_tree.rs`
+- `crates/convex-analytics/src/options/models/mod.rs`
+- `crates/convex-analytics/src/options/models/hull_white.rs`
+- `crates/convex-analytics/src/functions/mod.rs`
+
+### Plan File
+Full implementation plan: `.claude/plans/nifty-whistling-dewdrop.md`
 
 ---
 
@@ -22,11 +208,12 @@
 | convex-math | 118 | ✅ Complete | Solvers, interpolation, extrapolation |
 | convex-curves | 236 | ✅ Complete | Curves, bootstrap, multi-curve |
 | convex-bonds | 274 | ✅ Complete | Instruments, pricing, options, BondAnalytics trait |
-| convex-spreads | 90 | ✅ Complete | G/I/Z-spread, OAS, ASW, DM |
-| convex-risk | 38 | ✅ Complete | Duration, convexity, DV01, VaR, hedging |
-| convex-yas | 41 | ✅ Complete | Bloomberg YAS replication, MMY, ASW spread |
+| convex-analytics | 248 | ✅ Complete | Unified analytics (cashflows, yields, pricing, risk, spreads, yas, options, functions) |
+| ~~convex-spreads~~ | - | Absorbed | Absorbed into convex-analytics |
+| ~~convex-risk~~ | - | Absorbed | Absorbed into convex-analytics |
+| ~~convex-yas~~ | - | Absorbed | Absorbed into convex-analytics |
 | convex-ffi | 4 | 🟡 Minimal | C FFI bindings (Date only) |
-| **Total** | **1023** | | |
+| **Total** | **1063** | | |
 
 ---
 

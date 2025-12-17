@@ -1,0 +1,50 @@
+[package]
+name = "convex-analytics"
+description = "Unified analytics engine for the Convex fixed income library - yields, spreads, risk, and YAS replication"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "analytics", "yields", "risk"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-math = { workspace = true }
+convex-curves = { workspace = true }
+convex-bonds = { workspace = true }
+
+# Date/time handling
+chrono = { workspace = true }
+
+# High-precision decimal arithmetic
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Parallel processing (optional)
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+parallel = ["rayon"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

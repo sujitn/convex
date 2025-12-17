@@ -20,8 +20,7 @@ convex-core = { path = "../convex-core" }
 convex-math = { path = "../convex-math" }
 convex-curves = { path = "../convex-curves" }
 convex-bonds = { path = "../convex-bonds" }
-convex-spreads = { path = "../convex-spreads" }
-convex-yas = { path = "../convex-yas" }
+convex-analytics = { path = "../convex-analytics" }
 
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
