@@ -7,19 +7,23 @@
 [![Build Status](https://github.com/sujitn/convex/workflows/CI/badge.svg)](https://github.com/sujitn/convex/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**[Live Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
+
 Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics capabilities comparable to Bloomberg YAS (Yield Analysis System).
 
 ## Features
 
-- **Bond Pricing**: All major bond types (government, corporate, callable, putable)
+- **Bond Pricing**: All major bond types (government, corporate, callable, putable, sinking fund)
+- **Yield Calculations**: YTM, YTC, YTW with Bloomberg YAS methodology
 - **Yield Curves**: Bootstrap from market data with multiple interpolation methods
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
-- **Risk Metrics**: Duration, Convexity, DV01, Key Rate Durations
+- **Risk Metrics**: Duration (Macaulay, Modified, Effective, Key Rate), Convexity, DV01
 - **Day Count Conventions**: ACT/360, ACT/365, 30/360, ACT/ACT (ICMA, ISDA)
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
-- **High Performance**: Microsecond-level pricing, SIMD optimizations
+- **High Performance**: Microsecond-level pricing
 - **Type Safety**: Leverage Rust's type system to prevent errors
-- **Language Bindings**: Python, Java, C#, Excel plugin (coming soon)
+- **WebAssembly**: Full browser support via wasm-pack ([Live Demo](https://sujitn.github.io/convex/))
+- **Language Bindings**: C FFI bindings available; Python, Java, C# (coming soon)
 
 ## Quick Start
 
@@ -119,10 +123,11 @@ Convex is organized into several crates for modularity:
 ```
 convex/
 ├── convex-core        # Core types (Date, Price, Yield, etc.)
-├── convex-curves      # Yield curve construction and interpolation
-├── convex-bonds       # Bond instruments and pricing
-├── convex-spreads     # Spread calculations
 ├── convex-math        # Mathematical utilities and solvers
+├── convex-curves      # Yield curve construction and interpolation
+├── convex-bonds       # Bond instruments and definitions
+├── convex-analytics   # Unified analytics (yields, spreads, risk, YAS)
+├── convex-wasm        # WebAssembly bindings
 └── convex-ffi         # Foreign Function Interface for language bindings
 ```
 
@@ -259,17 +264,17 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 
 ### Current Support
 - ✅ Fixed-rate bonds (government, corporate)
-- ✅ Zero-coupon bonds
-- ✅ Floating-rate notes (planned Q1 2025)
-- ✅ Callable bonds (planned Q2 2025)
-- ✅ Putable bonds (planned Q2 2025)
+- ✅ Zero-coupon bonds (T-Bills, discount bonds)
+- ✅ Floating-rate notes (SOFR, SONIA, EURIBOR with caps/floors)
+- ✅ Callable bonds (American, Bermudan, European, Make-Whole)
+- ✅ Putable bonds
+- ✅ Sinking fund bonds (with average life calculations)
 
 ### Future Support
 - 🔜 Convertible bonds
 - 🔜 Inflation-linked bonds (TIPS, Linkers)
 - 🔜 Asset-backed securities
 - 🔜 Mortgage-backed securities
-- 🔜 Credit default swaps
 
 ## Building from Source
 
@@ -342,35 +347,33 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ## Roadmap
 
-### Q4 2024
+### Completed
 - [x] Core infrastructure (Date, Price, Yield types)
-- [x] Day count conventions
-- [x] Yield curve construction
-- [x] Fixed-rate bond pricing
-- [x] Basic spread calculations
+- [x] Day count conventions (all major conventions)
+- [x] Yield curve construction and bootstrapping
+- [x] Fixed-rate bond pricing with Bloomberg YAS methodology
+- [x] Spread calculations (G-spread, Z-spread, I-spread, OAS, ASW)
 - [x] Holiday calendars (SIFMA, TARGET2, UK, Japan)
 - [x] Dynamic calendar system (JSON loading, custom builders)
+- [x] Floating rate notes (SOFR, SONIA, EURIBOR)
+- [x] Callable/putable bonds with OAS
+- [x] Sinking fund bonds
+- [x] Risk metrics (Duration, Convexity, DV01, VaR)
+- [x] Multi-curve framework (OIS discounting)
+- [x] WebAssembly support with interactive demo
+- [x] Advanced interpolation (Nelson-Siegel, Svensson, Monotone Convex)
 
-### Q1 2025
-- [ ] Floating rate notes
-- [ ] Advanced interpolation methods
-- [ ] Python bindings
-- [ ] Performance optimizations
+### In Progress
+- [ ] Python bindings (PyO3)
 - [ ] Comprehensive documentation
+- [ ] Performance optimizations
 
-### Q2 2025
-- [ ] Callable/putable bonds with OAS
+### Planned
 - [ ] Java and C# bindings
 - [ ] Excel plugin
-- [ ] Real-time market data integration
-- [ ] Portfolio analytics
-
-### Q3 2025
 - [ ] Convertible bonds
-- [ ] Inflation-linked bonds
-- [ ] Multi-curve framework (OIS discounting)
+- [ ] Inflation-linked bonds (TIPS, Linkers)
 - [ ] REST API service
-- [ ] GPU acceleration
 
 ## Validation
 

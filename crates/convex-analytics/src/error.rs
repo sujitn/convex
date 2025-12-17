@@ -12,7 +12,12 @@ pub enum AnalyticsError {
     // ========== Yield/Pricing Errors ==========
     /// Yield solver failed to converge
     #[error("yield solver failed to converge after {iterations} iterations: {reason}")]
-    YieldSolverFailed { iterations: u32, reason: String },
+    YieldSolverFailed {
+        /// Number of iterations before failure.
+        iterations: u32,
+        /// Reason for failure.
+        reason: String,
+    },
 
     /// Invalid yield value
     #[error("invalid yield value: {0}")]
@@ -115,7 +120,9 @@ pub enum AnalyticsError {
     /// Invalid settlement date
     #[error("invalid settlement date: settlement {settlement} must be before maturity {maturity}")]
     InvalidSettlement {
+        /// The settlement date that was provided.
         settlement: String,
+        /// The maturity date of the instrument.
         maturity: String,
     },
 
@@ -138,9 +145,13 @@ pub enum AnalyticsError {
     /// Value out of bounds
     #[error("{name} value {value} is out of bounds [{min}, {max}]")]
     OutOfBounds {
+        /// Name of the parameter that is out of bounds.
         name: String,
+        /// The value that was provided.
         value: Decimal,
+        /// Minimum allowed value.
         min: Decimal,
+        /// Maximum allowed value.
         max: Decimal,
     },
 
@@ -155,8 +166,11 @@ pub enum AnalyticsError {
     /// Solver convergence failed
     #[error("{solver} failed to converge after {iterations} iterations (residual: {residual})")]
     SolverConvergenceFailed {
+        /// Name of the solver that failed.
         solver: String,
+        /// Number of iterations before failure.
         iterations: u32,
+        /// Final residual value when the solver stopped.
         residual: f64,
     },
 }

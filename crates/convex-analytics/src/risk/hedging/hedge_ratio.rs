@@ -70,7 +70,9 @@ pub struct HedgeRecommendation {
 /// Hedge direction
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HedgeDirection {
+    /// Long position (buy the hedge instrument).
     Long,
+    /// Short position (sell the hedge instrument).
     Short,
 }
 

@@ -46,6 +46,8 @@ function Benchmark({
   const [benchmarkYield, setBenchmarkYield] = useState(null);
   const [localSpread, setLocalSpread] = useState('');
   const [editingSpread, setEditingSpread] = useState(false);
+  // Track when user has explicitly set benchmark spread - don't overwrite until other input changes
+  const userSetSpreadRef = useRef(false);
   const spreadTimer = useRef(null);
 
   // Get benchmark coupon for selected tenor
@@ -102,9 +104,9 @@ function Benchmark({
     return null;
   }, [analysis?.ytm, benchmarkYield]);
 
-  // Update local spread when calculated spread changes (and not editing)
+  // Update local spread when calculated spread changes (and not editing and not user-set)
   useEffect(() => {
-    if (!editingSpread && calculatedSpread != null) {
+    if (!editingSpread && !userSetSpreadRef.current && calculatedSpread != null) {
       setLocalSpread(calculatedSpread);
     }
   }, [calculatedSpread, editingSpread]);
@@ -123,6 +125,7 @@ function Benchmark({
       if (onBenchmarkSpreadChange) {
         const numValue = parseFloat(value);
         if (!isNaN(numValue)) {
+          userSetSpreadRef.current = true;
           onBenchmarkSpreadChange(numValue, selectedTenor);
         }
       }
@@ -146,6 +149,8 @@ function Benchmark({
 
   const handleTenorChange = (e) => {
     setSelectedTenor(e.target.value);
+    // When tenor changes, allow spread to recalculate
+    userSetSpreadRef.current = false;
   };
 
   const handleSpreadChange = (e) => {
@@ -156,22 +161,23 @@ function Benchmark({
 
   const handleSpreadBlur = () => {
     if (spreadTimer.current) clearTimeout(spreadTimer.current);
+    setEditingSpread(false);
     if (onBenchmarkSpreadChange) {
       const numValue = parseFloat(localSpread);
       if (!isNaN(numValue)) {
+        userSetSpreadRef.current = true;
         onBenchmarkSpreadChange(numValue, selectedTenor);
       }
     }
-    setEditingSpread(false);
   };
 
   const handleSpreadKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.target.blur();
     } else if (e.key === 'Escape') {
-      const spread = analysis?.benchmark_spread ?? analysis?.g_spread ?? '';
-      setLocalSpread(spread);
+      setLocalSpread(calculatedSpread ?? '');
       setEditingSpread(false);
+      userSetSpreadRef.current = false;
     }
   };
 
@@ -214,7 +220,9 @@ function Benchmark({
             <div className="spread-input-compact">
               <input
                 type="number"
-                value={editingSpread ? localSpread : (localSpread !== '' ? Number(localSpread).toFixed(1) : '')}
+                value={editingSpread || userSetSpreadRef.current
+                  ? localSpread
+                  : (localSpread !== '' ? Number(localSpread).toFixed(1) : '')}
                 onChange={handleSpreadChange}
                 onBlur={handleSpreadBlur}
                 onKeyDown={handleSpreadKeyDown}

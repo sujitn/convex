@@ -5,9 +5,9 @@
 
 ## Project Status
 
-**Current Phase**: Architecture Refactoring (convex-analytics consolidation)
+**Current Phase**: Production Ready
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-17 (Architecture Refactoring - Phase 7 Complete)
+**Last Updated**: 2025-12-17 (UI/UX fixes, GitHub workflow update)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -1216,6 +1216,32 @@ Settlement: 04/29/2020, Price: 110.503
 ---
 
 ## Change Log
+
+### 2025-12-17 - UI/UX Improvements and Pipeline Updates
+
+**YTM Precision and Roundtrip Fixes:**
+- Fixed f64 to Decimal conversion precision issue by adding `round_dp(10)` to `f64_to_decimal()` in convex-wasm
+- Fixed YTM roundtrip inconsistency where typing YTM 5.7% resulted in 5.6812% after calculation
+- Updated `price_from_yield_impl`, `price_from_g_spread_impl`, `price_from_benchmark_spread_impl` to use `StandardYieldEngine` with `get_yield_rules()` for consistency with `analyze_bond`
+
+**UI Input Field Tracking (www/src/components):**
+- YieldAnalysis.jsx: Added `userSetPriceRef` and `userSetYtmRef` to prevent input values from being overwritten
+- SpreadAnalysis.jsx: Added `userSetZSpreadRef` and `userSetGSpreadRef` for spread input preservation
+- Benchmark.jsx: Added `userSetSpreadRef` for benchmark spread input preservation
+- Pattern: Track user-edited values with useRef, clear flag when complementary input changes
+
+**Documentation Fixes:**
+- Added missing documentation to struct fields in error.rs (YieldSolverFailed, InvalidSettlement, OutOfBounds, SolverConvergenceFailed)
+- Added docs to HedgeDirection::Long and Short in hedge_ratio.rs
+- Added docs to Z_SCORE_90, Z_SCORE_95, Z_SCORE_99 in parametric.rs
+
+**GitHub Release Pipeline:**
+- Updated `.github/workflows/release.yml` to reflect crate consolidation
+- Removed publish steps for absorbed crates (convex-spreads, convex-risk, convex-yas)
+- Added publish step for convex-analytics
+- Updated release body with correct crate list
+
+---
 
 ### 2025-12-07 - Duration/Convexity (RISK-001) Complete
 

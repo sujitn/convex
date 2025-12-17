@@ -4,9 +4,11 @@ use super::{VaRMethod, VaRResult};
 use crate::error::{AnalyticsError, AnalyticsResult};
 use rust_decimal::Decimal;
 
-/// Z-scores for common confidence levels
+/// Z-score for 90% confidence level (one-tailed).
 pub const Z_SCORE_90: f64 = 1.282;
+/// Z-score for 95% confidence level (one-tailed).
 pub const Z_SCORE_95: f64 = 1.645;
+/// Z-score for 99% confidence level (one-tailed).
 pub const Z_SCORE_99: f64 = 2.326;
 
 /// Calculate parametric VaR using the variance-covariance method.

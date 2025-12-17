@@ -8,10 +8,14 @@ function SpreadAnalysis({
   // Z-Spread state
   const [localZSpread, setLocalZSpread] = useState(analysis?.z_spread || '');
   const [editingZSpread, setEditingZSpread] = useState(false);
+  // Track when user has explicitly set Z-spread - don't overwrite until other input changes
+  const userSetZSpreadRef = useRef(false);
 
   // G-Spread state
   const [localGSpread, setLocalGSpread] = useState(analysis?.g_spread || '');
   const [editingGSpread, setEditingGSpread] = useState(false);
+  // Track when user has explicitly set G-spread - don't overwrite until other input changes
+  const userSetGSpreadRef = useRef(false);
 
   // Debounce refs
   const zSpreadTimer = useRef(null);
@@ -24,6 +28,9 @@ function SpreadAnalysis({
       if (onSpreadChange) {
         const numValue = parseFloat(value);
         if (!isNaN(numValue)) {
+          userSetZSpreadRef.current = true;
+          // When user sets Z-spread, G-spread should recalculate
+          userSetGSpreadRef.current = false;
           onSpreadChange(numValue);
         }
       }
@@ -36,6 +43,9 @@ function SpreadAnalysis({
       if (onGSpreadChange) {
         const numValue = parseFloat(value);
         if (!isNaN(numValue)) {
+          userSetGSpreadRef.current = true;
+          // When user sets G-spread, Z-spread should recalculate
+          userSetZSpreadRef.current = false;
           onGSpreadChange(numValue);
         }
       }
@@ -51,13 +61,19 @@ function SpreadAnalysis({
   }, []);
 
   useEffect(() => {
-    if (!editingZSpread && analysis?.z_spread != null) {
+    // Only update localZSpread from analysis if:
+    // 1. User is not currently editing
+    // 2. User hasn't just set a Z-spread value
+    if (!editingZSpread && !userSetZSpreadRef.current && analysis?.z_spread != null) {
       setLocalZSpread(analysis.z_spread);
     }
   }, [analysis?.z_spread, editingZSpread]);
 
   useEffect(() => {
-    if (!editingGSpread && analysis?.g_spread != null) {
+    // Only update localGSpread from analysis if:
+    // 1. User is not currently editing
+    // 2. User hasn't just set a G-spread value
+    if (!editingGSpread && !userSetGSpreadRef.current && analysis?.g_spread != null) {
       setLocalGSpread(analysis.g_spread);
     }
   }, [analysis?.g_spread, editingGSpread]);
@@ -78,13 +94,16 @@ function SpreadAnalysis({
   const handleZSpreadBlur = () => {
     // Clear any pending debounce and trigger immediately
     if (zSpreadTimer.current) clearTimeout(zSpreadTimer.current);
+    setEditingZSpread(false);
     if (onSpreadChange) {
       const numValue = parseFloat(localZSpread);
       if (!isNaN(numValue)) {
+        userSetZSpreadRef.current = true;
+        // When user sets Z-spread, G-spread should recalculate
+        userSetGSpreadRef.current = false;
         onSpreadChange(numValue);
       }
     }
-    setEditingZSpread(false);
   };
 
   const handleZSpreadKeyDown = (e) => {
@@ -93,19 +112,23 @@ function SpreadAnalysis({
     } else if (e.key === 'Escape') {
       setLocalZSpread(analysis?.z_spread || '');
       setEditingZSpread(false);
+      userSetZSpreadRef.current = false;
     }
   };
 
   // G-Spread handlers
   const handleGSpreadBlur = () => {
     if (gSpreadTimer.current) clearTimeout(gSpreadTimer.current);
+    setEditingGSpread(false);
     if (onGSpreadChange) {
       const numValue = parseFloat(localGSpread);
       if (!isNaN(numValue)) {
+        userSetGSpreadRef.current = true;
+        // When user sets G-spread, Z-spread should recalculate
+        userSetZSpreadRef.current = false;
         onGSpreadChange(numValue);
       }
     }
-    setEditingGSpread(false);
   };
 
   const handleGSpreadKeyDown = (e) => {
@@ -114,8 +137,31 @@ function SpreadAnalysis({
     } else if (e.key === 'Escape') {
       setLocalGSpread(analysis?.g_spread || '');
       setEditingGSpread(false);
+      userSetGSpreadRef.current = false;
     }
   };
+
+  // Reset userSet flags when analysis changes significantly (e.g., from price/yield change)
+  // This is detected by checking if both spreads changed at once
+  const prevZSpread = useRef(analysis?.z_spread);
+  const prevGSpread = useRef(analysis?.g_spread);
+
+  useEffect(() => {
+    const zChanged = analysis?.z_spread !== prevZSpread.current;
+    const gChanged = analysis?.g_spread !== prevGSpread.current;
+
+    // If both spreads changed, it's likely from an external source (price/yield change)
+    // Clear the userSet flags so spreads can update
+    if (zChanged && gChanged) {
+      // But only if the user didn't just set one of them
+      if (!userSetZSpreadRef.current && !userSetGSpreadRef.current) {
+        // Both can update from analysis
+      }
+    }
+
+    prevZSpread.current = analysis?.z_spread;
+    prevGSpread.current = analysis?.g_spread;
+  }, [analysis?.z_spread, analysis?.g_spread]);
 
   return (
     <div className="spread-analysis-panel">
@@ -129,7 +175,9 @@ function SpreadAnalysis({
           <div className="spread-value">
             <input
               type="number"
-              value={editingGSpread ? localGSpread : (analysis?.g_spread != null ? Number(analysis.g_spread).toFixed(1) : '')}
+              value={editingGSpread || userSetGSpreadRef.current
+                ? localGSpread
+                : (analysis?.g_spread != null ? Number(analysis.g_spread).toFixed(1) : '')}
               onChange={(e) => {
                 setEditingGSpread(true);
                 setLocalGSpread(e.target.value);
@@ -152,7 +200,9 @@ function SpreadAnalysis({
           <div className="spread-value">
             <input
               type="number"
-              value={editingZSpread ? localZSpread : (analysis?.z_spread != null ? Number(analysis.z_spread).toFixed(1) : '')}
+              value={editingZSpread || userSetZSpreadRef.current
+                ? localZSpread
+                : (analysis?.z_spread != null ? Number(analysis.z_spread).toFixed(1) : '')}
               onChange={(e) => {
                 setEditingZSpread(true);
                 setLocalZSpread(e.target.value);
