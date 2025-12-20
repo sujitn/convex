@@ -614,7 +614,7 @@ impl SequentialBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::instruments::{Deposit, Fra, Ois, Swap};
+    use crate::calibration::instruments::{Deposit, Ois, Swap};
     use approx::assert_relative_eq;
     use convex_core::types::Frequency;
 

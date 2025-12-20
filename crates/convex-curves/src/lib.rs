@@ -43,8 +43,8 @@
 //!
 //! - [`RateCurve<T>`]: `discount_factor()`, `zero_rate()`, `forward_rate()`
 //! - [`CreditCurve<T>`]: `survival_probability()`, `hazard_rate()`
-//! - [`InflationCurve<T>`]: `index_ratio()`, `real_rate()`
-//! - [`FxCurve<T>`]: `forward_rate()`, `forward_points()`
+//! - `InflationCurve<T>`: `index_ratio()`, `real_rate()` (planned)
+//! - `FxCurve<T>`: `forward_rate()`, `forward_points()` (planned)
 //!
 //! ## Curve Types
 //!

@@ -882,7 +882,6 @@ impl SegmentBuilder {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use convex_core::daycounts::DayCountConvention;
 
     fn today() -> Date {
         Date::from_ymd(2024, 1, 1).unwrap()

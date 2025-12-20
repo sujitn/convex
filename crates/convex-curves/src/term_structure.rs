@@ -163,7 +163,7 @@ pub type Curve = Box<dyn TermStructure>;
 /// Use when you need shared ownership across multiple consumers.
 pub type CurveRef = Arc<dyn TermStructure>;
 
-/// Blanket implementation allowing Arc<T> to be used as a TermStructure.
+/// Blanket implementation allowing `Arc<T>` to be used as a `TermStructure`.
 impl<T: TermStructure + ?Sized> TermStructure for Arc<T> {
     fn reference_date(&self) -> Date {
         (**self).reference_date()
@@ -190,7 +190,7 @@ impl<T: TermStructure + ?Sized> TermStructure for Arc<T> {
     }
 }
 
-/// Blanket implementation allowing Box<T> to be used as a TermStructure.
+/// Blanket implementation allowing `Box<T>` to be used as a `TermStructure`.
 impl<T: TermStructure + ?Sized> TermStructure for Box<T> {
     fn reference_date(&self) -> Date {
         (**self).reference_date()
@@ -217,7 +217,7 @@ impl<T: TermStructure + ?Sized> TermStructure for Box<T> {
     }
 }
 
-/// Blanket implementation allowing &T to be used as a TermStructure.
+/// Blanket implementation allowing `&T` to be used as a `TermStructure`.
 impl<T: TermStructure + ?Sized> TermStructure for &T {
     fn reference_date(&self) -> Date {
         (**self).reference_date()

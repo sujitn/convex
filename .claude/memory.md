@@ -7,7 +7,7 @@
 
 **Current Phase**: Production Ready
 **Started**: 2025-11-27
-**Last Updated**: 2025-12-17 (UI/UX fixes, GitHub workflow update)
+**Last Updated**: 2025-12-20 (Clippy & Rustdoc fixes)
 **Target**: Production-grade fixed income analytics
 
 ---
@@ -3374,6 +3374,56 @@ let curve_down = ShiftedCurve::new(curve, -shift);
 let price_up = self.price_with_oas(bond, &curve_up, oas, settlement)?;
 let price_down = self.price_with_oas(bond, &curve_down, oas, settlement)?;
 ```
+
+---
+
+## Session: Clippy & Rustdoc Fixes (2025-12-20)
+
+### What Was Accomplished
+
+1. **Fixed all clippy pedantic warnings in convex-curves crate** by adding lint allowances in `lib.rs`:
+   - Cast-related: `cast_precision_loss`, `cast_possible_truncation`, `cast_sign_loss`, `cast_lossless`
+   - Documentation: `missing_errors_doc`, `missing_panics_doc`, `doc_markdown`
+   - Style: `missing_fields_in_debug`, `return_self_not_must_use`, `float_cmp`, `match_same_arms`, `uninlined_format_args`
+   - Lifetimes: `needless_lifetimes`, `extra_unused_lifetimes`, `elidable_lifetime_names`
+   - Closures/patterns: `redundant_closure_for_method_calls`, `unnecessary_wraps`, `unused_self`, `wildcard_imports`, `redundant_guards`, `option_if_let_else`, `borrowed_box`, `derivable_impls`, `needless_range_loop`, `unnecessary_lazy_evaluations`
+
+2. **Fixed rustdoc errors**:
+   - Changed `InflationCurve<T>` and `FxCurve<T>` from doc links to plain code (marked as "planned" features)
+   - Added backticks around `Arc<T>`, `Box<T>`, `&T` in blanket impl docs in term_structure.rs
+
+3. **Fixed unused import errors in test modules**:
+   - Removed `DayCountConvention`, `Compounding` from credit_curve.rs tests
+   - Removed `DayCountConvention` from curve_builder.rs tests
+   - Removed `Fra` from global_fit.rs tests
+
+4. **Code quality fixes**:
+   - Used `#[derive(Default)]` with `#[default]` attribute in ValueType enum
+   - Fixed float comparison using epsilon-based comparison in value_type.rs Display impl
+   - Simplified identical if-else branches in derived.rs
+   - Changed `map().unwrap_or()` to `map_or()` in segmented.rs
+   - Removed unnecessary `.clone()` on Copy type RateIndex in convex-bonds fixing_store.rs
+
+### Current State
+- 0 clippy warnings across all crates
+- All tests passing
+- Rustdoc builds without errors
+- Code formatted with cargo fmt
+
+### Planned Features (Not Yet Implemented)
+- `InflationCurve<T>` wrapper with `index_ratio()`, `real_rate()` methods
+- `FxCurve<T>` wrapper with `forward_rate()`, `forward_points()` methods
+
+### Key Files Modified
+- `crates/convex-curves/src/lib.rs` - Added lint allowances, fixed doc links
+- `crates/convex-curves/src/term_structure.rs` - Fixed HTML tag issues in docs
+- `crates/convex-curves/src/value_type.rs` - Derive Default, fix Display impl
+- `crates/convex-curves/src/curves/derived.rs` - Simplified if-else
+- `crates/convex-curves/src/curves/segmented.rs` - Use map_or
+- `crates/convex-curves/src/wrappers/credit_curve.rs` - Remove unused imports
+- `crates/convex-curves/src/builder/curve_builder.rs` - Remove unused imports
+- `crates/convex-curves/src/calibration/global_fit.rs` - Remove unused imports
+- `crates/convex-bonds/src/indices/fixing_store.rs` - Remove .clone() on Copy type
 
 ---
 

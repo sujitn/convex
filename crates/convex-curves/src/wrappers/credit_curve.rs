@@ -460,8 +460,6 @@ mod tests {
     use crate::wrappers::RateCurve;
     use crate::InterpolationMethod;
     use approx::assert_relative_eq;
-    use convex_core::daycounts::DayCountConvention;
-    use convex_core::types::Compounding;
 
     fn sample_survival_curve() -> CreditCurve<DiscreteCurve> {
         let today = Date::from_ymd(2024, 1, 1).unwrap();
