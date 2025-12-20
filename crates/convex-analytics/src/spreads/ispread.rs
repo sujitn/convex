@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType, Yield};
-use convex_curves::traits::Curve;
+use convex_curves::RateCurveDyn;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
@@ -24,7 +24,7 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 /// is a simple yield difference at the maturity point.
 pub struct ISpreadCalculator<'a> {
     /// Reference to the swap curve.
-    swap_curve: &'a dyn Curve,
+    swap_curve: &'a dyn RateCurveDyn,
 }
 
 impl std::fmt::Debug for ISpreadCalculator<'_> {
@@ -40,7 +40,7 @@ impl<'a> ISpreadCalculator<'a> {
     ///
     /// * `swap_curve` - The swap rate curve
     #[must_use]
-    pub fn new(swap_curve: &'a dyn Curve) -> Self {
+    pub fn new(swap_curve: &'a dyn RateCurveDyn) -> Self {
         Self { swap_curve }
     }
 
@@ -150,7 +150,7 @@ impl<'a> ISpreadCalculator<'a> {
 pub fn i_spread<B: Bond + FixedCouponBond>(
     bond: &B,
     bond_yield: Yield,
-    swap_curve: &dyn Curve,
+    swap_curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
     ISpreadCalculator::new(swap_curve).calculate(bond, bond_yield, settlement)
@@ -167,7 +167,7 @@ mod tests {
         Date::from_ymd(y, m, d).unwrap()
     }
 
-    fn create_swap_curve(rate: f64) -> impl Curve {
+    fn create_swap_curve(rate: f64) -> impl RateCurveDyn {
         let ref_date = date(2024, 1, 15);
         DiscountCurveBuilder::new(ref_date)
             .add_pillar(1.0, (-rate * 1.0).exp())

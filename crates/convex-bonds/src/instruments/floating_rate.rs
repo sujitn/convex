@@ -421,7 +421,7 @@ impl FloatingRateNote {
     /// ```
     pub fn cash_flows_projected<C>(&self, from: Date, forward_curve: &C) -> Vec<BondCashFlow>
     where
-        C: convex_curves::traits::Curve,
+        C: convex_curves::RateCurveDyn + ?Sized,
     {
         if from >= self.maturity {
             return Vec::new();

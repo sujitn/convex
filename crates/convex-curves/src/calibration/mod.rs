@@ -48,5 +48,6 @@ mod instruments;
 
 pub use global_fit::{CalibrationResult, FitterConfig, GlobalFitter, SequentialBootstrapper};
 pub use instruments::{
-    CalibrationInstrument, Deposit, Fra, Future, InstrumentSet, Ois, Swap,
+    CalibrationInstrument, CurveInstrument, Deposit, Fra, Future, InstrumentSet, InstrumentType,
+    Ois, Swap,
 };

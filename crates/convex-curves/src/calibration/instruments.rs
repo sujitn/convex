@@ -12,6 +12,12 @@
 //! - Maturity and tenor information
 //! - Present value calculation given a curve
 //! - Sensitivity (DV01) for Newton-based solvers
+//!
+//! # Curve Instruments
+//!
+//! For more general curve construction (e.g., with government bonds), the
+//! [`CurveInstrument`] trait provides a dynamic interface that works with
+//! any curve implementing [`RateCurveDyn`].
 
 use std::fmt;
 
@@ -21,7 +27,103 @@ use rust_decimal::prelude::ToPrimitive;
 
 use crate::curves::DiscreteCurve;
 use crate::error::{CurveError, CurveResult};
-use crate::wrappers::RateCurve;
+use crate::wrappers::{RateCurve, RateCurveDyn};
+
+// ============================================================================
+// Instrument Type Enum
+// ============================================================================
+
+/// Type of curve calibration instrument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InstrumentType {
+    /// Cash deposit
+    Deposit,
+    /// Forward rate agreement
+    Fra,
+    /// Interest rate future
+    Future,
+    /// Interest rate swap
+    Swap,
+    /// Overnight index swap
+    Ois,
+    /// Basis swap
+    BasisSwap,
+    /// Zero-coupon government bond
+    GovernmentZeroCoupon,
+    /// Fixed coupon government bond
+    GovernmentCouponBond,
+    /// Treasury bill
+    TBill,
+    /// Other instrument type
+    Other,
+}
+
+impl fmt::Display for InstrumentType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InstrumentType::Deposit => write!(f, "Deposit"),
+            InstrumentType::Fra => write!(f, "FRA"),
+            InstrumentType::Future => write!(f, "Future"),
+            InstrumentType::Swap => write!(f, "Swap"),
+            InstrumentType::Ois => write!(f, "OIS"),
+            InstrumentType::BasisSwap => write!(f, "Basis Swap"),
+            InstrumentType::GovernmentZeroCoupon => write!(f, "Govt Zero"),
+            InstrumentType::GovernmentCouponBond => write!(f, "Govt Coupon"),
+            InstrumentType::TBill => write!(f, "T-Bill"),
+            InstrumentType::Other => write!(f, "Other"),
+        }
+    }
+}
+
+// ============================================================================
+// CurveInstrument Trait (Dynamic Interface)
+// ============================================================================
+
+/// Trait for instruments used in curve construction.
+///
+/// This trait provides a dynamic interface for curve instruments, allowing
+/// them to work with any curve implementing [`RateCurveDyn`]. It's more
+/// flexible than [`CalibrationInstrument`] which uses concrete types.
+///
+/// # Implementation
+///
+/// Each instrument should provide methods to:
+/// - Report its maturity date
+/// - Calculate present value given a curve
+/// - Derive the implied discount factor
+pub trait CurveInstrument: Send + Sync {
+    /// Returns the maturity date of the instrument.
+    fn maturity(&self) -> Date;
+
+    /// Returns the pillar date (typically same as maturity).
+    ///
+    /// For some instruments like swaps, this might differ from maturity.
+    fn pillar_date(&self) -> Date {
+        self.maturity()
+    }
+
+    /// Calculates the present value given a curve.
+    ///
+    /// For calibration, this should return the difference between
+    /// theoretical and market price.
+    fn pv(&self, curve: &dyn RateCurveDyn) -> CurveResult<f64>;
+
+    /// Returns the implied discount factor at maturity.
+    ///
+    /// Given the known portion of the curve, this returns the discount
+    /// factor that would make the instrument price correctly.
+    fn implied_df(&self, curve: &dyn RateCurveDyn, target_pv: f64) -> CurveResult<f64>;
+
+    /// Returns the instrument type.
+    fn instrument_type(&self) -> InstrumentType;
+
+    /// Returns a description of the instrument.
+    fn description(&self) -> String;
+}
+
+// ============================================================================
+// Helper Traits and Functions
+// ============================================================================
 
 /// Helper trait extension for DayCountConvention to get year fraction as f64.
 trait DayCountExt {

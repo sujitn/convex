@@ -11,20 +11,20 @@ use convex_bonds::instruments::FloatingRateNote;
 use convex_bonds::traits::Bond;
 use convex_core::types::{Date, Spread, SpreadType};
 use convex_curves::curves::ForwardCurve;
-use convex_curves::traits::Curve;
+use convex_curves::RateCurveDyn;
 use convex_math::solvers::{brent, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
 /// Discount Margin calculator for floating rate notes.
 #[derive(Debug)]
-pub struct DiscountMarginCalculator<'a, C: Curve + ?Sized> {
+pub struct DiscountMarginCalculator<'a, C: RateCurveDyn + ?Sized> {
     forward_curve: &'a ForwardCurve,
     discount_curve: &'a C,
     config: SolverConfig,
 }
 
-impl<'a, C: Curve + ?Sized> DiscountMarginCalculator<'a, C> {
+impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
     /// Creates a new Discount Margin calculator.
     #[must_use]
     pub fn new(forward_curve: &'a ForwardCurve, discount_curve: &'a C) -> Self {
@@ -244,7 +244,7 @@ pub fn simple_margin(
 }
 
 /// Calculates the Z-DM (zero discount margin) for an FRN.
-pub fn z_discount_margin<C: Curve + ?Sized>(
+pub fn z_discount_margin<C: RateCurveDyn + ?Sized>(
     frn: &FloatingRateNote,
     dirty_price: Decimal,
     forward_curve: &ForwardCurve,
@@ -284,7 +284,7 @@ mod tests {
             .unwrap()
     }
 
-    fn create_sample_discount_curve() -> impl Curve {
+    fn create_sample_discount_curve() -> impl RateCurveDyn {
         DiscountCurveBuilder::new(date(2025, 6, 15))
             .add_pillar(0.25, 0.9875)
             .add_pillar(0.5, 0.975)
@@ -297,14 +297,14 @@ mod tests {
             .unwrap()
     }
 
-    fn create_sample_forward_curve(discount_curve: Arc<dyn Curve>) -> ForwardCurve {
+    fn create_sample_forward_curve(discount_curve: Arc<dyn RateCurveDyn>) -> ForwardCurve {
         ForwardCurve::from_months(discount_curve, 3)
     }
 
     #[test]
     fn test_calculator_creation() {
         let discount = create_sample_discount_curve();
-        let discount_arc: Arc<dyn Curve> = Arc::new(discount);
+        let discount_arc: Arc<dyn RateCurveDyn> = Arc::new(discount);
         let forward = create_sample_forward_curve(discount_arc.clone());
 
         let _calc = DiscountMarginCalculator::new(&forward, discount_arc.as_ref())
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_price_with_dm_par() {
         let discount = create_sample_discount_curve();
-        let discount_arc: Arc<dyn Curve> = Arc::new(discount);
+        let discount_arc: Arc<dyn RateCurveDyn> = Arc::new(discount);
         let forward = create_sample_forward_curve(discount_arc.clone());
         let frn = create_sample_frn();
         let settlement = date(2025, 6, 15);

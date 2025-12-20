@@ -80,7 +80,6 @@
 #![allow(clippy::must_use_candidate)]
 
 // Core modules
-mod compat;
 mod conversion;
 mod error;
 mod term_structure;
@@ -113,21 +112,18 @@ pub use value_type::ValueType;
 // Re-export curve types
 pub use curves::{DelegatedCurve, DerivedCurve, DiscreteCurve, SegmentedCurve};
 pub use curves::{CurveTransform, DelegationFallback, SegmentSource};
-pub use curves::{DiscountCurveBuilder, ForwardCurve, ZeroCurve, ZeroCurveBuilder};
-
-/// Type alias for discount curve (same as ZeroCurve).
-pub type DiscountCurve = ZeroCurve;
+pub use curves::{DiscountCurve, DiscountCurveBuilder, ForwardCurve, ZeroCurve, ZeroCurveBuilder};
 
 // Re-export wrappers
-pub use wrappers::{CreditCurve, RateCurve};
+pub use wrappers::{CreditCurve, RateCurve, RateCurveDyn};
 
 // Re-export builder
 pub use builder::{CurveBuilder, CurveFamily, SegmentBuilder};
 
 // Re-export calibration types
 pub use calibration::{
-    CalibrationInstrument, CalibrationResult, Deposit, FitterConfig, Fra, Future, GlobalFitter,
-    InstrumentSet, Ois, SequentialBootstrapper, Swap,
+    CalibrationInstrument, CalibrationResult, CurveInstrument, Deposit, FitterConfig, Fra, Future,
+    GlobalFitter, InstrumentSet, InstrumentType, Ois, SequentialBootstrapper, Swap,
 };
 
 // Re-export bumping types
@@ -142,26 +138,6 @@ pub use multicurve::{Currency, CurrencyPair, MultiCurveEnvironment, RateIndex, T
 
 // Re-export core types for convenience
 pub use convex_core::types::Compounding;
-
-// ============================================================================
-// Backward Compatibility: Re-exports for convex-bonds
-// ============================================================================
-
-/// Compatibility traits for curve construction (convex-bonds integration).
-pub mod traits {
-    pub use crate::compat::Curve;
-    pub use crate::TermStructure;
-}
-
-/// Compatibility instruments module for curve construction.
-pub mod instruments {
-    pub use crate::compat::{CurveInstrument, InstrumentType};
-}
-
-/// Compatibility module for discount curve building.
-pub mod compat_curves {
-    pub use crate::compat::{DiscountCurveBuilder, ForwardCurve, ZeroCurve};
-}
 
 /// Interpolation methods available for curve construction.
 ///

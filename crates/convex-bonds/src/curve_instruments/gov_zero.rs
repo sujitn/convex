@@ -3,8 +3,7 @@
 use rust_decimal::prelude::*;
 
 use convex_core::Date;
-use convex_curves::instruments::{CurveInstrument, InstrumentType};
-use convex_curves::traits::Curve;
+use convex_curves::{CurveInstrument, InstrumentType, RateCurveDyn};
 use convex_curves::CurveResult;
 
 use crate::instruments::ZeroCouponBond;
@@ -139,7 +138,7 @@ impl CurveInstrument for GovernmentZeroCoupon {
         self.bond.maturity_date()
     }
 
-    fn pv(&self, curve: &dyn Curve) -> CurveResult<f64> {
+    fn pv(&self, curve: &dyn RateCurveDyn) -> CurveResult<f64> {
         let face_value: f64 = self.bond.face_value().to_f64().unwrap_or(100.0);
         let yf = self.year_fraction();
         let df = curve.discount_factor(yf)?;
@@ -149,7 +148,7 @@ impl CurveInstrument for GovernmentZeroCoupon {
         Ok(face_value * df - self.price)
     }
 
-    fn implied_df(&self, _curve: &dyn Curve, target_pv: f64) -> CurveResult<f64> {
+    fn implied_df(&self, _curve: &dyn RateCurveDyn, target_pv: f64) -> CurveResult<f64> {
         let face_value: f64 = self.bond.face_value().to_f64().unwrap_or(100.0);
 
         // PV = face_value * DF - price = target_pv

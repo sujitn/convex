@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::traits::Curve;
+use convex_curves::RateCurveDyn;
 use convex_math::solvers::{brent, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
@@ -26,7 +26,7 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 /// - Z = Z-spread (constant)
 pub struct ZSpreadCalculator<'a> {
     /// Reference to the spot/zero curve.
-    curve: &'a dyn Curve,
+    curve: &'a dyn RateCurveDyn,
     /// Solver configuration.
     config: SolverConfig,
 }
@@ -46,7 +46,7 @@ impl<'a> ZSpreadCalculator<'a> {
     ///
     /// * `curve` - The spot rate/discount curve
     #[must_use]
-    pub fn new(curve: &'a dyn Curve) -> Self {
+    pub fn new(curve: &'a dyn RateCurveDyn) -> Self {
         Self {
             curve,
             config: SolverConfig::new(1e-10, 100),
@@ -314,7 +314,7 @@ impl<'a> ZSpreadCalculator<'a> {
 pub fn z_spread<B: Bond + FixedCouponBond>(
     bond: &B,
     dirty_price: Decimal,
-    curve: &dyn Curve,
+    curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
     ZSpreadCalculator::new(curve).calculate(bond, dirty_price, settlement)
@@ -326,7 +326,7 @@ pub fn z_spread<B: Bond + FixedCouponBond>(
 pub fn z_spread_from_curve<B: Bond + FixedCouponBond>(
     bond: &B,
     dirty_price: Decimal,
-    curve: &dyn Curve,
+    curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
     z_spread(bond, dirty_price, curve, settlement)
@@ -342,7 +342,7 @@ mod tests {
         Date::from_ymd(y, m, d).unwrap()
     }
 
-    fn create_flat_curve(rate: f64) -> impl Curve {
+    fn create_flat_curve(rate: f64) -> impl RateCurveDyn {
         let ref_date = date(2024, 1, 15);
         DiscountCurveBuilder::new(ref_date)
             .add_pillar(0.5, (-rate * 0.5).exp())
