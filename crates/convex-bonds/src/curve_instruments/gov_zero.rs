@@ -177,7 +177,7 @@ mod tests {
     use super::*;
     use convex_core::types::Currency;
     use convex_curves::curves::DiscountCurveBuilder;
-    use convex_curves::interpolation::InterpolationMethod;
+    use convex_curves::InterpolationMethod;
 
     fn create_test_bond() -> ZeroCouponBond {
         ZeroCouponBond::new(

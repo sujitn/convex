@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::Curve;
+use convex_curves::traits::Curve;
 use convex_math::solvers::{brent, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};

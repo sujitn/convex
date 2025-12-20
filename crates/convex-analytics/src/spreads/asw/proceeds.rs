@@ -114,10 +114,11 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let swap_rate = self
+        let swap_rate_f64 = self
             .swap_curve
-            .zero_rate_at(maturity)
+            .zero_rate(maturity, convex_curves::Compounding::SemiAnnual)
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+        let swap_rate = Decimal::from_f64_retain(swap_rate_f64).unwrap_or(Decimal::ZERO);
 
         let coupon_rate = bond.coupon_rate();
         let coupon_mismatch = coupon_rate - swap_rate;
@@ -169,10 +170,11 @@ impl<'a> ProceedsAssetSwap<'a> {
         let mut annuity = Decimal::ZERO;
 
         for payment_date in &payment_dates {
-            let df = self
+            let df_f64 = self
                 .swap_curve
-                .discount_factor_at(*payment_date)
+                .discount_factor(*payment_date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+            let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;
         }
 

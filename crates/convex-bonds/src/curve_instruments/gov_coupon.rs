@@ -331,7 +331,7 @@ mod tests {
     use crate::instruments::FixedBondBuilder;
     use convex_core::types::{Currency, Frequency};
     use convex_curves::curves::DiscountCurveBuilder;
-    use convex_curves::interpolation::InterpolationMethod;
+    use convex_curves::InterpolationMethod;
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> FixedBond {

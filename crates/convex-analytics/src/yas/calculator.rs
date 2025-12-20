@@ -598,10 +598,11 @@ impl<'a> YASCalculator<'a> {
             .last()
             .map(|cf| cf.date)
             .unwrap_or(settlement_date);
-        let benchmark_rate = self
+        let benchmark_rate_f64 = self
             .govt_curve
-            .zero_rate_at(maturity_date)
+            .zero_rate(maturity_date, convex_curves::Compounding::SemiAnnual)
             .map_err(|e| AnalyticsError::CurveError(format!("benchmark rate: {e}")))?;
+        let benchmark_rate = Decimal::from_f64_retain(benchmark_rate_f64).unwrap_or(Decimal::ZERO);
         let benchmark_pct = benchmark_rate * Decimal::ONE_HUNDRED;
         let g_spread_bps = (ytm - benchmark_pct) * Decimal::ONE_HUNDRED;
         let g_spread_value = Spread::new(g_spread_bps, SpreadType::GSpread);
@@ -614,7 +615,8 @@ impl<'a> YASCalculator<'a> {
         let benchmark_date = settlement_date.add_days(benchmark_days);
         let benchmark_tenor_rate = self
             .govt_curve
-            .zero_rate_at(benchmark_date)
+            .zero_rate(benchmark_date, convex_curves::Compounding::SemiAnnual)
+            .map(|r| Decimal::from_f64_retain(r).unwrap_or(Decimal::ZERO))
             .unwrap_or(benchmark_rate);
         let benchmark_tenor_pct = benchmark_tenor_rate * Decimal::ONE_HUNDRED;
         let benchmark_spread_bps = (ytm - benchmark_tenor_pct) * Decimal::ONE_HUNDRED;
@@ -726,8 +728,7 @@ impl<'a> YASCalculator<'a> {
             for (t, amount) in &cf_data {
                 // Get discount factor from spot curve
                 let cf_date = settlement.add_days((*t * 365.0) as i64);
-                let df = spot_curve.discount_factor_at(cf_date).unwrap_or(dec!(1));
-                let df_f64 = df.to_f64().unwrap_or(1.0);
+                let df_f64 = spot_curve.discount_factor(cf_date).unwrap_or(1.0);
                 // Adjust for z-spread: DF_adj = DF * exp(-z * t)
                 pv += amount * df_f64 * (-z * t).exp();
             }
@@ -793,10 +794,11 @@ impl<'a> YASCalculator<'a> {
         let mut annuity = Decimal::ZERO;
 
         for payment_date in &payment_dates {
-            let df = self
+            let df_f64 = self
                 .spot_curve
-                .discount_factor_at(*payment_date)
+                .discount_factor(*payment_date)
                 .map_err(|e| AnalyticsError::CurveError(format!("discount factor: {e}")))?;
+            let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;
         }
 
@@ -912,7 +914,8 @@ impl<'a> BatchYASCalculator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_curves::prelude::{InterpolationMethod, ZeroCurveBuilder};
+    use convex_curves::curves::ZeroCurveBuilder;
+    use convex_curves::InterpolationMethod;
     use rust_decimal_macros::dec;
 
     fn date(y: i32, m: u32, d: u32) -> convex_core::types::Date {

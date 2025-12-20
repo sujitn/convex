@@ -15,7 +15,7 @@
 //!
 //! let frn = FloatingRateNote::builder()
 //!     .cusip_unchecked("912828ZQ7")
-//!     .index(RateIndex::SOFR)
+//!     .index(RateIndex::Sofr)
 //!     .sofr_convention(SOFRConvention::arrc_standard())
 //!     .spread_bps(50)  // 50 basis points
 //!     .maturity(Date::from_ymd(2026, 7, 31).unwrap())
@@ -452,7 +452,7 @@ impl FloatingRateNote {
             } else {
                 // Historical period - use spot rate
                 forward_curve
-                    .zero_rate(t2.abs(), convex_curves::Compounding::Simple)
+                    .zero_rate(t2.abs(), convex_curves::Compounding::Continuous)
                     .unwrap_or(0.0)
             };
 
@@ -510,7 +510,9 @@ impl FloatingRateNote {
         // Determine if this is an overnight compounding index
         let is_overnight = matches!(
             self.index,
-            RateIndex::SOFR | RateIndex::SONIA | RateIndex::ESTR
+            RateIndex::Sofr | RateIndex::Sonia | RateIndex::Estr
+                | RateIndex::Tonar | RateIndex::Saron | RateIndex::Corra
+                | RateIndex::Aonia | RateIndex::Honia
         );
 
         for (start, end) in schedule.unadjusted_periods() {
@@ -960,7 +962,7 @@ impl FloatingRateNoteBuilder {
     /// - Settlement: T+1
     #[must_use]
     pub fn us_treasury_frn(mut self) -> Self {
-        self.index = Some(RateIndex::SOFR);
+        self.index = Some(RateIndex::Sofr);
         self.sofr_convention = Some(SOFRConvention::SimpleAverage { lookback_days: 2 });
         self.day_count = Some(DayCountConvention::Act360);
         self.frequency = Some(Frequency::Quarterly);
@@ -980,7 +982,7 @@ impl FloatingRateNoteBuilder {
     /// - Settlement: T+2
     #[must_use]
     pub fn corporate_sofr(mut self) -> Self {
-        self.index = Some(RateIndex::SOFR);
+        self.index = Some(RateIndex::Sofr);
         self.sofr_convention = Some(SOFRConvention::arrc_standard());
         self.day_count = Some(DayCountConvention::Act360);
         self.frequency = Some(Frequency::Quarterly);
@@ -999,7 +1001,7 @@ impl FloatingRateNoteBuilder {
     /// - Settlement: T+1
     #[must_use]
     pub fn uk_sonia_frn(mut self) -> Self {
-        self.index = Some(RateIndex::SONIA);
+        self.index = Some(RateIndex::Sonia);
         self.day_count = Some(DayCountConvention::Act365Fixed);
         self.frequency = Some(Frequency::Quarterly);
         self.settlement_days = Some(1);
@@ -1017,7 +1019,7 @@ impl FloatingRateNoteBuilder {
     /// - Settlement: T+2
     #[must_use]
     pub fn estr_frn(mut self) -> Self {
-        self.index = Some(RateIndex::ESTR);
+        self.index = Some(RateIndex::Estr);
         self.day_count = Some(DayCountConvention::Act360);
         self.frequency = Some(Frequency::Quarterly);
         self.settlement_days = Some(2);
@@ -1030,13 +1032,28 @@ impl FloatingRateNoteBuilder {
     /// Applies EURIBOR FRN conventions.
     ///
     /// - Day count: ACT/360
-    /// - Frequency: Quarterly (3M EURIBOR)
+    /// - Frequency: Based on tenor (monthly for 1M, quarterly for 3M, semi-annual for 6M, annual for 12M)
     /// - Settlement: T+2
     #[must_use]
     pub fn euribor_frn(mut self, tenor: crate::types::Tenor) -> Self {
-        self.index = Some(RateIndex::EURIBOR { tenor });
+        use crate::types::Tenor;
+        let index = match tenor {
+            Tenor::M1 => RateIndex::Euribor1M,
+            Tenor::M3 => RateIndex::Euribor3M,
+            Tenor::M6 => RateIndex::Euribor6M,
+            Tenor::M12 | Tenor::Y1 => RateIndex::Euribor12M,
+            _ => RateIndex::Euribor3M, // Default to 3M
+        };
+        let frequency = match tenor {
+            Tenor::M1 => Frequency::Monthly,
+            Tenor::M3 => Frequency::Quarterly,
+            Tenor::M6 => Frequency::SemiAnnual,
+            Tenor::M12 | Tenor::Y1 => Frequency::Annual,
+            _ => Frequency::Quarterly,
+        };
+        self.index = Some(index);
         self.day_count = Some(DayCountConvention::Act360);
-        self.frequency = Some(Frequency::Quarterly);
+        self.frequency = Some(frequency);
         self.settlement_days = Some(2);
         self.calendar = Some(CalendarId::target2());
         self.currency = Some(Currency::EUR);
@@ -1207,7 +1224,7 @@ mod tests {
     fn test_frn_builder() {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("912828ZQ7")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .sofr_convention(SOFRConvention::arrc_standard())
             .spread_bps(50)
             .maturity(date(2026, 7, 31))
@@ -1231,7 +1248,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(*frn.index(), RateIndex::SOFR);
+        assert_eq!(*frn.index(), RateIndex::Sofr);
         assert_eq!(frn.day_count(), DayCountConvention::Act360);
         assert_eq!(frn.frequency(), Frequency::Quarterly);
         assert_eq!(frn.settlement_days(), 1);
@@ -1248,7 +1265,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(*frn.index(), RateIndex::SOFR);
+        assert_eq!(*frn.index(), RateIndex::Sofr);
         assert!(frn.sofr_convention().unwrap().is_in_arrears());
         assert_eq!(frn.settlement_days(), 2);
     }
@@ -1257,7 +1274,7 @@ mod tests {
     fn test_effective_rate_with_floor() {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50) // 50 bps spread
             .floor(dec!(0.01)) // 1% floor
             .maturity(date(2026, 6, 15))
@@ -1278,7 +1295,7 @@ mod tests {
     fn test_effective_rate_with_cap() {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .cap(dec!(0.08)) // 8% cap
             .maturity(date(2026, 6, 15))
@@ -1299,7 +1316,7 @@ mod tests {
     fn test_effective_rate_collar() {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .floor(dec!(0.02)) // 2% floor
             .cap(dec!(0.06)) // 6% cap
@@ -1322,7 +1339,7 @@ mod tests {
     fn test_period_coupon() {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .face_value(dec!(100))
             .maturity(date(2026, 6, 15))
@@ -1343,7 +1360,7 @@ mod tests {
         // Plain FRN
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .maturity(date(2026, 6, 15))
             .issue_date(date(2024, 6, 15))
             .build()
@@ -1353,7 +1370,7 @@ mod tests {
         // Capped FRN
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .cap(dec!(0.08))
             .maturity(date(2026, 6, 15))
             .issue_date(date(2024, 6, 15))
@@ -1364,7 +1381,7 @@ mod tests {
         // Floored FRN
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .floor(dec!(0.02))
             .maturity(date(2026, 6, 15))
             .issue_date(date(2024, 6, 15))
@@ -1375,7 +1392,7 @@ mod tests {
         // Collared FRN
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .cap(dec!(0.08))
             .floor(dec!(0.02))
             .maturity(date(2026, 6, 15))
@@ -1389,7 +1406,7 @@ mod tests {
     fn test_accrued_interest() {
         let mut frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .face_value(dec!(100))
             .frequency(Frequency::Quarterly)
@@ -1414,7 +1431,7 @@ mod tests {
     fn test_cash_flows() {
         let mut frn = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .frequency(Frequency::Quarterly)
             .maturity(date(2025, 6, 15))
@@ -1444,7 +1461,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(*frn.index(), RateIndex::SONIA);
+        assert_eq!(*frn.index(), RateIndex::Sonia);
         assert_eq!(frn.day_count(), DayCountConvention::Act365Fixed);
         assert_eq!(frn.currency(), Currency::GBP);
     }
@@ -1460,7 +1477,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(*frn.index(), RateIndex::ESTR);
+        assert_eq!(*frn.index(), RateIndex::Estr);
         assert_eq!(frn.day_count(), DayCountConvention::Act360);
         assert_eq!(frn.currency(), Currency::EUR);
     }
@@ -1486,7 +1503,7 @@ mod tests {
         // Missing maturity
         let result = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .issue_date(date(2024, 6, 15))
             .build();
         assert!(result.is_err());
@@ -1496,7 +1513,7 @@ mod tests {
     fn test_invalid_dates() {
         let result = FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .maturity(date(2024, 6, 15))
             .issue_date(date(2026, 6, 15)) // Issue after maturity
             .build();

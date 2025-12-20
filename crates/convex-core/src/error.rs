@@ -169,6 +169,14 @@ impl ConvexError {
             reason: reason.into(),
         }
     }
+
+    /// Creates a curve error (for operations on yield curves).
+    #[must_use]
+    pub fn curve_error(reason: impl Into<String>) -> Self {
+        Self::CurveConstructionFailed {
+            reason: reason.into(),
+        }
+    }
 }
 
 #[cfg(test)]

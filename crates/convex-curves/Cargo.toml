@@ -1,45 +1,46 @@
 [package]
 name = "convex-curves"
-description = "Yield curve construction and interpolation for the Convex fixed income analytics library"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-rust-version.workspace = true
-keywords = ["finance", "fixed-income", "yield-curve", "bootstrap"]
-categories = ["finance", "mathematics"]
+homepage.workspace = true
+keywords = ["finance", "yield-curve", "term-structure", "fixed-income", "rates"]
+categories = ["finance", "mathematics", "science"]
+description = "Term structure framework for yield curves, credit curves, and multi-curve environments"
 
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
 convex-math = { workspace = true }
 
-# High-precision decimal arithmetic
+# Core dependencies
+chrono = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-
-# Error handling
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 
-# Serialization
-serde = { workspace = true }
+# Mathematical dependencies
+nalgebra = { workspace = true }
+argmin = { workspace = true }
+approx = { workspace = true }
 
-# Parallelism
+# Performance
 rayon = { workspace = true }
 
-# Logging
-log = { workspace = true }
-
 [dev-dependencies]
-approx = { workspace = true }
-proptest = { workspace = true }
 criterion = { workspace = true }
+proptest = { workspace = true }
+
+# TODO: Add benchmarks later
+# [[bench]]
+# name = "curve_benchmarks"
+# harness = false
 
 [features]
 default = []
-parallel = []  # Enable parallel curve building
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+parallel = []  # Enable parallel calibration

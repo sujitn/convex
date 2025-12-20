@@ -10,7 +10,8 @@ use convex_bonds::instruments::CallableBond;
 use convex_bonds::options::{BinomialTree, HullWhite, ShortRateModel};
 use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::{Compounding, Curve, CurveResult};
+use convex_curves::traits::Curve;
+use convex_curves::{Compounding, CurveResult};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
@@ -397,14 +398,17 @@ mod tests {
 
     fn create_flat_curve(rate: f64) -> impl Curve {
         let ref_date = date(2024, 1, 15);
+        // Start from t=0 with df=1 to ensure correct zero rate calculations
+        // for very short tenors (avoids extrapolation issues with df->zero conversion)
         DiscountCurveBuilder::new(ref_date)
-            .add_pillar(0.01, (-rate * 0.01).exp())
-            .add_pillar(0.25, (-rate * 0.25).exp())
-            .add_pillar(0.5, (-rate * 0.5).exp())
-            .add_pillar(1.0, (-rate * 1.0).exp())
-            .add_pillar(2.0, (-rate * 2.0).exp())
-            .add_pillar(5.0, (-rate * 5.0).exp())
-            .add_pillar(10.0, (-rate * 10.0).exp())
+            .add_zero_rate(0.0001, rate) // Near-zero anchor point
+            .add_zero_rate(0.01, rate)
+            .add_zero_rate(0.25, rate)
+            .add_zero_rate(0.5, rate)
+            .add_zero_rate(1.0, rate)
+            .add_zero_rate(2.0, rate)
+            .add_zero_rate(5.0, rate)
+            .add_zero_rate(10.0, rate)
             .with_extrapolation()
             .build()
             .unwrap()

@@ -263,7 +263,7 @@ mod tests {
     use super::*;
     use convex_bonds::types::RateIndex;
     use convex_curves::curves::DiscountCurveBuilder;
-    use convex_curves::interpolation::InterpolationMethod;
+    use convex_curves::InterpolationMethod;
     use rust_decimal_macros::dec;
     use std::sync::Arc;
 
@@ -274,7 +274,7 @@ mod tests {
     fn create_sample_frn() -> FloatingRateNote {
         FloatingRateNote::builder()
             .cusip_unchecked("TEST12345")
-            .index(RateIndex::SOFR)
+            .index(RateIndex::Sofr)
             .spread_bps(50)
             .face_value(dec!(100))
             .maturity(date(2027, 6, 15))
