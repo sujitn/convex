@@ -3,9 +3,8 @@
 use rust_decimal::prelude::*;
 
 use convex_core::Date;
-use convex_curves::instruments::{CurveInstrument, InstrumentType};
-use convex_curves::traits::Curve;
 use convex_curves::CurveResult;
+use convex_curves::{CurveInstrument, InstrumentType, RateCurveDyn};
 
 use crate::instruments::{Bond, FixedBond};
 
@@ -267,7 +266,7 @@ impl CurveInstrument for GovernmentCouponBond {
         self.bond.maturity()
     }
 
-    fn pv(&self, curve: &dyn Curve) -> CurveResult<f64> {
+    fn pv(&self, curve: &dyn RateCurveDyn) -> CurveResult<f64> {
         // Theoretical price = Σ CF(i) × DF(Ti)
         let mut theoretical = 0.0;
 
@@ -281,7 +280,7 @@ impl CurveInstrument for GovernmentCouponBond {
         Ok(theoretical - self.dirty_price())
     }
 
-    fn implied_df(&self, curve: &dyn Curve, _target_pv: f64) -> CurveResult<f64> {
+    fn implied_df(&self, curve: &dyn RateCurveDyn, _target_pv: f64) -> CurveResult<f64> {
         // Solve for DF at maturity given known DFs for earlier coupons
         // Dirty = Known_PV + Final_CF × DF(maturity)
         // DF(maturity) = (Dirty - Known_PV) / Final_CF
@@ -331,7 +330,7 @@ mod tests {
     use crate::instruments::FixedBondBuilder;
     use convex_core::types::{Currency, Frequency};
     use convex_curves::curves::DiscountCurveBuilder;
-    use convex_curves::interpolation::InterpolationMethod;
+    use convex_curves::InterpolationMethod;
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> FixedBond {
@@ -345,7 +344,7 @@ mod tests {
             .unwrap()
     }
 
-    fn flat_curve(ref_date: Date, rate: f64) -> impl Curve {
+    fn flat_curve(ref_date: Date, rate: f64) -> impl RateCurveDyn {
         DiscountCurveBuilder::new(ref_date)
             .add_zero_rate(0.5, rate)
             .add_zero_rate(1.0, rate)

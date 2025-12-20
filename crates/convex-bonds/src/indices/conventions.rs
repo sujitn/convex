@@ -296,19 +296,43 @@ impl IndexConventions {
     #[must_use]
     pub fn for_index(index: &RateIndex) -> Self {
         match index {
-            RateIndex::SOFR => Self::sofr(),
-            RateIndex::SONIA => Self::sonia(),
-            RateIndex::ESTR => Self::estr(),
-            RateIndex::TONA => Self::tona(),
-            RateIndex::SARON => Self::saron(),
-            RateIndex::CORRA => Self::corra(),
-            RateIndex::AONIA => Self::aonia(),
-            RateIndex::TermSOFR { tenor } => Self::term_sofr(*tenor),
-            RateIndex::TermSONIA { tenor } => Self::term_sonia(*tenor),
-            RateIndex::EURIBOR { tenor } => Self::euribor(*tenor),
-            RateIndex::TIBOR { tenor } => Self::tibor(*tenor),
-            RateIndex::LIBOR { currency, tenor } => Self::libor(*currency, *tenor),
-            RateIndex::Custom { currency, .. } => Self::custom(*currency),
+            RateIndex::Sofr => Self::sofr(),
+            RateIndex::Sonia => Self::sonia(),
+            RateIndex::Estr => Self::estr(),
+            RateIndex::Tonar => Self::tona(),
+            RateIndex::Saron => Self::saron(),
+            RateIndex::Corra => Self::corra(),
+            RateIndex::Aonia => Self::aonia(),
+            RateIndex::Honia => Self::honia(),
+            RateIndex::Euribor1M => Self::euribor(Tenor::M1),
+            RateIndex::Euribor3M => Self::euribor(Tenor::M3),
+            RateIndex::Euribor6M => Self::euribor(Tenor::M6),
+            RateIndex::Euribor12M => Self::euribor(Tenor::M12),
+            RateIndex::Tibor3M => Self::tibor(Tenor::M3),
+            #[allow(deprecated)]
+            RateIndex::UsdLibor3M => Self::libor(Currency::USD, Tenor::M3),
+            #[allow(deprecated)]
+            RateIndex::GbpLibor3M => Self::libor(Currency::GBP, Tenor::M3),
+            #[allow(deprecated)]
+            RateIndex::ChfLibor3M => Self::libor(Currency::CHF, Tenor::M3),
+        }
+    }
+
+    /// HONIA conventions.
+    #[must_use]
+    pub fn honia() -> Self {
+        Self {
+            day_count: DayCountConvention::Act365Fixed,
+            currency: Currency::HKD,
+            calendar: CalendarId::new("HKD"),
+            fixing_lag: 0,
+            publication_time: Some(PublicationTime::MorningT1),
+            spot_lag: 2,
+            allows_negative: true,
+            source: IndexSource::Custom("HKMA".to_string()),
+            bloomberg_ticker: Some("HONIA Index".to_string()),
+            refinitiv_ric: None,
+            arrear_convention: Some(ArrearConvention::isda_standard()),
         }
     }
 
@@ -580,7 +604,7 @@ mod tests {
 
     #[test]
     fn test_index_conventions_sofr() {
-        let conv = IndexConventions::for_index(&RateIndex::SOFR);
+        let conv = IndexConventions::for_index(&RateIndex::Sofr);
 
         assert_eq!(conv.currency, Currency::USD);
         assert_eq!(conv.day_count, DayCountConvention::Act360);
@@ -593,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_index_conventions_sonia() {
-        let conv = IndexConventions::for_index(&RateIndex::SONIA);
+        let conv = IndexConventions::for_index(&RateIndex::Sonia);
 
         assert_eq!(conv.currency, Currency::GBP);
         assert_eq!(conv.day_count, DayCountConvention::Act365Fixed);
@@ -603,7 +627,7 @@ mod tests {
 
     #[test]
     fn test_index_conventions_estr() {
-        let conv = IndexConventions::for_index(&RateIndex::ESTR);
+        let conv = IndexConventions::for_index(&RateIndex::Estr);
 
         assert_eq!(conv.currency, Currency::EUR);
         assert_eq!(conv.day_count, DayCountConvention::Act360);
@@ -612,22 +636,12 @@ mod tests {
 
     #[test]
     fn test_index_conventions_euribor() {
-        let conv = IndexConventions::for_index(&RateIndex::EURIBOR { tenor: Tenor::M3 });
+        let conv = IndexConventions::for_index(&RateIndex::Euribor3M);
 
         assert_eq!(conv.currency, Currency::EUR);
         assert_eq!(conv.fixing_lag, -2);
         assert!(conv.arrear_convention.is_none()); // Term rate
         assert!(conv.bloomberg_ticker.unwrap().contains("EUR00"));
-    }
-
-    #[test]
-    fn test_index_conventions_term_sofr() {
-        let conv = IndexConventions::for_index(&RateIndex::TermSOFR { tenor: Tenor::M3 });
-
-        assert_eq!(conv.currency, Currency::USD);
-        assert_eq!(conv.fixing_lag, -2);
-        assert!(matches!(conv.source, IndexSource::CME));
-        assert!(conv.arrear_convention.is_none());
     }
 
     #[test]
@@ -646,10 +660,10 @@ mod tests {
     #[test]
     fn test_overnight_convention_consistency() {
         // Verify all overnight rates have arrear conventions
-        let sofr = IndexConventions::for_index(&RateIndex::SOFR);
-        let sonia = IndexConventions::for_index(&RateIndex::SONIA);
-        let estr = IndexConventions::for_index(&RateIndex::ESTR);
-        let saron = IndexConventions::for_index(&RateIndex::SARON);
+        let sofr = IndexConventions::for_index(&RateIndex::Sofr);
+        let sonia = IndexConventions::for_index(&RateIndex::Sonia);
+        let estr = IndexConventions::for_index(&RateIndex::Estr);
+        let saron = IndexConventions::for_index(&RateIndex::Saron);
 
         assert!(sofr.arrear_convention.is_some());
         assert!(sonia.arrear_convention.is_some());

@@ -144,10 +144,11 @@ impl<'a> ParParAssetSwap<'a> {
         let mut annuity = Decimal::ZERO;
 
         for payment_date in &payment_dates {
-            let df = self
+            let df_f64 = self
                 .swap_curve
-                .discount_factor_at(*payment_date)
+                .discount_factor(*payment_date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+            let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;
         }
 

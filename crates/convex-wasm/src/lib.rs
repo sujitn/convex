@@ -23,9 +23,9 @@ use convex_bonds::{FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
-use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
-use convex_curves::interpolation::InterpolationMethod;
-use convex_curves::{ZeroCurve, ZeroCurveBuilder};
+use convex_curves::{
+    DiscountCurve, DiscountCurveBuilder, InterpolationMethod, ZeroCurve, ZeroCurveBuilder,
+};
 
 // ============================================================================
 // Initialization
@@ -1337,8 +1337,8 @@ fn price_from_g_spread_impl(
     };
 
     // Get interpolated benchmark rate at maturity
-    let benchmark_rate = match curve.zero_rate_at(maturity) {
-        Ok(r) => decimal_to_f64(r),
+    let benchmark_rate = match curve.zero_rate(maturity, convex_curves::Compounding::SemiAnnual) {
+        Ok(r) => r,
         Err(e) => {
             return PriceFromYieldResult {
                 error: Some(format!("Failed to get benchmark rate: {:?}", e)),
@@ -1463,15 +1463,16 @@ fn price_from_benchmark_spread_impl(
     let benchmark_date = settlement.add_days(benchmark_days);
 
     // Get benchmark tenor rate
-    let benchmark_rate = match curve.zero_rate_at(benchmark_date) {
-        Ok(r) => decimal_to_f64(r),
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(format!("Failed to get benchmark rate: {:?}", e)),
-                ..Default::default()
+    let benchmark_rate =
+        match curve.zero_rate(benchmark_date, convex_curves::Compounding::SemiAnnual) {
+            Ok(r) => r,
+            Err(e) => {
+                return PriceFromYieldResult {
+                    error: Some(format!("Failed to get benchmark rate: {:?}", e)),
+                    ..Default::default()
+                }
             }
-        }
-    };
+        };
 
     // Calculate target YTM from benchmark spread: YTM = benchmark_spread + benchmark_tenor_rate
     let target_ytm = (target_benchmark_spread_bps / 100.0) + (benchmark_rate * 100.0);

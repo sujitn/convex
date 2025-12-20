@@ -259,7 +259,7 @@ mod tests {
         let mut store = IndexFixingStore::new();
         let mut current = start;
         for _ in 0..days {
-            store.add_fixing(current, RateIndex::SOFR, rate);
+            store.add_fixing(current, RateIndex::Sofr, rate);
             current = current + 1;
         }
         store
@@ -282,7 +282,7 @@ mod tests {
 
         let rate = OvernightCompounding::compounded_rate(
             &store,
-            &RateIndex::SOFR,
+            &RateIndex::Sofr,
             period_start,
             period_end,
             &convention,
@@ -306,7 +306,7 @@ mod tests {
 
         let rate = OvernightCompounding::compounded_rate(
             &store,
-            &RateIndex::SOFR,
+            &RateIndex::Sofr,
             period_start,
             period_end,
             &convention,

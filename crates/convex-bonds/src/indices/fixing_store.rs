@@ -71,11 +71,11 @@ impl IndexFixing {
 /// let mut store = IndexFixingStore::new();
 ///
 /// // Add SOFR fixings
-/// store.add_fixing(date!(2024-01-02), RateIndex::SOFR, dec!(0.0530));
-/// store.add_fixing(date!(2024-01-03), RateIndex::SOFR, dec!(0.0532));
+/// store.add_fixing(date!(2024-01-02), RateIndex::Sofr, dec!(0.0530));
+/// store.add_fixing(date!(2024-01-03), RateIndex::Sofr, dec!(0.0532));
 ///
 /// // Look up a fixing
-/// let rate = store.get_fixing(&RateIndex::SOFR, date!(2024-01-02));
+/// let rate = store.get_fixing(&RateIndex::Sofr, date!(2024-01-02));
 /// assert_eq!(rate, Some(dec!(0.0530)));
 /// ```
 #[derive(Debug, Clone, Default)]
@@ -194,7 +194,7 @@ impl IndexFixingStore {
     pub fn from_rates(index: RateIndex, rates: Vec<(Date, Decimal)>) -> Self {
         let mut store = Self::new();
         for (date, rate) in rates {
-            store.add_fixing(date, index.clone(), rate);
+            store.add_fixing(date, index, rate);
         }
         store
     }
@@ -212,28 +212,28 @@ mod tests {
     #[test]
     fn test_add_and_get_fixing() {
         let mut store = IndexFixingStore::new();
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
 
-        let rate = store.get_fixing(&RateIndex::SOFR, date(2024, 1, 2));
+        let rate = store.get_fixing(&RateIndex::Sofr, date(2024, 1, 2));
         assert_eq!(rate, Some(dec!(0.0530)));
     }
 
     #[test]
     fn test_missing_fixing() {
         let store = IndexFixingStore::new();
-        let rate = store.get_fixing(&RateIndex::SOFR, date(2024, 1, 2));
+        let rate = store.get_fixing(&RateIndex::Sofr, date(2024, 1, 2));
         assert_eq!(rate, None);
     }
 
     #[test]
     fn test_get_range() {
         let mut store = IndexFixingStore::new();
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
-        store.add_fixing(date(2024, 1, 3), RateIndex::SOFR, dec!(0.0532));
-        store.add_fixing(date(2024, 1, 4), RateIndex::SOFR, dec!(0.0531));
-        store.add_fixing(date(2024, 1, 5), RateIndex::SOFR, dec!(0.0533));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 3), RateIndex::Sofr, dec!(0.0532));
+        store.add_fixing(date(2024, 1, 4), RateIndex::Sofr, dec!(0.0531));
+        store.add_fixing(date(2024, 1, 5), RateIndex::Sofr, dec!(0.0533));
 
-        let range = store.get_range(&RateIndex::SOFR, date(2024, 1, 2), date(2024, 1, 4));
+        let range = store.get_range(&RateIndex::Sofr, date(2024, 1, 2), date(2024, 1, 4));
         assert_eq!(range.len(), 3);
         assert_eq!(range[0], (date(2024, 1, 2), dec!(0.0530)));
         assert_eq!(range[1], (date(2024, 1, 3), dec!(0.0532)));
@@ -243,40 +243,40 @@ mod tests {
     #[test]
     fn test_last_fixing_before() {
         let mut store = IndexFixingStore::new();
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
-        store.add_fixing(date(2024, 1, 3), RateIndex::SOFR, dec!(0.0532));
-        store.add_fixing(date(2024, 1, 5), RateIndex::SOFR, dec!(0.0531));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 3), RateIndex::Sofr, dec!(0.0532));
+        store.add_fixing(date(2024, 1, 5), RateIndex::Sofr, dec!(0.0531));
 
         // On a fixing date
-        let last = store.last_fixing_before(&RateIndex::SOFR, date(2024, 1, 3));
+        let last = store.last_fixing_before(&RateIndex::Sofr, date(2024, 1, 3));
         assert_eq!(last, Some((date(2024, 1, 3), dec!(0.0532))));
 
         // Between fixings (should get 1/3)
-        let last = store.last_fixing_before(&RateIndex::SOFR, date(2024, 1, 4));
+        let last = store.last_fixing_before(&RateIndex::Sofr, date(2024, 1, 4));
         assert_eq!(last, Some((date(2024, 1, 3), dec!(0.0532))));
 
         // Before any fixings
-        let last = store.last_fixing_before(&RateIndex::SOFR, date(2024, 1, 1));
+        let last = store.last_fixing_before(&RateIndex::Sofr, date(2024, 1, 1));
         assert_eq!(last, None);
     }
 
     #[test]
     fn test_multiple_indices() {
         let mut store = IndexFixingStore::new();
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
-        store.add_fixing(date(2024, 1, 2), RateIndex::SONIA, dec!(0.0520));
-        store.add_fixing(date(2024, 1, 2), RateIndex::ESTR, dec!(0.0395));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sonia, dec!(0.0520));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Estr, dec!(0.0395));
 
         assert_eq!(
-            store.get_fixing(&RateIndex::SOFR, date(2024, 1, 2)),
+            store.get_fixing(&RateIndex::Sofr, date(2024, 1, 2)),
             Some(dec!(0.0530))
         );
         assert_eq!(
-            store.get_fixing(&RateIndex::SONIA, date(2024, 1, 2)),
+            store.get_fixing(&RateIndex::Sonia, date(2024, 1, 2)),
             Some(dec!(0.0520))
         );
         assert_eq!(
-            store.get_fixing(&RateIndex::ESTR, date(2024, 1, 2)),
+            store.get_fixing(&RateIndex::Estr, date(2024, 1, 2)),
             Some(dec!(0.0395))
         );
     }
@@ -284,24 +284,24 @@ mod tests {
     #[test]
     fn test_count_and_has_index() {
         let mut store = IndexFixingStore::new();
-        assert!(!store.has_index(&RateIndex::SOFR));
-        assert_eq!(store.count(&RateIndex::SOFR), 0);
+        assert!(!store.has_index(&RateIndex::Sofr));
+        assert_eq!(store.count(&RateIndex::Sofr), 0);
 
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
-        store.add_fixing(date(2024, 1, 3), RateIndex::SOFR, dec!(0.0532));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 3), RateIndex::Sofr, dec!(0.0532));
 
-        assert!(store.has_index(&RateIndex::SOFR));
-        assert_eq!(store.count(&RateIndex::SOFR), 2);
+        assert!(store.has_index(&RateIndex::Sofr));
+        assert_eq!(store.count(&RateIndex::Sofr), 2);
     }
 
     #[test]
     fn test_index_fixing_struct() {
-        let fixing = IndexFixing::new(date(2024, 1, 2), RateIndex::SOFR, dec!(0.053));
+        let fixing = IndexFixing::new(date(2024, 1, 2), RateIndex::Sofr, dec!(0.053));
         assert_eq!(fixing.rate_percent(), dec!(5.3));
 
         let fixing_with_source = IndexFixing::with_source(
             date(2024, 1, 2),
-            RateIndex::SOFR,
+            RateIndex::Sofr,
             dec!(0.053),
             "Federal Reserve",
         );
@@ -318,11 +318,11 @@ mod tests {
             (date(2024, 1, 3), dec!(0.0532)),
             (date(2024, 1, 4), dec!(0.0531)),
         ];
-        let store = IndexFixingStore::from_rates(RateIndex::SOFR, rates);
+        let store = IndexFixingStore::from_rates(RateIndex::Sofr, rates);
 
-        assert_eq!(store.count(&RateIndex::SOFR), 3);
+        assert_eq!(store.count(&RateIndex::Sofr), 3);
         assert_eq!(
-            store.get_fixing(&RateIndex::SOFR, date(2024, 1, 3)),
+            store.get_fixing(&RateIndex::Sofr, date(2024, 1, 3)),
             Some(dec!(0.0532))
         );
     }
@@ -330,14 +330,14 @@ mod tests {
     #[test]
     fn test_clear() {
         let mut store = IndexFixingStore::new();
-        store.add_fixing(date(2024, 1, 2), RateIndex::SOFR, dec!(0.0530));
-        store.add_fixing(date(2024, 1, 2), RateIndex::SONIA, dec!(0.0520));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sofr, dec!(0.0530));
+        store.add_fixing(date(2024, 1, 2), RateIndex::Sonia, dec!(0.0520));
 
-        store.clear_index(&RateIndex::SOFR);
-        assert!(!store.has_index(&RateIndex::SOFR));
-        assert!(store.has_index(&RateIndex::SONIA));
+        store.clear_index(&RateIndex::Sofr);
+        assert!(!store.has_index(&RateIndex::Sofr));
+        assert!(store.has_index(&RateIndex::Sonia));
 
         store.clear();
-        assert!(!store.has_index(&RateIndex::SONIA));
+        assert!(!store.has_index(&RateIndex::Sonia));
     }
 }

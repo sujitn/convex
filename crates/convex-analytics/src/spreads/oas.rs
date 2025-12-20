@@ -10,23 +10,24 @@ use convex_bonds::instruments::CallableBond;
 use convex_bonds::options::{BinomialTree, HullWhite, ShortRateModel};
 use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond};
 use convex_core::types::{Date, Spread, SpreadType};
-use convex_curves::{Compounding, Curve, CurveResult};
+use convex_curves::RateCurveDyn;
+use convex_curves::{Compounding, CurveResult};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
 /// A wrapper curve that applies a parallel shift to all rates.
 struct ShiftedCurve<'a> {
-    base: &'a dyn Curve,
+    base: &'a dyn RateCurveDyn,
     shift: f64,
 }
 
 impl<'a> ShiftedCurve<'a> {
-    fn new(base: &'a dyn Curve, shift: f64) -> Self {
+    fn new(base: &'a dyn RateCurveDyn, shift: f64) -> Self {
         Self { base, shift }
     }
 }
 
-impl Curve for ShiftedCurve<'_> {
+impl RateCurveDyn for ShiftedCurve<'_> {
     fn discount_factor(&self, t: f64) -> CurveResult<f64> {
         let base_df = self.base.discount_factor(t)?;
 
@@ -124,7 +125,7 @@ impl OASCalculator {
         &self,
         bond: &CallableBond,
         dirty_price: Decimal,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         settlement: Date,
     ) -> AnalyticsResult<Spread> {
         let maturity = bond.maturity().ok_or_else(|| {
@@ -177,7 +178,7 @@ impl OASCalculator {
     pub fn price_with_oas(
         &self,
         bond: &CallableBond,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         oas: f64,
         settlement: Date,
     ) -> AnalyticsResult<f64> {
@@ -291,7 +292,7 @@ impl OASCalculator {
     pub fn effective_duration(
         &self,
         bond: &CallableBond,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         oas: f64,
         settlement: Date,
     ) -> AnalyticsResult<f64> {
@@ -316,7 +317,7 @@ impl OASCalculator {
     pub fn effective_convexity(
         &self,
         bond: &CallableBond,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         oas: f64,
         settlement: Date,
     ) -> AnalyticsResult<f64> {
@@ -341,7 +342,7 @@ impl OASCalculator {
     pub fn option_value(
         &self,
         bond: &CallableBond,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         oas: f64,
         settlement: Date,
     ) -> AnalyticsResult<f64> {
@@ -365,7 +366,7 @@ impl OASCalculator {
     pub fn oas_duration(
         &self,
         bond: &CallableBond,
-        curve: &dyn Curve,
+        curve: &dyn RateCurveDyn,
         oas: f64,
         settlement: Date,
     ) -> AnalyticsResult<f64> {
@@ -395,16 +396,19 @@ mod tests {
         Date::from_ymd(y, m, d).unwrap()
     }
 
-    fn create_flat_curve(rate: f64) -> impl Curve {
+    fn create_flat_curve(rate: f64) -> impl RateCurveDyn {
         let ref_date = date(2024, 1, 15);
+        // Start from t=0 with df=1 to ensure correct zero rate calculations
+        // for very short tenors (avoids extrapolation issues with df->zero conversion)
         DiscountCurveBuilder::new(ref_date)
-            .add_pillar(0.01, (-rate * 0.01).exp())
-            .add_pillar(0.25, (-rate * 0.25).exp())
-            .add_pillar(0.5, (-rate * 0.5).exp())
-            .add_pillar(1.0, (-rate * 1.0).exp())
-            .add_pillar(2.0, (-rate * 2.0).exp())
-            .add_pillar(5.0, (-rate * 5.0).exp())
-            .add_pillar(10.0, (-rate * 10.0).exp())
+            .add_zero_rate(0.0001, rate) // Near-zero anchor point
+            .add_zero_rate(0.01, rate)
+            .add_zero_rate(0.25, rate)
+            .add_zero_rate(0.5, rate)
+            .add_zero_rate(1.0, rate)
+            .add_zero_rate(2.0, rate)
+            .add_zero_rate(5.0, rate)
+            .add_zero_rate(10.0, rate)
             .with_extrapolation()
             .build()
             .unwrap()
