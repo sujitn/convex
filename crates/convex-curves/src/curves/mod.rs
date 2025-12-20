@@ -21,7 +21,7 @@ mod segmented;
 pub use delegated::{DelegatedCurve, DelegationFallback};
 pub use derived::{CurveTransform, DerivedCurve};
 pub use discrete::DiscreteCurve;
-pub use segmented::{CurveSegment, SegmentedCurve, SegmentSource};
+pub use segmented::{CurveSegment, SegmentSource, SegmentedCurve};
 
 use std::sync::Arc;
 

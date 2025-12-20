@@ -162,12 +162,7 @@ impl MultiCurveEnvironment {
     }
 
     /// Returns a forward rate from the projection curve.
-    pub fn forward_rate(
-        &self,
-        index: RateIndex,
-        start: Date,
-        end: Date,
-    ) -> CurveResult<f64> {
+    pub fn forward_rate(&self, index: RateIndex, start: Date, end: Date) -> CurveResult<f64> {
         let curve = self.projection(index)?;
         compute_forward_rate(curve, start, end)
     }
@@ -307,11 +302,7 @@ impl MultiCurveEnvironmentBuilder {
 }
 
 /// Helper to compute forward rate from a curve reference.
-fn compute_forward_rate(
-    curve: &dyn TermStructure,
-    start: Date,
-    end: Date,
-) -> CurveResult<f64> {
+fn compute_forward_rate(curve: &dyn TermStructure, start: Date, end: Date) -> CurveResult<f64> {
     use convex_core::types::Compounding;
 
     let rate_curve = RateCurve::new(CurveWrapper(curve));
@@ -351,8 +342,6 @@ impl<'a> TermStructure for CurveWrapper<'a> {
 mod tests {
     use super::*;
     use crate::{InterpolationMethod, ValueType};
-    use convex_core::daycounts::DayCountConvention;
-    use convex_core::types::Compounding;
 
     fn sample_curve(reference_date: Date, rate: f64) -> DiscreteCurve {
         let tenors: Vec<f64> = vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0];

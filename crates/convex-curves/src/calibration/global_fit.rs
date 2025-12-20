@@ -112,10 +112,7 @@ impl CalibrationResult {
     /// Returns the maximum absolute error.
     #[must_use]
     pub fn max_error(&self) -> f64 {
-        self.residuals
-            .iter()
-            .map(|r| r.abs())
-            .fold(0.0, f64::max)
+        self.residuals.iter().map(|r| r.abs()).fold(0.0, f64::max)
     }
 
     /// Returns errors in basis points.
@@ -131,7 +128,11 @@ impl CalibrationResult {
 
         format!(
             "Calibration {}: {} iterations, RMS={:.4}bp, Max={:.4}bp",
-            if self.converged { "converged" } else { "FAILED" },
+            if self.converged {
+                "converged"
+            } else {
+                "FAILED"
+            },
             self.iterations,
             rms_bps,
             max_error_bps
@@ -254,7 +255,8 @@ impl GlobalFitter {
             .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(f64::NAN))
             .collect();
 
-        let rms_error = (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
+        let rms_error =
+            (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
 
         Ok(CalibrationResult {
             curve,
@@ -371,7 +373,11 @@ impl GlobalFitter {
         let rms = (residuals.iter().map(|r| r * r).sum::<f64>() / m as f64).sqrt();
 
         // May have gotten close enough
-        Ok((values, self.config.max_iterations, rms < self.config.tolerance * 100.0))
+        Ok((
+            values,
+            self.config.max_iterations,
+            rms < self.config.tolerance * 100.0,
+        ))
     }
 
     /// Computes the Jacobian matrix numerically.
@@ -418,7 +424,9 @@ impl GlobalFitter {
             // Central difference for each instrument
             for i in 0..m {
                 let r_up = instruments[i].pricing_error(&rate_curve_up).unwrap_or(0.0);
-                let r_down = instruments[i].pricing_error(&rate_curve_down).unwrap_or(0.0);
+                let r_down = instruments[i]
+                    .pricing_error(&rate_curve_down)
+                    .unwrap_or(0.0);
                 jacobian[i][j] = (r_up - r_down) / (2.0 * h);
             }
         }
@@ -427,7 +435,12 @@ impl GlobalFitter {
     }
 
     /// Computes J^T * J.
-    fn matrix_multiply_transpose(&self, j: &[Vec<f64>], _j2: &[Vec<f64>], n: usize) -> Vec<Vec<f64>> {
+    fn matrix_multiply_transpose(
+        &self,
+        j: &[Vec<f64>],
+        _j2: &[Vec<f64>],
+        n: usize,
+    ) -> Vec<Vec<f64>> {
         let m = j.len();
         let mut result = vec![vec![0.0; n]; n];
 
@@ -602,8 +615,8 @@ impl SequentialBootstrapper {
 mod tests {
     use super::*;
     use crate::calibration::instruments::{Deposit, Fra, Ois, Swap};
-    use convex_core::types::Frequency;
     use approx::assert_relative_eq;
+    use convex_core::types::Frequency;
 
     fn make_flat_instruments(today: Date, rate: f64) -> InstrumentSet {
         let dc = DayCountConvention::Act360;

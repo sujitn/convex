@@ -120,10 +120,16 @@ impl<T: TermStructure> RateCurve<T> {
         let value_type = self.inner.value_type();
 
         match value_type {
-            ValueType::DiscountFactor => Ok(ValueConverter::df_to_zero(value, t, Compounding::Continuous)),
-            ValueType::ZeroRate { compounding, .. } => {
-                Ok(ValueConverter::convert_compounding(value, compounding, Compounding::Continuous))
-            }
+            ValueType::DiscountFactor => Ok(ValueConverter::df_to_zero(
+                value,
+                t,
+                Compounding::Continuous,
+            )),
+            ValueType::ZeroRate { compounding, .. } => Ok(ValueConverter::convert_compounding(
+                value,
+                compounding,
+                Compounding::Continuous,
+            )),
             _ => Err(CurveError::incompatible_value_type(
                 "DiscountFactor or ZeroRate",
                 format!("{:?}", value_type),
@@ -153,9 +159,14 @@ impl<T: TermStructure> RateCurve<T> {
 
         match value_type {
             ValueType::DiscountFactor => Ok(ValueConverter::df_to_zero(value, t, compounding)),
-            ValueType::ZeroRate { compounding: stored, .. } => {
-                Ok(ValueConverter::convert_compounding(value, stored, compounding))
-            }
+            ValueType::ZeroRate {
+                compounding: stored,
+                ..
+            } => Ok(ValueConverter::convert_compounding(
+                value,
+                stored,
+                compounding,
+            )),
             _ => Err(CurveError::incompatible_value_type(
                 "DiscountFactor or ZeroRate",
                 format!("{:?}", value_type),
@@ -189,13 +200,21 @@ impl<T: TermStructure> RateCurve<T> {
         compounding: Compounding,
     ) -> CurveResult<f64> {
         if t2 <= t1 {
-            return Err(CurveError::invalid_value("End tenor must be after start tenor"));
+            return Err(CurveError::invalid_value(
+                "End tenor must be after start tenor",
+            ));
         }
 
         let df1 = self.discount_factor_at_tenor(t1)?;
         let df2 = self.discount_factor_at_tenor(t2)?;
 
-        Ok(ValueConverter::forward_rate_from_dfs(df1, df2, t1, t2, compounding))
+        Ok(ValueConverter::forward_rate_from_dfs(
+            df1,
+            df2,
+            t1,
+            t2,
+            compounding,
+        ))
     }
 
     /// Returns the instantaneous forward rate at the given date.
@@ -216,20 +235,24 @@ impl<T: TermStructure> RateCurve<T> {
             ValueType::ZeroRate { compounding, .. } if compounding == Compounding::Continuous => {
                 // f(t) = r(t) + t * dr/dt
                 let rate = self.inner.value_at(t);
-                let derivative = self.inner.derivative_at(t).ok_or_else(|| {
-                    CurveError::DerivativeNotAvailable { tenor: t }
-                })?;
+                let derivative = self
+                    .inner
+                    .derivative_at(t)
+                    .ok_or_else(|| CurveError::DerivativeNotAvailable { tenor: t })?;
                 Ok(ValueConverter::instantaneous_forward(rate, derivative, t))
             }
             ValueType::DiscountFactor => {
                 // f(t) = -d/dt ln(P(t)) = -P'(t)/P(t)
                 let df = self.inner.value_at(t);
-                let df_deriv = self.inner.derivative_at(t).ok_or_else(|| {
-                    CurveError::DerivativeNotAvailable { tenor: t }
-                })?;
+                let df_deriv = self
+                    .inner
+                    .derivative_at(t)
+                    .ok_or_else(|| CurveError::DerivativeNotAvailable { tenor: t })?;
 
                 if df <= 0.0 {
-                    return Err(CurveError::invalid_value("Discount factor must be positive"));
+                    return Err(CurveError::invalid_value(
+                        "Discount factor must be positive",
+                    ));
                 }
 
                 Ok(-df_deriv / df)
@@ -264,7 +287,9 @@ impl<T: TermStructure> RateCurve<T> {
         let t_mat = self.date_to_tenor(maturity);
 
         if t_mat <= 0.0 {
-            return Err(CurveError::invalid_value("Maturity must be after reference date"));
+            return Err(CurveError::invalid_value(
+                "Maturity must be after reference date",
+            ));
         }
 
         // Number of periods
@@ -277,7 +302,9 @@ impl<T: TermStructure> RateCurve<T> {
         let num_periods = (t_mat / period_length).round() as usize;
 
         if num_periods == 0 {
-            return Err(CurveError::invalid_value("Maturity too short for given frequency"));
+            return Err(CurveError::invalid_value(
+                "Maturity too short for given frequency",
+            ));
         }
 
         // Sum of discount factors at payment dates
@@ -289,7 +316,8 @@ impl<T: TermStructure> RateCurve<T> {
                 ref_date.add_days(((i - 1) as f64 * period_length * 365.0) as i64),
                 ref_date.add_days((i as f64 * period_length * 365.0) as i64),
             );
-            annuity += df * rust_decimal::prelude::ToPrimitive::to_f64(&year_frac).unwrap_or(period_length);
+            annuity += df
+                * rust_decimal::prelude::ToPrimitive::to_f64(&year_frac).unwrap_or(period_length);
         }
 
         let df_mat = self.discount_factor_at_tenor(t_mat)?;
@@ -356,23 +384,23 @@ impl<T: TermStructure> YieldCurve for RateCurve<T> {
     }
 
     fn discount_factor(&self, date: Date) -> ConvexResult<Decimal> {
-        let df = self.discount_factor(date).map_err(|e| {
-            convex_core::error::ConvexError::curve_error(e.to_string())
-        })?;
+        let df = self
+            .discount_factor(date)
+            .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
         Ok(Decimal::from_f64_retain(df).unwrap_or(Decimal::ZERO))
     }
 
     fn zero_rate(&self, date: Date) -> ConvexResult<Decimal> {
-        let rate = self.zero_rate_continuous(date).map_err(|e| {
-            convex_core::error::ConvexError::curve_error(e.to_string())
-        })?;
+        let rate = self
+            .zero_rate_continuous(date)
+            .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
         Ok(Decimal::from_f64_retain(rate).unwrap_or(Decimal::ZERO))
     }
 
     fn forward_rate(&self, start: Date, end: Date) -> ConvexResult<Decimal> {
-        let fwd = self.forward_rate(start, end, Compounding::Continuous).map_err(|e| {
-            convex_core::error::ConvexError::curve_error(e.to_string())
-        })?;
+        let fwd = self
+            .forward_rate(start, end, Compounding::Continuous)
+            .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
         Ok(Decimal::from_f64_retain(fwd).unwrap_or(Decimal::ZERO))
     }
 
@@ -455,7 +483,9 @@ mod tests {
         let curve = sample_df_curve();
         let t = 2.0;
 
-        let rate = curve.zero_rate_at_tenor(t, Compounding::Continuous).unwrap();
+        let rate = curve
+            .zero_rate_at_tenor(t, Compounding::Continuous)
+            .unwrap();
         assert_relative_eq!(rate, 0.05, epsilon = 1e-6);
     }
 
@@ -464,7 +494,9 @@ mod tests {
         let curve = sample_zero_curve();
         let t = 2.0;
 
-        let rate = curve.zero_rate_at_tenor(t, Compounding::Continuous).unwrap();
+        let rate = curve
+            .zero_rate_at_tenor(t, Compounding::Continuous)
+            .unwrap();
         assert_relative_eq!(rate, 0.05, epsilon = 1e-6);
     }
 
@@ -473,7 +505,9 @@ mod tests {
         let curve = sample_zero_curve();
         let t = 1.0;
 
-        let cont = curve.zero_rate_at_tenor(t, Compounding::Continuous).unwrap();
+        let cont = curve
+            .zero_rate_at_tenor(t, Compounding::Continuous)
+            .unwrap();
         let annual = curve.zero_rate_at_tenor(t, Compounding::Annual).unwrap();
 
         // Annual should be slightly higher than continuous
@@ -519,7 +553,9 @@ mod tests {
     #[test]
     fn test_zero_rate_at_zero() {
         let curve = sample_zero_curve();
-        let rate = curve.zero_rate_at_tenor(0.0, Compounding::Continuous).unwrap();
+        let rate = curve
+            .zero_rate_at_tenor(0.0, Compounding::Continuous)
+            .unwrap();
         assert_relative_eq!(rate, 0.0, epsilon = 1e-10);
     }
 

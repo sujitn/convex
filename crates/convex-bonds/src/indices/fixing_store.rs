@@ -194,7 +194,7 @@ impl IndexFixingStore {
     pub fn from_rates(index: RateIndex, rates: Vec<(Date, Decimal)>) -> Self {
         let mut store = Self::new();
         for (date, rate) in rates {
-            store.add_fixing(date, index.clone(), rate);
+            store.add_fixing(date, index, rate);
         }
         store
     }

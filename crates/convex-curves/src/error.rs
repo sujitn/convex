@@ -24,7 +24,9 @@ pub enum CurveError {
     },
 
     /// Curve calibration failed to converge.
-    #[error("Calibration failed after {iterations} iterations (residual: {residual:.2e}): {message}")]
+    #[error(
+        "Calibration failed after {iterations} iterations (residual: {residual:.2e}): {message}"
+    )]
     CalibrationFailure {
         /// Number of iterations attempted.
         iterations: usize,
@@ -174,7 +176,11 @@ impl CurveError {
 
     /// Creates a calibration failure error.
     #[must_use]
-    pub fn calibration_failed(iterations: usize, residual: f64, message: impl Into<String>) -> Self {
+    pub fn calibration_failed(
+        iterations: usize,
+        residual: f64,
+        message: impl Into<String>,
+    ) -> Self {
         Self::CalibrationFailure {
             iterations,
             residual,

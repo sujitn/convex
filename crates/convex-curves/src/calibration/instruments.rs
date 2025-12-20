@@ -264,7 +264,8 @@ impl Deposit {
 
     /// Returns the year fraction using the day count convention.
     fn year_fraction(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.reference_date, self.maturity)
+        self.day_count
+            .year_fraction_f64(self.reference_date, self.maturity)
     }
 }
 
@@ -375,7 +376,8 @@ impl Fra {
 
     /// Returns the forward period year fraction.
     fn forward_period(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.start_date, self.end_date)
+        self.day_count
+            .year_fraction_f64(self.start_date, self.end_date)
     }
 }
 
@@ -389,7 +391,8 @@ impl CalibrationInstrument for Fra {
     }
 
     fn tenor(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.reference_date, self.end_date)
+        self.day_count
+            .year_fraction_f64(self.reference_date, self.end_date)
     }
 
     fn quote(&self) -> f64 {
@@ -431,13 +434,22 @@ impl CalibrationInstrument for Fra {
     }
 
     fn description(&self) -> String {
-        let start_months =
-            (self.day_count.year_fraction_f64(self.reference_date, self.start_date) * 12.0)
-                .round() as i32;
-        let end_months =
-            (self.day_count.year_fraction_f64(self.reference_date, self.end_date) * 12.0)
-                .round() as i32;
-        format!("FRA {}x{} @ {:.4}%", start_months, end_months, self.rate * 100.0)
+        let start_months = (self
+            .day_count
+            .year_fraction_f64(self.reference_date, self.start_date)
+            * 12.0)
+            .round() as i32;
+        let end_months = (self
+            .day_count
+            .year_fraction_f64(self.reference_date, self.end_date)
+            * 12.0)
+            .round() as i32;
+        format!(
+            "FRA {}x{} @ {:.4}%",
+            start_months,
+            end_months,
+            self.rate * 100.0
+        )
     }
 }
 
@@ -499,7 +511,8 @@ impl Future {
 
     /// Returns the forward period year fraction.
     fn forward_period(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.imm_date, self.end_date)
+        self.day_count
+            .year_fraction_f64(self.imm_date, self.end_date)
     }
 }
 
@@ -513,7 +526,8 @@ impl CalibrationInstrument for Future {
     }
 
     fn tenor(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.reference_date, self.end_date)
+        self.day_count
+            .year_fraction_f64(self.reference_date, self.end_date)
     }
 
     fn quote(&self) -> f64 {
@@ -675,11 +689,7 @@ impl Swap {
         let annuity = self.annuity(curve)?;
 
         if annuity.abs() < 1e-12 {
-            return Err(CurveError::calibration_failed(
-                0,
-                0.0,
-                "Annuity is zero",
-            ));
+            return Err(CurveError::calibration_failed(0, 0.0, "Annuity is zero"));
         }
 
         Ok((df_eff - df_mat) / annuity * self.notional)
@@ -696,7 +706,8 @@ impl CalibrationInstrument for Swap {
     }
 
     fn tenor(&self) -> f64 {
-        self.fixed_day_count.year_fraction_f64(self.reference_date, self.maturity)
+        self.fixed_day_count
+            .year_fraction_f64(self.reference_date, self.maturity)
     }
 
     fn quote(&self) -> f64 {
@@ -867,7 +878,8 @@ impl CalibrationInstrument for Ois {
     }
 
     fn tenor(&self) -> f64 {
-        self.day_count.year_fraction_f64(self.reference_date, self.maturity)
+        self.day_count
+            .year_fraction_f64(self.reference_date, self.maturity)
     }
 
     fn quote(&self) -> f64 {
@@ -962,10 +974,7 @@ impl InstrumentSet {
     }
 
     /// Calculates pricing errors for all instruments.
-    pub fn pricing_errors(
-        &self,
-        curve: &RateCurve<DiscreteCurve>,
-    ) -> CurveResult<Vec<f64>> {
+    pub fn pricing_errors(&self, curve: &RateCurve<DiscreteCurve>) -> CurveResult<Vec<f64>> {
         self.instruments
             .iter()
             .map(|i| i.pricing_error(curve))
@@ -984,15 +993,11 @@ impl InstrumentSet {
 mod tests {
     use super::*;
     use crate::{InterpolationMethod, ValueType};
-    use approx::assert_relative_eq;
 
     fn sample_discount_curve(reference_date: Date) -> DiscreteCurve {
         let tenors: Vec<f64> = vec![0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
         // Flat 4% curve for simplicity
-        let dfs: Vec<f64> = tenors
-            .iter()
-            .map(|&t| (-0.04_f64 * t).exp())
-            .collect();
+        let dfs: Vec<f64> = tenors.iter().map(|&t| (-0.04_f64 * t).exp()).collect();
 
         DiscreteCurve::new(
             reference_date,
@@ -1103,8 +1108,18 @@ mod tests {
         let rate_curve = RateCurve::new(curve);
 
         let mut instruments = InstrumentSet::new();
-        instruments.add(Deposit::from_tenor(today, 0.25, 0.039, DayCountConvention::Act360));
-        instruments.add(Deposit::from_tenor(today, 0.5, 0.04, DayCountConvention::Act360));
+        instruments.add(Deposit::from_tenor(
+            today,
+            0.25,
+            0.039,
+            DayCountConvention::Act360,
+        ));
+        instruments.add(Deposit::from_tenor(
+            today,
+            0.5,
+            0.04,
+            DayCountConvention::Act360,
+        ));
         instruments.add(Swap::from_tenor(
             today,
             2.0,

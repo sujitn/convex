@@ -54,8 +54,7 @@ mod parallel;
 mod scenario;
 
 pub use key_rate::{
-    key_rate_profile, ArcKeyRateBumpedCurve, KeyRateBump, KeyRateBumpedCurve,
-    STANDARD_KEY_TENORS,
+    key_rate_profile, ArcKeyRateBumpedCurve, KeyRateBump, KeyRateBumpedCurve, STANDARD_KEY_TENORS,
 };
 pub use parallel::{ArcBumpedCurve, BumpedCurve, ParallelBump};
 pub use scenario::{presets, ArcScenarioCurve, Scenario, ScenarioBump, ScenarioCurve};

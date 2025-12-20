@@ -260,8 +260,11 @@ impl RateIndex {
             RateIndex::Sofr => Currency::Usd,
             #[allow(deprecated)]
             RateIndex::UsdLibor3M => Currency::Usd,
-            RateIndex::Estr | RateIndex::Euribor1M | RateIndex::Euribor3M
-            | RateIndex::Euribor6M | RateIndex::Euribor12M => Currency::Eur,
+            RateIndex::Estr
+            | RateIndex::Euribor1M
+            | RateIndex::Euribor3M
+            | RateIndex::Euribor6M
+            | RateIndex::Euribor12M => Currency::Eur,
             RateIndex::Sonia => Currency::Gbp,
             #[allow(deprecated)]
             RateIndex::GbpLibor3M => Currency::Gbp,
@@ -301,8 +304,11 @@ impl RateIndex {
             RateIndex::UsdLibor3M => DayCountConvention::Act360,
 
             // EUR uses ACT/360
-            RateIndex::Estr | RateIndex::Euribor1M | RateIndex::Euribor3M
-            | RateIndex::Euribor6M | RateIndex::Euribor12M => DayCountConvention::Act360,
+            RateIndex::Estr
+            | RateIndex::Euribor1M
+            | RateIndex::Euribor3M
+            | RateIndex::Euribor6M
+            | RateIndex::Euribor12M => DayCountConvention::Act360,
 
             // GBP uses ACT/365
             RateIndex::Sonia => DayCountConvention::Act365Fixed,
@@ -333,9 +339,14 @@ impl RateIndex {
     pub fn tenor_years(&self) -> f64 {
         match self {
             // Overnight rates
-            RateIndex::Sofr | RateIndex::Estr | RateIndex::Sonia
-            | RateIndex::Tonar | RateIndex::Saron
-            | RateIndex::Corra | RateIndex::Aonia | RateIndex::Honia => 0.0,
+            RateIndex::Sofr
+            | RateIndex::Estr
+            | RateIndex::Sonia
+            | RateIndex::Tonar
+            | RateIndex::Saron
+            | RateIndex::Corra
+            | RateIndex::Aonia
+            | RateIndex::Honia => 0.0,
 
             // 1-month rates
             RateIndex::Euribor1M => 1.0 / 12.0,
@@ -369,8 +380,10 @@ impl RateIndex {
             RateIndex::Honia => 0,
 
             // Term rates typically fix T-2
-            RateIndex::Euribor1M | RateIndex::Euribor3M
-            | RateIndex::Euribor6M | RateIndex::Euribor12M => 2,
+            RateIndex::Euribor1M
+            | RateIndex::Euribor3M
+            | RateIndex::Euribor6M
+            | RateIndex::Euribor12M => 2,
             RateIndex::Tibor3M => 2,
 
             #[allow(deprecated)]

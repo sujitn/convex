@@ -78,6 +78,33 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::must_use_candidate)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_fields_in_debug)]
+#![allow(clippy::return_self_not_must_use)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::redundant_else)]
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::extra_unused_lifetimes)]
+#![allow(clippy::elidable_lifetime_names)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::unused_self)]
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::redundant_guards)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::borrowed_box)]
+#![allow(clippy::derivable_impls)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::unnecessary_lazy_evaluations)]
+#![allow(clippy::explicit_iter_loop)]
 
 // Core modules
 mod conversion;
@@ -110,8 +137,8 @@ pub use term_structure::{Curve, CurveRef, TermStructure};
 pub use value_type::ValueType;
 
 // Re-export curve types
-pub use curves::{DelegatedCurve, DerivedCurve, DiscreteCurve, SegmentedCurve};
 pub use curves::{CurveTransform, DelegationFallback, SegmentSource};
+pub use curves::{DelegatedCurve, DerivedCurve, DiscreteCurve, SegmentedCurve};
 pub use curves::{DiscountCurve, DiscountCurveBuilder, ForwardCurve, ZeroCurve, ZeroCurveBuilder};
 
 // Re-export wrappers

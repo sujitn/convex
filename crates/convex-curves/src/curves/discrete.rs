@@ -130,7 +130,11 @@ impl DiscreteCurve {
         // Check monotonicity
         for i in 1..tenors.len() {
             if tenors[i] <= tenors[i - 1] {
-                return Err(CurveError::non_monotonic_tenors(i, tenors[i - 1], tenors[i]));
+                return Err(CurveError::non_monotonic_tenors(
+                    i,
+                    tenors[i - 1],
+                    tenors[i],
+                ));
             }
         }
 
@@ -161,26 +165,18 @@ impl DiscreteCurve {
         let values_vec = values.to_vec();
 
         match method {
-            InterpolationMethod::Linear => {
-                LinearInterpolator::new(tenors_vec, values_vec)
-                    .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
-                    .map_err(|e| CurveError::interpolation_error(e.to_string()))
-            }
-            InterpolationMethod::LogLinear => {
-                LogLinearInterpolator::new(tenors_vec, values_vec)
-                    .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
-                    .map_err(|e| CurveError::interpolation_error(e.to_string()))
-            }
-            InterpolationMethod::CubicSpline => {
-                CubicSpline::new(tenors_vec, values_vec)
-                    .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
-                    .map_err(|e| CurveError::interpolation_error(e.to_string()))
-            }
-            InterpolationMethod::MonotoneConvex => {
-                MonotoneConvex::new(tenors_vec, values_vec)
-                    .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
-                    .map_err(|e| CurveError::interpolation_error(e.to_string()))
-            }
+            InterpolationMethod::Linear => LinearInterpolator::new(tenors_vec, values_vec)
+                .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                .map_err(|e| CurveError::interpolation_error(e.to_string())),
+            InterpolationMethod::LogLinear => LogLinearInterpolator::new(tenors_vec, values_vec)
+                .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                .map_err(|e| CurveError::interpolation_error(e.to_string())),
+            InterpolationMethod::CubicSpline => CubicSpline::new(tenors_vec, values_vec)
+                .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                .map_err(|e| CurveError::interpolation_error(e.to_string())),
+            InterpolationMethod::MonotoneConvex => MonotoneConvex::new(tenors_vec, values_vec)
+                .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                .map_err(|e| CurveError::interpolation_error(e.to_string())),
             InterpolationMethod::PiecewiseConstant => {
                 // Use linear for now, will implement piecewise constant later
                 LinearInterpolator::new(tenors_vec, values_vec)
@@ -241,7 +237,6 @@ impl DiscreteCurve {
     /// Handles extrapolation for out-of-range tenors.
     fn extrapolate(&self, t: f64) -> f64 {
         let min_t = self.tenors[0];
-        let max_t = self.max_tenor;
 
         match self.extrapolation {
             ExtrapolationMethod::None => {
@@ -258,13 +253,14 @@ impl DiscreteCurve {
             ExtrapolationMethod::Linear => {
                 if t < min_t {
                     // Extrapolate linearly using first two points
-                    let slope = (self.values[1] - self.values[0]) / (self.tenors[1] - self.tenors[0]);
+                    let slope =
+                        (self.values[1] - self.values[0]) / (self.tenors[1] - self.tenors[0]);
                     self.values[0] + slope * (t - self.tenors[0])
                 } else {
                     // Extrapolate linearly using last two points
                     let n = self.values.len();
-                    let slope =
-                        (self.values[n - 1] - self.values[n - 2]) / (self.tenors[n - 1] - self.tenors[n - 2]);
+                    let slope = (self.values[n - 1] - self.values[n - 2])
+                        / (self.tenors[n - 1] - self.tenors[n - 2]);
                     self.values[n - 1] + slope * (t - self.tenors[n - 1])
                 }
             }
@@ -481,7 +477,11 @@ mod tests {
         // Should be approximately 10 years from reference date (within a few days)
         let days = ref_date.days_between(&max_date);
         // 10 years is approximately 3650 days, allow +/- 5 days for leap years
-        assert!((days - 3650).abs() <= 5, "Expected ~3650 days, got {}", days);
+        assert!(
+            (days - 3650).abs() <= 5,
+            "Expected ~3650 days, got {}",
+            days
+        );
     }
 
     #[test]

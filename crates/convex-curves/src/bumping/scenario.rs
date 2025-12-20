@@ -279,7 +279,11 @@ impl ScenarioBump {
     pub fn description(&self) -> String {
         match self {
             ScenarioBump::Parallel { shift_bps } => {
-                format!("Parallel {}{:.0}bp", if *shift_bps >= 0.0 { "+" } else { "" }, shift_bps)
+                format!(
+                    "Parallel {}{:.0}bp",
+                    if *shift_bps >= 0.0 { "+" } else { "" },
+                    shift_bps
+                )
             }
             ScenarioBump::Steepener {
                 short_shift_bps,
@@ -301,7 +305,9 @@ impl ScenarioBump {
                     short_shift_bps, pivot_tenor, long_shift_bps
                 )
             }
-            ScenarioBump::KeyRate { tenor, shift_bps, .. } => {
+            ScenarioBump::KeyRate {
+                tenor, shift_bps, ..
+            } => {
                 format!(
                     "KR{:.0}Y {}{:.0}bp",
                     tenor,
@@ -551,9 +557,7 @@ impl<T: TermStructure> TermStructure for ScenarioCurve<'_, T> {
             ValueType::DiscountFactor => base_value * (-total_shift * t).exp(),
             ValueType::SurvivalProbability => base_value * (-total_shift * t).exp(),
 
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + total_shift
-            }
+            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
         }
     }
 
@@ -618,9 +622,7 @@ impl<T: TermStructure> TermStructure for ArcScenarioCurve<T> {
             ValueType::DiscountFactor => base_value * (-total_shift * t).exp(),
             ValueType::SurvivalProbability => base_value * (-total_shift * t).exp(),
 
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + total_shift
-            }
+            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
         }
     }
 

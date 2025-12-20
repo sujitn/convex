@@ -174,15 +174,11 @@ impl<T: TermStructure> TermStructure for BumpedCurve<'_, T> {
             // For discount factors: df_bumped = df * exp(-shift * t)
             // Derivation: if zero rate increases by shift, then
             // df = exp(-r*t) becomes df' = exp(-(r+shift)*t) = df * exp(-shift*t)
-            ValueType::DiscountFactor => {
-                base_value * (-self.shift_decimal * t).exp()
-            }
+            ValueType::DiscountFactor => base_value * (-self.shift_decimal * t).exp(),
 
             // For survival probability: similar to discount factor
             // S(t) = exp(-h*t) becomes S'(t) = exp(-(h+shift)*t) = S * exp(-shift*t)
-            ValueType::SurvivalProbability => {
-                base_value * (-self.shift_decimal * t).exp()
-            }
+            ValueType::SurvivalProbability => base_value * (-self.shift_decimal * t).exp(),
 
             // For credit spreads: add shift to spread
             ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
@@ -212,10 +208,7 @@ impl<T: TermStructure> TermStructure for BumpedCurve<'_, T> {
                 let base_value = self.base.value_at(t);
                 let base_deriv = self.base.derivative_at(t)?;
                 let exp_factor = (-self.shift_decimal * t).exp();
-                Some(
-                    base_deriv * exp_factor
-                        - self.shift_decimal * base_value * exp_factor,
-                )
+                Some(base_deriv * exp_factor - self.shift_decimal * base_value * exp_factor)
             }
             _ => self.base.derivative_at(t),
         }
@@ -276,13 +269,9 @@ impl<T: TermStructure> TermStructure for ArcBumpedCurve<T> {
             | ValueType::HazardRate
             | ValueType::ParSwapRate { .. } => base_value + self.shift_decimal,
 
-            ValueType::DiscountFactor => {
-                base_value * (-self.shift_decimal * t).exp()
-            }
+            ValueType::DiscountFactor => base_value * (-self.shift_decimal * t).exp(),
 
-            ValueType::SurvivalProbability => {
-                base_value * (-self.shift_decimal * t).exp()
-            }
+            ValueType::SurvivalProbability => base_value * (-self.shift_decimal * t).exp(),
 
             ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
 
@@ -306,10 +295,7 @@ impl<T: TermStructure> TermStructure for ArcBumpedCurve<T> {
                 let base_value = self.base.value_at(t);
                 let base_deriv = self.base.derivative_at(t)?;
                 let exp_factor = (-self.shift_decimal * t).exp();
-                Some(
-                    base_deriv * exp_factor
-                        - self.shift_decimal * base_value * exp_factor,
-                )
+                Some(base_deriv * exp_factor - self.shift_decimal * base_value * exp_factor)
             }
             _ => self.base.derivative_at(t),
         }

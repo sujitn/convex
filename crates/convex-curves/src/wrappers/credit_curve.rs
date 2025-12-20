@@ -159,24 +159,18 @@ impl<T: TermStructure> CreditCurve<T> {
     /// # Returns
     ///
     /// Conditional default probability.
-    pub fn conditional_default_probability(
-        &self,
-        start: Date,
-        end: Date,
-    ) -> CurveResult<f64> {
+    pub fn conditional_default_probability(&self, start: Date, end: Date) -> CurveResult<f64> {
         let t1 = self.date_to_tenor(start);
         let t2 = self.date_to_tenor(end);
         self.conditional_default_probability_at_tenors(t1, t2)
     }
 
     /// Returns the conditional default probability between two tenors.
-    pub fn conditional_default_probability_at_tenors(
-        &self,
-        t1: f64,
-        t2: f64,
-    ) -> CurveResult<f64> {
+    pub fn conditional_default_probability_at_tenors(&self, t1: f64, t2: f64) -> CurveResult<f64> {
         if t2 <= t1 {
-            return Err(CurveError::invalid_value("End tenor must be after start tenor"));
+            return Err(CurveError::invalid_value(
+                "End tenor must be after start tenor",
+            ));
         }
 
         let surv1 = self.survival_probability_at_tenor(t1)?;
@@ -204,22 +198,14 @@ impl<T: TermStructure> CreditCurve<T> {
     /// # Returns
     ///
     /// Marginal default probability.
-    pub fn marginal_default_probability(
-        &self,
-        start: Date,
-        end: Date,
-    ) -> CurveResult<f64> {
+    pub fn marginal_default_probability(&self, start: Date, end: Date) -> CurveResult<f64> {
         let t1 = self.date_to_tenor(start);
         let t2 = self.date_to_tenor(end);
         self.marginal_default_probability_at_tenors(t1, t2)
     }
 
     /// Returns the marginal default probability between two tenors.
-    pub fn marginal_default_probability_at_tenors(
-        &self,
-        t1: f64,
-        t2: f64,
-    ) -> CurveResult<f64> {
+    pub fn marginal_default_probability_at_tenors(&self, t1: f64, t2: f64) -> CurveResult<f64> {
         let surv1 = self.survival_probability_at_tenor(t1)?;
         let surv2 = self.survival_probability_at_tenor(t2)?;
         Ok((surv1 - surv2).max(0.0))
@@ -371,7 +357,11 @@ impl<T: TermStructure> CreditCurve<T> {
     ) -> CurveResult<f64> {
         let df = discount_curve.discount_factor_at_tenor(t)?;
         let surv = self.survival_probability_at_tenor(t)?;
-        Ok(ValueConverter::risky_discount_factor(df, surv, self.recovery_rate))
+        Ok(ValueConverter::risky_discount_factor(
+            df,
+            surv,
+            self.recovery_rate,
+        ))
     }
 
     /// Returns the expected loss at the given date.
@@ -629,9 +619,7 @@ mod tests {
         let discount = sample_discount_curve();
         let t = 5.0;
 
-        let risky_df = credit
-            .risky_discount_factor_at_tenor(t, &discount)
-            .unwrap();
+        let risky_df = credit.risky_discount_factor_at_tenor(t, &discount).unwrap();
 
         // P_risky = P * (Q + (1-Q) * R)
         let df = (-0.05 * t).exp();

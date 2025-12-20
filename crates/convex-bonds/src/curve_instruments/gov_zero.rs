@@ -3,8 +3,8 @@
 use rust_decimal::prelude::*;
 
 use convex_core::Date;
-use convex_curves::{CurveInstrument, InstrumentType, RateCurveDyn};
 use convex_curves::CurveResult;
+use convex_curves::{CurveInstrument, InstrumentType, RateCurveDyn};
 
 use crate::instruments::ZeroCouponBond;
 use crate::traits::Bond;

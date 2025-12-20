@@ -11,8 +11,8 @@ use std::sync::Arc;
 use convex_core::types::{Compounding, Date};
 
 use crate::curves::{
-    CurveSegment, DelegatedCurve, DelegationFallback, DerivedCurve, DiscreteCurve,
-    SegmentSource, SegmentedCurve,
+    CurveSegment, DelegatedCurve, DelegationFallback, DerivedCurve, DiscreteCurve, SegmentSource,
+    SegmentedCurve,
 };
 use crate::error::{CurveError, CurveResult};
 use crate::term_structure::{CurveRef, TermStructure};
@@ -116,10 +116,7 @@ enum SegmentDataSource {
         compounding: Compounding,
     },
     /// Discrete discount factors.
-    DiscreteDiscountFactors {
-        tenors: Vec<f64>,
-        dfs: Vec<f64>,
-    },
+    DiscreteDiscountFactors { tenors: Vec<f64>, dfs: Vec<f64> },
     /// Discrete forward rates.
     DiscreteForwards {
         tenors: Vec<f64>,
@@ -142,15 +139,9 @@ enum SegmentDataSource {
         fallback: DelegationFallback,
     },
     /// Spread over a base curve.
-    SpreadOver {
-        base: CurveRef,
-        spread_bps: f64,
-    },
+    SpreadOver { base: CurveRef, spread_bps: f64 },
     /// Parallel shift of a base curve.
-    Shifted {
-        base: CurveRef,
-        shift_bps: f64,
-    },
+    Shifted { base: CurveRef, shift_bps: f64 },
     /// Not yet configured.
     Empty,
 }
@@ -158,46 +149,38 @@ enum SegmentDataSource {
 impl fmt::Debug for SegmentDataSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SegmentDataSource::DiscreteZeros { tenors, .. } => {
-                f.debug_struct("DiscreteZeros")
-                    .field("n_points", &tenors.len())
-                    .finish()
-            }
-            SegmentDataSource::DiscreteDiscountFactors { tenors, .. } => {
-                f.debug_struct("DiscreteDiscountFactors")
-                    .field("n_points", &tenors.len())
-                    .finish()
-            }
-            SegmentDataSource::DiscreteForwards { tenors, .. } => {
-                f.debug_struct("DiscreteForwards")
-                    .field("n_points", &tenors.len())
-                    .finish()
-            }
-            SegmentDataSource::DiscreteSurvival { tenors, .. } => {
-                f.debug_struct("DiscreteSurvival")
-                    .field("n_points", &tenors.len())
-                    .finish()
-            }
-            SegmentDataSource::DiscreteHazard { tenors, .. } => {
-                f.debug_struct("DiscreteHazard")
-                    .field("n_points", &tenors.len())
-                    .finish()
-            }
-            SegmentDataSource::Delegated { fallback, .. } => {
-                f.debug_struct("Delegated")
-                    .field("fallback", fallback)
-                    .finish()
-            }
-            SegmentDataSource::SpreadOver { spread_bps, .. } => {
-                f.debug_struct("SpreadOver")
-                    .field("spread_bps", spread_bps)
-                    .finish()
-            }
-            SegmentDataSource::Shifted { shift_bps, .. } => {
-                f.debug_struct("Shifted")
-                    .field("shift_bps", shift_bps)
-                    .finish()
-            }
+            SegmentDataSource::DiscreteZeros { tenors, .. } => f
+                .debug_struct("DiscreteZeros")
+                .field("n_points", &tenors.len())
+                .finish(),
+            SegmentDataSource::DiscreteDiscountFactors { tenors, .. } => f
+                .debug_struct("DiscreteDiscountFactors")
+                .field("n_points", &tenors.len())
+                .finish(),
+            SegmentDataSource::DiscreteForwards { tenors, .. } => f
+                .debug_struct("DiscreteForwards")
+                .field("n_points", &tenors.len())
+                .finish(),
+            SegmentDataSource::DiscreteSurvival { tenors, .. } => f
+                .debug_struct("DiscreteSurvival")
+                .field("n_points", &tenors.len())
+                .finish(),
+            SegmentDataSource::DiscreteHazard { tenors, .. } => f
+                .debug_struct("DiscreteHazard")
+                .field("n_points", &tenors.len())
+                .finish(),
+            SegmentDataSource::Delegated { fallback, .. } => f
+                .debug_struct("Delegated")
+                .field("fallback", fallback)
+                .finish(),
+            SegmentDataSource::SpreadOver { spread_bps, .. } => f
+                .debug_struct("SpreadOver")
+                .field("spread_bps", spread_bps)
+                .finish(),
+            SegmentDataSource::Shifted { shift_bps, .. } => f
+                .debug_struct("Shifted")
+                .field("shift_bps", shift_bps)
+                .finish(),
             SegmentDataSource::Empty => write!(f, "Empty"),
         }
     }
@@ -516,12 +499,7 @@ impl CurveBuilder {
             let curve = self.build_curve_from_config(config)?;
             let source = self.build_segment_source(config);
 
-            curve_segments.push(CurveSegment::new(
-                config.start,
-                config.end,
-                source,
-                curve,
-            ));
+            curve_segments.push(CurveSegment::new(config.start, config.end, source, curve));
         }
 
         // Determine value type
@@ -537,9 +515,7 @@ impl CurveBuilder {
     }
 
     /// Builds and wraps in a CreditCurve.
-    pub fn build_credit_curve(
-        self,
-    ) -> CurveResult<crate::wrappers::CreditCurve<SegmentedCurve>> {
+    pub fn build_credit_curve(self) -> CurveResult<crate::wrappers::CreditCurve<SegmentedCurve>> {
         let recovery = match &self.curve_family {
             CurveFamily::Credit { recovery } => *recovery,
             _ => 0.40, // Default recovery
@@ -631,9 +607,9 @@ impl CurveBuilder {
                 let derived = DerivedCurve::with_shift(base.clone(), *shift_bps);
                 Ok(Arc::new(derived))
             }
-            SegmentDataSource::Empty => {
-                Err(CurveError::builder_error("Segment has no data source configured"))
-            }
+            SegmentDataSource::Empty => Err(CurveError::builder_error(
+                "Segment has no data source configured",
+            )),
         }
     }
 
@@ -643,12 +619,10 @@ impl CurveBuilder {
                 tenors: tenors.clone(),
                 values: rates.clone(),
             },
-            SegmentDataSource::DiscreteDiscountFactors { tenors, dfs } => {
-                SegmentSource::Discrete {
-                    tenors: tenors.clone(),
-                    values: dfs.clone(),
-                }
-            }
+            SegmentDataSource::DiscreteDiscountFactors { tenors, dfs } => SegmentSource::Discrete {
+                tenors: tenors.clone(),
+                values: dfs.clone(),
+            },
             SegmentDataSource::DiscreteForwards {
                 tenors, forwards, ..
             } => SegmentSource::Discrete {
@@ -887,9 +861,7 @@ impl SegmentBuilder {
     }
 
     /// Builds and wraps in a CreditCurve.
-    pub fn build_credit_curve(
-        self,
-    ) -> CurveResult<crate::wrappers::CreditCurve<SegmentedCurve>> {
+    pub fn build_credit_curve(self) -> CurveResult<crate::wrappers::CreditCurve<SegmentedCurve>> {
         self.finish().build_credit_curve()
     }
 
@@ -935,10 +907,7 @@ mod tests {
     #[test]
     fn test_simple_df_curve() {
         let tenors = vec![1.0, 2.0, 5.0, 10.0];
-        let dfs: Vec<f64> = tenors
-            .iter()
-            .map(|&t| ((-0.05 * t) as f64).exp())
-            .collect();
+        let dfs: Vec<f64> = tenors.iter().map(|&t| ((-0.05 * t) as f64).exp()).collect();
 
         let curve = CurveBuilder::rate_curve(today())
             .with_discount_factors(tenors, dfs)
@@ -981,10 +950,7 @@ mod tests {
     #[test]
     fn test_credit_curve_builder() {
         let tenors = vec![1.0, 2.0, 3.0, 5.0, 10.0];
-        let survival: Vec<f64> = tenors
-            .iter()
-            .map(|&t| ((-0.02 * t) as f64).exp())
-            .collect();
+        let survival: Vec<f64> = tenors.iter().map(|&t| ((-0.02 * t) as f64).exp()).collect();
 
         let curve = CurveBuilder::credit_curve(today(), 0.40)
             .with_survival_probabilities(tenors, survival)

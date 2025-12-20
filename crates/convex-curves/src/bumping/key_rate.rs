@@ -150,7 +150,11 @@ impl KeyRateBump {
                 Some(left) if t < left => 0.0,
                 None => {
                     // No left neighbor - flat from 0 to key_tenor
-                    if t >= 0.0 { 1.0 } else { 0.0 }
+                    if t >= 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 _ => 0.0,
             }
@@ -183,7 +187,10 @@ impl KeyRateBump {
     /// Applies the key-rate bump to an Arc-wrapped curve.
     #[must_use]
     pub fn apply_arc<T: TermStructure>(self, curve: Arc<T>) -> ArcKeyRateBumpedCurve<T> {
-        ArcKeyRateBumpedCurve { base: curve, bump: self }
+        ArcKeyRateBumpedCurve {
+            base: curve,
+            bump: self,
+        }
     }
 
     /// Finds left and right neighbors for a tenor in a sorted list.
@@ -261,9 +268,7 @@ impl<T: TermStructure> TermStructure for KeyRateBumpedCurve<'_, T> {
             ValueType::SurvivalProbability => base_value * (-shift * t).exp(),
 
             // Default additive for others
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + shift
-            }
+            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
         }
     }
 
@@ -275,7 +280,7 @@ impl<T: TermStructure> TermStructure for KeyRateBumpedCurve<'_, T> {
         self.base.value_type()
     }
 
-    fn derivative_at(&self, t: f64) -> Option<f64> {
+    fn derivative_at(&self, _t: f64) -> Option<f64> {
         // Key-rate bumps affect derivative due to non-constant shift profile
         // For simplicity, we don't provide analytical derivative
         None
@@ -335,9 +340,7 @@ impl<T: TermStructure> TermStructure for ArcKeyRateBumpedCurve<T> {
             ValueType::DiscountFactor => base_value * (-shift * t).exp(),
             ValueType::SurvivalProbability => base_value * (-shift * t).exp(),
 
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + shift
-            }
+            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
         }
     }
 
@@ -369,11 +372,7 @@ impl<T: TermStructure> TermStructure for ArcKeyRateBumpedCurve<T> {
 /// # Returns
 ///
 /// Vector of (tenor, key_rate_dv01) pairs.
-pub fn key_rate_profile<T, F>(
-    curve: &T,
-    price_fn: F,
-    shift_bps: f64,
-) -> Vec<(f64, f64)>
+pub fn key_rate_profile<T, F>(curve: &T, price_fn: F, shift_bps: f64) -> Vec<(f64, f64)>
 where
     T: TermStructure,
     F: Fn(&dyn TermStructure) -> f64,

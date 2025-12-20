@@ -1463,15 +1463,16 @@ fn price_from_benchmark_spread_impl(
     let benchmark_date = settlement.add_days(benchmark_days);
 
     // Get benchmark tenor rate
-    let benchmark_rate = match curve.zero_rate(benchmark_date, convex_curves::Compounding::SemiAnnual) {
-        Ok(r) => r,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(format!("Failed to get benchmark rate: {:?}", e)),
-                ..Default::default()
+    let benchmark_rate =
+        match curve.zero_rate(benchmark_date, convex_curves::Compounding::SemiAnnual) {
+            Ok(r) => r,
+            Err(e) => {
+                return PriceFromYieldResult {
+                    error: Some(format!("Failed to get benchmark rate: {:?}", e)),
+                    ..Default::default()
+                }
             }
-        }
-    };
+        };
 
     // Calculate target YTM from benchmark spread: YTM = benchmark_spread + benchmark_tenor_rate
     let target_ytm = (target_benchmark_spread_bps / 100.0) + (benchmark_rate * 100.0);

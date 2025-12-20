@@ -510,9 +510,14 @@ impl FloatingRateNote {
         // Determine if this is an overnight compounding index
         let is_overnight = matches!(
             self.index,
-            RateIndex::Sofr | RateIndex::Sonia | RateIndex::Estr
-                | RateIndex::Tonar | RateIndex::Saron | RateIndex::Corra
-                | RateIndex::Aonia | RateIndex::Honia
+            RateIndex::Sofr
+                | RateIndex::Sonia
+                | RateIndex::Estr
+                | RateIndex::Tonar
+                | RateIndex::Saron
+                | RateIndex::Corra
+                | RateIndex::Aonia
+                | RateIndex::Honia
         );
 
         for (start, end) in schedule.unadjusted_periods() {

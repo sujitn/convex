@@ -94,7 +94,7 @@ pub trait TermStructure: Send + Sync {
     /// - Key-rate duration sensitivities
     ///
     /// Returns `None` if the curve implementation doesn't support derivatives.
-    fn derivative_at(&self, t: f64) -> Option<f64> {
+    fn derivative_at(&self, _t: f64) -> Option<f64> {
         None
     }
 

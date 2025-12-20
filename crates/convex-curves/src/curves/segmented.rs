@@ -4,14 +4,12 @@
 //! source and interpolation method. This enables different interpolation
 //! for short, medium, and long tenors.
 
-use std::sync::Arc;
-
 use convex_core::types::Date;
 
+use crate::curves::{CurveTransform, DelegationFallback};
 use crate::error::{CurveError, CurveResult};
 use crate::term_structure::{CurveRef, TermStructure};
 use crate::value_type::ValueType;
-use crate::curves::{CurveTransform, DelegationFallback};
 
 /// Source of data for a curve segment.
 #[derive(Clone)]
@@ -44,22 +42,19 @@ pub enum SegmentSource {
 impl std::fmt::Debug for SegmentSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SegmentSource::Discrete { tenors, values } => {
-                f.debug_struct("Discrete")
-                    .field("n_points", &tenors.len())
-                    .field("tenor_range", &(tenors.first(), tenors.last()))
-                    .finish()
-            }
-            SegmentSource::Delegated { fallback, .. } => {
-                f.debug_struct("Delegated")
-                    .field("fallback", fallback)
-                    .finish()
-            }
-            SegmentSource::Derived { transform, .. } => {
-                f.debug_struct("Derived")
-                    .field("transform", transform)
-                    .finish()
-            }
+            SegmentSource::Discrete { tenors, values: _ } => f
+                .debug_struct("Discrete")
+                .field("n_points", &tenors.len())
+                .field("tenor_range", &(tenors.first(), tenors.last()))
+                .finish(),
+            SegmentSource::Delegated { fallback, .. } => f
+                .debug_struct("Delegated")
+                .field("fallback", fallback)
+                .finish(),
+            SegmentSource::Derived { transform, .. } => f
+                .debug_struct("Derived")
+                .field("transform", transform)
+                .finish(),
         }
     }
 }
@@ -89,12 +84,7 @@ impl std::fmt::Debug for CurveSegment {
 
 impl CurveSegment {
     /// Creates a new curve segment.
-    pub fn new(
-        start: f64,
-        end: Option<f64>,
-        source: SegmentSource,
-        curve: CurveRef,
-    ) -> Self {
+    pub fn new(start: f64, end: Option<f64>, source: SegmentSource, curve: CurveRef) -> Self {
         Self {
             start,
             end,
@@ -216,10 +206,7 @@ impl SegmentedCurve {
         }
 
         let min_tenor = segments[0].start;
-        let max_tenor = segments
-            .last()
-            .and_then(|s| s.end)
-            .unwrap_or(100.0); // Default max if unbounded
+        let max_tenor = segments.last().and_then(|s| s.end).unwrap_or(100.0); // Default max if unbounded
 
         Ok(Self {
             reference_date,
@@ -263,8 +250,7 @@ impl TermStructure for SegmentedCurve {
                 } else {
                     self.segments
                         .last()
-                        .map(|s| s.value_at(self.max_tenor))
-                        .unwrap_or(f64::NAN)
+                        .map_or(f64::NAN, |s| s.value_at(self.max_tenor))
                 }
             }
         }
@@ -297,8 +283,7 @@ mod tests {
     use crate::curves::DiscreteCurve;
     use crate::InterpolationMethod;
     use approx::assert_relative_eq;
-    use convex_core::daycounts::DayCountConvention;
-    use convex_core::types::Compounding;
+    use std::sync::Arc;
 
     fn short_segment_curve() -> CurveRef {
         let today = Date::from_ymd(2024, 1, 1).unwrap();
@@ -343,12 +328,8 @@ mod tests {
             curve,
         );
 
-        let segmented = SegmentedCurve::new(
-            today,
-            vec![segment],
-            ValueType::DiscountFactor,
-        )
-        .unwrap();
+        let segmented =
+            SegmentedCurve::new(today, vec![segment], ValueType::DiscountFactor).unwrap();
 
         assert_eq!(segmented.num_segments(), 1);
         assert!(segmented.in_range(1.0));
@@ -378,12 +359,8 @@ mod tests {
             long_segment_curve(),
         );
 
-        let segmented = SegmentedCurve::new(
-            today,
-            vec![short, long],
-            ValueType::DiscountFactor,
-        )
-        .unwrap();
+        let segmented =
+            SegmentedCurve::new(today, vec![short, long], ValueType::DiscountFactor).unwrap();
 
         assert_eq!(segmented.num_segments(), 2);
 
@@ -440,22 +417,24 @@ mod tests {
         let seg1 = CurveSegment::new(
             0.0,
             Some(5.0), // Ends at 5
-            SegmentSource::Discrete { tenors: vec![], values: vec![] },
+            SegmentSource::Discrete {
+                tenors: vec![],
+                values: vec![],
+            },
             short_segment_curve(),
         );
 
         let seg2 = CurveSegment::new(
             3.0, // Starts at 3 - overlaps!
             Some(10.0),
-            SegmentSource::Discrete { tenors: vec![], values: vec![] },
+            SegmentSource::Discrete {
+                tenors: vec![],
+                values: vec![],
+            },
             long_segment_curve(),
         );
 
-        let result = SegmentedCurve::new(
-            today,
-            vec![seg1, seg2],
-            ValueType::DiscountFactor,
-        );
+        let result = SegmentedCurve::new(today, vec![seg1, seg2], ValueType::DiscountFactor);
 
         assert!(result.is_err());
     }
@@ -467,22 +446,24 @@ mod tests {
         let seg1 = CurveSegment::new(
             0.0,
             Some(2.0), // Ends at 2
-            SegmentSource::Discrete { tenors: vec![], values: vec![] },
+            SegmentSource::Discrete {
+                tenors: vec![],
+                values: vec![],
+            },
             short_segment_curve(),
         );
 
         let seg2 = CurveSegment::new(
             5.0, // Starts at 5 - gap from 2 to 5!
             None,
-            SegmentSource::Discrete { tenors: vec![], values: vec![] },
+            SegmentSource::Discrete {
+                tenors: vec![],
+                values: vec![],
+            },
             long_segment_curve(),
         );
 
-        let result = SegmentedCurve::new(
-            today,
-            vec![seg1, seg2],
-            ValueType::DiscountFactor,
-        );
+        let result = SegmentedCurve::new(today, vec![seg1, seg2], ValueType::DiscountFactor);
 
         assert!(result.is_err());
     }

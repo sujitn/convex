@@ -213,8 +213,7 @@ impl ValueConverter {
     fn from_continuous(continuous_rate: f64, to: Compounding) -> f64 {
         match to {
             Compounding::Continuous => continuous_rate,
-            Compounding::Simple => continuous_rate.exp() - 1.0,
-            Compounding::Annual => continuous_rate.exp() - 1.0,
+            Compounding::Simple | Compounding::Annual => continuous_rate.exp() - 1.0,
             Compounding::SemiAnnual => 2.0 * ((continuous_rate / 2.0).exp() - 1.0),
             Compounding::Quarterly => 4.0 * ((continuous_rate / 4.0).exp() - 1.0),
             Compounding::Monthly => 12.0 * ((continuous_rate / 12.0).exp() - 1.0),
@@ -501,7 +500,8 @@ mod tests {
         let df1 = (-0.04_f64).exp(); // 4% at 1Y
         let df2 = (-0.05 * 2.0_f64).exp(); // 5% at 2Y
 
-        let fwd = ValueConverter::forward_rate_from_dfs(df1, df2, 1.0, 2.0, Compounding::Continuous);
+        let fwd =
+            ValueConverter::forward_rate_from_dfs(df1, df2, 1.0, 2.0, Compounding::Continuous);
 
         // Forward should be ~6%
         assert_relative_eq!(fwd, 0.06, epsilon = 0.001);

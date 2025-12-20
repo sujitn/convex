@@ -105,15 +105,11 @@ impl CurveTransform {
             CurveTransform::Twist {
                 short_shift_bps,
                 long_shift_bps,
-                pivot_tenor,
+                pivot_tenor: _,
             } => {
                 // Linear interpolation between short and long shift
-                let slope = (long_shift_bps - short_shift_bps) / (30.0 - 0.0); // Assume 30Y is long
-                let shift_at_t = if t <= *pivot_tenor {
-                    short_shift_bps + slope * t
-                } else {
-                    short_shift_bps + slope * t
-                };
+                let slope = (long_shift_bps - short_shift_bps) / 30.0; // Assume 30Y is long
+                let shift_at_t = short_shift_bps + slope * t;
                 base_value + shift_at_t / 10000.0
             }
         }

@@ -22,11 +22,12 @@ use std::fmt;
 /// - FX forward points
 ///
 /// The `ValueType` enables automatic conversion between compatible types.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum ValueType {
     /// Discount factor: P(t) where P(0) = 1.
     ///
     /// Values should be between 0 and 1, monotonically decreasing.
+    #[default]
     DiscountFactor,
 
     /// Zero rate with specified compounding and day count convention.
@@ -105,9 +106,7 @@ impl ValueType {
     pub fn can_convert_to_discount_factor(&self) -> bool {
         matches!(
             self,
-            ValueType::DiscountFactor
-                | ValueType::ZeroRate { .. }
-                | ValueType::SurvivalProbability
+            ValueType::DiscountFactor | ValueType::ZeroRate { .. } | ValueType::SurvivalProbability
         )
     }
 
@@ -138,9 +137,7 @@ impl ValueType {
     pub fn is_credit_type(&self) -> bool {
         matches!(
             self,
-            ValueType::SurvivalProbability
-                | ValueType::HazardRate
-                | ValueType::CreditSpread { .. }
+            ValueType::SurvivalProbability | ValueType::HazardRate | ValueType::CreditSpread { .. }
         )
     }
 
@@ -235,38 +232,41 @@ impl ValueType {
     }
 }
 
-impl Default for ValueType {
-    fn default() -> Self {
-        ValueType::DiscountFactor
-    }
-}
-
 impl fmt::Display for ValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ValueType::DiscountFactor => write!(f, "Discount Factor"),
-            ValueType::ZeroRate { compounding, day_count } => {
-                write!(f, "Zero Rate ({}, {})", compounding, day_count)
+            ValueType::ZeroRate {
+                compounding,
+                day_count,
+            } => {
+                write!(f, "Zero Rate ({compounding}, {day_count})")
             }
             ValueType::ForwardRate { tenor, compounding } => {
-                if *tenor == 0.25 {
-                    write!(f, "3M Forward Rate ({})", compounding)
-                } else if *tenor == 0.5 {
-                    write!(f, "6M Forward Rate ({})", compounding)
+                if (*tenor - 0.25).abs() < 0.001 {
+                    write!(f, "3M Forward Rate ({compounding})")
+                } else if (*tenor - 0.5).abs() < 0.001 {
+                    write!(f, "6M Forward Rate ({compounding})")
                 } else {
-                    write!(f, "{}Y Forward Rate ({})", tenor, compounding)
+                    write!(f, "{tenor}Y Forward Rate ({compounding})")
                 }
             }
             ValueType::InstantaneousForward => write!(f, "Instantaneous Forward"),
             ValueType::SurvivalProbability => write!(f, "Survival Probability"),
             ValueType::HazardRate => write!(f, "Hazard Rate"),
-            ValueType::CreditSpread { spread_type, recovery } => {
+            ValueType::CreditSpread {
+                spread_type,
+                recovery,
+            } => {
                 write!(f, "{} (R={:.0}%)", spread_type, recovery * 100.0)
             }
             ValueType::InflationIndexRatio => write!(f, "Inflation Index Ratio"),
             ValueType::FxForwardPoints => write!(f, "FX Forward Points"),
-            ValueType::ParSwapRate { frequency, day_count } => {
-                write!(f, "Par Swap Rate ({}, {})", frequency, day_count)
+            ValueType::ParSwapRate {
+                frequency,
+                day_count,
+            } => {
+                write!(f, "Par Swap Rate ({frequency}, {day_count})")
             }
         }
     }

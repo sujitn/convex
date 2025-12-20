@@ -10,7 +10,6 @@ use convex_core::types::Date;
 use crate::error::{CurveError, CurveResult};
 use crate::term_structure::TermStructure;
 use crate::value_type::ValueType;
-use crate::ExtrapolationMethod;
 
 /// Fallback behavior when accessing tenors outside the underlying curve's range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
