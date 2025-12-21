@@ -1,0 +1,3190 @@
+{
+  "metadata": {
+    "generator": "quantlib_test_generator.py",
+    "quantlib_version": "1.40",
+    "generated_date": "2025-12-20",
+    "description": "Reference test cases for Convex bond pricing library validation"
+  },
+  "test_suites": {
+    "day_counts": [
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-01-15",
+          "end_date": "2024-07-15"
+        },
+        "expected": {
+          "day_count": 182,
+          "year_fraction": 0.505555555556
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-01-15",
+          "end_date": "2024-07-15"
+        },
+        "expected": {
+          "day_count": 182,
+          "year_fraction": 0.498630136986
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-01-15",
+          "end_date": "2024-07-15"
+        },
+        "expected": {
+          "day_count": 180,
+          "year_fraction": 0.5
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-01-15",
+          "end_date": "2024-07-15"
+        },
+        "expected": {
+          "day_count": 180,
+          "year_fraction": 0.5
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-01-15",
+          "end_date": "2024-07-15"
+        },
+        "expected": {
+          "day_count": 182,
+          "year_fraction": 0.497267759563
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01"
+        },
+        "expected": {
+          "day_count": 366,
+          "year_fraction": 1.016666666667
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01"
+        },
+        "expected": {
+          "day_count": 366,
+          "year_fraction": 1.002739726027
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01"
+        },
+        "expected": {
+          "day_count": 366,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2023-01-01",
+          "end_date": "2024-01-01"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.013888888889
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2023-01-01",
+          "end_date": "2024-01-01"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2023-01-01",
+          "end_date": "2024-01-01"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2023-01-01",
+          "end_date": "2024-01-01"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2023-01-01",
+          "end_date": "2024-01-01"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-02-28",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 2,
+          "year_fraction": 0.005555555556
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-02-28",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 2,
+          "year_fraction": 0.005479452055
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-02-28",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 3,
+          "year_fraction": 0.008333333333
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-02-28",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 3,
+          "year_fraction": 0.008333333333
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-02-28",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 2,
+          "year_fraction": 0.005464480874
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2023-02-28",
+          "end_date": "2023-03-01"
+        },
+        "expected": {
+          "day_count": 1,
+          "year_fraction": 0.002777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2023-02-28",
+          "end_date": "2023-03-01"
+        },
+        "expected": {
+          "day_count": 1,
+          "year_fraction": 0.002739726027
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2023-02-28",
+          "end_date": "2023-03-01"
+        },
+        "expected": {
+          "day_count": 1,
+          "year_fraction": 0.002777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2023-02-28",
+          "end_date": "2023-03-01"
+        },
+        "expected": {
+          "day_count": 3,
+          "year_fraction": 0.008333333333
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2023-02-28",
+          "end_date": "2023-03-01"
+        },
+        "expected": {
+          "day_count": 1,
+          "year_fraction": 0.002739726027
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-02-28"
+        },
+        "expected": {
+          "day_count": 28,
+          "year_fraction": 0.077777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-02-28"
+        },
+        "expected": {
+          "day_count": 28,
+          "year_fraction": 0.076712328767
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-02-28"
+        },
+        "expected": {
+          "day_count": 28,
+          "year_fraction": 0.077777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-02-28"
+        },
+        "expected": {
+          "day_count": 28,
+          "year_fraction": 0.077777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-02-28"
+        },
+        "expected": {
+          "day_count": 28,
+          "year_fraction": 0.07650273224
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-03-15",
+          "end_date": "2024-09-15"
+        },
+        "expected": {
+          "day_count": 184,
+          "year_fraction": 0.511111111111
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-03-15",
+          "end_date": "2024-09-15"
+        },
+        "expected": {
+          "day_count": 184,
+          "year_fraction": 0.504109589041
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-03-15",
+          "end_date": "2024-09-15"
+        },
+        "expected": {
+          "day_count": 180,
+          "year_fraction": 0.5
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-03-15",
+          "end_date": "2024-09-15"
+        },
+        "expected": {
+          "day_count": 180,
+          "year_fraction": 0.5
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-03-15",
+          "end_date": "2024-09-15"
+        },
+        "expected": {
+          "day_count": 184,
+          "year_fraction": 0.502732240437
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-12-31"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.013888888889
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-12-31"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-12-31"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-12-31"
+        },
+        "expected": {
+          "day_count": 359,
+          "year_fraction": 0.997222222222
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-12-31"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 0.997267759563
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-03-31",
+          "end_date": "2024-06-30"
+        },
+        "expected": {
+          "day_count": 91,
+          "year_fraction": 0.252777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-03-31",
+          "end_date": "2024-06-30"
+        },
+        "expected": {
+          "day_count": 91,
+          "year_fraction": 0.249315068493
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-03-31",
+          "end_date": "2024-06-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-03-31",
+          "end_date": "2024-06-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-03-31",
+          "end_date": "2024-06-30"
+        },
+        "expected": {
+          "day_count": 91,
+          "year_fraction": 0.248633879781
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-02-29",
+          "end_date": "2025-02-28"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.013888888889
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-02-29",
+          "end_date": "2025-02-28"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-02-29",
+          "end_date": "2025-02-28"
+        },
+        "expected": {
+          "day_count": 360,
+          "year_fraction": 1.0
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-02-29",
+          "end_date": "2025-02-28"
+        },
+        "expected": {
+          "day_count": 359,
+          "year_fraction": 0.997222222222
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-02-29",
+          "end_date": "2025-02-28"
+        },
+        "expected": {
+          "day_count": 365,
+          "year_fraction": 0.997701923797
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2019-12-15",
+          "end_date": "2020-04-29"
+        },
+        "expected": {
+          "day_count": 136,
+          "year_fraction": 0.377777777778
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2019-12-15",
+          "end_date": "2020-04-29"
+        },
+        "expected": {
+          "day_count": 136,
+          "year_fraction": 0.372602739726
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2019-12-15",
+          "end_date": "2020-04-29"
+        },
+        "expected": {
+          "day_count": 134,
+          "year_fraction": 0.372222222222
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2019-12-15",
+          "end_date": "2020-04-29"
+        },
+        "expected": {
+          "day_count": 134,
+          "year_fraction": 0.372222222222
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2019-12-15",
+          "end_date": "2020-04-29"
+        },
+        "expected": {
+          "day_count": 136,
+          "year_fraction": 0.371711954488
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-04-30",
+          "end_date": "2024-07-31"
+        },
+        "expected": {
+          "day_count": 92,
+          "year_fraction": 0.255555555556
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-04-30",
+          "end_date": "2024-07-31"
+        },
+        "expected": {
+          "day_count": 92,
+          "year_fraction": 0.252054794521
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-04-30",
+          "end_date": "2024-07-31"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-04-30",
+          "end_date": "2024-07-31"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-04-30",
+          "end_date": "2024-07-31"
+        },
+        "expected": {
+          "day_count": 92,
+          "year_fraction": 0.251366120219
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-04-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-04-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.246575342466
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-04-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-04-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.25
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-04-30"
+        },
+        "expected": {
+          "day_count": 90,
+          "year_fraction": 0.245901639344
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act360",
+        "inputs": {
+          "start_date": "2024-02-01",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 29,
+          "year_fraction": 0.080555555556
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Act365Fixed",
+        "inputs": {
+          "start_date": "2024-02-01",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 29,
+          "year_fraction": 0.079452054795
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360US",
+        "inputs": {
+          "start_date": "2024-02-01",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 30,
+          "year_fraction": 0.083333333333
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "Thirty360E",
+        "inputs": {
+          "start_date": "2024-02-01",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 30,
+          "year_fraction": 0.083333333333
+        },
+        "tolerance": 1e-10
+      },
+      {
+        "test_type": "day_count",
+        "convention": "ActActIsda",
+        "inputs": {
+          "start_date": "2024-02-01",
+          "end_date": "2024-03-01"
+        },
+        "expected": {
+          "day_count": 29,
+          "year_fraction": 0.079234972678
+        },
+        "tolerance": 1e-10
+      }
+    ],
+    "fixed_rate_bonds": [
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 114.1860408032,
+          "dirty_price": 114.213818581,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.5219658473,
+          "modified_duration": 4.4771939082,
+          "convexity": 23.5282693392,
+          "basis_point_value": -0.0511356069
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 109.2042580029,
+          "dirty_price": 109.2320357807,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.5090345355,
+          "modified_duration": 4.4423985572,
+          "convexity": 23.2110289183,
+          "basis_point_value": -0.048525097
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 104.4760916196,
+          "dirty_price": 104.5038693974,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.4958237141,
+          "modified_duration": 4.4076703079,
+          "convexity": 22.8971376686,
+          "basis_point_value": -0.0460617406
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 99.9872816858,
+          "dirty_price": 100.0150594635,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.482331053,
+          "modified_duration": 4.3730059054,
+          "convexity": 22.5865316887,
+          "basis_point_value": -0.0437365316
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 95.7244388231,
+          "dirty_price": 95.7522166009,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.4685543795,
+          "modified_duration": 4.3384023102,
+          "convexity": 22.2791496302,
+          "basis_point_value": -0.0415410571
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 91.6749870699,
+          "dirty_price": 91.7027648477,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.4544916856,
+          "modified_duration": 4.3038567011,
+          "convexity": 21.9749326506,
+          "basis_point_value": -0.0394674551
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 5Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 87.8271107208,
+          "dirty_price": 87.8548884986,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 4.4401411364,
+          "modified_duration": 4.2693664773,
+          "convexity": 21.6738243661,
+          "basis_point_value": -0.0375083764
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 127.0440819292,
+          "dirty_price": 127.071859707,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 8.2533847881,
+          "modified_duration": 8.171668107,
+          "convexity": 79.1428134874,
+          "basis_point_value": -0.1038384035
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 117.1459142105,
+          "dirty_price": 117.1736919883,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 8.1678163702,
+          "modified_duration": 8.0471097243,
+          "convexity": 77.3003149286,
+          "basis_point_value": -0.0942905027
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 108.1543749118,
+          "dirty_price": 108.1821526896,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 8.079213017,
+          "modified_duration": 7.9207970754,
+          "convexity": 75.4563205944,
+          "basis_point_value": -0.0856884797
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 99.9799148343,
+          "dirty_price": 100.0076926121,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 7.9876035201,
+          "modified_duration": 7.7927839221,
+          "convexity": 73.6117038896,
+          "basis_point_value": -0.0779334658
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 92.5423202426,
+          "dirty_price": 92.5700980204,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 7.8930312232,
+          "modified_duration": 7.6631371099,
+          "convexity": 71.7674747714,
+          "basis_point_value": -0.0709374032
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 85.7696946234,
+          "dirty_price": 85.7974724012,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 7.7955545559,
+          "modified_duration": 7.531936769,
+          "convexity": 69.9247771894,
+          "basis_point_value": -0.0646218137
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "5.0% 10Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 79.5975560909,
+          "dirty_price": 79.6253338687,
+          "accrued_interest": 0.0277777778,
+          "macaulay_duration": 7.6952474294,
+          "modified_duration": 7.3992763744,
+          "convexity": 68.0848848753,
+          "basis_point_value": -0.0589167141
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 101.9361992986,
+          "dirty_price": 101.9525927412,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9656839257,
+          "modified_duration": 1.9271411036,
+          "convexity": 5.6301580165,
+          "basis_point_value": -0.0196476745
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 99.9997602129,
+          "dirty_price": 100.0161536555,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9654093055,
+          "modified_duration": 1.9081643743,
+          "convexity": 5.520332662,
+          "basis_point_value": -0.0190846985
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 98.1185419906,
+          "dirty_price": 98.1349354333,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9651348406,
+          "modified_duration": 1.8895527314,
+          "convexity": 5.4136705447,
+          "basis_point_value": -0.018543087
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 96.2904589242,
+          "dirty_price": 96.3068523668,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9648605309,
+          "modified_duration": 1.8712957437,
+          "convexity": 5.3100515375,
+          "basis_point_value": -0.0180218347
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 94.5135229744,
+          "dirty_price": 94.529916417,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9645863762,
+          "modified_duration": 1.8533833737,
+          "convexity": 5.2093611582,
+          "basis_point_value": -0.0175199929
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 92.7858383299,
+          "dirty_price": 92.8022317726,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9643123763,
+          "modified_duration": 1.8358059592,
+          "convexity": 5.1114902545,
+          "basis_point_value": -0.0170366653
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "3.0% 2Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2026-01-15",
+          "coupon_rate": 0.03,
+          "frequency": "Annual",
+          "day_count": "ActActIcma",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 91.1055963168,
+          "dirty_price": 91.1219897594,
+          "accrued_interest": 0.0163934426,
+          "macaulay_duration": 1.9640385312,
+          "modified_duration": 1.8185541955,
+          "convexity": 5.0163347092,
+          "basis_point_value": -0.0165710048
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 212.3670117181,
+          "dirty_price": 212.405900607,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 17.9696483218,
+          "modified_duration": 17.7917310117,
+          "convexity": 428.4399094005,
+          "basis_point_value": -0.3779023147
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 178.7444719426,
+          "dirty_price": 178.7833608314,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 16.924049256,
+          "modified_duration": 16.6739401537,
+          "convexity": 389.4246032189,
+          "basis_point_value": -0.2980988248
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 152.1280426627,
+          "dirty_price": 152.1669315516,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 15.880136856,
+          "modified_duration": 15.5687616235,
+          "convexity": 351.7690591564,
+          "basis_point_value": -0.236902392
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 130.8970165004,
+          "dirty_price": 130.9359053892,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 14.8532950391,
+          "modified_duration": 14.4910195504,
+          "convexity": 315.9334913906,
+          "basis_point_value": -0.1897374081
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 113.8270657935,
+          "dirty_price": 113.8659546824,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 13.8575700338,
+          "modified_duration": 13.4539514892,
+          "convexity": 282.2957282312,
+          "basis_point_value": -0.1531930959
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 99.9897554067,
+          "dirty_price": 100.0286442956,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 12.9048818614,
+          "modified_duration": 12.4684848902,
+          "convexity": 251.1329229675,
+          "basis_point_value": -0.124719308
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "7.0% 30Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.07,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 88.6782076901,
+          "dirty_price": 88.717096579,
+          "accrued_interest": 0.0388888889,
+          "macaulay_duration": 12.004515333,
+          "modified_duration": 11.5428032048,
+          "convexity": 222.6145647984,
+          "basis_point_value": -0.1024034112
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 105.8383644047,
+          "dirty_price": 105.8605866269,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9252197404,
+          "modified_duration": 2.8678624906,
+          "convexity": 11.2090267587,
+          "basis_point_value": -0.0303593012
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 102.8608015729,
+          "dirty_price": 102.8830237951,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9234523067,
+          "modified_duration": 2.8383032103,
+          "convexity": 10.9837048542,
+          "basis_point_value": -0.0292012652
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 99.996269147,
+          "dirty_price": 100.0184913692,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.92167439,
+          "modified_duration": 2.8093022981,
+          "convexity": 10.7648868035,
+          "basis_point_value": -0.0280981639
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 97.2394304711,
+          "dirty_price": 97.2616526934,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9198860628,
+          "modified_duration": 2.7808438693,
+          "convexity": 10.5523256868,
+          "basis_point_value": -0.0270468957
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 94.5852488124,
+          "dirty_price": 94.6074710346,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9180873973,
+          "modified_duration": 2.752912639,
+          "convexity": 10.3457861865,
+          "basis_point_value": -0.0260445613
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 92.0289678704,
+          "dirty_price": 92.0511900926,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9162784662,
+          "modified_duration": 2.7254938936,
+          "convexity": 10.1450439396,
+          "basis_point_value": -0.025088449
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.0% 3Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2027-01-15",
+          "coupon_rate": 0.04,
+          "frequency": "Annual",
+          "day_count": "Act360",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 89.5660937216,
+          "dirty_price": 89.5883159438,
+          "accrued_interest": 0.0222222222,
+          "macaulay_duration": 2.9144593422,
+          "modified_duration": 2.698573465,
+          "convexity": 9.9498849309,
+          "basis_point_value": -0.0241760206
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 2.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.02
+        },
+        "expected": {
+          "clean_price": 116.2536006631,
+          "dirty_price": 116.2782581973,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 6.160873952,
+          "modified_duration": 6.0998752,
+          "convexity": 43.2831447223,
+          "basis_point_value": -0.0709280347
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 3.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.03
+        },
+        "expected": {
+          "clean_price": 109.4060573855,
+          "dirty_price": 109.4307149198,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 6.1295535612,
+          "modified_duration": 6.0389690258,
+          "convexity": 42.5757958877,
+          "basis_point_value": -0.0660846368
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 4.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.04
+        },
+        "expected": {
+          "clean_price": 103.0246707825,
+          "dirty_price": 103.0493283168,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 6.0972956317,
+          "modified_duration": 5.9777408154,
+          "convexity": 41.8724372113,
+          "basis_point_value": -0.0616000018
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 5.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.05
+        },
+        "expected": {
+          "clean_price": 97.0750028389,
+          "dirty_price": 97.0996603731,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 6.0640917189,
+          "modified_duration": 5.9161870428,
+          "convexity": 41.1730070474,
+          "basis_point_value": -0.0574457754
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 6.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.06
+        },
+        "expected": {
+          "clean_price": 91.5253305395,
+          "dirty_price": 91.5499880738,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 6.0299347598,
+          "modified_duration": 5.854305592,
+          "convexity": 40.4774571528,
+          "basis_point_value": -0.0535959754
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 7.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.07
+        },
+        "expected": {
+          "clean_price": 86.3464192525,
+          "dirty_price": 86.3710767867,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 5.9948191637,
+          "modified_duration": 5.7920958104,
+          "convexity": 39.7857527633,
+          "basis_point_value": -0.0500267834
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      },
+      {
+        "test_type": "fixed_rate_bond",
+        "description": "4.5% 7Y bond at 8.0% yield",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "issue_date": "2024-01-15",
+          "maturity_date": "2031-01-15",
+          "coupon_rate": 0.045,
+          "frequency": "SemiAnnual",
+          "day_count": "Act365Fixed",
+          "face_value": 100.0,
+          "settlement_days": 2,
+          "yield_to_maturity": 0.08
+        },
+        "expected": {
+          "clean_price": 81.511316038,
+          "dirty_price": 81.5359735722,
+          "accrued_interest": 0.0246575342,
+          "macaulay_duration": 5.9587409002,
+          "modified_duration": 5.7295585579,
+          "convexity": 39.0978726345,
+          "basis_point_value": -0.0467163541
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "yield": 1e-06,
+          "duration": 0.001,
+          "convexity": 0.01
+        }
+      }
+    ],
+    "accrued_interest": [
+      {
+        "test_type": "accrued_interest",
+        "description": "5% bond, settlement 2024-07-15",
+        "inputs": {
+          "issue_date": "2020-06-15",
+          "maturity_date": "2030-06-15",
+          "settlement_date": "2024-07-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0
+        },
+        "expected": {
+          "accrued_interest": 0.4166666667,
+          "accrued_days": 28,
+          "previous_coupon_date": "2024-06-17",
+          "next_coupon_date": "2024-12-16"
+        },
+        "tolerance": 0.0001
+      },
+      {
+        "test_type": "accrued_interest",
+        "description": "5% bond, settlement 2024-09-15",
+        "inputs": {
+          "issue_date": "2020-06-15",
+          "maturity_date": "2030-06-15",
+          "settlement_date": "2024-09-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0
+        },
+        "expected": {
+          "accrued_interest": 1.25,
+          "accrued_days": 88,
+          "previous_coupon_date": "2024-06-17",
+          "next_coupon_date": "2024-12-16"
+        },
+        "tolerance": 0.0001
+      },
+      {
+        "test_type": "accrued_interest",
+        "description": "5% bond, settlement 2024-12-14",
+        "inputs": {
+          "issue_date": "2020-06-15",
+          "maturity_date": "2030-06-15",
+          "settlement_date": "2024-12-14",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0
+        },
+        "expected": {
+          "accrued_interest": 2.4861111111,
+          "accrued_days": 177,
+          "previous_coupon_date": "2024-06-17",
+          "next_coupon_date": "2024-12-16"
+        },
+        "tolerance": 0.0001
+      },
+      {
+        "test_type": "accrued_interest",
+        "description": "5% bond, settlement 2024-08-01",
+        "inputs": {
+          "issue_date": "2020-06-15",
+          "maturity_date": "2030-06-15",
+          "settlement_date": "2024-08-01",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0
+        },
+        "expected": {
+          "accrued_interest": 0.6388888889,
+          "accrued_days": 44,
+          "previous_coupon_date": "2024-06-17",
+          "next_coupon_date": "2024-12-16"
+        },
+        "tolerance": 0.0001
+      },
+      {
+        "test_type": "accrued_interest",
+        "description": "5% bond, settlement 2025-01-15",
+        "inputs": {
+          "issue_date": "2020-06-15",
+          "maturity_date": "2030-06-15",
+          "settlement_date": "2025-01-15",
+          "coupon_rate": 0.05,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "face_value": 100.0
+        },
+        "expected": {
+          "accrued_interest": 0.4166666667,
+          "accrued_days": 29,
+          "previous_coupon_date": "2024-12-16",
+          "next_coupon_date": "2025-06-16"
+        },
+        "tolerance": 0.0001
+      }
+    ],
+    "duration_convexity": [
+      {
+        "test_type": "duration_convexity",
+        "description": "5% 5Y at 5% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2029-01-15",
+          "coupon_rate": 0.05,
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US"
+        },
+        "expected": {
+          "clean_price": 99.9872816858,
+          "dirty_price": 100.0150594635,
+          "macaulay_duration": 4.482331053,
+          "modified_duration": 4.3730059054,
+          "convexity": 22.5865316887,
+          "basis_point_value": -0.0437365316,
+          "dv01": 0.0437366446
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.0001,
+          "convexity": 0.001
+        }
+      },
+      {
+        "test_type": "duration_convexity",
+        "description": "2% 10Y at 8% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.02,
+          "yield_to_maturity": 0.08,
+          "face_value": 100.0,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US"
+        },
+        "expected": {
+          "clean_price": 59.2222392084,
+          "dirty_price": 59.2333503196,
+          "macaulay_duration": 8.7607204932,
+          "modified_duration": 8.423769705,
+          "convexity": 81.48841127,
+          "basis_point_value": -0.0498965689,
+          "dv01": 0.0498968102
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.0001,
+          "convexity": 0.001
+        }
+      },
+      {
+        "test_type": "duration_convexity",
+        "description": "8% 10Y at 4% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "coupon_rate": 0.08,
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US"
+        },
+        "expected": {
+          "clean_price": 132.6687198724,
+          "dirty_price": 132.7131643169,
+          "macaulay_duration": 7.4948092391,
+          "modified_duration": 7.3478521952,
+          "convexity": 67.7081104398,
+          "basis_point_value": -0.0975152223,
+          "dv01": 0.0975156716
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.0001,
+          "convexity": 0.001
+        }
+      },
+      {
+        "test_type": "duration_convexity",
+        "description": "5% 1Y at 5% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2025-01-15",
+          "coupon_rate": 0.05,
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US"
+        },
+        "expected": {
+          "clean_price": 99.9996622225,
+          "dirty_price": 100.0274400003,
+          "macaulay_duration": 0.9822493225,
+          "modified_duration": 0.9582920219,
+          "convexity": 1.3914453138,
+          "basis_point_value": -0.0095855428,
+          "dv01": 0.0095855498
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.0001,
+          "convexity": 0.001
+        }
+      },
+      {
+        "test_type": "duration_convexity",
+        "description": "5% 30Y at 5% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2054-01-15",
+          "coupon_rate": 0.05,
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US"
+        },
+        "expected": {
+          "clean_price": 99.9934676286,
+          "dirty_price": 100.0212454063,
+          "macaulay_duration": 15.8365944371,
+          "modified_duration": 15.4503360362,
+          "convexity": 351.9541182331,
+          "basis_point_value": -0.1545344251,
+          "dv01": 0.1545361852
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.0001,
+          "convexity": 0.001
+        }
+      }
+    ],
+    "zero_coupon_bonds": [
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 1Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2025-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 97.081970474,
+          "macaulay_duration": 0.9945355191,
+          "modified_duration": 0.9798379499,
+          "convexity": 1.4427612011
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 1Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2025-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 96.137682197,
+          "macaulay_duration": 0.9945355191,
+          "modified_duration": 0.9750348227,
+          "convexity": 1.4286511518
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 1Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2025-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 95.2071291884,
+          "macaulay_duration": 0.9945355191,
+          "modified_duration": 0.9702785552,
+          "convexity": 1.4147470871
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 1Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2025-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 94.2900461122,
+          "macaulay_duration": 0.9945355191,
+          "modified_duration": 0.9655684652,
+          "convexity": 1.4010450168
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 2Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2026-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 94.2337552224,
+          "macaulay_duration": 1.9945355191,
+          "modified_duration": 1.9650596248,
+          "convexity": 4.8294689962
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 2Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2026-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 92.4045388283,
+          "macaulay_duration": 1.9945355191,
+          "modified_duration": 1.9554269795,
+          "convexity": 4.7822373093
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 2Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2026-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 90.6195161817,
+          "macaulay_duration": 1.9945355191,
+          "modified_duration": 1.9458883113,
+          "convexity": 4.7356951306
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 2Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2026-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 88.8774117374,
+          "macaulay_duration": 1.9945355191,
+          "modified_duration": 1.9364422516,
+          "convexity": 4.6898291042
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 3Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2027-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 91.4691016257,
+          "macaulay_duration": 2.9945355191,
+          "modified_duration": 2.9502812996,
+          "convexity": 10.1575002886
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 3Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2027-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 88.8163579665,
+          "macaulay_duration": 2.9945355191,
+          "modified_duration": 2.9358191364,
+          "convexity": 10.0581610293
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 3Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2027-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 86.2529600777,
+          "macaulay_duration": 2.9945355191,
+          "modified_duration": 2.9214980674,
+          "convexity": 9.9602719666
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 3Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2027-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 83.7754847181,
+          "macaulay_duration": 2.9945355191,
+          "modified_duration": 2.907316038,
+          "convexity": 9.8638050098
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 5Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2029-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 86.1737146479,
+          "macaulay_duration": 4.9972752452,
+          "modified_duration": 4.9234238869,
+          "convexity": 26.6654347336
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 5Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2029-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 82.0436832218,
+          "macaulay_duration": 4.9972752452,
+          "modified_duration": 4.899289456,
+          "convexity": 26.4046496524
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 5Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2029-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 78.1303528911,
+          "macaulay_duration": 4.9972752452,
+          "modified_duration": 4.8753904831,
+          "convexity": 26.1476716225
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 5Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2029-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 74.4213783927,
+          "macaulay_duration": 4.9972752452,
+          "modified_duration": 4.851723539,
+          "convexity": 25.8944269002
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 10Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 74.247008723,
+          "macaulay_duration": 10.0000149712,
+          "modified_duration": 9.8522314987,
+          "convexity": 101.9197815132
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 10Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 67.2970934078,
+          "macaulay_duration": 10.0000149712,
+          "modified_duration": 9.8039362463,
+          "convexity": 100.9230170217
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 10Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 61.0270491652,
+          "macaulay_duration": 10.0000149712,
+          "modified_duration": 9.756112167,
+          "convexity": 99.940803721
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 10Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2034-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 55.367526415,
+          "macaulay_duration": 10.0000149712,
+          "modified_duration": 9.7087523992,
+          "convexity": 98.9728597506
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 20Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2044-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 55.1352029029,
+          "macaulay_duration": 19.9945355191,
+          "modified_duration": 19.6990497725,
+          "convexity": 397.7565273461
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 20Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2044-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 45.2988441313,
+          "macaulay_duration": 19.9945355191,
+          "modified_duration": 19.6024858031,
+          "convexity": 393.8665113275
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 20Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2044-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 37.2531143109,
+          "macaulay_duration": 19.9945355191,
+          "modified_duration": 19.5068639211,
+          "convexity": 390.0332834124
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 20Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2044-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 30.6655889045,
+          "macaulay_duration": 19.9945355191,
+          "modified_duration": 19.4121704069,
+          "convexity": 386.2557435999
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 30Y at 3.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2054-01-15",
+          "yield_to_maturity": 0.03,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 40.9362571582,
+          "macaulay_duration": 29.9945355191,
+          "modified_duration": 29.5512665213,
+          "convexity": 887.8346271617
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 30Y at 4.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2054-01-15",
+          "yield_to_maturity": 0.04,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 30.4848235233,
+          "macaulay_duration": 29.9945355191,
+          "modified_duration": 29.4064073717,
+          "convexity": 879.1517000843
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 30Y at 5.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2054-01-15",
+          "yield_to_maturity": 0.05,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 22.7344931949,
+          "macaulay_duration": 29.9945355191,
+          "modified_duration": 29.2629614821,
+          "convexity": 870.5955300584
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      },
+      {
+        "test_type": "zero_coupon_bond",
+        "description": "Zero coupon 30Y at 6.0% yield",
+        "inputs": {
+          "settlement_date": "2024-01-17",
+          "maturity_date": "2054-01-15",
+          "yield_to_maturity": 0.06,
+          "face_value": 100.0,
+          "day_count": "ActActIcma"
+        },
+        "expected": {
+          "clean_price": 16.9787930643,
+          "macaulay_duration": 29.9945355191,
+          "modified_duration": 29.120908271,
+          "convexity": 862.1636617661
+        },
+        "tolerances": {
+          "price": 0.0001,
+          "duration": 0.001
+        }
+      }
+    ],
+    "curve_bootstrap": [
+      {
+        "test_type": "curve_bootstrap",
+        "description": "Treasury curve bootstrap from par yields",
+        "inputs": {
+          "evaluation_date": "2024-01-15",
+          "settlement_date": "2024-01-17",
+          "par_yields": [
+            {
+              "tenor": "3M",
+              "rate": 0.0525
+            },
+            {
+              "tenor": "6M",
+              "rate": 0.052
+            },
+            {
+              "tenor": "1Y",
+              "rate": 0.0485
+            },
+            {
+              "tenor": "2Y",
+              "rate": 0.0435
+            },
+            {
+              "tenor": "3Y",
+              "rate": 0.0415
+            },
+            {
+              "tenor": "5Y",
+              "rate": 0.04
+            },
+            {
+              "tenor": "7Y",
+              "rate": 0.0405
+            },
+            {
+              "tenor": "10Y",
+              "rate": 0.041
+            }
+          ],
+          "day_count": "ActActIcma",
+          "interpolation": "LogLinearDiscount"
+        },
+        "expected": {
+          "curve_points": [
+            {
+              "tenor_years": 0.25,
+              "date": "2024-04-17",
+              "discount_factor": 0.986759218921,
+              "zero_rate": 0.0540339172
+            },
+            {
+              "tenor_years": 0.5,
+              "date": "2024-07-17",
+              "discount_factor": 0.97424258109,
+              "zero_rate": 0.0528768079
+            },
+            {
+              "tenor_years": 1.0,
+              "date": "2025-01-17",
+              "discount_factor": 0.953258108283,
+              "zero_rate": 0.0484470464
+            },
+            {
+              "tenor_years": 2.0,
+              "date": "2026-01-20",
+              "discount_factor": 0.917428445524,
+              "zero_rate": 0.0435578915
+            },
+            {
+              "tenor_years": 3.0,
+              "date": "2027-01-19",
+              "discount_factor": 0.884298480072,
+              "zero_rate": 0.0414097401
+            },
+            {
+              "tenor_years": 5.0,
+              "date": "2029-01-17",
+              "discount_factor": 0.821141031578,
+              "zero_rate": 0.0398029723
+            },
+            {
+              "tenor_years": 7.0,
+              "date": "2031-01-17",
+              "discount_factor": 0.755738235018,
+              "zero_rate": 0.0404114557
+            },
+            {
+              "tenor_years": 10.0,
+              "date": "2034-01-17",
+              "discount_factor": 0.666296535971,
+              "zero_rate": 0.0410169805
+            }
+          ]
+        },
+        "tolerances": {
+          "discount_factor": 1e-08,
+          "zero_rate": 1e-06
+        }
+      }
+    ],
+    "real_world_bonds": [
+      {
+        "test_type": "real_world_bond",
+        "description": "US Corporate 7.5% 06/2025 (Boeing-like)",
+        "inputs": {
+          "evaluation_date": "2020-04-29",
+          "settlement_date": "2020-05-01",
+          "issue_date": "2005-06-08",
+          "maturity_date": "2025-06-15",
+          "coupon_rate": 0.075,
+          "clean_price": 110.503,
+          "frequency": "SemiAnnual",
+          "day_count": "Thirty360US",
+          "settlement_days": 2
+        },
+        "expected": {
+          "accrued_interest": 2.8333333333,
+          "accrued_days": 135,
+          "dirty_price": 113.3363333333,
+          "macaulay_duration": 4.28995627,
+          "modified_duration": 4.18724544,
+          "convexity": 21.7555021,
+          "basis_point_value": -0.0479176459,
+          "previous_coupon_date": "2019-12-16"
+        },
+        "tolerances": {
+          "yield": 1e-05,
+          "price": 0.0001,
+          "duration": 0.001
+        },
+        "notes": "Based on Boeing 7.5% 06/15/2025 bond structure. Accrued days should be 134."
+      }
+    ]
+  }
+}

@@ -89,7 +89,60 @@ jobs:
 
       - name: Check convex-core can be packaged
         run: cargo package -p convex-core --list
-        # Note: Full package verification for other crates requires convex-core
-        # to be published first. After initial release, you can add:
-        # cargo publish --dry-run -p convex-math
-        # etc.
+
+  excel-addin:
+    name: Excel Add-in (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build convex-ffi
+        run: cargo build --release -p convex-ffi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Excel Add-in
+        run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
+
+      - name: Copy native DLL
+        run: copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
+
+      - name: Create Add-in Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path convex-excel-addin
+          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll convex-excel-addin\
+          Copy-Item excel\Convex.Excel\bin\Release\net472\convex_ffi.dll convex-excel-addin\
+          if (Test-Path excel\ConvexDemo.xlsx) {
+            Copy-Item excel\ConvexDemo.xlsx convex-excel-addin\
+          }
+          @"
+          Convex Excel Add-in
+          ===================
+
+          Installation:
+          1. Extract all files to a folder
+          2. Open Excel
+          3. File > Options > Add-ins > Go > Browse
+          4. Select Convex.Excel64.xll
+
+          Note: convex_ffi.dll must be in the same folder as the .xll file
+          "@ | Out-File -FilePath convex-excel-addin\README.txt -Encoding UTF8
+
+      - name: Upload Add-in Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: convex-excel-addin
+          path: convex-excel-addin/
+          retention-days: 30

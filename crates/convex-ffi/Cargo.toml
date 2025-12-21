@@ -19,9 +19,13 @@ convex-core = { workspace = true }
 convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
+convex-analytics = { workspace = true }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }
+
+# Thread-safe global state
+once_cell = { workspace = true }
 
 # FFI support
 libc = { workspace = true }

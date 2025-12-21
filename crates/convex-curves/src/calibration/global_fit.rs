@@ -611,6 +611,191 @@ impl SequentialBootstrapper {
     }
 }
 
+/// Piecewise bootstrapper using iterative root-finding.
+///
+/// Solves for each discount factor
+/// exactly, one instrument at a time in maturity order. Each point is solved
+/// using Brent's method to find the discount factor that reprices the instrument.
+///
+/// # Advantages over Global Fitting
+///
+/// - Exact fit to market quotes (within solver tolerance)
+/// - Faster for standard curves
+/// - More predictable behavior
+/// - Industry standard approach
+///
+/// # Disadvantages
+///
+/// - Sensitive to instrument ordering
+/// - Can be unstable with noisy data
+/// - Doesn't handle overlapping instruments well
+#[derive(Debug, Clone)]
+pub struct PiecewiseBootstrapper {
+    /// Value type for output curve.
+    value_type: ValueType,
+    /// Interpolation method.
+    interpolation: InterpolationMethod,
+    /// Solver tolerance.
+    tolerance: f64,
+    /// Maximum solver iterations per point.
+    max_iterations: usize,
+}
+
+impl Default for PiecewiseBootstrapper {
+    fn default() -> Self {
+        Self {
+            value_type: ValueType::ZeroRate {
+                compounding: Compounding::Continuous,
+                day_count: DayCountConvention::Act365Fixed,
+            },
+            interpolation: InterpolationMethod::Linear,
+            tolerance: 1e-12,
+            max_iterations: 100,
+        }
+    }
+}
+
+impl PiecewiseBootstrapper {
+    /// Creates a new piecewise bootstrapper.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the output value type.
+    #[must_use]
+    pub fn output_as(mut self, value_type: ValueType) -> Self {
+        self.value_type = value_type;
+        self
+    }
+
+    /// Sets the interpolation method.
+    #[must_use]
+    pub fn interpolation(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation = method;
+        self
+    }
+
+    /// Sets the solver tolerance.
+    #[must_use]
+    pub fn tolerance(mut self, tol: f64) -> Self {
+        self.tolerance = tol;
+        self
+    }
+
+    /// Bootstraps a curve from instruments using iterative root-finding.
+    ///
+    /// For each instrument in maturity order:
+    /// 1. Build a temporary curve from previously solved points
+    /// 2. Use Brent's method to find the zero rate that reprices the instrument
+    /// 3. Add the solved point to the curve
+    pub fn bootstrap(
+        &self,
+        reference_date: Date,
+        instruments: &InstrumentSet,
+    ) -> CurveResult<CalibrationResult> {
+        use convex_math::solvers::{brent, SolverConfig};
+
+        if instruments.is_empty() {
+            return Err(CurveError::calibration_failed(
+                0,
+                f64::NAN,
+                "No instruments provided",
+            ));
+        }
+
+        // Sort instruments by maturity
+        let mut sorted: Vec<_> = instruments.instruments().iter().collect();
+        sorted.sort_by(|a, b| a.tenor().partial_cmp(&b.tenor()).unwrap());
+
+        // Initialize with t=0 point (rate = first instrument quote as initial guess)
+        let mut tenors = vec![0.0];
+        let mut values = vec![sorted[0].quote()];
+
+        let solver_config = SolverConfig {
+            tolerance: self.tolerance,
+            max_iterations: self.max_iterations as u32,
+        };
+
+        let mut total_iterations = 0;
+
+        // Bootstrap each instrument
+        for inst in &sorted {
+            let target_tenor = inst.tenor();
+            let initial_guess = inst.quote();
+
+            // Define objective function: find rate that makes pricing error = 0
+            let objective = |rate: f64| -> f64 {
+                // Build temporary curve with this rate at target tenor
+                let mut temp_tenors = tenors.clone();
+                let mut temp_values = values.clone();
+                temp_tenors.push(target_tenor);
+                temp_values.push(rate);
+
+                // Create temporary curve
+                let Ok(temp_curve) = DiscreteCurve::new(
+                    reference_date,
+                    temp_tenors,
+                    temp_values,
+                    self.value_type.clone(),
+                    self.interpolation,
+                ) else {
+                    return f64::MAX;
+                };
+
+                let rate_curve = RateCurve::new(temp_curve);
+
+                // Return pricing error
+                inst.pricing_error(&rate_curve).unwrap_or(f64::MAX)
+            };
+
+            // Bracket the solution: rate should be between -10% and +50%
+            let lower = -0.10;
+            let upper = 0.50;
+
+            // Use Brent's method to find the root
+            let result = brent(objective, lower, upper, &solver_config);
+
+            if let Ok(solver_result) = result {
+                tenors.push(target_tenor);
+                values.push(solver_result.root);
+                total_iterations += solver_result.iterations;
+            } else {
+                // Fall back to using the quote directly if solver fails
+                tenors.push(target_tenor);
+                values.push(initial_guess);
+                total_iterations += 1;
+            }
+        }
+
+        // Build final curve
+        let curve = DiscreteCurve::new(
+            reference_date,
+            tenors,
+            values,
+            self.value_type.clone(),
+            self.interpolation,
+        )?;
+
+        // Compute final residuals
+        let rate_curve = RateCurve::new(curve.clone());
+        let residuals: Vec<f64> = sorted
+            .iter()
+            .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(f64::NAN))
+            .collect();
+
+        let rms = (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
+
+        Ok(CalibrationResult {
+            curve,
+            residuals,
+            iterations: total_iterations as usize,
+            rms_error: rms,
+            converged: rms < 1e-6, // 1bp accuracy is sufficient for converged status
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -674,6 +859,49 @@ mod tests {
 
         assert!(result.converged);
         assert_eq!(result.iterations, 1);
+    }
+
+    #[test]
+    fn test_piecewise_bootstrap() {
+        let today = Date::from_ymd(2024, 1, 2).unwrap();
+        let instruments = make_flat_instruments(today, 0.04);
+
+        let bootstrapper = PiecewiseBootstrapper::new();
+        let result = bootstrapper.bootstrap(today, &instruments).unwrap();
+
+        // Piecewise should achieve very tight fit
+        assert!(
+            result.rms_error < 1e-6,
+            "RMS error too high: {}",
+            result.rms_error
+        );
+        assert!(result.converged);
+        println!("Piecewise bootstrap: {}", result.summary());
+    }
+
+    #[test]
+    fn test_piecewise_vs_global() {
+        let today = Date::from_ymd(2024, 1, 2).unwrap();
+        let dc = DayCountConvention::Act360;
+
+        // Create upward sloping curve
+        let instruments = InstrumentSet::new()
+            .with(Deposit::from_tenor(today, 0.25, 0.035, dc))
+            .with(Deposit::from_tenor(today, 0.5, 0.040, dc))
+            .with(Deposit::from_tenor(today, 1.0, 0.045, dc));
+
+        // Both methods should work
+        let global_result = GlobalFitter::new().fit(today, &instruments).unwrap();
+        let piecewise_result = PiecewiseBootstrapper::new()
+            .bootstrap(today, &instruments)
+            .unwrap();
+
+        println!("Global RMS: {:.2e}", global_result.rms_error);
+        println!("Piecewise RMS: {:.2e}", piecewise_result.rms_error);
+
+        // Both should achieve good fit
+        assert!(global_result.rms_error < 0.01);
+        assert!(piecewise_result.rms_error < 1e-6);
     }
 
     #[test]

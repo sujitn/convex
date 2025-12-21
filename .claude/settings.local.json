@@ -44,7 +44,16 @@
       "Bash(cd:*)",
       "Bash(npm start --prefix www)",
       "Bash(wc:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(copy \"C:\\\\Users\\\\sujit\\\\source\\\\convex\\\\target\\\\release\\\\convex_ffi.dll\" \"C:\\\\Users\\\\sujit\\\\source\\\\convex\\\\excel\\\\Convex.Excel\\\\bin\\\\Debug\\\\net472\"\")",
+      "Bash(xcopy:*)",
+      "Bash(cmd /c:*)",
+      "Bash(dumpbin:*)",
+      "Bash(copy:*)"
     ],
     "deny": [],
     "ask": []
