@@ -227,7 +227,6 @@ pub extern "C" fn convex_version() -> *const c_char {
     VERSION.as_ptr() as *const c_char
 }
 
-
 // ============================================================================
 // Day Count Utilities
 // ============================================================================
@@ -275,7 +274,10 @@ pub unsafe extern "C" fn convex_day_count_fraction(
     };
 
     use rust_decimal::prelude::ToPrimitive;
-    dc.to_day_count().year_fraction(start, end).to_f64().unwrap_or(f64::NAN)
+    dc.to_day_count()
+        .year_fraction(start, end)
+        .to_f64()
+        .unwrap_or(f64::NAN)
 }
 
 #[cfg(test)]

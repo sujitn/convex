@@ -453,6 +453,7 @@ version = "0.10.2"
 dependencies = [
  "approx",
  "chrono",
+ "convex-curves",
  "log",
  "proptest",
  "rust_decimal",

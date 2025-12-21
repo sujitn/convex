@@ -362,3 +362,278 @@ fn test_fixture_loads_correctly() {
     println!("  Generated: {}", suite.metadata.generated_date);
     println!("  Day count tests: {}", suite.test_suites.day_counts.len());
 }
+
+// ============================================================================
+// PIECEWISE BOOTSTRAP TESTS
+// ============================================================================
+
+#[test]
+fn test_piecewise_bootstrap_from_fixtures() {
+    use convex_core::daycounts::DayCountConvention;
+    use convex_core::types::Frequency;
+    use convex_curves::calibration::{
+        Deposit, GlobalFitter, InstrumentSet, PiecewiseBootstrapper, Swap,
+    };
+
+    let suite = load_test_suite();
+
+    if suite.test_suites.curve_bootstrap.is_none() {
+        println!("No curve_bootstrap tests found");
+        return;
+    }
+
+    let bootstrap_tests = suite.test_suites.curve_bootstrap.unwrap();
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut skipped = 0;
+
+    for test_value in &bootstrap_tests {
+        let test_type = test_value
+            .get("test_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let description = test_value
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unnamed");
+
+        // Only process piecewise bootstrap tests
+        if !test_type.starts_with("piecewise") {
+            skipped += 1;
+            continue;
+        }
+
+        println!("Running: {}", description);
+
+        let inputs = match test_value.get("inputs") {
+            Some(i) => i,
+            None => {
+                println!("  SKIP: No inputs");
+                skipped += 1;
+                continue;
+            }
+        };
+
+        let eval_date_str = inputs
+            .get("evaluation_date")
+            .and_then(|v| v.as_str())
+            .unwrap_or("2024-01-02");
+        let eval_date = parse_date(eval_date_str);
+
+        // Build instrument set
+        let mut instruments = InstrumentSet::new();
+        let dc = DayCountConvention::Act360;
+
+        // Add deposits
+        if let Some(deposits) = inputs.get("deposits").and_then(|v| v.as_array()) {
+            for dep in deposits {
+                let tenor = dep
+                    .get("tenor_years")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let rate = dep.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                instruments.add(Deposit::from_tenor(eval_date, tenor, rate, dc));
+            }
+        }
+
+        // Add swaps
+        if let Some(swaps) = inputs.get("swaps").and_then(|v| v.as_array()) {
+            for swap in swaps {
+                let tenor = swap
+                    .get("tenor_years")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let rate = swap.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                instruments.add(Swap::from_tenor(
+                    eval_date,
+                    tenor,
+                    rate,
+                    Frequency::SemiAnnual,
+                    DayCountConvention::Thirty360US,
+                ));
+            }
+        }
+
+        if instruments.is_empty() {
+            println!("  SKIP: No instruments");
+            skipped += 1;
+            continue;
+        }
+
+        // Run piecewise bootstrap
+        let bootstrapper = PiecewiseBootstrapper::new();
+        let result = match bootstrapper.bootstrap(eval_date, &instruments) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("  FAIL: Bootstrap error: {}", e);
+                failed += 1;
+                continue;
+            }
+        };
+
+        let expected = match test_value.get("expected") {
+            Some(e) => e,
+            None => {
+                println!("  SKIP: No expected values");
+                skipped += 1;
+                continue;
+            }
+        };
+
+        // Get RMS threshold from fixture (default to 1e-6)
+        let rms_threshold = expected
+            .get("rms_error_threshold")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1e-6);
+
+        // Check RMS error threshold
+        if result.rms_error > rms_threshold {
+            println!(
+                "  FAIL: RMS error {:.2e} exceeds threshold {:.2e}",
+                result.rms_error, rms_threshold
+            );
+            failed += 1;
+            continue;
+        }
+
+        println!(
+            "  PASS: RMS={:.2e}, converged={}",
+            result.rms_error, result.converged
+        );
+        passed += 1;
+    }
+
+    println!(
+        "\nPiecewise bootstrap tests: {} passed, {} failed, {} skipped",
+        passed, failed, skipped
+    );
+
+    assert!(failed == 0, "Some piecewise bootstrap tests failed");
+}
+
+#[test]
+fn test_piecewise_vs_global_comparison() {
+    use convex_core::daycounts::DayCountConvention;
+    use convex_curves::calibration::{Deposit, GlobalFitter, InstrumentSet, PiecewiseBootstrapper};
+
+    let suite = load_test_suite();
+
+    if suite.test_suites.curve_bootstrap.is_none() {
+        println!("No curve_bootstrap tests found");
+        return;
+    }
+
+    let bootstrap_tests = suite.test_suites.curve_bootstrap.unwrap();
+
+    for test_value in &bootstrap_tests {
+        let test_type = test_value
+            .get("test_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if test_type != "piecewise_vs_global" {
+            continue;
+        }
+
+        let description = test_value
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unnamed");
+        println!("Running comparison: {}", description);
+
+        let inputs = match test_value.get("inputs") {
+            Some(i) => i,
+            None => continue,
+        };
+
+        let eval_date_str = inputs
+            .get("evaluation_date")
+            .and_then(|v| v.as_str())
+            .unwrap_or("2024-01-02");
+        let eval_date = parse_date(eval_date_str);
+
+        // Build instrument set
+        let mut instruments = InstrumentSet::new();
+        let dc = DayCountConvention::Act360;
+
+        if let Some(deposits) = inputs.get("deposits").and_then(|v| v.as_array()) {
+            for dep in deposits {
+                let tenor = dep
+                    .get("tenor_years")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let rate = dep.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                instruments.add(Deposit::from_tenor(eval_date, tenor, rate, dc));
+            }
+        }
+
+        if instruments.is_empty() {
+            continue;
+        }
+
+        // Run both methods
+        let piecewise_result = PiecewiseBootstrapper::new()
+            .bootstrap(eval_date, &instruments)
+            .expect("Piecewise bootstrap failed");
+
+        let global_result = GlobalFitter::new()
+            .fit(eval_date, &instruments)
+            .expect("Global fit failed");
+
+        let expected = match test_value.get("expected") {
+            Some(e) => e,
+            None => continue,
+        };
+
+        // Check that piecewise achieves comparable or better fit
+        // Note: When both are < 1e-10, they are effectively equal (numerical noise)
+        if expected
+            .get("piecewise_rms_better")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            let both_excellent =
+                piecewise_result.rms_error < 1e-10 && global_result.rms_error < 1e-10;
+            if !both_excellent {
+                assert!(
+                    piecewise_result.rms_error <= global_result.rms_error * 1.1, // Allow 10% tolerance
+                    "Piecewise RMS ({:.2e}) should be <= Global RMS ({:.2e})",
+                    piecewise_result.rms_error,
+                    global_result.rms_error
+                );
+            }
+        }
+
+        println!(
+            "  Piecewise RMS: {:.2e}, Global RMS: {:.2e}",
+            piecewise_result.rms_error, global_result.rms_error
+        );
+
+        // Check thresholds
+        if let Some(piecewise_threshold) = expected
+            .get("piecewise_rms_threshold")
+            .and_then(|v| v.as_f64())
+        {
+            assert!(
+                piecewise_result.rms_error < piecewise_threshold,
+                "Piecewise RMS {} exceeds threshold {}",
+                piecewise_result.rms_error,
+                piecewise_threshold
+            );
+        }
+
+        if let Some(global_threshold) = expected
+            .get("global_rms_threshold")
+            .and_then(|v| v.as_f64())
+        {
+            assert!(
+                global_result.rms_error < global_threshold,
+                "Global RMS {} exceeds threshold {}",
+                global_result.rms_error,
+                global_threshold
+            );
+        }
+
+        println!("  PASS: Both methods within thresholds");
+    }
+}

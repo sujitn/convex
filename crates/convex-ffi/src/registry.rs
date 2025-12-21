@@ -331,7 +331,6 @@ pub fn clear_all() {
     REGISTRY.clear();
 }
 
-
 // ============================================================================
 // FFI Functions for Object Enumeration
 // ============================================================================
@@ -340,7 +339,8 @@ use libc::{c_char, c_int};
 use std::ffi::CString;
 
 /// Callback type for object enumeration.
-pub type ObjectEnumCallback = extern "C" fn(handle: Handle, object_type: c_int, name: *const c_char);
+pub type ObjectEnumCallback =
+    extern "C" fn(handle: Handle, object_type: c_int, name: *const c_char);
 
 /// Enumerates all objects in the registry, calling the callback for each.
 ///
@@ -429,7 +429,6 @@ pub unsafe extern "C" fn convex_get_name(
 pub extern "C" fn convex_get_type(handle: Handle) -> c_int {
     get_type(handle) as c_int
 }
-
 
 /// Releases an object by handle.
 ///

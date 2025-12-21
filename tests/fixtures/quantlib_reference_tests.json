@@ -3151,6 +3151,182 @@
           "discount_factor": 1e-08,
           "zero_rate": 1e-06
         }
+      },
+      {
+        "test_type": "piecewise_bootstrap",
+        "description": "Piecewise bootstrap from deposits and swaps (iterative Brent)",
+        "method": "piecewise",
+        "inputs": {
+          "evaluation_date": "2024-01-02",
+          "deposits": [
+            {
+              "tenor_years": 0.25,
+              "rate": 0.0525
+            },
+            {
+              "tenor_years": 0.5,
+              "rate": 0.052
+            },
+            {
+              "tenor_years": 1.0,
+              "rate": 0.0485
+            }
+          ],
+          "swaps": [
+            {
+              "tenor_years": 2.0,
+              "rate": 0.0435,
+              "frequency": "SemiAnnual"
+            },
+            {
+              "tenor_years": 3.0,
+              "rate": 0.0415,
+              "frequency": "SemiAnnual"
+            },
+            {
+              "tenor_years": 5.0,
+              "rate": 0.04,
+              "frequency": "SemiAnnual"
+            }
+          ],
+          "deposit_day_count": "Act360",
+          "swap_day_count": "Thirty360US",
+          "interpolation": "Linear"
+        },
+        "expected": {
+          "converged": true,
+          "rms_error_threshold": 1e-05,
+          "curve_points": [
+            {
+              "tenor_years": 0.25,
+              "zero_rate_range": [
+                0.052,
+                0.054
+              ]
+            },
+            {
+              "tenor_years": 0.5,
+              "zero_rate_range": [
+                0.051,
+                0.053
+              ]
+            },
+            {
+              "tenor_years": 1.0,
+              "zero_rate_range": [
+                0.047,
+                0.05
+              ]
+            },
+            {
+              "tenor_years": 2.0,
+              "zero_rate_range": [
+                0.042,
+                0.045
+              ]
+            },
+            {
+              "tenor_years": 3.0,
+              "zero_rate_range": [
+                0.04,
+                0.043
+              ]
+            },
+            {
+              "tenor_years": 5.0,
+              "zero_rate_range": [
+                0.038,
+                0.041
+              ]
+            }
+          ]
+        },
+        "tolerances": {
+          "discount_factor": 1e-06,
+          "zero_rate": 0.0001
+        },
+        "notes": "Piecewise bootstrap should achieve exact fit to market quotes within solver tolerance"
+      },
+      {
+        "test_type": "piecewise_bootstrap",
+        "description": "Piecewise bootstrap flat curve validation",
+        "method": "piecewise",
+        "inputs": {
+          "evaluation_date": "2024-01-02",
+          "deposits": [
+            {
+              "tenor_years": 0.25,
+              "rate": 0.04
+            },
+            {
+              "tenor_years": 0.5,
+              "rate": 0.04
+            },
+            {
+              "tenor_years": 1.0,
+              "rate": 0.04
+            }
+          ],
+          "swaps": [
+            {
+              "tenor_years": 2.0,
+              "rate": 0.04,
+              "frequency": "SemiAnnual"
+            },
+            {
+              "tenor_years": 5.0,
+              "rate": 0.04,
+              "frequency": "SemiAnnual"
+            }
+          ],
+          "deposit_day_count": "Act360",
+          "swap_day_count": "Thirty360US",
+          "interpolation": "Linear"
+        },
+        "expected": {
+          "converged": true,
+          "rms_error_threshold": 1e-06,
+          "flat_rate_approx": 0.04
+        },
+        "tolerances": {
+          "flat_rate_tolerance": 0.002
+        },
+        "notes": "Flat input rates should produce approximately flat zero curve"
+      },
+      {
+        "test_type": "piecewise_vs_global",
+        "description": "Compare piecewise and global fit methods",
+        "method": "comparison",
+        "inputs": {
+          "evaluation_date": "2024-01-02",
+          "deposits": [
+            {
+              "tenor_years": 0.25,
+              "rate": 0.035
+            },
+            {
+              "tenor_years": 0.5,
+              "rate": 0.04
+            },
+            {
+              "tenor_years": 1.0,
+              "rate": 0.045
+            }
+          ],
+          "swaps": [],
+          "deposit_day_count": "Act360",
+          "interpolation": "Linear"
+        },
+        "expected": {
+          "piecewise_rms_better": true,
+          "piecewise_rms_threshold": 1e-06,
+          "global_rms_threshold": 0.01,
+          "curves_similar_at_tenors": true
+        },
+        "tolerances": {
+          "zero_rate_diff": 0.005
+        },
+        "notes": "Piecewise should achieve tighter fit than global on simple deposit curves"
       }
     ],
     "real_world_bonds": [
