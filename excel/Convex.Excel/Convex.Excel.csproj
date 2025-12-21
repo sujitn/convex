@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>Convex.Excel</AssemblyName>
+    <RootNamespace>Convex.Excel</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ExcelDnaPackPath>$(NuGetPackageRoot)exceldna.addin\1.7.0\tools\ExcelDnaPack.exe</ExcelDnaPackPath>
+    <NativeLibPath>..\..\target\release\convex_ffi.dll</NativeLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExcelDna.AddIn" Version="1.7.0" />
+    <PackageReference Include="ExcelDna.Integration" Version="1.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Convex.Excel.dna">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Copy native library to output -->
+  <Target Name="CopyNativeLib" AfterTargets="Build" Condition="Exists('$(NativeLibPath)')">
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)" />
+  </Target>
+</Project>

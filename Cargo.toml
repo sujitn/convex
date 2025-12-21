@@ -11,7 +11,7 @@ members = [
     "crates/convex-ffi",
     "crates/convex-wasm",
 ]
-# Note: convex-spreads, convex-risk, and convex-yas have been absorbed into convex-analytics
+# Note: convex-spreads has been absorbed into convex-analytics
 
 resolver = "2"
 
@@ -35,7 +35,6 @@ convex-bonds = { path = "crates/convex-bonds", version = "0.10.2" }
 convex-analytics = { path = "crates/convex-analytics", version = "0.10.2" }
 convex-ffi = { path = "crates/convex-ffi", version = "0.10.2" }
 convex-wasm = { path = "crates/convex-wasm", version = "0.10.2" }
-# Deprecated: convex-spreads, convex-risk, convex-yas (absorbed into convex-analytics)
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }

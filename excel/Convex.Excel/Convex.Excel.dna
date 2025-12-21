@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DnaLibrary Name="Convex Excel Add-In" RuntimeVersion="v4.0">
+  <ExternalLibrary Path="Convex.Excel.dll" ExplicitExports="false" LoadFromBytes="true" Pack="true" />
+
+  <!-- Native Convex library - for runtime loading -->
+  <NativeLibrary Name="convex_ffi" Path="convex_ffi.dll" />
+
+  <!-- Ribbon UI -->
+  <CustomUI>
+    <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" loadImage="LoadImage">
+      <ribbon>
+        <tabs>
+          <tab id="ConvexTab" label="Convex">
+            <!-- Curves Group -->
+            <group id="CurvesGroup" label="Curves">
+              <button id="btnNewCurve" label="New Curve"
+                      size="large" image="curve_new"
+                      onAction="OnNewCurve" screentip="Create a new yield curve" />
+              <button id="btnBootstrap" label="Bootstrap"
+                      size="large" image="bootstrap"
+                      onAction="OnBootstrap" screentip="Bootstrap curve from market instruments" />
+              <button id="btnCurveViewer" label="Curve Viewer"
+                      size="large" image="curve_view"
+                      onAction="OnCurveViewer" screentip="View curve data and chart" />
+            </group>
+
+            <!-- Bonds Group -->
+            <group id="BondsGroup" label="Bonds">
+              <button id="btnNewBond" label="New Bond"
+                      size="large" image="bond_new"
+                      onAction="OnNewBond" screentip="Create a new bond" />
+              <button id="btnBondAnalyzer" label="Bond Analyzer"
+                      size="large" image="bond_analyze"
+                      onAction="OnBondAnalyzer" screentip="Analyze bond metrics and cashflows" />
+            </group>
+
+            <!-- Tools Group -->
+            <group id="ToolsGroup" label="Tools">
+              <button id="btnObjectBrowser" label="Objects"
+                      size="large" image="objects"
+                      onAction="OnObjectBrowser" screentip="Browse registered objects" />
+              <button id="btnClearAll" label="Clear All"
+                      size="normal" image="clear"
+                      onAction="OnClearAll" screentip="Clear all registered objects" />
+            </group>
+
+            <!-- Help Group -->
+            <group id="HelpGroup" label="Help">
+              <button id="btnHelp" label="Help"
+                      size="large" image="help"
+                      onAction="OnHelp" screentip="View function documentation" />
+              <button id="btnAbout" label="About"
+                      size="normal" image="about"
+                      onAction="OnAbout" screentip="About Convex Excel Add-In" />
+            </group>
+          </tab>
+        </tabs>
+      </ribbon>
+    </customUI>
+  </CustomUI>
+</DnaLibrary>

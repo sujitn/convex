@@ -19,6 +19,9 @@ jobs:
   validate:
     name: Validate Release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.VERSION }}
+      tag: ${{ steps.tag.outputs.TAG }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -65,6 +68,55 @@ jobs:
       - name: Build documentation
         run: cargo doc --no-deps --all-features --workspace
 
+  build-excel-addin:
+    name: Build Excel Add-in
+    runs-on: windows-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build convex-ffi
+        run: cargo build --release -p convex-ffi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Excel Add-in
+        run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
+
+      - name: Copy native DLL
+        run: copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
+
+      - name: Create Add-in Package
+        shell: pwsh
+        run: |
+          $version = "${{ needs.validate.outputs.version }}"
+          New-Item -ItemType Directory -Force -Path convex-excel-addin | Out-Null
+          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll convex-excel-addin\
+          Copy-Item excel\Convex.Excel\bin\Release\net472\convex_ffi.dll convex-excel-addin\
+          if (Test-Path excel\ConvexDemo.xlsx) { Copy-Item excel\ConvexDemo.xlsx convex-excel-addin\ }
+          "Convex Excel Add-in - Extract and load Convex.Excel64.xll in Excel" | Out-File convex-excel-addin\README.txt
+          Compress-Archive -Path convex-excel-addin\* -DestinationPath "convex-excel-addin-v$version.zip"
+
+      - name: Upload Add-in Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: convex-excel-addin
+          path: convex-excel-addin-v*.zip
+          retention-days: 5
+
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
@@ -110,7 +162,7 @@ jobs:
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [validate, publish, build-excel-addin]
     permissions:
       contents: write
     steps:
@@ -119,24 +171,17 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Get tag version
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-          fi
-          echo "VERSION=${TAG#v}" >> $GITHUB_OUTPUT
-          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+      - name: Download Excel Add-in
+        uses: actions/download-artifact@v4
+        with:
+          name: convex-excel-addin
+          path: ./artifacts
 
       - name: Extract changelog section
         id: changelog
         run: |
-          VERSION="${{ steps.tag.outputs.VERSION }}"
-          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ needs.validate.outputs.version }}"
           CHANGELOG=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
-          # Handle multiline output
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -144,37 +189,20 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: v${{ steps.tag.outputs.VERSION }}
+          name: v${{ needs.validate.outputs.version }}
           body: |
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.CHANGELOG }}
-
             ## Installation
 
-            Add to your `Cargo.toml`:
+            ### Rust Crates
+            Add to Cargo.toml: convex-core, convex-math, convex-curves, convex-bonds, convex-analytics
 
-            ```toml
-            [dependencies]
-            convex-core = "${{ steps.tag.outputs.VERSION }}"
-            convex-math = "${{ steps.tag.outputs.VERSION }}"
-            convex-curves = "${{ steps.tag.outputs.VERSION }}"
-            convex-bonds = "${{ steps.tag.outputs.VERSION }}"
-            convex-analytics = "${{ steps.tag.outputs.VERSION }}"
-            ```
-
-            ## Crate Overview
-
-            - **convex-core**: Core types, traits, and utilities
-            - **convex-math**: Day count conventions, solvers, and mathematical utilities
-            - **convex-curves**: Yield curves, discount curves, and interpolation
-            - **convex-bonds**: Bond instruments, cash flows, and pricing
-            - **convex-analytics**: Unified analytics (yields, spreads, risk metrics, YAS)
+            ### Excel Add-in
+            Download convex-excel-addin zip from assets below.
 
             ## Links
-
             - [crates.io](https://crates.io/crates/convex-core)
             - [Documentation](https://docs.rs/convex-core)
+          files: ./artifacts/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true

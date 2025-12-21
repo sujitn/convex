@@ -56,3 +56,5 @@ www/dist/
 www/pkg/
 *.log
 npm-debug.log*
+/excel/Convex.Excel/bin
+/excel/Convex.Excel/obj

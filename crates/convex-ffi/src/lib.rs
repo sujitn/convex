@@ -35,9 +35,17 @@ use libc::{c_char, c_int};
 
 use convex_core::types::Date;
 
+mod bonds;
+mod curves;
 mod error;
+mod pricing;
+mod registry;
+mod spreads;
 
 use error::set_last_error;
+
+// Re-export public items from submodules
+pub use registry::{Handle, INVALID_HANDLE};
 
 /// Result code for successful operations.
 pub const CONVEX_OK: c_int = 0;
@@ -50,6 +58,9 @@ pub const CONVEX_ERROR_INVALID_ARG: c_int = -2;
 
 /// Result code for null pointer errors.
 pub const CONVEX_ERROR_NULL_PTR: c_int = -3;
+
+/// Result code for object not found errors.
+pub const CONVEX_ERROR_NOT_FOUND: c_int = -4;
 
 // ============================================================================
 // Date Functions
@@ -214,6 +225,59 @@ pub extern "C" fn convex_clear_error() {
 pub extern "C" fn convex_version() -> *const c_char {
     static VERSION: &[u8] = b"0.1.0\0";
     VERSION.as_ptr() as *const c_char
+}
+
+// ============================================================================
+// Day Count Utilities
+// ============================================================================
+
+/// Calculates the day count fraction between two dates.
+///
+/// # Arguments
+///
+/// * `start_year`, `start_month`, `start_day` - Start date
+/// * `end_year`, `end_month`, `end_day` - End date
+/// * `convention` - Day count convention (0=Act360, 1=Act365, 2=30/360, etc.)
+///
+/// # Returns
+///
+/// The year fraction, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_day_count_fraction(
+    start_year: c_int,
+    start_month: c_int,
+    start_day: c_int,
+    end_year: c_int,
+    end_month: c_int,
+    end_day: c_int,
+    convention: c_int,
+) -> f64 {
+    use convex_core::daycounts::DayCountConvention;
+
+    let start = match Date::from_ymd(start_year, start_month as u32, start_day as u32) {
+        Ok(d) => d,
+        Err(_) => return f64::NAN,
+    };
+
+    let end = match Date::from_ymd(end_year, end_month as u32, end_day as u32) {
+        Ok(d) => d,
+        Err(_) => return f64::NAN,
+    };
+
+    let dc = match convention {
+        0 => DayCountConvention::Act360,
+        1 => DayCountConvention::Act365Fixed,
+        2 => DayCountConvention::Thirty360US,
+        3 => DayCountConvention::ActActIsda,
+        4 => DayCountConvention::ActActIcma,
+        _ => return f64::NAN,
+    };
+
+    use rust_decimal::prelude::ToPrimitive;
+    dc.to_day_count()
+        .year_fraction(start, end)
+        .to_f64()
+        .unwrap_or(f64::NAN)
 }
 
 #[cfg(test)]

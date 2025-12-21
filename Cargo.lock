@@ -453,6 +453,7 @@ version = "0.10.2"
 dependencies = [
  "approx",
  "chrono",
+ "convex-curves",
  "log",
  "proptest",
  "rust_decimal",
@@ -488,11 +489,13 @@ name = "convex-ffi"
 version = "0.10.2"
 dependencies = [
  "cbindgen",
+ "convex-analytics",
  "convex-bonds",
  "convex-core",
  "convex-curves",
  "convex-math",
  "libc",
+ "once_cell",
  "rust_decimal",
  "thiserror 2.0.17",
 ]
