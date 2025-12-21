@@ -31,6 +31,7 @@ pub const INVALID_HANDLE: Handle = 0;
 /// Object types that can be stored in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
+#[allow(dead_code)] // Some variants are reserved for future use
 pub enum ObjectType {
     /// Unknown or invalid type
     Unknown = 0,
