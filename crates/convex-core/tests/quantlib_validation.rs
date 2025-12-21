@@ -30,6 +30,7 @@ struct Metadata {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Fields are populated by JSON deserialization for future tests
 struct TestSuites {
     day_counts: Vec<DayCountTest>,
     fixed_rate_bonds: Option<Vec<serde_json::Value>>,
@@ -41,6 +42,7 @@ struct TestSuites {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // test_type populated by JSON but not currently used
 struct DayCountTest {
     test_type: String,
     convention: String,
@@ -372,7 +374,7 @@ fn test_piecewise_bootstrap_from_fixtures() {
     use convex_core::daycounts::DayCountConvention;
     use convex_core::types::Frequency;
     use convex_curves::calibration::{
-        Deposit, GlobalFitter, InstrumentSet, PiecewiseBootstrapper, Swap,
+        Deposit, InstrumentSet, PiecewiseBootstrapper, Swap,
     };
 
     let suite = load_test_suite();
