@@ -373,9 +373,7 @@ fn test_fixture_loads_correctly() {
 fn test_piecewise_bootstrap_from_fixtures() {
     use convex_core::daycounts::DayCountConvention;
     use convex_core::types::Frequency;
-    use convex_curves::calibration::{
-        Deposit, InstrumentSet, PiecewiseBootstrapper, Swap,
-    };
+    use convex_curves::calibration::{Deposit, InstrumentSet, PiecewiseBootstrapper, Swap};
 
     let suite = load_test_suite();
 
