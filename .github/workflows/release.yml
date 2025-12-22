@@ -189,6 +189,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.validate.outputs.tag }}
           name: v${{ needs.validate.outputs.version }}
           body: |
             ## Installation
