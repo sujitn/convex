@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "convex-analytics"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "approx",
  "chrono",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "convex-bonds"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "approx",
  "convex-core",
@@ -449,7 +449,7 @@ dependencies = [
 
 [[package]]
 name = "convex-core"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "approx",
  "chrono",
@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "convex-curves"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "approx",
  "argmin",
@@ -486,7 +486,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ffi"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "cbindgen",
  "convex-analytics",
@@ -502,7 +502,7 @@ dependencies = [
 
 [[package]]
 name = "convex-math"
-version = "0.10.2"
+version = "0.10.31"
 dependencies = [
  "approx",
  "criterion",
@@ -1578,9 +1578,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.145"
+version = "1.0.146"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "402a6f66d8c709116cf22f558eab210f5a50187f702eb4d7e5ef38d9a7f1c79c"
+checksum = "217ca874ae0207aac254aa02c957ded05585a90892cc8d87f9e5fa49669dadd8"
 dependencies = [
  "itoa",
  "memchr",
