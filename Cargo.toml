@@ -47,7 +47,7 @@ anyhow = "1.0"
 
 # Mathematical dependencies
 nalgebra = "0.34"
-argmin = "0.9"
+argmin = "0.11"
 statrs = "0.17"
 approx = "0.5"
 
