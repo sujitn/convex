@@ -141,7 +141,7 @@ jobs:
           "@ | Out-File -FilePath convex-excel-addin\README.txt -Encoding UTF8
 
       - name: Upload Add-in Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: convex-excel-addin
           path: convex-excel-addin/
