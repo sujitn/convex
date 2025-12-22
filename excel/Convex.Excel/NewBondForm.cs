@@ -24,6 +24,22 @@ namespace Convex.Excel
         private Button btnCancel;
         private Label lblResult;
 
+        // FRN-specific controls
+        private GroupBox grpFRN;
+        private NumericUpDown numSpreadBps;
+        private ComboBox cboRateIndex;
+        private NumericUpDown numCap;
+        private NumericUpDown numFloor;
+        private CheckBox chkHasCap;
+        private CheckBox chkHasFloor;
+
+        // Zero coupon controls
+        private ComboBox cboCompounding;
+
+        // Labels that need to be hidden/shown
+        private Label lblCoupon;
+        private Label lblFreq;
+
         public NewBondForm()
         {
             InitializeComponent();
@@ -32,7 +48,7 @@ namespace Convex.Excel
         private void InitializeComponent()
         {
             this.Text = "Create New Bond";
-            this.Size = new Size(450, 420);
+            this.Size = new Size(450, 520);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -46,7 +62,15 @@ namespace Convex.Excel
                 Width = 150,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            cboBondType.Items.AddRange(new[] { "Generic Fixed", "US Corporate", "US Treasury" });
+            cboBondType.Items.AddRange(new[] {
+                "Generic Fixed",
+                "US Corporate",
+                "US Treasury",
+                "Zero Coupon",
+                "US T-Bill",
+                "Floating Rate Note",
+                "US Treasury FRN"
+            });
             cboBondType.SelectedIndex = 0;
             cboBondType.SelectedIndexChanged += CboBondType_SelectedIndexChanged;
 
@@ -55,7 +79,7 @@ namespace Convex.Excel
             txtIdentifier = new TextBox { Location = new Point(120, 47), Width = 200 };
 
             // Coupon
-            var lblCoupon = new Label { Text = "Coupon (%):", Location = new Point(20, 80), AutoSize = true };
+            lblCoupon = new Label { Text = "Coupon (%):", Location = new Point(20, 80), AutoSize = true };
             numCoupon = new NumericUpDown
             {
                 Location = new Point(120, 77),
@@ -68,7 +92,7 @@ namespace Convex.Excel
             };
 
             // Frequency
-            var lblFreq = new Label { Text = "Frequency:", Location = new Point(220, 80), AutoSize = true };
+            lblFreq = new Label { Text = "Frequency:", Location = new Point(220, 80), AutoSize = true };
             numFrequency = new NumericUpDown
             {
                 Location = new Point(290, 77),
@@ -77,6 +101,18 @@ namespace Convex.Excel
                 Maximum = 12,
                 Value = 2
             };
+
+            // Compounding (for zero coupon)
+            var lblCompounding = new Label { Text = "Compounding:", Location = new Point(220, 80), AutoSize = true, Visible = false };
+            cboCompounding = new ComboBox
+            {
+                Location = new Point(305, 77),
+                Width = 100,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Visible = false
+            };
+            cboCompounding.Items.AddRange(new[] { "Annual", "Semi-Annual", "Quarterly", "Monthly", "Continuous" });
+            cboCompounding.SelectedIndex = 1; // Semi-Annual default
 
             // Maturity
             var lblMaturity = new Label { Text = "Maturity:", Location = new Point(20, 110), AutoSize = true };
@@ -109,40 +145,105 @@ namespace Convex.Excel
             cboDayCount.Items.AddRange(new[] { "ACT/360", "ACT/365", "ACT/ACT ISDA", "ACT/ACT ICMA", "30/360", "30E/360" });
             cboDayCount.SelectedIndex = 4; // 30/360 default
 
+            // FRN options group
+            grpFRN = new GroupBox
+            {
+                Text = "Floating Rate Options",
+                Location = new Point(20, 200),
+                Size = new Size(390, 85),
+                Visible = false
+            };
+
+            var lblSpread = new Label { Text = "Spread (bps):", Location = new Point(10, 22), AutoSize = true };
+            numSpreadBps = new NumericUpDown
+            {
+                Location = new Point(95, 19),
+                Width = 60,
+                DecimalPlaces = 1,
+                Minimum = -500,
+                Maximum = 1000,
+                Value = 50,
+                Increment = 5
+            };
+
+            var lblIndex = new Label { Text = "Index:", Location = new Point(170, 22), AutoSize = true };
+            cboRateIndex = new ComboBox
+            {
+                Location = new Point(210, 19),
+                Width = 110,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            cboRateIndex.Items.AddRange(new[] {
+                "SOFR", "ESTR", "SONIA", "TONAR", "SARON", "CORRA", "AONIA", "HONIA",
+                "EURIBOR 1M", "EURIBOR 3M", "EURIBOR 6M", "EURIBOR 12M", "TIBOR 3M"
+            });
+            cboRateIndex.SelectedIndex = 0; // SOFR default
+
+            chkHasCap = new CheckBox { Text = "Cap (%):", Location = new Point(10, 52), AutoSize = true };
+            numCap = new NumericUpDown
+            {
+                Location = new Point(95, 49),
+                Width = 60,
+                DecimalPlaces = 2,
+                Minimum = 0,
+                Maximum = 20,
+                Value = 10,
+                Enabled = false
+            };
+            chkHasCap.CheckedChanged += (s, e) => numCap.Enabled = chkHasCap.Checked;
+
+            chkHasFloor = new CheckBox { Text = "Floor (%):", Location = new Point(170, 52), AutoSize = true };
+            numFloor = new NumericUpDown
+            {
+                Location = new Point(250, 49),
+                Width = 60,
+                DecimalPlaces = 2,
+                Minimum = 0,
+                Maximum = 20,
+                Value = 0,
+                Enabled = false
+            };
+            chkHasFloor.CheckedChanged += (s, e) => numFloor.Enabled = chkHasFloor.Checked;
+
+            grpFRN.Controls.AddRange(new Control[] {
+                lblSpread, numSpreadBps, lblIndex, cboRateIndex,
+                chkHasCap, numCap, chkHasFloor, numFloor
+            });
+
             // Callable options
             grpCallable = new GroupBox
             {
                 Text = "Callable Options",
-                Location = new Point(20, 200),
-                Size = new Size(390, 80)
+                Location = new Point(20, 290),
+                Size = new Size(390, 55)
             };
 
             chkCallable = new CheckBox
             {
                 Text = "Callable",
-                Location = new Point(10, 20),
+                Location = new Point(10, 22),
                 AutoSize = true
             };
             chkCallable.CheckedChanged += ChkCallable_CheckedChanged;
 
-            var lblCallDate = new Label { Text = "Call Date:", Location = new Point(100, 22), AutoSize = true };
+            var lblCallDate = new Label { Text = "Call Date:", Location = new Point(100, 24), AutoSize = true };
             dtpCallDate = new DateTimePicker
             {
-                Location = new Point(165, 19),
+                Location = new Point(165, 21),
                 Width = 100,
                 Format = DateTimePickerFormat.Short,
                 Value = DateTime.Today.AddYears(5),
                 Enabled = false
             };
 
-            var lblCallPrice = new Label { Text = "Call Price:", Location = new Point(275, 22), AutoSize = true };
+            var lblCallPrice = new Label { Text = "Price:", Location = new Point(275, 24), AutoSize = true };
             numCallPrice = new NumericUpDown
             {
-                Location = new Point(340, 19),
-                Width = 40,
-                DecimalPlaces = 0,
+                Location = new Point(315, 21),
+                Width = 55,
+                DecimalPlaces = 1,
                 Minimum = 100,
-                Maximum = 110,
+                Maximum = 120,
                 Value = 100,
                 Enabled = false
             };
@@ -154,8 +255,8 @@ namespace Convex.Excel
             // Result label
             lblResult = new Label
             {
-                Location = new Point(20, 295),
-                AutoSize = true,
+                Location = new Point(20, 355),
+                Size = new Size(390, 40),
                 ForeColor = Color.DarkBlue
             };
 
@@ -163,7 +264,7 @@ namespace Convex.Excel
             btnCreate = new Button
             {
                 Text = "Create",
-                Location = new Point(240, 340),
+                Location = new Point(240, 440),
                 Width = 80
             };
             btnCreate.Click += BtnCreate_Click;
@@ -171,7 +272,7 @@ namespace Convex.Excel
             btnCancel = new Button
             {
                 Text = "Cancel",
-                Location = new Point(340, 340),
+                Location = new Point(340, 440),
                 Width = 80
             };
             btnCancel.Click += (s, e) => this.Close();
@@ -179,14 +280,45 @@ namespace Convex.Excel
             this.Controls.AddRange(new Control[] {
                 lblType, cboBondType, lblId, txtIdentifier,
                 lblCoupon, numCoupon, lblFreq, numFrequency,
+                lblCompounding, cboCompounding,
                 lblMaturity, dtpMaturity, lblIssue, dtpIssue,
-                lblDayCount, cboDayCount, grpCallable,
+                lblDayCount, cboDayCount, grpFRN, grpCallable,
                 lblResult, btnCreate, btnCancel
             });
         }
 
         private void CboBondType_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // Get label references from Controls collection
+            Label lblCompounding = null;
+            foreach (Control c in this.Controls)
+            {
+                if (c is Label lbl && lbl.Text == "Compounding:")
+                    lblCompounding = lbl;
+            }
+
+            // Adjust visibility and defaults based on bond type
+            bool isZeroCoupon = cboBondType.SelectedIndex == 3; // Zero Coupon
+            bool isTBill = cboBondType.SelectedIndex == 4; // US T-Bill
+            bool isFRN = cboBondType.SelectedIndex == 5 || cboBondType.SelectedIndex == 6; // FRN types
+
+            // Show/hide coupon and frequency for zero coupon / T-Bill
+            bool showCoupon = !isZeroCoupon && !isTBill && !isFRN;
+            lblCoupon.Visible = showCoupon;
+            numCoupon.Visible = showCoupon;
+            lblFreq.Visible = showCoupon && !isFRN;
+            numFrequency.Visible = showCoupon && !isFRN;
+
+            // Show/hide compounding for zero coupon
+            if (lblCompounding != null) lblCompounding.Visible = isZeroCoupon;
+            cboCompounding.Visible = isZeroCoupon;
+
+            // Show/hide FRN options
+            grpFRN.Visible = isFRN;
+
+            // Show/hide callable options (not applicable to FRNs or T-Bills)
+            grpCallable.Visible = !isFRN && !isTBill;
+
             // Adjust defaults based on bond type
             switch (cboBondType.SelectedIndex)
             {
@@ -195,8 +327,23 @@ namespace Convex.Excel
                     numFrequency.Value = 2;
                     break;
                 case 2: // US Treasury
-                    cboDayCount.SelectedIndex = 2; // ACT/ACT
+                    cboDayCount.SelectedIndex = 2; // ACT/ACT ISDA
                     numFrequency.Value = 2;
+                    break;
+                case 3: // Zero Coupon
+                    cboDayCount.SelectedIndex = 2; // ACT/ACT ISDA
+                    break;
+                case 4: // US T-Bill
+                    cboDayCount.SelectedIndex = 0; // ACT/360
+                    break;
+                case 5: // Floating Rate Note
+                    cboDayCount.SelectedIndex = 0; // ACT/360
+                    numFrequency.Value = 4; // Quarterly
+                    break;
+                case 6: // US Treasury FRN
+                    cboDayCount.SelectedIndex = 2; // ACT/ACT
+                    numFrequency.Value = 4; // Quarterly
+                    cboRateIndex.SelectedIndex = 0; // SOFR
                     break;
             }
         }
@@ -220,7 +367,7 @@ namespace Convex.Excel
 
                 ulong handle;
 
-                if (chkCallable.Checked)
+                if (chkCallable.Checked && grpCallable.Visible)
                 {
                     // Create callable bond
                     DateTime callDate = dtpCallDate.Value;
@@ -238,7 +385,7 @@ namespace Convex.Excel
                 }
                 else
                 {
-                    // Create regular bond based on type
+                    // Create bond based on type
                     switch (cboBondType.SelectedIndex)
                     {
                         case 1: // US Corporate
@@ -255,7 +402,50 @@ namespace Convex.Excel
                                 maturity.Year, maturity.Month, maturity.Day,
                                 issue.Year, issue.Month, issue.Day);
                             break;
-                        default: // Generic
+                        case 3: // Zero Coupon
+                            int compounding = cboCompounding.SelectedIndex; // 0=Annual, 1=Semi, 2=Quarterly, 3=Monthly, 4=Continuous
+                            handle = NativeMethods.convex_bond_zero_coupon(
+                                identifier,
+                                maturity.Year, maturity.Month, maturity.Day,
+                                issue.Year, issue.Month, issue.Day,
+                                compounding,
+                                dayCount,
+                                0,    // Currency: USD
+                                100.0); // Face value
+                            break;
+                        case 4: // US T-Bill
+                            handle = NativeMethods.convex_bond_us_tbill(
+                                identifier,
+                                maturity.Year, maturity.Month, maturity.Day,
+                                issue.Year, issue.Month, issue.Day,
+                                100.0); // Face value
+                            break;
+                        case 5: // Floating Rate Note
+                            double spreadBps = (double)numSpreadBps.Value;
+                            int rateIndex = cboRateIndex.SelectedIndex;
+                            double capRate = chkHasCap.Checked ? (double)numCap.Value / 100.0 : 0.0;
+                            double floorRate = chkHasFloor.Checked ? (double)numFloor.Value / 100.0 : 0.0;
+                            handle = NativeMethods.convex_bond_frn(
+                                identifier,
+                                spreadBps,
+                                maturity.Year, maturity.Month, maturity.Day,
+                                issue.Year, issue.Month, issue.Day,
+                                frequency,
+                                rateIndex,
+                                dayCount,
+                                0,    // Currency: USD
+                                100.0, // Face value
+                                capRate,
+                                floorRate);
+                            break;
+                        case 6: // US Treasury FRN
+                            handle = NativeMethods.convex_bond_us_treasury_frn(
+                                identifier,
+                                (double)numSpreadBps.Value,
+                                maturity.Year, maturity.Month, maturity.Day,
+                                issue.Year, issue.Month, issue.Day);
+                            break;
+                        default: // Generic Fixed
                             handle = NativeMethods.convex_bond_fixed(
                                 identifier,
                                 coupon / 100.0, // Convert from % to decimal
