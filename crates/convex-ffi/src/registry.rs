@@ -107,29 +107,28 @@ impl Registry {
     }
 
     /// Registers an object and returns its handle.
-    /// If a named object already exists, updates it in place and returns the same handle.
+    /// If a named object already exists, releases the old one and creates a new handle.
+    /// This ensures Excel recalculates dependent cells when inputs change.
     fn register<T: Any + Send + Sync>(
         &self,
         object: T,
         object_type: ObjectType,
         name: Option<String>,
     ) -> Handle {
-        // If named, check if object with this name already exists
+        // If named, release any existing object with this name
         if let Some(ref n) = name {
-            let names = self.names.read().unwrap();
-            if let Some(&existing_handle) = names.get(n) {
-                // Update existing object in place, keeping the same handle
-                drop(names); // Release read lock before acquiring write lock
+            let existing_handle = {
+                let names = self.names.read().unwrap();
+                names.get(n).copied()
+            };
+            if let Some(old_handle) = existing_handle {
+                // Remove old object to prevent memory leak
                 let mut objects = self.objects.write().unwrap();
-                if let Some(entry) = objects.get_mut(&existing_handle) {
-                    entry.object = Box::new(object);
-                    entry.object_type = object_type;
-                    return existing_handle;
-                }
+                objects.remove(&old_handle);
             }
         }
 
-        // Create new handle for new or unnamed objects
+        // Always create new handle - this forces Excel to see a change
         let handle = self.next_handle.fetch_add(1, Ordering::SeqCst);
 
         let entry = ObjectEntry {
@@ -537,22 +536,26 @@ mod tests {
 
     #[test]
     fn test_list_objects() {
-        // Get baseline count (other parallel tests may have added objects)
-        let initial_count = object_count();
-
         let h1 = register(TestObject { value: 1 }, ObjectType::Curve, None);
         let h2 = register(TestObject { value: 2 }, ObjectType::FixedBond, None);
         let h3 = register(TestObject { value: 3 }, ObjectType::Curve, None);
 
         let all = list_objects(None);
-        // Check we have at least the 3 we added
-        assert!(all.len() >= initial_count + 3);
+        // Check we have at least 3 objects (the ones we just added)
+        assert!(all.len() >= 3);
 
         // Check our specific handles are in the list
         let handles: Vec<_> = all.iter().map(|(h, _, _)| *h).collect();
         assert!(handles.contains(&h1));
         assert!(handles.contains(&h2));
         assert!(handles.contains(&h3));
+
+        // Test filtering by type
+        let curves = list_objects(Some(ObjectType::Curve));
+        let curve_handles: Vec<_> = curves.iter().map(|(h, _, _)| *h).collect();
+        assert!(curve_handles.contains(&h1));
+        assert!(curve_handles.contains(&h3));
+        assert!(!curve_handles.contains(&h2)); // h2 is FixedBond, not Curve
 
         release(h1);
         release(h2);

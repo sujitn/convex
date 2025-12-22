@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Convex.Excel.Rtd;
 using ExcelDna.Integration.CustomUI;
 
 namespace Convex.Excel
@@ -60,6 +61,15 @@ namespace Convex.Excel
                         break;
                     case "bootstrap":
                         DrawBootstrapIcon(g, size);
+                        break;
+                    case "rtd_settings":
+                        DrawRtdSettingsIcon(g, size);
+                        break;
+                    case "rtd_toggle":
+                        DrawRtdToggleIcon(g, size);
+                        break;
+                    case "rtd_refresh":
+                        DrawRtdRefreshIcon(g, size);
                         break;
                     default:
                         DrawDefaultIcon(g, size);
@@ -266,6 +276,65 @@ namespace Convex.Excel
             }
         }
 
+        private void DrawRtdSettingsIcon(Graphics g, int size)
+        {
+            // Real-time streaming with gear
+            // Signal waves
+            using (var pen = new Pen(Color.FromArgb(0, 150, 136), 2f))
+            {
+                g.DrawArc(pen, 4, 8, 12, 12, -60, 120);
+                g.DrawArc(pen, 8, 10, 8, 8, -60, 120);
+                g.DrawArc(pen, 12, 12, 4, 4, -60, 120);
+            }
+            // Gear for settings
+            using (var pen = new Pen(Color.FromArgb(100, 100, 100), 2f))
+            {
+                g.DrawEllipse(pen, 18, 16, 10, 10);
+                // Gear teeth
+                g.DrawLine(pen, 23, 16, 23, 14);
+                g.DrawLine(pen, 23, 26, 23, 28);
+                g.DrawLine(pen, 18, 21, 16, 21);
+                g.DrawLine(pen, 28, 21, 30, 21);
+            }
+        }
+
+        private void DrawRtdToggleIcon(Graphics g, int size)
+        {
+            // Toggle switch (draw as rounded rectangle using path)
+            using (var brush = new SolidBrush(Color.FromArgb(76, 175, 80)))
+            using (var path = CreateRoundedRectangle(4, 10, 24, 12, 6))
+            {
+                g.FillPath(brush, path);
+            }
+            using (var brush = new SolidBrush(Color.White))
+            {
+                g.FillEllipse(brush, 18, 11, 10, 10);
+            }
+        }
+
+        private GraphicsPath CreateRoundedRectangle(int x, int y, int width, int height, int radius)
+        {
+            var path = new GraphicsPath();
+            path.AddArc(x, y, radius * 2, radius * 2, 180, 90);
+            path.AddArc(x + width - radius * 2, y, radius * 2, radius * 2, 270, 90);
+            path.AddArc(x + width - radius * 2, y + height - radius * 2, radius * 2, radius * 2, 0, 90);
+            path.AddArc(x, y + height - radius * 2, radius * 2, radius * 2, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private void DrawRtdRefreshIcon(Graphics g, int size)
+        {
+            // Circular arrow for refresh
+            using (var pen = new Pen(Color.FromArgb(0, 120, 215), 2.5f))
+            {
+                g.DrawArc(pen, 6, 6, 20, 20, 0, 300);
+                // Arrow head
+                g.DrawLine(pen, 24, 12, 26, 6);
+                g.DrawLine(pen, 24, 12, 18, 8);
+            }
+        }
+
         // ========================================================================
         // Curves Group
         // ========================================================================
@@ -366,6 +435,38 @@ namespace Convex.Excel
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
+        }
+
+        // ========================================================================
+        // RTD Group
+        // ========================================================================
+
+        public void OnRtdSettings(IRibbonControl control)
+        {
+            using (var form = new RtdSettingsForm())
+            {
+                form.ShowDialog();
+            }
+        }
+
+        public void OnRtdToggle(IRibbonControl control, bool pressed)
+        {
+            RtdSettings.Enabled = pressed;
+        }
+
+        public bool GetRtdEnabled(IRibbonControl control)
+        {
+            return RtdSettings.Enabled;
+        }
+
+        public void OnRtdRefresh(IRibbonControl control)
+        {
+            RtdSettings.RefreshAll();
+            MessageBox.Show(
+                "All RTD topics have been refreshed.",
+                "RTD Refresh",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         public void OnHelp(IRibbonControl control)

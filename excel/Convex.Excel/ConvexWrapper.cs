@@ -411,6 +411,267 @@ namespace Convex.Excel
             return NativeMethods.convex_bond_first_call_price(bondHandle);
         }
 
+        /// <summary>
+        /// Yield to Worst result container.
+        /// </summary>
+        public class YieldToWorstResult
+        {
+            public double Yield { get; set; }
+            public DateTime WorkoutDate { get; set; }
+            public double RedemptionPrice { get; set; }
+        }
+
+        /// <summary>
+        /// Calculates yield to worst for a callable bond.
+        /// Returns the minimum yield across all possible workout dates.
+        /// </summary>
+        /// <param name="bondHandle">Callable bond handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="cleanPrice">Clean price per 100 face value</param>
+        /// <returns>YTW result with yield, workout date, and redemption price</returns>
+        public static YieldToWorstResult CalculateYieldToWorst(ulong bondHandle, DateTime settlement, double cleanPrice)
+        {
+            double yieldOut;
+            int dateOut;
+            double priceOut;
+
+            int result = NativeMethods.convex_bond_yield_to_worst(
+                bondHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                cleanPrice,
+                out yieldOut,
+                out dateOut,
+                out priceOut);
+
+            if (result != NativeMethods.CONVEX_OK || dateOut <= 0)
+                return null;
+
+            int year = dateOut / 10000;
+            int month = (dateOut / 100) % 100;
+            int day = dateOut % 100;
+
+            return new YieldToWorstResult
+            {
+                Yield = yieldOut,
+                WorkoutDate = new DateTime(year, month, day),
+                RedemptionPrice = priceOut
+            };
+        }
+
+        /// <summary>
+        /// Checks if a callable bond is callable on a specific date.
+        /// </summary>
+        public static bool IsCallableOn(ulong bondHandle, DateTime date)
+        {
+            int result = NativeMethods.convex_bond_is_callable_on(
+                bondHandle,
+                date.Year, date.Month, date.Day);
+            return result == 1;
+        }
+
+        /// <summary>
+        /// Gets the number of call schedule entries.
+        /// </summary>
+        public static int GetCallScheduleCount(ulong bondHandle)
+        {
+            return NativeMethods.convex_bond_call_schedule_count(bondHandle);
+        }
+
+        /// <summary>
+        /// Call schedule entry.
+        /// </summary>
+        public class CallScheduleEntry
+        {
+            public DateTime Date { get; set; }
+            public double Price { get; set; }
+        }
+
+        /// <summary>
+        /// Gets a specific call schedule entry.
+        /// </summary>
+        /// <param name="bondHandle">Callable bond handle</param>
+        /// <param name="index">Entry index (0-based)</param>
+        /// <returns>Call schedule entry or null if not found</returns>
+        public static CallScheduleEntry GetCallScheduleEntry(ulong bondHandle, int index)
+        {
+            int dateOut;
+            double priceOut;
+
+            int result = NativeMethods.convex_bond_call_schedule_entry(
+                bondHandle, index,
+                out dateOut,
+                out priceOut);
+
+            if (result != NativeMethods.CONVEX_OK || dateOut <= 0)
+                return null;
+
+            int year = dateOut / 10000;
+            int month = (dateOut / 100) % 100;
+            int day = dateOut % 100;
+
+            return new CallScheduleEntry
+            {
+                Date = new DateTime(year, month, day),
+                Price = priceOut
+            };
+        }
+
+        /// <summary>
+        /// Gets the call price on a specific date.
+        /// </summary>
+        public static double GetCallPriceOn(ulong bondHandle, DateTime date)
+        {
+            return NativeMethods.convex_bond_call_price_on(
+                bondHandle,
+                date.Year, date.Month, date.Day);
+        }
+
+        // ========================================================================
+        // Zero Coupon Bond Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Compounding convention for zero coupon bonds.
+        /// </summary>
+        public enum Compounding
+        {
+            Annual = 0,
+            SemiAnnual = 1,
+            Quarterly = 2,
+            Monthly = 3,
+            Continuous = 4
+        }
+
+        /// <summary>
+        /// Creates a zero coupon bond.
+        /// </summary>
+        /// <param name="isin">Bond identifier (can be null)</param>
+        /// <param name="maturity">Maturity date</param>
+        /// <param name="issue">Issue date</param>
+        /// <param name="compounding">Compounding convention</param>
+        /// <param name="dayCount">Day count convention</param>
+        /// <param name="faceValue">Face value (default 100)</param>
+        public static ulong CreateZeroCouponBond(
+            string isin,
+            DateTime maturity,
+            DateTime issue,
+            Compounding compounding = Compounding.SemiAnnual,
+            DayCount dayCount = DayCount.ActActIcma,
+            double faceValue = 100.0)
+        {
+            return NativeMethods.convex_bond_zero_coupon(
+                isin,
+                maturity.Year, maturity.Month, maturity.Day,
+                issue.Year, issue.Month, issue.Day,
+                (int)compounding,
+                (int)dayCount,
+                0, // Currency: USD
+                faceValue);
+        }
+
+        /// <summary>
+        /// Creates a US Treasury Bill.
+        /// </summary>
+        /// <param name="cusip">CUSIP identifier (can be null)</param>
+        /// <param name="maturity">Maturity date</param>
+        /// <param name="issue">Issue date</param>
+        /// <param name="faceValue">Face value (default 100)</param>
+        public static ulong CreateTBill(
+            string cusip,
+            DateTime maturity,
+            DateTime issue,
+            double faceValue = 100.0)
+        {
+            return NativeMethods.convex_bond_us_tbill(
+                cusip,
+                maturity.Year, maturity.Month, maturity.Day,
+                issue.Year, issue.Month, issue.Day,
+                faceValue);
+        }
+
+        // ========================================================================
+        // Floating Rate Note Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Reference rate indices for FRNs.
+        /// </summary>
+        public enum RateIndex
+        {
+            SOFR = 0,
+            ESTR = 1,
+            SONIA = 2,
+            TONAR = 3,
+            SARON = 4,
+            CORRA = 5,
+            AONIA = 6,
+            HONIA = 7,
+            Euribor1M = 8,
+            Euribor3M = 9,
+            Euribor6M = 10,
+            Euribor12M = 11,
+            Tibor3M = 12
+        }
+
+        /// <summary>
+        /// Creates a floating rate note.
+        /// </summary>
+        /// <param name="isin">Bond identifier (can be null)</param>
+        /// <param name="spreadBps">Spread over reference rate in basis points</param>
+        /// <param name="maturity">Maturity date</param>
+        /// <param name="issue">Issue date</param>
+        /// <param name="frequency">Payment frequency (1, 2, 4, 12)</param>
+        /// <param name="rateIndex">Reference rate index</param>
+        /// <param name="dayCount">Day count convention</param>
+        /// <param name="faceValue">Face value (default 100)</param>
+        /// <param name="capRate">Interest rate cap as decimal (0 for no cap)</param>
+        /// <param name="floorRate">Interest rate floor as decimal (0 for no floor)</param>
+        public static ulong CreateFloatingRateNote(
+            string isin,
+            double spreadBps,
+            DateTime maturity,
+            DateTime issue,
+            int frequency = 4,
+            RateIndex rateIndex = RateIndex.SOFR,
+            DayCount dayCount = DayCount.Act360,
+            double faceValue = 100.0,
+            double capRate = 0.0,
+            double floorRate = 0.0)
+        {
+            return NativeMethods.convex_bond_frn(
+                isin,
+                spreadBps,
+                maturity.Year, maturity.Month, maturity.Day,
+                issue.Year, issue.Month, issue.Day,
+                frequency,
+                (int)rateIndex,
+                (int)dayCount,
+                0, // Currency: USD
+                faceValue,
+                capRate,
+                floorRate);
+        }
+
+        /// <summary>
+        /// Creates a US Treasury Floating Rate Note (SOFR-based).
+        /// </summary>
+        /// <param name="cusip">CUSIP identifier (can be null)</param>
+        /// <param name="spreadBps">Spread over SOFR in basis points</param>
+        /// <param name="maturity">Maturity date</param>
+        /// <param name="issue">Issue date</param>
+        public static ulong CreateTreasuryFRN(
+            string cusip,
+            double spreadBps,
+            DateTime maturity,
+            DateTime issue)
+        {
+            return NativeMethods.convex_bond_us_treasury_frn(
+                cusip,
+                spreadBps,
+                maturity.Year, maturity.Month, maturity.Day,
+                issue.Year, issue.Month, issue.Day);
+        }
+
         // ========================================================================
         // Pricing Functions
         // ========================================================================
@@ -738,6 +999,220 @@ namespace Convex.Excel
                 bondHandle, swapCurveHandle,
                 settlement.Year, settlement.Month, settlement.Day,
                 cleanPrice);
+        }
+
+        // ========================================================================
+        // Price from Spread Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates clean price from Z-spread.
+        /// </summary>
+        /// <param name="bondHandle">Bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="zSpreadBps">Z-spread in basis points</param>
+        /// <returns>Clean price (as percentage of par)</returns>
+        public static double PriceFromZSpread(ulong bondHandle, ulong curveHandle, DateTime settlement, double zSpreadBps)
+        {
+            return NativeMethods.convex_price_from_z_spread(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                zSpreadBps);
+        }
+
+        /// <summary>
+        /// Calculates dirty price from Z-spread.
+        /// </summary>
+        /// <param name="bondHandle">Bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="zSpreadBps">Z-spread in basis points</param>
+        /// <returns>Dirty price (as percentage of par)</returns>
+        public static double DirtyPriceFromZSpread(ulong bondHandle, ulong curveHandle, DateTime settlement, double zSpreadBps)
+        {
+            return NativeMethods.convex_dirty_price_from_z_spread(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                zSpreadBps);
+        }
+
+        /// <summary>
+        /// Calculates FRN dirty price from discount margin.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="forwardCurveHandle">Forward/projection curve handle</param>
+        /// <param name="discountCurveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dmBps">Discount margin in basis points</param>
+        /// <returns>Dirty price (as percentage of par)</returns>
+        public static double FrnPriceFromDM(ulong frnHandle, ulong forwardCurveHandle, ulong discountCurveHandle, DateTime settlement, double dmBps)
+        {
+            return NativeMethods.convex_frn_price_from_dm(
+                frnHandle, forwardCurveHandle, discountCurveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dmBps);
+        }
+
+        // ========================================================================
+        // Effective Duration / Convexity (Finite Difference)
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates effective duration using finite differences.
+        /// Formula: D_eff = (P- - P+) / (2 × P0 × Δy)
+        /// </summary>
+        /// <param name="priceUp">Price when yield increases by bumpBps</param>
+        /// <param name="priceDown">Price when yield decreases by bumpBps</param>
+        /// <param name="priceBase">Current base price</param>
+        /// <param name="bumpBps">Yield bump size in basis points (typically 10)</param>
+        /// <returns>Effective duration in years</returns>
+        public static double CalculateEffectiveDuration(double priceUp, double priceDown, double priceBase, double bumpBps = 10.0)
+        {
+            return NativeMethods.convex_effective_duration(priceUp, priceDown, priceBase, bumpBps);
+        }
+
+        /// <summary>
+        /// Calculates effective convexity using finite differences.
+        /// Formula: C_eff = (P- + P+ - 2×P0) / (P0 × Δy²)
+        /// </summary>
+        public static double CalculateEffectiveConvexity(double priceUp, double priceDown, double priceBase, double bumpBps = 10.0)
+        {
+            return NativeMethods.convex_effective_convexity(priceUp, priceDown, priceBase, bumpBps);
+        }
+
+        // ========================================================================
+        // Key Rate Duration Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates key rate duration at a specific tenor.
+        /// </summary>
+        /// <param name="priceUp">Price when rate at tenor increases</param>
+        /// <param name="priceDown">Price when rate at tenor decreases</param>
+        /// <param name="priceBase">Base price</param>
+        /// <param name="bumpBps">Rate bump size in basis points</param>
+        /// <param name="tenor">Tenor in years</param>
+        /// <returns>Key rate duration at specified tenor</returns>
+        public static double CalculateKeyRateDuration(double priceUp, double priceDown, double priceBase, double bumpBps, double tenor)
+        {
+            return NativeMethods.convex_key_rate_duration(priceUp, priceDown, priceBase, bumpBps, tenor);
+        }
+
+        /// <summary>
+        /// Gets the standard key rate tenors used for KRD calculations.
+        /// Standard tenors: 0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30 years
+        /// </summary>
+        /// <returns>Array of standard tenors in years</returns>
+        public static double[] GetStandardKeyRateTenors()
+        {
+            double[] tenors = new double[10];
+            int count = NativeMethods.convex_standard_key_rate_tenors(tenors, 10);
+            if (count < 10)
+            {
+                Array.Resize(ref tenors, count);
+            }
+            return tenors;
+        }
+
+        // ========================================================================
+        // OAS (Option-Adjusted Spread) Functions
+        // ========================================================================
+
+        /// <summary>
+        /// OAS analytics result.
+        /// </summary>
+        public class OASResult
+        {
+            public double OasBps { get; set; }
+            public double EffectiveDuration { get; set; }
+            public double EffectiveConvexity { get; set; }
+            public double OptionValue { get; set; }
+        }
+
+        /// <summary>
+        /// Calculates OAS for a callable bond.
+        /// </summary>
+        /// <param name="bondHandle">Callable bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <param name="volatility">Interest rate volatility (e.g., 0.01 for 1%)</param>
+        /// <returns>OAS in basis points</returns>
+        public static double CalculateOAS(ulong bondHandle, ulong curveHandle, DateTime settlement, double dirtyPrice, double volatility = 0.01)
+        {
+            return NativeMethods.convex_oas(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dirtyPrice, volatility);
+        }
+
+        /// <summary>
+        /// Calculates comprehensive OAS analytics for a callable bond.
+        /// </summary>
+        /// <param name="bondHandle">Callable bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <param name="volatility">Interest rate volatility (e.g., 0.01 for 1%)</param>
+        /// <returns>OAS result with all analytics, or null on error</returns>
+        public static OASResult CalculateOASAnalytics(ulong bondHandle, ulong curveHandle, DateTime settlement, double dirtyPrice, double volatility = 0.01)
+        {
+            NativeMethods.FfiOasResult result;
+            int status = NativeMethods.convex_oas_analytics(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dirtyPrice, volatility, out result);
+
+            if (status != NativeMethods.CONVEX_OK || result.Success == 0)
+                return null;
+
+            return new OASResult
+            {
+                OasBps = result.OasBps,
+                EffectiveDuration = result.EffectiveDuration,
+                EffectiveConvexity = result.EffectiveConvexity,
+                OptionValue = result.OptionValue
+            };
+        }
+
+        // ========================================================================
+        // Discount Margin Functions (FRNs)
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates simple margin for a floating rate note.
+        /// A quick approximation of the discount margin.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <param name="currentIndex">Current index rate as decimal (e.g., 0.05 for 5%)</param>
+        /// <returns>Simple margin in basis points</returns>
+        public static double CalculateSimpleMargin(ulong frnHandle, DateTime settlement, double dirtyPrice, double currentIndex)
+        {
+            return NativeMethods.convex_simple_margin(
+                frnHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dirtyPrice, currentIndex);
+        }
+
+        /// <summary>
+        /// Calculates Z-DM (Zero Discount Margin) for a floating rate note.
+        /// Uses forward curve projections and discounting for accurate margin calculation.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="forwardCurveHandle">Forward curve handle (for projecting coupons)</param>
+        /// <param name="discountCurveHandle">Discount curve handle (for discounting)</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <returns>Discount margin in basis points</returns>
+        public static double CalculateDiscountMargin(ulong frnHandle, ulong forwardCurveHandle, ulong discountCurveHandle, DateTime settlement, double dirtyPrice)
+        {
+            return NativeMethods.convex_discount_margin(
+                frnHandle, forwardCurveHandle, discountCurveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dirtyPrice);
         }
 
         // ========================================================================

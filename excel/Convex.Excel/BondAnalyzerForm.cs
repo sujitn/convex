@@ -39,6 +39,22 @@ namespace Convex.Excel
         private Label lblDv01Value;
         private Label lblDirtyPriceValue;
 
+        // Callable bond analytics
+        private GroupBox grpCallableAnalytics;
+        private Label lblYtwValue;
+        private Label lblOasValue;
+        private Label lblEffDurValue;
+        private Label lblEffConvValue;
+        private Label lblWorkoutDateValue;
+        private NumericUpDown numVolatility;
+        private ComboBox cboCurve;
+
+        // FRN analytics
+        private GroupBox grpFrnAnalytics;
+        private Label lblDiscountMarginValue;
+        private Label lblSimpleMarginValue;
+        private NumericUpDown numCurrentIndex;
+
         public BondAnalyzerForm()
         {
             InitializeComponent();
@@ -100,7 +116,7 @@ namespace Convex.Excel
             var inputPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 130
+                Height = 220
             };
 
             var lblSettle = new Label
@@ -203,9 +219,82 @@ namespace Convex.Excel
                 lblConvexity, lblConvexityValue, lblDv01, lblDv01Value, lblDirty, lblDirtyPriceValue
             });
 
+            // Callable bond analytics group
+            grpCallableAnalytics = new GroupBox
+            {
+                Text = "Callable Bond Analytics",
+                Location = new Point(10, 126),
+                Size = new Size(900, 42),
+                Visible = false
+            };
+
+            var lblYtw = new Label { Text = "YTW:", Location = new Point(10, 18), AutoSize = true };
+            lblYtwValue = new Label { Text = "-", Location = new Point(50, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold), ForeColor = Color.DarkGreen };
+            var lblWorkout = new Label { Text = "Workout:", Location = new Point(120, 18), AutoSize = true };
+            lblWorkoutDateValue = new Label { Text = "-", Location = new Point(180, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
+            var lblOas = new Label { Text = "OAS:", Location = new Point(280, 18), AutoSize = true };
+            lblOasValue = new Label { Text = "-", Location = new Point(315, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold), ForeColor = Color.Purple };
+            var lblEffDur = new Label { Text = "Eff Dur:", Location = new Point(400, 18), AutoSize = true };
+            lblEffDurValue = new Label { Text = "-", Location = new Point(455, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
+            var lblEffConv = new Label { Text = "Eff Conv:", Location = new Point(525, 18), AutoSize = true };
+            lblEffConvValue = new Label { Text = "-", Location = new Point(590, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
+            var lblVol = new Label { Text = "Vol%:", Location = new Point(665, 18), AutoSize = true };
+            numVolatility = new NumericUpDown
+            {
+                Location = new Point(705, 15),
+                Width = 50,
+                DecimalPlaces = 1,
+                Minimum = 0.1m,
+                Maximum = 50,
+                Value = 1.0m,
+                Increment = 0.1m
+            };
+            var lblCurveLabel = new Label { Text = "Curve:", Location = new Point(765, 18), AutoSize = true };
+            cboCurve = new ComboBox
+            {
+                Location = new Point(810, 15),
+                Width = 80,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+
+            grpCallableAnalytics.Controls.AddRange(new Control[] {
+                lblYtw, lblYtwValue, lblWorkout, lblWorkoutDateValue,
+                lblOas, lblOasValue, lblEffDur, lblEffDurValue, lblEffConv, lblEffConvValue,
+                lblVol, numVolatility, lblCurveLabel, cboCurve
+            });
+
+            // FRN analytics group
+            grpFrnAnalytics = new GroupBox
+            {
+                Text = "FRN Analytics",
+                Location = new Point(10, 170),
+                Size = new Size(500, 42),
+                Visible = false
+            };
+
+            var lblDM = new Label { Text = "Disc Margin:", Location = new Point(10, 18), AutoSize = true };
+            lblDiscountMarginValue = new Label { Text = "-", Location = new Point(90, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold), ForeColor = Color.DarkBlue };
+            var lblSM = new Label { Text = "Simple Margin:", Location = new Point(180, 18), AutoSize = true };
+            lblSimpleMarginValue = new Label { Text = "-", Location = new Point(275, 18), AutoSize = true, Font = new Font(this.Font, FontStyle.Bold) };
+            var lblCurIdx = new Label { Text = "Index Rate%:", Location = new Point(355, 18), AutoSize = true };
+            numCurrentIndex = new NumericUpDown
+            {
+                Location = new Point(435, 15),
+                Width = 55,
+                DecimalPlaces = 2,
+                Minimum = 0,
+                Maximum = 20,
+                Value = 5.0m,
+                Increment = 0.05m
+            };
+
+            grpFrnAnalytics.Controls.AddRange(new Control[] {
+                lblDM, lblDiscountMarginValue, lblSM, lblSimpleMarginValue, lblCurIdx, numCurrentIndex
+            });
+
             inputPanel.Controls.AddRange(new Control[] {
                 lblSettle, dtpSettlement, lblPrice, numPrice, lblFreq, numFrequency, btnCalculate,
-                grpDetails, grpAnalytics
+                grpDetails, grpAnalytics, grpCallableAnalytics, grpFrnAnalytics
             });
 
             // Split container for chart and cashflow grid
@@ -370,6 +459,21 @@ namespace Convex.Excel
 
         private void LoadBondDetails(ulong handle)
         {
+            // Get object type to determine which analytics to show
+            var objType = ConvexWrapper.GetObjectType(handle);
+            bool isCallable = objType == ConvexWrapper.ObjectType.CallableBond;
+            bool isFRN = objType == ConvexWrapper.ObjectType.FloatingRateNote;
+
+            // Show/hide appropriate analytics groups
+            grpCallableAnalytics.Visible = isCallable;
+            grpFrnAnalytics.Visible = isFRN;
+
+            // Refresh curve dropdown for OAS/DM if needed
+            if (isCallable || isFRN)
+            {
+                RefreshCurveList();
+            }
+
             // Get maturity date
             int maturityInt = NativeMethods.convex_bond_maturity(handle);
             if (maturityInt > 0)
@@ -394,6 +498,63 @@ namespace Convex.Excel
             lblAccruedValue.Text = double.IsNaN(accrued) ? "-" : accrued.ToString("F4");
 
             lblBondInfo.Text = $"Handle: {HandleHelper.Format(handle)}";
+
+            // Clear callable/FRN analytics
+            ClearCallableAnalytics();
+            ClearFrnAnalytics();
+        }
+
+        private void RefreshCurveList()
+        {
+            cboCurve.Items.Clear();
+            var curves = new List<CurveInfo>();
+
+            NativeMethods.ObjectEnumCallback callback = (handle, objType, namePtr) =>
+            {
+                if (objType == 1) // Curve
+                {
+                    string name = namePtr != IntPtr.Zero
+                        ? System.Runtime.InteropServices.Marshal.PtrToStringAnsi(namePtr)
+                        : "";
+                    curves.Add(new CurveInfo { Handle = handle, Name = name });
+                }
+            };
+
+            NativeMethods.convex_enumerate_objects(callback, 1);
+
+            foreach (var curve in curves)
+            {
+                string displayName = string.IsNullOrEmpty(curve.Name)
+                    ? HandleHelper.Format(curve.Handle)
+                    : $"{curve.Name} ({HandleHelper.Format(curve.Handle)})";
+                cboCurve.Items.Add(new ComboBoxItem { Text = displayName, Value = curve.Handle });
+            }
+
+            if (cboCurve.Items.Count > 0)
+                cboCurve.SelectedIndex = 0;
+
+            GC.KeepAlive(callback);
+        }
+
+        private void ClearCallableAnalytics()
+        {
+            lblYtwValue.Text = "-";
+            lblWorkoutDateValue.Text = "-";
+            lblOasValue.Text = "-";
+            lblEffDurValue.Text = "-";
+            lblEffConvValue.Text = "-";
+        }
+
+        private void ClearFrnAnalytics()
+        {
+            lblDiscountMarginValue.Text = "-";
+            lblSimpleMarginValue.Text = "-";
+        }
+
+        private class CurveInfo
+        {
+            public ulong Handle { get; set; }
+            public string Name { get; set; }
         }
 
         private void BtnCalculate_Click(object sender, EventArgs e)
@@ -438,8 +599,98 @@ namespace Convex.Excel
                 lblDirtyPriceValue.Text = "-";
             }
 
+            // Determine bond type and calculate specialized analytics
+            var objType = ConvexWrapper.GetObjectType(handle);
+
+            if (objType == ConvexWrapper.ObjectType.CallableBond)
+            {
+                CalculateCallableAnalytics(handle, settle, cleanPrice, analytics.DirtyPrice);
+            }
+            else if (objType == ConvexWrapper.ObjectType.FloatingRateNote)
+            {
+                CalculateFrnAnalytics(handle, settle, analytics.DirtyPrice);
+            }
+
             // Load cashflows
             LoadCashflows(handle, settle);
+        }
+
+        private void CalculateCallableAnalytics(ulong handle, DateTime settle, double cleanPrice, double dirtyPrice)
+        {
+            // Calculate Yield to Worst
+            var ytwResult = ConvexWrapper.CalculateYieldToWorst(handle, settle, cleanPrice);
+            if (ytwResult != null)
+            {
+                lblYtwValue.Text = $"{ytwResult.Yield * 100:F4}%";
+                lblWorkoutDateValue.Text = ytwResult.WorkoutDate.ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                lblYtwValue.Text = "Error";
+                lblWorkoutDateValue.Text = "-";
+            }
+
+            // Calculate OAS if a curve is selected
+            if (cboCurve.SelectedItem is ComboBoxItem curveItem)
+            {
+                double volatility = (double)numVolatility.Value / 100.0; // Convert from % to decimal
+                var oasResult = ConvexWrapper.CalculateOASAnalytics(
+                    handle, curveItem.Value, settle, dirtyPrice, volatility);
+
+                if (oasResult != null)
+                {
+                    lblOasValue.Text = $"{oasResult.OasBps:F2} bps";
+                    lblEffDurValue.Text = oasResult.EffectiveDuration.ToString("F4");
+                    lblEffConvValue.Text = oasResult.EffectiveConvexity.ToString("F4");
+                }
+                else
+                {
+                    lblOasValue.Text = "N/A";
+                    lblEffDurValue.Text = "-";
+                    lblEffConvValue.Text = "-";
+                }
+            }
+            else
+            {
+                lblOasValue.Text = "No curve";
+                lblEffDurValue.Text = "-";
+                lblEffConvValue.Text = "-";
+            }
+        }
+
+        private void CalculateFrnAnalytics(ulong handle, DateTime settle, double dirtyPrice)
+        {
+            // Calculate Simple Margin
+            double currentIndex = (double)numCurrentIndex.Value / 100.0; // Convert from % to decimal
+            double simpleMargin = ConvexWrapper.CalculateSimpleMargin(handle, settle, dirtyPrice, currentIndex);
+            if (!double.IsNaN(simpleMargin))
+            {
+                lblSimpleMarginValue.Text = $"{simpleMargin:F2} bps";
+            }
+            else
+            {
+                lblSimpleMarginValue.Text = "Error";
+            }
+
+            // Calculate Discount Margin if a curve is selected
+            if (cboCurve.SelectedItem is ComboBoxItem curveItem)
+            {
+                // Use the same curve for forward and discount (simplified)
+                double dm = ConvexWrapper.CalculateDiscountMargin(
+                    handle, curveItem.Value, curveItem.Value, settle, dirtyPrice);
+                if (!double.IsNaN(dm))
+                {
+                    lblDiscountMarginValue.Text = $"{dm:F2} bps";
+                }
+                else
+                {
+                    lblDiscountMarginValue.Text = "Error";
+                }
+            }
+            else
+            {
+                lblDiscountMarginValue.Text = "No curve";
+            }
         }
 
         private void LoadCashflows(ulong handle, DateTime settle)
@@ -502,6 +753,10 @@ namespace Convex.Excel
             lblConvexityValue.Text = "-";
             lblDv01Value.Text = "-";
             lblDirtyPriceValue.Text = "-";
+            ClearCallableAnalytics();
+            ClearFrnAnalytics();
+            grpCallableAnalytics.Visible = false;
+            grpFrnAnalytics.Visible = false;
             cashflowGrid.Rows.Clear();
             cashflowChart.Series["Cashflows"].Points.Clear();
         }

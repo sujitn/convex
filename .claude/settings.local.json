@@ -53,7 +53,16 @@
       "Bash(xcopy:*)",
       "Bash(cmd /c:*)",
       "Bash(dumpbin:*)",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Bash(pip show:*)",
+      "Bash(del \"C:\\\\Users\\\\sujit\\\\source\\\\convex\\\\excel\\\\update_demo.py\")",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" status)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" diff --stat)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" log -3 --oneline)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" clean -f excel/update_demo.py)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" add excel/Convex.Excel/BondAnalyzerForm.cs excel/Convex.Excel/BondFunctions.cs excel/Convex.Excel/NewBondForm.cs excel/ConvexDemo.xlsx)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" commit -m \"$\\(cat <<''EOF''\nAdd Excel UDF functions and form support for Phase 1-4 bond types\n\nNewBondForm updates:\n- Add Zero Coupon bond support with compounding selection\n- Add US T-Bill support\n- Add FRN support with spread, rate index, cap/floor options\n- Add US Treasury FRN support\n- Dynamic UI visibility based on bond type selection\n- Fix control overlap issues in FRN options group\n\nBondAnalyzerForm updates:\n- Add callable bond analytics group \\(YTW, workout date, OAS, eff duration/convexity\\)\n- Add FRN analytics group \\(discount margin, simple margin\\)\n- Auto-detect bond type and show appropriate analytics\n- Curve dropdown for OAS/DM calculations\n- Fix control spacing in analytics groups\n\nBondFunctions.cs - New Excel UDFs:\n- CX.BOND.ZERO - Create zero coupon bond\n- CX.BOND.TBILL - Create US Treasury Bill\n- CX.BOND.FRN - Create floating rate note\n- CX.BOND.TSYFRN - Create US Treasury FRN\n- CX.YIELD.WORST - Yield to worst for callable bonds\n- CX.WORKOUT.DATE - Workout date for YTW\n- CX.OAS - Option-adjusted spread\n- CX.SIMPLE.MARGIN - Simple margin for FRN\n- CX.DISCOUNT.MARGIN - Discount margin \\(Z-DM\\) for FRN\n\nConvexDemo.xlsx updates:\n- Add Callable sheet with YTW and OAS examples\n- Add FRN sheet with margin calculation examples\n- Update Bonds sheet with zero/FRN bond examples\n- Update Reference sheet with compounding and rate index codes\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" log -1 --stat)"
     ],
     "deny": [],
     "ask": []

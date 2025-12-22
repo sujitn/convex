@@ -223,6 +223,158 @@ namespace Convex.Excel
         public static extern double convex_bond_first_call_price(ulong handle);
 
         // ========================================================================
+        // Zero Coupon Bond Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Creates a zero coupon bond.
+        /// </summary>
+        /// <param name="isin">Bond identifier (can be null)</param>
+        /// <param name="maturityYear">Maturity date year</param>
+        /// <param name="maturityMonth">Maturity date month</param>
+        /// <param name="maturityDay">Maturity date day</param>
+        /// <param name="issueYear">Issue date year</param>
+        /// <param name="issueMonth">Issue date month</param>
+        /// <param name="issueDay">Issue date day</param>
+        /// <param name="compounding">Compounding convention (0=Annual, 1=Semi, 2=Quarterly, 3=Monthly, 4=Continuous)</param>
+        /// <param name="dayCount">Day count convention</param>
+        /// <param name="currency">Currency index</param>
+        /// <param name="faceValue">Face value (typically 100)</param>
+        /// <returns>Handle to the zero coupon bond, or INVALID_HANDLE on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern ulong convex_bond_zero_coupon(
+            [MarshalAs(UnmanagedType.LPStr)] string isin,
+            int maturityYear, int maturityMonth, int maturityDay,
+            int issueYear, int issueMonth, int issueDay,
+            int compounding,
+            int dayCount,
+            int currency,
+            double faceValue);
+
+        /// <summary>
+        /// Creates a US Treasury Bill (zero coupon with T-Bill conventions).
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern ulong convex_bond_us_tbill(
+            [MarshalAs(UnmanagedType.LPStr)] string cusip,
+            int maturityYear, int maturityMonth, int maturityDay,
+            int issueYear, int issueMonth, int issueDay,
+            double faceValue);
+
+        // ========================================================================
+        // Floating Rate Note Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Creates a floating rate note (FRN).
+        /// </summary>
+        /// <param name="isin">Bond identifier (can be null)</param>
+        /// <param name="spreadBps">Spread over reference rate in basis points</param>
+        /// <param name="maturityYear">Maturity date year</param>
+        /// <param name="maturityMonth">Maturity date month</param>
+        /// <param name="maturityDay">Maturity date day</param>
+        /// <param name="issueYear">Issue date year</param>
+        /// <param name="issueMonth">Issue date month</param>
+        /// <param name="issueDay">Issue date day</param>
+        /// <param name="frequency">Payment frequency (1=Annual, 2=Semi, 4=Quarterly, 12=Monthly)</param>
+        /// <param name="rateIndex">Reference rate index (0=SOFR, 1=ESTR, 2=SONIA, etc.)</param>
+        /// <param name="dayCount">Day count convention</param>
+        /// <param name="currency">Currency index</param>
+        /// <param name="faceValue">Face value (typically 100)</param>
+        /// <param name="capRate">Interest rate cap as decimal (0 for no cap)</param>
+        /// <param name="floorRate">Interest rate floor as decimal (0 for no floor)</param>
+        /// <returns>Handle to the FRN, or INVALID_HANDLE on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern ulong convex_bond_frn(
+            [MarshalAs(UnmanagedType.LPStr)] string isin,
+            double spreadBps,
+            int maturityYear, int maturityMonth, int maturityDay,
+            int issueYear, int issueMonth, int issueDay,
+            int frequency,
+            int rateIndex,
+            int dayCount,
+            int currency,
+            double faceValue,
+            double capRate,
+            double floorRate);
+
+        /// <summary>
+        /// Creates a US Treasury FRN (SOFR-based).
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern ulong convex_bond_us_treasury_frn(
+            [MarshalAs(UnmanagedType.LPStr)] string cusip,
+            double spreadBps,
+            int maturityYear, int maturityMonth, int maturityDay,
+            int issueYear, int issueMonth, int issueDay);
+
+        // ========================================================================
+        // Advanced Callable Bond Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates yield to worst for a callable bond.
+        /// Returns the minimum yield across all possible workout dates.
+        /// </summary>
+        /// <param name="handle">Callable bond handle</param>
+        /// <param name="settleYear">Settlement date year</param>
+        /// <param name="settleMonth">Settlement date month</param>
+        /// <param name="settleDay">Settlement date day</param>
+        /// <param name="cleanPrice">Clean price per 100 face value</param>
+        /// <param name="yieldOut">Output: YTW as decimal (e.g., 0.05 for 5%)</param>
+        /// <param name="dateOut">Output: Workout date as YYYYMMDD</param>
+        /// <param name="priceOut">Output: Redemption price</param>
+        /// <returns>CONVEX_OK on success, error code on failure</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_bond_yield_to_worst(
+            ulong handle,
+            int settleYear, int settleMonth, int settleDay,
+            double cleanPrice,
+            out double yieldOut,
+            out int dateOut,
+            out double priceOut);
+
+        /// <summary>
+        /// Checks if a callable bond is callable on a specific date.
+        /// </summary>
+        /// <returns>1 if callable, 0 if not callable, -1 on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_bond_is_callable_on(
+            ulong handle,
+            int dateYear, int dateMonth, int dateDay);
+
+        /// <summary>
+        /// Gets the number of call schedule entries.
+        /// </summary>
+        /// <returns>Number of entries, or -1 on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_bond_call_schedule_count(ulong handle);
+
+        /// <summary>
+        /// Gets a specific call schedule entry.
+        /// </summary>
+        /// <param name="handle">Callable bond handle</param>
+        /// <param name="index">Entry index (0-based)</param>
+        /// <param name="dateOut">Output: Call date as YYYYMMDD</param>
+        /// <param name="priceOut">Output: Call price</param>
+        /// <returns>CONVEX_OK on success, error code on failure</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_bond_call_schedule_entry(
+            ulong handle,
+            int index,
+            out int dateOut,
+            out double priceOut);
+
+        /// <summary>
+        /// Gets the call price on a specific date.
+        /// </summary>
+        /// <returns>Call price as percentage of par, or NaN if not callable on that date</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_bond_call_price_on(
+            ulong handle,
+            int dateYear, int dateMonth, int dateDay);
+
+        // ========================================================================
         // Pricing Functions
         // ========================================================================
 
@@ -384,6 +536,192 @@ namespace Convex.Excel
             ulong swapCurveHandle,
             int settleYear, int settleMonth, int settleDay,
             double cleanPrice);
+
+        // ========================================================================
+        // Price from Spread Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculate clean price from Z-spread.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_price_from_z_spread(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double zSpreadBps);
+
+        /// <summary>
+        /// Calculate dirty price from Z-spread.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_dirty_price_from_z_spread(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double zSpreadBps);
+
+        /// <summary>
+        /// Calculate FRN dirty price from discount margin.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_frn_price_from_dm(
+            ulong frnHandle,
+            ulong forwardCurveHandle,
+            ulong discountCurveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dmBps);
+
+        // ========================================================================
+        // Effective Duration / Convexity (Finite Difference)
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates effective duration using finite differences.
+        /// D_eff = (P- - P+) / (2 × P0 × Δy)
+        /// </summary>
+        /// <param name="priceUp">Price when yield increases</param>
+        /// <param name="priceDown">Price when yield decreases</param>
+        /// <param name="priceBase">Base price</param>
+        /// <param name="bumpBps">Yield bump size in basis points</param>
+        /// <returns>Effective duration, or NaN on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_effective_duration(
+            double priceUp,
+            double priceDown,
+            double priceBase,
+            double bumpBps);
+
+        /// <summary>
+        /// Calculates effective convexity using finite differences.
+        /// C_eff = (P- + P+ - 2×P0) / (P0 × Δy²)
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_effective_convexity(
+            double priceUp,
+            double priceDown,
+            double priceBase,
+            double bumpBps);
+
+        // ========================================================================
+        // Key Rate Duration Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates key rate duration at a specific tenor.
+        /// </summary>
+        /// <param name="priceUp">Price when rate at tenor increases</param>
+        /// <param name="priceDown">Price when rate at tenor decreases</param>
+        /// <param name="priceBase">Base price</param>
+        /// <param name="bumpBps">Rate bump size in basis points</param>
+        /// <param name="tenor">Tenor in years</param>
+        /// <returns>Key rate duration at specified tenor</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_key_rate_duration(
+            double priceUp,
+            double priceDown,
+            double priceBase,
+            double bumpBps,
+            double tenor);
+
+        /// <summary>
+        /// Gets standard key rate tenors.
+        /// </summary>
+        /// <param name="tenorsOut">Array to receive tenors</param>
+        /// <param name="maxCount">Maximum number of tenors</param>
+        /// <returns>Number of tenors written</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_standard_key_rate_tenors(
+            [MarshalAs(UnmanagedType.LPArray)] double[] tenorsOut,
+            int maxCount);
+
+        // ========================================================================
+        // OAS (Option-Adjusted Spread) Functions
+        // ========================================================================
+
+        /// <summary>
+        /// OAS analytics result structure.
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct FfiOasResult
+        {
+            public double OasBps;
+            public double EffectiveDuration;
+            public double EffectiveConvexity;
+            public double OptionValue;
+            public int Success;
+        }
+
+        /// <summary>
+        /// Calculates OAS for a callable bond.
+        /// </summary>
+        /// <param name="bondHandle">Callable bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settleYear">Settlement year</param>
+        /// <param name="settleMonth">Settlement month</param>
+        /// <param name="settleDay">Settlement day</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <param name="volatility">Interest rate volatility (e.g., 0.01 for 1%)</param>
+        /// <returns>OAS in basis points, or NaN on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_oas(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dirtyPrice,
+            double volatility);
+
+        /// <summary>
+        /// Calculates comprehensive OAS analytics.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern int convex_oas_analytics(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dirtyPrice,
+            double volatility,
+            out FfiOasResult result);
+
+        // ========================================================================
+        // Discount Margin Functions (FRNs)
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates simple margin for a floating rate note.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="settleYear">Settlement year</param>
+        /// <param name="settleMonth">Settlement month</param>
+        /// <param name="settleDay">Settlement day</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <param name="currentIndex">Current index rate as decimal (e.g., 0.05 for 5%)</param>
+        /// <returns>Simple margin in basis points, or NaN on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_simple_margin(
+            ulong frnHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dirtyPrice,
+            double currentIndex);
+
+        /// <summary>
+        /// Calculates Z-DM (Zero Discount Margin) for a floating rate note.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="forwardCurveHandle">Forward curve handle</param>
+        /// <param name="discountCurveHandle">Discount curve handle</param>
+        /// <param name="settleYear">Settlement year</param>
+        /// <param name="settleMonth">Settlement month</param>
+        /// <param name="settleDay">Settlement day</param>
+        /// <param name="dirtyPrice">Market dirty price</param>
+        /// <returns>Discount margin in basis points, or NaN on error</returns>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_discount_margin(
+            ulong frnHandle,
+            ulong forwardCurveHandle,
+            ulong discountCurveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dirtyPrice);
 
         // ========================================================================
         // Curve Bootstrapping Functions

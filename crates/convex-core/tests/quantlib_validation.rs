@@ -318,7 +318,7 @@ fn test_leap_year_february() {
     let dc30 = Thirty360US;
     let days_30 = dc30.day_count(start, end);
     // The exact count depends on EOM rules
-    assert!(days_30 >= 1 && days_30 <= 3, "30/360 days: {}", days_30);
+    assert!((1..=3).contains(&days_30), "30/360 days: {}", days_30);
 }
 
 #[test]
@@ -345,7 +345,7 @@ fn test_end_of_month_dates() {
 
     let days = dc.day_count(start, end);
     // 30/360: 30 days per month, so roughly 28 days
-    assert!(days >= 27 && days <= 30, "EOM days: {}", days);
+    assert!((27..=30).contains(&days), "EOM days: {}", days);
 }
 
 // ============================================================================

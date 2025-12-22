@@ -818,10 +818,10 @@ mod tests {
         assert_relative_eq!(shift_5y, 0.01, epsilon = 1e-10);
 
         // Lower at other tenors
-        let shift_1y = bump.shift_at(1.0);
-        let shift_10y = bump.shift_at(10.0);
-        assert!(shift_1y < shift_5y);
-        assert!(shift_10y < shift_5y);
+        let shift_short = bump.shift_at(1.0);
+        let shift_long = bump.shift_at(10.0);
+        assert!(shift_short < shift_5y);
+        assert!(shift_long < shift_5y);
     }
 
     #[test]

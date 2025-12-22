@@ -906,7 +906,7 @@ mod tests {
     #[test]
     fn test_simple_df_curve() {
         let tenors = vec![1.0, 2.0, 5.0, 10.0];
-        let dfs: Vec<f64> = tenors.iter().map(|&t| ((-0.05 * t) as f64).exp()).collect();
+        let dfs: Vec<f64> = tenors.iter().map(|&t| f64::exp(-0.05 * t)).collect();
 
         let curve = CurveBuilder::rate_curve(today())
             .with_discount_factors(tenors, dfs)
@@ -949,7 +949,7 @@ mod tests {
     #[test]
     fn test_credit_curve_builder() {
         let tenors = vec![1.0, 2.0, 3.0, 5.0, 10.0];
-        let survival: Vec<f64> = tenors.iter().map(|&t| ((-0.02 * t) as f64).exp()).collect();
+        let survival: Vec<f64> = tenors.iter().map(|&t| f64::exp(-0.02 * t)).collect();
 
         let curve = CurveBuilder::credit_curve(today(), 0.40)
             .with_survival_probabilities(tenors, survival)
