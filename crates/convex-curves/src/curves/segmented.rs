@@ -365,12 +365,12 @@ mod tests {
         assert_eq!(segmented.num_segments(), 2);
 
         // Test value from short segment
-        let val_1y = segmented.value_at(1.0);
-        assert!(val_1y > 0.0);
+        let short_val = segmented.value_at(1.0);
+        assert!(short_val > 0.0);
 
         // Test value from long segment
-        let val_10y = segmented.value_at(10.0);
-        assert_relative_eq!(val_10y, 0.055, epsilon = 1e-10);
+        let long_val = segmented.value_at(10.0);
+        assert_relative_eq!(long_val, 0.055, epsilon = 1e-10);
     }
 
     #[test]

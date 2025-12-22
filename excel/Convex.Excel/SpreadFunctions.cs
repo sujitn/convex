@@ -184,5 +184,110 @@ namespace Convex.Excel
                 return "#ERROR: " + ex.Message;
             }
         }
+
+        // ========================================================================
+        // Price from Spread Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates clean price from Z-spread.
+        /// </summary>
+        [ExcelFunction(
+            Name = "CX.PRICE.ZSPREAD",
+            Description = "Calculates clean price from Z-spread",
+            Category = "Convex Spreads")]
+        public static object CxPriceFromZSpread(
+            [ExcelArgument(Description = "Bond handle or name")] object bondRef,
+            [ExcelArgument(Description = "Discount curve handle or name")] object curveRef,
+            [ExcelArgument(Description = "Settlement date")] DateTime settlement,
+            [ExcelArgument(Description = "Z-spread in basis points")] double zSpreadBps)
+        {
+            try
+            {
+                ulong bondHandle = HandleHelper.Parse(bondRef);
+                if (bondHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                ulong curveHandle = HandleHelper.Parse(curveRef);
+                if (curveHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                double price = ConvexWrapper.PriceFromZSpread(bondHandle, curveHandle, settlement, zSpreadBps);
+                return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
+            }
+            catch (Exception ex)
+            {
+                return "#ERROR: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Calculates dirty price from Z-spread.
+        /// </summary>
+        [ExcelFunction(
+            Name = "CX.DIRTY.PRICE.ZSPREAD",
+            Description = "Calculates dirty price from Z-spread",
+            Category = "Convex Spreads")]
+        public static object CxDirtyPriceFromZSpread(
+            [ExcelArgument(Description = "Bond handle or name")] object bondRef,
+            [ExcelArgument(Description = "Discount curve handle or name")] object curveRef,
+            [ExcelArgument(Description = "Settlement date")] DateTime settlement,
+            [ExcelArgument(Description = "Z-spread in basis points")] double zSpreadBps)
+        {
+            try
+            {
+                ulong bondHandle = HandleHelper.Parse(bondRef);
+                if (bondHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                ulong curveHandle = HandleHelper.Parse(curveRef);
+                if (curveHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                double price = ConvexWrapper.DirtyPriceFromZSpread(bondHandle, curveHandle, settlement, zSpreadBps);
+                return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
+            }
+            catch (Exception ex)
+            {
+                return "#ERROR: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Calculates FRN dirty price from discount margin.
+        /// </summary>
+        [ExcelFunction(
+            Name = "CX.PRICE.DM",
+            Description = "Calculates FRN price from discount margin",
+            Category = "Convex Spreads")]
+        public static object CxFrnPriceFromDM(
+            [ExcelArgument(Description = "FRN handle or name")] object frnRef,
+            [ExcelArgument(Description = "Forward curve handle or name")] object forwardCurveRef,
+            [ExcelArgument(Description = "Discount curve handle or name")] object discountCurveRef,
+            [ExcelArgument(Description = "Settlement date")] DateTime settlement,
+            [ExcelArgument(Description = "Discount margin in basis points")] double dmBps)
+        {
+            try
+            {
+                ulong frnHandle = HandleHelper.Parse(frnRef);
+                if (frnHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                ulong forwardCurveHandle = HandleHelper.Parse(forwardCurveRef);
+                if (forwardCurveHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                ulong discountCurveHandle = HandleHelper.Parse(discountCurveRef);
+                if (discountCurveHandle == NativeMethods.INVALID_HANDLE)
+                    return ExcelError.ExcelErrorRef;
+
+                double price = ConvexWrapper.FrnPriceFromDM(frnHandle, forwardCurveHandle, discountCurveHandle, settlement, dmBps);
+                return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
+            }
+            catch (Exception ex)
+            {
+                return "#ERROR: " + ex.Message;
+            }
+        }
     }
 }

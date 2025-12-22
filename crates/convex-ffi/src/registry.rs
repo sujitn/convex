@@ -537,22 +537,26 @@ mod tests {
 
     #[test]
     fn test_list_objects() {
-        // Get baseline count (other parallel tests may have added objects)
-        let initial_count = object_count();
-
         let h1 = register(TestObject { value: 1 }, ObjectType::Curve, None);
         let h2 = register(TestObject { value: 2 }, ObjectType::FixedBond, None);
         let h3 = register(TestObject { value: 3 }, ObjectType::Curve, None);
 
         let all = list_objects(None);
-        // Check we have at least the 3 we added
-        assert!(all.len() >= initial_count + 3);
+        // Check we have at least 3 objects (the ones we just added)
+        assert!(all.len() >= 3);
 
         // Check our specific handles are in the list
         let handles: Vec<_> = all.iter().map(|(h, _, _)| *h).collect();
         assert!(handles.contains(&h1));
         assert!(handles.contains(&h2));
         assert!(handles.contains(&h3));
+
+        // Test filtering by type
+        let curves = list_objects(Some(ObjectType::Curve));
+        let curve_handles: Vec<_> = curves.iter().map(|(h, _, _)| *h).collect();
+        assert!(curve_handles.contains(&h1));
+        assert!(curve_handles.contains(&h3));
+        assert!(!curve_handles.contains(&h2)); // h2 is FixedBond, not Curve
 
         release(h1);
         release(h2);

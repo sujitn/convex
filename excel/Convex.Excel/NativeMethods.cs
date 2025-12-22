@@ -538,6 +538,41 @@ namespace Convex.Excel
             double cleanPrice);
 
         // ========================================================================
+        // Price from Spread Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculate clean price from Z-spread.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_price_from_z_spread(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double zSpreadBps);
+
+        /// <summary>
+        /// Calculate dirty price from Z-spread.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_dirty_price_from_z_spread(
+            ulong bondHandle,
+            ulong curveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double zSpreadBps);
+
+        /// <summary>
+        /// Calculate FRN dirty price from discount margin.
+        /// </summary>
+        [DllImport(DllName, CallingConvention = Convention)]
+        public static extern double convex_frn_price_from_dm(
+            ulong frnHandle,
+            ulong forwardCurveHandle,
+            ulong discountCurveHandle,
+            int settleYear, int settleMonth, int settleDay,
+            double dmBps);
+
+        // ========================================================================
         // Effective Duration / Convexity (Finite Difference)
         // ========================================================================
 

@@ -1002,6 +1002,59 @@ namespace Convex.Excel
         }
 
         // ========================================================================
+        // Price from Spread Functions
+        // ========================================================================
+
+        /// <summary>
+        /// Calculates clean price from Z-spread.
+        /// </summary>
+        /// <param name="bondHandle">Bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="zSpreadBps">Z-spread in basis points</param>
+        /// <returns>Clean price (as percentage of par)</returns>
+        public static double PriceFromZSpread(ulong bondHandle, ulong curveHandle, DateTime settlement, double zSpreadBps)
+        {
+            return NativeMethods.convex_price_from_z_spread(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                zSpreadBps);
+        }
+
+        /// <summary>
+        /// Calculates dirty price from Z-spread.
+        /// </summary>
+        /// <param name="bondHandle">Bond handle</param>
+        /// <param name="curveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="zSpreadBps">Z-spread in basis points</param>
+        /// <returns>Dirty price (as percentage of par)</returns>
+        public static double DirtyPriceFromZSpread(ulong bondHandle, ulong curveHandle, DateTime settlement, double zSpreadBps)
+        {
+            return NativeMethods.convex_dirty_price_from_z_spread(
+                bondHandle, curveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                zSpreadBps);
+        }
+
+        /// <summary>
+        /// Calculates FRN dirty price from discount margin.
+        /// </summary>
+        /// <param name="frnHandle">FRN handle</param>
+        /// <param name="forwardCurveHandle">Forward/projection curve handle</param>
+        /// <param name="discountCurveHandle">Discount curve handle</param>
+        /// <param name="settlement">Settlement date</param>
+        /// <param name="dmBps">Discount margin in basis points</param>
+        /// <returns>Dirty price (as percentage of par)</returns>
+        public static double FrnPriceFromDM(ulong frnHandle, ulong forwardCurveHandle, ulong discountCurveHandle, DateTime settlement, double dmBps)
+        {
+            return NativeMethods.convex_frn_price_from_dm(
+                frnHandle, forwardCurveHandle, discountCurveHandle,
+                settlement.Year, settlement.Month, settlement.Day,
+                dmBps);
+        }
+
+        // ========================================================================
         // Effective Duration / Convexity (Finite Difference)
         // ========================================================================
 

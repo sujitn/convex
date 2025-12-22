@@ -465,7 +465,7 @@ mod tests {
         let today = Date::from_ymd(2024, 1, 1).unwrap();
         // Create survival probabilities for 2% constant hazard rate
         let tenors = vec![1.0, 2.0, 3.0, 5.0, 10.0];
-        let survivals: Vec<f64> = tenors.iter().map(|&t| ((-0.02 * t) as f64).exp()).collect();
+        let survivals: Vec<f64> = tenors.iter().map(|&t| f64::exp(-0.02 * t)).collect();
 
         let curve = DiscreteCurve::new(
             today,
@@ -500,7 +500,7 @@ mod tests {
     fn sample_discount_curve() -> RateCurve<DiscreteCurve> {
         let today = Date::from_ymd(2024, 1, 1).unwrap();
         let tenors = vec![1.0, 2.0, 3.0, 5.0, 10.0];
-        let dfs: Vec<f64> = tenors.iter().map(|&t| ((-0.05 * t) as f64).exp()).collect();
+        let dfs: Vec<f64> = tenors.iter().map(|&t| f64::exp(-0.05 * t)).collect();
 
         let curve = DiscreteCurve::new(
             today,

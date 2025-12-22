@@ -15,8 +15,7 @@ use convex_analytics::functions::{
     modified_duration, yield_to_maturity, yield_to_maturity_with_convention,
 };
 use convex_analytics::risk::{
-    effective_duration as compute_effective_duration,
-    key_rate_duration_at_tenor as compute_krd,
+    effective_duration as compute_effective_duration, key_rate_duration_at_tenor as compute_krd,
     STANDARD_KEY_RATE_TENORS,
 };
 use convex_bonds::instruments::FixedRateBond;
@@ -650,10 +649,7 @@ pub unsafe extern "C" fn convex_effective_convexity(
     let bump_decimal = bump_bps / 10000.0;
 
     // C_eff = (P- + P+ - 2×P0) / (P0 × Δy²)
-    let eff_conv = (price_down + price_up - 2.0 * price_base)
-        / (price_base * bump_decimal * bump_decimal);
-
-    eff_conv
+    (price_down + price_up - 2.0 * price_base) / (price_base * bump_decimal * bump_decimal)
 }
 
 // ============================================================================
@@ -707,6 +703,7 @@ pub unsafe extern "C" fn convex_key_rate_duration(
 
 /// Key rate duration result for a single tenor.
 #[repr(C)]
+#[allow(dead_code)]
 pub struct FfiKeyRateDuration {
     pub tenor: c_double,
     pub duration: c_double,
@@ -714,6 +711,7 @@ pub struct FfiKeyRateDuration {
 
 /// Key rate durations result structure.
 #[repr(C)]
+#[allow(dead_code)]
 pub struct FfiKeyRateDurations {
     /// Array of key rate durations (caller must provide buffer of at least 10 elements)
     pub count: c_int,
@@ -742,8 +740,8 @@ pub unsafe extern "C" fn convex_standard_key_rate_tenors(
 
     let count = std::cmp::min(max_count as usize, STANDARD_KEY_RATE_TENORS.len());
 
-    for i in 0..count {
-        *tenors_out.add(i) = STANDARD_KEY_RATE_TENORS[i];
+    for (i, &tenor) in STANDARD_KEY_RATE_TENORS.iter().enumerate().take(count) {
+        *tenors_out.add(i) = tenor;
     }
 
     count as c_int

@@ -12,13 +12,13 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
 use convex_bonds::instruments::{
-    CallableBond, Compounding, FloatingRateNote, FixedRateBond, ZeroCouponBond,
+    CallableBond, Compounding, FixedRateBond, FloatingRateNote, ZeroCouponBond,
 };
 use convex_bonds::traits::{Bond, EmbeddedOptionBond};
 use convex_bonds::types::{CallEntry, CallSchedule, CallType};
-use convex_curves::multicurve::RateIndex;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
+use convex_curves::multicurve::RateIndex;
 
 use crate::error::set_last_error;
 use crate::registry::{self, Handle, ObjectType, INVALID_HANDLE};
@@ -1337,12 +1337,17 @@ pub unsafe extern "C" fn convex_bond_yield_to_worst(
         match b.yield_to_worst_with_date(price_decimal, settlement) {
             Ok((ytw, workout_date)) => {
                 // Get the redemption price for the workout date
-                let redemption_price = if workout_date == b.base_bond().maturity().unwrap_or(workout_date) {
-                    b.base_bond().face_value().to_f64().unwrap_or(100.0)
-                } else {
-                    b.call_price_on(workout_date).unwrap_or(100.0)
-                };
-                Ok((ytw.to_f64().unwrap_or(f64::NAN), date_to_int(workout_date), redemption_price))
+                let redemption_price =
+                    if workout_date == b.base_bond().maturity().unwrap_or(workout_date) {
+                        b.base_bond().face_value().to_f64().unwrap_or(100.0)
+                    } else {
+                        b.call_price_on(workout_date).unwrap_or(100.0)
+                    };
+                Ok((
+                    ytw.to_f64().unwrap_or(f64::NAN),
+                    date_to_int(workout_date),
+                    redemption_price,
+                ))
             }
             Err(e) => Err(format!("YTW calculation failed: {}", e)),
         }
@@ -1388,9 +1393,16 @@ pub unsafe extern "C" fn convex_bond_is_callable_on(
         Err(_) => return -1,
     };
 
-    registry::with_object::<CallableBond, _, _>(bond, |b| {
-        if b.is_callable_on(date) { 1 } else { 0 }
-    })
+    registry::with_object::<CallableBond, _, _>(
+        bond,
+        |b| {
+            if b.is_callable_on(date) {
+                1
+            } else {
+                0
+            }
+        },
+    )
     .unwrap_or(-1)
 }
 
@@ -1480,10 +1492,8 @@ pub unsafe extern "C" fn convex_bond_call_price_on(
         }
     };
 
-    registry::with_object::<CallableBond, _, _>(bond, |b| {
-        b.call_price_on(date).unwrap_or(f64::NAN)
-    })
-    .unwrap_or(f64::NAN)
+    registry::with_object::<CallableBond, _, _>(bond, |b| b.call_price_on(date).unwrap_or(f64::NAN))
+        .unwrap_or(f64::NAN)
 }
 
 #[cfg(test)]

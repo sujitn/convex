@@ -292,8 +292,8 @@ mod tests {
         let rate_at_1 = base.value_at(1.0);
 
         // Below min should clamp to min
-        let rate_at_0 = delegated.value_at(0.5);
-        assert_relative_eq!(rate_at_0, rate_at_1, epsilon = 1e-10);
+        let rate_below_min = delegated.value_at(0.5);
+        assert_relative_eq!(rate_below_min, rate_at_1, epsilon = 1e-10);
     }
 
     #[test]

@@ -421,7 +421,7 @@ mod tests {
         let today = Date::from_ymd(2024, 1, 1).unwrap();
         // Create discount factors for a 5% flat curve
         let tenors = vec![0.5, 1.0, 2.0, 5.0, 10.0];
-        let dfs: Vec<f64> = tenors.iter().map(|&t| ((-0.05 * t) as f64).exp()).collect();
+        let dfs: Vec<f64> = tenors.iter().map(|&t| f64::exp(-0.05 * t)).collect();
 
         let curve = DiscreteCurve::new(
             today,

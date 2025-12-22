@@ -6,7 +6,7 @@ use libc::c_int;
 use rust_decimal::prelude::*;
 
 use convex_analytics::spreads::{
-    DiscountMarginCalculator, OASCalculator, ZSpreadCalculator, simple_margin,
+    simple_margin, DiscountMarginCalculator, OASCalculator, ZSpreadCalculator,
 };
 use convex_bonds::instruments::{CallableBond, FixedRateBond, FloatingRateNote};
 use convex_bonds::traits::Bond;
@@ -552,14 +552,13 @@ pub unsafe extern "C" fn convex_oas(
     let vol = if volatility > 0.0 { volatility } else { 0.01 };
 
     // Calculate OAS
-    let oas_result =
-        registry::with_object::<CallableBond, _, _>(bond_handle, |bond| {
-            registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
-                let price_decimal = Decimal::from_f64_retain(dirty_price).unwrap_or_default();
-                let calc = OASCalculator::default_hull_white(vol);
-                calc.calculate(bond, price_decimal, curve, settlement)
-            })
-        });
+    let oas_result = registry::with_object::<CallableBond, _, _>(bond_handle, |bond| {
+        registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
+            let price_decimal = Decimal::from_f64_retain(dirty_price).unwrap_or_default();
+            let calc = OASCalculator::default_hull_white(vol);
+            calc.calculate(bond, price_decimal, curve, settlement)
+        })
+    });
 
     match oas_result {
         Some(Some(Ok(spread))) => spread.as_bps().to_f64().unwrap_or(f64::NAN),
@@ -631,38 +630,37 @@ pub unsafe extern "C" fn convex_oas_analytics(
     let vol = if volatility > 0.0 { volatility } else { 0.01 };
 
     // Calculate all OAS analytics
-    let analytics_result =
-        registry::with_object::<CallableBond, _, _>(bond_handle, |bond| {
-            registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
-                let price_decimal = Decimal::from_f64_retain(dirty_price).unwrap_or_default();
-                let calc = OASCalculator::default_hull_white(vol);
+    let analytics_result = registry::with_object::<CallableBond, _, _>(bond_handle, |bond| {
+        registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
+            let price_decimal = Decimal::from_f64_retain(dirty_price).unwrap_or_default();
+            let calc = OASCalculator::default_hull_white(vol);
 
-                // Calculate OAS
-                let oas = match calc.calculate(bond, price_decimal, curve, settlement) {
-                    Ok(s) => s.as_bps().to_f64().unwrap_or(f64::NAN),
-                    Err(_) => return None,
-                };
+            // Calculate OAS
+            let oas = match calc.calculate(bond, price_decimal, curve, settlement) {
+                Ok(s) => s.as_bps().to_f64().unwrap_or(f64::NAN),
+                Err(_) => return None,
+            };
 
-                let oas_decimal = oas / 10000.0;
+            let oas_decimal = oas / 10000.0;
 
-                // Calculate effective duration
-                let eff_dur = calc
-                    .effective_duration(bond, curve, oas_decimal, settlement)
-                    .unwrap_or(f64::NAN);
+            // Calculate effective duration
+            let eff_dur = calc
+                .effective_duration(bond, curve, oas_decimal, settlement)
+                .unwrap_or(f64::NAN);
 
-                // Calculate effective convexity
-                let eff_conv = calc
-                    .effective_convexity(bond, curve, oas_decimal, settlement)
-                    .unwrap_or(f64::NAN);
+            // Calculate effective convexity
+            let eff_conv = calc
+                .effective_convexity(bond, curve, oas_decimal, settlement)
+                .unwrap_or(f64::NAN);
 
-                // Calculate option value
-                let opt_val = calc
-                    .option_value(bond, curve, oas_decimal, settlement)
-                    .unwrap_or(f64::NAN);
+            // Calculate option value
+            let opt_val = calc
+                .option_value(bond, curve, oas_decimal, settlement)
+                .unwrap_or(f64::NAN);
 
-                Some((oas, eff_dur, eff_conv, opt_val))
-            })
-        });
+            Some((oas, eff_dur, eff_conv, opt_val))
+        })
+    });
 
     match analytics_result {
         Some(Some(Some((oas, dur, conv, opt)))) => {
@@ -740,6 +738,7 @@ pub unsafe extern "C" fn convex_simple_margin(
 
 /// Discount margin result structure.
 #[repr(C)]
+#[allow(dead_code)]
 pub struct FfiDiscountMarginResult {
     /// Discount margin in basis points
     pub dm_bps: libc::c_double,
@@ -831,6 +830,212 @@ pub unsafe extern "C" fn convex_discount_margin(
         Some(Some(Some(dm))) => dm,
         _ => {
             set_last_error("Failed to calculate discount margin");
+            f64::NAN
+        }
+    }
+}
+
+// ============================================================================
+// Price from Spread Functions
+// ============================================================================
+
+/// Calculates clean price from Z-spread.
+///
+/// # Arguments
+///
+/// * `bond_handle` - Handle to a FixedBond object
+/// * `curve_handle` - Handle to a RateCurve (discount curve)
+/// * `settle_year/month/day` - Settlement date
+/// * `z_spread_bps` - Z-spread in basis points
+///
+/// # Returns
+///
+/// Clean price, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_price_from_z_spread(
+    bond_handle: Handle,
+    curve_handle: Handle,
+    settle_year: c_int,
+    settle_month: c_int,
+    settle_day: c_int,
+    z_spread_bps: libc::c_double,
+) -> libc::c_double {
+    // Validate handles
+    let bond_type = registry::get_type(bond_handle);
+    if !bond_type.is_bond() {
+        set_last_error("Invalid bond handle");
+        return f64::NAN;
+    }
+
+    let curve_type = registry::get_type(curve_handle);
+    if !curve_type.is_curve() {
+        set_last_error("Invalid curve handle");
+        return f64::NAN;
+    }
+
+    // Parse settlement date
+    let settlement = match Date::from_ymd(settle_year, settle_month as u32, settle_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid settlement date: {}", e));
+            return f64::NAN;
+        }
+    };
+
+    // Get bond and curve from registry
+    let price_result = registry::with_object::<FixedRateBond, _, _>(bond_handle, |bond| {
+        registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
+            // Convert bps to decimal (e.g., 50 bps = 0.005)
+            let spread_decimal = z_spread_bps / 10000.0;
+            let dirty_price =
+                ZSpreadCalculator::new(curve).price_with_spread(bond, spread_decimal, settlement);
+            // Convert dirty price to clean price by subtracting accrued
+            let accrued = Bond::accrued_interest(bond, settlement)
+                .to_f64()
+                .unwrap_or(0.0);
+            dirty_price - accrued
+        })
+    });
+
+    match price_result {
+        Some(Some(price)) => price,
+        _ => {
+            set_last_error("Failed to access bond or curve");
+            f64::NAN
+        }
+    }
+}
+
+/// Calculates dirty price from Z-spread.
+///
+/// # Arguments
+///
+/// * `bond_handle` - Handle to a FixedBond object
+/// * `curve_handle` - Handle to a RateCurve (discount curve)
+/// * `settle_year/month/day` - Settlement date
+/// * `z_spread_bps` - Z-spread in basis points
+///
+/// # Returns
+///
+/// Dirty price, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_dirty_price_from_z_spread(
+    bond_handle: Handle,
+    curve_handle: Handle,
+    settle_year: c_int,
+    settle_month: c_int,
+    settle_day: c_int,
+    z_spread_bps: libc::c_double,
+) -> libc::c_double {
+    // Validate handles
+    let bond_type = registry::get_type(bond_handle);
+    if !bond_type.is_bond() {
+        set_last_error("Invalid bond handle");
+        return f64::NAN;
+    }
+
+    let curve_type = registry::get_type(curve_handle);
+    if !curve_type.is_curve() {
+        set_last_error("Invalid curve handle");
+        return f64::NAN;
+    }
+
+    // Parse settlement date
+    let settlement = match Date::from_ymd(settle_year, settle_month as u32, settle_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid settlement date: {}", e));
+            return f64::NAN;
+        }
+    };
+
+    // Get bond and curve from registry
+    let price_result = registry::with_object::<FixedRateBond, _, _>(bond_handle, |bond| {
+        registry::with_object::<StoredCurve, _, _>(curve_handle, |curve| {
+            // Convert bps to decimal (e.g., 50 bps = 0.005)
+            let spread_decimal = z_spread_bps / 10000.0;
+            ZSpreadCalculator::new(curve).price_with_spread(bond, spread_decimal, settlement)
+        })
+    });
+
+    match price_result {
+        Some(Some(price)) => price,
+        _ => {
+            set_last_error("Failed to access bond or curve");
+            f64::NAN
+        }
+    }
+}
+
+/// Calculates FRN dirty price from discount margin.
+///
+/// # Arguments
+///
+/// * `frn_handle` - Handle to a FloatingRateNote object
+/// * `forward_curve_handle` - Handle to the forward/projection curve
+/// * `discount_curve_handle` - Handle to the discount curve
+/// * `settle_year/month/day` - Settlement date
+/// * `dm_bps` - Discount margin in basis points
+///
+/// # Returns
+///
+/// Dirty price, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_frn_price_from_dm(
+    frn_handle: Handle,
+    forward_curve_handle: Handle,
+    discount_curve_handle: Handle,
+    settle_year: c_int,
+    settle_month: c_int,
+    settle_day: c_int,
+    dm_bps: libc::c_double,
+) -> libc::c_double {
+    // Validate FRN handle
+    let bond_type = registry::get_type(frn_handle);
+    if bond_type != registry::ObjectType::FloatingRateNote {
+        set_last_error("Invalid FRN handle");
+        return f64::NAN;
+    }
+
+    // Validate curve handles
+    if !registry::get_type(forward_curve_handle).is_curve() {
+        set_last_error("Invalid forward curve handle");
+        return f64::NAN;
+    }
+
+    if !registry::get_type(discount_curve_handle).is_curve() {
+        set_last_error("Invalid discount curve handle");
+        return f64::NAN;
+    }
+
+    // Parse settlement date
+    let settlement = match Date::from_ymd(settle_year, settle_month as u32, settle_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid settlement date: {}", e));
+            return f64::NAN;
+        }
+    };
+
+    // Calculate price from DM
+    let price_result = registry::with_object::<FloatingRateNote, _, _>(frn_handle, |frn| {
+        registry::with_object::<StoredCurve, _, _>(discount_curve_handle, |discount_curve| {
+            // Create forward curve from discount curve
+            let discount_arc: Arc<dyn convex_curves::RateCurveDyn> =
+                Arc::new(discount_curve.clone());
+            let forward_curve = ForwardCurve::from_months(discount_arc.clone(), 3);
+
+            let calc = DiscountMarginCalculator::new(&forward_curve, discount_curve);
+            // Convert bps to decimal (e.g., 50 bps = 0.005)
+            let dm_decimal = dm_bps / 10000.0;
+            calc.price_with_dm(frn, dm_decimal, settlement)
+        })
+    });
+
+    match price_result {
+        Some(Some(price)) => price,
+        _ => {
+            set_last_error("Failed to calculate FRN price from DM");
             f64::NAN
         }
     }
