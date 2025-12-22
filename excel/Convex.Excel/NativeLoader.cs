@@ -31,7 +31,7 @@ namespace Convex.Excel
             // Cleanup if needed
         }
 
-        public static void Initialize()
+        internal static void Initialize()
         {
             if (_initialized) return;
             _initialized = true;
@@ -67,7 +67,7 @@ namespace Convex.Excel
             }
         }
 
-        public static string GetLoadError()
+        internal static string GetLoadError()
         {
             return _loadError ?? "No error";
         }

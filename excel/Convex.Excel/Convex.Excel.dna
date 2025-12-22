@@ -34,6 +34,20 @@
                       onAction="OnBondAnalyzer" screentip="Analyze bond metrics and cashflows" />
             </group>
 
+            <!-- RTD Group -->
+            <group id="RtdGroup" label="Real-Time Data">
+              <button id="btnRtdSettings" label="RTD Settings"
+                      size="large" image="rtd_settings"
+                      onAction="OnRtdSettings" screentip="Configure RTD update settings" />
+              <toggleButton id="btnRtdToggle" label="RTD Enabled"
+                      size="normal" image="rtd_toggle"
+                      onAction="OnRtdToggle" getPressed="GetRtdEnabled"
+                      screentip="Enable/disable RTD updates" />
+              <button id="btnRtdRefresh" label="Refresh All"
+                      size="normal" image="rtd_refresh"
+                      onAction="OnRtdRefresh" screentip="Force refresh all RTD topics" />
+            </group>
+
             <!-- Tools Group -->
             <group id="ToolsGroup" label="Tools">
               <button id="btnObjectBrowser" label="Objects"

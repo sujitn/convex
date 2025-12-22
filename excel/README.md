@@ -143,6 +143,35 @@ All functions use the `CX.` prefix.
 | `CX.CLEAR.ALL()` | Clear all objects |
 | `CX.LAST.ERROR()` | Last error message |
 
+### RTD Functions (Real-Time Data) - Optional
+
+**Note:** Regular `CX.*` functions now work correctly with Excel's dependency chain. When inputs change (e.g., BDP updates), curves/bonds are recreated with new handles, forcing dependent cells to recalculate.
+
+**When to use regular functions:** Most scenarios - they now handle BDP/streaming data correctly.
+
+**When to use RTD functions:** Only for advanced scenarios requiring:
+- Server-side calculation throttling
+- Explicit subscription management
+- Integration with custom data feeds
+
+RTD-enabled functions:
+
+| Function | Description |
+|----------|-------------|
+| `CX.CURVE.RTD(name, refDate, tenors, rates, interp, dayCount)` | Create curve with real-time updates |
+| `CX.CURVE.ZERO.RTD(curveName, tenor)` | Get zero rate with real-time updates |
+| `CX.BOND.RTD(id, coupon%, freq, maturity, issue, dayCount, bdc)` | Create bond with real-time updates |
+| `CX.BOND.CORP.RTD(id, coupon%, maturity, issue)` | Create US corporate bond (RTD) |
+| `CX.YIELD.RTD(bondName, settle, price, freq)` | Calculate YTM with real-time updates |
+| `CX.PRICE.RTD(bondName, settle, yield%, freq)` | Calculate price with real-time updates |
+| `CX.DURATION.RTD(bondName, settle, price, freq)` | Modified duration with real-time updates |
+| `CX.CONVEXITY.RTD(bondName, settle, price, freq)` | Convexity with real-time updates |
+| `CX.DV01.RTD(bondName, settle, price, freq)` | DV01 with real-time updates |
+| `CX.ZSPREAD.RTD(bondName, curveName, settle, price)` | Z-spread with real-time updates |
+| `CX.PRICE.ZSPREAD.RTD(bondName, curveName, settle, zSpreadBps)` | Price from Z-spread (RTD) |
+| `CX.RTD.STATS()` | Get RTD server statistics |
+| `CX.RTD.REFRESH(pattern)` | Force refresh of topics matching pattern |
+
 ## Parameters
 
 ### Interpolation Methods
@@ -278,6 +307,32 @@ All functions use the `CX.` prefix.
     {5.25, 5.30, 5.00, 4.50, 4.00},  ' Rates (%)
     0, 0)
 ```
+
+### Real-Time Data with Bloomberg BDP
+
+```excel
+' Create curve from Bloomberg real-time rates
+' Rates in A1:A5 are fed by =BDP("UST 2Y", "YLD_YTM_MID") etc.
+=CX.CURVE.RTD("USD.GOVT.LIVE", TODAY(), {2,5,10,20,30}, A1:A5, 0, 1)
+
+' Create bond (static, doesn't change)
+=CX.BOND.CORP.RTD("AAPL5%2030", 5.0, DATE(2030,2,15), DATE(2020,2,15))
+
+' Calculate Z-spread using live curve - updates automatically when curve changes
+=CX.ZSPREAD.RTD("AAPL5%2030", "USD.GOVT.LIVE", TODAY()+2, B1)
+' Where B1 = =BDP("AAPL 5 02/15/30 Corp", "PX_LAST")
+
+' Duration, convexity, DV01 all update when price changes
+=CX.DURATION.RTD("AAPL5%2030", TODAY()+2, B1, 2)
+=CX.CONVEXITY.RTD("AAPL5%2030", TODAY()+2, B1, 2)
+=CX.DV01.RTD("AAPL5%2030", TODAY()+2, B1, 2)
+```
+
+**How RTD works:**
+1. RTD functions subscribe to a topic (e.g., "curve:USD.GOVT.LIVE")
+2. When inputs change (e.g., BDP updates), the curve is recalculated
+3. All dependent topics (Z-spread, duration, etc.) automatically update
+4. Updates are throttled (default 100ms) to prevent calculation storms
 
 ## Demo Workbook Layout
 
