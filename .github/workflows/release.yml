@@ -111,7 +111,7 @@ jobs:
           Compress-Archive -Path convex-excel-addin\* -DestinationPath "convex-excel-addin-v$version.zip"
 
       - name: Upload Add-in Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: convex-excel-addin
           path: convex-excel-addin-v*.zip
