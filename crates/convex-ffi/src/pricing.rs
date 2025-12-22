@@ -14,6 +14,11 @@ use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, yield_to_maturity, yield_to_maturity_with_convention,
 };
+use convex_analytics::risk::{
+    effective_duration as compute_effective_duration,
+    key_rate_duration_at_tenor as compute_krd,
+    STANDARD_KEY_RATE_TENORS,
+};
 use convex_bonds::instruments::FixedRateBond;
 use convex_bonds::traits::Bond;
 use convex_bonds::types::YieldConvention;
@@ -558,6 +563,190 @@ pub unsafe extern "C" fn convex_bond_analytics(
             CONVEX_ERROR_INVALID_ARG
         }
     }
+}
+
+// ============================================================================
+// Effective Duration (Finite Difference)
+// ============================================================================
+
+/// Calculates effective duration using finite differences.
+///
+/// Effective duration measures price sensitivity by bumping yields up and down,
+/// making it suitable for bonds with embedded options.
+///
+/// D_eff = (P- - P+) / (2 × P0 × Δy)
+///
+/// # Arguments
+///
+/// * `price_up` - Price when yield increases by bump_bps
+/// * `price_down` - Price when yield decreases by bump_bps
+/// * `price_base` - Current base price
+/// * `bump_bps` - Yield bump size in basis points (e.g., 10 for 10bp)
+///
+/// # Returns
+///
+/// Effective duration, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_effective_duration(
+    price_up: c_double,
+    price_down: c_double,
+    price_base: c_double,
+    bump_bps: c_double,
+) -> c_double {
+    if price_base.abs() < 1e-10 {
+        set_last_error("Base price is zero");
+        return f64::NAN;
+    }
+
+    if bump_bps.abs() < 0.001 {
+        set_last_error("Bump size too small");
+        return f64::NAN;
+    }
+
+    // Convert bps to decimal
+    let bump_decimal = bump_bps / 10000.0;
+
+    match compute_effective_duration(price_up, price_down, price_base, bump_decimal) {
+        Ok(dur) => dur.as_f64(),
+        Err(e) => {
+            set_last_error(format!("Effective duration failed: {}", e));
+            f64::NAN
+        }
+    }
+}
+
+/// Calculates effective convexity using finite differences.
+///
+/// C_eff = (P- + P+ - 2×P0) / (P0 × Δy²)
+///
+/// # Arguments
+///
+/// * `price_up` - Price when yield increases by bump_bps
+/// * `price_down` - Price when yield decreases by bump_bps
+/// * `price_base` - Current base price
+/// * `bump_bps` - Yield bump size in basis points
+///
+/// # Returns
+///
+/// Effective convexity, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_effective_convexity(
+    price_up: c_double,
+    price_down: c_double,
+    price_base: c_double,
+    bump_bps: c_double,
+) -> c_double {
+    if price_base.abs() < 1e-10 {
+        set_last_error("Base price is zero");
+        return f64::NAN;
+    }
+
+    if bump_bps.abs() < 0.001 {
+        set_last_error("Bump size too small");
+        return f64::NAN;
+    }
+
+    // Convert bps to decimal
+    let bump_decimal = bump_bps / 10000.0;
+
+    // C_eff = (P- + P+ - 2×P0) / (P0 × Δy²)
+    let eff_conv = (price_down + price_up - 2.0 * price_base)
+        / (price_base * bump_decimal * bump_decimal);
+
+    eff_conv
+}
+
+// ============================================================================
+// Key Rate Duration
+// ============================================================================
+
+/// Calculates key rate duration at a specific tenor.
+///
+/// Key rate duration measures sensitivity to a bump at a specific curve point.
+///
+/// # Arguments
+///
+/// * `price_up` - Price when rate at tenor increases by bump
+/// * `price_down` - Price when rate at tenor decreases by bump
+/// * `price_base` - Current base price
+/// * `bump_bps` - Rate bump size in basis points
+/// * `tenor` - The tenor point in years (e.g., 2.0 for 2-year)
+///
+/// # Returns
+///
+/// Key rate duration at the specified tenor, or NaN on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_key_rate_duration(
+    price_up: c_double,
+    price_down: c_double,
+    price_base: c_double,
+    bump_bps: c_double,
+    tenor: c_double,
+) -> c_double {
+    if price_base.abs() < 1e-10 {
+        set_last_error("Base price is zero");
+        return f64::NAN;
+    }
+
+    if bump_bps.abs() < 0.001 {
+        set_last_error("Bump size too small");
+        return f64::NAN;
+    }
+
+    // Convert bps to decimal
+    let bump_decimal = bump_bps / 10000.0;
+
+    match compute_krd(price_up, price_down, price_base, bump_decimal, tenor) {
+        Ok(krd) => krd.duration.as_f64(),
+        Err(e) => {
+            set_last_error(format!("Key rate duration failed: {}", e));
+            f64::NAN
+        }
+    }
+}
+
+/// Key rate duration result for a single tenor.
+#[repr(C)]
+pub struct FfiKeyRateDuration {
+    pub tenor: c_double,
+    pub duration: c_double,
+}
+
+/// Key rate durations result structure.
+#[repr(C)]
+pub struct FfiKeyRateDurations {
+    /// Array of key rate durations (caller must provide buffer of at least 10 elements)
+    pub count: c_int,
+    /// Total duration (sum of all KRDs)
+    pub total_duration: c_double,
+}
+
+/// Gets the standard key rate tenors used for KRD calculations.
+///
+/// # Arguments
+///
+/// * `tenors_out` - Output array (must have space for at least 10 doubles)
+/// * `max_count` - Maximum number of tenors to return
+///
+/// # Returns
+///
+/// Number of standard tenors (typically 10).
+#[no_mangle]
+pub unsafe extern "C" fn convex_standard_key_rate_tenors(
+    tenors_out: *mut c_double,
+    max_count: c_int,
+) -> c_int {
+    if tenors_out.is_null() {
+        return 0;
+    }
+
+    let count = std::cmp::min(max_count as usize, STANDARD_KEY_RATE_TENORS.len());
+
+    for i in 0..count {
+        *tenors_out.add(i) = STANDARD_KEY_RATE_TENORS[i];
+    }
+
+    count as c_int
 }
 
 #[cfg(test)]

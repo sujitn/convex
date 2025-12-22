@@ -11,9 +11,12 @@ use libc::{c_char, c_double, c_int};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
-use convex_bonds::instruments::{CallableBond, FixedRateBond};
+use convex_bonds::instruments::{
+    CallableBond, Compounding, FloatingRateNote, FixedRateBond, ZeroCouponBond,
+};
 use convex_bonds::traits::{Bond, EmbeddedOptionBond};
 use convex_bonds::types::{CallEntry, CallSchedule, CallType};
+use convex_curves::multicurve::RateIndex;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
@@ -57,6 +60,37 @@ fn currency_from_ffi(ccy: c_int) -> Currency {
         5 => Currency::CAD,
         6 => Currency::AUD,
         _ => Currency::USD,
+    }
+}
+
+fn compounding_from_ffi(comp: c_int) -> Compounding {
+    match comp {
+        0 => Compounding::Annual,
+        1 => Compounding::SemiAnnual,
+        2 => Compounding::Quarterly,
+        3 => Compounding::Monthly,
+        4 => Compounding::Continuous,
+        _ => Compounding::SemiAnnual,
+    }
+}
+
+#[allow(deprecated)]
+fn rate_index_from_ffi(idx: c_int) -> RateIndex {
+    match idx {
+        0 => RateIndex::Sofr,
+        1 => RateIndex::Estr,
+        2 => RateIndex::Sonia,
+        3 => RateIndex::Tonar,
+        4 => RateIndex::Saron,
+        5 => RateIndex::Corra,
+        6 => RateIndex::Aonia,
+        7 => RateIndex::Honia,
+        8 => RateIndex::Euribor1M,
+        9 => RateIndex::Euribor3M,
+        10 => RateIndex::Euribor6M,
+        11 => RateIndex::Euribor12M,
+        12 => RateIndex::Tibor3M,
+        _ => RateIndex::Sofr,
     }
 }
 
@@ -842,6 +876,612 @@ pub unsafe extern "C" fn convex_bond_first_call_price(bond: Handle) -> c_double 
         b.first_call_date()
             .and_then(|d| b.call_price_on(d))
             .unwrap_or(f64::NAN)
+    })
+    .unwrap_or(f64::NAN)
+}
+
+// ============================================================================
+// Zero Coupon Bond Functions
+// ============================================================================
+
+/// Creates a zero coupon bond.
+///
+/// # Safety
+///
+/// - `isin` must be a valid null-terminated C string (can be null for unnamed bond).
+///
+/// # Arguments
+///
+/// * `isin` - ISIN or CUSIP identifier (null-terminated string or null)
+/// * `maturity_year/month/day` - Maturity date components
+/// * `issue_year/month/day` - Issue date components
+/// * `compounding` - Compounding convention (0=Annual, 1=Semi, 2=Quarterly, 3=Monthly, 4=Continuous)
+/// * `day_count` - Day count convention index
+/// * `currency` - Currency index
+/// * `face_value` - Face value (typically 100)
+///
+/// # Returns
+///
+/// Handle to the zero coupon bond, or INVALID_HANDLE on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_zero_coupon(
+    isin: *const c_char,
+    maturity_year: c_int,
+    maturity_month: c_int,
+    maturity_day: c_int,
+    issue_year: c_int,
+    issue_month: c_int,
+    issue_day: c_int,
+    compounding: c_int,
+    day_count: c_int,
+    currency: c_int,
+    face_value: c_double,
+) -> Handle {
+    // Parse maturity date
+    let maturity = match Date::from_ymd(maturity_year, maturity_month as u32, maturity_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid maturity date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse issue date
+    let issue = match Date::from_ymd(issue_year, issue_month as u32, issue_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid issue date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse identifier or generate a default one
+    let (mut builder, bond_name) = if !isin.is_null() {
+        match CStr::from_ptr(isin).to_str() {
+            Ok(s) if !s.is_empty() => {
+                let b = ZeroCouponBond::builder().cusip_unchecked(s);
+                (b, Some(s.to_string()))
+            }
+            _ => {
+                let synthetic_id = format!(
+                    "ZERO_{:08}",
+                    maturity_year * 10000 + maturity_month * 100 + maturity_day
+                );
+                let b = ZeroCouponBond::builder().cusip_unchecked(&synthetic_id);
+                (b, None)
+            }
+        }
+    } else {
+        let synthetic_id = format!(
+            "ZERO_{:08}",
+            maturity_year * 10000 + maturity_month * 100 + maturity_day
+        );
+        let b = ZeroCouponBond::builder().cusip_unchecked(&synthetic_id);
+        (b, None)
+    };
+
+    // Build the bond
+    builder = builder
+        .maturity(maturity)
+        .issue_date(issue)
+        .compounding(compounding_from_ffi(compounding))
+        .day_count(daycount_from_ffi(day_count))
+        .currency(currency_from_ffi(currency))
+        .face_value(Decimal::try_from(face_value).unwrap_or(Decimal::ONE_HUNDRED));
+
+    let bond = match builder.build() {
+        Ok(b) => b,
+        Err(e) => {
+            set_last_error(format!("Failed to build zero coupon bond: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    registry::register(bond, ObjectType::ZeroBond, bond_name)
+}
+
+/// Creates a US Treasury Bill (zero coupon bond with T-Bill conventions).
+///
+/// # Arguments
+///
+/// * `isin` - CUSIP/ISIN identifier (can be null)
+/// * `maturity_year/month/day` - Maturity date
+/// * `issue_year/month/day` - Issue date
+/// * `face_value` - Face value (typically 100)
+///
+/// # Returns
+///
+/// Handle to the T-Bill, or INVALID_HANDLE on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_us_tbill(
+    isin: *const c_char,
+    maturity_year: c_int,
+    maturity_month: c_int,
+    maturity_day: c_int,
+    issue_year: c_int,
+    issue_month: c_int,
+    issue_day: c_int,
+    face_value: c_double,
+) -> Handle {
+    // Parse maturity date
+    let maturity = match Date::from_ymd(maturity_year, maturity_month as u32, maturity_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid maturity date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse issue date
+    let issue = match Date::from_ymd(issue_year, issue_month as u32, issue_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid issue date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse identifier or generate a default one
+    let (builder, bond_name) = if !isin.is_null() {
+        match CStr::from_ptr(isin).to_str() {
+            Ok(s) if !s.is_empty() => {
+                let b = ZeroCouponBond::builder().cusip_unchecked(s);
+                (b, Some(s.to_string()))
+            }
+            _ => {
+                let synthetic_id = format!(
+                    "TBILL_{:08}",
+                    maturity_year * 10000 + maturity_month * 100 + maturity_day
+                );
+                let b = ZeroCouponBond::builder().cusip_unchecked(&synthetic_id);
+                (b, None)
+            }
+        }
+    } else {
+        let synthetic_id = format!(
+            "TBILL_{:08}",
+            maturity_year * 10000 + maturity_month * 100 + maturity_day
+        );
+        let b = ZeroCouponBond::builder().cusip_unchecked(&synthetic_id);
+        (b, None)
+    };
+
+    // Use T-Bill preset which applies appropriate conventions
+    let builder = builder
+        .us_treasury_bill()
+        .maturity(maturity)
+        .issue_date(issue)
+        .face_value(Decimal::try_from(face_value).unwrap_or(Decimal::ONE_HUNDRED));
+
+    let bond = match builder.build() {
+        Ok(b) => b,
+        Err(e) => {
+            set_last_error(format!("Failed to build T-Bill: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    registry::register(bond, ObjectType::ZeroBond, bond_name)
+}
+
+// ============================================================================
+// Floating Rate Note Functions
+// ============================================================================
+
+/// Creates a floating rate note (FRN).
+///
+/// # Safety
+///
+/// - `isin` must be a valid null-terminated C string (can be null for unnamed bond).
+///
+/// # Arguments
+///
+/// * `isin` - ISIN or CUSIP identifier (null-terminated string or null)
+/// * `spread_bps` - Spread over reference rate in basis points (e.g., 50 for 50bp)
+/// * `maturity_year/month/day` - Maturity date components
+/// * `issue_year/month/day` - Issue date components
+/// * `frequency` - Payment frequency (1=Annual, 2=Semi, 4=Quarterly, 12=Monthly)
+/// * `rate_index` - Reference rate index (0=SOFR, 1=ESTR, 2=SONIA, etc.)
+/// * `day_count` - Day count convention index
+/// * `currency` - Currency index
+/// * `face_value` - Face value (typically 100)
+/// * `cap_rate` - Interest rate cap (0 or negative for no cap), as decimal
+/// * `floor_rate` - Interest rate floor (0 or negative for no floor), as decimal
+///
+/// # Returns
+///
+/// Handle to the FRN, or INVALID_HANDLE on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_frn(
+    isin: *const c_char,
+    spread_bps: c_double,
+    maturity_year: c_int,
+    maturity_month: c_int,
+    maturity_day: c_int,
+    issue_year: c_int,
+    issue_month: c_int,
+    issue_day: c_int,
+    frequency: c_int,
+    rate_index: c_int,
+    day_count: c_int,
+    currency: c_int,
+    face_value: c_double,
+    cap_rate: c_double,
+    floor_rate: c_double,
+) -> Handle {
+    // Parse maturity date
+    let maturity = match Date::from_ymd(maturity_year, maturity_month as u32, maturity_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid maturity date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse issue date
+    let issue = match Date::from_ymd(issue_year, issue_month as u32, issue_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid issue date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse identifier or generate a default one
+    let (mut builder, bond_name) = if !isin.is_null() {
+        match CStr::from_ptr(isin).to_str() {
+            Ok(s) if !s.is_empty() => {
+                let b = FloatingRateNote::builder().cusip_unchecked(s);
+                (b, Some(s.to_string()))
+            }
+            _ => {
+                let synthetic_id = format!(
+                    "FRN_{:08}",
+                    maturity_year * 10000 + maturity_month * 100 + maturity_day
+                );
+                let b = FloatingRateNote::builder().cusip_unchecked(&synthetic_id);
+                (b, None)
+            }
+        }
+    } else {
+        let synthetic_id = format!(
+            "FRN_{:08}",
+            maturity_year * 10000 + maturity_month * 100 + maturity_day
+        );
+        let b = FloatingRateNote::builder().cusip_unchecked(&synthetic_id);
+        (b, None)
+    };
+
+    // Build the FRN (spread_bps is already in basis points)
+    let spread_int = spread_bps as i32;
+
+    builder = builder
+        .index(rate_index_from_ffi(rate_index))
+        .spread_bps(spread_int)
+        .maturity(maturity)
+        .issue_date(issue)
+        .frequency(frequency_from_ffi(frequency))
+        .day_count(daycount_from_ffi(day_count))
+        .currency(currency_from_ffi(currency))
+        .face_value(Decimal::try_from(face_value).unwrap_or(Decimal::ONE_HUNDRED));
+
+    // Apply cap if specified
+    if cap_rate > 0.0 {
+        if let Ok(cap) = Decimal::try_from(cap_rate) {
+            builder = builder.cap(cap);
+        }
+    }
+
+    // Apply floor if specified
+    if floor_rate > 0.0 {
+        if let Ok(floor) = Decimal::try_from(floor_rate) {
+            builder = builder.floor(floor);
+        }
+    }
+
+    let bond = match builder.build() {
+        Ok(b) => b,
+        Err(e) => {
+            set_last_error(format!("Failed to build FRN: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    registry::register(bond, ObjectType::FloatingRateNote, bond_name)
+}
+
+/// Creates a US Treasury Floating Rate Note.
+///
+/// Applies standard US Treasury FRN conventions:
+/// - SOFR index
+/// - ACT/360 day count
+/// - Weekly reset
+/// - USD currency
+///
+/// # Arguments
+///
+/// * `isin` - CUSIP/ISIN identifier (can be null)
+/// * `spread_bps` - Spread over SOFR in basis points
+/// * `maturity_year/month/day` - Maturity date
+/// * `issue_year/month/day` - Issue date
+///
+/// # Returns
+///
+/// Handle to the Treasury FRN, or INVALID_HANDLE on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_us_treasury_frn(
+    isin: *const c_char,
+    spread_bps: c_double,
+    maturity_year: c_int,
+    maturity_month: c_int,
+    maturity_day: c_int,
+    issue_year: c_int,
+    issue_month: c_int,
+    issue_day: c_int,
+) -> Handle {
+    // Parse maturity date
+    let maturity = match Date::from_ymd(maturity_year, maturity_month as u32, maturity_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid maturity date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse issue date
+    let issue = match Date::from_ymd(issue_year, issue_month as u32, issue_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid issue date: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    // Parse identifier or generate a default one
+    let (builder, bond_name) = if !isin.is_null() {
+        match CStr::from_ptr(isin).to_str() {
+            Ok(s) if !s.is_empty() => {
+                let b = FloatingRateNote::builder().cusip_unchecked(s);
+                (b, Some(s.to_string()))
+            }
+            _ => {
+                let synthetic_id = format!(
+                    "TSYFRN_{:08}",
+                    maturity_year * 10000 + maturity_month * 100 + maturity_day
+                );
+                let b = FloatingRateNote::builder().cusip_unchecked(&synthetic_id);
+                (b, None)
+            }
+        }
+    } else {
+        let synthetic_id = format!(
+            "TSYFRN_{:08}",
+            maturity_year * 10000 + maturity_month * 100 + maturity_day
+        );
+        let b = FloatingRateNote::builder().cusip_unchecked(&synthetic_id);
+        (b, None)
+    };
+
+    // Use Treasury FRN preset (spread_bps is already in basis points)
+    let spread_int = spread_bps as i32;
+
+    let builder = builder
+        .us_treasury_frn()
+        .spread_bps(spread_int)
+        .maturity(maturity)
+        .issue_date(issue);
+
+    let bond = match builder.build() {
+        Ok(b) => b,
+        Err(e) => {
+            set_last_error(format!("Failed to build Treasury FRN: {}", e));
+            return INVALID_HANDLE;
+        }
+    };
+
+    registry::register(bond, ObjectType::FloatingRateNote, bond_name)
+}
+
+// ============================================================================
+// Callable Bond Advanced Functions
+// ============================================================================
+
+/// Calculates yield to worst for a callable bond.
+///
+/// Yield to worst is the minimum of yield to maturity and yield to each call date.
+///
+/// # Arguments
+///
+/// * `bond` - Callable bond handle
+/// * `settle_year/month/day` - Settlement date
+/// * `clean_price` - Clean price per 100 face value
+/// * `yield_out` - Output pointer for YTW as decimal (e.g., 0.05 for 5%)
+/// * `date_out` - Output pointer for workout date as YYYYMMDD integer
+/// * `price_out` - Output pointer for redemption price
+///
+/// # Returns
+///
+/// CONVEX_OK on success, error code on failure.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_yield_to_worst(
+    bond: Handle,
+    settle_year: c_int,
+    settle_month: c_int,
+    settle_day: c_int,
+    clean_price: c_double,
+    yield_out: *mut c_double,
+    date_out: *mut c_int,
+    price_out: *mut c_double,
+) -> c_int {
+    if yield_out.is_null() || date_out.is_null() || price_out.is_null() {
+        set_last_error("Null pointer for output");
+        return CONVEX_ERROR_NULL_PTR;
+    }
+
+    let settlement = match Date::from_ymd(settle_year, settle_month as u32, settle_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid settlement date: {}", e));
+            return CONVEX_ERROR_INVALID_ARG;
+        }
+    };
+
+    if clean_price <= 0.0 {
+        set_last_error("Price must be positive");
+        return CONVEX_ERROR_INVALID_ARG;
+    }
+
+    let price_decimal = Decimal::try_from(clean_price).unwrap_or(Decimal::ZERO);
+
+    let result = registry::with_object::<CallableBond, _, _>(bond, |b| {
+        match b.yield_to_worst_with_date(price_decimal, settlement) {
+            Ok((ytw, workout_date)) => {
+                // Get the redemption price for the workout date
+                let redemption_price = if workout_date == b.base_bond().maturity().unwrap_or(workout_date) {
+                    b.base_bond().face_value().to_f64().unwrap_or(100.0)
+                } else {
+                    b.call_price_on(workout_date).unwrap_or(100.0)
+                };
+                Ok((ytw.to_f64().unwrap_or(f64::NAN), date_to_int(workout_date), redemption_price))
+            }
+            Err(e) => Err(format!("YTW calculation failed: {}", e)),
+        }
+    });
+
+    match result {
+        Some(Ok((ytw, date, price))) => {
+            *yield_out = ytw;
+            *date_out = date;
+            *price_out = price;
+            CONVEX_OK
+        }
+        Some(Err(e)) => {
+            set_last_error(e);
+            CONVEX_ERROR_INVALID_ARG
+        }
+        None => {
+            set_last_error("Invalid callable bond handle");
+            CONVEX_ERROR_INVALID_ARG
+        }
+    }
+}
+
+/// Checks if a bond is callable on a specific date.
+///
+/// # Arguments
+///
+/// * `bond` - Callable bond handle
+/// * `date_year/month/day` - Date to check
+///
+/// # Returns
+///
+/// 1 if callable on date, 0 if not callable, -1 on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_is_callable_on(
+    bond: Handle,
+    date_year: c_int,
+    date_month: c_int,
+    date_day: c_int,
+) -> c_int {
+    let date = match Date::from_ymd(date_year, date_month as u32, date_day as u32) {
+        Ok(d) => d,
+        Err(_) => return -1,
+    };
+
+    registry::with_object::<CallableBond, _, _>(bond, |b| {
+        if b.is_callable_on(date) { 1 } else { 0 }
+    })
+    .unwrap_or(-1)
+}
+
+/// Gets the number of call schedule entries for a callable bond.
+///
+/// # Returns
+///
+/// Number of call entries, or -1 on error.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_call_schedule_count(bond: Handle) -> c_int {
+    registry::with_object::<CallableBond, _, _>(bond, |b| {
+        b.call_schedule()
+            .map(|s| s.entries.len() as c_int)
+            .unwrap_or(0)
+    })
+    .unwrap_or(-1)
+}
+
+/// Gets a specific call schedule entry.
+///
+/// # Arguments
+///
+/// * `bond` - Callable bond handle
+/// * `index` - Entry index (0-based)
+/// * `date_out` - Output pointer for call date as YYYYMMDD integer
+/// * `price_out` - Output pointer for call price
+///
+/// # Returns
+///
+/// CONVEX_OK on success, error code on failure.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_call_schedule_entry(
+    bond: Handle,
+    index: c_int,
+    date_out: *mut c_int,
+    price_out: *mut c_double,
+) -> c_int {
+    if date_out.is_null() || price_out.is_null() {
+        set_last_error("Null pointer for output");
+        return CONVEX_ERROR_NULL_PTR;
+    }
+
+    let result = registry::with_object::<CallableBond, _, _>(bond, |b| {
+        let schedule = b.call_schedule().ok_or("No call schedule")?;
+        let entries = &schedule.entries;
+        if index < 0 || index as usize >= entries.len() {
+            return Err("Index out of bounds");
+        }
+        let entry = &entries[index as usize];
+        Ok((date_to_int(entry.start_date), entry.call_price))
+    });
+
+    match result {
+        Some(Ok((date, price))) => {
+            *date_out = date;
+            *price_out = price;
+            CONVEX_OK
+        }
+        Some(Err(e)) => {
+            set_last_error(e);
+            CONVEX_ERROR_INVALID_ARG
+        }
+        None => {
+            set_last_error("Invalid callable bond handle");
+            CONVEX_ERROR_INVALID_ARG
+        }
+    }
+}
+
+/// Gets the call price on a specific date.
+///
+/// # Returns
+///
+/// Call price as percentage of par, or NaN if not callable on that date.
+#[no_mangle]
+pub unsafe extern "C" fn convex_bond_call_price_on(
+    bond: Handle,
+    date_year: c_int,
+    date_month: c_int,
+    date_day: c_int,
+) -> c_double {
+    let date = match Date::from_ymd(date_year, date_month as u32, date_day as u32) {
+        Ok(d) => d,
+        Err(e) => {
+            set_last_error(format!("Invalid date: {}", e));
+            return f64::NAN;
+        }
+    };
+
+    registry::with_object::<CallableBond, _, _>(bond, |b| {
+        b.call_price_on(date).unwrap_or(f64::NAN)
     })
     .unwrap_or(f64::NAN)
 }
