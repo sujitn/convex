@@ -1,0 +1,58 @@
+# Convex Portfolio - Portfolio and ETF Analytics Module
+#
+# This crate provides portfolio-level analytics for fixed income portfolios:
+# - NAV and iNAV calculation
+# - Weighted average yields, duration, spreads
+# - Key rate duration profiles
+# - Risk contribution analysis
+# - Benchmark comparison and tracking
+# - ETF-specific analytics
+#
+# Design Philosophy: Pure functions only - all inputs explicit, no I/O or caching.
+
+[package]
+name = "convex-portfolio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["finance", "portfolio", "fixed-income", "etf", "analytics"]
+categories = ["finance", "mathematics"]
+description = "Portfolio and ETF analytics for fixed income securities"
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-bonds = { workspace = true }
+convex-analytics = { workspace = true }
+convex-curves = { workspace = true }
+
+# Core dependencies
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+
+# Optional parallel processing
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+# Enable parallel processing with rayon for large portfolios
+# Uses config-driven thresholds (default: >100 holdings)
+parallel = ["dep:rayon"]
+
+# Benchmarks will be added in Phase 8
+# [[bench]]
+# name = "portfolio_benchmarks"
+# harness = false
