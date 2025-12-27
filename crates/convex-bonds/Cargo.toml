@@ -35,6 +35,7 @@ once_cell = { workspace = true }
 approx = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
 default = []

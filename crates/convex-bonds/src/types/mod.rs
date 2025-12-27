@@ -15,6 +15,9 @@
 //! - [`StubPeriodRules`]: Irregular coupon period handling
 //! - [`ExDividendRules`]: Ex-dividend period rules
 //! - [`SettlementRules`]: Settlement date calculation rules
+//! - [`CreditRating`], [`RatingBucket`]: Credit rating classifications
+//! - [`Sector`]: Issuer sector classification
+//! - [`Seniority`]: Capital structure position
 
 mod amortization;
 mod bond_type;
@@ -24,6 +27,9 @@ mod identifiers;
 mod options;
 mod price_quote;
 mod rate_index;
+mod rating;
+mod sector;
+mod seniority;
 mod settlement_rules;
 mod stub_rules;
 mod yield_convention;
@@ -37,6 +43,9 @@ pub use identifiers::{BondIdentifiers, CalendarId, Cusip, Figi, Isin, Sedol};
 pub use options::{CallEntry, CallSchedule, CallType, PutEntry, PutSchedule, PutType};
 pub use price_quote::{PriceQuote, PriceQuoteConvention};
 pub use rate_index::{InflationIndexType, RateIndex, SOFRConvention, Tenor};
+pub use rating::{CreditRating, RatingBucket};
+pub use sector::Sector;
+pub use seniority::Seniority;
 pub use settlement_rules::{SettlementAdjustment, SettlementRules, SettlementType};
 pub use stub_rules::{ReferenceMethod, StubPeriodRules, StubPosition, StubType};
 pub use yield_convention::{AccruedConvention, RoundingConvention, YieldConvention};

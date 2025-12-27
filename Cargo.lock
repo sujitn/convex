@@ -520,6 +520,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
+ "serde_json",
  "thiserror 2.0.17",
  "uuid",
 ]
@@ -617,6 +618,26 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "convex-portfolio"
+version = "0.10.32"
+dependencies = [
+ "approx",
+ "chrono",
+ "convex-analytics",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+ "criterion",
+ "proptest",
+ "rayon",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
