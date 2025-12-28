@@ -1,0 +1,32 @@
+[package]
+name = "convex-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python bindings for the Convex fixed income analytics library"
+keywords = ["finance", "bonds", "fixed-income", "python", "pyo3"]
+categories = ["finance", "api-bindings"]
+rust-version.workspace = true
+
+[lib]
+name = "convex"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Core Convex crates
+convex-core = { workspace = true }
+convex-bonds = { workspace = true }
+
+# PyO3 for Python bindings
+pyo3 = { workspace = true }
+
+# Decimal conversion
+rust_decimal = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+[build-dependencies]
+pyo3-build-config = "0.22"

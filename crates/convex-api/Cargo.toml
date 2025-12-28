@@ -1,0 +1,57 @@
+[package]
+name = "convex-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "REST API server for Convex fixed income analytics"
+keywords = ["finance", "bonds", "fixed-income", "api", "rest"]
+categories = ["finance", "web-programming"]
+
+[[bin]]
+name = "convex-api-server"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-curves = { workspace = true }
+convex-bonds = { workspace = true }
+convex-analytics = { workspace = true }
+
+# Web framework
+axum = { version = "0.8", features = ["json", "macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# OpenAPI documentation
+utoipa = { version = "5", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "8", features = ["axum"] }
+
+# Math
+rust_decimal = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Utilities
+chrono = { workspace = true }
+
+[dev-dependencies]
+axum-test = "16"
