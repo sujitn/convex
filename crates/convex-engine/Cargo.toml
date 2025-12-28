@@ -1,0 +1,66 @@
+[package]
+name = "convex-engine"
+description = "Stateful pricing engine with calculation graph for Convex fixed income analytics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "pricing", "real-time", "calculation-graph"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-bonds = { workspace = true }
+convex-curves = { workspace = true }
+convex-analytics = { workspace = true }
+convex-storage = { workspace = true }
+convex-config = { workspace = true }
+
+# Async runtime
+tokio = { version = "1.42", features = ["rt-multi-thread", "sync", "time", "macros"] }
+async-trait = "0.1"
+
+# Concurrency
+dashmap = "6"
+parking_lot = "0.12"
+crossbeam = { version = "0.8", features = ["crossbeam-channel", "crossbeam-queue"] }
+
+# Graph data structures
+petgraph = { version = "0.7", features = ["serde-1"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Date/time
+chrono = { workspace = true }
+
+# Decimal arithmetic
+rust_decimal = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Observability
+tracing = "0.1"
+
+# Utilities
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+proptest = { workspace = true }
+rust_decimal_macros = { workspace = true }
+criterion = { workspace = true }
+tempfile = "3.14"
+
+[features]
+default = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -11,10 +11,13 @@ members = [
     "crates/convex-portfolio",
     "crates/convex-storage",
     "crates/convex-config",
+    "crates/convex-engine",
     "crates/convex-cli",
+    "crates/convex-api",
     "crates/convex-ffi",
     "crates/convex-wasm",
     "crates/convex-mcp",
+    "crates/convex-py",
 ]
 # Note: convex-spreads has been absorbed into convex-analytics
 
@@ -41,7 +44,9 @@ convex-analytics = { path = "crates/convex-analytics", version = "0.10.32" }
 convex-portfolio = { path = "crates/convex-portfolio", version = "0.10.32" }
 convex-storage = { path = "crates/convex-storage", version = "0.10.32" }
 convex-config = { path = "crates/convex-config", version = "0.10.32" }
+convex-engine = { path = "crates/convex-engine", version = "0.10.32" }
 convex-cli = { path = "crates/convex-cli", version = "0.10.32" }
+convex-api = { path = "crates/convex-api", version = "0.10.32" }
 convex-ffi = { path = "crates/convex-ffi", version = "0.10.32" }
 convex-wasm = { path = "crates/convex-wasm", version = "0.10.32" }
 
@@ -76,6 +81,9 @@ proptest = "1.4"
 # FFI dependencies
 cbindgen = "0.29"
 libc = "0.2"
+
+# Python bindings
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
 
 [profile.dev]
 opt-level = 1  # Basic optimizations for faster dev builds
