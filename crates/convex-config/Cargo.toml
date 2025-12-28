@@ -1,0 +1,44 @@
+[package]
+name = "convex-config"
+description = "Configuration management for the Convex fixed income analytics library"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "configuration", "pricing"]
+categories = ["finance", "config"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+convex-storage = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Date/time
+chrono = { workspace = true }
+
+# Decimal arithmetic
+rust_decimal = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.14"
+proptest = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+[features]
+default = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -9,6 +9,9 @@ members = [
     "crates/convex-bonds",
     "crates/convex-analytics",
     "crates/convex-portfolio",
+    "crates/convex-storage",
+    "crates/convex-config",
+    "crates/convex-cli",
     "crates/convex-ffi",
     "crates/convex-wasm",
     "crates/convex-mcp",
@@ -36,6 +39,9 @@ convex-curves = { path = "crates/convex-curves", version = "0.10.32" }
 convex-bonds = { path = "crates/convex-bonds", version = "0.10.32" }
 convex-analytics = { path = "crates/convex-analytics", version = "0.10.32" }
 convex-portfolio = { path = "crates/convex-portfolio", version = "0.10.32" }
+convex-storage = { path = "crates/convex-storage", version = "0.10.32" }
+convex-config = { path = "crates/convex-config", version = "0.10.32" }
+convex-cli = { path = "crates/convex-cli", version = "0.10.32" }
 convex-ffi = { path = "crates/convex-ffi", version = "0.10.32" }
 convex-wasm = { path = "crates/convex-wasm", version = "0.10.32" }
 
