@@ -5,9 +5,11 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use convex_analytics::spreads::{i_spread, z_spread};
 use convex_bonds::traits::{Bond, BondAnalytics, FixedCouponBond};
 use convex_bonds::types::BondIdentifiers;
 use convex_bonds::FixedRateBond;
+use convex_core::types::{Compounding, Yield};
 use rust_decimal::Decimal;
 
 use crate::dto::{
@@ -288,28 +290,73 @@ pub async fn spreads(
     Json(req): Json<SpreadRequest>,
 ) -> ApiResult<Json<SpreadResponse>> {
     let bonds = state.bonds.read().unwrap();
-    let _stored = bonds
+    let stored = bonds
         .get(&id)
         .ok_or_else(|| ApiError::NotFound(format!("Bond '{}' not found", id)))?;
 
     let curves = state.curves.read().unwrap();
-    let _curve = curves
+    let curve = curves
         .get(&req.curve_id)
         .ok_or_else(|| ApiError::NotFound(format!("Curve '{}' not found", req.curve_id)))?;
 
     let settlement = req.settlement.to_date()?;
 
-    // TODO: Implement actual spread calculations using convex-analytics
-    // For now, return placeholder response
-    Ok(Json(SpreadResponse {
-        bond_id: id,
-        curve_id: req.curve_id,
-        settlement: settlement.to_string(),
-        clean_price: req.clean_price,
-        z_spread_bps: Some(50.0), // Placeholder
-        i_spread_bps: Some(45.0), // Placeholder
-        g_spread_bps: Some(55.0), // Placeholder
-    }))
+    match stored {
+        StoredBond::Fixed(bond) => {
+            let frequency = bond.frequency();
+
+            // Calculate dirty price from clean price
+            let price_decimal = Decimal::from_f64_retain(req.clean_price)
+                .ok_or_else(|| ApiError::Validation("Invalid price".to_string()))?;
+            let accrued = bond.accrued_interest(settlement);
+            let accrued_f64: f64 = accrued.try_into().unwrap_or(0.0);
+            let dirty_price_f64 = req.clean_price + accrued_f64;
+            let dirty_price = Decimal::from_f64_retain(dirty_price_f64)
+                .ok_or_else(|| ApiError::Validation("Invalid dirty price".to_string()))?;
+
+            // Calculate YTM from price (needed for I-spread)
+            let ytm_result = bond.yield_to_maturity(settlement, price_decimal, frequency)?;
+            let ytm = ytm_result.yield_value;
+
+            // Calculate Z-spread
+            // RateCurve<T> implements RateCurveDyn, so we can use it directly
+            let z_spread_result = z_spread(bond, dirty_price, curve, settlement);
+            let z_spread_bps = z_spread_result.ok().map(|s| {
+                s.as_decimal()
+                    .try_into()
+                    .unwrap_or(0.0)
+            });
+
+            // Calculate I-spread (need to create a Yield type)
+            let bond_yield = Yield::new(
+                Decimal::from_f64_retain(ytm).unwrap_or_default(),
+                Compounding::SemiAnnual,
+            );
+            let i_spread_result = i_spread(bond, bond_yield, curve, settlement);
+            let i_spread_bps = i_spread_result.ok().map(|s| {
+                s.as_decimal()
+                    .try_into()
+                    .unwrap_or(0.0)
+            });
+
+            // G-spread requires GovernmentCurve type which has benchmark bonds
+            // For now, return None - would need separate government curve setup
+            let g_spread_bps: Option<f64> = None;
+
+            Ok(Json(SpreadResponse {
+                bond_id: id,
+                curve_id: req.curve_id,
+                settlement: settlement.to_string(),
+                clean_price: req.clean_price,
+                z_spread_bps,
+                i_spread_bps,
+                g_spread_bps,
+            }))
+        }
+        _ => Err(ApiError::BadRequest(
+            "Spread calculations only supported for fixed rate bonds".to_string(),
+        )),
+    }
 }
 
 /// Convert stored bond to response.
