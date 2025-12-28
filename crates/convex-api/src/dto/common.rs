@@ -135,3 +135,146 @@ impl From<DayCountCode> for DayCountConvention {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_date_input_to_date_valid() {
+        let input = DateInput {
+            year: 2025,
+            month: 12,
+            day: 15,
+        };
+        let date = input.to_date().unwrap();
+        assert_eq!(date.year(), 2025);
+        assert_eq!(date.month(), 12);
+        assert_eq!(date.day(), 15);
+    }
+
+    #[test]
+    fn test_date_input_to_date_invalid() {
+        let input = DateInput {
+            year: 2025,
+            month: 13,
+            day: 1,
+        };
+        assert!(input.to_date().is_err());
+    }
+
+    #[test]
+    fn test_date_input_from_date() {
+        let date = Date::from_ymd(2025, 6, 20).unwrap();
+        let input: DateInput = date.into();
+        assert_eq!(input.year, 2025);
+        assert_eq!(input.month, 6);
+        assert_eq!(input.day, 20);
+    }
+
+    #[test]
+    fn test_currency_code_conversions() {
+        assert!(matches!(Currency::from(CurrencyCode::Usd), Currency::USD));
+        assert!(matches!(Currency::from(CurrencyCode::Eur), Currency::EUR));
+        assert!(matches!(Currency::from(CurrencyCode::Gbp), Currency::GBP));
+        assert!(matches!(Currency::from(CurrencyCode::Jpy), Currency::JPY));
+        assert!(matches!(Currency::from(CurrencyCode::Chf), Currency::CHF));
+        assert!(matches!(Currency::from(CurrencyCode::Cad), Currency::CAD));
+        assert!(matches!(Currency::from(CurrencyCode::Aud), Currency::AUD));
+    }
+
+    #[test]
+    fn test_currency_code_from_currency() {
+        assert!(matches!(CurrencyCode::from(Currency::USD), CurrencyCode::Usd));
+        assert!(matches!(CurrencyCode::from(Currency::EUR), CurrencyCode::Eur));
+        assert!(matches!(CurrencyCode::from(Currency::GBP), CurrencyCode::Gbp));
+    }
+
+    #[test]
+    fn test_frequency_code_conversions() {
+        assert!(matches!(
+            Frequency::from(FrequencyCode::Annual),
+            Frequency::Annual
+        ));
+        assert!(matches!(
+            Frequency::from(FrequencyCode::SemiAnnual),
+            Frequency::SemiAnnual
+        ));
+        assert!(matches!(
+            Frequency::from(FrequencyCode::Quarterly),
+            Frequency::Quarterly
+        ));
+        assert!(matches!(
+            Frequency::from(FrequencyCode::Monthly),
+            Frequency::Monthly
+        ));
+    }
+
+    #[test]
+    fn test_frequency_code_from_frequency() {
+        assert!(matches!(
+            FrequencyCode::from(Frequency::Annual),
+            FrequencyCode::Annual
+        ));
+        assert!(matches!(
+            FrequencyCode::from(Frequency::SemiAnnual),
+            FrequencyCode::SemiAnnual
+        ));
+    }
+
+    #[test]
+    fn test_day_count_code_conversions() {
+        assert!(matches!(
+            DayCountConvention::from(DayCountCode::Act360),
+            DayCountConvention::Act360
+        ));
+        assert!(matches!(
+            DayCountConvention::from(DayCountCode::Act365Fixed),
+            DayCountConvention::Act365Fixed
+        ));
+        assert!(matches!(
+            DayCountConvention::from(DayCountCode::Thirty360Us),
+            DayCountConvention::Thirty360US
+        ));
+    }
+
+    #[test]
+    fn test_default_currency_code() {
+        let default = CurrencyCode::default();
+        assert!(matches!(default, CurrencyCode::Usd));
+    }
+
+    #[test]
+    fn test_default_frequency_code() {
+        let default = FrequencyCode::default();
+        assert!(matches!(default, FrequencyCode::SemiAnnual));
+    }
+
+    #[test]
+    fn test_default_day_count_code() {
+        let default = DayCountCode::default();
+        assert!(matches!(default, DayCountCode::Thirty360Us));
+    }
+
+    #[test]
+    fn test_date_input_serialization() {
+        let input = DateInput {
+            year: 2025,
+            month: 12,
+            day: 15,
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("2025"));
+        assert!(json.contains("12"));
+        assert!(json.contains("15"));
+    }
+
+    #[test]
+    fn test_date_input_deserialization() {
+        let json = r#"{"year": 2025, "month": 6, "day": 15}"#;
+        let input: DateInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.year, 2025);
+        assert_eq!(input.month, 6);
+        assert_eq!(input.day, 15);
+    }
+}

@@ -95,3 +95,74 @@ impl From<convex_core::ConvexError> for ApiError {
 
 /// Result type for API operations.
 pub type ApiResult<T> = Result<T, ApiError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+
+    #[test]
+    fn test_api_error_not_found() {
+        let err = ApiError::NotFound("Bond 'XYZ' not found".to_string());
+        assert!(err.to_string().contains("Bond 'XYZ' not found"));
+    }
+
+    #[test]
+    fn test_api_error_bad_request() {
+        let err = ApiError::BadRequest("Invalid coupon".to_string());
+        assert!(err.to_string().contains("Invalid coupon"));
+    }
+
+    #[test]
+    fn test_api_error_validation() {
+        let err = ApiError::Validation("Date out of range".to_string());
+        assert!(err.to_string().contains("Date out of range"));
+    }
+
+    #[test]
+    fn test_api_error_calculation_failed() {
+        let err = ApiError::CalculationFailed("Convergence failed".to_string());
+        assert!(err.to_string().contains("Convergence failed"));
+    }
+
+    #[test]
+    fn test_api_error_internal() {
+        let err = ApiError::Internal("Database error".to_string());
+        assert!(err.to_string().contains("Database error"));
+    }
+
+    #[tokio::test]
+    async fn test_not_found_response_status() {
+        let err = ApiError::NotFound("Test".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_response_status() {
+        let err = ApiError::BadRequest("Test".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_validation_response_status() {
+        let err = ApiError::Validation("Test".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_calculation_failed_response_status() {
+        let err = ApiError::CalculationFailed("Test".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn test_internal_response_status() {
+        let err = ApiError::Internal("Test".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+}

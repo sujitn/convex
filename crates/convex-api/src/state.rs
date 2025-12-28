@@ -182,3 +182,117 @@ impl Default for AppState {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_state_is_empty() {
+        let state = AppState::new();
+        assert!(state.bonds.read().unwrap().is_empty());
+        assert!(state.curves.read().unwrap().is_empty());
+        assert!(!state.demo_mode);
+    }
+
+    #[test]
+    fn test_demo_mode_loads_data() {
+        let state = AppState::with_demo_mode();
+        assert!(state.demo_mode);
+
+        // Should have demo bonds
+        let bonds = state.bonds.read().unwrap();
+        assert!(bonds.len() >= 4);
+        assert!(bonds.contains_key("UST.10Y"));
+        assert!(bonds.contains_key("UST.5Y"));
+        assert!(bonds.contains_key("CORP.AAPL"));
+        assert!(bonds.contains_key("CORP.MSFT"));
+
+        // Should have demo curves
+        let curves = state.curves.read().unwrap();
+        assert!(curves.len() >= 2);
+        assert!(curves.contains_key("UST"));
+        assert!(curves.contains_key("SOFR"));
+    }
+
+    #[test]
+    fn test_stored_bond_type_names() {
+        use convex_bonds::types::BondIdentifiers;
+        use convex_bonds::FixedRateBond;
+        use convex_core::types::{Date, Frequency};
+        use rust_decimal::Decimal;
+
+        let bond = FixedRateBond::builder()
+            .identifiers(BondIdentifiers::new())
+            .coupon_rate(Decimal::new(5, 2))
+            .maturity(Date::from_ymd(2030, 1, 15).unwrap())
+            .issue_date(Date::from_ymd(2020, 1, 15).unwrap())
+            .frequency(Frequency::SemiAnnual)
+            .us_treasury()
+            .build()
+            .unwrap();
+
+        let stored = StoredBond::Fixed(bond);
+        assert_eq!(stored.type_name(), "Fixed Rate");
+    }
+
+    #[test]
+    fn test_default_equals_new() {
+        let default_state = AppState::default();
+        let new_state = AppState::new();
+
+        assert_eq!(default_state.demo_mode, new_state.demo_mode);
+        assert!(default_state.bonds.read().unwrap().is_empty());
+        assert!(default_state.curves.read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_state_is_clone() {
+        let state = AppState::with_demo_mode();
+        let cloned = state.clone();
+
+        assert_eq!(cloned.demo_mode, state.demo_mode);
+        assert_eq!(
+            cloned.bonds.read().unwrap().len(),
+            state.bonds.read().unwrap().len()
+        );
+    }
+
+    #[test]
+    fn test_state_concurrent_access() {
+        use std::thread;
+
+        let state = AppState::new();
+        let state_clone = state.clone();
+
+        // Spawn a thread to write
+        let handle = thread::spawn(move || {
+            use convex_bonds::types::BondIdentifiers;
+            use convex_bonds::FixedRateBond;
+            use convex_core::types::{Date, Frequency};
+            use rust_decimal::Decimal;
+
+            let bond = FixedRateBond::builder()
+                .identifiers(BondIdentifiers::new())
+                .coupon_rate(Decimal::new(5, 2))
+                .maturity(Date::from_ymd(2030, 1, 15).unwrap())
+                .issue_date(Date::from_ymd(2020, 1, 15).unwrap())
+                .frequency(Frequency::SemiAnnual)
+                .us_treasury()
+                .build()
+                .unwrap();
+
+            state_clone
+                .bonds
+                .write()
+                .unwrap()
+                .insert("TEST".to_string(), StoredBond::Fixed(bond));
+        });
+
+        handle.join().unwrap();
+
+        // Should be able to read the inserted bond
+        let bonds = state.bonds.read().unwrap();
+        assert!(bonds.contains_key("TEST"));
+    }
+}

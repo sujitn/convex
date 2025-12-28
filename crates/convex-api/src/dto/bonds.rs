@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 use super::common::{CurrencyCode, DateInput, DayCountCode, FrequencyCode};
 
 /// Request to create a fixed rate bond.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateBondRequest {
     /// Unique bond identifier.
     pub id: String,
@@ -42,7 +42,7 @@ fn default_face_value() -> f64 {
 }
 
 /// Bond summary response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BondResponse {
     pub id: String,
     pub bond_type: String,
@@ -55,14 +55,14 @@ pub struct BondResponse {
 }
 
 /// List of bonds response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BondListResponse {
     pub bonds: Vec<BondResponse>,
     pub count: usize,
 }
 
 /// Request to calculate yield from price.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CalculateYieldRequest {
     /// Settlement date.
     pub settlement: DateInput,
@@ -72,7 +72,7 @@ pub struct CalculateYieldRequest {
 }
 
 /// Yield calculation response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct YieldResponse {
     pub bond_id: String,
     pub settlement: String,
@@ -83,7 +83,7 @@ pub struct YieldResponse {
 }
 
 /// Request to calculate price from yield.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CalculatePriceRequest {
     /// Settlement date.
     pub settlement: DateInput,
@@ -93,7 +93,7 @@ pub struct CalculatePriceRequest {
 }
 
 /// Price calculation response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PriceResponse {
     pub bond_id: String,
     pub settlement: String,
@@ -104,7 +104,7 @@ pub struct PriceResponse {
 }
 
 /// Request for bond analytics.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AnalyticsRequest {
     /// Settlement date.
     pub settlement: DateInput,
@@ -117,7 +117,7 @@ pub struct AnalyticsRequest {
 }
 
 /// Bond analytics response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AnalyticsResponse {
     pub bond_id: String,
     pub settlement: String,
@@ -132,7 +132,7 @@ pub struct AnalyticsResponse {
 }
 
 /// Cashflow entry.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CashflowEntry {
     pub date: String,
     pub amount: f64,
@@ -140,7 +140,7 @@ pub struct CashflowEntry {
 }
 
 /// Cashflow response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CashflowResponse {
     pub bond_id: String,
     pub settlement: String,
@@ -148,7 +148,7 @@ pub struct CashflowResponse {
 }
 
 /// Request for spread calculation.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SpreadRequest {
     /// Curve ID to use as benchmark.
     pub curve_id: String,
@@ -161,7 +161,7 @@ pub struct SpreadRequest {
 }
 
 /// Spread calculation response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SpreadResponse {
     pub bond_id: String,
     pub curve_id: String,

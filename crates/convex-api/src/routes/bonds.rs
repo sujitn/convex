@@ -252,8 +252,8 @@ pub async fn cashflows(
     let today = chrono::Utc::now().date_naive();
     let settlement = convex_core::types::Date::from_ymd(
         today.year(),
-        today.month() as u32,
-        today.day() as u32,
+        today.month(),
+        today.day(),
     )
     .map_err(|e| ApiError::Internal(e.to_string()))?;
 
@@ -360,3 +360,372 @@ fn bond_to_response(id: &str, bond: &StoredBond) -> BondResponse {
 
 // Needed for chrono date parsing
 use chrono::Datelike;
+
+#[cfg(test)]
+mod tests {
+    use axum_test::TestServer;
+
+    use crate::dto::*;
+    use crate::server::create_router;
+    use crate::state::AppState;
+
+    fn create_test_server() -> TestServer {
+        let state = AppState::with_demo_mode();
+        let router = create_router(state);
+        TestServer::new(router).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_list_bonds_empty() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let response = server.get("/api/v1/bonds").await;
+        response.assert_status_ok();
+
+        let body: BondListResponse = response.json();
+        assert_eq!(body.count, 0);
+        assert!(body.bonds.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_bonds_with_demo_data() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/bonds").await;
+        response.assert_status_ok();
+
+        let body: BondListResponse = response.json();
+        assert!(body.count >= 4);
+        assert!(body.bonds.iter().any(|b| b.id == "UST.10Y"));
+        assert!(body.bonds.iter().any(|b| b.id == "UST.5Y"));
+    }
+
+    #[tokio::test]
+    async fn test_create_bond() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = CreateBondRequest {
+            id: "TEST.BOND".to_string(),
+            coupon_rate: 5.0,
+            maturity: DateInput {
+                year: 2030,
+                month: 6,
+                day: 15,
+            },
+            issue_date: DateInput {
+                year: 2020,
+                month: 6,
+                day: 15,
+            },
+            frequency: FrequencyCode::SemiAnnual,
+            day_count: DayCountCode::Thirty360Us,
+            currency: CurrencyCode::Usd,
+            face_value: 100.0,
+        };
+
+        let response = server.post("/api/v1/bonds").json(&req).await;
+        response.assert_status(axum::http::StatusCode::CREATED);
+
+        let body: BondResponse = response.json();
+        assert_eq!(body.id, "TEST.BOND");
+        assert!((body.coupon_rate - 5.0).abs() < 0.0001);
+    }
+
+    #[tokio::test]
+    async fn test_create_duplicate_bond() {
+        let server = create_test_server();
+
+        let req = CreateBondRequest {
+            id: "UST.10Y".to_string(), // Already exists in demo
+            coupon_rate: 5.0,
+            maturity: DateInput {
+                year: 2030,
+                month: 6,
+                day: 15,
+            },
+            issue_date: DateInput {
+                year: 2020,
+                month: 6,
+                day: 15,
+            },
+            frequency: FrequencyCode::SemiAnnual,
+            day_count: DayCountCode::Thirty360Us,
+            currency: CurrencyCode::Usd,
+            face_value: 100.0,
+        };
+
+        let response = server.post("/api/v1/bonds").json(&req).await;
+        response.assert_status(axum::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_get_bond() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/bonds/UST.10Y").await;
+        response.assert_status_ok();
+
+        let body: BondResponse = response.json();
+        assert_eq!(body.id, "UST.10Y");
+        assert_eq!(body.bond_type, "Fixed Rate");
+    }
+
+    #[tokio::test]
+    async fn test_get_bond_not_found() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/bonds/NONEXISTENT").await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_delete_bond() {
+        let server = create_test_server();
+
+        // First verify the bond exists
+        let response = server.get("/api/v1/bonds/UST.5Y").await;
+        response.assert_status_ok();
+
+        // Delete it
+        let response = server.delete("/api/v1/bonds/UST.5Y").await;
+        response.assert_status(axum::http::StatusCode::NO_CONTENT);
+
+        // Verify it's gone
+        let response = server.get("/api/v1/bonds/UST.5Y").await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_delete_bond_not_found() {
+        let server = create_test_server();
+
+        let response = server.delete("/api/v1/bonds/NONEXISTENT").await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_yield() {
+        let server = create_test_server();
+
+        let req = CalculateYieldRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: 100.0,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/UST.10Y/yield")
+            .json(&req)
+            .await;
+        response.assert_status_ok();
+
+        let body: YieldResponse = response.json();
+        assert_eq!(body.bond_id, "UST.10Y");
+        assert!(body.yield_to_maturity_pct > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_yield_bond_not_found() {
+        let server = create_test_server();
+
+        let req = CalculateYieldRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: 100.0,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/NONEXISTENT/yield")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_price() {
+        let server = create_test_server();
+
+        let req = CalculatePriceRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            yield_pct: 4.25,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/UST.10Y/price")
+            .json(&req)
+            .await;
+        response.assert_status_ok();
+
+        let body: PriceResponse = response.json();
+        assert_eq!(body.bond_id, "UST.10Y");
+        assert!(body.clean_price > 0.0);
+        assert!(body.dirty_price > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_analytics_with_price() {
+        let server = create_test_server();
+
+        let req = AnalyticsRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: Some(100.0),
+            yield_pct: None,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/UST.10Y/analytics")
+            .json(&req)
+            .await;
+        response.assert_status_ok();
+
+        let body: AnalyticsResponse = response.json();
+        assert_eq!(body.bond_id, "UST.10Y");
+        assert!(body.macaulay_duration > 0.0);
+        assert!(body.modified_duration > 0.0);
+        assert!(body.convexity > 0.0);
+        assert!(body.dv01 > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_analytics_with_yield() {
+        let server = create_test_server();
+
+        let req = AnalyticsRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: None,
+            yield_pct: Some(4.25),
+        };
+
+        let response = server
+            .post("/api/v1/bonds/UST.10Y/analytics")
+            .json(&req)
+            .await;
+        response.assert_status_ok();
+
+        let body: AnalyticsResponse = response.json();
+        assert_eq!(body.bond_id, "UST.10Y");
+        assert!((body.yield_to_maturity_pct - 4.25).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_analytics_missing_input() {
+        let server = create_test_server();
+
+        let req = AnalyticsRequest {
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: None,
+            yield_pct: None,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/UST.10Y/analytics")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_cashflows() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/bonds/UST.10Y/cashflows").await;
+        response.assert_status_ok();
+
+        let body: CashflowResponse = response.json();
+        assert_eq!(body.bond_id, "UST.10Y");
+        assert!(!body.cashflows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_spreads() {
+        let server = create_test_server();
+
+        let req = SpreadRequest {
+            curve_id: "UST".to_string(),
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: 100.0,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/CORP.AAPL/spreads")
+            .json(&req)
+            .await;
+        response.assert_status_ok();
+
+        let body: SpreadResponse = response.json();
+        assert_eq!(body.bond_id, "CORP.AAPL");
+        assert_eq!(body.curve_id, "UST");
+    }
+
+    #[tokio::test]
+    async fn test_spreads_bond_not_found() {
+        let server = create_test_server();
+
+        let req = SpreadRequest {
+            curve_id: "UST".to_string(),
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: 100.0,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/NONEXISTENT/spreads")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_spreads_curve_not_found() {
+        let server = create_test_server();
+
+        let req = SpreadRequest {
+            curve_id: "NONEXISTENT".to_string(),
+            settlement: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            clean_price: 100.0,
+        };
+
+        let response = server
+            .post("/api/v1/bonds/CORP.AAPL/spreads")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+}

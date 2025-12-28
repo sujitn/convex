@@ -28,7 +28,7 @@ impl From<InterpolationMethod> for convex_curves::InterpolationMethod {
 }
 
 /// Request to create a curve from zero rates.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateCurveRequest {
     /// Unique curve identifier.
     pub id: String,
@@ -48,7 +48,7 @@ pub struct CreateCurveRequest {
 }
 
 /// Curve summary response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CurveResponse {
     pub id: String,
     pub reference_date: String,
@@ -58,14 +58,14 @@ pub struct CurveResponse {
 }
 
 /// List of curves response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CurveListResponse {
     pub curves: Vec<CurveResponse>,
     pub count: usize,
 }
 
 /// Curve point data.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CurvePoint {
     pub tenor: f64,
     pub zero_rate_pct: f64,
@@ -73,7 +73,7 @@ pub struct CurvePoint {
 }
 
 /// Detailed curve response with points.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CurveDetailResponse {
     pub id: String,
     pub reference_date: String,
@@ -106,7 +106,7 @@ pub struct DiscountFactorQuery {
 }
 
 /// Rate query response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RateQueryResponse {
     pub curve_id: String,
     pub tenor: f64,
@@ -115,7 +115,7 @@ pub struct RateQueryResponse {
 }
 
 /// Bootstrap instrument.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BootstrapInstrument {
     /// Tenor in years.
     pub tenor: f64,
@@ -134,7 +134,7 @@ pub enum CalibrationMethod {
 }
 
 /// Request to bootstrap a curve.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BootstrapRequest {
     /// Unique curve identifier.
     pub id: String,
@@ -160,7 +160,7 @@ pub struct BootstrapRequest {
 }
 
 /// Bootstrap response.
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BootstrapResponse {
     pub id: String,
     pub reference_date: String,

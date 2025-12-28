@@ -291,3 +291,328 @@ fn curve_to_response(id: &str, curve: &RateCurve<DiscreteCurve>) -> CurveRespons
         max_tenor,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use axum_test::TestServer;
+
+    use crate::dto::*;
+    use crate::server::create_router;
+    use crate::state::AppState;
+
+    fn create_test_server() -> TestServer {
+        let state = AppState::with_demo_mode();
+        let router = create_router(state);
+        TestServer::new(router).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_list_curves_empty() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let response = server.get("/api/v1/curves").await;
+        response.assert_status_ok();
+
+        let body: CurveListResponse = response.json();
+        assert_eq!(body.count, 0);
+        assert!(body.curves.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_curves_with_demo_data() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/curves").await;
+        response.assert_status_ok();
+
+        let body: CurveListResponse = response.json();
+        assert!(body.count >= 2);
+        assert!(body.curves.iter().any(|c| c.id == "UST"));
+        assert!(body.curves.iter().any(|c| c.id == "SOFR"));
+    }
+
+    #[tokio::test]
+    async fn test_create_curve() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = CreateCurveRequest {
+            id: "TEST.CURVE".to_string(),
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            tenors: vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0],
+            rates: vec![4.35, 4.32, 4.25, 4.18, 4.20, 4.35],
+            interpolation: InterpolationMethod::MonotoneConvex,
+        };
+
+        let response = server.post("/api/v1/curves").json(&req).await;
+        response.assert_status(axum::http::StatusCode::CREATED);
+
+        let body: CurveResponse = response.json();
+        assert_eq!(body.id, "TEST.CURVE");
+    }
+
+    #[tokio::test]
+    async fn test_create_curve_duplicate() {
+        let server = create_test_server();
+
+        let req = CreateCurveRequest {
+            id: "UST".to_string(), // Already exists
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            tenors: vec![1.0],
+            rates: vec![4.0],
+            interpolation: InterpolationMethod::Linear,
+        };
+
+        let response = server.post("/api/v1/curves").json(&req).await;
+        response.assert_status(axum::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_create_curve_mismatched_lengths() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = CreateCurveRequest {
+            id: "BAD.CURVE".to_string(),
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            tenors: vec![1.0, 2.0],
+            rates: vec![4.0], // Only one rate for two tenors
+            interpolation: InterpolationMethod::Linear,
+        };
+
+        let response = server.post("/api/v1/curves").json(&req).await;
+        response.assert_status(axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_get_curve() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/curves/UST").await;
+        response.assert_status_ok();
+
+        let body: CurveDetailResponse = response.json();
+        assert_eq!(body.id, "UST");
+        assert!(!body.points.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_curve_not_found() {
+        let server = create_test_server();
+
+        let response = server.get("/api/v1/curves/NONEXISTENT").await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_delete_curve() {
+        let server = create_test_server();
+
+        // First verify the curve exists
+        let response = server.get("/api/v1/curves/SOFR").await;
+        response.assert_status_ok();
+
+        // Delete it
+        let response = server.delete("/api/v1/curves/SOFR").await;
+        response.assert_status(axum::http::StatusCode::NO_CONTENT);
+
+        // Verify it's gone
+        let response = server.get("/api/v1/curves/SOFR").await;
+        response.assert_status(axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_zero_rate() {
+        let server = create_test_server();
+
+        let response = server
+            .get("/api/v1/curves/UST/zero-rate")
+            .add_query_param("tenor", "5.0")
+            .await;
+        response.assert_status_ok();
+
+        let body: RateQueryResponse = response.json();
+        assert_eq!(body.curve_id, "UST");
+        assert_eq!(body.tenor, 5.0);
+        assert!(body.value > 0.0); // Rate should be positive
+        assert_eq!(body.value_type, "zero_rate_pct");
+    }
+
+    #[tokio::test]
+    async fn test_forward_rate() {
+        let server = create_test_server();
+
+        let response = server
+            .get("/api/v1/curves/UST/forward-rate")
+            .add_query_param("t1", "2.0")
+            .add_query_param("t2", "5.0")
+            .await;
+        response.assert_status_ok();
+
+        let body: RateQueryResponse = response.json();
+        assert_eq!(body.curve_id, "UST");
+        assert!((body.tenor - 3.0).abs() < 0.001); // t2 - t1
+        assert!(body.value > 0.0);
+        assert_eq!(body.value_type, "forward_rate_pct");
+    }
+
+    #[tokio::test]
+    async fn test_forward_rate_invalid() {
+        let server = create_test_server();
+
+        // t2 <= t1 should fail
+        let response = server
+            .get("/api/v1/curves/UST/forward-rate")
+            .add_query_param("t1", "5.0")
+            .add_query_param("t2", "2.0")
+            .await;
+        response.assert_status(axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn test_discount_factor() {
+        let server = create_test_server();
+
+        let response = server
+            .get("/api/v1/curves/UST/discount-factor")
+            .add_query_param("tenor", "5.0")
+            .await;
+        response.assert_status_ok();
+
+        let body: RateQueryResponse = response.json();
+        assert_eq!(body.curve_id, "UST");
+        assert!(body.value > 0.0 && body.value < 1.0); // DF should be between 0 and 1
+        assert_eq!(body.value_type, "discount_factor");
+    }
+
+    #[tokio::test]
+    async fn test_bootstrap_global() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = BootstrapRequest {
+            id: "BOOT.TEST".to_string(),
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            deposits: vec![
+                BootstrapInstrument {
+                    tenor: 0.25,
+                    rate: 4.35,
+                },
+                BootstrapInstrument {
+                    tenor: 0.5,
+                    rate: 4.32,
+                },
+            ],
+            swaps: vec![
+                BootstrapInstrument {
+                    tenor: 2.0,
+                    rate: 4.20,
+                },
+                BootstrapInstrument {
+                    tenor: 5.0,
+                    rate: 4.25,
+                },
+            ],
+            ois: vec![],
+            method: CalibrationMethod::Global,
+        };
+
+        let response = server
+            .post("/api/v1/curves/bootstrap")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::CREATED);
+
+        let body: BootstrapResponse = response.json();
+        assert_eq!(body.id, "BOOT.TEST");
+        assert_eq!(body.tenor_count, 4);
+    }
+
+    #[tokio::test]
+    async fn test_bootstrap_sequential() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = BootstrapRequest {
+            id: "BOOT.SEQ".to_string(),
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            deposits: vec![BootstrapInstrument {
+                tenor: 0.25,
+                rate: 4.35,
+            }],
+            swaps: vec![
+                BootstrapInstrument {
+                    tenor: 1.0,
+                    rate: 4.25,
+                },
+                BootstrapInstrument {
+                    tenor: 2.0,
+                    rate: 4.20,
+                },
+            ],
+            ois: vec![],
+            method: CalibrationMethod::Sequential,
+        };
+
+        let response = server
+            .post("/api/v1/curves/bootstrap")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::CREATED);
+
+        let body: BootstrapResponse = response.json();
+        assert_eq!(body.id, "BOOT.SEQ");
+    }
+
+    #[tokio::test]
+    async fn test_bootstrap_no_instruments() {
+        let state = AppState::new();
+        let router = create_router(state);
+        let server = TestServer::new(router).unwrap();
+
+        let req = BootstrapRequest {
+            id: "EMPTY.CURVE".to_string(),
+            reference_date: DateInput {
+                year: 2025,
+                month: 12,
+                day: 20,
+            },
+            deposits: vec![],
+            swaps: vec![],
+            ois: vec![],
+            method: CalibrationMethod::Global,
+        };
+
+        let response = server
+            .post("/api/v1/curves/bootstrap")
+            .json(&req)
+            .await;
+        response.assert_status(axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+}

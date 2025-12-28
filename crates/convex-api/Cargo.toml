@@ -54,4 +54,4 @@ clap = { version = "4", features = ["derive"] }
 chrono = { workspace = true }
 
 [dev-dependencies]
-axum-test = "16"
+axum-test = "17"
