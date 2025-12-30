@@ -62,6 +62,40 @@ impl BuiltCurve {
     pub fn max_tenor(&self) -> f64 {
         self.points.last().map(|(t, _)| *t).unwrap_or(30.0)
     }
+
+    /// Convert to points format for NodeValue::Curve.
+    ///
+    /// Returns (tenor_days, zero_rate) pairs.
+    pub fn to_points(&self) -> Vec<(u32, f64)> {
+        self.points
+            .iter()
+            .map(|(tenor_years, rate)| {
+                let tenor_days = (*tenor_years * 365.0) as u32;
+                (tenor_days, *rate)
+            })
+            .collect()
+    }
+
+    /// Create a BuiltCurve from cached points.
+    ///
+    /// Used to reconstruct a curve from NodeValue::Curve data.
+    pub fn from_points(curve_id: &str, points: Vec<(u32, f64)>) -> Self {
+        let curve_points: Vec<(f64, f64)> = points
+            .into_iter()
+            .map(|(tenor_days, rate)| {
+                let tenor_years = tenor_days as f64 / 365.0;
+                (tenor_years, rate)
+            })
+            .collect();
+
+        Self {
+            curve_id: CurveId::new(curve_id),
+            reference_date: Date::today(),
+            points: curve_points,
+            built_at: chrono::Utc::now().timestamp(),
+            inputs_hash: String::new(),
+        }
+    }
 }
 
 /// Implement RateCurveDyn for spread calculations

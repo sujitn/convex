@@ -359,18 +359,82 @@ pub fn current_yield_from_bond(bond: &dyn FixedCouponBond, clean_price: Decimal)
 ///
 /// Discount margin is the spread over the reference rate that makes
 /// the present value of projected cash flows equal to the dirty price.
-#[allow(dead_code)]
+///
+/// Used for floating rate notes (FRNs) to determine the margin over
+/// the reference rate that equates the present value of projected
+/// cash flows to the market dirty price.
+///
+/// # Arguments
+///
+/// * `projected_cash_flows` - Cash flows projected using forward rates
+/// * `dirty_price` - Market dirty price (per 100 face value)
+/// * `reference_rate` - Current reference rate (e.g., SOFR, as decimal)
+/// * `settlement` - Settlement date
+/// * `day_count` - Day count convention
+/// * `frequency` - Payment frequency
+///
+/// # Returns
+///
+/// The discount margin as a decimal (e.g., 0.005 for 50bp)
 pub fn discount_margin(
-    _projected_cash_flows: &[BondCashFlow],
-    _dirty_price: Decimal,
-    _reference_rate: f64,
-    _settlement: Date,
-    _day_count: DayCountConvention,
-    _frequency: Frequency,
+    projected_cash_flows: &[BondCashFlow],
+    dirty_price: Decimal,
+    reference_rate: f64,
+    settlement: Date,
+    day_count: DayCountConvention,
+    frequency: Frequency,
 ) -> BondResult<f64> {
-    // Implementation similar to YTM but solving for spread
-    // over projected forward rates
-    todo!("Discount margin calculation")
+    if projected_cash_flows.is_empty() {
+        return Err(BondError::invalid_spec("No cash flows provided"));
+    }
+
+    let target = dirty_price.to_f64().unwrap_or(100.0);
+    let periods_per_year = f64::from(frequency.periods_per_year());
+
+    // Convert cash flows to (years_to_payment, amount) pairs
+    let cf_data: Vec<(f64, f64)> = projected_cash_flows
+        .iter()
+        .filter(|cf| cf.date > settlement)
+        .map(|cf| {
+            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
+            let amount = cf.amount.to_f64().unwrap_or(0.0);
+            (years.to_f64().unwrap_or(0.0), amount)
+        })
+        .collect();
+
+    if cf_data.is_empty() {
+        return Err(BondError::invalid_spec("No future cash flows"));
+    }
+
+    // PV function: discount at (reference_rate + margin)
+    let pv_at_margin = |margin: f64| -> f64 {
+        let discount_rate = reference_rate + margin;
+        let rate_per_period = discount_rate / periods_per_year;
+
+        cf_data
+            .iter()
+            .map(|(years, amount)| {
+                let periods = years * periods_per_year;
+                let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+                amount * df
+            })
+            .sum()
+    };
+
+    // Objective function: PV - target
+    let objective = |margin: f64| pv_at_margin(margin) - target;
+
+    // Use Brent's method to solve for margin
+    // Search range: -10% to +20% spread (reasonable for most FRNs)
+    let config = SolverConfig::new(1e-10, 100);
+
+    match brent(&objective, -0.10, 0.20, &config) {
+        Ok(result) => Ok(result.root),
+        Err(e) => Err(BondError::pricing_failed(format!(
+            "Failed to solve for discount margin: {}",
+            e
+        ))),
+    }
 }
 
 #[cfg(test)]

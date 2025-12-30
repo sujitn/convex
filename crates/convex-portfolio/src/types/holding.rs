@@ -28,6 +28,9 @@ pub struct HoldingAnalytics {
     /// Current yield (annual coupon / price).
     pub current_yield: Option<f64>,
 
+    /// Coupon rate (as decimal, e.g., 0.05 for 5%).
+    pub coupon_rate: Option<f64>,
+
     // =========================================================================
     // DURATION
     // =========================================================================

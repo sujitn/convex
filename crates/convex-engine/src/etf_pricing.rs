@@ -144,7 +144,7 @@ impl EtfPricer {
         Ok(EtfQuoteOutput {
             etf_id: holdings.etf_id.clone(),
             name: holdings.name.clone(),
-            currency: convex_core::Currency::USD, // TODO: Get from holdings
+            currency: holdings.currency,
 
             nav: holdings.nav_per_share,
             inav,
@@ -201,6 +201,7 @@ mod tests {
         EtfHoldings {
             etf_id: EtfId::new("LQD"),
             name: "iShares iBoxx Investment Grade Corporate Bond ETF".to_string(),
+            currency: convex_core::Currency::USD,
             as_of_date: date(2025, 6, 15),
             holdings: vec![
                 EtfHoldingEntry {

@@ -77,10 +77,41 @@ pub fn create_router_with_stores(
         // ETF iNAV
         .route("/api/v1/etf/inav", post(handlers::calculate_inav))
         .route("/api/v1/etf/inav/batch", post(handlers::batch_calculate_inav))
+        // ETF SEC Yield & Basket
+        .route("/api/v1/etf/sec-yield", post(handlers::calculate_sec_yield_handler))
+        .route("/api/v1/etf/basket", post(handlers::build_creation_basket_handler))
+        .route("/api/v1/etf/basket/analyze", post(handlers::analyze_basket_handler))
         // Portfolio Analytics
         .route("/api/v1/portfolio/analytics", post(handlers::calculate_portfolio_analytics))
         .route("/api/v1/portfolio/analytics/batch", post(handlers::batch_calculate_portfolio_analytics))
         .route("/api/v1/portfolio/duration-contribution", post(handlers::calculate_duration_contribution))
+        .route("/api/v1/portfolio/key-rate-duration", post(handlers::calculate_key_rate_duration_handler))
+        .route("/api/v1/portfolio/risk-contributions", post(handlers::calculate_risk_contributions))
+        // Portfolio Bucketing
+        .route("/api/v1/portfolio/buckets/sector", post(handlers::calculate_sector_bucketing))
+        .route("/api/v1/portfolio/buckets/rating", post(handlers::calculate_rating_bucketing))
+        .route("/api/v1/portfolio/buckets/maturity", post(handlers::calculate_maturity_bucketing))
+        .route("/api/v1/portfolio/buckets/custom", post(handlers::calculate_custom_bucketing))
+        .route("/api/v1/portfolio/buckets", post(handlers::calculate_all_bucketing))
+        // Stress Testing
+        .route("/api/v1/stress/test", post(handlers::run_stress_test))
+        .route("/api/v1/stress/standard", post(handlers::run_standard_stress_test))
+        .route("/api/v1/stress/single", post(handlers::run_single_stress_test))
+        .route("/api/v1/stress/scenarios", get(handlers::list_standard_scenarios))
+        // Benchmark Comparison
+        .route("/api/v1/benchmark/compare", post(handlers::compare_to_benchmark))
+        .route("/api/v1/benchmark/active-weights", post(handlers::calculate_active_weights))
+        .route("/api/v1/benchmark/tracking-error", post(handlers::calculate_tracking_error))
+        .route("/api/v1/benchmark/attribution", post(handlers::calculate_attribution))
+        // Liquidity Analytics
+        .route("/api/v1/liquidity/metrics", post(handlers::calculate_liquidity_metrics_handler))
+        .route("/api/v1/liquidity/distribution", post(handlers::calculate_liquidity_distribution))
+        .route("/api/v1/liquidity/days-to-liquidate", post(handlers::calculate_days_to_liquidate))
+        .route("/api/v1/liquidity/analysis", post(handlers::calculate_liquidity_analysis))
+        // Credit Quality Analytics
+        .route("/api/v1/credit/quality", post(handlers::calculate_credit_quality_handler))
+        .route("/api/v1/credit/migration-risk", post(handlers::calculate_migration_risk_handler))
+        .route("/api/v1/credit/analysis", post(handlers::calculate_credit_analysis))
         // Portfolio Reference Data CRUD
         .route("/api/v1/portfolios", get(handlers::list_portfolios).post(handlers::create_portfolio))
         .route("/api/v1/portfolios/batch", post(handlers::batch_create_portfolios))

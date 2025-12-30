@@ -381,6 +381,8 @@ pub struct EtfHoldings {
     pub etf_id: EtfId,
     /// ETF name
     pub name: String,
+    /// Base currency of the ETF
+    pub currency: convex_core::Currency,
     /// As-of date
     pub as_of_date: Date,
     /// Holdings

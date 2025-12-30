@@ -186,6 +186,116 @@ fn weighted_spread_duration(holdings: &[Holding], config: &AnalyticsConfig) -> O
     }
 }
 
+/// Calculates spread shock impact with per-holding shifts by rating.
+///
+/// Each holding receives a spread shock based on its credit rating.
+/// Holdings without a rating or spread duration use the default (0bp).
+#[must_use]
+pub fn spread_shock_by_rating(
+    holdings: &[Holding],
+    rating_shifts: &std::collections::HashMap<String, f64>,
+    config: &AnalyticsConfig,
+) -> Option<f64> {
+    let (sum_impact, sum_weights) = maybe_parallel_fold(
+        holdings,
+        config,
+        (0.0_f64, 0.0_f64),
+        |(sum_i, sum_w), h| {
+            let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
+            if weight <= 0.0 {
+                return (sum_i, sum_w);
+            }
+
+            // Get the spread shift for this holding's rating
+            let shift_bps = h
+                .classification
+                .rating
+                .composite
+                .and_then(|r| rating_shifts.get(&r.to_string()))
+                .copied()
+                .unwrap_or(0.0);
+
+            if shift_bps == 0.0 {
+                return (sum_i, sum_w);
+            }
+
+            // Use spread duration, fall back to modified duration
+            let duration = h
+                .analytics
+                .spread_duration
+                .or(h.analytics.modified_duration)
+                .unwrap_or(0.0);
+
+            let delta_spread = shift_bps / 10000.0;
+            let holding_impact = -duration * delta_spread;
+
+            (sum_i + holding_impact * weight, sum_w + weight)
+        },
+        |(a, b), (c, d)| (a + c, b + d),
+    );
+
+    if sum_weights > 0.0 {
+        Some((sum_impact / sum_weights) * 100.0)
+    } else {
+        None
+    }
+}
+
+/// Calculates spread shock impact with per-holding shifts by sector.
+///
+/// Each holding receives a spread shock based on its sector classification.
+/// Holdings without a sector or spread duration use the default (0bp).
+#[must_use]
+pub fn spread_shock_by_sector(
+    holdings: &[Holding],
+    sector_shifts: &std::collections::HashMap<String, f64>,
+    config: &AnalyticsConfig,
+) -> Option<f64> {
+    let (sum_impact, sum_weights) = maybe_parallel_fold(
+        holdings,
+        config,
+        (0.0_f64, 0.0_f64),
+        |(sum_i, sum_w), h| {
+            let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
+            if weight <= 0.0 {
+                return (sum_i, sum_w);
+            }
+
+            // Get the spread shift for this holding's sector
+            let shift_bps = h
+                .classification
+                .sector
+                .composite
+                .and_then(|s| sector_shifts.get(&s.to_string()))
+                .copied()
+                .unwrap_or(0.0);
+
+            if shift_bps == 0.0 {
+                return (sum_i, sum_w);
+            }
+
+            // Use spread duration, fall back to modified duration
+            let duration = h
+                .analytics
+                .spread_duration
+                .or(h.analytics.modified_duration)
+                .unwrap_or(0.0);
+
+            let delta_spread = shift_bps / 10000.0;
+            let holding_impact = -duration * delta_spread;
+
+            (sum_i + holding_impact * weight, sum_w + weight)
+        },
+        |(a, b), (c, d)| (a + c, b + d),
+    );
+
+    if sum_weights > 0.0 {
+        Some((sum_impact / sum_weights) * 100.0)
+    } else {
+        None
+    }
+}
+
 /// Runs a complete stress scenario on a portfolio.
 ///
 /// Combines rate and spread impacts to estimate total P&L.
@@ -219,10 +329,11 @@ pub fn run_stress_scenario(
             SpreadScenario::Uniform(shift) => {
                 spread_shock_impact(&portfolio.holdings, *shift, config)
             }
-            SpreadScenario::ByRating(_) | SpreadScenario::BySector(_) => {
-                // For now, use uniform approximation
-                // TODO: Implement per-holding spread shocks
-                None
+            SpreadScenario::ByRating(rating_shifts) => {
+                spread_shock_by_rating(&portfolio.holdings, rating_shifts, config)
+            }
+            SpreadScenario::BySector(sector_shifts) => {
+                spread_shock_by_sector(&portfolio.holdings, sector_shifts, config)
             }
         }
     });
@@ -558,5 +669,108 @@ mod tests {
 
         assert!(result.is_loss());
         assert!(!result.is_gain());
+    }
+
+    #[test]
+    fn test_spread_shock_by_rating() {
+        use crate::types::{Classification, CreditRating, RatingInfo};
+        use std::collections::HashMap;
+
+        // Create analytics with spread duration
+        let mut aaa_analytics = HoldingAnalytics::new().with_modified_duration(5.0);
+        aaa_analytics.spread_duration = Some(4.5);
+
+        let mut bbb_analytics = HoldingAnalytics::new().with_modified_duration(5.0);
+        bbb_analytics.spread_duration = Some(4.5);
+
+        // Create holdings with different ratings
+        let aaa_holding = Holding::builder()
+            .id("AAA_BOND")
+            .identifiers(BondIdentifiers::new().with_ticker("AAA001"))
+            .par_amount(dec!(1_000_000))
+            .market_price(dec!(100))
+            .analytics(aaa_analytics)
+            .classification(
+                Classification::new().with_rating(RatingInfo::from_composite(CreditRating::AAA)),
+            )
+            .build()
+            .unwrap();
+
+        let bbb_holding = Holding::builder()
+            .id("BBB_BOND")
+            .identifiers(BondIdentifiers::new().with_ticker("BBB001"))
+            .par_amount(dec!(1_000_000))
+            .market_price(dec!(100))
+            .analytics(bbb_analytics)
+            .classification(
+                Classification::new().with_rating(RatingInfo::from_composite(CreditRating::BBB)),
+            )
+            .build()
+            .unwrap();
+
+        let holdings = vec![aaa_holding, bbb_holding];
+        let config = AnalyticsConfig::default();
+
+        // Rating-based spread shocks: AAA +25bp, BBB +100bp
+        let mut rating_shifts = HashMap::new();
+        rating_shifts.insert("AAA".to_string(), 25.0);
+        rating_shifts.insert("BBB".to_string(), 100.0);
+
+        let impact = spread_shock_by_rating(&holdings, &rating_shifts, &config).unwrap();
+
+        // Both holdings have equal weights
+        // AAA impact: -4.5 × 0.0025 = -0.01125 = -1.125%
+        // BBB impact: -4.5 × 0.01 = -0.045 = -4.5%
+        // Average: (-1.125 + -4.5) / 2 = -2.8125%
+        assert!(impact < 0.0); // Spread widening = loss
+        assert!((impact - (-2.8125)).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_spread_shock_by_sector() {
+        use crate::types::{Classification, Sector, SectorInfo};
+        use std::collections::HashMap;
+
+        // Create holdings with different sectors
+        let financial = Holding::builder()
+            .id("FIN_BOND")
+            .identifiers(BondIdentifiers::new().with_ticker("FIN001"))
+            .par_amount(dec!(1_000_000))
+            .market_price(dec!(100))
+            .analytics(HoldingAnalytics::new().with_modified_duration(5.0))
+            .classification(
+                Classification::new().with_sector(SectorInfo::from_composite(Sector::Financial)),
+            )
+            .build()
+            .unwrap();
+
+        let corporate = Holding::builder()
+            .id("CORP_BOND")
+            .identifiers(BondIdentifiers::new().with_ticker("CORP001"))
+            .par_amount(dec!(1_000_000))
+            .market_price(dec!(100))
+            .analytics(HoldingAnalytics::new().with_modified_duration(5.0))
+            .classification(
+                Classification::new().with_sector(SectorInfo::from_composite(Sector::Corporate)),
+            )
+            .build()
+            .unwrap();
+
+        let holdings = vec![financial, corporate];
+        let config = AnalyticsConfig::default();
+
+        // Sector-based spread shocks: Financial +150bp, Corporate +75bp
+        let mut sector_shifts = HashMap::new();
+        sector_shifts.insert("Financial".to_string(), 150.0);
+        sector_shifts.insert("Corporate".to_string(), 75.0);
+
+        let impact = spread_shock_by_sector(&holdings, &sector_shifts, &config).unwrap();
+
+        // Both holdings have equal weights
+        // Financial impact: -5.0 × 0.015 = -0.075 = -7.5%
+        // Corporate impact: -5.0 × 0.0075 = -0.0375 = -3.75%
+        // Average: (-7.5 + -3.75) / 2 = -5.625%
+        assert!(impact < 0.0); // Spread widening = loss
+        assert!((impact - (-5.625)).abs() < 0.1);
     }
 }

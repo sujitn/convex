@@ -10,6 +10,7 @@
 //! - [`LogLinearInterpolator`]: Log-linear interpolation (interpolates log of values)
 //! - [`CubicSpline`]: Natural cubic spline interpolation
 //! - [`MonotoneConvex`]: Hagan monotone convex (production default, ensures positive forwards)
+//! - [`FlatForward`]: Flat forward interpolation (constant forward rates between pillars)
 //!
 //! **Parametric Models:**
 //! - [`NelsonSiegel`]: Nelson-Siegel parametric curve
@@ -21,10 +22,13 @@
 //! |--------|-------|------------|-------------------|----------|
 //! | Linear | Fast | C0 | No | Quick prototyping |
 //! | Log-Linear | Fast | C0 | Yes (on discount) | Discount factor curves |
+//! | Flat Forward | Fast | C0 (step fwd) | Yes* | Step forward curve |
 //! | Cubic Spline | Medium | C2 | No | Smooth curves |
 //! | Monotone Convex | Medium | C1 | **Yes** | **Production default** |
 //! | Nelson-Siegel | Fast | C∞ | Usually | Parametric fitting |
 //! | Svensson | Fast | C∞ | Usually | More flexible fitting |
+//!
+//! *Flat forward preserves positive forwards if input zero rates produce positive forwards.
 //!
 //! # Forward Rate Considerations
 //!
@@ -34,12 +38,14 @@
 //! - C1 continuity (continuous first derivative)
 
 mod cubic_spline;
+mod flat_forward;
 mod linear;
 mod log_linear;
 mod monotone_convex;
 mod parametric;
 
 pub use cubic_spline::CubicSpline;
+pub use flat_forward::FlatForward;
 pub use linear::LinearInterpolator;
 pub use log_linear::LogLinearInterpolator;
 pub use monotone_convex::MonotoneConvex;

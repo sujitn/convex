@@ -85,6 +85,18 @@ pub enum ServerMessage {
     Error { code: String, message: String },
     /// Server heartbeat
     Heartbeat { server_time: i64 },
+    /// Node recalculated event (from reactive engine)
+    NodeRecalculated {
+        node_type: String,
+        node_id: String,
+        source: String,
+        timestamp: i64,
+    },
+    /// Curve update notification
+    CurveUpdated {
+        curve_id: String,
+        timestamp: i64,
+    },
 }
 
 // =============================================================================
@@ -100,6 +112,24 @@ pub enum BroadcastUpdate {
     EtfQuote(EtfQuoteOutput),
     /// Portfolio analytics update
     PortfolioAnalytics(PortfolioAnalyticsOutput),
+    /// Node recalculated event
+    NodeRecalculated {
+        /// Type of node (bond_price, curve, etf_inav, etc.)
+        node_type: String,
+        /// Node identifier
+        node_id: String,
+        /// Source of update (immediate, throttled, interval, eod, on_demand)
+        source: String,
+        /// Timestamp
+        timestamp: i64,
+    },
+    /// Curve updated event
+    CurveUpdated {
+        /// Curve identifier
+        curve_id: String,
+        /// Timestamp
+        timestamp: i64,
+    },
 }
 
 // =============================================================================
@@ -157,12 +187,123 @@ impl WebSocketState {
         self.connection_count
             .load(std::sync::atomic::Ordering::SeqCst)
     }
+
+    /// Publish a node recalculated event.
+    pub fn publish_node_recalculated(
+        &self,
+        node_type: String,
+        node_id: String,
+        source: String,
+        timestamp: i64,
+    ) {
+        let _ = self.broadcast_tx.send(BroadcastUpdate::NodeRecalculated {
+            node_type,
+            node_id,
+            source,
+            timestamp,
+        });
+    }
+
+    /// Publish a curve updated event.
+    pub fn publish_curve_updated(&self, curve_id: String, timestamp: i64) {
+        let _ = self.broadcast_tx.send(BroadcastUpdate::CurveUpdated {
+            curve_id,
+            timestamp,
+        });
+    }
 }
 
 impl Default for WebSocketState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+// =============================================================================
+// REACTIVE ENGINE INTEGRATION
+// =============================================================================
+
+use convex_engine::{NodeId as EngineNodeId, NodeUpdate, UpdateSource};
+
+/// Convert engine NodeId to (node_type, node_id) strings.
+fn node_id_to_strings(node_id: &EngineNodeId) -> (String, String) {
+    match node_id {
+        EngineNodeId::Quote { instrument_id } => ("quote".to_string(), instrument_id.to_string()),
+        EngineNodeId::CurveInput { curve_id, instrument } => {
+            ("curve_input".to_string(), format!("{}.{}", curve_id, instrument))
+        }
+        EngineNodeId::Curve { curve_id } => ("curve".to_string(), curve_id.to_string()),
+        EngineNodeId::VolSurface { surface_id } => ("vol_surface".to_string(), surface_id.to_string()),
+        EngineNodeId::FxRate { pair } => ("fx_rate".to_string(), pair.to_string()),
+        EngineNodeId::IndexFixing { index, date } => {
+            ("index_fixing".to_string(), format!("{}.{}", index, date))
+        }
+        EngineNodeId::InflationFixing { index, month } => {
+            ("inflation_fixing".to_string(), format!("{}.{}", index, month))
+        }
+        EngineNodeId::Config { config_id } => ("config".to_string(), config_id.clone()),
+        EngineNodeId::BondPrice { instrument_id } => ("bond_price".to_string(), instrument_id.to_string()),
+        EngineNodeId::EtfInav { etf_id } => ("etf_inav".to_string(), etf_id.to_string()),
+        EngineNodeId::EtfNav { etf_id } => ("etf_nav".to_string(), etf_id.to_string()),
+        EngineNodeId::Portfolio { portfolio_id } => ("portfolio".to_string(), portfolio_id.to_string()),
+    }
+}
+
+/// Convert engine UpdateSource to string.
+fn update_source_to_string(source: &UpdateSource) -> String {
+    match source {
+        UpdateSource::Immediate => "immediate".to_string(),
+        UpdateSource::Throttled => "throttled".to_string(),
+        UpdateSource::Interval => "interval".to_string(),
+        UpdateSource::EndOfDay => "eod".to_string(),
+        UpdateSource::OnDemand => "on_demand".to_string(),
+    }
+}
+
+/// Connect the reactive engine's node update stream to WebSocket broadcasting.
+///
+/// This spawns a background task that listens to node updates from the reactive
+/// engine and forwards them to WebSocket clients via the broadcast channel.
+pub fn connect_reactive_engine(
+    ws_state: Arc<WebSocketState>,
+    mut node_update_rx: tokio::sync::broadcast::Receiver<NodeUpdate>,
+) {
+    tokio::spawn(async move {
+        info!("Reactive engine -> WebSocket bridge started");
+
+        loop {
+            match node_update_rx.recv().await {
+                Ok(update) => {
+                    let (node_type, node_id) = node_id_to_strings(&update.node_id);
+                    let source = update_source_to_string(&update.source);
+
+                    debug!(
+                        "Broadcasting node update: {} {} ({})",
+                        node_type, node_id, source
+                    );
+
+                    ws_state.publish_node_recalculated(
+                        node_type.clone(),
+                        node_id.clone(),
+                        source,
+                        update.timestamp,
+                    );
+
+                    // Also publish curve-specific events for curve nodes
+                    if node_type == "curve" {
+                        ws_state.publish_curve_updated(node_id, update.timestamp);
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    warn!("WebSocket bridge lagged by {} node updates", n);
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    info!("Reactive engine channel closed, WebSocket bridge shutting down");
+                    break;
+                }
+            }
+        }
+    });
 }
 
 // =============================================================================
@@ -465,6 +606,40 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
             } else {
                 None
             }
+        }
+        BroadcastUpdate::NodeRecalculated {
+            node_type,
+            node_id,
+            source,
+            timestamp,
+        } => {
+            // Send node updates to clients that have subscribed to the relevant type
+            // For now, send to all subscribed clients based on node type
+            let should_send = match node_type.as_str() {
+                "bond_price" => session.subscribe_all_bonds || session.bond_subscriptions.iter().any(|id| id.as_str() == node_id),
+                "etf_inav" | "etf_nav" => session.etf_subscriptions.iter().any(|id| id.as_str() == node_id),
+                "portfolio" => session.portfolio_subscriptions.iter().any(|id| id.as_str() == node_id),
+                _ => false, // Don't send curve or other internal updates by default
+            };
+            if should_send {
+                Some(ServerMessage::NodeRecalculated {
+                    node_type: node_type.clone(),
+                    node_id: node_id.clone(),
+                    source: source.clone(),
+                    timestamp: *timestamp,
+                })
+            } else {
+                None
+            }
+        }
+        BroadcastUpdate::CurveUpdated { curve_id, timestamp } => {
+            // Curve updates are typically internal, but we can broadcast to clients
+            // that want to know when curves change (e.g., for debugging or analytics dashboards)
+            // For now, don't filter - clients can ignore if not interested
+            Some(ServerMessage::CurveUpdated {
+                curve_id: curve_id.clone(),
+                timestamp: *timestamp,
+            })
         }
     }
 }

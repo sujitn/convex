@@ -301,3 +301,358 @@ impl ConfigChangeReceiver {
         self.rx.recv().await.ok()
     }
 }
+
+// =============================================================================
+// CONFIG WATCHER (HOT RELOAD)
+// =============================================================================
+
+/// Error that can occur during config watching.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ConfigWatchError {
+    /// Failed to watch path.
+    #[error("Failed to watch path: {0}")]
+    WatchFailed(String),
+
+    /// Failed to read config file.
+    #[error("Failed to read config: {0}")]
+    ReadFailed(String),
+
+    /// Failed to parse config.
+    #[error("Failed to parse config: {0}")]
+    ParseFailed(String),
+
+    /// Invalid config.
+    #[error("Invalid config: {0}")]
+    InvalidConfig(String),
+
+    /// Config version mismatch.
+    #[error("Config version mismatch: expected {expected}, got {actual}")]
+    VersionMismatch {
+        /// Expected version.
+        expected: u64,
+        /// Actual version.
+        actual: u64,
+    },
+}
+
+/// Watched configuration with version tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchedConfig<T> {
+    /// The configuration value.
+    pub config: T,
+    /// Version number (incremented on each change).
+    pub version: u64,
+    /// Path being watched.
+    pub path: String,
+    /// Last modified timestamp (Unix epoch seconds).
+    pub last_modified: i64,
+    /// Hash of the configuration content.
+    pub content_hash: u64,
+}
+
+impl<T> WatchedConfig<T> {
+    /// Create a new watched config.
+    pub fn new(config: T, path: &str) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        Self {
+            config,
+            version: 1,
+            path: path.to_string(),
+            last_modified: timestamp,
+            content_hash: 0,
+        }
+    }
+
+    /// Increment version on change.
+    pub fn increment_version(&mut self) {
+        self.version += 1;
+    }
+}
+
+/// Event emitted when configuration changes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConfigWatchEvent<T> {
+    /// Configuration was loaded or reloaded.
+    Loaded {
+        /// The new configuration.
+        config: T,
+        /// Version number.
+        version: u64,
+    },
+    /// Configuration was modified.
+    Modified {
+        /// Previous version.
+        previous_version: u64,
+        /// New version.
+        new_version: u64,
+        /// Changed keys (if trackable).
+        changed_keys: Vec<String>,
+    },
+    /// Configuration file was deleted.
+    Deleted {
+        /// Last version before deletion.
+        last_version: u64,
+    },
+    /// Error occurred while watching.
+    Error {
+        /// Error description.
+        error: String,
+    },
+}
+
+/// Configuration for the config watcher.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigWatcherOptions {
+    /// Path(s) to watch.
+    pub paths: Vec<String>,
+    /// Poll interval for file-based watching (if inotify unavailable).
+    pub poll_interval: Duration,
+    /// Whether to reload on change automatically.
+    pub auto_reload: bool,
+    /// Debounce duration (ignore rapid changes within this window).
+    pub debounce: Duration,
+    /// Maximum config size in bytes.
+    pub max_size: usize,
+}
+
+impl Default for ConfigWatcherOptions {
+    fn default() -> Self {
+        Self {
+            paths: Vec::new(),
+            poll_interval: Duration::from_secs(5),
+            auto_reload: true,
+            debounce: Duration::from_millis(500),
+            max_size: 10 * 1024 * 1024, // 10MB
+        }
+    }
+}
+
+impl ConfigWatcherOptions {
+    /// Create options for watching a single path.
+    pub fn single_path(path: &str) -> Self {
+        Self {
+            paths: vec![path.to_string()],
+            ..Default::default()
+        }
+    }
+
+    /// Add a path to watch.
+    pub fn add_path(mut self, path: &str) -> Self {
+        self.paths.push(path.to_string());
+        self
+    }
+
+    /// Set poll interval.
+    pub fn with_poll_interval(mut self, interval: Duration) -> Self {
+        self.poll_interval = interval;
+        self
+    }
+
+    /// Set debounce duration.
+    pub fn with_debounce(mut self, debounce: Duration) -> Self {
+        self.debounce = debounce;
+        self
+    }
+}
+
+/// Trait for configuration watchers that support hot reload.
+///
+/// Implementations should monitor configuration files/sources and emit
+/// events when changes are detected.
+///
+/// # Example
+///
+/// ```ignore
+/// let watcher = FileConfigWatcher::new(options)?;
+///
+/// // Start watching
+/// watcher.start().await?;
+///
+/// // Subscribe to changes
+/// let mut events = watcher.subscribe();
+/// while let Some(event) = events.recv().await {
+///     match event {
+///         ConfigWatchEvent::Modified { new_version, .. } => {
+///             println!("Config updated to version {}", new_version);
+///             // Apply new configuration
+///         }
+///         ConfigWatchEvent::Error { error } => {
+///             println!("Config watch error: {}", error);
+///         }
+///         _ => {}
+///     }
+/// }
+/// ```
+#[async_trait]
+pub trait ConfigWatcher: Send + Sync {
+    /// The configuration type being watched.
+    type Config: Send + Sync + Clone + 'static;
+
+    /// Start watching for configuration changes.
+    async fn start(&self) -> Result<(), ConfigWatchError>;
+
+    /// Stop watching.
+    async fn stop(&self) -> Result<(), ConfigWatchError>;
+
+    /// Get the current configuration.
+    fn current(&self) -> WatchedConfig<Self::Config>;
+
+    /// Get the current version.
+    fn version(&self) -> u64 {
+        self.current().version
+    }
+
+    /// Force reload configuration from source.
+    async fn reload(&self) -> Result<WatchedConfig<Self::Config>, ConfigWatchError>;
+
+    /// Subscribe to configuration change events.
+    fn subscribe(&self) -> ConfigEventReceiver<Self::Config>;
+
+    /// Check if the watcher is currently running.
+    fn is_running(&self) -> bool;
+}
+
+/// Receiver for config watch events.
+pub struct ConfigEventReceiver<T> {
+    rx: tokio::sync::broadcast::Receiver<ConfigWatchEvent<T>>,
+}
+
+impl<T: Clone> ConfigEventReceiver<T> {
+    /// Create a new config event receiver.
+    pub fn new(rx: tokio::sync::broadcast::Receiver<ConfigWatchEvent<T>>) -> Self {
+        Self { rx }
+    }
+
+    /// Receive the next config event.
+    pub async fn recv(&mut self) -> Option<ConfigWatchEvent<T>> {
+        self.rx.recv().await.ok()
+    }
+}
+
+/// Empty config watcher for testing.
+///
+/// This implementation does nothing and always returns the default config.
+#[derive(Debug)]
+pub struct EmptyConfigWatcher<T> {
+    config: std::sync::RwLock<WatchedConfig<T>>,
+    tx: tokio::sync::broadcast::Sender<ConfigWatchEvent<T>>,
+}
+
+impl<T: Default + Clone + Send + Sync + 'static> EmptyConfigWatcher<T> {
+    /// Create a new empty config watcher.
+    pub fn new() -> Self {
+        let (tx, _) = tokio::sync::broadcast::channel(16);
+        Self {
+            config: std::sync::RwLock::new(WatchedConfig::new(T::default(), "")),
+            tx,
+        }
+    }
+
+    /// Create with a specific config.
+    pub fn with_config(config: T) -> Self {
+        let (tx, _) = tokio::sync::broadcast::channel(16);
+        Self {
+            config: std::sync::RwLock::new(WatchedConfig::new(config, "")),
+            tx,
+        }
+    }
+}
+
+impl<T: Default + Clone + Send + Sync + 'static> Default for EmptyConfigWatcher<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl<T: Default + Clone + Send + Sync + 'static> ConfigWatcher for EmptyConfigWatcher<T> {
+    type Config = T;
+
+    async fn start(&self) -> Result<(), ConfigWatchError> {
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<(), ConfigWatchError> {
+        Ok(())
+    }
+
+    fn current(&self) -> WatchedConfig<Self::Config> {
+        self.config.read().unwrap().clone()
+    }
+
+    async fn reload(&self) -> Result<WatchedConfig<Self::Config>, ConfigWatchError> {
+        Ok(self.current())
+    }
+
+    fn subscribe(&self) -> ConfigEventReceiver<Self::Config> {
+        ConfigEventReceiver::new(self.tx.subscribe())
+    }
+
+    fn is_running(&self) -> bool {
+        false
+    }
+}
+
+// =============================================================================
+// CONFIG WATCHER TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_watched_config_versioning() {
+        let mut watched = WatchedConfig::new(EngineConfig::default(), "/path/to/config.yaml");
+        assert_eq!(watched.version, 1);
+
+        watched.increment_version();
+        assert_eq!(watched.version, 2);
+    }
+
+    #[test]
+    fn test_config_watcher_options() {
+        let options = ConfigWatcherOptions::single_path("/etc/convex/config.yaml")
+            .add_path("/etc/convex/overrides.yaml")
+            .with_poll_interval(Duration::from_secs(10))
+            .with_debounce(Duration::from_millis(200));
+
+        assert_eq!(options.paths.len(), 2);
+        assert_eq!(options.poll_interval, Duration::from_secs(10));
+        assert_eq!(options.debounce, Duration::from_millis(200));
+    }
+
+    #[tokio::test]
+    async fn test_empty_config_watcher() {
+        let watcher: EmptyConfigWatcher<EngineConfig> = EmptyConfigWatcher::new();
+
+        watcher.start().await.unwrap();
+        assert!(!watcher.is_running());
+
+        let current = watcher.current();
+        assert_eq!(current.version, 1);
+
+        watcher.stop().await.unwrap();
+    }
+
+    #[test]
+    fn test_config_watch_event() {
+        let event: ConfigWatchEvent<EngineConfig> = ConfigWatchEvent::Modified {
+            previous_version: 1,
+            new_version: 2,
+            changed_keys: vec!["name".to_string()],
+        };
+
+        match event {
+            ConfigWatchEvent::Modified { new_version, .. } => {
+                assert_eq!(new_version, 2);
+            }
+            _ => panic!("Expected Modified event"),
+        }
+    }
+}

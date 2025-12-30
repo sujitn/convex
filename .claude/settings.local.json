@@ -69,7 +69,8 @@
       "Bash(\"C:/Users/sujit/source/convex/target/release/convex-server.exe\")",
       "Bash(\"./target/release/convex-server.exe\")",
       "Bash(git -C \"C:/Users/sujit/source/convex\" status crates/convex-engine/src/pricing_router.rs)",
-      "Bash(cargo bench:*)"
+      "Bash(cargo bench:*)",
+      "Bash(git -C \"C:\\\\Users\\\\sujit\\\\source\\\\convex\" add:*)"
     ],
     "deny": [],
     "ask": []

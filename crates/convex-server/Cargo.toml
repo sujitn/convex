@@ -14,8 +14,11 @@ categories = ["finance", "web-programming"]
 # Engine and traits
 convex-engine = { path = "../convex-engine" }
 convex-traits = { path = "../convex-traits" }
+convex-portfolio = { path = "../convex-portfolio" }
+convex-bonds = { workspace = true }
 convex-core = { workspace = true }
 convex-curves = { workspace = true }
+convex-analytics = { workspace = true }
 
 # Default extensions
 convex-ext-redb = { path = "../convex-ext-redb" }

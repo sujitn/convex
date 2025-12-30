@@ -13,6 +13,7 @@
 //! - [`transport`]: Traits for communication (REST, gRPC, WebSocket, Kafka)
 //! - [`config`]: Traits for configuration sources
 //! - [`output`]: Traits for output publishing
+//! - [`coordination`]: Traits for distributed coordination (service registry, partitioning, leader election)
 //!
 //! ## Dependency Injection
 //!
@@ -32,6 +33,7 @@
 #![warn(clippy::all)]
 
 pub mod config;
+pub mod coordination;
 pub mod error;
 pub mod ids;
 pub mod market_data;

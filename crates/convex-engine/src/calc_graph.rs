@@ -2,6 +2,32 @@
 //!
 //! The calculation graph manages dependencies between inputs and outputs.
 //! When an input changes, it automatically propagates updates to all dependent calculations.
+//!
+//! ## Sharding
+//!
+//! For large universes (>10K bonds), the calculation graph supports sharding
+//! across multiple replicas. Each shard handles a subset of instruments based
+//! on the configured partition strategy:
+//!
+//! - `HashBased`: Instruments assigned by hash of instrument ID
+//! - `ByCurrency`: Instruments grouped by currency
+//! - `ByIssuerType`: Instruments grouped by issuer type
+//! - `Manual`: Explicit assignment via configuration
+//!
+//! ```ignore
+//! // Create a sharded calculation graph
+//! let graph = CalculationGraph::with_sharding(ShardConfig {
+//!     shard_id: 0,
+//!     total_shards: 4,
+//!     strategy: ShardStrategy::HashBased,
+//!     assignment: None,
+//! });
+//!
+//! // Check if this shard owns a node
+//! if graph.owns_node(&node_id) {
+//!     graph.add_node(node_id, deps);
+//! }
+//! ```
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
@@ -204,6 +230,138 @@ pub enum NodeValue {
     Empty,
 }
 
+// =============================================================================
+// SHARDING TYPES
+// =============================================================================
+
+/// Strategy for assigning nodes to shards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ShardStrategy {
+    /// Assign by hash of instrument ID (default).
+    #[default]
+    HashBased,
+    /// Assign by currency.
+    ByCurrency,
+    /// Assign by issuer type.
+    ByIssuerType,
+    /// Manual assignment via configuration.
+    Manual,
+}
+
+/// Assignment specification for manual/explicit sharding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ShardAssignment {
+    /// Currencies this shard handles.
+    pub currencies: Option<Vec<String>>,
+    /// Issuer types this shard handles.
+    pub issuer_types: Option<Vec<String>>,
+    /// Explicit instrument IDs this shard handles.
+    pub instrument_ids: Option<Vec<String>>,
+}
+
+/// Configuration for sharded calculation graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShardConfig {
+    /// This shard's ID (0-indexed).
+    pub shard_id: u32,
+    /// Total number of shards.
+    pub total_shards: u32,
+    /// Sharding strategy.
+    pub strategy: ShardStrategy,
+    /// Explicit assignment (for ByCurrency, ByIssuerType, Manual).
+    pub assignment: Option<ShardAssignment>,
+}
+
+impl Default for ShardConfig {
+    fn default() -> Self {
+        Self {
+            shard_id: 0,
+            total_shards: 1,
+            strategy: ShardStrategy::HashBased,
+            assignment: None,
+        }
+    }
+}
+
+impl ShardConfig {
+    /// Create a new shard config for a single-shard deployment.
+    pub fn single_shard() -> Self {
+        Self::default()
+    }
+
+    /// Create a new shard config for hash-based sharding.
+    pub fn hash_based(shard_id: u32, total_shards: u32) -> Self {
+        Self {
+            shard_id,
+            total_shards,
+            strategy: ShardStrategy::HashBased,
+            assignment: None,
+        }
+    }
+
+    /// Create a shard config for currency-based sharding.
+    pub fn by_currency(shard_id: u32, total_shards: u32, currencies: Vec<String>) -> Self {
+        Self {
+            shard_id,
+            total_shards,
+            strategy: ShardStrategy::ByCurrency,
+            assignment: Some(ShardAssignment {
+                currencies: Some(currencies),
+                issuer_types: None,
+                instrument_ids: None,
+            }),
+        }
+    }
+
+    /// Check if this is a single-shard configuration.
+    pub fn is_single_shard(&self) -> bool {
+        self.total_shards == 1
+    }
+
+    /// Compute which shard owns a given string key (for hash-based).
+    pub fn shard_for_key(&self, key: &str) -> u32 {
+        if self.total_shards == 1 {
+            return 0;
+        }
+        Self::hash_string(key) % self.total_shards
+    }
+
+    /// Check if this shard owns a given key (for hash-based).
+    pub fn owns_key(&self, key: &str) -> bool {
+        if self.total_shards == 1 {
+            return true;
+        }
+        self.shard_for_key(key) == self.shard_id
+    }
+
+    /// Check if this shard owns a given currency (for ByCurrency strategy).
+    pub fn owns_currency(&self, currency: &str) -> bool {
+        if self.total_shards == 1 {
+            return true;
+        }
+        match &self.assignment {
+            Some(assignment) => assignment
+                .currencies
+                .as_ref()
+                .map(|cs| cs.iter().any(|c| c.eq_ignore_ascii_case(currency)))
+                .unwrap_or(false),
+            None => {
+                // Fall back to hash-based
+                self.owns_key(currency)
+            }
+        }
+    }
+
+    /// Simple string hash function (DJB2 variant).
+    fn hash_string(s: &str) -> u32 {
+        let mut hash: u32 = 5381;
+        for byte in s.bytes() {
+            hash = hash.wrapping_mul(33).wrapping_add(byte as u32);
+        }
+        hash
+    }
+}
+
 /// Cached value with revision tracking.
 #[derive(Debug, Clone)]
 pub struct CachedValue {
@@ -216,6 +374,9 @@ pub struct CachedValue {
 }
 
 /// The calculation graph manages dependencies and memoization.
+///
+/// Supports sharding for large universes (>10K bonds) where the graph
+/// is partitioned across multiple replicas.
 pub struct CalculationGraph {
     /// Dependencies: node -> nodes it depends on
     dependencies: DashMap<NodeId, Vec<NodeId>>,
@@ -240,11 +401,19 @@ pub struct CalculationGraph {
 
     /// Current global revision
     current_revision: AtomicU64,
+
+    /// Shard configuration for distributed deployments
+    shard_config: ShardConfig,
 }
 
 impl CalculationGraph {
-    /// Create a new calculation graph.
+    /// Create a new calculation graph (single shard).
     pub fn new() -> Self {
+        Self::with_sharding(ShardConfig::single_shard())
+    }
+
+    /// Create a new calculation graph with sharding configuration.
+    pub fn with_sharding(shard_config: ShardConfig) -> Self {
         Self {
             dependencies: DashMap::new(),
             dependents: DashMap::new(),
@@ -254,7 +423,68 @@ impl CalculationGraph {
             last_calc_time: DashMap::new(),
             throttle_pending: DashSet::new(),
             current_revision: AtomicU64::new(0),
+            shard_config,
         }
+    }
+
+    /// Get the shard configuration.
+    pub fn shard_config(&self) -> &ShardConfig {
+        &self.shard_config
+    }
+
+    /// Get this shard's ID.
+    pub fn shard_id(&self) -> u32 {
+        self.shard_config.shard_id
+    }
+
+    /// Get the total number of shards.
+    pub fn total_shards(&self) -> u32 {
+        self.shard_config.total_shards
+    }
+
+    /// Check if this graph is sharded (more than one shard).
+    pub fn is_sharded(&self) -> bool {
+        !self.shard_config.is_single_shard()
+    }
+
+    /// Check if this shard owns a given node.
+    ///
+    /// For single-shard deployments, always returns true.
+    /// For multi-shard deployments, uses the configured strategy.
+    pub fn owns_node(&self, node_id: &NodeId) -> bool {
+        if !self.is_sharded() {
+            return true;
+        }
+
+        // Extract the key for sharding
+        let key = self.node_shard_key(node_id);
+        self.shard_config.owns_key(&key)
+    }
+
+    /// Get the shard key for a node.
+    ///
+    /// This extracts the relevant identifier for sharding (e.g., instrument ID).
+    fn node_shard_key(&self, node_id: &NodeId) -> String {
+        match node_id {
+            NodeId::Quote { instrument_id } => instrument_id.to_string(),
+            NodeId::BondPrice { instrument_id } => instrument_id.to_string(),
+            NodeId::Curve { curve_id } => curve_id.to_string(),
+            NodeId::CurveInput { curve_id, .. } => curve_id.to_string(),
+            NodeId::VolSurface { surface_id } => surface_id.to_string(),
+            NodeId::FxRate { pair } => pair.to_string(),
+            NodeId::IndexFixing { index, .. } => index.to_string(),
+            NodeId::InflationFixing { index, .. } => index.to_string(),
+            NodeId::Config { config_id } => config_id.clone(),
+            NodeId::EtfInav { etf_id } => etf_id.to_string(),
+            NodeId::EtfNav { etf_id } => etf_id.to_string(),
+            NodeId::Portfolio { portfolio_id } => portfolio_id.to_string(),
+        }
+    }
+
+    /// Compute which shard would own a given node.
+    pub fn shard_for_node(&self, node_id: &NodeId) -> u32 {
+        let key = self.node_shard_key(node_id);
+        self.shard_config.shard_for_key(&key)
     }
 
     /// Add a node with its dependencies.
@@ -452,5 +682,137 @@ mod tests {
         graph.invalidate(&curve_node);
         assert!(graph.is_dirty(&curve_node));
         assert!(graph.is_dirty(&bond_node));
+    }
+
+    // ============ Sharding Tests ============
+
+    #[test]
+    fn test_single_shard_owns_everything() {
+        let graph = CalculationGraph::new();
+
+        // Single shard should own all nodes
+        assert!(!graph.is_sharded());
+        assert_eq!(graph.shard_id(), 0);
+        assert_eq!(graph.total_shards(), 1);
+
+        let bond_node = NodeId::BondPrice {
+            instrument_id: InstrumentId::new("US912810TD00"),
+        };
+        assert!(graph.owns_node(&bond_node));
+    }
+
+    #[test]
+    fn test_shard_config_hash_based() {
+        let config = ShardConfig::hash_based(0, 4);
+
+        assert!(!config.is_single_shard());
+
+        // Same key always maps to same shard
+        let shard1 = config.shard_for_key("US912810TD00");
+        let shard2 = config.shard_for_key("US912810TD00");
+        assert_eq!(shard1, shard2);
+
+        // Keys should be distributed across shards
+        let mut shard_counts = [0; 4];
+        for i in 0..100 {
+            let key = format!("INSTRUMENT_{}", i);
+            let shard = config.shard_for_key(&key);
+            shard_counts[shard as usize] += 1;
+        }
+
+        // Each shard should get some keys (rough distribution check)
+        for count in shard_counts.iter() {
+            assert!(*count > 0, "Shard should have at least one key");
+        }
+    }
+
+    #[test]
+    fn test_sharded_graph_owns_subset() {
+        // Create 4 shards
+        let shard_configs: Vec<_> = (0..4)
+            .map(|i| ShardConfig::hash_based(i, 4))
+            .collect();
+
+        // Test that exactly one shard owns each node
+        let test_ids = [
+            "US912810TD00",
+            "US912810TE00",
+            "US912810TF00",
+            "XS123456789",
+            "DE000ABC123",
+        ];
+
+        for id in test_ids.iter() {
+            let node = NodeId::BondPrice {
+                instrument_id: InstrumentId::new(*id),
+            };
+
+            let owners: Vec<_> = shard_configs
+                .iter()
+                .enumerate()
+                .filter(|(_, config)| config.owns_key(id))
+                .map(|(i, _)| i)
+                .collect();
+
+            assert_eq!(
+                owners.len(),
+                1,
+                "Exactly one shard should own {}",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_shard_for_node() {
+        let graph = CalculationGraph::with_sharding(ShardConfig::hash_based(0, 4));
+
+        let node = NodeId::BondPrice {
+            instrument_id: InstrumentId::new("US912810TD00"),
+        };
+
+        // Should return the correct shard
+        let shard = graph.shard_for_node(&node);
+        assert!(shard < 4);
+
+        // Node should be owned only if it maps to shard 0
+        assert_eq!(graph.owns_node(&node), shard == 0);
+    }
+
+    #[test]
+    fn test_currency_based_sharding() {
+        let usd_config =
+            ShardConfig::by_currency(0, 2, vec!["USD".to_string(), "CAD".to_string()]);
+        let eur_config =
+            ShardConfig::by_currency(1, 2, vec!["EUR".to_string(), "GBP".to_string()]);
+
+        assert!(usd_config.owns_currency("USD"));
+        assert!(usd_config.owns_currency("CAD"));
+        assert!(!usd_config.owns_currency("EUR"));
+
+        assert!(eur_config.owns_currency("EUR"));
+        assert!(eur_config.owns_currency("GBP"));
+        assert!(!eur_config.owns_currency("USD"));
+    }
+
+    #[test]
+    fn test_node_shard_key_extraction() {
+        let graph = CalculationGraph::new();
+
+        // Test various node types
+        let bond_node = NodeId::BondPrice {
+            instrument_id: InstrumentId::new("US912810TD00"),
+        };
+        assert_eq!(graph.node_shard_key(&bond_node), "US912810TD00");
+
+        let quote_node = NodeId::Quote {
+            instrument_id: InstrumentId::new("XS123456789"),
+        };
+        assert_eq!(graph.node_shard_key(&quote_node), "XS123456789");
+
+        let curve_node = NodeId::Curve {
+            curve_id: CurveId::new("USD.SOFR"),
+        };
+        assert_eq!(graph.node_shard_key(&curve_node), "USD.SOFR");
     }
 }

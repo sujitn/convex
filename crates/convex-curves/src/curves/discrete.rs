@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 use convex_core::types::Date;
 use convex_math::interpolation::{
-    CubicSpline, Interpolator, LinearInterpolator, LogLinearInterpolator, MonotoneConvex,
+    CubicSpline, FlatForward, Interpolator, LinearInterpolator, LogLinearInterpolator,
+    MonotoneConvex,
 };
 
 use crate::error::{CurveError, CurveResult};
@@ -177,6 +178,18 @@ impl DiscreteCurve {
             InterpolationMethod::MonotoneConvex => MonotoneConvex::new(tenors_vec, values_vec)
                 .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
                 .map_err(|e| CurveError::interpolation_error(e.to_string())),
+            InterpolationMethod::FlatForward => {
+                // Flat forward requires positive tenors; use with_origin for curves starting at 0
+                if tenors_vec.first().copied().unwrap_or(0.0) <= 0.0 {
+                    FlatForward::with_origin(tenors_vec, values_vec)
+                        .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                        .map_err(|e| CurveError::interpolation_error(e.to_string()))
+                } else {
+                    FlatForward::new(tenors_vec, values_vec)
+                        .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
+                        .map_err(|e| CurveError::interpolation_error(e.to_string()))
+                }
+            }
             InterpolationMethod::PiecewiseConstant => {
                 // Use linear for now, will implement piecewise constant later
                 LinearInterpolator::new(tenors_vec, values_vec)
@@ -530,6 +543,7 @@ mod tests {
             InterpolationMethod::Linear,
             InterpolationMethod::CubicSpline,
             InterpolationMethod::MonotoneConvex,
+            InterpolationMethod::FlatForward,
         ] {
             let curve = DiscreteCurve::new(
                 today,
@@ -538,7 +552,71 @@ mod tests {
                 ValueType::DiscountFactor,
                 method,
             );
-            assert!(curve.is_ok());
+            assert!(curve.is_ok(), "Failed for method {:?}", method);
         }
+    }
+
+    #[test]
+    fn test_flat_forward_interpolation() {
+        let today = Date::from_ymd(2024, 1, 1).unwrap();
+        let tenors = vec![1.0, 2.0, 5.0, 10.0];
+        let rates = vec![0.02, 0.025, 0.03, 0.035];
+
+        let curve = DiscreteCurve::new(
+            today,
+            tenors.clone(),
+            rates.clone(),
+            ValueType::ZeroRate {
+                compounding: Compounding::Continuous,
+                day_count: DayCountConvention::Act365Fixed,
+            },
+            InterpolationMethod::FlatForward,
+        )
+        .unwrap();
+
+        // Should pass through pillar points
+        assert_relative_eq!(curve.value_at(1.0), 0.02, epsilon = 1e-10);
+        assert_relative_eq!(curve.value_at(2.0), 0.025, epsilon = 1e-10);
+        assert_relative_eq!(curve.value_at(5.0), 0.03, epsilon = 1e-10);
+        assert_relative_eq!(curve.value_at(10.0), 0.035, epsilon = 1e-10);
+
+        // Verify interpolation produces valid values
+        let rate_1_5y = curve.value_at(1.5);
+        assert!(
+            rate_1_5y > 0.02 && rate_1_5y < 0.025,
+            "Rate at 1.5Y should be between 2% and 2.5%: {}",
+            rate_1_5y
+        );
+
+        // Forward rate calculation: f = (r2*t2 - r1*t1)/(t2-t1)
+        // Forward from 1Y to 2Y: (0.025*2 - 0.02*1)/(2-1) = 0.03
+        // r(1.5) = (0.02*1 + 0.03*0.5)/1.5 = 0.035/1.5 = 0.02333...
+        let expected_rate_1_5y = (0.02 * 1.0 + 0.03 * 0.5) / 1.5;
+        assert_relative_eq!(rate_1_5y, expected_rate_1_5y, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_flat_forward_with_origin() {
+        let today = Date::from_ymd(2024, 1, 1).unwrap();
+        // Curve starting at t=0
+        let tenors = vec![0.0, 1.0, 2.0, 5.0];
+        let rates = vec![0.02, 0.02, 0.025, 0.03];
+
+        let curve = DiscreteCurve::new(
+            today,
+            tenors,
+            rates,
+            ValueType::ZeroRate {
+                compounding: Compounding::Continuous,
+                day_count: DayCountConvention::Act365Fixed,
+            },
+            InterpolationMethod::FlatForward,
+        )
+        .unwrap();
+
+        // Should work with tenors starting at 0
+        assert_relative_eq!(curve.value_at(0.0), 0.02, epsilon = 1e-10);
+        assert_relative_eq!(curve.value_at(1.0), 0.02, epsilon = 1e-10);
+        assert_relative_eq!(curve.value_at(0.5), 0.02, epsilon = 1e-10);
     }
 }

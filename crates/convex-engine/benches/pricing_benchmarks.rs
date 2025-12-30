@@ -175,6 +175,7 @@ fn create_test_holdings(count: usize) -> EtfHoldings {
     EtfHoldings {
         etf_id: EtfId::new("BENCH_ETF"),
         name: "Benchmark ETF".to_string(),
+        currency: convex_core::Currency::USD,
         as_of_date: Date::from_ymd(2025, 6, 15).unwrap(),
         holdings,
         total_market_value: Decimal::from(count as i64 * 100000),
