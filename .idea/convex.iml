@@ -13,6 +13,20 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-curves/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-risk/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/convex-yas/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-analytics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-core/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-engine/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-ext-file/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-ext-json/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-ext-redb/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-mcp/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-portfolio/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-portfolio/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-traits/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-wasm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-engine/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/convex-server/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -1,0 +1,34 @@
+[package]
+name = "convex-ext-redb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Redb embedded storage implementation for Convex pricing engine"
+keywords = ["finance", "bonds", "storage", "redb", "embedded"]
+categories = ["finance", "database"]
+
+[dependencies]
+# Trait definitions
+convex-traits = { path = "../convex-traits" }
+convex-core = { workspace = true }
+
+# Storage backend
+redb = "2"
+
+# Serialization
+serde_json = { workspace = true }
+
+# Async
+async-trait = "0.1"
+tokio = { version = "1", features = ["sync"] }
+
+# Core dependencies
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tempfile = "3"

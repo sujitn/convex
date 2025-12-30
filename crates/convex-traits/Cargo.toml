@@ -1,0 +1,30 @@
+[package]
+name = "convex-traits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Trait definitions for the Convex pricing engine - storage, market data, transport, and configuration"
+keywords = ["finance", "bonds", "traits", "pricing", "quantitative"]
+categories = ["finance"]
+
+[dependencies]
+# Internal crates
+convex-core = { workspace = true }
+
+# Only minimal dependencies for trait definitions - NO runtime deps
+async-trait = "0.1"
+serde = { workspace = true }
+serde_json = { workspace = true }  # For ApiResponse helper
+thiserror = { workspace = true }
+bytes = "1"
+futures-core = "0.3"  # Stream trait only
+tokio = { version = "1", features = ["sync"] }  # Only for broadcast::Receiver
+rust_decimal = { workspace = true }
+
+# NOTHING ELSE - no runtime deps like reqwest, sqlx, redis
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

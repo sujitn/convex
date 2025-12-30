@@ -1,0 +1,34 @@
+[package]
+name = "convex-ext-file"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "File-based market data and reference data for Convex pricing engine"
+keywords = ["finance", "bonds", "csv", "json", "data"]
+categories = ["finance"]
+
+[dependencies]
+# Trait definitions
+convex-traits = { path = "../convex-traits" }
+convex-core = { workspace = true }
+
+# File parsing
+csv = "1"
+serde_json = { workspace = true }
+
+# Async
+async-trait = "0.1"
+tokio = { version = "1", features = ["sync", "fs"] }
+dashmap = "6"
+
+# Core dependencies
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tempfile = "3"
