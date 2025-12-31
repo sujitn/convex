@@ -10,14 +10,16 @@ import {
   CheckCircle2,
   Github,
   ExternalLink,
+  Briefcase,
 } from 'lucide-react';
 import { checkHealth } from './lib/api';
 import { cn } from './lib/utils';
 import YieldCurveDemo from './components/YieldCurveDemo';
 import BondPricingDemo from './components/BondPricingDemo';
 import PortfolioDemo from './components/PortfolioDemo';
+import ETFAnalyticsDemo from './components/ETFAnalyticsDemo';
 
-type DemoSection = 'curves' | 'pricing' | 'portfolio' | null;
+type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | null;
 
 function App() {
   const [activeDemo, setActiveDemo] = useState<DemoSection>(null);
@@ -120,6 +122,18 @@ function App() {
                 <BarChart3 className="w-4 h-4" />
                 <span>Portfolio Analytics</span>
               </button>
+              <button
+                onClick={() => setActiveDemo(activeDemo === 'etf' ? null : 'etf')}
+                className={cn(
+                  "btn flex items-center space-x-2",
+                  activeDemo === 'etf'
+                    ? "bg-white text-primary-900"
+                    : "bg-primary-700 text-white hover:bg-primary-600"
+                )}
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>ETF Analytics</span>
+              </button>
             </div>
           </div>
         </div>
@@ -134,6 +148,7 @@ function App() {
                 {activeDemo === 'curves' && 'Yield Curve Analytics'}
                 {activeDemo === 'pricing' && 'Bond Pricing'}
                 {activeDemo === 'portfolio' && 'Portfolio Analytics'}
+                {activeDemo === 'etf' && 'ETF Analytics'}
               </h2>
               <button
                 onClick={() => setActiveDemo(null)}
@@ -157,6 +172,7 @@ function App() {
                 {activeDemo === 'curves' && <YieldCurveDemo />}
                 {activeDemo === 'pricing' && <BondPricingDemo />}
                 {activeDemo === 'portfolio' && <PortfolioDemo />}
+                {activeDemo === 'etf' && <ETFAnalyticsDemo />}
               </>
             )}
           </div>
