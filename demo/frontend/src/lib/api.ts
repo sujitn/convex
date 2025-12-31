@@ -13,6 +13,62 @@ class ConvexApiError extends Error {
   }
 }
 
+// Bond Quote Response from API
+export interface BondQuoteResponse {
+  instrument_id: string;
+  isin?: string;
+  currency: string;
+  settlement_date: string;
+
+  // Prices
+  clean_price_bid?: number;
+  clean_price_mid?: number;
+  clean_price_ask?: number;
+  accrued_interest?: number;
+
+  // Yields
+  ytm_bid?: number;
+  ytm_mid?: number;
+  ytm_ask?: number;
+  ytw?: number;
+  ytc?: number;
+
+  // Spreads
+  z_spread_bid?: number;
+  z_spread_mid?: number;
+  z_spread_ask?: number;
+  i_spread_bid?: number;
+  i_spread_mid?: number;
+  i_spread_ask?: number;
+  g_spread_bid?: number;
+  g_spread_mid?: number;
+  g_spread_ask?: number;
+  asw_bid?: number;
+  asw_mid?: number;
+  asw_ask?: number;
+  oas_bid?: number;
+  oas_mid?: number;
+  oas_ask?: number;
+  discount_margin_bid?: number;
+  discount_margin_mid?: number;
+  discount_margin_ask?: number;
+  simple_margin_bid?: number;
+  simple_margin_mid?: number;
+  simple_margin_ask?: number;
+
+  // Risk metrics
+  modified_duration?: number;
+  macaulay_duration?: number;
+  effective_duration?: number;
+  spread_duration?: number;
+  convexity?: number;
+  effective_convexity?: number;
+  dv01?: number;
+
+  // Workout info (for callable)
+  workout_date?: string;
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const response = await fetch(url, {
@@ -109,6 +165,62 @@ export async function priceBond(bond: {
   return fetchJson<unknown>('/api/v1/quote', {
     method: 'POST',
     body: JSON.stringify(bond),
+  });
+}
+
+// Full bond pricing with detailed reference data
+export interface BondReferenceInput {
+  instrument_id: string;
+  isin?: string | null;
+  cusip?: string | null;
+  sedol?: string | null;
+  bbgid?: string | null;
+  description: string;
+  currency: string;
+  issue_date: string;
+  maturity_date: string;
+  coupon_rate?: number | null;
+  frequency: number;
+  day_count: string;
+  face_value: number;
+  bond_type: string;
+  issuer_type: string;
+  issuer_id: string;
+  issuer_name: string;
+  seniority: string;
+  is_callable: boolean;
+  call_schedule: Array<{ call_date: string; call_price: number }>;
+  is_putable: boolean;
+  is_sinkable: boolean;
+  floating_terms?: {
+    spread: number;
+    index: string;
+    reset_frequency: number;
+    current_rate?: number | null;
+    cap?: number | null;
+    floor?: number | null;
+  } | null;
+  inflation_index?: string | null;
+  inflation_base_index?: number | null;
+  has_deflation_floor: boolean;
+  country_of_risk: string;
+  sector: string;
+  amount_outstanding?: number | null;
+  first_coupon_date?: string | null;
+}
+
+export interface SingleBondPricingRequest {
+  bond: BondReferenceInput;
+  settlement_date: string;
+  market_price?: number | null;
+}
+
+export async function priceBondWithDetails(
+  request: SingleBondPricingRequest
+): Promise<BondQuoteResponse> {
+  return fetchJson<BondQuoteResponse>('/api/v1/quote', {
+    method: 'POST',
+    body: JSON.stringify(request),
   });
 }
 

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Calculator, List } from 'lucide-react';
 import { formatNumber, formatBps, cn } from '../lib/utils';
+import BondCalculator from './BondCalculator';
 
 // Sample corporate bonds
 const SAMPLE_BONDS = [
@@ -80,8 +82,10 @@ const SAMPLE_BONDS = [
 ];
 
 type BondType = 'all' | 'fixed' | 'callable' | 'frn';
+type ViewMode = 'calculator' | 'universe';
 
 export default function BondPricingDemo() {
+  const [viewMode, setViewMode] = useState<ViewMode>('calculator');
   const [bondType, setBondType] = useState<BondType>('all');
   const [selectedBond, setSelectedBond] = useState<typeof SAMPLE_BONDS[0] | null>(null);
 
@@ -91,25 +95,55 @@ export default function BondPricingDemo() {
 
   return (
     <div className="space-y-6">
-      {/* Bond Type Filter */}
+      {/* View Mode Toggle */}
       <div className="card">
         <div className="flex flex-wrap gap-2">
-          {(['all', 'fixed', 'callable', 'frn'] as BondType[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => setBondType(type)}
-              className={cn(
-                'btn',
-                bondType === type ? 'btn-primary' : 'btn-secondary'
-              )}
-            >
-              {type === 'all' ? 'All Bonds' :
-               type === 'fixed' ? 'Fixed Rate' :
-               type === 'callable' ? 'Callable' : 'Floating Rate'}
-            </button>
-          ))}
+          <button
+            onClick={() => setViewMode('calculator')}
+            className={cn(
+              'btn flex items-center gap-2',
+              viewMode === 'calculator' ? 'btn-primary' : 'btn-secondary'
+            )}
+          >
+            <Calculator className="w-4 h-4" />
+            Interactive Calculator
+          </button>
+          <button
+            onClick={() => setViewMode('universe')}
+            className={cn(
+              'btn flex items-center gap-2',
+              viewMode === 'universe' ? 'btn-primary' : 'btn-secondary'
+            )}
+          >
+            <List className="w-4 h-4" />
+            Bond Universe
+          </button>
         </div>
       </div>
+
+      {viewMode === 'calculator' ? (
+        <BondCalculator />
+      ) : (
+        <>
+          {/* Bond Type Filter */}
+          <div className="card">
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'fixed', 'callable', 'frn'] as BondType[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setBondType(type)}
+                  className={cn(
+                    'btn',
+                    bondType === type ? 'btn-primary' : 'btn-secondary'
+                  )}
+                >
+                  {type === 'all' ? 'All Bonds' :
+                  type === 'fixed' ? 'Fixed Rate' :
+                  type === 'callable' ? 'Callable' : 'Floating Rate'}
+                </button>
+              ))}
+            </div>
+          </div>
 
       {/* Bonds Table */}
       <div className="card overflow-hidden">
@@ -312,6 +346,8 @@ export default function BondPricingDemo() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
