@@ -240,7 +240,13 @@ pub async fn price_single_bond(
     State(state): State<Arc<AppState>>,
     Json(request): Json<SingleBondPricingRequest>,
 ) -> impl IntoResponse {
+    use convex_analytics::spreads::{GovernmentBenchmark, GovernmentCurve, Sovereign};
+    use convex_bonds::types::Tenor;
+    use convex_core::types::{Compounding, Yield};
+    use convex_engine::curve_builder::BuiltCurve;
     use convex_engine::pricing_router::PricingInput;
+    use convex_traits::ids::CurveId;
+    use rust_decimal::prelude::FromPrimitive;
 
     // Parse settlement date
     let settlement_date = match parse_date(&request.settlement_date) {
@@ -253,15 +259,85 @@ pub async fn price_single_bond(
         }
     };
 
-    // Build pricing input
+    // Create default demo curves for spread calculations
+    // USD SOFR OIS curve (for Z-spread and discount)
+    let discount_curve = BuiltCurve {
+        curve_id: CurveId::new("USD_SOFR_DEMO"),
+        reference_date: settlement_date,
+        points: vec![
+            (0.25, 0.043), // 3M: 4.3%
+            (0.5, 0.044),  // 6M: 4.4%
+            (1.0, 0.045),  // 1Y: 4.5%
+            (2.0, 0.044),  // 2Y: 4.4%
+            (3.0, 0.043),  // 3Y: 4.3%
+            (5.0, 0.042),  // 5Y: 4.2%
+            (7.0, 0.041),  // 7Y: 4.1%
+            (10.0, 0.040), // 10Y: 4.0%
+            (30.0, 0.042), // 30Y: 4.2%
+        ],
+        built_at: 0,
+        inputs_hash: "demo".to_string(),
+    };
+
+    // Swap curve for I-spread (slightly higher than OIS)
+    let benchmark_curve = BuiltCurve {
+        curve_id: CurveId::new("USD_SWAP_DEMO"),
+        reference_date: settlement_date,
+        points: vec![
+            (0.25, 0.045), // 3M: 4.5%
+            (0.5, 0.046),  // 6M: 4.6%
+            (1.0, 0.047),  // 1Y: 4.7%
+            (2.0, 0.046),  // 2Y: 4.6%
+            (3.0, 0.045),  // 3Y: 4.5%
+            (5.0, 0.044),  // 5Y: 4.4%
+            (7.0, 0.043),  // 7Y: 4.3%
+            (10.0, 0.042), // 10Y: 4.2%
+            (30.0, 0.044), // 30Y: 4.4%
+        ],
+        built_at: 0,
+        inputs_hash: "demo".to_string(),
+    };
+
+    // Treasury curve for G-spread
+    let coupon = Decimal::from_f64(0.04).unwrap();
+    let y2 = GovernmentBenchmark::with_cusip_unchecked(
+        Sovereign::UST,
+        Tenor::Y2,
+        "912828XX0",
+        settlement_date.add_years(2).unwrap_or(settlement_date),
+        coupon,
+        Yield::new(Decimal::from_f64(0.044).unwrap(), Compounding::SemiAnnual),
+    );
+    let y5 = GovernmentBenchmark::with_cusip_unchecked(
+        Sovereign::UST,
+        Tenor::Y5,
+        "912828YY0",
+        settlement_date.add_years(5).unwrap_or(settlement_date),
+        coupon,
+        Yield::new(Decimal::from_f64(0.042).unwrap(), Compounding::SemiAnnual),
+    );
+    let y10 = GovernmentBenchmark::with_cusip_unchecked(
+        Sovereign::UST,
+        Tenor::Y10,
+        "912828ZZ0",
+        settlement_date.add_years(10).unwrap_or(settlement_date),
+        coupon,
+        Yield::new(Decimal::from_f64(0.040).unwrap(), Compounding::SemiAnnual),
+    );
+    let government_curve = GovernmentCurve::us_treasury(settlement_date)
+        .with_benchmark(y2)
+        .with_benchmark(y5)
+        .with_benchmark(y10);
+
+    // Build pricing input with curves
     let input = PricingInput::with_mid_price(
         request.bond,
         settlement_date,
         request.market_price,
-        None, // discount_curve
-        None, // benchmark_curve
-        None, // government_curve
-        None, // volatility
+        Some(discount_curve),
+        Some(benchmark_curve),
+        Some(government_curve),
+        Some(Decimal::from_f64(0.10).unwrap()), // 10% volatility for OAS on callables
     );
 
     // Price the bond
