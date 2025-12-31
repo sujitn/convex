@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   PieChart,
   Pie,
@@ -12,7 +13,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { formatNumber } from '../lib/utils';
+import { Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { formatNumber, cn } from '../lib/utils';
+import {
+  priceBondWithDetails,
+  BondQuoteResponse,
+  BondReferenceInput,
+  fetchETFHoldingsFromProvider,
+  DataProviderETFResponse,
+} from '../lib/api';
 
 // Demo ETF data
 interface ETFHolding {
@@ -166,17 +175,252 @@ function getPremiumDiscount(price: number, nav: number): { value: number; label:
   };
 }
 
+// Get today's date in YYYY-MM-DD format
+function getTodayDate(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Convert ETF holding to bond reference input for API pricing
+function holdingToBondReference(holding: ETFHolding, etfId: string): BondReferenceInput {
+  // Determine issuer type based on sector
+  const issuerType = holding.sector === 'Government' ? 'Sovereign' : 'Corporate';
+  const bondType = holding.sector === 'Government' ? 'USTreasury' : 'USCorporate';
+
+  return {
+    instrument_id: `${etfId}-${holding.id}`,
+    cusip: holding.cusip,
+    isin: null,
+    sedol: null,
+    bbgid: null,
+    description: `${holding.issuer} ${holding.coupon}% ${holding.maturity}`,
+    currency: 'USD',
+    issue_date: '2020-01-15', // Placeholder
+    maturity_date: holding.maturity,
+    coupon_rate: holding.coupon / 100, // Convert to decimal
+    frequency: 2, // Semi-annual
+    day_count: holding.sector === 'Government' ? 'ActAct' : '30360',
+    face_value: 100,
+    bond_type: bondType,
+    issuer_type: issuerType,
+    issuer_id: holding.issuer.toLowerCase().replace(/\s+/g, '-'),
+    issuer_name: holding.issuer,
+    seniority: 'Senior',
+    is_callable: false,
+    call_schedule: [],
+    is_putable: false,
+    is_sinkable: false,
+    floating_terms: null,
+    inflation_index: null,
+    inflation_base_index: null,
+    has_deflation_floor: false,
+    country_of_risk: 'US',
+    sector: holding.sector,
+    amount_outstanding: null,
+    first_coupon_date: null,
+  };
+}
+
+// Price holdings via API and return updated analytics
+async function priceHoldings(
+  holdings: ETFHolding[],
+  etfId: string,
+  settlementDate: string
+): Promise<{ prices: Map<string, BondQuoteResponse>; errors: string[] }> {
+  const prices = new Map<string, BondQuoteResponse>();
+  const errors: string[] = [];
+
+  // Price each holding (limit to avoid overwhelming the API)
+  const pricingPromises = holdings.slice(0, 10).map(async (holding) => {
+    try {
+      const bondRef = holdingToBondReference(holding, etfId);
+      const quote = await priceBondWithDetails({
+        bond: bondRef,
+        settlement_date: settlementDate,
+        market_price: holding.price,
+      });
+      return { holdingId: holding.id, quote };
+    } catch (err) {
+      errors.push(`Failed to price ${holding.issuer}: ${err}`);
+      return null;
+    }
+  });
+
+  const results = await Promise.allSettled(pricingPromises);
+
+  results.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      prices.set(result.value.holdingId, result.value.quote);
+    }
+  });
+
+  return { prices, errors };
+}
+
+// Calculate iNAV from priced holdings
+function calculateInavFromPrices(
+  etf: ETFData,
+  prices: Map<string, BondQuoteResponse>
+): { inav: number; weightedDuration: number; weightedYield: number } {
+  let totalValue = 0;
+  let weightedDuration = 0;
+  let weightedYield = 0;
+  let totalWeight = 0;
+
+  etf.holdings.forEach((holding) => {
+    const quote = prices.get(holding.id);
+    if (quote) {
+      // Use API-calculated values
+      const price = quote.clean_price_mid ?? holding.price;
+      const duration = quote.modified_duration ?? holding.duration;
+      const yieldVal = (quote.ytm_mid ?? holding.yield / 100) * 100;
+
+      totalValue += price * holding.quantity;
+      weightedDuration += duration * holding.weight;
+      weightedYield += yieldVal * holding.weight;
+      totalWeight += holding.weight;
+    } else {
+      // Use demo values
+      totalValue += holding.price * holding.quantity;
+      weightedDuration += holding.duration * holding.weight;
+      weightedYield += holding.yield * holding.weight;
+      totalWeight += holding.weight;
+    }
+  });
+
+  // Normalize
+  if (totalWeight > 0) {
+    weightedDuration /= totalWeight;
+    weightedYield /= totalWeight;
+  }
+
+  // Calculate iNAV per share
+  const inav = totalValue / etf.sharesOutstanding;
+
+  return { inav, weightedDuration, weightedYield };
+}
+
+// Transform data provider ETF response to internal format
+function transformProviderETF(data: DataProviderETFResponse): ETFData {
+  return {
+    id: data.etf.ticker,
+    ticker: data.etf.ticker,
+    name: data.etf.name,
+    description: data.etf.description,
+    nav: data.etf.nav,
+    inav: data.etf.nav * 1.001, // Slight premium for demo
+    marketPrice: data.etf.nav * 1.002,
+    sharesOutstanding: data.etf.shares_outstanding,
+    aum: data.etf.aum,
+    avgDuration: data.metrics.weighted_duration,
+    avgYield: data.metrics.weighted_yield,
+    expenseRatio: data.etf.expense_ratio,
+    holdings: data.holdings.map(h => ({
+      id: h.id,
+      cusip: h.cusip,
+      issuer: h.issuer,
+      coupon: h.coupon,
+      maturity: h.maturity,
+      rating: h.rating,
+      sector: h.sector,
+      weight: h.weight,
+      price: h.price || 100,
+      yield: (h.coupon / (h.price || 100)) * 100,
+      duration: estimateDuration(h.maturity, h.coupon),
+      quantity: h.shares,
+      marketValue: h.market_value,
+    })),
+  };
+}
+
+// Estimate duration from maturity (simplified)
+function estimateDuration(maturity: string, coupon: number): number {
+  const maturityDate = new Date(maturity);
+  const yearsToMaturity = (maturityDate.getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000);
+  // Simplified Macaulay duration approximation
+  const modifiedDuration = yearsToMaturity * 0.9 / (1 + coupon / 200);
+  return Math.max(0, Math.min(modifiedDuration, yearsToMaturity));
+}
+
 export default function ETFAnalyticsDemo() {
   const [selectedETF, setSelectedETF] = useState<string>('LQD');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof ETFHolding>('weight');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  const settlementDate = getTodayDate();
+
+  // Fetch ETF holdings from data provider
+  const {
+    data: providerETFData,
+    isLoading: isLoadingProvider,
+    isError: isProviderError,
+    refetch: refetchProvider,
+    isFetching: isFetchingProvider,
+  } = useQuery({
+    queryKey: ['etf-provider-holdings', selectedETF],
+    queryFn: () => fetchETFHoldingsFromProvider(selectedETF),
+    staleTime: 60000, // 1 minute
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  // Use provider data if available, otherwise fall back to local demo data
   const etf = useMemo(() => {
+    if (providerETFData) {
+      return transformProviderETF(providerETFData);
+    }
     return DEMO_ETFS.find(e => e.id === selectedETF) || DEMO_ETFS[0];
-  }, [selectedETF]);
+  }, [providerETFData, selectedETF]);
+
+  const isFromProvider = !!providerETFData;
+  const dataSource = providerETFData?.source || 'Local Demo Data';
+
+  // Fetch live prices from convex-server API
+  const {
+    data: liveData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['etf-holdings-prices', selectedETF, etf.holdings.length],
+    queryFn: async () => {
+      const { prices, errors } = await priceHoldings(etf.holdings, etf.id, settlementDate);
+
+      if (prices.size === 0 && errors.length > 0) {
+        throw new Error(errors[0]);
+      }
+
+      // Calculate iNAV from live prices
+      const { inav, weightedDuration, weightedYield } = calculateInavFromPrices(etf, prices);
+
+      return {
+        prices,
+        inav,
+        weightedDuration,
+        weightedYield,
+        errors,
+        pricedCount: prices.size,
+        timestamp: Date.now(),
+      };
+    },
+    staleTime: 30000, // Consider data stale after 30 seconds
+    retry: 1,
+    refetchOnWindowFocus: false,
+    enabled: etf.holdings.length > 0, // Only run if we have holdings
+  });
+
+  // Use live data if available, otherwise fall back to demo data
+  const isLive = liveData && liveData.pricedCount > 0;
+  const displayInav = isLive ? liveData.inav : etf.inav;
+  const displayDuration = isLive ? liveData.weightedDuration : etf.avgDuration;
+  const displayYield = isLive ? liveData.weightedYield : etf.avgYield;
 
   const premiumDiscount = getPremiumDiscount(etf.marketPrice, etf.nav);
+
+  // Combined loading/fetching state
+  const isAnyLoading = isLoading || isLoadingProvider || isFetching || isFetchingProvider;
 
   // Filter and sort holdings
   const filteredHoldings = useMemo(() => {
@@ -261,24 +505,108 @@ export default function ETFAnalyticsDemo() {
 
   return (
     <div className="space-y-6">
-      {/* ETF Selector */}
+      {/* ETF Selector with Live Status */}
       <div className="card">
-        <div className="flex flex-wrap gap-3">
-          {DEMO_ETFS.map(e => (
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className="flex flex-wrap gap-3">
+            {DEMO_ETFS.map(e => (
+              <button
+                key={e.id}
+                onClick={() => setSelectedETF(e.id)}
+                className={`px-4 py-3 rounded-lg border-2 transition-all text-left ${
+                  selectedETF === e.id
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div className="font-bold text-lg">{e.ticker}</div>
+                <div className="text-sm text-slate-600 truncate max-w-48">{e.name.split(' ').slice(0, 4).join(' ')}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Data Source Status Indicators */}
+          <div className="flex items-center gap-3">
+            {/* Data Provider Status */}
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+              isLoadingProvider || isFetchingProvider ? "bg-yellow-100 text-yellow-700" :
+              isFromProvider ? "bg-blue-100 text-blue-700" :
+              "bg-slate-100 text-slate-600"
+            )}>
+              {isLoadingProvider || isFetchingProvider ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Loading...</span>
+                </>
+              ) : isFromProvider ? (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  <span>Data: {dataSource}</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4" />
+                  <span>Local Data</span>
+                </>
+              )}
+            </div>
+            {/* Pricing API Status */}
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+              isLoading || isFetching ? "bg-yellow-100 text-yellow-700" :
+              isLive ? "bg-green-100 text-green-700" :
+              isError ? "bg-red-100 text-red-700" :
+              "bg-slate-100 text-slate-600"
+            )}>
+              {isLoading || isFetching ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Pricing...</span>
+                </>
+              ) : isLive ? (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  <span>Live ({liveData?.pricedCount} priced)</span>
+                </>
+              ) : isError ? (
+                <>
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Error</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4" />
+                  <span>Demo</span>
+                </>
+              )}
+            </div>
             <button
-              key={e.id}
-              onClick={() => setSelectedETF(e.id)}
-              className={`px-4 py-3 rounded-lg border-2 transition-all text-left ${
-                selectedETF === e.id
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-slate-200 hover:border-slate-300 bg-white'
-              }`}
+              onClick={() => {
+                refetchProvider();
+                refetch();
+              }}
+              disabled={isAnyLoading}
+              className={cn(
+                "p-2 rounded-lg border transition-colors",
+                isAnyLoading
+                  ? "border-slate-200 text-slate-400 cursor-not-allowed"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400"
+              )}
+              title="Refresh all data"
             >
-              <div className="font-bold text-lg">{e.ticker}</div>
-              <div className="text-sm text-slate-600 truncate max-w-48">{e.name.split(' ').slice(0, 4).join(' ')}</div>
+              <RefreshCw className={cn("w-4 h-4", isAnyLoading && "animate-spin")} />
             </button>
-          ))}
+          </div>
         </div>
+
+        {/* Error message */}
+        {(isError || isProviderError) && (
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <span className="font-medium">Error:</span> {(error as Error)?.message || 'Failed to fetch data'}
+            <span className="ml-2 text-red-600">— Using demo data</span>
+          </div>
+        )}
       </div>
 
       {/* NAV / iNAV / Price Panel */}
@@ -289,13 +617,24 @@ export default function ETFAnalyticsDemo() {
           <div className="text-sm text-slate-500 mt-1">Net Asset Value</div>
         </div>
 
-        <div className="card bg-gradient-to-br from-green-50 to-emerald-50">
-          <div className="text-sm font-medium text-slate-600 mb-1">iNAV</div>
-          <div className="text-3xl font-bold text-slate-900">${formatNumber(etf.inav, 2)}</div>
+        <div className={cn(
+          "card bg-gradient-to-br",
+          isLive ? "from-green-50 to-emerald-50 ring-2 ring-green-200" : "from-green-50 to-emerald-50"
+        )}>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
+            <span>iNAV</span>
+            {isLive && <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">LIVE</span>}
+          </div>
+          <div className={cn(
+            "text-3xl font-bold",
+            isLive ? "text-green-700" : "text-slate-900"
+          )}>
+            ${formatNumber(displayInav, 2)}
+          </div>
           <div className="text-sm text-slate-500 mt-1">
             Indicative NAV
-            <span className="ml-1 text-gain">
-              (+${formatNumber(etf.inav - etf.nav, 2)})
+            <span className={cn("ml-1", displayInav >= etf.nav ? "text-gain" : "text-loss")}>
+              ({displayInav >= etf.nav ? '+' : ''}{formatNumber(displayInav - etf.nav, 2)})
             </span>
           </div>
         </div>
@@ -319,15 +658,15 @@ export default function ETFAnalyticsDemo() {
 
       {/* Key Metrics */}
       <div className="grid md:grid-cols-4 gap-4">
-        <div className="card text-center">
+        <div className={cn("card text-center", isLive && "ring-1 ring-green-200")}>
           <div className="stat-label">Avg Duration</div>
-          <div className="stat-value">{formatNumber(etf.avgDuration, 2)}</div>
-          <div className="text-sm text-slate-500">years</div>
+          <div className={cn("stat-value", isLive && "text-green-700")}>{formatNumber(displayDuration, 2)}</div>
+          <div className="text-sm text-slate-500">years {isLive && <span className="text-green-600">(live)</span>}</div>
         </div>
-        <div className="card text-center">
+        <div className={cn("card text-center", isLive && "ring-1 ring-green-200")}>
           <div className="stat-label">Avg Yield</div>
-          <div className="stat-value">{formatNumber(etf.avgYield, 2)}%</div>
-          <div className="text-sm text-slate-500">yield to maturity</div>
+          <div className={cn("stat-value", isLive && "text-green-700")}>{formatNumber(displayYield, 2)}%</div>
+          <div className="text-sm text-slate-500">yield to maturity {isLive && <span className="text-green-600">(live)</span>}</div>
         </div>
         <div className="card text-center">
           <div className="stat-label">Holdings</div>

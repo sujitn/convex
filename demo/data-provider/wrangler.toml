@@ -1,0 +1,20 @@
+# Convex Demo Data Provider
+# Fetches market data from free sources for the demo application
+
+name = "convex-demo-data"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+
+# Environment variables (add your API keys here or in dashboard)
+[vars]
+FRED_API_KEY = ""  # Get free key at https://fred.stlouisfed.org/docs/api/api_key.html
+
+# KV namespace for caching (create via: wrangler kv:namespace create CACHE)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Development settings
+[dev]
+port = 8788
+local_protocol = "http"

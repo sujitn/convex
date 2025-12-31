@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Line,
   XAxis,
@@ -11,7 +12,9 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
-import { formatNumber } from '../lib/utils';
+import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { formatNumber, cn } from '../lib/utils';
+import { fetchMarketDataFromProvider, DataProviderYieldCurve } from '../lib/api';
 
 // Curve data types
 interface CurvePoint {
@@ -215,9 +218,66 @@ function CustomTooltip({ active, payload, label, viewMode }: TooltipProps) {
   );
 }
 
+// Curve colors for display
+const CURVE_COLORS: Record<string, string> = {
+  'USD_GOVT': '#2563eb',
+  'USD_SOFR': '#16a34a',
+  'USD_SWAP': '#dc2626',
+  'USD_CORP_IG': '#9333ea',
+  'USD_CORP_HY': '#f59e0b',
+};
+
+// Curve descriptions
+const CURVE_DESCRIPTIONS: Record<string, string> = {
+  'USD_GOVT': 'US Government benchmark yields',
+  'USD_SOFR': 'Secured Overnight Financing Rate OIS curve',
+  'USD_SWAP': 'USD Interest Rate Swap curve',
+  'USD_CORP_IG': 'Investment Grade Corporate spread over Treasuries',
+  'USD_CORP_HY': 'High Yield Corporate spread over Treasuries',
+};
+
+// Transform data provider curve to internal format
+function transformProviderCurve(curve: DataProviderYieldCurve): CurveData {
+  return {
+    id: curve.id,
+    name: curve.name,
+    color: CURVE_COLORS[curve.id] || '#64748b',
+    description: CURVE_DESCRIPTIONS[curve.id] || curve.name,
+    points: curve.points.map(p => ({
+      tenor: p.tenor,
+      years: p.years,
+      rate: p.rate * 100, // Convert decimal to percentage
+    })),
+  };
+}
+
 export default function YieldCurveVisualizer() {
-  // Demo curves - in production, these would come from a market data provider
-  const allCurves = DEMO_CURVES;
+  // Fetch curves from data provider
+  const {
+    data: providerData,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['market-curves'],
+    queryFn: fetchMarketDataFromProvider,
+    staleTime: 60000, // 1 minute
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  // Transform provider data or use fallback
+  const allCurves = useMemo(() => {
+    if (providerData?.curves && providerData.curves.length > 0) {
+      return providerData.curves.map(transformProviderCurve);
+    }
+    // Fallback to demo curves
+    return DEMO_CURVES;
+  }, [providerData]);
+
+  const isLive = providerData?.curves && providerData.curves.length > 0;
+  const dataSource = providerData?.source || 'Demo Data';
 
   // State
   const [selectedCurves, setSelectedCurves] = useState<string[]>(['USD_GOVT', 'USD_SOFR']);
@@ -362,17 +422,71 @@ export default function YieldCurveVisualizer() {
   return (
     <div className="space-y-6">
       {/* Data Source Info */}
-      <div className="card bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className={cn(
+        "card bg-gradient-to-r",
+        isLive ? "from-green-50 to-emerald-50" : "from-blue-50 to-indigo-50"
+      )}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Yield Curve Visualizer</h3>
             <p className="text-sm text-slate-600">
-              Demo curves for Treasury, SOFR OIS, Swap, and Corporate IG
-              <span className="mx-2">•</span>
-              <span className="text-slate-500">
-                In production, connect via <code className="bg-slate-100 px-1 rounded">PricingDataProvider</code> trait
-              </span>
+              {isLive ? (
+                <>
+                  Live curves from <span className="font-medium text-green-700">{dataSource}</span>
+                  <span className="mx-2">•</span>
+                  <span className="text-slate-500">
+                    Updated {providerData?.last_updated ? new Date(providerData.last_updated).toLocaleTimeString() : 'just now'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Demo curves for Treasury, SOFR OIS, Swap, and Corporate IG
+                  <span className="mx-2">•</span>
+                  <span className="text-slate-500">
+                    Connect data provider for live rates
+                  </span>
+                </>
+              )}
             </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+              isLoading || isFetching ? "bg-yellow-100 text-yellow-700" :
+              isLive ? "bg-green-100 text-green-700" :
+              isError ? "bg-red-100 text-red-700" :
+              "bg-slate-100 text-slate-600"
+            )}>
+              {isLoading || isFetching ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Loading...</span>
+                </>
+              ) : isLive ? (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  <span>Live</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4" />
+                  <span>Demo</span>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => refetch()}
+              disabled={isLoading || isFetching}
+              className={cn(
+                "p-2 rounded-lg border transition-colors",
+                isLoading || isFetching
+                  ? "border-slate-200 text-slate-400 cursor-not-allowed"
+                  : "border-slate-300 text-slate-600 hover:bg-white hover:border-slate-400"
+              )}
+              title="Refresh curves"
+            >
+              <RefreshCw className={cn("w-4 h-4", (isLoading || isFetching) && "animate-spin")} />
+            </button>
           </div>
         </div>
       </div>

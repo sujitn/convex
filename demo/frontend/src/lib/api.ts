@@ -1,6 +1,7 @@
 // Convex API Client
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || 'https://convex-demo-data.sujitnair.workers.dev';
 
 class ConvexApiError extends Error {
   constructor(
@@ -266,26 +267,138 @@ export async function batchPrice(bonds: Array<{
   });
 }
 
-// ETF
-export async function calculateInav(holdings: Array<{
+// =============================================================================
+// ETF ANALYTICS
+// =============================================================================
+
+// ETF Holding Entry for iNAV calculation
+export interface EtfHoldingEntry {
   instrument_id: string;
-  quantity: number;
-}>) {
-  return fetchJson<unknown>('/api/v1/etf/inav', {
+  weight: number;
+  shares: number;
+  market_value?: number | null;
+  notional_value?: number | null;
+  accrued_interest?: number | null;
+}
+
+// ETF Holdings input for iNAV calculation
+export interface EtfHoldingsInput {
+  etf_id: string;
+  name: string;
+  currency?: string;
+  as_of_date: string;
+  holdings: EtfHoldingEntry[];
+  total_market_value: number;
+  shares_outstanding: number;
+  nav_per_share?: number | null;
+}
+
+// ETF iNAV Request
+export interface EtfInavRequest {
+  holdings: EtfHoldingsInput;
+  bond_prices: BondQuoteResponse[];
+  settlement_date: string;
+}
+
+// ETF Quote Output (iNAV response)
+export interface EtfQuoteOutput {
+  etf_id: string;
+  inav: number;
+  nav: number;
+  premium_discount_pct: number;
+  total_market_value: number;
+  shares_outstanding: number;
+  currency: string;
+  as_of_date: string;
+  settlement_date: string;
+  holdings_count: number;
+  weighted_duration: number;
+  weighted_yield: number;
+  weighted_spread: number;
+  timestamp: number;
+}
+
+// Calculate iNAV for an ETF
+export async function calculateEtfInav(request: EtfInavRequest): Promise<EtfQuoteOutput> {
+  return fetchJson<EtfQuoteOutput>('/api/v1/etf/inav', {
     method: 'POST',
-    body: JSON.stringify({ holdings }),
+    body: JSON.stringify(request),
   });
 }
 
-export async function calculateSecYield(etfId: string, holdings: Array<{
-  instrument_id: string;
-  quantity: number;
-  market_value: number;
-}>) {
-  return fetchJson<unknown>('/api/v1/etf/sec-yield', {
+// Batch iNAV calculation
+export interface BatchEtfInavRequest {
+  etfs: EtfHoldingsInput[];
+  bond_prices: BondQuoteResponse[];
+  settlement_date: string;
+}
+
+export interface BatchEtfInavResponse {
+  results: EtfQuoteOutput[];
+  errors: Array<{ etf_id: string; error: string }>;
+}
+
+export async function batchCalculateEtfInav(request: BatchEtfInavRequest): Promise<BatchEtfInavResponse> {
+  return fetchJson<BatchEtfInavResponse>('/api/v1/etf/inav/batch', {
     method: 'POST',
-    body: JSON.stringify({ etf_id: etfId, holdings }),
+    body: JSON.stringify(request),
   });
+}
+
+// SEC Yield Request
+export interface SecYieldRequest {
+  etf_id: string;
+  net_investment_income: number;
+  avg_shares_outstanding: number;
+  max_offering_price: number;
+  gross_expenses?: number | null;
+  fee_waivers?: number | null;
+  as_of_date: string;
+}
+
+// SEC Yield Response
+export interface SecYieldResponse {
+  etf_id: string;
+  sec_30_day_yield: number;
+  unsubsidized_yield?: number | null;
+  fee_waiver_impact?: number | null;
+  dividend_income: string;
+  interest_income: string;
+  total_income: string;
+  avg_shares: string;
+  max_offering_price: string;
+  as_of_date: string;
+  timestamp: number;
+}
+
+export async function calculateSecYield(request: SecYieldRequest): Promise<SecYieldResponse> {
+  return fetchJson<SecYieldResponse>('/api/v1/etf/sec-yield', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+// Batch price multiple bonds with full reference data
+export async function batchPriceBondsWithDetails(
+  requests: SingleBondPricingRequest[]
+): Promise<{ results: BondQuoteResponse[]; errors: Array<{ index: number; error: string }> }> {
+  // Use Promise.allSettled to handle partial failures
+  const results = await Promise.allSettled(
+    requests.map(req => priceBondWithDetails(req))
+  );
+
+  const successResults: BondQuoteResponse[] = [];
+  const errors: Array<{ index: number; error: string }> = [];
+
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      successResults.push(result.value);
+    } else {
+      errors.push({ index, error: result.reason?.message || 'Unknown error' });
+    }
+  });
+
+  return { results: successResults, errors };
 }
 
 // Portfolio
@@ -380,4 +493,155 @@ export function createWebSocket(
     close: () => ws.close(),
     ws,
   };
+}
+
+// =============================================================================
+// DEMO DATA PROVIDER API
+// Fetches market data from the demo data provider service
+// =============================================================================
+
+// Curve point from data provider
+export interface DataProviderCurvePoint {
+  tenor: string;
+  years: number;
+  rate: number;
+}
+
+// Yield curve from data provider
+export interface DataProviderYieldCurve {
+  id: string;
+  name: string;
+  currency: string;
+  as_of_date: string;
+  source: string;
+  points: DataProviderCurvePoint[];
+}
+
+// Market data response from data provider
+export interface DataProviderMarketData {
+  curves: DataProviderYieldCurve[];
+  last_updated: string;
+  source: string;
+}
+
+// ETF holding from data provider
+export interface DataProviderETFHolding {
+  id: string;
+  cusip: string;
+  isin?: string;
+  issuer: string;
+  description: string;
+  coupon: number;
+  maturity: string;
+  rating: string;
+  sector: string;
+  weight: number;
+  shares: number;
+  market_value: number;
+  price?: number;
+}
+
+// ETF info from data provider
+export interface DataProviderETFInfo {
+  ticker: string;
+  name: string;
+  description: string;
+  issuer: string;
+  inception_date: string;
+  expense_ratio: number;
+  aum: number;
+  shares_outstanding: number;
+  nav: number;
+  holdings_count: number;
+}
+
+// ETF holdings response from data provider
+export interface DataProviderETFResponse {
+  etf: DataProviderETFInfo;
+  holdings: DataProviderETFHolding[];
+  as_of_date: string;
+  source: string;
+  metrics: {
+    weighted_duration: number;
+    weighted_yield: number;
+    weighted_coupon: number;
+    total_market_value: number;
+  };
+}
+
+// Corporate spreads response
+export interface DataProviderSpreadsResponse {
+  spreads: Record<string, number>;
+  as_of_date: string;
+  source: string;
+  description: string;
+}
+
+/**
+ * Fetch market data (curves) from the demo data provider
+ */
+export async function fetchMarketDataFromProvider(): Promise<DataProviderMarketData> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/market-data`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch market data: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch Treasury curve from the demo data provider
+ */
+export async function fetchTreasuryCurveFromProvider(): Promise<DataProviderYieldCurve> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/curves/treasury`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Treasury curve: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch SOFR curve from the demo data provider
+ */
+export async function fetchSOFRCurveFromProvider(): Promise<DataProviderYieldCurve> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/curves/sofr`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch SOFR curve: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch corporate spreads from the demo data provider
+ */
+export async function fetchSpreadsFromProvider(): Promise<DataProviderSpreadsResponse> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/spreads`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch spreads: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch list of available ETFs from the demo data provider
+ */
+export async function fetchAvailableETFs(): Promise<{ etfs: string[]; count: number }> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/etf/list`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ETF list: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch ETF holdings from the demo data provider
+ */
+export async function fetchETFHoldingsFromProvider(ticker: string): Promise<DataProviderETFResponse> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/etf/${ticker}`);
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(`ETF ${ticker} not found`);
+    }
+    throw new Error(`Failed to fetch ETF holdings: ${response.statusText}`);
+  }
+  return response.json();
 }
