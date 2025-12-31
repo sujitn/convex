@@ -28,7 +28,7 @@ convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
 
 # MCP SDK
-rmcp = { version = "0.9", features = ["server", "macros"] }
+rmcp = { version = "0.12", features = ["server", "macros"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
