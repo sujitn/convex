@@ -5406,3 +5406,4 @@ fn parse_currency(s: &str) -> Currency {
         _ => Currency::USD, // Default to USD for unknown currencies
     }
 }
+

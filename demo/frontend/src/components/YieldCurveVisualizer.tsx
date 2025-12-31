@@ -28,84 +28,82 @@ interface CurveData {
   description: string;
 }
 
-// Sample market curves (realistic Dec 2025 data)
-const TREASURY_CURVE: CurveData = {
-  id: 'USD_GOVT',
-  name: 'US Treasury',
-  color: '#2563eb',
-  description: 'US Government benchmark yields',
-  points: [
-    { tenor: '1M', years: 1/12, rate: 4.32 },
-    { tenor: '3M', years: 0.25, rate: 4.30 },
-    { tenor: '6M', years: 0.5, rate: 4.28 },
-    { tenor: '1Y', years: 1, rate: 4.20 },
-    { tenor: '2Y', years: 2, rate: 4.15 },
-    { tenor: '3Y', years: 3, rate: 4.12 },
-    { tenor: '5Y', years: 5, rate: 4.10 },
-    { tenor: '7Y', years: 7, rate: 4.15 },
-    { tenor: '10Y', years: 10, rate: 4.25 },
-    { tenor: '20Y', years: 20, rate: 4.50 },
-    { tenor: '30Y', years: 30, rate: 4.45 },
-  ],
-};
-
-const SOFR_OIS_CURVE: CurveData = {
-  id: 'USD_SOFR',
-  name: 'SOFR OIS',
-  color: '#16a34a',
-  description: 'Secured Overnight Financing Rate OIS curve',
-  points: [
-    { tenor: 'ON', years: 1/365, rate: 4.33 },
-    { tenor: '1W', years: 1/52, rate: 4.33 },
-    { tenor: '1M', years: 1/12, rate: 4.32 },
-    { tenor: '3M', years: 0.25, rate: 4.28 },
-    { tenor: '6M', years: 0.5, rate: 4.20 },
-    { tenor: '1Y', years: 1, rate: 4.05 },
-    { tenor: '2Y', years: 2, rate: 3.85 },
-    { tenor: '3Y', years: 3, rate: 3.75 },
-    { tenor: '5Y', years: 5, rate: 3.70 },
-    { tenor: '7Y', years: 7, rate: 3.75 },
-    { tenor: '10Y', years: 10, rate: 3.85 },
-    { tenor: '30Y', years: 30, rate: 4.00 },
-  ],
-};
-
-const SWAP_CURVE: CurveData = {
-  id: 'USD_SWAP',
-  name: 'USD Swap',
-  color: '#dc2626',
-  description: 'USD Interest Rate Swap curve (vs SOFR)',
-  points: [
-    { tenor: '1Y', years: 1, rate: 4.08 },
-    { tenor: '2Y', years: 2, rate: 3.90 },
-    { tenor: '3Y', years: 3, rate: 3.82 },
-    { tenor: '5Y', years: 5, rate: 3.78 },
-    { tenor: '7Y', years: 7, rate: 3.83 },
-    { tenor: '10Y', years: 10, rate: 3.92 },
-    { tenor: '15Y', years: 15, rate: 4.05 },
-    { tenor: '20Y', years: 20, rate: 4.12 },
-    { tenor: '30Y', years: 30, rate: 4.08 },
-  ],
-};
-
-const CORPORATE_IG_CURVE: CurveData = {
-  id: 'USD_CORP_IG',
-  name: 'Corporate IG',
-  color: '#9333ea',
-  description: 'Investment Grade Corporate spread over Treasuries',
-  points: [
-    { tenor: '1Y', years: 1, rate: 4.70 },
-    { tenor: '2Y', years: 2, rate: 4.75 },
-    { tenor: '3Y', years: 3, rate: 4.82 },
-    { tenor: '5Y', years: 5, rate: 4.95 },
-    { tenor: '7Y', years: 7, rate: 5.10 },
-    { tenor: '10Y', years: 10, rate: 5.25 },
-    { tenor: '20Y', years: 20, rate: 5.55 },
-    { tenor: '30Y', years: 30, rate: 5.50 },
-  ],
-};
-
-const ALL_CURVES = [TREASURY_CURVE, SOFR_OIS_CURVE, SWAP_CURVE, CORPORATE_IG_CURVE];
+// Demo market curves (realistic Dec 2025 data)
+// In production, these would come from a market data provider implementing PricingDataProvider trait
+const DEMO_CURVES: CurveData[] = [
+  {
+    id: 'USD_GOVT',
+    name: 'US Treasury',
+    color: '#2563eb',
+    description: 'US Government benchmark yields',
+    points: [
+      { tenor: '1M', years: 1/12, rate: 4.32 },
+      { tenor: '3M', years: 0.25, rate: 4.30 },
+      { tenor: '6M', years: 0.5, rate: 4.28 },
+      { tenor: '1Y', years: 1, rate: 4.20 },
+      { tenor: '2Y', years: 2, rate: 4.15 },
+      { tenor: '3Y', years: 3, rate: 4.12 },
+      { tenor: '5Y', years: 5, rate: 4.10 },
+      { tenor: '7Y', years: 7, rate: 4.15 },
+      { tenor: '10Y', years: 10, rate: 4.25 },
+      { tenor: '20Y', years: 20, rate: 4.50 },
+      { tenor: '30Y', years: 30, rate: 4.45 },
+    ],
+  },
+  {
+    id: 'USD_SOFR',
+    name: 'SOFR OIS',
+    color: '#16a34a',
+    description: 'Secured Overnight Financing Rate OIS curve',
+    points: [
+      { tenor: 'ON', years: 1/365, rate: 4.33 },
+      { tenor: '1W', years: 1/52, rate: 4.33 },
+      { tenor: '1M', years: 1/12, rate: 4.32 },
+      { tenor: '3M', years: 0.25, rate: 4.28 },
+      { tenor: '6M', years: 0.5, rate: 4.20 },
+      { tenor: '1Y', years: 1, rate: 4.05 },
+      { tenor: '2Y', years: 2, rate: 3.85 },
+      { tenor: '3Y', years: 3, rate: 3.75 },
+      { tenor: '5Y', years: 5, rate: 3.70 },
+      { tenor: '7Y', years: 7, rate: 3.75 },
+      { tenor: '10Y', years: 10, rate: 3.85 },
+      { tenor: '30Y', years: 30, rate: 4.00 },
+    ],
+  },
+  {
+    id: 'USD_SWAP',
+    name: 'USD Swap',
+    color: '#dc2626',
+    description: 'USD Interest Rate Swap curve (vs SOFR)',
+    points: [
+      { tenor: '1Y', years: 1, rate: 4.08 },
+      { tenor: '2Y', years: 2, rate: 3.90 },
+      { tenor: '3Y', years: 3, rate: 3.82 },
+      { tenor: '5Y', years: 5, rate: 3.78 },
+      { tenor: '7Y', years: 7, rate: 3.83 },
+      { tenor: '10Y', years: 10, rate: 3.92 },
+      { tenor: '15Y', years: 15, rate: 4.05 },
+      { tenor: '20Y', years: 20, rate: 4.12 },
+      { tenor: '30Y', years: 30, rate: 4.08 },
+    ],
+  },
+  {
+    id: 'USD_CORP_IG',
+    name: 'Corporate IG',
+    color: '#9333ea',
+    description: 'Investment Grade Corporate spread over Treasuries',
+    points: [
+      { tenor: '1Y', years: 1, rate: 4.70 },
+      { tenor: '2Y', years: 2, rate: 4.75 },
+      { tenor: '3Y', years: 3, rate: 4.82 },
+      { tenor: '5Y', years: 5, rate: 4.95 },
+      { tenor: '7Y', years: 7, rate: 5.10 },
+      { tenor: '10Y', years: 10, rate: 5.25 },
+      { tenor: '20Y', years: 20, rate: 5.55 },
+      { tenor: '30Y', years: 30, rate: 5.50 },
+    ],
+  },
+];
 
 type ViewMode = 'zero' | 'forward' | 'discount';
 type BumpType = 'parallel' | 'twist' | 'butterfly';
@@ -218,6 +216,9 @@ function CustomTooltip({ active, payload, label, viewMode }: TooltipProps) {
 }
 
 export default function YieldCurveVisualizer() {
+  // Demo curves - in production, these would come from a market data provider
+  const allCurves = DEMO_CURVES;
+
   // State
   const [selectedCurves, setSelectedCurves] = useState<string[]>(['USD_GOVT', 'USD_SOFR']);
   const [viewMode, setViewMode] = useState<ViewMode>('zero');
@@ -238,7 +239,7 @@ export default function YieldCurveVisualizer() {
 
   // Process curves based on view mode and bumps
   const processedCurves = useMemo(() => {
-    return ALL_CURVES
+    return allCurves
       .filter(curve => selectedCurves.includes(curve.id))
       .map(curve => {
         let points = curve.points;
@@ -260,7 +261,7 @@ export default function YieldCurveVisualizer() {
 
         return { ...curve, points };
       });
-  }, [selectedCurves, viewMode, bumpEnabled, bumpType, bumpSize]);
+  }, [allCurves, selectedCurves, viewMode, bumpEnabled, bumpType, bumpSize]);
 
   // Chart data row type
   interface ChartDataRow {
@@ -360,6 +361,22 @@ export default function YieldCurveVisualizer() {
 
   return (
     <div className="space-y-6">
+      {/* Data Source Info */}
+      <div className="card bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Yield Curve Visualizer</h3>
+            <p className="text-sm text-slate-600">
+              Demo curves for Treasury, SOFR OIS, Swap, and Corporate IG
+              <span className="mx-2">•</span>
+              <span className="text-slate-500">
+                In production, connect via <code className="bg-slate-100 px-1 rounded">PricingDataProvider</code> trait
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Controls */}
       <div className="card">
         <div className="flex flex-wrap items-start gap-6">
@@ -369,7 +386,7 @@ export default function YieldCurveVisualizer() {
               Curves
             </label>
             <div className="flex flex-wrap gap-2">
-              {ALL_CURVES.map(curve => (
+              {allCurves.map(curve => (
                 <button
                   key={curve.id}
                   onClick={() => toggleCurve(curve.id)}
@@ -437,7 +454,7 @@ export default function YieldCurveVisualizer() {
                 disabled={!showSpread}
                 className="px-2 py-1 border border-slate-300 rounded text-sm disabled:opacity-50"
               >
-                {ALL_CURVES.map(curve => (
+                {allCurves.map(curve => (
                   <option key={curve.id} value={curve.id}>
                     {curve.name}
                   </option>
@@ -567,7 +584,7 @@ export default function YieldCurveVisualizer() {
       {showSpread && spreadChartData.length > 0 && (
         <div className="card">
           <h3 className="card-header">
-            Spread vs {ALL_CURVES.find(c => c.id === spreadBase)?.name} (bps)
+            Spread vs {allCurves.find(c => c.id === spreadBase)?.name} (bps)
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -584,7 +601,7 @@ export default function YieldCurveVisualizer() {
                 <Tooltip
                   formatter={(value: number, name: string) => [
                     `${value >= 0 ? '+' : ''}${formatNumber(value, 1)} bps`,
-                    ALL_CURVES.find(c => c.id === name)?.name || name
+                    allCurves.find(c => c.id === name)?.name || name
                   ]}
                 />
                 <Legend />

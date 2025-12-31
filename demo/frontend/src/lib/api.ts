@@ -98,6 +98,34 @@ export async function checkHealth() {
   );
 }
 
+// Market Data Types
+export interface MarketCurvePoint {
+  tenor: string;
+  years: number;
+  rate: number;
+}
+
+export interface MarketCurve {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  as_of_date: string;
+  source: string;
+  points: MarketCurvePoint[];
+}
+
+export interface MarketDataResponse {
+  curves: MarketCurve[];
+  last_updated: string;
+  source: string;
+}
+
+// Market Data
+export async function getMarketData() {
+  return fetchJson<MarketDataResponse>('/api/v1/market-data');
+}
+
 // Curves
 export async function listCurves() {
   return fetchJson<{ curves: Array<{ curve_id: string; currency: string; as_of_date: string }> }>(
