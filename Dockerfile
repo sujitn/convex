@@ -7,7 +7,7 @@
 # ==============================================================================
 # Stage 1: Build environment
 # ==============================================================================
-FROM rust:1.83-slim-bookworm AS builder
+FROM rust:latest AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \

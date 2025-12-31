@@ -27,9 +27,8 @@ excel/
 # Demo folder (separate deployment)
 demo/
 
-# WASM and MCP (not needed for server, FFI is needed for some deps)
-crates/convex-wasm/
-crates/convex-mcp/
+# Keep all crates - workspace requires them for build
+# (Docker multi-stage build only copies the server binary to final image)
 
 # Misc
 .env
