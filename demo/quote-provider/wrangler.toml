@@ -1,0 +1,21 @@
+# Convex Demo Quote Provider
+# Generates synthetic bond quotes and streams to pricing server
+
+name = "convex-quote-provider"
+main = "src/index.ts"
+compatibility_date = "2024-12-30"
+
+# Environment variables
+[vars]
+CONVEX_API_URL = "https://convex-pricing-api.fly.dev"
+DATA_PROVIDER_URL = "https://convex-demo-data.sujitnair.workers.dev"
+
+# Durable Objects for state management
+# [[durable_objects.bindings]]
+# name = "SIMULATOR"
+# class_name = "SimulatorState"
+
+# Development settings
+[dev]
+port = 8789
+local_protocol = "http"

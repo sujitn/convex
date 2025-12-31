@@ -3,37 +3,41 @@
 // Fetches ETF holdings from free sources (SEC EDGAR, iShares, etc.)
 // =============================================================================
 
-import { ETFHolding, ETFInfo, ETFHoldingsResponse, Env } from './types';
+import {
+  ETFHolding,
+  ETFInfo,
+  ETFHoldingsResponse,
+  Env,
+  NAVHistoryPoint,
+  NAVHistoryResponse,
+  CreationBasket,
+  CreationBasketResponse,
+  BasketComponent,
+} from './types';
+import { fetchISharesHoldings, getSupportedISharesETFs } from './ishares';
 
 // Known ETF configurations
-const ETF_CONFIG: Record<string, { issuer: string; fundType: string }> = {
-  'LQD': { issuer: 'iShares', fundType: 'Investment Grade Corporate' },
-  'HYG': { issuer: 'iShares', fundType: 'High Yield Corporate' },
-  'TLT': { issuer: 'iShares', fundType: 'Long-Term Treasury' },
-  'AGG': { issuer: 'iShares', fundType: 'Aggregate Bond' },
-  'BND': { issuer: 'Vanguard', fundType: 'Total Bond Market' },
-  'VCIT': { issuer: 'Vanguard', fundType: 'Intermediate Corporate' },
-  'VCSH': { issuer: 'Vanguard', fundType: 'Short-Term Corporate' },
-  'GOVT': { issuer: 'iShares', fundType: 'US Treasury' },
-  'SHY': { issuer: 'iShares', fundType: 'Short Treasury' },
-  'IEF': { issuer: 'iShares', fundType: 'Intermediate Treasury' },
+const ETF_CONFIG: Record<string, { issuer: string; fundType: string; creationUnitSize: number }> = {
+  'LQD': { issuer: 'iShares', fundType: 'Investment Grade Corporate', creationUnitSize: 50000 },
+  'HYG': { issuer: 'iShares', fundType: 'High Yield Corporate', creationUnitSize: 50000 },
+  'TLT': { issuer: 'iShares', fundType: 'Long-Term Treasury', creationUnitSize: 50000 },
+  'AGG': { issuer: 'iShares', fundType: 'Aggregate Bond', creationUnitSize: 100000 },
+  'BND': { issuer: 'Vanguard', fundType: 'Total Bond Market', creationUnitSize: 100000 },
+  'VCIT': { issuer: 'Vanguard', fundType: 'Intermediate Corporate', creationUnitSize: 50000 },
+  'VCSH': { issuer: 'Vanguard', fundType: 'Short-Term Corporate', creationUnitSize: 50000 },
+  'GOVT': { issuer: 'iShares', fundType: 'US Treasury', creationUnitSize: 50000 },
+  'SHY': { issuer: 'iShares', fundType: 'Short Treasury', creationUnitSize: 50000 },
+  'IEF': { issuer: 'iShares', fundType: 'Intermediate Treasury', creationUnitSize: 50000 },
 };
 
 /**
- * Fetch ETF holdings - currently uses curated demo data
- * In production, this would integrate with SEC EDGAR or fund provider APIs
+ * Fetch ETF holdings - tries iShares first, falls back to curated demo data
  */
 export async function fetchETFHoldings(
   ticker: string,
-  _env: Env
+  env: Env
 ): Promise<ETFHoldingsResponse | null> {
   const upperTicker = ticker.toUpperCase();
-
-  // Check if we have data for this ETF
-  const holdings = getETFHoldings(upperTicker);
-  if (!holdings) {
-    return null;
-  }
 
   const info = getETFInfo(upperTicker);
   if (!info) {
@@ -41,6 +45,29 @@ export async function fetchETFHoldings(
   }
 
   const today = new Date().toISOString().split('T')[0];
+
+  // Try fetching from iShares first (for supported ETFs)
+  if (getSupportedISharesETFs().includes(upperTicker)) {
+    try {
+      const liveHoldings = await fetchISharesHoldings(upperTicker, env);
+      if (liveHoldings && liveHoldings.length > 0) {
+        return {
+          etf: { ...info, holdings_count: liveHoldings.length },
+          holdings: liveHoldings,
+          as_of_date: today,
+          source: 'iShares (Live)',
+        };
+      }
+    } catch (error) {
+      console.log(`iShares fetch failed for ${upperTicker}, using demo data`);
+    }
+  }
+
+  // Fallback to curated demo data
+  const holdings = getETFHoldings(upperTicker);
+  if (!holdings) {
+    return null;
+  }
 
   return {
     etf: info,
@@ -192,44 +219,74 @@ function getETFHoldings(ticker: string): ETFHolding[] | null {
 
 /**
  * Calculate portfolio metrics from holdings
+ * Also normalizes weights if they don't sum to ~1.0
  */
 export function calculatePortfolioMetrics(holdings: ETFHolding[]): {
   weighted_duration: number;
   weighted_yield: number;
   weighted_coupon: number;
   total_market_value: number;
+  total_weight: number;
+  nav_per_share?: number;
 } {
   let totalWeight = 0;
   let weightedYield = 0;
   let weightedCoupon = 0;
   let totalMarketValue = 0;
-
-  // Estimate duration from maturity (simplified)
   let weightedDuration = 0;
 
+  // First pass: calculate total weight
   for (const holding of holdings) {
-    const maturityDate = new Date(holding.maturity);
-    const yearsToMaturity = (maturityDate.getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000);
-
-    // Simplified duration estimate (actual would use modified duration)
-    const estimatedDuration = Math.min(yearsToMaturity * 0.85, yearsToMaturity);
-
-    // Estimate yield from coupon and price
-    const estimatedYield = (holding.coupon / (holding.price || 100)) * 100;
-
     totalWeight += holding.weight;
-    weightedDuration += estimatedDuration * holding.weight;
-    weightedYield += estimatedYield * holding.weight;
-    weightedCoupon += holding.coupon * holding.weight;
     totalMarketValue += holding.market_value;
   }
 
-  if (totalWeight > 0) {
+  // Log for debugging
+  console.log(`Portfolio metrics: ${holdings.length} holdings, totalWeight=${totalWeight}, totalMV=${totalMarketValue}`);
+
+  // Normalize weights if they don't sum to approximately 1.0
+  // iShares weights might be in percentage form (summing to ~100) or decimal form (summing to ~1)
+  let weightMultiplier = 1;
+  if (totalWeight > 50) {
+    // Weights are in percentage form (e.g., 0.52 means 0.52%, sum to ~100)
+    weightMultiplier = 1 / 100;
+    console.log('Weights appear to be percentages, normalizing by /100');
+  } else if (totalWeight < 0.5 && totalWeight > 0) {
+    // Weights are too small (e.g., 0.0052 for 0.52%), need to scale up
+    // This happens if weights were already divided by 100 incorrectly
+    weightMultiplier = 100;
+    console.log('Weights appear too small, normalizing by *100');
+  }
+
+  // Second pass: calculate weighted metrics with normalized weights
+  let normalizedTotalWeight = 0;
+  for (const holding of holdings) {
+    const maturityDate = new Date(holding.maturity);
+    const yearsToMaturity = Math.max(0, (maturityDate.getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000));
+
+    // Simplified duration estimate
+    const estimatedDuration = Math.min(yearsToMaturity * 0.85, yearsToMaturity);
+
+    // Estimate yield from coupon and price
+    const estimatedYield = holding.price && holding.price > 0
+      ? (holding.coupon / holding.price) * 100
+      : holding.coupon;
+
+    const normalizedWeight = holding.weight * weightMultiplier;
+    normalizedTotalWeight += normalizedWeight;
+
+    weightedDuration += estimatedDuration * normalizedWeight;
+    weightedYield += estimatedYield * normalizedWeight;
+    weightedCoupon += holding.coupon * normalizedWeight;
+  }
+
+  if (normalizedTotalWeight > 0) {
     return {
-      weighted_duration: weightedDuration / totalWeight,
-      weighted_yield: weightedYield / totalWeight,
-      weighted_coupon: weightedCoupon / totalWeight,
+      weighted_duration: weightedDuration / normalizedTotalWeight,
+      weighted_yield: weightedYield / normalizedTotalWeight,
+      weighted_coupon: weightedCoupon / normalizedTotalWeight,
       total_market_value: totalMarketValue,
+      total_weight: normalizedTotalWeight,
     };
   }
 
@@ -238,5 +295,179 @@ export function calculatePortfolioMetrics(holdings: ETFHolding[]): {
     weighted_yield: 0,
     weighted_coupon: 0,
     total_market_value: 0,
+    total_weight: 0,
+  };
+}
+
+// =============================================================================
+// NAV History Functions
+// =============================================================================
+
+/**
+ * Generate synthetic NAV history for demo purposes
+ * In production, this would fetch from Bloomberg, Refinitiv, or fund provider APIs
+ */
+export function generateNAVHistory(
+  ticker: string,
+  days: number = 30
+): NAVHistoryResponse | null {
+  const info = getETFInfo(ticker.toUpperCase());
+  if (!info) return null;
+
+  const history: NAVHistoryPoint[] = [];
+  const baseNAV = info.nav;
+  const baseVolume = 5000000; // 5M shares daily volume
+
+  // Generate synthetic historical data with realistic patterns
+  const today = new Date();
+  let nav = baseNAV;
+
+  for (let i = days; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+
+    // Skip weekends
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+    // Random walk for NAV (typical daily vol ~0.3% for bond ETFs)
+    const dailyReturn = (Math.random() - 0.5) * 0.006;
+    nav = nav * (1 + dailyReturn);
+
+    // Market price with small premium/discount
+    const premiumDiscount = (Math.random() - 0.5) * 0.004; // +/- 0.2%
+    const marketPrice = nav * (1 + premiumDiscount);
+
+    // Volume with some randomness
+    const volume = Math.round(baseVolume * (0.5 + Math.random()));
+
+    history.push({
+      date: date.toISOString().split('T')[0],
+      nav: Math.round(nav * 100) / 100,
+      inav: Math.round(nav * 100) / 100, // iNAV approximates NAV at end of day
+      market_price: Math.round(marketPrice * 100) / 100,
+      premium_discount: Math.round(premiumDiscount * 10000) / 100, // basis points to %
+      volume,
+      shares_outstanding: info.shares_outstanding,
+    });
+  }
+
+  return {
+    ticker: ticker.toUpperCase(),
+    history,
+    period: `${days}D`,
+    source: 'Synthetic Demo Data',
+  };
+}
+
+// =============================================================================
+// Creation/Redemption Basket Functions
+// =============================================================================
+
+/**
+ * Generate creation basket from holdings
+ * A creation basket is the portfolio of securities needed to create new ETF shares
+ */
+export function generateCreationBasket(
+  ticker: string,
+  holdings: ETFHolding[]
+): CreationBasketResponse | null {
+  const upperTicker = ticker.toUpperCase();
+  const config = ETF_CONFIG[upperTicker];
+  const info = getETFInfo(upperTicker);
+
+  if (!config || !info) return null;
+
+  const creationUnitSize = config.creationUnitSize;
+  const navPerShare = info.nav;
+  const totalValue = navPerShare * creationUnitSize;
+
+  // Calculate basket components proportional to holdings
+  const components: BasketComponent[] = holdings
+    .filter(h => h.weight > 0.001) // Only include material positions
+    .slice(0, 100) // Limit to top 100 for demo
+    .map(holding => {
+      const componentValue = totalValue * holding.weight;
+      const shares = Math.round(componentValue / (holding.price || 100));
+
+      return {
+        cusip: holding.cusip,
+        isin: holding.isin,
+        name: holding.description || holding.issuer,
+        shares,
+        weight: holding.weight,
+        market_value: Math.round(componentValue * 100) / 100,
+      };
+    });
+
+  // Calculate actual securities value from components
+  const securitiesValue = components.reduce((sum, c) => sum + c.market_value, 0);
+
+  // Cash component is the difference (for rounding, accrued interest, etc.)
+  const cashComponent = Math.round((totalValue - securitiesValue) * 100) / 100;
+
+  // Typical creation fee is ~$500-1500 per creation unit
+  const estimatedExpenses = creationUnitSize <= 50000 ? 500 : 1000;
+
+  const basket: CreationBasket = {
+    etf_ticker: upperTicker,
+    basket_date: new Date().toISOString().split('T')[0],
+    creation_unit_size: creationUnitSize,
+    cash_component: cashComponent,
+    total_value: Math.round(totalValue * 100) / 100,
+    nav_per_share: navPerShare,
+    components,
+    estimated_expenses: estimatedExpenses,
+  };
+
+  return {
+    basket,
+    as_of_date: new Date().toISOString().split('T')[0],
+    source: 'Demo Data Provider',
+  };
+}
+
+/**
+ * Calculate arbitrage opportunity
+ * Returns premium/discount and estimated profit/loss for creation/redemption
+ */
+export function calculateArbitrage(
+  navPerShare: number,
+  marketPrice: number,
+  creationUnitSize: number,
+  creationFee: number = 500
+): {
+  premium_discount_pct: number;
+  premium_discount_bps: number;
+  action: 'create' | 'redeem' | 'none';
+  gross_profit: number;
+  net_profit: number;
+  profitable: boolean;
+} {
+  const premiumDiscountPct = ((marketPrice - navPerShare) / navPerShare) * 100;
+  const premiumDiscountBps = premiumDiscountPct * 100;
+
+  // Gross profit per creation unit
+  const grossProfit = (marketPrice - navPerShare) * creationUnitSize;
+
+  // Net profit after fees
+  const netProfit = Math.abs(grossProfit) - creationFee;
+
+  // Typical threshold is 10-20 bps to cover transaction costs
+  const threshold = 15; // bps
+
+  let action: 'create' | 'redeem' | 'none' = 'none';
+  if (premiumDiscountBps > threshold) {
+    action = 'create'; // Create ETF shares and sell at premium
+  } else if (premiumDiscountBps < -threshold) {
+    action = 'redeem'; // Buy ETF shares and redeem at NAV
+  }
+
+  return {
+    premium_discount_pct: Math.round(premiumDiscountPct * 100) / 100,
+    premium_discount_bps: Math.round(premiumDiscountBps),
+    action,
+    gross_profit: Math.round(grossProfit * 100) / 100,
+    net_profit: Math.round(netProfit * 100) / 100,
+    profitable: netProfit > 0 && action !== 'none',
   };
 }

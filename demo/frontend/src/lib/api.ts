@@ -2,6 +2,7 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || 'https://convex-demo-data.sujitnair.workers.dev';
+const QUOTE_PROVIDER_BASE = import.meta.env.VITE_QUOTE_PROVIDER_URL || 'https://convex-quote-provider.sujitnair.workers.dev';
 
 class ConvexApiError extends Error {
   constructor(
@@ -777,6 +778,255 @@ export async function fetchETFHoldingsFromProvider(ticker: string): Promise<Data
       throw new Error(`ETF ${ticker} not found`);
     }
     throw new Error(`Failed to fetch ETF holdings: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch NAV history from the demo data provider
+ */
+export async function fetchNAVHistory(ticker: string, days = 30): Promise<{
+  ticker: string;
+  history: Array<{
+    date: string;
+    nav: number;
+    inav?: number;
+    market_price: number;
+    premium_discount: number;
+    volume: number;
+    shares_outstanding: number;
+  }>;
+  period: string;
+  source: string;
+}> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/etf/${ticker}/nav-history?days=${days}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch NAV history: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch creation basket from the demo data provider
+ */
+export async function fetchCreationBasket(ticker: string): Promise<{
+  basket: {
+    etf_ticker: string;
+    basket_date: string;
+    creation_unit_size: number;
+    cash_component: number;
+    total_value: number;
+    nav_per_share: number;
+    components: Array<{
+      cusip: string;
+      isin?: string;
+      name: string;
+      shares: number;
+      weight: number;
+      market_value: number;
+    }>;
+    estimated_expenses: number;
+  };
+  as_of_date: string;
+  source: string;
+}> {
+  const response = await fetch(`${DATA_PROVIDER_BASE}/api/etf/${ticker}/basket`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch creation basket: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Fetch arbitrage calculation from the demo data provider
+ */
+export async function fetchArbitrage(ticker: string, marketPrice?: number): Promise<{
+  ticker: string;
+  nav_per_share: number;
+  market_price: number;
+  creation_unit_size: number;
+  creation_fee: number;
+  arbitrage: {
+    premium_discount_pct: number;
+    premium_discount_bps: number;
+    action: 'create' | 'redeem' | 'none';
+    gross_profit: number;
+    net_profit: number;
+    profitable: boolean;
+  };
+  timestamp: string;
+  source: string;
+}> {
+  const url = marketPrice
+    ? `${DATA_PROVIDER_BASE}/api/etf/${ticker}/arbitrage?market_price=${marketPrice}`
+    : `${DATA_PROVIDER_BASE}/api/etf/${ticker}/arbitrage`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch arbitrage: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// =============================================================================
+// QUOTE PROVIDER API
+// Controls the synthetic quote generator for streaming demos
+// =============================================================================
+
+// Quote provider status
+export interface QuoteProviderStatus {
+  running: boolean;
+  tickCount: number;
+  instrumentCount: number;
+  config?: {
+    interval_ms: number;
+    volatility: 'low' | 'medium' | 'high';
+    mode: 'static' | 'random_walk' | 'mean_revert' | 'stress';
+  };
+  lastTick?: string;
+  instruments?: string[];
+}
+
+// Quote state from provider
+export interface QuoteState {
+  instrument_id: string;
+  bid: number;
+  mid: number;
+  ask: number;
+  yield: number;
+  last_update: string;
+}
+
+// Start simulation config
+export interface SimulationConfig {
+  interval_ms?: number;
+  volatility?: 'low' | 'medium' | 'high';
+  mode?: 'static' | 'random_walk' | 'mean_revert' | 'stress';
+  force?: boolean; // Force restart if already running
+}
+
+// Start response
+export interface StartSimulationResponse {
+  status: string;
+  config: {
+    instruments: unknown[];
+    interval_ms: number;
+    volatility: string;
+    mode: string;
+  };
+  instruments: number;
+  initial_quotes: QuoteState[];
+}
+
+// Tick response
+export interface TickResponse {
+  tick: number;
+  timestamp: string;
+  results: Array<{
+    instrument_id: string;
+    quote: QuoteState;
+    response?: unknown;
+  }>;
+}
+
+// Stress response
+export interface StressResponse {
+  scenario_applied: string;
+  timestamp: string;
+  new_quotes: QuoteState[];
+}
+
+/**
+ * Get quote provider status
+ */
+export async function getQuoteProviderStatus(): Promise<QuoteProviderStatus> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/status`);
+  if (!response.ok) {
+    throw new Error(`Failed to get quote provider status: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Start the quote simulation
+ */
+export async function startQuoteSimulation(config?: SimulationConfig): Promise<StartSimulationResponse> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config || {}),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to start simulation: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Stop the quote simulation
+ */
+export async function stopQuoteSimulation(): Promise<{ status: string; total_ticks: number }> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stop`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to stop simulation: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Get current quotes from the quote provider
+ */
+export async function getQuoteProviderQuotes(): Promise<{ count: number; timestamp: string; quotes: QuoteState[] }> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/quotes`);
+  if (!response.ok) {
+    throw new Error(`Failed to get quotes: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Trigger a single tick (for manual control)
+ */
+export async function triggerQuoteTick(): Promise<TickResponse> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/tick`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to trigger tick: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Apply a stress scenario
+ */
+export async function applyStressScenario(
+  scenario: 'rates_up_100bp' | 'rates_down_100bp' | 'spreads_wide_50bp' | 'spreads_tight_50bp' | 'flight_to_quality' | 'risk_on'
+): Promise<StressResponse> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Failed to apply stress: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/**
+ * Refresh curves in the quote provider
+ */
+export async function refreshQuoteProviderCurves(): Promise<{ status: string; curves_loaded: number }> {
+  const response = await fetch(`${QUOTE_PROVIDER_BASE}/refresh-curves`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to refresh curves: ${response.statusText}`);
   }
   return response.json();
 }

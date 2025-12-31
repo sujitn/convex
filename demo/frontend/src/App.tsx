@@ -11,6 +11,7 @@ import {
   Github,
   ExternalLink,
   Briefcase,
+  Radio,
 } from 'lucide-react';
 import { checkHealth } from './lib/api';
 import { cn } from './lib/utils';
@@ -18,8 +19,10 @@ import YieldCurveDemo from './components/YieldCurveDemo';
 import BondPricingDemo from './components/BondPricingDemo';
 import PortfolioDemo from './components/PortfolioDemo';
 import ETFAnalyticsDemo from './components/ETFAnalyticsDemo';
+import StreamingDemo from './components/StreamingDemo';
+import ETFStreamingDemo from './components/ETFStreamingDemo';
 
-type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | null;
+type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'etf-streaming' | null;
 
 function App() {
   const [activeDemo, setActiveDemo] = useState<DemoSection>(null);
@@ -134,6 +137,30 @@ function App() {
                 <Briefcase className="w-4 h-4" />
                 <span>ETF Analytics</span>
               </button>
+              <button
+                onClick={() => setActiveDemo(activeDemo === 'streaming' ? null : 'streaming')}
+                className={cn(
+                  "btn flex items-center space-x-2",
+                  activeDemo === 'streaming'
+                    ? "bg-white text-primary-900"
+                    : "bg-primary-700 text-white hover:bg-primary-600"
+                )}
+              >
+                <Radio className="w-4 h-4" />
+                <span>Streaming</span>
+              </button>
+              <button
+                onClick={() => setActiveDemo(activeDemo === 'etf-streaming' ? null : 'etf-streaming')}
+                className={cn(
+                  "btn flex items-center space-x-2",
+                  activeDemo === 'etf-streaming'
+                    ? "bg-white text-primary-900"
+                    : "bg-primary-700 text-white hover:bg-primary-600"
+                )}
+              >
+                <Zap className="w-4 h-4" />
+                <span>Live ETF</span>
+              </button>
             </div>
           </div>
         </div>
@@ -149,6 +176,8 @@ function App() {
                 {activeDemo === 'pricing' && 'Bond Pricing'}
                 {activeDemo === 'portfolio' && 'Portfolio Analytics'}
                 {activeDemo === 'etf' && 'ETF Analytics'}
+                {activeDemo === 'streaming' && 'Real-Time Streaming'}
+                {activeDemo === 'etf-streaming' && 'Live ETF Analytics'}
               </h2>
               <button
                 onClick={() => setActiveDemo(null)}
@@ -158,7 +187,12 @@ function App() {
               </button>
             </div>
 
-            {!isApiConnected ? (
+            {/* Streaming demos work without API since they use demo providers */}
+            {activeDemo === 'streaming' ? (
+              <StreamingDemo />
+            ) : activeDemo === 'etf-streaming' ? (
+              <ETFStreamingDemo />
+            ) : !isApiConnected ? (
               <div className="card text-center py-12">
                 <p className="text-slate-600 mb-4">
                   API server not connected. Running in demo mode with sample data.

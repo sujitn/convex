@@ -15,7 +15,11 @@ import {
   fetchETFHoldings,
   getAvailableETFs,
   calculatePortfolioMetrics,
+  generateNAVHistory,
+  generateCreationBasket,
+  calculateArbitrage,
 } from './etf';
+import { debugISharesHoldings } from './ishares';
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -59,6 +63,10 @@ export default {
             '/api/etf/list',
             '/api/etf/:ticker',
             '/api/etf/:ticker/holdings',
+            '/api/etf/:ticker/nav-history',
+            '/api/etf/:ticker/basket',
+            '/api/etf/:ticker/arbitrage',
+            '/api/etf/:ticker/debug',
             '/api/market-data',
           ],
         });
@@ -93,6 +101,37 @@ export default {
       // ETF endpoints
       if (path === '/api/etf/list') {
         return handleETFList();
+      }
+
+      // ETF NAV history: /api/etf/:ticker/nav-history
+      const navHistoryMatch = path.match(/^\/api\/etf\/([A-Za-z]+)\/nav-history$/);
+      if (navHistoryMatch) {
+        const ticker = navHistoryMatch[1].toUpperCase();
+        const daysParam = url.searchParams.get('days');
+        const days = daysParam ? parseInt(daysParam, 10) : 30;
+        return handleNAVHistory(ticker, days);
+      }
+
+      // ETF creation basket: /api/etf/:ticker/basket
+      const basketMatch = path.match(/^\/api\/etf\/([A-Za-z]+)\/basket$/);
+      if (basketMatch) {
+        const ticker = basketMatch[1].toUpperCase();
+        return await handleCreationBasket(ticker, env);
+      }
+
+      // ETF arbitrage: /api/etf/:ticker/arbitrage
+      const arbMatch = path.match(/^\/api\/etf\/([A-Za-z]+)\/arbitrage$/);
+      if (arbMatch) {
+        const ticker = arbMatch[1].toUpperCase();
+        const marketPriceParam = url.searchParams.get('market_price');
+        return await handleArbitrage(ticker, marketPriceParam, env);
+      }
+
+      // ETF debug: /api/etf/:ticker/debug - show raw parsing info
+      const debugMatch = path.match(/^\/api\/etf\/([A-Za-z]+)\/debug$/);
+      if (debugMatch) {
+        const ticker = debugMatch[1].toUpperCase();
+        return await handleETFDebug(ticker, env);
       }
 
       // ETF holdings: /api/etf/:ticker or /api/etf/:ticker/holdings
@@ -256,6 +295,150 @@ async function handleETFHoldings(ticker: string, env: Env): Promise<Response> {
     ...data,
     metrics,
   }, 200, CACHE_DURATION);
+}
+
+/**
+ * Get ETF NAV history
+ */
+function handleNAVHistory(ticker: string, days: number): Response {
+  const data = generateNAVHistory(ticker, days);
+
+  if (!data) {
+    return jsonResponse(
+      {
+        error: 'ETF not found',
+        ticker,
+        available_etfs: getAvailableETFs(),
+      },
+      404
+    );
+  }
+
+  return jsonResponse(data, 200, CACHE_DURATION);
+}
+
+/**
+ * Get ETF creation basket
+ */
+async function handleCreationBasket(ticker: string, env: Env): Promise<Response> {
+  const holdingsData = await fetchETFHoldings(ticker, env);
+
+  if (!holdingsData) {
+    return jsonResponse(
+      {
+        error: 'ETF not found',
+        ticker,
+        available_etfs: getAvailableETFs(),
+      },
+      404
+    );
+  }
+
+  const basketData = generateCreationBasket(ticker, holdingsData.holdings);
+
+  if (!basketData) {
+    return jsonResponse(
+      { error: 'Failed to generate creation basket', ticker },
+      500
+    );
+  }
+
+  return jsonResponse(basketData, 200, CACHE_DURATION);
+}
+
+/**
+ * Debug ETF holdings parsing
+ */
+async function handleETFDebug(ticker: string, env: Env): Promise<Response> {
+  const debugData = await debugISharesHoldings(ticker, env);
+
+  if (!debugData) {
+    return jsonResponse(
+      {
+        error: 'ETF not found or not supported for debug',
+        ticker,
+        available_etfs: getAvailableETFs(),
+      },
+      404
+    );
+  }
+
+  return jsonResponse({
+    ticker,
+    debug: debugData,
+    interpretation: {
+      weight_format: debugData.totalWeight > 50
+        ? 'Weights appear to be percentages (sum > 50, e.g., 0.52 = 0.52%)'
+        : debugData.totalWeight < 0.5
+          ? 'Weights appear to be very small decimals (sum < 0.5)'
+          : 'Weights appear to be decimals (sum ~= 1.0, e.g., 0.0052 = 0.52%)',
+      rating_columns_found: debugData.firstParsedHoldings
+        .filter(h => h.rating_column)
+        .map(h => h.rating_column)
+        .filter((v, i, a) => a.indexOf(v) === i),
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * Calculate ETF arbitrage opportunity
+ */
+async function handleArbitrage(
+  ticker: string,
+  marketPriceParam: string | null,
+  env: Env
+): Promise<Response> {
+  const holdingsData = await fetchETFHoldings(ticker, env);
+
+  if (!holdingsData) {
+    return jsonResponse(
+      {
+        error: 'ETF not found',
+        ticker,
+        available_etfs: getAvailableETFs(),
+      },
+      404
+    );
+  }
+
+  const navPerShare = holdingsData.etf.nav;
+
+  // Use provided market price or simulate small premium/discount
+  let marketPrice: number;
+  if (marketPriceParam) {
+    marketPrice = parseFloat(marketPriceParam);
+    if (isNaN(marketPrice)) {
+      return jsonResponse({ error: 'Invalid market_price parameter' }, 400);
+    }
+  } else {
+    // Simulate small random premium/discount for demo
+    const premiumDiscount = (Math.random() - 0.5) * 0.004; // +/- 0.2%
+    marketPrice = navPerShare * (1 + premiumDiscount);
+  }
+
+  // Get creation unit size (default 50000)
+  const basketData = generateCreationBasket(ticker, holdingsData.holdings);
+  const creationUnitSize = basketData?.basket.creation_unit_size || 50000;
+  const creationFee = basketData?.basket.estimated_expenses || 500;
+
+  const arbitrage = calculateArbitrage(
+    navPerShare,
+    marketPrice,
+    creationUnitSize,
+    creationFee
+  );
+
+  return jsonResponse({
+    ticker,
+    nav_per_share: navPerShare,
+    market_price: Math.round(marketPrice * 100) / 100,
+    creation_unit_size: creationUnitSize,
+    creation_fee: creationFee,
+    arbitrage,
+    timestamp: new Date().toISOString(),
+    source: 'Demo Data Provider',
+  }, 200, 60); // Short cache for arbitrage
 }
 
 // =============================================================================

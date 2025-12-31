@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, AlertCircle, Info } from 'lucide-react';
 import { formatNumber, cn } from '../lib/utils';
 import {
   priceBondWithDetails,
@@ -728,7 +728,17 @@ export default function ETFAnalyticsDemo() {
 
         {/* Rating Breakdown */}
         <div className="card">
-          <h3 className="card-header">Credit Quality</h3>
+          <h3 className="card-header flex items-center gap-2">
+            Credit Quality
+            <span className="group relative">
+              <Info className="h-4 w-4 text-slate-400 cursor-help" />
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                Ratings are estimated based on ETF type, sector, and yield spread.
+                <br />
+                Actual ratings require licensed data from S&P, Moody's, or Fitch.
+              </span>
+            </span>
+          </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ratingData} layout="vertical">
@@ -794,7 +804,17 @@ export default function ETFAnalyticsDemo() {
                   Coupon {sortField === 'coupon' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="text-center py-3 px-3 font-medium text-slate-600">Maturity</th>
-                <th className="text-center py-3 px-3 font-medium text-slate-600">Rating</th>
+                <th className="text-center py-3 px-3 font-medium text-slate-600">
+                  <span className="inline-flex items-center gap-1">
+                    Rating
+                    <span className="group relative">
+                      <Info className="h-3 w-3 text-slate-400 cursor-help" />
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        Estimated ratings
+                      </span>
+                    </span>
+                  </span>
+                </th>
                 <th
                   className="text-right py-3 px-3 font-medium text-slate-600 cursor-pointer hover:text-slate-900"
                   onClick={() => handleSort('price')}
