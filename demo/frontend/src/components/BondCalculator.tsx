@@ -675,31 +675,31 @@ export default function BondCalculator() {
                   {quote.z_spread_mid !== null && quote.z_spread_mid !== undefined && (
                     <MetricCard
                       label="Z-Spread"
-                      value={formatBps(toNum(quote.z_spread_mid) * 10000)}
+                      value={formatBps(toNum(quote.z_spread_mid))}
                     />
                   )}
                   {quote.i_spread_mid !== null && quote.i_spread_mid !== undefined && (
                     <MetricCard
                       label="I-Spread"
-                      value={formatBps(toNum(quote.i_spread_mid) * 10000)}
+                      value={formatBps(toNum(quote.i_spread_mid))}
                     />
                   )}
                   {quote.g_spread_mid !== null && quote.g_spread_mid !== undefined && (
                     <MetricCard
                       label="G-Spread"
-                      value={formatBps(toNum(quote.g_spread_mid) * 10000)}
+                      value={formatBps(toNum(quote.g_spread_mid))}
                     />
                   )}
                   {quote.asw_mid !== null && quote.asw_mid !== undefined && (
                     <MetricCard
                       label="ASW"
-                      value={formatBps(toNum(quote.asw_mid) * 10000)}
+                      value={formatBps(toNum(quote.asw_mid))}
                     />
                   )}
                   {quote.oas_mid !== null && quote.oas_mid !== undefined && (
                     <MetricCard
                       label="OAS"
-                      value={formatBps(toNum(quote.oas_mid) * 10000)}
+                      value={formatBps(toNum(quote.oas_mid))}
                       variant="warning"
                     />
                   )}
