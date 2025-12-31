@@ -7,10 +7,10 @@ use dashmap::DashMap;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use convex_core::{Currency, Date};
 use convex_traits::error::TraitError;
 use convex_traits::ids::*;
 use convex_traits::reference_data::*;
-use convex_core::{Currency, Date};
 
 // =============================================================================
 // CSV BOND REFERENCE SOURCE
@@ -71,7 +71,8 @@ impl CsvBondReferenceSource {
                 let year: i32 = maturity_parts[0].parse().unwrap_or(2030);
                 let month: u32 = maturity_parts[1].parse().unwrap_or(1);
                 let day: u32 = maturity_parts[2].parse().unwrap_or(1);
-                Date::from_ymd(year, month, day).unwrap_or_else(|_| Date::from_ymd(2030, 1, 1).unwrap())
+                Date::from_ymd(year, month, day)
+                    .unwrap_or_else(|_| Date::from_ymd(2030, 1, 1).unwrap())
             } else {
                 Date::from_ymd(2030, 1, 1).unwrap()
             };
@@ -88,7 +89,9 @@ impl CsvBondReferenceSource {
                 currency,
                 issue_date: Date::from_ymd(2020, 1, 1).unwrap(),
                 maturity_date,
-                coupon_rate: record.coupon_rate.map(|r| Decimal::try_from(r).unwrap_or_default()),
+                coupon_rate: record
+                    .coupon_rate
+                    .map(|r| Decimal::try_from(r).unwrap_or_default()),
                 frequency: record.frequency,
                 day_count: "30/360".to_string(),
                 face_value: Decimal::from(100),
@@ -295,7 +298,10 @@ impl BondReferenceSource for EmptyBondReferenceSource {
         Ok(None)
     }
 
-    async fn get_many_by_isin(&self, _isins: &[&str]) -> Result<Vec<BondReferenceData>, TraitError> {
+    async fn get_many_by_isin(
+        &self,
+        _isins: &[&str],
+    ) -> Result<Vec<BondReferenceData>, TraitError> {
         Ok(vec![])
     }
 
@@ -513,8 +519,14 @@ impl BondReferenceSource for InMemoryBondStore {
                     let search_lower = text_search.to_lowercase();
                     let matches = bond.description.to_lowercase().contains(&search_lower)
                         || bond.issuer_name.to_lowercase().contains(&search_lower)
-                        || bond.isin.as_ref().map_or(false, |s| s.to_lowercase().contains(&search_lower))
-                        || bond.cusip.as_ref().map_or(false, |s| s.to_lowercase().contains(&search_lower));
+                        || bond
+                            .isin
+                            .as_ref()
+                            .is_some_and(|s| s.to_lowercase().contains(&search_lower))
+                        || bond
+                            .cusip
+                            .as_ref()
+                            .is_some_and(|s| s.to_lowercase().contains(&search_lower));
                     if !matches {
                         return false;
                     }
@@ -625,7 +637,12 @@ impl InMemoryPortfolioStore {
     }
 
     /// List all portfolios with optional filtering and pagination.
-    pub fn list(&self, filter: &PortfolioFilter, limit: usize, offset: usize) -> Vec<StoredPortfolio> {
+    pub fn list(
+        &self,
+        filter: &PortfolioFilter,
+        limit: usize,
+        offset: usize,
+    ) -> Vec<StoredPortfolio> {
         let mut results: Vec<StoredPortfolio> = self
             .portfolios
             .iter()
@@ -641,8 +658,14 @@ impl InMemoryPortfolioStore {
                 if let Some(ref text_search) = filter.text_search {
                     let search_lower = text_search.to_lowercase();
                     let matches = portfolio.name.to_lowercase().contains(&search_lower)
-                        || portfolio.portfolio_id.to_lowercase().contains(&search_lower)
-                        || portfolio.description.as_ref().map_or(false, |d| d.to_lowercase().contains(&search_lower));
+                        || portfolio
+                            .portfolio_id
+                            .to_lowercase()
+                            .contains(&search_lower)
+                        || portfolio
+                            .description
+                            .as_ref()
+                            .is_some_and(|d| d.to_lowercase().contains(&search_lower));
                     if !matches {
                         return false;
                     }
@@ -675,8 +698,14 @@ impl InMemoryPortfolioStore {
                 if let Some(ref text_search) = filter.text_search {
                     let search_lower = text_search.to_lowercase();
                     let matches = portfolio.name.to_lowercase().contains(&search_lower)
-                        || portfolio.portfolio_id.to_lowercase().contains(&search_lower)
-                        || portfolio.description.as_ref().map_or(false, |d| d.to_lowercase().contains(&search_lower));
+                        || portfolio
+                            .portfolio_id
+                            .to_lowercase()
+                            .contains(&search_lower)
+                        || portfolio
+                            .description
+                            .as_ref()
+                            .is_some_and(|d| d.to_lowercase().contains(&search_lower));
                     if !matches {
                         return false;
                     }
@@ -703,7 +732,11 @@ impl InMemoryPortfolioStore {
     }
 
     /// Add a position to a portfolio.
-    pub fn add_position(&self, portfolio_id: &str, position: StoredPosition) -> Option<StoredPortfolio> {
+    pub fn add_position(
+        &self,
+        portfolio_id: &str,
+        position: StoredPosition,
+    ) -> Option<StoredPortfolio> {
         if let Some(mut entry) = self.portfolios.get_mut(portfolio_id) {
             entry.positions.push(position);
             entry.updated_at = std::time::SystemTime::now()
@@ -717,7 +750,11 @@ impl InMemoryPortfolioStore {
     }
 
     /// Remove a position from a portfolio.
-    pub fn remove_position(&self, portfolio_id: &str, instrument_id: &str) -> Option<StoredPortfolio> {
+    pub fn remove_position(
+        &self,
+        portfolio_id: &str,
+        instrument_id: &str,
+    ) -> Option<StoredPortfolio> {
         if let Some(mut entry) = self.portfolios.get_mut(portfolio_id) {
             entry.positions.retain(|p| p.instrument_id != instrument_id);
             entry.updated_at = std::time::SystemTime::now()
@@ -731,9 +768,17 @@ impl InMemoryPortfolioStore {
     }
 
     /// Update a position in a portfolio.
-    pub fn update_position(&self, portfolio_id: &str, position: StoredPosition) -> Option<StoredPortfolio> {
+    pub fn update_position(
+        &self,
+        portfolio_id: &str,
+        position: StoredPosition,
+    ) -> Option<StoredPortfolio> {
         if let Some(mut entry) = self.portfolios.get_mut(portfolio_id) {
-            if let Some(existing) = entry.positions.iter_mut().find(|p| p.instrument_id == position.instrument_id) {
+            if let Some(existing) = entry
+                .positions
+                .iter_mut()
+                .find(|p| p.instrument_id == position.instrument_id)
+            {
                 *existing = position;
                 entry.updated_at = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)

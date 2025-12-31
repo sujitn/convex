@@ -1,5 +1,7 @@
 //! In-memory caches for the pricing engine.
 
+#![allow(dead_code)]
+
 use std::time::{Duration, Instant};
 
 use dashmap::DashMap;

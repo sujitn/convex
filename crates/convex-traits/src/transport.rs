@@ -182,8 +182,8 @@ pub struct ApiResponse {
 impl ApiResponse {
     /// Create a successful JSON response.
     pub fn json<T: Serialize>(value: &T) -> Result<Self, TraitError> {
-        let json = serde_json::to_vec(value)
-            .map_err(|e| TraitError::SerializationError(e.to_string()))?;
+        let json =
+            serde_json::to_vec(value).map_err(|e| TraitError::SerializationError(e.to_string()))?;
         Ok(Self {
             status: 200,
             body: Some(Bytes::from(json)),

@@ -1,5 +1,7 @@
 //! Calculation context - provides access to caches and data during calculation.
 
+#![allow(dead_code)]
+
 use std::sync::Arc;
 
 use convex_traits::ids::{CurveId, InstrumentId};

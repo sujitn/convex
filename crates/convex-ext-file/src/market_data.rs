@@ -7,10 +7,10 @@ use dashmap::DashMap;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use convex_core::Date;
 use convex_traits::error::TraitError;
 use convex_traits::ids::*;
 use convex_traits::market_data::*;
-use convex_core::Date;
 
 // =============================================================================
 // CSV QUOTE SOURCE
@@ -57,10 +57,30 @@ impl CsvQuoteSource {
 
             let quote = RawQuote {
                 instrument_id: InstrumentId::new(&record.instrument_id),
-                bid_price: record.bid_price.map(Decimal::try_from).transpose().ok().flatten(),
-                ask_price: record.ask_price.map(Decimal::try_from).transpose().ok().flatten(),
-                mid_price: record.mid_price.map(Decimal::try_from).transpose().ok().flatten(),
-                last_price: record.last_price.map(Decimal::try_from).transpose().ok().flatten(),
+                bid_price: record
+                    .bid_price
+                    .map(Decimal::try_from)
+                    .transpose()
+                    .ok()
+                    .flatten(),
+                ask_price: record
+                    .ask_price
+                    .map(Decimal::try_from)
+                    .transpose()
+                    .ok()
+                    .flatten(),
+                mid_price: record
+                    .mid_price
+                    .map(Decimal::try_from)
+                    .transpose()
+                    .ok()
+                    .flatten(),
+                last_price: record
+                    .last_price
+                    .map(Decimal::try_from)
+                    .transpose()
+                    .ok()
+                    .flatten(),
                 bid_yield: None,
                 ask_yield: None,
                 bid_size: None,
@@ -86,18 +106,27 @@ impl QuoteSource for CsvQuoteSource {
         SourceType::File
     }
 
-    async fn get_quote(&self, instrument_id: &InstrumentId) -> Result<Option<RawQuote>, TraitError> {
+    async fn get_quote(
+        &self,
+        instrument_id: &InstrumentId,
+    ) -> Result<Option<RawQuote>, TraitError> {
         Ok(self.quotes.get(instrument_id).map(|q| q.clone()))
     }
 
-    async fn get_quotes(&self, instrument_ids: &[InstrumentId]) -> Result<Vec<RawQuote>, TraitError> {
+    async fn get_quotes(
+        &self,
+        instrument_ids: &[InstrumentId],
+    ) -> Result<Vec<RawQuote>, TraitError> {
         Ok(instrument_ids
             .iter()
             .filter_map(|id| self.quotes.get(id).map(|q| q.clone()))
             .collect())
     }
 
-    async fn subscribe(&self, _instrument_ids: &[InstrumentId]) -> Result<QuoteReceiver, TraitError> {
+    async fn subscribe(
+        &self,
+        _instrument_ids: &[InstrumentId],
+    ) -> Result<QuoteReceiver, TraitError> {
         Err(TraitError::SourceNotAvailable(
             "File source does not support streaming".into(),
         ))
@@ -188,7 +217,11 @@ impl CurveInputSource for JsonCurveInputSource {
     }
 
     async fn get_curve_inputs(&self, curve_id: &CurveId) -> Result<Vec<CurveInput>, TraitError> {
-        Ok(self.inputs.get(curve_id).map(|v| v.clone()).unwrap_or_default())
+        Ok(self
+            .inputs
+            .get(curve_id)
+            .map(|v| v.clone())
+            .unwrap_or_default())
     }
 
     async fn subscribe(&self, _curve_ids: &[CurveId]) -> Result<CurveInputReceiver, TraitError> {
@@ -205,6 +238,8 @@ impl CurveInputSource for JsonCurveInputSource {
 /// CSV-based index fixing source.
 pub struct CsvIndexFixingSource {
     file_path: PathBuf,
+    /// Index fixings cache (reserved for future implementation).
+    #[allow(dead_code)]
     fixings: DashMap<(String, i64), IndexFixing>,
 }
 
@@ -273,7 +308,10 @@ pub struct EmptyVolatilitySource;
 
 #[async_trait]
 impl VolatilitySource for EmptyVolatilitySource {
-    async fn get_surface(&self, _surface_id: &VolSurfaceId) -> Result<Option<VolatilitySurface>, TraitError> {
+    async fn get_surface(
+        &self,
+        _surface_id: &VolSurfaceId,
+    ) -> Result<Option<VolatilitySurface>, TraitError> {
         Ok(None)
     }
 
@@ -400,15 +438,24 @@ impl QuoteSource for EmptyQuoteSource {
         SourceType::Manual
     }
 
-    async fn get_quote(&self, _instrument_id: &InstrumentId) -> Result<Option<RawQuote>, TraitError> {
+    async fn get_quote(
+        &self,
+        _instrument_id: &InstrumentId,
+    ) -> Result<Option<RawQuote>, TraitError> {
         Ok(None)
     }
 
-    async fn get_quotes(&self, _instrument_ids: &[InstrumentId]) -> Result<Vec<RawQuote>, TraitError> {
+    async fn get_quotes(
+        &self,
+        _instrument_ids: &[InstrumentId],
+    ) -> Result<Vec<RawQuote>, TraitError> {
         Ok(vec![])
     }
 
-    async fn subscribe(&self, _instrument_ids: &[InstrumentId]) -> Result<QuoteReceiver, TraitError> {
+    async fn subscribe(
+        &self,
+        _instrument_ids: &[InstrumentId],
+    ) -> Result<QuoteReceiver, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 

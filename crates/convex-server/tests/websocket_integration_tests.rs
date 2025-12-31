@@ -47,7 +47,8 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     };
 
     let output = create_empty_output();
-    let storage = convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
+    let storage =
+        convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
@@ -136,7 +137,9 @@ async fn test_websocket_connection_receives_connected_message() {
     let (mut _write, mut read) = ws_stream.split();
 
     // First message should be "connected"
-    let msg = recv_json(&mut read).await.expect("Should receive connected message");
+    let msg = recv_json(&mut read)
+        .await
+        .expect("Should receive connected message");
 
     assert_eq!(msg["type"], "connected");
     assert!(msg["session_id"].is_string());
@@ -151,7 +154,9 @@ async fn test_websocket_connection_via_api_path() {
     let (ws_stream, _) = connect_async(&ws_url).await.expect("Failed to connect");
     let (mut _write, mut read) = ws_stream.split();
 
-    let msg = recv_json(&mut read).await.expect("Should receive connected message");
+    let msg = recv_json(&mut read)
+        .await
+        .expect("Should receive connected message");
     assert_eq!(msg["type"], "connected");
 }
 
@@ -181,7 +186,9 @@ async fn test_websocket_subscribe_bonds() {
         .unwrap();
 
     // Should receive subscribed confirmation
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive subscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive subscribed message");
 
     assert_eq!(msg["type"], "subscribed");
     assert_eq!(msg["subscription_type"], "bonds");
@@ -207,7 +214,9 @@ async fn test_websocket_subscribe_all_bonds() {
         .unwrap();
 
     // Should receive subscribed confirmation
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive subscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive subscribed message");
 
     assert_eq!(msg["type"], "subscribed");
     assert_eq!(msg["subscription_type"], "all_bonds");
@@ -234,7 +243,9 @@ async fn test_websocket_subscribe_etfs() {
         .await
         .unwrap();
 
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive subscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive subscribed message");
 
     assert_eq!(msg["type"], "subscribed");
     assert_eq!(msg["subscription_type"], "etfs");
@@ -261,7 +272,9 @@ async fn test_websocket_subscribe_portfolios() {
         .await
         .unwrap();
 
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive subscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive subscribed message");
 
     assert_eq!(msg["type"], "subscribed");
     assert_eq!(msg["subscription_type"], "portfolios");
@@ -299,7 +312,9 @@ async fn test_websocket_unsubscribe_bonds() {
         .await
         .unwrap();
 
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive unsubscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive unsubscribed message");
 
     assert_eq!(msg["type"], "unsubscribed");
     assert_eq!(msg["subscription_type"], "bonds");
@@ -331,7 +346,9 @@ async fn test_websocket_unsubscribe_all_bonds() {
         .await
         .unwrap();
 
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive unsubscribed message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive unsubscribed message");
 
     assert_eq!(msg["type"], "unsubscribed");
     assert_eq!(msg["subscription_type"], "all_bonds");
@@ -364,7 +381,9 @@ async fn test_websocket_ping_pong() {
         .unwrap();
 
     // Should receive pong with same timestamp
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive pong message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive pong message");
 
     assert_eq!(msg["type"], "pong");
     assert_eq!(msg["timestamp"].as_i64().unwrap(), timestamp);
@@ -441,14 +460,19 @@ async fn test_websocket_receives_bond_quote_broadcast() {
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        panic!("Batch price request returned error status {}: {}", status, body);
+        panic!(
+            "Batch price request returned error status {}: {}",
+            status, body
+        );
     }
 
     // Give time for broadcast to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Should receive bond quote broadcast
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive bond_quote broadcast");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive bond_quote broadcast");
 
     assert_eq!(msg["type"], "bond_quote");
     assert!(msg["instrument_id"].is_string());
@@ -524,14 +548,19 @@ async fn test_websocket_receives_filtered_bond_quote() {
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        panic!("Batch price request returned error status {}: {}", status, body);
+        panic!(
+            "Batch price request returned error status {}: {}",
+            status, body
+        );
     }
 
     // Give time for broadcast to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Should receive bond quote broadcast for subscribed instrument
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive bond_quote broadcast");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive bond_quote broadcast");
 
     assert_eq!(msg["type"], "bond_quote");
     assert_eq!(msg["instrument_id"], "US912828ZT09");
@@ -547,10 +576,14 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect two WebSocket clients
-    let (ws_stream1, _) = connect_async(&ws_url).await.expect("Failed to connect client 1");
+    let (ws_stream1, _) = connect_async(&ws_url)
+        .await
+        .expect("Failed to connect client 1");
     let (mut write1, mut read1) = ws_stream1.split();
 
-    let (ws_stream2, _) = connect_async(&ws_url).await.expect("Failed to connect client 2");
+    let (ws_stream2, _) = connect_async(&ws_url)
+        .await
+        .expect("Failed to connect client 2");
     let (mut write2, mut read2) = ws_stream2.split();
 
     // Consume connected messages
@@ -618,14 +651,21 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
         .expect("Batch price request failed");
 
     // Ensure the request succeeded
-    assert!(response.status().is_success(), "Batch price request returned error status");
+    assert!(
+        response.status().is_success(),
+        "Batch price request returned error status"
+    );
 
     // Give time for broadcast to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Both clients should receive the broadcast
-    let broadcast1 = recv_json_skip_heartbeats(&mut read1).await.expect("Client 1 should receive broadcast");
-    let broadcast2 = recv_json_skip_heartbeats(&mut read2).await.expect("Client 2 should receive broadcast");
+    let broadcast1 = recv_json_skip_heartbeats(&mut read1)
+        .await
+        .expect("Client 1 should receive broadcast");
+    let broadcast2 = recv_json_skip_heartbeats(&mut read2)
+        .await
+        .expect("Client 2 should receive broadcast");
 
     assert_eq!(broadcast1["type"], "bond_quote");
     assert_eq!(broadcast2["type"], "bond_quote");
@@ -655,7 +695,9 @@ async fn test_websocket_invalid_message_format() {
         .unwrap();
 
     // Should receive error message
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive error message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive error message");
 
     assert_eq!(msg["type"], "error");
     assert!(msg["message"].is_string());
@@ -683,7 +725,9 @@ async fn test_websocket_unknown_message_type() {
         .unwrap();
 
     // Should receive error message
-    let msg = recv_json_skip_heartbeats(&mut read).await.expect("Should receive error message");
+    let msg = recv_json_skip_heartbeats(&mut read)
+        .await
+        .expect("Should receive error message");
 
     assert_eq!(msg["type"], "error");
 }

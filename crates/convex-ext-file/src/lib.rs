@@ -25,9 +25,8 @@ use async_trait::async_trait;
 use convex_traits::error::TraitError;
 use convex_traits::market_data::MarketDataProvider;
 use convex_traits::output::{
-    AlertPublisher, AnalyticsPublisher, BondQuoteOutput, CurveOutput, CurvePublisher,
-    EtfPublisher, EtfQuoteOutput, OutputPublisher, PortfolioAnalyticsOutput, PricingAlert,
-    QuotePublisher,
+    AlertPublisher, AnalyticsPublisher, BondQuoteOutput, CurveOutput, CurvePublisher, EtfPublisher,
+    EtfQuoteOutput, OutputPublisher, PortfolioAnalyticsOutput, PricingAlert, QuotePublisher,
 };
 use convex_traits::reference_data::ReferenceDataProvider;
 

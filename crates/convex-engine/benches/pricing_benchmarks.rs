@@ -359,9 +359,7 @@ fn bench_etf_inav(c: &mut Criterion) {
             BenchmarkId::from_parameter(size),
             &(holdings, quotes),
             |b, (holdings, quotes)| {
-                b.iter(|| {
-                    pricer.calculate_inav(black_box(holdings), black_box(quotes), settlement)
-                })
+                b.iter(|| pricer.calculate_inav(black_box(holdings), black_box(quotes), settlement))
             },
         );
     }
@@ -544,4 +542,10 @@ criterion_group!(
 
 criterion_group!(curve_ops, bench_curve_interpolation,);
 
-criterion_main!(single_bond, batch_pricing, etf_pricing, portfolio, curve_ops);
+criterion_main!(
+    single_bond,
+    batch_pricing,
+    etf_pricing,
+    portfolio,
+    curve_ops
+);

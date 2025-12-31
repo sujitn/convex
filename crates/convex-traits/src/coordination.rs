@@ -138,9 +138,10 @@ pub enum ElectionError {
 // =============================================================================
 
 /// Status of a service instance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstanceStatus {
     /// Instance is starting up.
+    #[default]
     Starting,
     /// Instance is ready to serve requests.
     Ready,
@@ -148,12 +149,6 @@ pub enum InstanceStatus {
     Draining,
     /// Instance is unhealthy.
     Unhealthy,
-}
-
-impl Default for InstanceStatus {
-    fn default() -> Self {
-        Self::Starting
-    }
 }
 
 /// Information about a service instance.
@@ -226,22 +221,17 @@ impl InstanceInfo {
 // =============================================================================
 
 /// Strategy for partitioning bonds across replicas.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PartitionStrategy {
     /// Partition by currency.
     ByCurrency,
     /// Partition by issuer type (govt, corporate, municipal).
     ByIssuerType,
     /// Partition by hash of instrument ID.
+    #[default]
     HashBased,
     /// Manual assignment via configuration.
     Manual,
-}
-
-impl Default for PartitionStrategy {
-    fn default() -> Self {
-        Self::HashBased
-    }
 }
 
 /// Partition assignment for a replica.
@@ -419,10 +409,12 @@ pub enum RebalanceEvent {
 // =============================================================================
 
 /// Watcher for instance changes.
-pub type InstanceWatcher = Pin<Box<dyn Stream<Item = Result<Vec<InstanceInfo>, RegistryError>> + Send>>;
+pub type InstanceWatcher =
+    Pin<Box<dyn Stream<Item = Result<Vec<InstanceInfo>, RegistryError>> + Send>>;
 
 /// Watcher for rebalance events.
-pub type RebalanceWatcher = Pin<Box<dyn Stream<Item = Result<RebalanceEvent, PartitionError>> + Send>>;
+pub type RebalanceWatcher =
+    Pin<Box<dyn Stream<Item = Result<RebalanceEvent, PartitionError>> + Send>>;
 
 /// Watcher for leadership changes.
 pub type LeaderWatcher = Pin<Box<dyn Stream<Item = Result<LeaderStatus, ElectionError>> + Send>>;
@@ -681,7 +673,10 @@ impl ServiceRegistry for EmptyServiceRegistry {
         Ok(Vec::new())
     }
 
-    async fn get_instance(&self, _instance_id: &str) -> Result<Option<InstanceInfo>, RegistryError> {
+    async fn get_instance(
+        &self,
+        _instance_id: &str,
+    ) -> Result<Option<InstanceInfo>, RegistryError> {
         Ok(None)
     }
 

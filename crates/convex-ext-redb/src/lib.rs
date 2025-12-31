@@ -30,7 +30,8 @@ use convex_traits::storage::{
 // Table definitions
 const BONDS: TableDefinition<&str, &[u8]> = TableDefinition::new("bonds");
 const CURVE_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("curve_configs");
-const CURVE_SNAPSHOTS: TableDefinition<(&str, i64), &[u8]> = TableDefinition::new("curve_snapshots");
+const CURVE_SNAPSHOTS: TableDefinition<(&str, i64), &[u8]> =
+    TableDefinition::new("curve_snapshots");
 const PRICING_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("pricing_configs");
 const OVERRIDES: TableDefinition<&str, &[u8]> = TableDefinition::new("overrides");
 const AUDIT: TableDefinition<u64, &[u8]> = TableDefinition::new("audit");
@@ -176,13 +177,14 @@ impl BondStore for RedbBondStore {
         let mut items = Vec::new();
         let mut total = 0u64;
 
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             total += 1;
 
-            if total > pagination.offset as u64
-                && items.len() < pagination.limit
-            {
+            if total > pagination.offset as u64 && items.len() < pagination.limit {
                 let bond: BondReferenceData = serde_json::from_slice(value.value())
                     .map_err(|e| TraitError::ParseError(e.to_string()))?;
                 items.push(bond);
@@ -301,7 +303,10 @@ impl CurveStore for RedbCurveStore {
         };
 
         let mut configs = Vec::new();
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let config: CurveConfig = serde_json::from_slice(value.value())
                 .map_err(|e| TraitError::ParseError(e.to_string()))?;
@@ -344,7 +349,10 @@ impl CurveStore for RedbCurveStore {
                 .map_err(|e| TraitError::SerializationError(e.to_string()))?;
 
             table
-                .insert((snapshot.curve_id.as_str(), snapshot.as_of), bytes.as_slice())
+                .insert(
+                    (snapshot.curve_id.as_str(), snapshot.as_of),
+                    bytes.as_slice(),
+                )
                 .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
         }
         write_txn
@@ -394,7 +402,10 @@ impl CurveStore for RedbCurveStore {
 
         // Find the latest snapshot for this curve
         let mut latest: Option<CurveSnapshot> = None;
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (key, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let (curve_id_str, as_of) = key.value();
             if curve_id_str == id.as_str() {
@@ -426,7 +437,10 @@ impl CurveStore for RedbCurveStore {
         };
 
         let mut snapshots = Vec::new();
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (key, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let (curve_id_str, as_of) = key.value();
             if curve_id_str == id.as_str() && as_of >= from && as_of <= to {
@@ -561,7 +575,10 @@ impl ConfigStore for RedbConfigStore {
         };
 
         let mut configs = Vec::new();
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let config: BondPricingConfig = serde_json::from_slice(value.value())
                 .map_err(|e| TraitError::ParseError(e.to_string()))?;
@@ -660,7 +677,10 @@ impl OverrideStore for RedbOverrideStore {
             .as_millis() as i64;
 
         let mut overrides = Vec::new();
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let override_: PriceOverride = serde_json::from_slice(value.value())
                 .map_err(|e| TraitError::ParseError(e.to_string()))?;
@@ -729,7 +749,10 @@ impl OverrideStore for RedbOverrideStore {
         };
 
         let mut overrides = Vec::new();
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             let override_: PriceOverride = serde_json::from_slice(value.value())
                 .map_err(|e| TraitError::ParseError(e.to_string()))?;
@@ -809,7 +832,10 @@ impl AuditStore for RedbAuditStore {
         let mut items = Vec::new();
         let mut total = 0u64;
 
-        for result in table.iter().map_err(|e| TraitError::DatabaseError(e.to_string()))? {
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
             let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
             total += 1;
 
@@ -831,9 +857,8 @@ impl AuditStore for RedbAuditStore {
 
 /// Create a full storage adapter with redb backend.
 pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, TraitError> {
-    let db = Arc::new(
-        Database::create(path).map_err(|e| TraitError::DatabaseError(e.to_string()))?,
-    );
+    let db =
+        Arc::new(Database::create(path).map_err(|e| TraitError::DatabaseError(e.to_string()))?);
 
     Ok(StorageAdapter {
         bonds: Arc::new(RedbBondStore::new(db.clone())),

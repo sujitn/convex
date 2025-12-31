@@ -7,48 +7,85 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use chrono::Datelike;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use convex_core::Date;
-use convex_core::Currency;
 use convex_analytics::risk::{Duration as AnalyticsDuration, KeyRateDuration, KeyRateDurations};
 use convex_bonds::types::BondIdentifiers;
+use convex_core::Currency;
+use convex_core::Date;
 use convex_engine::{Portfolio, Position, PricingEngine};
-use convex_ext_file::{InMemoryBondStore, InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, StoredPosition};
+use convex_ext_file::{
+    InMemoryBondStore, InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, StoredPosition,
+};
 use convex_portfolio::{
-    AnalyticsConfig, Holding, HoldingAnalytics, HoldingBuilder,
-    duration_contributions, dv01_contributions, spread_contributions, cs01_contributions,
-    DurationContributions, Dv01Contributions, SpreadContributions, Cs01Contributions,
-    HoldingContribution, BucketContribution, Sector, RatingBucket,
-    bucket_by_sector, bucket_by_rating, bucket_by_maturity,
-    bucket_by_country, bucket_by_issuer, bucket_by_currency,
-    BucketMetrics,
-    // Stress testing
-    run_stress_scenario, run_stress_scenarios, summarize_results,
-    stress_scenarios, RateScenario, SpreadScenario, StressScenario,
-    StressResult,
-    // Benchmark comparison
-    benchmark_comparison, active_weights, estimate_tracking_error,
-    duration_difference_by_sector, spread_difference_by_sector,
-    // Liquidity analytics
-    calculate_liquidity_metrics, liquidity_distribution, estimate_days_to_liquidate,
-    // Credit quality analytics
-    calculate_credit_quality, calculate_migration_risk,
-    CreditRating, Classification, RatingInfo,
+    active_weights,
     // Key rate duration
     aggregate_key_rate_profile,
+    analyze_basket,
+    // Benchmark comparison
+    benchmark_comparison,
+    bucket_by_country,
+    bucket_by_currency,
+    bucket_by_issuer,
+    bucket_by_maturity,
+    bucket_by_rating,
+    bucket_by_sector,
+    build_creation_basket,
+    // Credit quality analytics
+    calculate_credit_quality,
+    // Liquidity analytics
+    calculate_liquidity_metrics,
+    calculate_migration_risk,
     // ETF analytics
-    calculate_sec_yield, SecYieldInput, build_creation_basket, analyze_basket,
+    calculate_sec_yield,
+    cs01_contributions,
+    duration_contributions,
+    duration_difference_by_sector,
+    dv01_contributions,
+    estimate_days_to_liquidate,
+    estimate_tracking_error,
+    liquidity_distribution,
+    // Stress testing
+    run_stress_scenario,
+    run_stress_scenarios,
+    spread_contributions,
+    spread_difference_by_sector,
+    stress_scenarios,
+    summarize_results,
+    AnalyticsConfig,
+    BucketContribution,
+    BucketMetrics,
+    Classification,
+    CreditRating,
+    Cs01Contributions,
+    DurationContributions,
+    Dv01Contributions,
+    Holding,
+    HoldingAnalytics,
+    HoldingBuilder,
+    HoldingContribution,
     // Portfolio
-    Portfolio as ConvexPortfolio, PortfolioBuilder,
+    Portfolio as ConvexPortfolio,
+    PortfolioBuilder,
+    RateScenario,
+    RatingBucket,
+    RatingInfo,
+    SecYieldInput,
+    Sector,
+    SpreadContributions,
+    SpreadScenario,
+    StressResult,
+    StressScenario,
 };
 
 use crate::websocket::WebSocketState;
 use convex_traits::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
 use convex_traits::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
-use convex_traits::reference_data::{BondFilter, BondReferenceData, BondReferenceSource, EtfHoldingEntry, EtfHoldings};
+use convex_traits::reference_data::{
+    BondFilter, BondReferenceData, BondReferenceSource, EtfHoldingEntry, EtfHoldings,
+};
 
 /// Application state.
 pub struct AppState {
@@ -84,6 +121,7 @@ pub struct ErrorResponse {
 }
 
 impl ErrorResponse {
+    #[allow(dead_code)]
     fn new(message: impl Into<String>) -> Self {
         Self {
             error: message.into(),
@@ -346,11 +384,7 @@ pub async fn create_curve(
     }
 
     // Convert points
-    let points: Vec<(f64, f64)> = request
-        .points
-        .iter()
-        .map(|p| (p.tenor, p.rate))
-        .collect();
+    let points: Vec<(f64, f64)> = request.points.iter().map(|p| (p.tenor, p.rate)).collect();
 
     let curve_id = CurveId::new(&request.curve_id);
 
@@ -372,7 +406,10 @@ pub async fn create_curve(
                 points: curve.points.clone(),
                 built_at: curve.built_at,
             };
-            (StatusCode::CREATED, Json(serde_json::to_value(response).unwrap()))
+            (
+                StatusCode::CREATED,
+                Json(serde_json::to_value(response).unwrap()),
+            )
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -615,15 +652,17 @@ pub async fn batch_price(
     let inputs: Vec<PricingInput> = request
         .bonds
         .into_iter()
-        .map(|item| PricingInput::with_mid_price(
-            item.bond,
-            settlement_date,
-            item.market_price,
-            None, // discount_curve
-            None, // benchmark_curve
-            None, // government_curve
-            None, // volatility
-        ))
+        .map(|item| {
+            PricingInput::with_mid_price(
+                item.bond,
+                settlement_date,
+                item.market_price,
+                None, // discount_curve
+                None, // benchmark_curve
+                None, // government_curve
+                None, // volatility
+            )
+        })
         .collect();
 
     let router = state.engine.pricing_router();
@@ -679,7 +718,10 @@ pub async fn batch_price(
         },
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 // =============================================================================
@@ -892,7 +934,8 @@ pub async fn batch_calculate_inav(
     }
 
     let etf_pricer = state.engine.etf_pricer();
-    let results = etf_pricer.calculate_inav_batch(&holdings_list, &request.bond_prices, settlement_date);
+    let results =
+        etf_pricer.calculate_inav_batch(&holdings_list, &request.bond_prices, settlement_date);
 
     let mut outputs = Vec::new();
     let mut errors = Vec::new();
@@ -919,7 +962,10 @@ pub async fn batch_calculate_inav(
         errors,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 // =============================================================================
@@ -1058,7 +1104,10 @@ pub async fn batch_calculate_portfolio_analytics(
         errors,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Request for duration contribution analysis.
@@ -1118,7 +1167,10 @@ pub async fn calculate_duration_contribution(
         total_duration,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 // =============================================================================
@@ -1138,7 +1190,12 @@ pub struct RiskContributionsRequest {
 }
 
 fn default_contribution_types() -> Vec<String> {
-    vec!["duration".to_string(), "dv01".to_string(), "spread".to_string(), "cs01".to_string()]
+    vec![
+        "duration".to_string(),
+        "dv01".to_string(),
+        "spread".to_string(),
+        "cs01".to_string(),
+    ]
 }
 
 /// Serializable holding contribution for API response.
@@ -1274,36 +1331,48 @@ pub async fn calculate_risk_contributions(
     if holdings.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "No valid holdings found (positions must have matching bond prices)" })),
+            Json(
+                serde_json::json!({ "error": "No valid holdings found (positions must have matching bond prices)" }),
+            ),
         );
     }
 
     let config = AnalyticsConfig::default();
-    let types: std::collections::HashSet<_> = request.contribution_types.iter()
+    let types: std::collections::HashSet<_> = request
+        .contribution_types
+        .iter()
         .map(|s| s.to_lowercase())
         .collect();
 
     // Calculate requested contribution types
     let duration = if types.contains("duration") || types.is_empty() {
-        Some(convert_duration_contributions(&duration_contributions(&holdings, &config)))
+        Some(convert_duration_contributions(&duration_contributions(
+            &holdings, &config,
+        )))
     } else {
         None
     };
 
     let dv01 = if types.contains("dv01") || types.is_empty() {
-        Some(convert_dv01_contributions(&dv01_contributions(&holdings, &config)))
+        Some(convert_dv01_contributions(&dv01_contributions(
+            &holdings, &config,
+        )))
     } else {
         None
     };
 
     let spread = if types.contains("spread") || types.is_empty() {
-        Some(convert_spread_contributions(&spread_contributions(&holdings, &config)))
+        Some(convert_spread_contributions(&spread_contributions(
+            &holdings, &config,
+        )))
     } else {
         None
     };
 
     let cs01 = if types.contains("cs01") || types.is_empty() {
-        Some(convert_cs01_contributions(&cs01_contributions(&holdings, &config)))
+        Some(convert_cs01_contributions(&cs01_contributions(
+            &holdings, &config,
+        )))
     } else {
         None
     };
@@ -1323,7 +1392,10 @@ pub async fn calculate_risk_contributions(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Convert portfolio positions and bond prices to convex-portfolio Holdings.
@@ -1344,7 +1416,8 @@ fn convert_to_holdings(
     for position in &portfolio.positions {
         if let Some(quote) = price_map.get(position.instrument_id.as_str()) {
             // Need dirty price for market value calculation (use mid)
-            let market_price = quote.dirty_price_mid()
+            let market_price = quote
+                .dirty_price_mid()
                 .or(quote.clean_price_mid)
                 .unwrap_or(Decimal::from(100));
 
@@ -1398,16 +1471,14 @@ fn convert_to_holdings(
             let mut classification = convex_portfolio::Classification::new();
             if let Some(ref sector_str) = position.sector {
                 if let Some(sector) = parse_sector(sector_str) {
-                    classification = classification.with_sector(
-                        convex_portfolio::SectorInfo::from_composite(sector)
-                    );
+                    classification = classification
+                        .with_sector(convex_portfolio::SectorInfo::from_composite(sector));
                 }
             }
             if let Some(ref rating_str) = position.rating {
                 if let Some(rating) = parse_rating(rating_str) {
-                    classification = classification.with_rating(
-                        convex_portfolio::RatingInfo::from_composite(rating)
-                    );
+                    classification = classification
+                        .with_rating(convex_portfolio::RatingInfo::from_composite(rating));
                 }
             }
             if let Some(ref country) = position.country {
@@ -1418,9 +1489,17 @@ fn convert_to_holdings(
             }
 
             // Create identifiers - use ISIN if available, otherwise create from instrument_id
-            let identifiers = quote.isin.as_ref()
+            let identifiers = quote
+                .isin
+                .as_ref()
                 .and_then(|isin| BondIdentifiers::from_isin_str(isin).ok())
-                .unwrap_or_else(|| BondIdentifiers::from_isin_str(&format!("XX{:010}", position.instrument_id.len())).unwrap_or_default());
+                .unwrap_or_else(|| {
+                    BondIdentifiers::from_isin_str(&format!(
+                        "XX{:010}",
+                        position.instrument_id.len()
+                    ))
+                    .unwrap_or_default()
+                });
 
             // Build holding
             let holding = HoldingBuilder::new()
@@ -1438,7 +1517,11 @@ fn convert_to_holdings(
                 Ok(h) => holdings.push(h),
                 Err(e) => {
                     // Log but continue with other holdings
-                    tracing::warn!("Failed to build holding for {}: {}", position.instrument_id, e);
+                    tracing::warn!(
+                        "Failed to build holding for {}: {}",
+                        position.instrument_id,
+                        e
+                    );
                 }
             }
         }
@@ -1506,8 +1589,11 @@ fn convert_holding_contribution(c: &HoldingContribution) -> ApiHoldingContributi
 }
 
 /// Convert sector bucket contributions to API type.
-fn convert_sector_buckets(buckets: &std::collections::HashMap<Sector, BucketContribution>) -> Vec<ApiBucketContribution> {
-    buckets.iter()
+fn convert_sector_buckets(
+    buckets: &std::collections::HashMap<Sector, BucketContribution>,
+) -> Vec<ApiBucketContribution> {
+    buckets
+        .iter()
         .map(|(sector, b)| ApiBucketContribution {
             name: format!("{:?}", sector),
             count: b.count,
@@ -1519,8 +1605,11 @@ fn convert_sector_buckets(buckets: &std::collections::HashMap<Sector, BucketCont
 }
 
 /// Convert rating bucket contributions to API type.
-fn convert_rating_buckets(buckets: &std::collections::HashMap<RatingBucket, BucketContribution>) -> Vec<ApiBucketContribution> {
-    buckets.iter()
+fn convert_rating_buckets(
+    buckets: &std::collections::HashMap<RatingBucket, BucketContribution>,
+) -> Vec<ApiBucketContribution> {
+    buckets
+        .iter()
         .map(|(rating, b)| ApiBucketContribution {
             name: format!("{:?}", rating),
             count: b.count,
@@ -1534,7 +1623,11 @@ fn convert_rating_buckets(buckets: &std::collections::HashMap<RatingBucket, Buck
 /// Convert DurationContributions to API response type.
 fn convert_duration_contributions(c: &DurationContributions) -> ApiDurationContributions {
     ApiDurationContributions {
-        by_holding: c.by_holding.iter().map(convert_holding_contribution).collect(),
+        by_holding: c
+            .by_holding
+            .iter()
+            .map(convert_holding_contribution)
+            .collect(),
         by_sector: convert_sector_buckets(&c.by_sector),
         by_rating: convert_rating_buckets(&c.by_rating),
         portfolio_duration: c.portfolio_duration,
@@ -1545,7 +1638,11 @@ fn convert_duration_contributions(c: &DurationContributions) -> ApiDurationContr
 /// Convert Dv01Contributions to API response type.
 fn convert_dv01_contributions(c: &Dv01Contributions) -> ApiDv01Contributions {
     ApiDv01Contributions {
-        by_holding: c.by_holding.iter().map(convert_holding_contribution).collect(),
+        by_holding: c
+            .by_holding
+            .iter()
+            .map(convert_holding_contribution)
+            .collect(),
         by_sector: convert_sector_buckets(&c.by_sector),
         by_rating: convert_rating_buckets(&c.by_rating),
         total_dv01: c.total_dv01.to_string(),
@@ -1556,7 +1653,11 @@ fn convert_dv01_contributions(c: &Dv01Contributions) -> ApiDv01Contributions {
 /// Convert SpreadContributions to API response type.
 fn convert_spread_contributions(c: &SpreadContributions) -> ApiSpreadContributions {
     ApiSpreadContributions {
-        by_holding: c.by_holding.iter().map(convert_holding_contribution).collect(),
+        by_holding: c
+            .by_holding
+            .iter()
+            .map(convert_holding_contribution)
+            .collect(),
         by_sector: convert_sector_buckets(&c.by_sector),
         by_rating: convert_rating_buckets(&c.by_rating),
         portfolio_spread: c.portfolio_spread,
@@ -1567,7 +1668,11 @@ fn convert_spread_contributions(c: &SpreadContributions) -> ApiSpreadContributio
 /// Convert Cs01Contributions to API response type.
 fn convert_cs01_contributions(c: &Cs01Contributions) -> ApiCs01Contributions {
     ApiCs01Contributions {
-        by_holding: c.by_holding.iter().map(convert_holding_contribution).collect(),
+        by_holding: c
+            .by_holding
+            .iter()
+            .map(convert_holding_contribution)
+            .collect(),
         by_sector: convert_sector_buckets(&c.by_sector),
         by_rating: convert_rating_buckets(&c.by_rating),
         total_cs01: c.total_cs01.to_string(),
@@ -1668,7 +1773,8 @@ pub async fn calculate_sector_bucketing(
     let config = AnalyticsConfig::default();
     let dist = bucket_by_sector(&holdings, &config);
 
-    let by_sector: Vec<SectorBucketEntry> = dist.by_sector
+    let by_sector: Vec<SectorBucketEntry> = dist
+        .by_sector
         .iter()
         .map(|(sector, metrics)| SectorBucketEntry {
             sector: format!("{:?}", sector),
@@ -1695,7 +1801,10 @@ pub async fn calculate_sector_bucketing(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Rating bucketing response.
@@ -1765,7 +1874,8 @@ pub async fn calculate_rating_bucketing(
     let config = AnalyticsConfig::default();
     let dist = bucket_by_rating(&holdings, &config);
 
-    let by_rating: Vec<RatingBucketEntry> = dist.by_rating
+    let by_rating: Vec<RatingBucketEntry> = dist
+        .by_rating
         .iter()
         .map(|(rating, metrics)| RatingBucketEntry {
             rating: format!("{:?}", rating),
@@ -1773,7 +1883,8 @@ pub async fn calculate_rating_bucketing(
         })
         .collect();
 
-    let by_bucket: Vec<RatingBucketEntry> = dist.by_bucket
+    let by_bucket: Vec<RatingBucketEntry> = dist
+        .by_bucket
         .iter()
         .map(|(bucket, metrics)| RatingBucketEntry {
             rating: format!("{:?}", bucket),
@@ -1804,7 +1915,10 @@ pub async fn calculate_rating_bucketing(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Maturity bucketing response.
@@ -1868,7 +1982,8 @@ pub async fn calculate_maturity_bucketing(
     let config = AnalyticsConfig::default();
     let dist = bucket_by_maturity(&holdings, &config);
 
-    let by_bucket: Vec<MaturityBucketEntry> = dist.by_bucket
+    let by_bucket: Vec<MaturityBucketEntry> = dist
+        .by_bucket
         .iter()
         .map(|(bucket, metrics)| MaturityBucketEntry {
             bucket: format!("{:?}", bucket),
@@ -1896,7 +2011,10 @@ pub async fn calculate_maturity_bucketing(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Custom bucketing response.
@@ -1973,7 +2091,8 @@ pub async fn calculate_custom_bucketing(
         }
     };
 
-    let by_bucket: Vec<CustomBucketEntry> = dist.by_bucket
+    let by_bucket: Vec<CustomBucketEntry> = dist
+        .by_bucket
         .iter()
         .map(|(key, metrics)| CustomBucketEntry {
             key: key.clone(),
@@ -1997,7 +2116,10 @@ pub async fn calculate_custom_bucketing(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Combined bucketing response.
@@ -2033,7 +2155,11 @@ pub struct CombinedBucketingRequest {
 }
 
 fn default_bucket_types() -> Vec<String> {
-    vec!["sector".to_string(), "rating".to_string(), "maturity".to_string()]
+    vec![
+        "sector".to_string(),
+        "rating".to_string(),
+        "maturity".to_string(),
+    ]
 }
 
 /// Calculate all bucketing types for a portfolio.
@@ -2053,7 +2179,9 @@ pub async fn calculate_all_bucketing(
     };
 
     let config = AnalyticsConfig::default();
-    let types: std::collections::HashSet<_> = request.bucket_types.iter()
+    let types: std::collections::HashSet<_> = request
+        .bucket_types
+        .iter()
         .map(|s| s.to_lowercase())
         .collect();
 
@@ -2065,7 +2193,8 @@ pub async fn calculate_all_bucketing(
     // Calculate sector distribution
     let sector = if types.contains("sector") || types.is_empty() {
         let dist = bucket_by_sector(&holdings, &config);
-        let by_sector: Vec<SectorBucketEntry> = dist.by_sector
+        let by_sector: Vec<SectorBucketEntry> = dist
+            .by_sector
             .iter()
             .map(|(sector, metrics)| SectorBucketEntry {
                 sector: format!("{:?}", sector),
@@ -2093,14 +2222,16 @@ pub async fn calculate_all_bucketing(
     // Calculate rating distribution
     let rating = if types.contains("rating") || types.is_empty() {
         let dist = bucket_by_rating(&holdings, &config);
-        let by_rating: Vec<RatingBucketEntry> = dist.by_rating
+        let by_rating: Vec<RatingBucketEntry> = dist
+            .by_rating
             .iter()
             .map(|(rating, metrics)| RatingBucketEntry {
                 rating: format!("{:?}", rating),
                 metrics: convert_bucket_metrics(metrics),
             })
             .collect();
-        let by_bucket: Vec<RatingBucketEntry> = dist.by_bucket
+        let by_bucket: Vec<RatingBucketEntry> = dist
+            .by_bucket
             .iter()
             .map(|(bucket, metrics)| RatingBucketEntry {
                 rating: format!("{:?}", bucket),
@@ -2132,7 +2263,8 @@ pub async fn calculate_all_bucketing(
     // Calculate maturity distribution
     let maturity = if types.contains("maturity") || types.is_empty() {
         let dist = bucket_by_maturity(&holdings, &config);
-        let by_bucket: Vec<MaturityBucketEntry> = dist.by_bucket
+        let by_bucket: Vec<MaturityBucketEntry> = dist
+            .by_bucket
             .iter()
             .map(|(bucket, metrics)| MaturityBucketEntry {
                 bucket: format!("{:?}", bucket),
@@ -2167,7 +2299,10 @@ pub async fn calculate_all_bucketing(
         timestamp: now,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Convert BucketMetrics to API type.
@@ -2275,27 +2410,35 @@ pub async fn list_bonds(
     // Build filter from query params
     let filter = BondFilter {
         currency: query.currency.as_ref().and_then(|c| Currency::from_code(c)),
-        issuer_type: query.issuer_type.as_ref().and_then(|t| match t.to_lowercase().as_str() {
-            "sovereign" => Some(IssuerType::Sovereign),
-            "agency" => Some(IssuerType::Agency),
-            "supranational" => Some(IssuerType::Supranational),
-            "corporateig" | "corporate_ig" => Some(IssuerType::CorporateIG),
-            "corporatehy" | "corporate_hy" => Some(IssuerType::CorporateHY),
-            "financial" => Some(IssuerType::Financial),
-            "municipal" => Some(IssuerType::Municipal),
-            _ => None,
-        }),
-        bond_type: query.bond_type.as_ref().and_then(|t| match t.to_lowercase().as_str() {
-            "fixedbullet" | "fixed_bullet" => Some(BondType::FixedBullet),
-            "fixedcallable" | "fixed_callable" => Some(BondType::FixedCallable),
-            "fixedputable" | "fixed_putable" => Some(BondType::FixedPutable),
-            "floatingrate" | "floating_rate" | "frn" => Some(BondType::FloatingRate),
-            "zerocoupon" | "zero_coupon" => Some(BondType::ZeroCoupon),
-            "inflationlinked" | "inflation_linked" | "linker" => Some(BondType::InflationLinked),
-            "amortizing" => Some(BondType::Amortizing),
-            "convertible" => Some(BondType::Convertible),
-            _ => None,
-        }),
+        issuer_type: query
+            .issuer_type
+            .as_ref()
+            .and_then(|t| match t.to_lowercase().as_str() {
+                "sovereign" => Some(IssuerType::Sovereign),
+                "agency" => Some(IssuerType::Agency),
+                "supranational" => Some(IssuerType::Supranational),
+                "corporateig" | "corporate_ig" => Some(IssuerType::CorporateIG),
+                "corporatehy" | "corporate_hy" => Some(IssuerType::CorporateHY),
+                "financial" => Some(IssuerType::Financial),
+                "municipal" => Some(IssuerType::Municipal),
+                _ => None,
+            }),
+        bond_type: query
+            .bond_type
+            .as_ref()
+            .and_then(|t| match t.to_lowercase().as_str() {
+                "fixedbullet" | "fixed_bullet" => Some(BondType::FixedBullet),
+                "fixedcallable" | "fixed_callable" => Some(BondType::FixedCallable),
+                "fixedputable" | "fixed_putable" => Some(BondType::FixedPutable),
+                "floatingrate" | "floating_rate" | "frn" => Some(BondType::FloatingRate),
+                "zerocoupon" | "zero_coupon" => Some(BondType::ZeroCoupon),
+                "inflationlinked" | "inflation_linked" | "linker" => {
+                    Some(BondType::InflationLinked)
+                }
+                "amortizing" => Some(BondType::Amortizing),
+                "convertible" => Some(BondType::Convertible),
+                _ => None,
+            }),
         country: query.country.clone(),
         sector: query.sector.clone(),
         issuer_id: query.issuer_id.clone(),
@@ -2319,7 +2462,11 @@ pub async fn list_bonds(
     };
 
     // Get bonds with pagination
-    let bonds = match state.bond_store.search(&filter, query.limit, query.offset).await {
+    let bonds = match state
+        .bond_store
+        .search(&filter, query.limit, query.offset)
+        .await
+    {
         Ok(bonds) => bonds,
         Err(e) => {
             return (
@@ -2336,7 +2483,10 @@ pub async fn list_bonds(
         offset: query.offset,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Get a single bond by instrument ID.
@@ -2385,7 +2535,10 @@ pub async fn create_bond(
 
     let created = state.bond_store.upsert(bond);
 
-    (StatusCode::CREATED, Json(serde_json::to_value(created).unwrap()))
+    (
+        StatusCode::CREATED,
+        Json(serde_json::to_value(created).unwrap()),
+    )
 }
 
 /// Update an existing bond.
@@ -2495,7 +2648,10 @@ pub async fn batch_create_bonds(
         errors,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Get bond by ISIN.
@@ -2581,7 +2737,9 @@ pub async fn list_portfolios(
     let total = state.portfolio_store.count(&filter);
 
     // Get portfolios with pagination
-    let portfolios = state.portfolio_store.list(&filter, query.limit, query.offset);
+    let portfolios = state
+        .portfolio_store
+        .list(&filter, query.limit, query.offset);
 
     let response = PortfolioListResponse {
         portfolios,
@@ -2590,7 +2748,10 @@ pub async fn list_portfolios(
         offset: query.offset,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Get a single portfolio by ID.
@@ -2599,7 +2760,10 @@ pub async fn get_portfolio(
     Path(portfolio_id): Path<String>,
 ) -> impl IntoResponse {
     match state.portfolio_store.get(&portfolio_id) {
-        Some(portfolio) => (StatusCode::OK, Json(serde_json::to_value(portfolio).unwrap())),
+        Some(portfolio) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(portfolio).unwrap()),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
@@ -2656,7 +2820,10 @@ pub async fn create_portfolio(
 
     let created = state.portfolio_store.upsert(portfolio);
 
-    (StatusCode::CREATED, Json(serde_json::to_value(created).unwrap()))
+    (
+        StatusCode::CREATED,
+        Json(serde_json::to_value(created).unwrap()),
+    )
 }
 
 /// Request for updating a portfolio.
@@ -2684,7 +2851,9 @@ pub async fn update_portfolio(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
+                Json(
+                    serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) }),
+                ),
             );
         }
     };
@@ -2731,7 +2900,10 @@ pub async fn add_portfolio_position(
     Json(position): Json<StoredPosition>,
 ) -> impl IntoResponse {
     match state.portfolio_store.add_position(&portfolio_id, position) {
-        Some(portfolio) => (StatusCode::OK, Json(serde_json::to_value(portfolio).unwrap())),
+        Some(portfolio) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(portfolio).unwrap()),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
@@ -2744,8 +2916,14 @@ pub async fn remove_portfolio_position(
     State(state): State<Arc<AppState>>,
     Path((portfolio_id, instrument_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    match state.portfolio_store.remove_position(&portfolio_id, &instrument_id) {
-        Some(portfolio) => (StatusCode::OK, Json(serde_json::to_value(portfolio).unwrap())),
+    match state
+        .portfolio_store
+        .remove_position(&portfolio_id, &instrument_id)
+    {
+        Some(portfolio) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(portfolio).unwrap()),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
@@ -2762,8 +2940,14 @@ pub async fn update_portfolio_position(
     // Ensure instrument_id matches path
     position.instrument_id = instrument_id.clone();
 
-    match state.portfolio_store.update_position(&portfolio_id, position) {
-        Some(portfolio) => (StatusCode::OK, Json(serde_json::to_value(portfolio).unwrap())),
+    match state
+        .portfolio_store
+        .update_position(&portfolio_id, position)
+    {
+        Some(portfolio) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(portfolio).unwrap()),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({
@@ -2823,12 +3007,12 @@ pub async fn batch_create_portfolios(
         created += 1;
     }
 
-    let response = BatchPortfolioCreateResponse {
-        created,
-        skipped,
-    };
+    let response = BatchPortfolioCreateResponse { created, skipped };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 // =============================================================================
@@ -3039,7 +3223,8 @@ pub async fn run_stress_test(
     let summary = summarize_results(&results);
 
     // Convert to output
-    let result_outputs: Vec<StressResultOutput> = results.iter().map(convert_stress_result).collect();
+    let result_outputs: Vec<StressResultOutput> =
+        results.iter().map(convert_stress_result).collect();
     let summary_output = summary.map(|s| StressSummaryOutput {
         scenario_count: s.scenario_count,
         worst_pnl: format!("{:.2}", s.worst_pnl),
@@ -3060,7 +3245,10 @@ pub async fn run_stress_test(
         timestamp: chrono::Utc::now().timestamp(),
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Run standard stress scenarios only.
@@ -3098,7 +3286,8 @@ pub async fn run_standard_stress_test(
     let summary = summarize_results(&results);
 
     // Convert to output
-    let result_outputs: Vec<StressResultOutput> = results.iter().map(convert_stress_result).collect();
+    let result_outputs: Vec<StressResultOutput> =
+        results.iter().map(convert_stress_result).collect();
     let summary_output = summary.map(|s| StressSummaryOutput {
         scenario_count: s.scenario_count,
         worst_pnl: format!("{:.2}", s.worst_pnl),
@@ -3119,7 +3308,10 @@ pub async fn run_standard_stress_test(
         timestamp: chrono::Utc::now().timestamp(),
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Request for a single scenario stress test.
@@ -3207,10 +3399,13 @@ pub async fn list_standard_scenarios() -> impl IntoResponse {
         })
         .collect();
 
-    (StatusCode::OK, Json(serde_json::json!({
-        "scenarios": output,
-        "count": output.len()
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "scenarios": output,
+            "count": output.len()
+        })),
+    )
 }
 
 /// Build a ConvexPortfolio from holdings and input.
@@ -3218,8 +3413,8 @@ fn build_convex_portfolio(
     input: &PortfolioInput,
     holdings: Vec<Holding>,
 ) -> Result<ConvexPortfolio, String> {
-    let as_of_date = Date::from_ymd(2025, 1, 15)
-        .map_err(|e| format!("Failed to create date: {}", e))?;
+    let as_of_date =
+        Date::from_ymd(2025, 1, 15).map_err(|e| format!("Failed to create date: {}", e))?;
 
     let mut builder = PortfolioBuilder::new()
         .id(&input.portfolio_id)
@@ -3257,10 +3452,8 @@ fn convert_rate_scenario(input: &RateScenarioInput) -> RateScenario {
     match input {
         RateScenarioInput::Parallel { shift_bps } => RateScenario::ParallelShift(*shift_bps),
         RateScenarioInput::KeyRates { shifts } => {
-            let tenor_shifts: Vec<(f64, f64)> = shifts
-                .iter()
-                .map(|ts| (ts.tenor, ts.shift_bps))
-                .collect();
+            let tenor_shifts: Vec<(f64, f64)> =
+                shifts.iter().map(|ts| (ts.tenor, ts.shift_bps)).collect();
             RateScenario::key_rates(&tenor_shifts)
         }
         RateScenarioInput::Steepening {
@@ -3545,7 +3738,10 @@ pub async fn compare_to_benchmark(
     let yield_comparison = YieldComparisonOutput {
         portfolio_ytm: comparison.yield_comparison.portfolio_ytm.map(|y| y * 100.0),
         benchmark_ytm: comparison.yield_comparison.benchmark_ytm.map(|y| y * 100.0),
-        ytm_difference: comparison.yield_comparison.ytm_difference.map(|y| y * 100.0),
+        ytm_difference: comparison
+            .yield_comparison
+            .ytm_difference
+            .map(|y| y * 100.0),
         is_higher_yield: comparison.yield_comparison.is_higher_yield(),
     };
 
@@ -3641,7 +3837,10 @@ pub async fn compare_to_benchmark(
         timestamp: chrono::Utc::now().timestamp(),
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Request for active weights calculation.
@@ -3806,10 +4005,16 @@ pub async fn calculate_tracking_error(
     let config = AnalyticsConfig::default();
 
     // Default volatility assumptions
-    let rate_vol = request.rate_vol.unwrap_or(0.01);   // 100bp
+    let rate_vol = request.rate_vol.unwrap_or(0.01); // 100bp
     let spread_vol = request.spread_vol.unwrap_or(0.002); // 20bp
 
-    let te = estimate_tracking_error(&port_holdings, &bench_holdings, &config, rate_vol, spread_vol);
+    let te = estimate_tracking_error(
+        &port_holdings,
+        &bench_holdings,
+        &config,
+        rate_vol,
+        spread_vol,
+    );
 
     let response = serde_json::json!({
         "portfolio_id": request.portfolio.portfolio_id,
@@ -4235,8 +4440,8 @@ pub async fn calculate_liquidity_analysis(
 /// Convert liquidity positions to holdings.
 fn convert_liquidity_positions(positions: &[LiquidityPosition]) -> Vec<Holding> {
     // Use a valid placeholder ISIN for liquidity analytics
-    let placeholder_identifiers = BondIdentifiers::from_isin_str("US912828Z229")
-        .expect("Valid placeholder ISIN");
+    let placeholder_identifiers =
+        BondIdentifiers::from_isin_str("US912828Z229").expect("Valid placeholder ISIN");
 
     positions
         .iter()
@@ -5099,8 +5304,7 @@ fn parse_date(s: &str) -> Result<Date, String> {
         .parse::<u32>()
         .map_err(|_| format!("Invalid day: {}", parts[2]))?;
 
-    Date::from_ymd(year, month, day)
-        .map_err(|e| format!("Invalid date: {}", e))
+    Date::from_ymd(year, month, day).map_err(|e| format!("Invalid date: {}", e))
 }
 
 fn parse_currency(s: &str) -> Currency {

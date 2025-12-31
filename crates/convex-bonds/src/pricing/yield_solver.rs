@@ -428,7 +428,7 @@ pub fn discount_margin(
     // Search range: -10% to +20% spread (reasonable for most FRNs)
     let config = SolverConfig::new(1e-10, 100);
 
-    match brent(&objective, -0.10, 0.20, &config) {
+    match brent(objective, -0.10, 0.20, &config) {
         Ok(result) => Ok(result.root),
         Err(e) => Err(BondError::pricing_failed(format!(
             "Failed to solve for discount margin: {}",

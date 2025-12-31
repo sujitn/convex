@@ -80,77 +80,106 @@ pub enum QuoteSide {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BenchmarkReference {
     /// Interpolated yield from government curve at bond's maturity.
-    GovernmentCurve { curve: CurveId },
+    GovernmentCurve {
+        /// Curve identifier.
+        curve: CurveId,
+    },
 
     /// Specific on-the-run tenor (e.g., 10Y OTR Treasury).
-    OnTheRun { curve: CurveId, tenor: Tenor },
+    OnTheRun {
+        /// Curve identifier.
+        curve: CurveId,
+        /// Tenor for OTR lookup.
+        tenor: Tenor,
+    },
 
     /// Specific benchmark bond by identifier.
     SpecificBond {
+        /// Security identifier.
         security_id: InstrumentId,
+        /// Quote side to use.
         side: QuoteSide,
     },
 
     /// Interpolated swap rate from swap curve.
-    SwapCurve { curve: CurveId },
+    SwapCurve {
+        /// Curve identifier.
+        curve: CurveId,
+    },
 
     /// Explicit yield value (manual override).
-    ExplicitYield { yield_pct: f64 },
+    ExplicitYield {
+        /// Yield as a percentage.
+        yield_pct: f64,
+    },
 }
 
 /// Specification for how to derive a bond's price.
 ///
 /// This is the core configuration that determines the pricing methodology.
 /// The actual market data is fetched via `MarketDataProvider` based on this spec.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum PricingSpec {
     /// Use direct market quote.
-    MarketQuote { side: QuoteSide },
+    MarketQuote {
+        /// Which side of the quote to use.
+        side: QuoteSide,
+    },
 
     /// Benchmark yield + spread → Price.
     /// Industry terms: "Matrix pricing", "Spread off benchmark".
     BenchmarkSpread {
+        /// Reference benchmark for yield.
         benchmark: BenchmarkReference,
+        /// Spread over benchmark in basis points.
         spread_bps: f64,
     },
 
     /// FRN: Reference rate + Discount Margin → Price.
     DiscountMargin {
+        /// Reference rate curve.
         reference_curve: CurveId,
+        /// Quoted margin in basis points.
         quoted_margin_bps: f64,
+        /// Discount margin in basis points.
         discount_margin_bps: f64,
     },
 
     /// Z-spread over discount curve → Price.
     ZSpread {
+        /// Discount curve for Z-spread calculation.
         discount_curve: CurveId,
+        /// Z-spread in basis points.
         z_spread_bps: f64,
     },
 
     /// OAS for callable bonds → Price.
     OptionAdjusted {
+        /// Discount curve for OAS calculation.
         discount_curve: CurveId,
+        /// Volatility surface for option pricing.
         vol_surface: VolSurfaceId,
+        /// OAS in basis points.
         oas_bps: f64,
+        /// Mean reversion parameter for rate model.
         mean_reversion: Option<f64>,
+        /// Number of tree steps for lattice model.
         tree_steps: Option<u32>,
     },
 
     /// Real yield for inflation-linked bonds (TIPS) → Price.
     RealYield {
+        /// Real yield as a percentage.
         real_yield_pct: f64,
+        /// Inflation curve for projections.
         inflation_curve: CurveId,
+        /// Index ratio for accrual.
         index_ratio: rust_decimal::Decimal,
     },
 
     /// Auto-derive from market (system chooses based on available data).
+    #[default]
     Auto,
-}
-
-impl Default for PricingSpec {
-    fn default() -> Self {
-        PricingSpec::Auto
-    }
 }
 
 /// Bid-ask spread configuration for model-priced bonds.
@@ -267,7 +296,6 @@ impl AnalyticsCurves {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BondFilter {
     // === Per-bond identifiers (highest priority) ===
-
     /// Match specific ISIN.
     pub isin: Option<String>,
 
@@ -278,7 +306,6 @@ pub struct BondFilter {
     pub instrument_id: Option<InstrumentId>,
 
     // === Issuer/sector filters ===
-
     /// Issuer ID filter.
     pub issuer_id: Option<String>,
 
@@ -289,7 +316,6 @@ pub struct BondFilter {
     pub country: Option<String>,
 
     // === Bond characteristics ===
-
     /// Currency filter.
     pub currency: Option<convex_core::Currency>,
 
@@ -303,7 +329,6 @@ pub struct BondFilter {
     pub is_callable: Option<bool>,
 
     // === Maturity filters ===
-
     /// Maturity from (inclusive).
     pub maturity_from: Option<convex_core::Date>,
 
@@ -311,7 +336,6 @@ pub struct BondFilter {
     pub maturity_to: Option<convex_core::Date>,
 
     // === Text search ===
-
     /// Text search (matches against name, ticker, etc.).
     pub text_search: Option<String>,
 }
@@ -648,7 +672,8 @@ pub struct BondPricingConfig {
 impl BondPricingConfig {
     /// Calculate effective priority (explicit priority or filter specificity).
     pub fn effective_priority(&self) -> i32 {
-        self.priority.unwrap_or_else(|| self.applies_to.specificity() as i32)
+        self.priority
+            .unwrap_or_else(|| self.applies_to.specificity() as i32)
     }
 }
 

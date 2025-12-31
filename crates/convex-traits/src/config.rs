@@ -21,9 +21,10 @@ use crate::error::TraitError;
 // =============================================================================
 
 /// Update frequency for calculation nodes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum UpdateFrequency {
     /// Recalculate immediately on any input change.
+    #[default]
     Immediate,
 
     /// Recalculate at most once per interval (debounce).
@@ -52,12 +53,6 @@ pub enum UpdateFrequency {
         /// Cron expression
         cron: String,
     },
-}
-
-impl Default for UpdateFrequency {
-    fn default() -> Self {
-        UpdateFrequency::Immediate
-    }
 }
 
 // =============================================================================

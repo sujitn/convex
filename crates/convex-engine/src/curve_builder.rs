@@ -208,7 +208,11 @@ impl CurveBuilder {
     }
 
     /// Build a curve from current market data.
-    pub async fn build(&self, curve_id: &CurveId, ref_date: Date) -> Result<BuiltCurve, EngineError> {
+    pub async fn build(
+        &self,
+        curve_id: &CurveId,
+        ref_date: Date,
+    ) -> Result<BuiltCurve, EngineError> {
         info!("Building curve: {}", curve_id);
 
         // Fetch market data inputs
@@ -269,7 +273,11 @@ impl CurveBuilder {
             curve_id: curve_id.clone(),
         });
 
-        info!("Curve {} built with {} points", curve_id, built.points.len());
+        info!(
+            "Curve {} built with {} points",
+            curve_id,
+            built.points.len()
+        );
         Ok(built)
     }
 

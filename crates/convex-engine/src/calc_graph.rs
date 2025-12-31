@@ -126,7 +126,10 @@ impl std::fmt::Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NodeId::Quote { instrument_id } => write!(f, "Quote({})", instrument_id),
-            NodeId::CurveInput { curve_id, instrument } => {
+            NodeId::CurveInput {
+                curve_id,
+                instrument,
+            } => {
                 write!(f, "CurveInput({}.{})", curve_id, instrument)
             }
             NodeId::Curve { curve_id } => write!(f, "Curve({})", curve_id),
@@ -537,7 +540,7 @@ impl CalculationGraph {
             for dependent in deps.iter() {
                 if self.dirty.insert(dependent.clone()) {
                     // Recursively propagate
-                    self.propagate_dirty(&dependent);
+                    self.propagate_dirty(dependent);
                 }
             }
         }
@@ -580,12 +583,11 @@ impl CalculationGraph {
             let should_calc = if let Some(config) = self.configs.get(&node_id) {
                 match &config.frequency {
                     UpdateFrequency::Immediate => true,
-                    UpdateFrequency::Throttled { interval } => {
-                        self.last_calc_time
-                            .get(&node_id)
-                            .map(|t| now.duration_since(*t) >= *interval)
-                            .unwrap_or(true)
-                    }
+                    UpdateFrequency::Throttled { interval } => self
+                        .last_calc_time
+                        .get(&node_id)
+                        .map(|t| now.duration_since(*t) >= *interval)
+                        .unwrap_or(true),
                     UpdateFrequency::Interval { .. } => false, // Handled by scheduler
                     UpdateFrequency::OnDemand => false,
                     UpdateFrequency::EndOfDay { .. } => false,
@@ -737,9 +739,7 @@ mod tests {
     #[test]
     fn test_sharded_graph_owns_subset() {
         // Create 4 shards
-        let shard_configs: Vec<_> = (0..4)
-            .map(|i| ShardConfig::hash_based(i, 4))
-            .collect();
+        let shard_configs: Vec<_> = (0..4).map(|i| ShardConfig::hash_based(i, 4)).collect();
 
         // Test that exactly one shard owns each node
         let test_ids = [
@@ -762,12 +762,7 @@ mod tests {
                 .map(|(i, _)| i)
                 .collect();
 
-            assert_eq!(
-                owners.len(),
-                1,
-                "Exactly one shard should own {}",
-                id
-            );
+            assert_eq!(owners.len(), 1, "Exactly one shard should own {}", id);
         }
     }
 
@@ -789,10 +784,8 @@ mod tests {
 
     #[test]
     fn test_currency_based_sharding() {
-        let usd_config =
-            ShardConfig::by_currency(0, 2, vec!["USD".to_string(), "CAD".to_string()]);
-        let eur_config =
-            ShardConfig::by_currency(1, 2, vec!["EUR".to_string(), "GBP".to_string()]);
+        let usd_config = ShardConfig::by_currency(0, 2, vec!["USD".to_string(), "CAD".to_string()]);
+        let eur_config = ShardConfig::by_currency(1, 2, vec!["EUR".to_string(), "GBP".to_string()]);
 
         assert!(usd_config.owns_currency("USD"));
         assert!(usd_config.owns_currency("CAD"));

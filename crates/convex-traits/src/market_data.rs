@@ -73,13 +73,18 @@ pub trait QuoteSource: Send + Sync {
     fn source_type(&self) -> SourceType;
 
     /// Get current quote (snapshot).
-    async fn get_quote(&self, instrument_id: &InstrumentId) -> Result<Option<RawQuote>, TraitError>;
+    async fn get_quote(&self, instrument_id: &InstrumentId)
+        -> Result<Option<RawQuote>, TraitError>;
 
     /// Get quotes for multiple instruments.
-    async fn get_quotes(&self, instrument_ids: &[InstrumentId]) -> Result<Vec<RawQuote>, TraitError>;
+    async fn get_quotes(
+        &self,
+        instrument_ids: &[InstrumentId],
+    ) -> Result<Vec<RawQuote>, TraitError>;
 
     /// Subscribe to quote updates (streaming sources only).
-    async fn subscribe(&self, instrument_ids: &[InstrumentId]) -> Result<QuoteReceiver, TraitError>;
+    async fn subscribe(&self, instrument_ids: &[InstrumentId])
+        -> Result<QuoteReceiver, TraitError>;
 
     /// Unsubscribe from quote updates.
     async fn unsubscribe(&self, instrument_ids: &[InstrumentId]) -> Result<(), TraitError>;
@@ -490,10 +495,7 @@ pub trait InflationFixingSource: Send + Sync {
     ) -> Result<Option<Decimal>, TraitError>;
 
     /// Subscribe to new fixings.
-    async fn subscribe(
-        &self,
-        indices: &[InflationIndex],
-    ) -> Result<InflationReceiver, TraitError>;
+    async fn subscribe(&self, indices: &[InflationIndex]) -> Result<InflationReceiver, TraitError>;
 }
 
 /// Receiver for inflation fixing updates.
@@ -695,25 +697,46 @@ impl CurveData {
 #[async_trait]
 pub trait PricingDataProvider: Send + Sync {
     /// Get bond quote by instrument ID.
-    async fn get_bond_quote(&self, instrument_id: &InstrumentId) -> Result<Option<BondQuote>, TraitError>;
+    async fn get_bond_quote(
+        &self,
+        instrument_id: &InstrumentId,
+    ) -> Result<Option<BondQuote>, TraitError>;
 
     /// Get multiple bond quotes.
-    async fn get_bond_quotes(&self, instrument_ids: &[InstrumentId]) -> Result<Vec<BondQuote>, TraitError>;
+    async fn get_bond_quotes(
+        &self,
+        instrument_ids: &[InstrumentId],
+    ) -> Result<Vec<BondQuote>, TraitError>;
 
     /// Get curve data by curve ID.
     async fn get_curve(&self, curve_id: &CurveId) -> Result<Option<CurveData>, TraitError>;
 
     /// Get zero rate from curve at specific maturity (days from valuation date).
-    async fn get_zero_rate(&self, curve_id: &CurveId, days: u32) -> Result<Option<Decimal>, TraitError>;
+    async fn get_zero_rate(
+        &self,
+        curve_id: &CurveId,
+        days: u32,
+    ) -> Result<Option<Decimal>, TraitError>;
 
     /// Get volatility surface.
-    async fn get_vol_surface(&self, surface_id: &VolSurfaceId) -> Result<Option<VolatilitySurface>, TraitError>;
+    async fn get_vol_surface(
+        &self,
+        surface_id: &VolSurfaceId,
+    ) -> Result<Option<VolatilitySurface>, TraitError>;
 
     /// Get index fixing.
-    async fn get_index_fixing(&self, index: &FloatingRateIndex, date: Date) -> Result<Option<IndexFixing>, TraitError>;
+    async fn get_index_fixing(
+        &self,
+        index: &FloatingRateIndex,
+        date: Date,
+    ) -> Result<Option<IndexFixing>, TraitError>;
 
     /// Get inflation fixing.
-    async fn get_inflation_fixing(&self, index: &InflationIndex, month: YearMonth) -> Result<Option<InflationFixing>, TraitError>;
+    async fn get_inflation_fixing(
+        &self,
+        index: &InflationIndex,
+        month: YearMonth,
+    ) -> Result<Option<InflationFixing>, TraitError>;
 }
 
 // =============================================================================

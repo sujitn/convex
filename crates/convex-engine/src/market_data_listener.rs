@@ -141,7 +141,8 @@ pub struct MarketDataListener {
     /// Calculation graph
     calc_graph: Arc<CalculationGraph>,
 
-    /// Curve builder
+    /// Curve builder (reserved for future curve updates)
+    #[allow(dead_code)]
     curve_builder: Arc<CurveBuilder>,
 
     /// Throttle manager for debounced updates
@@ -225,7 +226,10 @@ impl MarketDataListener {
 
     /// Handle a quote update.
     async fn on_quote_update(&self, update: QuoteUpdate) {
-        debug!("Quote update: {} bid={:?} ask={:?}", update.instrument_id, update.bid, update.ask);
+        debug!(
+            "Quote update: {} bid={:?} ask={:?}",
+            update.instrument_id, update.bid, update.ask
+        );
 
         let node_id = NodeId::Quote {
             instrument_id: update.instrument_id.clone(),
@@ -316,10 +320,8 @@ impl MarketDataListener {
         };
 
         // Update cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::IndexFixing { rate: update.rate },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::IndexFixing { rate: update.rate });
 
         // Invalidate to propagate to FRNs
         self.calc_graph.invalidate(&node_id);
@@ -336,13 +338,15 @@ impl MarketDataListener {
 
         let node_id = NodeId::InflationFixing {
             index: update.index.clone(),
-            month: update.month.clone(),
+            month: update.month,
         };
 
         // Update cache
         self.calc_graph.update_cache(
             &node_id,
-            NodeValue::InflationFixing { value: update.value },
+            NodeValue::InflationFixing {
+                value: update.value,
+            },
         );
 
         // Invalidate to propagate to ILBs
@@ -360,10 +364,8 @@ impl MarketDataListener {
         };
 
         // Update cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::FxRate { mid: update.mid },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::FxRate { mid: update.mid });
 
         // Invalidate to propagate to cross-currency holdings
         self.calc_graph.invalidate(&node_id);
@@ -428,38 +430,73 @@ impl MarketDataPublisher {
     }
 
     /// Publish a quote update.
-    pub fn publish_quote(&self, update: QuoteUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::Quote(update)).map(|_| ())
+    pub fn publish_quote(
+        &self,
+        update: QuoteUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::Quote(update))
+            .map(|_| ())
     }
 
     /// Publish a curve update.
-    pub fn publish_curve(&self, update: CurveUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::Curve(update)).map(|_| ())
+    pub fn publish_curve(
+        &self,
+        update: CurveUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::Curve(update))
+            .map(|_| ())
     }
 
     /// Publish a curve input update.
-    pub fn publish_curve_input(&self, update: CurveInputUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::CurveInput(update)).map(|_| ())
+    pub fn publish_curve_input(
+        &self,
+        update: CurveInputUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::CurveInput(update))
+            .map(|_| ())
     }
 
     /// Publish an index fixing.
-    pub fn publish_index_fixing(&self, update: IndexFixingUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::IndexFixing(update)).map(|_| ())
+    pub fn publish_index_fixing(
+        &self,
+        update: IndexFixingUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::IndexFixing(update))
+            .map(|_| ())
     }
 
     /// Publish an inflation fixing.
-    pub fn publish_inflation_fixing(&self, update: InflationFixingUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::InflationFixing(update)).map(|_| ())
+    pub fn publish_inflation_fixing(
+        &self,
+        update: InflationFixingUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::InflationFixing(update))
+            .map(|_| ())
     }
 
     /// Publish an FX rate update.
-    pub fn publish_fx_rate(&self, update: FxRateUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::FxRate(update)).map(|_| ())
+    pub fn publish_fx_rate(
+        &self,
+        update: FxRateUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::FxRate(update))
+            .map(|_| ())
     }
 
     /// Publish a volatility surface update.
-    pub fn publish_vol_surface(&self, update: VolSurfaceUpdate) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx.send(MarketDataUpdate::VolSurface(update)).map(|_| ())
+    pub fn publish_vol_surface(
+        &self,
+        update: VolSurfaceUpdate,
+    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
+        self.update_tx
+            .send(MarketDataUpdate::VolSurface(update))
+            .map(|_| ())
     }
 }
 

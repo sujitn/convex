@@ -18,12 +18,16 @@ use convex_ext_file::{
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
     InMemoryBondStore, InMemoryPortfolioStore,
 };
-use convex_server::routes::{create_router, create_router_with_bond_store, create_router_with_stores};
+use convex_server::routes::{
+    create_router, create_router_with_bond_store, create_router_with_stores,
+};
 use convex_traits::config::EngineConfig;
 use convex_traits::ids::InstrumentId;
 use convex_traits::market_data::MarketDataProvider;
 use convex_traits::output::BondQuoteOutput;
-use convex_traits::reference_data::{BondReferenceData, BondType, IssuerType, ReferenceDataProvider};
+use convex_traits::reference_data::{
+    BondReferenceData, BondType, IssuerType, ReferenceDataProvider,
+};
 
 /// Create test resources (engine + bond store) for tests that need shared state.
 fn create_test_resources() -> (Arc<convex_engine::PricingEngine>, Arc<InMemoryBondStore>) {
@@ -54,7 +58,8 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     let output = create_empty_output();
 
     // Use in-memory storage for tests
-    let storage = convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
+    let storage =
+        convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
@@ -171,11 +176,7 @@ fn create_test_quote(id: &str, clean_price: Decimal) -> BondQuoteOutput {
 }
 
 /// Helper to make a POST request and get JSON response.
-async fn post_json(
-    app: axum::Router,
-    uri: &str,
-    body: Value,
-) -> (StatusCode, Value) {
+async fn post_json(app: axum::Router, uri: &str, body: Value) -> (StatusCode, Value) {
     let request = Request::builder()
         .method("POST")
         .uri(uri)
@@ -347,10 +348,19 @@ async fn test_etf_inav_calculation() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["etf_id"], "LQD");
     // Check structure is correct - fields should exist (may be null if not calculated)
-    assert!(json.get("coverage").is_some(), "coverage field should exist");
+    assert!(
+        json.get("coverage").is_some(),
+        "coverage field should exist"
+    );
     assert!(json.get("inav").is_some(), "iNAV field should exist");
-    assert!(json.get("duration").is_some(), "Duration field should exist");
-    assert!(json.get("num_holdings").is_some(), "num_holdings field should exist");
+    assert!(
+        json.get("duration").is_some(),
+        "Duration field should exist"
+    );
+    assert!(
+        json.get("num_holdings").is_some(),
+        "num_holdings field should exist"
+    );
 }
 
 #[tokio::test]
@@ -479,12 +489,27 @@ async fn test_portfolio_analytics() {
     assert_eq!(json["portfolio_id"], "CORP_IG");
     assert_eq!(json["name"], "Investment Grade Corporate");
     // Analytics values are computed from bond prices
-    assert!(json.get("market_value").is_some(), "market_value field should exist");
-    assert!(json.get("duration").is_some(), "duration field should exist");
-    assert!(json.get("convexity").is_some(), "convexity field should exist");
+    assert!(
+        json.get("market_value").is_some(),
+        "market_value field should exist"
+    );
+    assert!(
+        json.get("duration").is_some(),
+        "duration field should exist"
+    );
+    assert!(
+        json.get("convexity").is_some(),
+        "convexity field should exist"
+    );
     assert!(json.get("dv01").is_some(), "dv01 field should exist");
-    assert!(json["sector_breakdown"].is_array(), "sector_breakdown should be array");
-    assert!(json["rating_breakdown"].is_array(), "rating_breakdown should be array");
+    assert!(
+        json["sector_breakdown"].is_array(),
+        "sector_breakdown should be array"
+    );
+    assert!(
+        json["rating_breakdown"].is_array(),
+        "rating_breakdown should be array"
+    );
 }
 
 #[tokio::test]
@@ -549,15 +574,25 @@ async fn test_duration_contribution() {
         "bond_prices": bond_prices
     });
 
-    let (status, json) = post_json(app, "/api/v1/portfolio/duration-contribution", request_body).await;
+    let (status, json) =
+        post_json(app, "/api/v1/portfolio/duration-contribution", request_body).await;
 
     assert_eq!(status, StatusCode::OK);
-    assert!(json["contributions"].is_array(), "contributions should be array");
-    assert!(json.get("total_duration").is_some(), "total_duration field should exist");
+    assert!(
+        json["contributions"].is_array(),
+        "contributions should be array"
+    );
+    assert!(
+        json.get("total_duration").is_some(),
+        "total_duration field should exist"
+    );
 
     let contributions = json["contributions"].as_array().unwrap();
     // May have 0-2 contributions depending on price matching
-    assert!(contributions.len() <= 2, "Should have at most 2 contributions");
+    assert!(
+        contributions.len() <= 2,
+        "Should have at most 2 contributions"
+    );
 
     // If there are contributions, check their structure
     for contrib in contributions {
@@ -747,7 +782,11 @@ async fn test_create_curve_and_query_zero_rate() {
     assert_eq!(json["tenor"], 1.5);
     // Rate should be interpolated between 0.045 and 0.048
     let rate = json["zero_rate"].as_f64().unwrap();
-    assert!(rate > 0.045 && rate < 0.048, "Rate {} should be between 0.045 and 0.048", rate);
+    assert!(
+        rate > 0.045 && rate < 0.048,
+        "Rate {} should be between 0.045 and 0.048",
+        rate
+    );
 }
 
 #[tokio::test]
@@ -785,7 +824,11 @@ async fn test_create_curve_and_query_discount_factor() {
     assert_eq!(json["tenor"], 1.0);
     // DF at 1Y with 5% continuous rate ≈ exp(-0.05 * 1) ≈ 0.9512
     let df = json["discount_factor"].as_f64().unwrap();
-    assert!((df - 0.9512).abs() < 0.001, "DF {} should be approximately 0.9512", df);
+    assert!(
+        (df - 0.9512).abs() < 0.001,
+        "DF {} should be approximately 0.9512",
+        df
+    );
 }
 
 #[tokio::test]
@@ -825,7 +868,11 @@ async fn test_create_curve_and_query_forward_rate() {
     assert_eq!(json["t2"], 2.0);
     // Flat curve should have forward rate = spot rate
     let fwd = json["forward_rate"].as_f64().unwrap();
-    assert!((fwd - 0.05).abs() < 0.001, "Forward rate {} should be approximately 0.05", fwd);
+    assert!(
+        (fwd - 0.05).abs() < 0.001,
+        "Forward rate {} should be approximately 0.05",
+        fwd
+    );
 }
 
 #[tokio::test]
@@ -929,7 +976,11 @@ async fn test_query_zero_rate_with_compounding() {
     assert_eq!(json["compounding"], "annual");
     // Annual rate from 5% continuous: exp(0.05) - 1 ≈ 0.0513
     let rate = json["zero_rate"].as_f64().unwrap();
-    assert!((rate - 0.0513).abs() < 0.001, "Annual rate {} should be approximately 0.0513", rate);
+    assert!(
+        (rate - 0.0513).abs() < 0.001,
+        "Annual rate {} should be approximately 0.0513",
+        rate
+    );
 }
 
 // =============================================================================
@@ -1044,7 +1095,8 @@ async fn test_create_bond() {
 
     let bond = create_test_bond("US912810TD00", dec!(0.05), 2030);
 
-    let (status, json) = post_json(app, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
+    let (status, json) =
+        post_json(app, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
 
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(json["instrument_id"], "US912810TD00");
@@ -1102,7 +1154,8 @@ async fn test_create_bond_duplicate() {
 
     // Try to create duplicate
     let app2 = create_router_with_bond_store(engine, bond_store);
-    let (status, json) = post_json(app2, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
+    let (status, json) =
+        post_json(app2, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert!(json["error"].as_str().unwrap().contains("already exists"));
 }
@@ -1209,8 +1262,13 @@ async fn test_list_bonds_with_pagination() {
     // Create multiple bonds
     for i in 0..5 {
         let app = create_router_with_bond_store(engine.clone(), bond_store.clone());
-        let bond = create_test_bond(&format!("PAGE{:03}", i), dec!(0.04) + Decimal::from(i) * dec!(0.001), 2030 + i as i32);
-        let (status, _) = post_json(app, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
+        let bond = create_test_bond(
+            &format!("PAGE{:03}", i),
+            dec!(0.04) + Decimal::from(i) * dec!(0.001),
+            2030 + i as i32,
+        );
+        let (status, _) =
+            post_json(app, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
         assert_eq!(status, StatusCode::CREATED);
     }
 
@@ -1402,7 +1460,10 @@ async fn test_text_search_bonds() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["total"].as_u64().unwrap(), 1);
-    assert!(json["bonds"][0]["description"].as_str().unwrap().contains("Apple"));
+    assert!(json["bonds"][0]["description"]
+        .as_str()
+        .unwrap()
+        .contains("Apple"));
 }
 
 // =============================================================================
@@ -1512,7 +1573,8 @@ async fn test_create_and_get_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "PORT002",
         "name": "Investment Portfolio",
@@ -1557,7 +1619,8 @@ async fn test_create_portfolio_duplicate() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "DUPE_PORT",
         "name": "First Portfolio"
@@ -1581,7 +1644,8 @@ async fn test_update_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "UPDATE_PORT",
         "name": "Original Name",
@@ -1596,10 +1660,13 @@ async fn test_update_portfolio() {
         .method("PUT")
         .uri("/api/v1/portfolios/UPDATE_PORT")
         .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&json!({
-            "name": "Updated Name",
-            "description": "New description"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_string(&json!({
+                "name": "Updated Name",
+                "description": "New description"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let response = app2.oneshot(request).await.unwrap();
@@ -1621,9 +1688,12 @@ async fn test_update_portfolio_not_found() {
         .method("PUT")
         .uri("/api/v1/portfolios/NONEXISTENT")
         .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&json!({
-            "name": "New Name"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_string(&json!({
+                "name": "New Name"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
@@ -1635,7 +1705,8 @@ async fn test_delete_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "DELETE_PORT",
         "name": "To Delete"
@@ -1644,7 +1715,8 @@ async fn test_delete_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Delete portfolio
-    let app2 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app2 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request = Request::builder()
         .method("DELETE")
         .uri("/api/v1/portfolios/DELETE_PORT")
@@ -1717,7 +1789,8 @@ async fn test_add_position_to_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "ADDPOS_PORT",
         "name": "Add Position Test",
@@ -1733,7 +1806,8 @@ async fn test_add_position_to_portfolio() {
         "notional": "2000000",
         "sector": "Healthcare"
     });
-    let (status, json) = post_json(app2, "/api/v1/portfolios/ADDPOS_PORT/positions", position).await;
+    let (status, json) =
+        post_json(app2, "/api/v1/portfolios/ADDPOS_PORT/positions", position).await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["positions"].as_array().unwrap().len(), 1);
@@ -1745,7 +1819,8 @@ async fn test_remove_position_from_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio with positions
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "REMPOS_PORT",
         "name": "Remove Position Test",
@@ -1779,7 +1854,8 @@ async fn test_update_position_in_portfolio() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolio with position
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "UPDPOS_PORT",
         "name": "Update Position Test",
@@ -1796,12 +1872,15 @@ async fn test_update_position_in_portfolio() {
         .method("PUT")
         .uri("/api/v1/portfolios/UPDPOS_PORT/positions/BOND_X")
         .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&json!({
-            "instrument_id": "BOND_X",
-            "notional": "2000000",
-            "sector": "Technology",
-            "rating": "AA"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_string(&json!({
+                "instrument_id": "BOND_X",
+                "notional": "2000000",
+                "sector": "Technology",
+                "rating": "AA"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let response = app2.oneshot(request).await.unwrap();
@@ -1820,7 +1899,8 @@ async fn test_list_portfolios_with_pagination() {
 
     // Create multiple portfolios
     for i in 0..5 {
-        let app = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+        let app =
+            create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
         let request_body = json!({
             "portfolio_id": format!("PAGE_PORT{:03}", i),
             "name": format!("Portfolio {}", i),
@@ -1831,7 +1911,8 @@ async fn test_list_portfolios_with_pagination() {
     }
 
     // Get first page
-    let app = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
     let request = Request::builder()
         .uri("/api/v1/portfolios?limit=2&offset=0")
         .body(Body::empty())
@@ -1853,20 +1934,32 @@ async fn test_list_portfolios_with_currency_filter() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolios with different currencies
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
-    let (status, _) = post_json(app1, "/api/v1/portfolios", json!({
-        "portfolio_id": "USD_PORT",
-        "name": "USD Portfolio",
-        "currency": "USD"
-    })).await;
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let (status, _) = post_json(
+        app1,
+        "/api/v1/portfolios",
+        json!({
+            "portfolio_id": "USD_PORT",
+            "name": "USD Portfolio",
+            "currency": "USD"
+        }),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
-    let (status, _) = post_json(app2, "/api/v1/portfolios", json!({
-        "portfolio_id": "EUR_PORT",
-        "name": "EUR Portfolio",
-        "currency": "EUR"
-    })).await;
+    let app2 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let (status, _) = post_json(
+        app2,
+        "/api/v1/portfolios",
+        json!({
+            "portfolio_id": "EUR_PORT",
+            "name": "EUR Portfolio",
+            "currency": "EUR"
+        }),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Filter by currency
@@ -1890,20 +1983,32 @@ async fn test_text_search_portfolios() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create portfolios with specific names
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
-    let (status, _) = post_json(app1, "/api/v1/portfolios", json!({
-        "portfolio_id": "SEARCH_A",
-        "name": "Global Equity Fund",
-        "description": "Invests in global equities"
-    })).await;
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let (status, _) = post_json(
+        app1,
+        "/api/v1/portfolios",
+        json!({
+            "portfolio_id": "SEARCH_A",
+            "name": "Global Equity Fund",
+            "description": "Invests in global equities"
+        }),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
-    let (status, _) = post_json(app2, "/api/v1/portfolios", json!({
-        "portfolio_id": "SEARCH_B",
-        "name": "Fixed Income Portfolio",
-        "description": "Bond investments"
-    })).await;
+    let app2 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let (status, _) = post_json(
+        app2,
+        "/api/v1/portfolios",
+        json!({
+            "portfolio_id": "SEARCH_B",
+            "name": "Fixed Income Portfolio",
+            "description": "Bond investments"
+        }),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Search for "Equity"
@@ -1919,7 +2024,10 @@ async fn test_text_search_portfolios() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["total"].as_u64().unwrap(), 1);
-    assert!(json["portfolios"][0]["name"].as_str().unwrap().contains("Equity"));
+    assert!(json["portfolios"][0]["name"]
+        .as_str()
+        .unwrap()
+        .contains("Equity"));
 }
 
 #[tokio::test]
@@ -1947,11 +2055,17 @@ async fn test_batch_create_portfolios_with_duplicates() {
     let (engine, bond_store, portfolio_store) = create_all_test_resources();
 
     // Create one portfolio first
-    let app1 = create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
-    let (status, _) = post_json(app1, "/api/v1/portfolios", json!({
-        "portfolio_id": "BATCH_DUPE",
-        "name": "First"
-    })).await;
+    let app1 =
+        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let (status, _) = post_json(
+        app1,
+        "/api/v1/portfolios",
+        json!({
+            "portfolio_id": "BATCH_DUPE",
+            "name": "First"
+        }),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Batch create with duplicate
@@ -2225,7 +2339,10 @@ async fn test_risk_contributions_empty_positions() {
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(json["error"].as_str().unwrap().contains("No valid holdings"));
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("No valid holdings"));
 }
 
 #[tokio::test]
@@ -2248,7 +2365,10 @@ async fn test_risk_contributions_no_matching_prices() {
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(json["error"].as_str().unwrap().contains("No valid holdings"));
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("No valid holdings"));
 }
 
 #[tokio::test]
@@ -2703,8 +2823,12 @@ async fn test_custom_stress_test() {
     assert_eq!(results.len(), 2);
 
     // Check scenario names
-    assert!(results.iter().any(|r| r["scenario_name"] == "Custom Rates +200bp"));
-    assert!(results.iter().any(|r| r["scenario_name"] == "Custom Spread +75bp"));
+    assert!(results
+        .iter()
+        .any(|r| r["scenario_name"] == "Custom Rates +200bp"));
+    assert!(results
+        .iter()
+        .any(|r| r["scenario_name"] == "Custom Spread +75bp"));
 }
 
 #[tokio::test]

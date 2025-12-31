@@ -289,7 +289,8 @@ impl PortfolioAnalyzer {
         // First pass: calculate total MV
         for position in &portfolio.positions {
             if let Some(quote) = price_map.get(&position.instrument_id) {
-                if let (Some(dirty_price), Some(dur)) = (quote.dirty_price_mid(), quote.modified_duration)
+                if let (Some(dirty_price), Some(dur)) =
+                    (quote.dirty_price_mid(), quote.modified_duration)
                 {
                     let mv = position.notional * dirty_price / Decimal::from(100);
                     total_mv += mv;
@@ -556,7 +557,11 @@ mod tests {
 
         // Duration should be weighted average
         let dur = output.duration.to_f64().unwrap();
-        assert!(dur > 0.0 && dur < 10.0, "Duration should be reasonable: {}", dur);
+        assert!(
+            dur > 0.0 && dur < 10.0,
+            "Duration should be reasonable: {}",
+            dur
+        );
 
         // Check sector breakdown sums to ~1.0
         let sector_sum: Decimal = output.sector_breakdown.iter().map(|(_, w)| *w).sum();
@@ -604,7 +609,11 @@ mod tests {
         assert!(!result.key_rate_durations.is_empty());
 
         // Check that KRDs are sorted by tenor
-        let tenors: Vec<&str> = result.key_rate_durations.iter().map(|(t, _)| t.as_str()).collect();
+        let tenors: Vec<&str> = result
+            .key_rate_durations
+            .iter()
+            .map(|(t, _)| t.as_str())
+            .collect();
         assert_eq!(tenors, vec!["2Y", "5Y", "10Y"]);
     }
 }

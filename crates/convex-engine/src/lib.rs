@@ -56,24 +56,19 @@ mod context;
 // Re-exports
 pub use builder::PricingEngineBuilder;
 pub use calc_graph::{
-    CalculationGraph, NodeId, NodeValue,
-    ShardConfig, ShardStrategy, ShardAssignment,
+    CalculationGraph, NodeId, NodeValue, ShardAssignment, ShardConfig, ShardStrategy,
 };
 pub use curve_builder::{BuiltCurve, CurveBuilder};
 pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
 pub use market_data_listener::{
-    MarketDataListener, MarketDataPublisher, MarketDataUpdate,
-    QuoteUpdate, CurveUpdate, CurveInputUpdate, IndexFixingUpdate,
-    InflationFixingUpdate, FxRateUpdate, VolSurfaceUpdate,
+    CurveInputUpdate, CurveUpdate, FxRateUpdate, IndexFixingUpdate, InflationFixingUpdate,
+    MarketDataListener, MarketDataPublisher, MarketDataUpdate, QuoteUpdate, VolSurfaceUpdate,
 };
 pub use portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use reactive::{ReactiveEngine, ReactiveEngineBuilder};
-pub use scheduler::{
-    IntervalScheduler, EodScheduler, ThrottleManager,
-    NodeUpdate, UpdateSource,
-};
+pub use scheduler::{EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -139,10 +134,7 @@ impl PricingEngine {
         let (shutdown_tx, _) = broadcast::channel(1);
 
         let calc_graph = Arc::new(CalculationGraph::new());
-        let curve_builder = Arc::new(CurveBuilder::new(
-            market_data.clone(),
-            calc_graph.clone(),
-        ));
+        let curve_builder = Arc::new(CurveBuilder::new(market_data.clone(), calc_graph.clone()));
         let pricing_router = Arc::new(PricingRouter::new());
         let etf_pricer = Arc::new(EtfPricer::new());
         let portfolio_analyzer = Arc::new(PortfolioAnalyzer::new());
@@ -316,10 +308,8 @@ impl PricingEngine {
             (None, None) => None,
         };
 
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::Quote { bid, ask, mid },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::Quote { bid, ask, mid });
 
         // Invalidate quote node (propagates to bond price)
         self.calc_graph.invalidate(&node_id);
@@ -371,10 +361,8 @@ impl PricingEngine {
         };
 
         // Update fixing in cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::IndexFixing { rate },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::IndexFixing { rate });
 
         // Invalidate fixing node (propagates to FRNs)
         self.calc_graph.invalidate(&node_id);
@@ -398,10 +386,8 @@ impl PricingEngine {
         };
 
         // Update fixing in cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::InflationFixing { value },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::InflationFixing { value });
 
         // Invalidate fixing node (propagates to ILBs)
         self.calc_graph.invalidate(&node_id);
@@ -422,10 +408,8 @@ impl PricingEngine {
         let node_id = NodeId::FxRate { pair: pair.clone() };
 
         // Update FX rate in cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::FxRate { mid },
-        );
+        self.calc_graph
+            .update_cache(&node_id, NodeValue::FxRate { mid });
 
         // Invalidate FX rate node
         self.calc_graph.invalidate(&node_id);

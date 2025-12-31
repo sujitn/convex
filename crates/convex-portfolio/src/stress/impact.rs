@@ -324,17 +324,13 @@ pub fn run_stress_scenario(
         .and_then(|rs| key_rate_shift_impact(&portfolio.holdings, rs, config));
 
     // Calculate spread impact
-    let spread_impact = scenario.spread_scenario.as_ref().and_then(|ss| {
-        match ss {
-            SpreadScenario::Uniform(shift) => {
-                spread_shock_impact(&portfolio.holdings, *shift, config)
-            }
-            SpreadScenario::ByRating(rating_shifts) => {
-                spread_shock_by_rating(&portfolio.holdings, rating_shifts, config)
-            }
-            SpreadScenario::BySector(sector_shifts) => {
-                spread_shock_by_sector(&portfolio.holdings, sector_shifts, config)
-            }
+    let spread_impact = scenario.spread_scenario.as_ref().and_then(|ss| match ss {
+        SpreadScenario::Uniform(shift) => spread_shock_impact(&portfolio.holdings, *shift, config),
+        SpreadScenario::ByRating(rating_shifts) => {
+            spread_shock_by_rating(&portfolio.holdings, rating_shifts, config)
+        }
+        SpreadScenario::BySector(sector_shifts) => {
+            spread_shock_by_sector(&portfolio.holdings, sector_shifts, config)
         }
     });
 

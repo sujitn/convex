@@ -74,11 +74,11 @@ pub enum ServerMessage {
         count: usize,
     },
     /// Bond quote update
-    BondQuote(BondQuoteOutput),
+    BondQuote(Box<BondQuoteOutput>),
     /// ETF iNAV update
-    EtfQuote(EtfQuoteOutput),
+    EtfQuote(Box<EtfQuoteOutput>),
     /// Portfolio analytics update
-    PortfolioAnalytics(PortfolioAnalyticsOutput),
+    PortfolioAnalytics(Box<PortfolioAnalyticsOutput>),
     /// Pong (server heartbeat response)
     Pong { timestamp: i64, server_time: i64 },
     /// Error message
@@ -93,10 +93,7 @@ pub enum ServerMessage {
         timestamp: i64,
     },
     /// Curve update notification
-    CurveUpdated {
-        curve_id: String,
-        timestamp: i64,
-    },
+    CurveUpdated { curve_id: String, timestamp: i64 },
 }
 
 // =============================================================================
@@ -107,11 +104,11 @@ pub enum ServerMessage {
 #[derive(Debug, Clone)]
 pub enum BroadcastUpdate {
     /// Bond quote update
-    BondQuote(BondQuoteOutput),
+    BondQuote(Box<BondQuoteOutput>),
     /// ETF iNAV update
-    EtfQuote(EtfQuoteOutput),
+    EtfQuote(Box<EtfQuoteOutput>),
     /// Portfolio analytics update
-    PortfolioAnalytics(PortfolioAnalyticsOutput),
+    PortfolioAnalytics(Box<PortfolioAnalyticsOutput>),
     /// Node recalculated event
     NodeRecalculated {
         /// Type of node (bond_price, curve, etf_inav, etc.)
@@ -167,19 +164,23 @@ impl WebSocketState {
 
     /// Publish a bond quote update.
     pub fn publish_bond_quote(&self, quote: BondQuoteOutput) {
-        let _ = self.broadcast_tx.send(BroadcastUpdate::BondQuote(quote));
+        let _ = self
+            .broadcast_tx
+            .send(BroadcastUpdate::BondQuote(Box::new(quote)));
     }
 
     /// Publish an ETF quote update.
     pub fn publish_etf_quote(&self, quote: EtfQuoteOutput) {
-        let _ = self.broadcast_tx.send(BroadcastUpdate::EtfQuote(quote));
+        let _ = self
+            .broadcast_tx
+            .send(BroadcastUpdate::EtfQuote(Box::new(quote)));
     }
 
     /// Publish portfolio analytics update.
     pub fn publish_portfolio_analytics(&self, analytics: PortfolioAnalyticsOutput) {
         let _ = self
             .broadcast_tx
-            .send(BroadcastUpdate::PortfolioAnalytics(analytics));
+            .send(BroadcastUpdate::PortfolioAnalytics(Box::new(analytics)));
     }
 
     /// Get active connection count.
@@ -229,23 +230,34 @@ use convex_engine::{NodeId as EngineNodeId, NodeUpdate, UpdateSource};
 fn node_id_to_strings(node_id: &EngineNodeId) -> (String, String) {
     match node_id {
         EngineNodeId::Quote { instrument_id } => ("quote".to_string(), instrument_id.to_string()),
-        EngineNodeId::CurveInput { curve_id, instrument } => {
-            ("curve_input".to_string(), format!("{}.{}", curve_id, instrument))
-        }
+        EngineNodeId::CurveInput {
+            curve_id,
+            instrument,
+        } => (
+            "curve_input".to_string(),
+            format!("{}.{}", curve_id, instrument),
+        ),
         EngineNodeId::Curve { curve_id } => ("curve".to_string(), curve_id.to_string()),
-        EngineNodeId::VolSurface { surface_id } => ("vol_surface".to_string(), surface_id.to_string()),
+        EngineNodeId::VolSurface { surface_id } => {
+            ("vol_surface".to_string(), surface_id.to_string())
+        }
         EngineNodeId::FxRate { pair } => ("fx_rate".to_string(), pair.to_string()),
         EngineNodeId::IndexFixing { index, date } => {
             ("index_fixing".to_string(), format!("{}.{}", index, date))
         }
-        EngineNodeId::InflationFixing { index, month } => {
-            ("inflation_fixing".to_string(), format!("{}.{}", index, month))
-        }
+        EngineNodeId::InflationFixing { index, month } => (
+            "inflation_fixing".to_string(),
+            format!("{}.{}", index, month),
+        ),
         EngineNodeId::Config { config_id } => ("config".to_string(), config_id.clone()),
-        EngineNodeId::BondPrice { instrument_id } => ("bond_price".to_string(), instrument_id.to_string()),
+        EngineNodeId::BondPrice { instrument_id } => {
+            ("bond_price".to_string(), instrument_id.to_string())
+        }
         EngineNodeId::EtfInav { etf_id } => ("etf_inav".to_string(), etf_id.to_string()),
         EngineNodeId::EtfNav { etf_id } => ("etf_nav".to_string(), etf_id.to_string()),
-        EngineNodeId::Portfolio { portfolio_id } => ("portfolio".to_string(), portfolio_id.to_string()),
+        EngineNodeId::Portfolio { portfolio_id } => {
+            ("portfolio".to_string(), portfolio_id.to_string())
+        }
     }
 }
 
@@ -528,7 +540,10 @@ async fn handle_client_message(
             for id in etf_ids {
                 session.etf_subscriptions.insert(EtfId::new(&id));
             }
-            debug!("Session {} subscribed to {} ETFs", session.session_id, count);
+            debug!(
+                "Session {} subscribed to {} ETFs",
+                session.session_id, count
+            );
             ServerMessage::Subscribed {
                 subscription_type: "etfs".to_string(),
                 count,
@@ -616,9 +631,21 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
             // Send node updates to clients that have subscribed to the relevant type
             // For now, send to all subscribed clients based on node type
             let should_send = match node_type.as_str() {
-                "bond_price" => session.subscribe_all_bonds || session.bond_subscriptions.iter().any(|id| id.as_str() == node_id),
-                "etf_inav" | "etf_nav" => session.etf_subscriptions.iter().any(|id| id.as_str() == node_id),
-                "portfolio" => session.portfolio_subscriptions.iter().any(|id| id.as_str() == node_id),
+                "bond_price" => {
+                    session.subscribe_all_bonds
+                        || session
+                            .bond_subscriptions
+                            .iter()
+                            .any(|id| id.as_str() == node_id)
+                }
+                "etf_inav" | "etf_nav" => session
+                    .etf_subscriptions
+                    .iter()
+                    .any(|id| id.as_str() == node_id),
+                "portfolio" => session
+                    .portfolio_subscriptions
+                    .iter()
+                    .any(|id| id.as_str() == node_id),
                 _ => false, // Don't send curve or other internal updates by default
             };
             if should_send {
@@ -632,7 +659,10 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
                 None
             }
         }
-        BroadcastUpdate::CurveUpdated { curve_id, timestamp } => {
+        BroadcastUpdate::CurveUpdated {
+            curve_id,
+            timestamp,
+        } => {
             // Curve updates are typically internal, but we can broadcast to clients
             // that want to know when curves change (e.g., for debugging or analytics dashboards)
             // For now, don't filter - clients can ignore if not interested
@@ -653,7 +683,7 @@ async fn send_message(
     sender
         .send(Message::Text(json))
         .await
-        .map_err(|e| axum::Error::new(e))
+        .map_err(axum::Error::new)
 }
 
 /// Get current timestamp in milliseconds.

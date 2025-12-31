@@ -23,7 +23,9 @@ use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
 use crate::curve_builder::{BuiltCurve, CurveBuilder};
 use crate::market_data_listener::{MarketDataListener, MarketDataPublisher};
 use crate::pricing_router::{PricingInput, PricingRouter};
-use crate::scheduler::{CronScheduler, EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource};
+use crate::scheduler::{
+    CronScheduler, EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource,
+};
 
 // =============================================================================
 // REACTIVE ENGINE
@@ -45,7 +47,8 @@ pub struct ReactiveEngine {
     reference_data: Arc<ReferenceDataProvider>,
 
     /// Local cache of bond reference data for sync access in calc loop
-    bond_cache: Arc<dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>>,
+    bond_cache:
+        Arc<dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>>,
 
     /// Interval scheduler
     interval_scheduler: Arc<IntervalScheduler>,
@@ -81,8 +84,12 @@ impl ReactiveEngine {
         reference_data: Arc<ReferenceDataProvider>,
     ) -> Self {
         let interval_scheduler = Arc::new(IntervalScheduler::new(calc_graph.clone()));
-        let eod_scheduler = Arc::new(parking_lot::RwLock::new(EodScheduler::new(calc_graph.clone())));
-        let cron_scheduler = Arc::new(parking_lot::RwLock::new(CronScheduler::new(calc_graph.clone())));
+        let eod_scheduler = Arc::new(parking_lot::RwLock::new(EodScheduler::new(
+            calc_graph.clone(),
+        )));
+        let cron_scheduler = Arc::new(parking_lot::RwLock::new(CronScheduler::new(
+            calc_graph.clone(),
+        )));
         let throttle_manager = Arc::new(ThrottleManager::new(calc_graph.clone()));
         let (market_data_publisher, _) = MarketDataPublisher::new();
         let (node_update_tx, _) = broadcast::channel(10000);
@@ -128,7 +135,10 @@ impl ReactiveEngine {
     }
 
     /// Get cached bond reference data.
-    pub fn get_bond_reference(&self, instrument_id: &InstrumentId) -> Option<convex_traits::reference_data::BondReferenceData> {
+    pub fn get_bond_reference(
+        &self,
+        instrument_id: &InstrumentId,
+    ) -> Option<convex_traits::reference_data::BondReferenceData> {
         self.bond_cache.get(instrument_id).map(|r| r.clone())
     }
 
@@ -192,7 +202,7 @@ impl ReactiveEngine {
         let bond_cache = self.bond_cache.clone();
         let throttle_manager = self.throttle_manager.clone();
         let node_update_tx = self.node_update_tx.clone();
-        let settlement_date = self.settlement_date.read().clone();
+        let settlement_date = *self.settlement_date.read();
         let mut shutdown_rx = self.shutdown_tx.subscribe();
 
         // Forward interval scheduler updates
@@ -288,23 +298,21 @@ impl ReactiveEngine {
         calc_graph: &Arc<CalculationGraph>,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
-        bond_cache: &Arc<dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>>,
+        bond_cache: &Arc<
+            dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>,
+        >,
         settlement_date: Date,
     ) -> NodeValue {
         match node_id {
-            NodeId::BondPrice { instrument_id } => {
-                Self::calculate_bond_price(
-                    instrument_id,
-                    calc_graph,
-                    curve_builder,
-                    pricing_router,
-                    bond_cache,
-                    settlement_date,
-                )
-            }
-            NodeId::Curve { curve_id } => {
-                Self::calculate_curve(curve_id, curve_builder)
-            }
+            NodeId::BondPrice { instrument_id } => Self::calculate_bond_price(
+                instrument_id,
+                calc_graph,
+                curve_builder,
+                pricing_router,
+                bond_cache,
+                settlement_date,
+            ),
+            NodeId::Curve { curve_id } => Self::calculate_curve(curve_id, curve_builder),
             NodeId::EtfInav { etf_id: _ } => {
                 // ETF iNAV calculation - aggregate constituent prices
                 // For now, return empty; full implementation requires holdings data
@@ -331,7 +339,8 @@ impl ReactiveEngine {
             | NodeId::Config { .. } => {
                 // Input nodes: value already set by market data listener
                 // Just return what's in the cache
-                calc_graph.get_cached(node_id)
+                calc_graph
+                    .get_cached(node_id)
                     .map(|cv| cv.value.clone())
                     .unwrap_or(NodeValue::Empty)
             }
@@ -344,21 +353,29 @@ impl ReactiveEngine {
         calc_graph: &Arc<CalculationGraph>,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
-        bond_cache: &Arc<dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>>,
+        bond_cache: &Arc<
+            dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>,
+        >,
         settlement_date: Date,
     ) -> NodeValue {
         // Get bond reference data from local cache
         let bond_ref = match bond_cache.get(instrument_id) {
             Some(bond) => bond.clone(),
             None => {
-                warn!("Bond reference data not found in cache for {}", instrument_id);
+                warn!(
+                    "Bond reference data not found in cache for {}",
+                    instrument_id
+                );
                 return NodeValue::Empty;
             }
         };
 
         // Get market quote from cache
-        let quote_node = NodeId::Quote { instrument_id: instrument_id.clone() };
-        let market_price = calc_graph.get_cached(&quote_node)
+        let quote_node = NodeId::Quote {
+            instrument_id: instrument_id.clone(),
+        };
+        let market_price = calc_graph
+            .get_cached(&quote_node)
             .and_then(|cv| match &cv.value {
                 NodeValue::Quote { mid, .. } => *mid,
                 _ => None,
@@ -446,25 +463,25 @@ impl ReactiveEngine {
         };
 
         // Try the specific curve first
-        let curve_id = CurveId::new(&format!("{}_{}", currency_code, curve_suffix));
+        let curve_id = CurveId::new(format!("{}_{}", currency_code, curve_suffix));
         if let Some(curve) = curve_builder.get(&curve_id) {
             return Some(curve);
         }
 
         // Fall back to OIS curve
-        let ois_curve_id = CurveId::new(&format!("{}_OIS", currency_code));
+        let ois_curve_id = CurveId::new(format!("{}_OIS", currency_code));
         if let Some(curve) = curve_builder.get(&ois_curve_id) {
             return Some(curve);
         }
 
         // Fall back to government curve
-        let govt_curve_id = CurveId::new(&format!("{}_GOVT", currency_code));
+        let govt_curve_id = CurveId::new(format!("{}_GOVT", currency_code));
         if let Some(curve) = curve_builder.get(&govt_curve_id) {
             return Some(curve);
         }
 
         // Try generic discount curve
-        let generic_curve_id = CurveId::new(&format!("{}_DISCOUNT", currency_code));
+        let generic_curve_id = CurveId::new(format!("{}_DISCOUNT", currency_code));
         curve_builder.get(&generic_curve_id)
     }
 
@@ -491,27 +508,24 @@ impl ReactiveEngine {
         };
 
         // Try OIS curve first (preferred post-LIBOR)
-        let ois_curve_id = CurveId::new(&format!("{}_OIS", currency_code));
+        let ois_curve_id = CurveId::new(format!("{}_OIS", currency_code));
         if let Some(curve) = curve_builder.get(&ois_curve_id) {
             return Some(curve);
         }
 
         // Try swap curve
-        let swap_curve_id = CurveId::new(&format!("{}_SWAP", currency_code));
+        let swap_curve_id = CurveId::new(format!("{}_SWAP", currency_code));
         if let Some(curve) = curve_builder.get(&swap_curve_id) {
             return Some(curve);
         }
 
         // Fall back to government curve
-        let govt_curve_id = CurveId::new(&format!("{}_GOVT", currency_code));
+        let govt_curve_id = CurveId::new(format!("{}_GOVT", currency_code));
         curve_builder.get(&govt_curve_id)
     }
 
     /// Calculate/rebuild a curve.
-    fn calculate_curve(
-        curve_id: &CurveId,
-        curve_builder: &Arc<CurveBuilder>,
-    ) -> NodeValue {
+    fn calculate_curve(curve_id: &CurveId, curve_builder: &Arc<CurveBuilder>) -> NodeValue {
         match curve_builder.get(curve_id) {
             Some(curve) => {
                 debug!("Rebuilt curve: {}", curve_id);
@@ -554,7 +568,8 @@ impl ReactiveEngine {
     /// Register a node with appropriate scheduler based on its config.
     pub fn register_node(&self, node_id: NodeId, config: NodeConfig) {
         // Set config on calc graph
-        self.calc_graph.set_node_config(node_id.clone(), config.clone());
+        self.calc_graph
+            .set_node_config(node_id.clone(), config.clone());
 
         // Register with appropriate scheduler
         match config.frequency {
@@ -687,7 +702,12 @@ impl ReactiveEngineBuilder {
         let pricing_router = self.pricing_router.ok_or("pricing_router is required")?;
         let reference_data = self.reference_data.ok_or("reference_data is required")?;
 
-        Ok(ReactiveEngine::new(calc_graph, curve_builder, pricing_router, reference_data))
+        Ok(ReactiveEngine::new(
+            calc_graph,
+            curve_builder,
+            pricing_router,
+            reference_data,
+        ))
     }
 }
 
@@ -704,14 +724,13 @@ impl Default for ReactiveEngineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use convex_traits::market_data::MarketDataProvider;
     use convex_ext_file::{
-        EmptyQuoteSource, EmptyCurveInputSource, EmptyIndexFixingSource,
-        EmptyVolatilitySource, EmptyFxRateSource, EmptyInflationFixingSource,
-        EmptyEtfQuoteSource, EmptyBondReferenceSource, EmptyIssuerReferenceSource,
-        EmptyRatingSource, EmptyEtfHoldingsSource,
+        EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
+        EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
+        EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
     };
+    use convex_traits::market_data::MarketDataProvider;
+    use std::sync::Arc;
 
     fn create_test_engine() -> ReactiveEngine {
         let calc_graph = Arc::new(CalculationGraph::new());
@@ -771,9 +790,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_market_data_update_triggers_repricing() {
-        use rust_decimal_macros::dec;
         use convex_core::Currency;
         use convex_traits::reference_data::{BondReferenceData, BondType, IssuerType};
+        use rust_decimal_macros::dec;
 
         let engine = create_test_engine();
         let instrument_id = InstrumentId::new("TEST_BOND_001");
@@ -790,7 +809,7 @@ mod tests {
             issue_date: Date::from_ymd(2020, 1, 15).unwrap(),
             maturity_date: Date::from_ymd(2030, 1, 15).unwrap(),
             coupon_rate: Some(dec!(0.025)), // 2.5%
-            frequency: 2, // Semi-annual
+            frequency: 2,                   // Semi-annual
             day_count: "ACT/ACT".to_string(),
             face_value: dec!(100),
             bond_type: BondType::FixedBullet,
@@ -820,7 +839,9 @@ mod tests {
         engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
 
         // Add initial quote to the calc graph
-        let quote_node = NodeId::Quote { instrument_id: instrument_id.clone() };
+        let quote_node = NodeId::Quote {
+            instrument_id: instrument_id.clone(),
+        };
         engine.calc_graph().update_cache(
             &quote_node,
             NodeValue::Quote {
@@ -835,12 +856,17 @@ mod tests {
 
         // Wait a moment for the processing loop to run (if started)
         // For this test, we'll manually trigger calculation
-        let bond_node = NodeId::BondPrice { instrument_id: instrument_id.clone() };
+        let bond_node = NodeId::BondPrice {
+            instrument_id: instrument_id.clone(),
+        };
         engine.calc_graph().invalidate(&bond_node);
 
         // Get dirty nodes and verify bond is in the list
         let dirty = engine.calc_graph().get_dirty_nodes();
-        assert!(dirty.contains(&bond_node), "Bond node should be dirty after quote update");
+        assert!(
+            dirty.contains(&bond_node),
+            "Bond node should be dirty after quote update"
+        );
 
         // Manually trigger calculation (simulating what the processing loop does)
         let bond_cache = engine.bond_cache.clone();
@@ -860,7 +886,12 @@ mod tests {
 
         // Verify we got a calculated result (not Empty)
         match result {
-            NodeValue::BondPrice { clean_price_mid, ytm_mid, modified_duration, .. } => {
+            NodeValue::BondPrice {
+                clean_price_mid,
+                ytm_mid,
+                modified_duration,
+                ..
+            } => {
                 // YTM should be calculated from the market price
                 assert!(ytm_mid.is_some(), "YTM should be calculated");
                 println!("Calculated YTM: {:?}", ytm_mid);
@@ -893,17 +924,28 @@ mod tests {
         let instrument_id = InstrumentId::new("PROP_TEST");
 
         // Add quote node
-        let quote_node = NodeId::Quote { instrument_id: instrument_id.clone() };
-        let bond_node = NodeId::BondPrice { instrument_id: instrument_id.clone() };
+        let quote_node = NodeId::Quote {
+            instrument_id: instrument_id.clone(),
+        };
+        let bond_node = NodeId::BondPrice {
+            instrument_id: instrument_id.clone(),
+        };
 
         // Register bond node with dependency on quote
-        engine.calc_graph().add_node(bond_node.clone(), vec![quote_node.clone()]);
+        engine
+            .calc_graph()
+            .add_node(bond_node.clone(), vec![quote_node.clone()]);
 
         // Nodes start dirty - mark as clean first by updating cache
-        engine.calc_graph().update_cache(&bond_node, NodeValue::Empty);
+        engine
+            .calc_graph()
+            .update_cache(&bond_node, NodeValue::Empty);
 
         // Now bond should be clean
-        assert!(!engine.calc_graph().is_dirty(&bond_node), "Bond should be clean after cache update");
+        assert!(
+            !engine.calc_graph().is_dirty(&bond_node),
+            "Bond should be clean after cache update"
+        );
 
         // Update quote - this should propagate to bond
         engine.calc_graph().update_cache(
@@ -917,13 +959,17 @@ mod tests {
         engine.calc_graph().invalidate(&quote_node);
 
         // Now bond should be dirty because its dependency (quote) was invalidated
-        assert!(engine.calc_graph().is_dirty(&bond_node),
-            "Bond node should be dirty after quote invalidation");
+        assert!(
+            engine.calc_graph().is_dirty(&bond_node),
+            "Bond node should be dirty after quote invalidation"
+        );
 
         // Verify bond is in the nodes to calculate
         let to_calc = engine.calc_graph().get_nodes_to_calculate();
-        assert!(to_calc.contains(&bond_node),
-            "Bond node should be in nodes to calculate");
+        assert!(
+            to_calc.contains(&bond_node),
+            "Bond node should be in nodes to calculate"
+        );
     }
 
     #[tokio::test]
@@ -934,17 +980,28 @@ mod tests {
         let instrument_id = InstrumentId::new("CURVE_DEP_TEST");
 
         // Create nodes
-        let curve_node = NodeId::Curve { curve_id: curve_id.clone() };
-        let bond_node = NodeId::BondPrice { instrument_id: instrument_id.clone() };
+        let curve_node = NodeId::Curve {
+            curve_id: curve_id.clone(),
+        };
+        let bond_node = NodeId::BondPrice {
+            instrument_id: instrument_id.clone(),
+        };
 
         // Bond depends on curve
-        engine.calc_graph().add_node(bond_node.clone(), vec![curve_node.clone()]);
+        engine
+            .calc_graph()
+            .add_node(bond_node.clone(), vec![curve_node.clone()]);
 
         // Nodes start dirty - mark as clean first by updating cache
-        engine.calc_graph().update_cache(&bond_node, NodeValue::Empty);
+        engine
+            .calc_graph()
+            .update_cache(&bond_node, NodeValue::Empty);
 
         // Now bond should be clean
-        assert!(!engine.calc_graph().is_dirty(&bond_node), "Bond should be clean after cache update");
+        assert!(
+            !engine.calc_graph().is_dirty(&bond_node),
+            "Bond should be clean after cache update"
+        );
 
         // Update curve
         engine.calc_graph().update_cache(
@@ -956,7 +1013,9 @@ mod tests {
         engine.calc_graph().invalidate(&curve_node);
 
         // Bond should now be dirty
-        assert!(engine.calc_graph().is_dirty(&bond_node),
-            "Bond should be dirty after curve update");
+        assert!(
+            engine.calc_graph().is_dirty(&bond_node),
+            "Bond should be dirty after curve update"
+        );
     }
 }
