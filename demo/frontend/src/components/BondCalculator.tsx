@@ -1,8 +1,20 @@
 import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Calculator, RefreshCw, TrendingUp, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
-import { formatNumber, formatBps, cn } from '../lib/utils';
+import { formatBps, cn } from '../lib/utils';
 import { priceBondWithDetails, BondQuoteResponse } from '../lib/api';
+
+// Helper to safely parse numeric values (API returns strings)
+const toNum = (val: unknown): number => {
+  if (val === null || val === undefined) return 0;
+  const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+  return isNaN(n) ? 0 : n;
+};
+
+// Format number with specified decimals
+const fmt = (val: unknown, decimals: number = 2): string => {
+  return toNum(val).toFixed(decimals);
+};
 
 // Local fallback bond calculations when API is unavailable
 function calculateBondLocally(
@@ -102,11 +114,16 @@ export default function BondCalculator() {
       const today = new Date().toISOString().split('T')[0];
 
       // Build the bond reference data for the API
+      // Generate a placeholder CUSIP (9 chars) based on instrument_id
+      const generateCusip = (id: string): string => {
+        return id.replace(/[^A-Z0-9]/gi, '').toUpperCase().padEnd(9, '0').slice(0, 9);
+      };
+
       const bondData = {
         bond: {
           instrument_id: bondInput.instrumentId,
           isin: null,
-          cusip: null,
+          cusip: generateCusip(bondInput.instrumentId),
           sedol: null,
           bbgid: null,
           description: `${bondInput.issuer} ${bondInput.coupon}% ${bondInput.maturityDate.slice(0, 4)}`,
@@ -125,7 +142,7 @@ export default function BondCalculator() {
           seniority: 'Senior',
           is_callable: bondInput.bondType === 'callable',
           call_schedule: bondInput.bondType === 'callable' && bondInput.callDate ? [
-            { call_date: bondInput.callDate, call_price: bondInput.callPrice || 100 }
+            { call_date: bondInput.callDate, call_price: bondInput.callPrice || 100, is_make_whole: false }
           ] : [],
           is_putable: false,
           is_sinkable: false,
@@ -144,6 +161,8 @@ export default function BondCalculator() {
           sector: 'Corporate',
           amount_outstanding: null,
           first_coupon_date: null,
+          last_updated: Math.floor(Date.now() / 1000),
+          source: 'Demo',
         },
         settlement_date: today,
         market_price: solveMode === 'yield' ? priceInput : null,
@@ -240,7 +259,7 @@ export default function BondCalculator() {
           dayCount: 'ACT/360',
           bondType: 'frn',
           spread: 95,
-          index: 'SOFR',
+          index: 'Sofr',
         });
         setPriceInput(99.875);
         break;
@@ -249,10 +268,10 @@ export default function BondCalculator() {
 
   // Calculate sensitivity grid
   const sensitivityGrid = quote ? generateSensitivityGrid(
-    quote.clean_price_mid || priceInput,
-    quote.ytm_mid ? quote.ytm_mid * 100 : yieldInput,
-    quote.modified_duration || 0,
-    quote.convexity || 0
+    toNum(quote.clean_price_mid) || priceInput,
+    quote.ytm_mid ? toNum(quote.ytm_mid) * 100 : yieldInput,
+    toNum(quote.modified_duration),
+    toNum(quote.convexity)
   ) : null;
 
   return (
@@ -385,13 +404,13 @@ export default function BondCalculator() {
                       Index
                     </label>
                     <select
-                      value={bondInput.index || 'SOFR'}
+                      value={bondInput.index || 'Sofr'}
                       onChange={(e) => handleBondInputChange('index', e.target.value)}
                       className="input w-full"
                     >
-                      <option value="SOFR">SOFR</option>
-                      <option value="EURIBOR">EURIBOR</option>
-                      <option value="SONIA">SONIA</option>
+                      <option value="Sofr">SOFR</option>
+                      <option value="Estr">ESTR</option>
+                      <option value="Sonia">SONIA</option>
                     </select>
                   </div>
                   <div>
@@ -576,36 +595,34 @@ export default function BondCalculator() {
                 <div className="grid grid-cols-2 gap-4">
                   <MetricCard
                     label="Clean Price"
-                    value={formatNumber(quote.clean_price_mid || 0, 4)}
+                    value={fmt(quote.clean_price_mid, 3)}
                     highlight={solveMode === 'price'}
                   />
                   <MetricCard
                     label="Dirty Price"
-                    value={formatNumber(
-                      (quote.clean_price_mid || 0) + (quote.accrued_interest || 0),
-                      4
-                    )}
+                    value={fmt(toNum(quote.clean_price_mid) + toNum(quote.accrued_interest), 3)}
                   />
                   <MetricCard
-                    label="YTM"
-                    value={`${formatNumber((quote.ytm_mid || 0) * 100, 3)}%`}
+                    label={bondInput.bondType === 'frn' ? 'YTM (N/A for FRN)' : 'YTM'}
+                    value={quote.ytm_mid ? `${fmt(toNum(quote.ytm_mid) * 100, 3)}%` :
+                           quote.discount_margin_mid ? `DM: ${fmt(toNum(quote.discount_margin_mid) * 10000, 1)} bps` : 'N/A'}
                     highlight={solveMode === 'yield'}
                   />
                   <MetricCard
                     label="Accrued Interest"
-                    value={formatNumber(quote.accrued_interest || 0, 4)}
+                    value={fmt(quote.accrued_interest, 4)}
                   />
                   {quote.ytw && (
                     <MetricCard
                       label="YTW"
-                      value={`${formatNumber(quote.ytw * 100, 3)}%`}
+                      value={`${fmt(toNum(quote.ytw) * 100, 3)}%`}
                       variant="warning"
                     />
                   )}
                   {quote.ytc && (
                     <MetricCard
                       label="YTC"
-                      value={`${formatNumber(quote.ytc * 100, 3)}%`}
+                      value={`${fmt(toNum(quote.ytc) * 100, 3)}%`}
                     />
                   )}
                 </div>
@@ -617,31 +634,35 @@ export default function BondCalculator() {
                 <div className="grid grid-cols-2 gap-4">
                   <MetricCard
                     label="Modified Duration"
-                    value={formatNumber(quote.modified_duration || 0, 3)}
+                    value={fmt(quote.modified_duration, 2)}
                   />
-                  <MetricCard
-                    label="Macaulay Duration"
-                    value={formatNumber(quote.macaulay_duration || 0, 3)}
-                  />
+                  {quote.macaulay_duration && (
+                    <MetricCard
+                      label="Macaulay Duration"
+                      value={fmt(quote.macaulay_duration, 2)}
+                    />
+                  )}
                   <MetricCard
                     label="Convexity"
-                    value={formatNumber(quote.convexity || 0, 2)}
+                    value={fmt(quote.convexity, 2)}
                   />
-                  <MetricCard
-                    label="DV01"
-                    value={`$${formatNumber(quote.dv01 || 0, 4)}`}
-                  />
+                  {quote.dv01 && (
+                    <MetricCard
+                      label="DV01"
+                      value={`$${fmt(quote.dv01, 4)}`}
+                    />
+                  )}
                   {quote.effective_duration && (
                     <MetricCard
                       label="Effective Duration"
-                      value={formatNumber(quote.effective_duration, 3)}
+                      value={fmt(quote.effective_duration, 2)}
                       variant="warning"
                     />
                   )}
                   {quote.spread_duration && (
                     <MetricCard
                       label="Spread Duration"
-                      value={formatNumber(quote.spread_duration, 3)}
+                      value={fmt(quote.spread_duration, 2)}
                     />
                   )}
                 </div>
@@ -654,38 +675,45 @@ export default function BondCalculator() {
                   {quote.z_spread_mid !== null && quote.z_spread_mid !== undefined && (
                     <MetricCard
                       label="Z-Spread"
-                      value={formatBps(quote.z_spread_mid * 10000)}
+                      value={formatBps(toNum(quote.z_spread_mid) * 10000)}
                     />
                   )}
                   {quote.i_spread_mid !== null && quote.i_spread_mid !== undefined && (
                     <MetricCard
                       label="I-Spread"
-                      value={formatBps(quote.i_spread_mid * 10000)}
+                      value={formatBps(toNum(quote.i_spread_mid) * 10000)}
                     />
                   )}
                   {quote.g_spread_mid !== null && quote.g_spread_mid !== undefined && (
                     <MetricCard
                       label="G-Spread"
-                      value={formatBps(quote.g_spread_mid * 10000)}
+                      value={formatBps(toNum(quote.g_spread_mid) * 10000)}
                     />
                   )}
                   {quote.asw_mid !== null && quote.asw_mid !== undefined && (
                     <MetricCard
                       label="ASW"
-                      value={formatBps(quote.asw_mid * 10000)}
+                      value={formatBps(toNum(quote.asw_mid) * 10000)}
                     />
                   )}
                   {quote.oas_mid !== null && quote.oas_mid !== undefined && (
                     <MetricCard
                       label="OAS"
-                      value={formatBps(quote.oas_mid * 10000)}
+                      value={formatBps(toNum(quote.oas_mid) * 10000)}
                       variant="warning"
                     />
                   )}
                   {quote.discount_margin_mid !== null && quote.discount_margin_mid !== undefined && (
                     <MetricCard
                       label="Discount Margin"
-                      value={formatBps(quote.discount_margin_mid * 10000)}
+                      value={formatBps(toNum(quote.discount_margin_mid) * 10000)}
+                      variant="info"
+                    />
+                  )}
+                  {quote.simple_margin_mid !== null && quote.simple_margin_mid !== undefined && (
+                    <MetricCard
+                      label="Simple Margin"
+                      value={formatBps(toNum(quote.simple_margin_mid))}
                       variant="info"
                     />
                   )}
@@ -714,19 +742,19 @@ export default function BondCalculator() {
                             row.yieldChange === 0 && 'bg-primary-50 font-medium'
                           )}>
                             <td className="py-2 px-3">{row.yieldChange > 0 ? '+' : ''}{row.yieldChange} bps</td>
-                            <td className="py-2 px-3 text-right font-mono">{formatNumber(row.newYield, 3)}%</td>
-                            <td className="py-2 px-3 text-right font-mono">{formatNumber(row.newPrice, 3)}</td>
+                            <td className="py-2 px-3 text-right font-mono">{fmt(row.newYield, 3)}%</td>
+                            <td className="py-2 px-3 text-right font-mono">{fmt(row.newPrice, 3)}</td>
                             <td className={cn(
                               'py-2 px-3 text-right font-mono',
                               row.priceChange > 0 ? 'text-gain' : row.priceChange < 0 ? 'text-loss' : ''
                             )}>
-                              {row.priceChange > 0 ? '+' : ''}{formatNumber(row.priceChange, 3)}
+                              {row.priceChange > 0 ? '+' : ''}{fmt(row.priceChange, 3)}
                             </td>
                             <td className={cn(
                               'py-2 px-3 text-right font-mono',
                               row.pctChange > 0 ? 'text-gain' : row.pctChange < 0 ? 'text-loss' : ''
                             )}>
-                              {row.pctChange > 0 ? '+' : ''}{formatNumber(row.pctChange, 2)}%
+                              {row.pctChange > 0 ? '+' : ''}{fmt(row.pctChange, 2)}%
                             </td>
                           </tr>
                         ))}
