@@ -1,0 +1,22 @@
+{
+  "source": "Pensford / Estimated",
+  "fetchedAt": "2025-12-31T00:00:00Z",
+  "asOfDate": "2025-12-30",
+  "sofrSwapCurve": {
+    "1Y": { "rate": 3.30, "source": "estimated", "confidence": "medium" },
+    "2Y": { "rate": 3.20, "source": "estimated", "confidence": "medium" },
+    "3Y": { "rate": 3.25, "source": "estimated", "confidence": "medium" },
+    "5Y": { "rate": 3.36, "source": "Pensford", "confidence": "high" },
+    "7Y": { "rate": 3.50, "source": "estimated", "confidence": "medium" },
+    "10Y": { "rate": 3.645, "source": "Pensford", "confidence": "high" },
+    "15Y": { "rate": 3.90, "source": "estimated", "confidence": "low" },
+    "20Y": { "rate": 4.10, "source": "estimated", "confidence": "low" },
+    "30Y": { "rate": 4.25, "source": "estimated", "confidence": "low" }
+  },
+  "notes": [
+    "5Y and 10Y rates are directly from Pensford as of Dec 30, 2025",
+    "Other tenors interpolated/extrapolated from available data",
+    "Curve shows modest steepening beyond 10Y",
+    "Short end anchored by SOFR at 3.71%"
+  ]
+}

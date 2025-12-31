@@ -1,0 +1,45 @@
+# Docker build context exclusions
+
+# Build artifacts
+target/
+*.pdb
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Tests and test data (included in crates, can't exclude)
+test_data/
+
+# Excel add-in (not needed for server)
+excel/
+
+# Demo folder (separate deployment)
+demo/
+
+# WASM and MCP (not needed for server, FFI is needed for some deps)
+crates/convex-wasm/
+crates/convex-mcp/
+
+# Misc
+.env
+.env.*
+*.log
+*.bak
+tmp/
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.claude/

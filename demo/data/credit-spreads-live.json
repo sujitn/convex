@@ -1,0 +1,41 @@
+{
+  "source": "FRED ICE BofA Indices",
+  "fetchedAt": "2025-12-31T00:00:00Z",
+  "asOfDate": "2025-12-29",
+  "spreads": {
+    "igCorporate": {
+      "oas": 79,
+      "unit": "bps",
+      "seriesId": "BAMLC0A0CM",
+      "indexName": "ICE BofA US Corporate Index",
+      "description": "Investment grade corporate bonds BBB or better"
+    },
+    "hyCorporate": {
+      "oas": 287,
+      "unit": "bps",
+      "seriesId": "BAMLH0A0HYM2",
+      "indexName": "ICE BofA US High Yield Index",
+      "description": "High yield corporate bonds below BBB"
+    }
+  },
+  "context": {
+    "igHistoricalAvg5Y": 106,
+    "igPercentile5Y": 0.06,
+    "hyHistoricalAvg5Y": 400,
+    "note": "IG spreads near multi-decade lows; HY also compressed"
+  },
+  "history": {
+    "igCorporate": [
+      { "date": "2025-12-29", "oas": 79 },
+      { "date": "2025-12-26", "oas": 79 },
+      { "date": "2025-12-24", "oas": 79 },
+      { "date": "2025-12-23", "oas": 79 }
+    ],
+    "hyCorporate": [
+      { "date": "2025-12-29", "oas": 287 },
+      { "date": "2025-12-26", "oas": 286 },
+      { "date": "2025-12-24", "oas": 284 },
+      { "date": "2025-12-23", "oas": 283 }
+    ]
+  }
+}

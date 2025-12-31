@@ -1,0 +1,36 @@
+{
+  "source": "NY Fed / FRED",
+  "fetchedAt": "2025-12-31T00:00:00Z",
+  "rates": {
+    "sofr": {
+      "rate": 3.71,
+      "effectiveDate": "2025-12-30",
+      "source": "NY Fed",
+      "volumeBillions": 3321,
+      "percentile25": 3.69,
+      "percentile75": 3.79
+    },
+    "fedFunds": {
+      "rate": 3.64,
+      "effectiveDate": "2025-12-29",
+      "source": "FRED DFF"
+    },
+    "termSofr1M": {
+      "rate": 4.143,
+      "effectiveDate": "2025-12-30",
+      "source": "Pensford"
+    },
+    "sofr30DayAvg": {
+      "rate": 4.144,
+      "effectiveDate": "2025-12-30",
+      "source": "NY Fed"
+    }
+  },
+  "history": [
+    { "date": "2025-12-30", "sofr": 3.71 },
+    { "date": "2025-12-29", "sofr": 3.77 },
+    { "date": "2025-12-26", "sofr": 3.76 },
+    { "date": "2025-12-24", "sofr": 3.66 },
+    { "date": "2025-12-23", "sofr": 3.66 }
+  ]
+}
