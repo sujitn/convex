@@ -751,7 +751,7 @@ mod tests {
         ];
 
         for id in test_ids.iter() {
-            let node = NodeId::BondPrice {
+            let _node = NodeId::BondPrice {
                 instrument_id: InstrumentId::new(*id),
             };
 
