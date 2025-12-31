@@ -64,3 +64,4 @@ npm-debug.log*
 /docs/prompts
 /.idea
 /.claude
+.claude/settings.local.json
