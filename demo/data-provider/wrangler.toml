@@ -5,9 +5,9 @@ name = "convex-demo-data"
 main = "src/index.ts"
 compatibility_date = "2024-12-30"
 
-# Environment variables (add your API keys here or in dashboard)
-[vars]
-FRED_API_KEY = ""  # Get free key at https://fred.stlouisfed.org/docs/api/api_key.html
+# Environment variables
+# FRED_API_KEY is set as a secret via: wrangler secret put FRED_API_KEY
+# Get free key at https://fred.stlouisfed.org/docs/api/api_key.html
 
 # KV namespace for caching (create via: wrangler kv:namespace create CACHE)
 # [[kv_namespaces]]

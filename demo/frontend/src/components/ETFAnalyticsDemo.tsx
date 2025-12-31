@@ -183,8 +183,21 @@ function getTodayDate(): string {
 // Convert ETF holding to bond reference input for API pricing
 function holdingToBondReference(holding: ETFHolding, etfId: string): BondReferenceInput {
   // Determine issuer type based on sector
-  const issuerType = holding.sector === 'Government' ? 'Sovereign' : 'Corporate';
-  const bondType = holding.sector === 'Government' ? 'USTreasury' : 'USCorporate';
+  // Server expects: Sovereign, Agency, Supranational, CorporateIG, CorporateHY, Financial, Municipal
+  let issuerType: string;
+  if (holding.sector === 'Government') {
+    issuerType = 'Sovereign';
+  } else if (holding.sector === 'Financials') {
+    issuerType = 'Financial';
+  } else if (holding.rating.startsWith('BB') || holding.rating.startsWith('B') || holding.rating.startsWith('CCC')) {
+    issuerType = 'CorporateHY';
+  } else {
+    issuerType = 'CorporateIG';
+  }
+
+  // Determine bond type
+  // Server expects: FixedBullet, FixedCallable, FixedPutable, FloatingRate, ZeroCoupon, InflationLinked, Amortizing, Convertible
+  const bondType = holding.coupon === 0 ? 'ZeroCoupon' : 'FixedBullet';
 
   return {
     instrument_id: `${etfId}-${holding.id}`,
@@ -217,6 +230,8 @@ function holdingToBondReference(holding: ETFHolding, etfId: string): BondReferen
     sector: holding.sector,
     amount_outstanding: null,
     first_coupon_date: null,
+    last_updated: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
+    source: 'demo-provider',
   };
 }
 

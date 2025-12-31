@@ -212,20 +212,21 @@ export interface BondReferenceInput {
   frequency: number;
   day_count: string;
   face_value: number;
+  // Bond type: FixedBullet, FixedCallable, FixedPutable, FloatingRate, ZeroCoupon, InflationLinked, Amortizing, Convertible
   bond_type: string;
+  // Issuer type: Sovereign, Agency, Supranational, CorporateIG, CorporateHY, Financial, Municipal
   issuer_type: string;
   issuer_id: string;
   issuer_name: string;
   seniority: string;
   is_callable: boolean;
-  call_schedule: Array<{ call_date: string; call_price: number }>;
+  call_schedule: Array<{ call_date: string; call_price: number; is_make_whole?: boolean }>;
   is_putable: boolean;
   is_sinkable: boolean;
   floating_terms?: {
     spread: number;
     index: string;
     reset_frequency: number;
-    current_rate?: number | null;
     cap?: number | null;
     floor?: number | null;
   } | null;
@@ -236,6 +237,8 @@ export interface BondReferenceInput {
   sector: string;
   amount_outstanding?: number | null;
   first_coupon_date?: string | null;
+  last_updated?: number;
+  source?: string;
 }
 
 export interface SingleBondPricingRequest {
@@ -401,42 +404,174 @@ export async function batchPriceBondsWithDetails(
   return { results: successResults, errors };
 }
 
-// Portfolio
-export async function calculatePortfolioAnalytics(holdings: Array<{
+// =============================================================================
+// PORTFOLIO ANALYTICS
+// =============================================================================
+
+// Position input for portfolio
+export interface PositionInput {
   instrument_id: string;
-  quantity: number;
-  market_value?: number;
-}>) {
-  return fetchJson<unknown>('/api/v1/portfolio/analytics', {
+  notional: number;
+  sector?: string;
+  rating?: string;
+}
+
+// Portfolio input
+export interface PortfolioInput {
+  portfolio_id: string;
+  name: string;
+  currency?: string;
+  positions: PositionInput[];
+}
+
+// Portfolio analytics request
+export interface PortfolioAnalyticsRequest {
+  portfolio: PortfolioInput;
+  bond_prices: BondQuoteResponse[];
+}
+
+// Portfolio analytics output
+export interface PortfolioAnalyticsOutput {
+  portfolio_id: string;
+  name: string;
+  currency: string;
+  as_of_date: string;
+  // Summary metrics
+  total_market_value: number;
+  total_par_value: number;
+  holdings_count: number;
+  // Duration metrics
+  modified_duration: number;
+  effective_duration?: number;
+  macaulay_duration?: number;
+  spread_duration?: number;
+  // Yield and spread
+  weighted_yield: number;
+  weighted_spread?: number;
+  weighted_oas?: number;
+  // Risk metrics
+  dv01: number;
+  convexity: number;
+  cs01?: number;
+  // Credit quality
+  weighted_rating?: string;
+  investment_grade_pct?: number;
+  // Sector breakdown
+  sector_weights?: Record<string, number>;
+  rating_weights?: Record<string, number>;
+  // Timestamp
+  timestamp: number;
+}
+
+// Calculate portfolio analytics
+export async function calculatePortfolioAnalytics(
+  request: PortfolioAnalyticsRequest
+): Promise<PortfolioAnalyticsOutput> {
+  return fetchJson<PortfolioAnalyticsOutput>('/api/v1/portfolio/analytics', {
     method: 'POST',
-    body: JSON.stringify({ holdings }),
+    body: JSON.stringify(request),
   });
 }
 
-export async function calculateKeyRateDuration(holdings: Array<{
+// =============================================================================
+// KEY RATE DURATION
+// =============================================================================
+
+// Position with key rate duration data
+export interface KeyRatePosition {
   instrument_id: string;
-  quantity: number;
-}>) {
-  return fetchJson<unknown>('/api/v1/portfolio/key-rate-duration', {
+  notional: number;
+  market_price?: number;
+  key_rate_durations?: Array<[number, number]>; // [tenor, duration] pairs
+}
+
+// Key rate duration request
+export interface KeyRateDurationRequest {
+  portfolio_id: string;
+  name: string;
+  positions: KeyRatePosition[];
+  tenors?: number[]; // Custom tenor points
+}
+
+// Key rate point output
+export interface KeyRatePointOutput {
+  tenor: number;
+  duration: number;
+  contribution_pct: number;
+}
+
+// Key rate duration response
+export interface KeyRateDurationResponse {
+  portfolio_id: string;
+  profile: KeyRatePointOutput[];
+  total_duration: number;
+  short_duration: number;
+  intermediate_duration: number;
+  long_duration: number;
+  coverage: number;
+  total_holdings: number;
+  coverage_pct: number;
+  timestamp: number;
+}
+
+// Calculate key rate duration profile
+export async function calculateKeyRateDuration(
+  request: KeyRateDurationRequest
+): Promise<KeyRateDurationResponse> {
+  return fetchJson<KeyRateDurationResponse>('/api/v1/portfolio/key-rate-duration', {
     method: 'POST',
-    body: JSON.stringify({ holdings }),
+    body: JSON.stringify(request),
   });
 }
 
-// Stress Testing
-export async function listStressScenarios() {
-  return fetchJson<{ scenarios: Array<{ id: string; name: string; description: string }> }>(
-    '/api/v1/stress/scenarios'
-  );
+// =============================================================================
+// STRESS TESTING
+// =============================================================================
+
+// Stress scenario
+export interface StressScenario {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
 }
 
-export async function runStressTest(scenarioId: string, holdings: Array<{
-  instrument_id: string;
-  quantity: number;
-}>) {
-  return fetchJson<unknown>('/api/v1/stress/single', {
+// List available stress scenarios
+export async function listStressScenarios(): Promise<{ scenarios: StressScenario[] }> {
+  return fetchJson<{ scenarios: StressScenario[] }>('/api/v1/stress/scenarios');
+}
+
+// Standard stress test request
+export interface StandardStressRequest {
+  portfolio: PortfolioInput;
+  bond_prices: BondQuoteResponse[];
+}
+
+// Stress result output
+export interface StressResultOutput {
+  scenario_name: string;
+  initial_value: string;
+  stressed_value: string;
+  pnl: string;
+  pnl_pct: string;
+  duration_impact?: string;
+  spread_impact?: string;
+}
+
+// Standard stress test response
+export interface StandardStressResponse {
+  portfolio_id: string;
+  results: StressResultOutput[];
+  timestamp: number;
+}
+
+// Run standard stress tests
+export async function runStandardStressTest(
+  request: StandardStressRequest
+): Promise<StandardStressResponse> {
+  return fetchJson<StandardStressResponse>('/api/v1/stress/standard', {
     method: 'POST',
-    body: JSON.stringify({ scenario_id: scenarioId, holdings }),
+    body: JSON.stringify(request),
   });
 }
 
