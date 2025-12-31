@@ -616,7 +616,7 @@ async fn test_portfolio_analytics_empty_portfolio() {
         "bond_prices": []
     });
 
-    let (status, json) = post_json(app, "/api/v1/portfolio/analytics", request_body).await;
+    let (status, _json) = post_json(app, "/api/v1/portfolio/analytics", request_body).await;
 
     // Should still return OK but with zero values or error
     assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
