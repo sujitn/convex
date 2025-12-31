@@ -377,11 +377,14 @@ impl ReactiveEngine {
         let input = PricingInput {
             bond: bond_ref.clone(),
             settlement_date,
-            market_price,
+            market_price_bid: None,
+            market_price_mid: market_price,
+            market_price_ask: None,
             discount_curve,
             benchmark_curve,
             government_curve: None, // Requires explicit benchmark securities
             volatility: None,
+            bid_ask_config: None,
         };
 
         // Execute pricing
@@ -389,13 +392,17 @@ impl ReactiveEngine {
             Ok(output) => {
                 debug!(
                     "Priced bond {}: clean={:?}, ytm={:?}",
-                    instrument_id, output.clean_price, output.ytm
+                    instrument_id, output.clean_price_mid, output.ytm_mid
                 );
                 NodeValue::BondPrice {
-                    clean_price: output.clean_price,
-                    dirty_price: output.dirty_price,
-                    ytm: output.ytm,
-                    z_spread: output.z_spread,
+                    clean_price_bid: output.clean_price_bid,
+                    clean_price_mid: output.clean_price_mid,
+                    clean_price_ask: output.clean_price_ask,
+                    accrued_interest: output.accrued_interest,
+                    ytm_bid: output.ytm_bid,
+                    ytm_mid: output.ytm_mid,
+                    ytm_ask: output.ytm_ask,
+                    z_spread_mid: output.z_spread_mid,
                     modified_duration: output.modified_duration,
                     dv01: output.dv01,
                 }
@@ -853,14 +860,14 @@ mod tests {
 
         // Verify we got a calculated result (not Empty)
         match result {
-            NodeValue::BondPrice { clean_price, ytm, modified_duration, .. } => {
+            NodeValue::BondPrice { clean_price_mid, ytm_mid, modified_duration, .. } => {
                 // YTM should be calculated from the market price
-                assert!(ytm.is_some(), "YTM should be calculated");
-                println!("Calculated YTM: {:?}", ytm);
+                assert!(ytm_mid.is_some(), "YTM should be calculated");
+                println!("Calculated YTM: {:?}", ytm_mid);
 
                 // If we have a market price, clean price should be set
-                if clean_price.is_some() {
-                    println!("Clean price: {:?}", clean_price);
+                if clean_price_mid.is_some() {
+                    println!("Clean price: {:?}", clean_price_mid);
                 }
 
                 // Duration should be calculated

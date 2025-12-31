@@ -190,17 +190,25 @@ pub enum NodeValue {
 
     /// Bond price calculation result
     BondPrice {
-        /// Clean price
-        clean_price: Option<Decimal>,
-        /// Dirty price
-        dirty_price: Option<Decimal>,
-        /// YTM
-        ytm: Option<Decimal>,
-        /// Z-spread
-        z_spread: Option<Decimal>,
-        /// Modified duration
+        /// Clean price (bid)
+        clean_price_bid: Option<Decimal>,
+        /// Clean price (mid)
+        clean_price_mid: Option<Decimal>,
+        /// Clean price (ask)
+        clean_price_ask: Option<Decimal>,
+        /// Accrued interest
+        accrued_interest: Option<Decimal>,
+        /// YTM (bid)
+        ytm_bid: Option<Decimal>,
+        /// YTM (mid)
+        ytm_mid: Option<Decimal>,
+        /// YTM (ask)
+        ytm_ask: Option<Decimal>,
+        /// Z-spread (from mid price)
+        z_spread_mid: Option<Decimal>,
+        /// Modified duration (from mid price)
         modified_duration: Option<Decimal>,
-        /// DV01
+        /// DV01 (from mid price)
         dv01: Option<Decimal>,
     },
 

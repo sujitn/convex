@@ -22,6 +22,8 @@ use convex_core::{Currency, Date};
 // =============================================================================
 
 /// Complete bond quote output with all analytics.
+///
+/// Note: Dirty price is not included - calculate as clean_price_mid + accrued_interest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondQuoteOutput {
     /// Instrument identifier
@@ -33,39 +35,73 @@ pub struct BondQuoteOutput {
     /// Settlement date
     pub settlement_date: Date,
 
-    // Prices
+    // Prices (bid/mid/ask)
+    /// Clean price (bid)
+    pub clean_price_bid: Option<Decimal>,
     /// Clean price (mid)
-    pub clean_price: Option<Decimal>,
-    /// Dirty price (mid)
-    pub dirty_price: Option<Decimal>,
+    pub clean_price_mid: Option<Decimal>,
+    /// Clean price (ask)
+    pub clean_price_ask: Option<Decimal>,
     /// Accrued interest
     pub accrued_interest: Option<Decimal>,
 
-    // Yields
-    /// Yield to maturity
-    pub ytm: Option<Decimal>,
-    /// Yield to worst (for callable)
+    // Yields (bid/mid/ask)
+    /// Yield to maturity (bid)
+    pub ytm_bid: Option<Decimal>,
+    /// Yield to maturity (mid)
+    pub ytm_mid: Option<Decimal>,
+    /// Yield to maturity (ask)
+    pub ytm_ask: Option<Decimal>,
+    /// Yield to worst (for callable, mid)
     pub ytw: Option<Decimal>,
-    /// Yield to call
+    /// Yield to call (mid)
     pub ytc: Option<Decimal>,
 
-    // Spreads
-    /// Z-spread
-    pub z_spread: Option<Decimal>,
-    /// I-spread
-    pub i_spread: Option<Decimal>,
-    /// G-spread
-    pub g_spread: Option<Decimal>,
-    /// Asset swap spread
-    pub asw: Option<Decimal>,
-    /// OAS (for callable)
-    pub oas: Option<Decimal>,
-    /// Discount margin (for FRN)
-    pub discount_margin: Option<Decimal>,
-    /// Simple margin (for FRN)
-    pub simple_margin: Option<Decimal>,
+    // Spreads (bid/mid/ask)
+    /// Z-spread (bid)
+    pub z_spread_bid: Option<Decimal>,
+    /// Z-spread (mid)
+    pub z_spread_mid: Option<Decimal>,
+    /// Z-spread (ask)
+    pub z_spread_ask: Option<Decimal>,
+    /// I-spread (bid)
+    pub i_spread_bid: Option<Decimal>,
+    /// I-spread (mid)
+    pub i_spread_mid: Option<Decimal>,
+    /// I-spread (ask)
+    pub i_spread_ask: Option<Decimal>,
+    /// G-spread (bid)
+    pub g_spread_bid: Option<Decimal>,
+    /// G-spread (mid)
+    pub g_spread_mid: Option<Decimal>,
+    /// G-spread (ask)
+    pub g_spread_ask: Option<Decimal>,
+    /// Asset swap spread (bid)
+    pub asw_bid: Option<Decimal>,
+    /// Asset swap spread (mid)
+    pub asw_mid: Option<Decimal>,
+    /// Asset swap spread (ask)
+    pub asw_ask: Option<Decimal>,
+    /// OAS for callable (bid)
+    pub oas_bid: Option<Decimal>,
+    /// OAS for callable (mid)
+    pub oas_mid: Option<Decimal>,
+    /// OAS for callable (ask)
+    pub oas_ask: Option<Decimal>,
+    /// Discount margin for FRN (bid)
+    pub discount_margin_bid: Option<Decimal>,
+    /// Discount margin for FRN (mid)
+    pub discount_margin_mid: Option<Decimal>,
+    /// Discount margin for FRN (ask)
+    pub discount_margin_ask: Option<Decimal>,
+    /// Simple margin for FRN (bid)
+    pub simple_margin_bid: Option<Decimal>,
+    /// Simple margin for FRN (mid)
+    pub simple_margin_mid: Option<Decimal>,
+    /// Simple margin for FRN (ask)
+    pub simple_margin_ask: Option<Decimal>,
 
-    // Duration
+    // Duration (calculated from mid price)
     /// Modified duration
     pub modified_duration: Option<Decimal>,
     /// Macaulay duration
@@ -94,14 +130,63 @@ pub struct BondQuoteOutput {
     // Metadata
     /// Calculation timestamp
     pub timestamp: i64,
-    /// Pricing model used
-    pub pricing_model: String,
+    /// Pricing spec that was used
+    pub pricing_spec: String,
     /// Quote source
     pub source: String,
     /// Is stale
     pub is_stale: bool,
     /// Quality indicator (0-100)
     pub quality: u8,
+}
+
+impl BondQuoteOutput {
+    /// Calculate dirty price from clean price and accrued.
+    pub fn dirty_price_mid(&self) -> Option<Decimal> {
+        match (self.clean_price_mid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => Some(clean + accrued),
+            (Some(clean), None) => Some(clean),
+            _ => None,
+        }
+    }
+
+    /// Calculate dirty price bid.
+    pub fn dirty_price_bid(&self) -> Option<Decimal> {
+        match (self.clean_price_bid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => Some(clean + accrued),
+            (Some(clean), None) => Some(clean),
+            _ => None,
+        }
+    }
+
+    /// Calculate dirty price ask.
+    pub fn dirty_price_ask(&self) -> Option<Decimal> {
+        match (self.clean_price_ask, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => Some(clean + accrued),
+            (Some(clean), None) => Some(clean),
+            _ => None,
+        }
+    }
+
+    /// Get price for specified side.
+    pub fn clean_price_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.clean_price_bid,
+            QuoteSide::Mid => self.clean_price_mid,
+            QuoteSide::Ask => self.clean_price_ask,
+        }
+    }
+
+    /// Get yield for specified side.
+    pub fn ytm_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.ytm_bid,
+            QuoteSide::Mid => self.ytm_mid,
+            QuoteSide::Ask => self.ytm_ask,
+        }
+    }
 }
 
 /// Trait for bond quote publishing.

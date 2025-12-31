@@ -78,8 +78,8 @@ impl EtfPricer {
                     stale_count += 1;
                 }
 
-                // Use dirty price for valuation
-                if let Some(dirty_price) = quote.dirty_price {
+                // Use dirty price for valuation (mid price)
+                if let Some(dirty_price) = quote.dirty_price_mid() {
                     let position_value = holding.notional_value * dirty_price / Decimal::from(100);
                     total_value += position_value;
                     total_weight_priced += holding.weight;
@@ -89,10 +89,10 @@ impl EtfPricer {
                     if let Some(dur) = quote.modified_duration {
                         weighted_duration += dur * holding.weight;
                     }
-                    if let Some(ytm) = quote.ytm {
+                    if let Some(ytm) = quote.ytm_mid {
                         weighted_yield += ytm * holding.weight;
                     }
-                    if let Some(z_spread) = quote.z_spread {
+                    if let Some(z_spread) = quote.z_spread_mid {
                         weighted_spread += z_spread * holding.weight;
                     }
                 }
@@ -249,19 +249,36 @@ mod tests {
                 isin: Some("US912810TD00".to_string()),
                 currency: convex_core::Currency::USD,
                 settlement_date: date(2025, 6, 17),
-                clean_price: Some(dec!(99.50)),
-                dirty_price: Some(dec!(100.00)),
+                clean_price_bid: None,
+                clean_price_mid: Some(dec!(99.50)),
+                clean_price_ask: None,
                 accrued_interest: Some(dec!(0.50)),
-                ytm: Some(dec!(0.0525)),
+                ytm_bid: None,
+                ytm_mid: Some(dec!(0.0525)),
+                ytm_ask: None,
                 ytw: None,
                 ytc: None,
-                z_spread: Some(dec!(50)),
-                i_spread: Some(dec!(45)),
-                g_spread: Some(dec!(55)),
-                asw: Some(dec!(48)),
-                oas: None,
-                discount_margin: None,
-                simple_margin: None,
+                z_spread_bid: None,
+                z_spread_mid: Some(dec!(50)),
+                z_spread_ask: None,
+                i_spread_bid: None,
+                i_spread_mid: Some(dec!(45)),
+                i_spread_ask: None,
+                g_spread_bid: None,
+                g_spread_mid: Some(dec!(55)),
+                g_spread_ask: None,
+                asw_bid: None,
+                asw_mid: Some(dec!(48)),
+                asw_ask: None,
+                oas_bid: None,
+                oas_mid: None,
+                oas_ask: None,
+                discount_margin_bid: None,
+                discount_margin_mid: None,
+                discount_margin_ask: None,
+                simple_margin_bid: None,
+                simple_margin_mid: None,
+                simple_margin_ask: None,
                 modified_duration: Some(dec!(5.5)),
                 macaulay_duration: Some(dec!(5.7)),
                 effective_duration: Some(dec!(5.5)),
@@ -273,7 +290,7 @@ mod tests {
                 key_rate_durations: None,
                 cs01: Some(dec!(0.054)),
                 timestamp: now,
-                pricing_model: "DiscountToMaturity".to_string(),
+                pricing_spec: "DiscountToMaturity".to_string(),
                 source: "test".to_string(),
                 is_stale: false,
                 quality: 100,
@@ -283,19 +300,36 @@ mod tests {
                 isin: Some("US037833DV24".to_string()),
                 currency: convex_core::Currency::USD,
                 settlement_date: date(2025, 6, 17),
-                clean_price: Some(dec!(101.00)),
-                dirty_price: Some(dec!(102.00)),
+                clean_price_bid: None,
+                clean_price_mid: Some(dec!(101.00)),
+                clean_price_ask: None,
                 accrued_interest: Some(dec!(1.00)),
-                ytm: Some(dec!(0.0475)),
+                ytm_bid: None,
+                ytm_mid: Some(dec!(0.0475)),
+                ytm_ask: None,
                 ytw: None,
                 ytc: None,
-                z_spread: Some(dec!(40)),
-                i_spread: Some(dec!(35)),
-                g_spread: Some(dec!(45)),
-                asw: Some(dec!(38)),
-                oas: None,
-                discount_margin: None,
-                simple_margin: None,
+                z_spread_bid: None,
+                z_spread_mid: Some(dec!(40)),
+                z_spread_ask: None,
+                i_spread_bid: None,
+                i_spread_mid: Some(dec!(35)),
+                i_spread_ask: None,
+                g_spread_bid: None,
+                g_spread_mid: Some(dec!(45)),
+                g_spread_ask: None,
+                asw_bid: None,
+                asw_mid: Some(dec!(38)),
+                asw_ask: None,
+                oas_bid: None,
+                oas_mid: None,
+                oas_ask: None,
+                discount_margin_bid: None,
+                discount_margin_mid: None,
+                discount_margin_ask: None,
+                simple_margin_bid: None,
+                simple_margin_mid: None,
+                simple_margin_ask: None,
                 modified_duration: Some(dec!(7.2)),
                 macaulay_duration: Some(dec!(7.5)),
                 effective_duration: Some(dec!(7.2)),
@@ -307,7 +341,7 @@ mod tests {
                 key_rate_durations: None,
                 cs01: Some(dec!(0.071)),
                 timestamp: now,
-                pricing_model: "DiscountToMaturity".to_string(),
+                pricing_spec: "DiscountToMaturity".to_string(),
                 source: "test".to_string(),
                 is_stale: false,
                 quality: 100,

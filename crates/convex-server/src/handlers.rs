@@ -153,15 +153,15 @@ pub async fn get_bond_quote(
     };
 
     // Build pricing input
-    let input = PricingInput {
+    let input = PricingInput::with_mid_price(
         bond,
         settlement_date,
-        market_price: query.market_price,
-        discount_curve: None,
-        benchmark_curve: None,
-        government_curve: None,
-        volatility: None,
-    };
+        query.market_price,
+        None, // discount_curve
+        None, // benchmark_curve
+        None, // government_curve
+        None, // volatility
+    );
 
     // Price the bond
     let router = state.engine.pricing_router();
@@ -216,15 +216,15 @@ pub async fn price_single_bond(
     };
 
     // Build pricing input
-    let input = PricingInput {
-        bond: request.bond,
+    let input = PricingInput::with_mid_price(
+        request.bond,
         settlement_date,
-        market_price: request.market_price,
-        discount_curve: None,
-        benchmark_curve: None,
-        government_curve: None,
-        volatility: None,
-    };
+        request.market_price,
+        None, // discount_curve
+        None, // benchmark_curve
+        None, // government_curve
+        None, // volatility
+    );
 
     // Price the bond
     let router = state.engine.pricing_router();
@@ -615,15 +615,15 @@ pub async fn batch_price(
     let inputs: Vec<PricingInput> = request
         .bonds
         .into_iter()
-        .map(|item| PricingInput {
-            bond: item.bond,
+        .map(|item| PricingInput::with_mid_price(
+            item.bond,
             settlement_date,
-            market_price: item.market_price,
-            discount_curve: None,
-            benchmark_curve: None,
-            government_curve: None,
-            volatility: None,
-        })
+            item.market_price,
+            None, // discount_curve
+            None, // benchmark_curve
+            None, // government_curve
+            None, // volatility
+        ))
         .collect();
 
     let router = state.engine.pricing_router();
@@ -1343,9 +1343,9 @@ fn convert_to_holdings(
 
     for position in &portfolio.positions {
         if let Some(quote) = price_map.get(position.instrument_id.as_str()) {
-            // Need dirty price for market value calculation
-            let market_price = quote.dirty_price
-                .or(quote.clean_price)
+            // Need dirty price for market value calculation (use mid)
+            let market_price = quote.dirty_price_mid()
+                .or(quote.clean_price_mid)
                 .unwrap_or(Decimal::from(100));
 
             // Build analytics from quote
@@ -1372,22 +1372,22 @@ fn convert_to_holdings(
             if let Some(dv01) = quote.dv01 {
                 analytics.dv01 = Some(dv01.to_f64().unwrap_or(0.0));
             }
-            if let Some(ytm) = quote.ytm {
+            if let Some(ytm) = quote.ytm_mid {
                 analytics.ytm = Some(ytm.to_f64().unwrap_or(0.0));
             }
             if let Some(ytw) = quote.ytw {
                 analytics.ytw = Some(ytw.to_f64().unwrap_or(0.0));
             }
-            if let Some(z) = quote.z_spread {
+            if let Some(z) = quote.z_spread_mid {
                 analytics.z_spread = Some(z.to_f64().unwrap_or(0.0));
             }
-            if let Some(o) = quote.oas {
+            if let Some(o) = quote.oas_mid {
                 analytics.oas = Some(o.to_f64().unwrap_or(0.0));
             }
-            if let Some(g) = quote.g_spread {
+            if let Some(g) = quote.g_spread_mid {
                 analytics.g_spread = Some(g.to_f64().unwrap_or(0.0));
             }
-            if let Some(i) = quote.i_spread {
+            if let Some(i) = quote.i_spread_mid {
                 analytics.i_spread = Some(i.to_f64().unwrap_or(0.0));
             }
             if let Some(cs01) = quote.cs01 {

@@ -564,12 +564,165 @@ impl EtfQuoteReceiver {
 }
 
 // =============================================================================
+// BOND QUOTE FOR PRICING
+// =============================================================================
+
+/// Bond quote for pricing purposes.
+///
+/// Simplified view of market data specifically for pricing calculations.
+/// Contains bid/mid/ask prices and yields.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BondQuote {
+    /// Instrument identifier
+    pub instrument_id: InstrumentId,
+    /// Bid price (clean)
+    pub bid_price: Option<Decimal>,
+    /// Mid price (clean)
+    pub mid_price: Option<Decimal>,
+    /// Ask price (clean)
+    pub ask_price: Option<Decimal>,
+    /// Bid yield
+    pub bid_yield: Option<Decimal>,
+    /// Mid yield
+    pub mid_yield: Option<Decimal>,
+    /// Ask yield
+    pub ask_yield: Option<Decimal>,
+    /// Timestamp of the quote
+    pub timestamp: i64,
+    /// Source of the quote
+    pub source: String,
+    /// Is the quote stale (based on time or source status)
+    pub is_stale: bool,
+}
+
+impl BondQuote {
+    /// Create from RawQuote.
+    pub fn from_raw(raw: &RawQuote) -> Self {
+        Self {
+            instrument_id: raw.instrument_id.clone(),
+            bid_price: raw.bid_price,
+            mid_price: raw.mid_price,
+            ask_price: raw.ask_price,
+            bid_yield: raw.bid_yield,
+            // Derive mid yield if not available
+            mid_yield: None, // Will be calculated by pricing
+            ask_yield: raw.ask_yield,
+            timestamp: raw.timestamp,
+            source: raw.source.clone(),
+            is_stale: false,
+        }
+    }
+
+    /// Get price for the specified side.
+    pub fn price_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.bid_price,
+            QuoteSide::Mid => self.mid_price,
+            QuoteSide::Ask => self.ask_price,
+        }
+    }
+
+    /// Get yield for the specified side.
+    pub fn yield_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.bid_yield,
+            QuoteSide::Mid => self.mid_yield,
+            QuoteSide::Ask => self.ask_yield,
+        }
+    }
+}
+
+/// Curve data for pricing (zero rates at tenors).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurveData {
+    /// Curve identifier
+    pub curve_id: CurveId,
+    /// As-of date
+    pub as_of_date: Date,
+    /// Curve points (tenor in days -> zero rate as decimal)
+    pub points: Vec<(u32, Decimal)>,
+    /// Timestamp
+    pub timestamp: i64,
+    /// Source
+    pub source: String,
+}
+
+impl CurveData {
+    /// Get zero rate at a specific tenor (interpolated).
+    pub fn zero_rate_at_days(&self, days: u32) -> Option<Decimal> {
+        if self.points.is_empty() {
+            return None;
+        }
+
+        // Find surrounding points
+        let mut prev = None;
+        let mut next = None;
+
+        for (tenor, rate) in &self.points {
+            if *tenor == days {
+                return Some(*rate);
+            }
+            if *tenor < days {
+                prev = Some((*tenor, *rate));
+            } else if next.is_none() {
+                next = Some((*tenor, *rate));
+            }
+        }
+
+        // Linear interpolation
+        match (prev, next) {
+            (Some((t1, r1)), Some((t2, r2))) => {
+                let weight = Decimal::from(days - t1) / Decimal::from(t2 - t1);
+                Some(r1 + weight * (r2 - r1))
+            }
+            (Some((_, r)), None) => Some(r), // Extrapolate flat
+            (None, Some((_, r))) => Some(r), // Extrapolate flat
+            (None, None) => None,
+        }
+    }
+}
+
+// =============================================================================
+// PRICING DATA PROVIDER TRAIT
+// =============================================================================
+
+/// Trait for providing market data to the pricing router.
+///
+/// This is the interface that PricingRouter uses to fetch market data.
+/// It abstracts away the actual data source (calc graph, database, real-time feed).
+#[async_trait]
+pub trait PricingDataProvider: Send + Sync {
+    /// Get bond quote by instrument ID.
+    async fn get_bond_quote(&self, instrument_id: &InstrumentId) -> Result<Option<BondQuote>, TraitError>;
+
+    /// Get multiple bond quotes.
+    async fn get_bond_quotes(&self, instrument_ids: &[InstrumentId]) -> Result<Vec<BondQuote>, TraitError>;
+
+    /// Get curve data by curve ID.
+    async fn get_curve(&self, curve_id: &CurveId) -> Result<Option<CurveData>, TraitError>;
+
+    /// Get zero rate from curve at specific maturity (days from valuation date).
+    async fn get_zero_rate(&self, curve_id: &CurveId, days: u32) -> Result<Option<Decimal>, TraitError>;
+
+    /// Get volatility surface.
+    async fn get_vol_surface(&self, surface_id: &VolSurfaceId) -> Result<Option<VolatilitySurface>, TraitError>;
+
+    /// Get index fixing.
+    async fn get_index_fixing(&self, index: &FloatingRateIndex, date: Date) -> Result<Option<IndexFixing>, TraitError>;
+
+    /// Get inflation fixing.
+    async fn get_inflation_fixing(&self, index: &InflationIndex, month: YearMonth) -> Result<Option<InflationFixing>, TraitError>;
+}
+
+// =============================================================================
 // COMPOSITE MARKET DATA PROVIDER
 // =============================================================================
 
 use std::sync::Arc;
 
-/// Combined market data provider.
+/// Combined market data provider (concrete struct holding all sources).
 pub struct MarketDataProvider {
     /// Quote source
     pub quotes: Arc<dyn QuoteSource>,
