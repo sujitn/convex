@@ -599,7 +599,9 @@ pub async fn bootstrap_curve(
             Err(_) => {
                 return (
                     StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({ "error": "Invalid reference_date format. Use YYYY-MM-DD" })),
+                    Json(
+                        serde_json::json!({ "error": "Invalid reference_date format. Use YYYY-MM-DD" }),
+                    ),
                 );
             }
         },
@@ -627,7 +629,13 @@ pub async fn bootstrap_curve(
                         reference_date.add_months(start_months),
                         reference_date.add_months(end_months),
                     ) {
-                        instruments.add(Fra::new(reference_date, start_date, end_date, inst.quote, dc));
+                        instruments.add(Fra::new(
+                            reference_date,
+                            start_date,
+                            end_date,
+                            inst.quote,
+                            dc,
+                        ));
                     }
                 }
             }
@@ -709,7 +717,12 @@ pub async fn bootstrap_curve(
 
     let response = BootstrapCurveResponse {
         curve_id: request.curve_id,
-        reference_date: format!("{}-{:02}-{:02}", reference_date.year(), reference_date.month(), reference_date.day()),
+        reference_date: format!(
+            "{}-{:02}-{:02}",
+            reference_date.year(),
+            reference_date.month(),
+            reference_date.day()
+        ),
         points,
         calibration: CalibrationStats {
             converged: result.converged,
@@ -722,7 +735,10 @@ pub async fn bootstrap_curve(
         },
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 /// Query parameters for curve rate queries.
