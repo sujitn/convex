@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Briefcase,
   Radio,
+  GitBranch,
 } from 'lucide-react';
 import { checkHealth } from './lib/api';
 import { cn } from './lib/utils';
@@ -21,8 +22,9 @@ import PortfolioDemo from './components/PortfolioDemo';
 import ETFAnalyticsDemo from './components/ETFAnalyticsDemo';
 import StreamingDemo from './components/StreamingDemo';
 import ETFStreamingDemo from './components/ETFStreamingDemo';
+import CurveBootstrapDemo from './components/CurveBootstrapDemo';
 
-type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'etf-streaming' | null;
+type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'etf-streaming' | 'bootstrap' | null;
 
 function App() {
   const [activeDemo, setActiveDemo] = useState<DemoSection>(null);
@@ -161,6 +163,18 @@ function App() {
                 <Zap className="w-4 h-4" />
                 <span>Live ETF</span>
               </button>
+              <button
+                onClick={() => setActiveDemo(activeDemo === 'bootstrap' ? null : 'bootstrap')}
+                className={cn(
+                  "btn flex items-center space-x-2",
+                  activeDemo === 'bootstrap'
+                    ? "bg-white text-primary-900"
+                    : "bg-primary-700 text-white hover:bg-primary-600"
+                )}
+              >
+                <GitBranch className="w-4 h-4" />
+                <span>Curve Bootstrap</span>
+              </button>
             </div>
           </div>
         </div>
@@ -178,6 +192,7 @@ function App() {
                 {activeDemo === 'etf' && 'ETF Analytics'}
                 {activeDemo === 'streaming' && 'Real-Time Streaming'}
                 {activeDemo === 'etf-streaming' && 'Live ETF Analytics'}
+                {activeDemo === 'bootstrap' && 'Curve Bootstrapping'}
               </h2>
               <button
                 onClick={() => setActiveDemo(null)}
@@ -187,11 +202,13 @@ function App() {
               </button>
             </div>
 
-            {/* Streaming demos work without API since they use demo providers */}
+            {/* Streaming demos and bootstrap work without API since they use demo providers / frontend-only code */}
             {activeDemo === 'streaming' ? (
               <StreamingDemo />
             ) : activeDemo === 'etf-streaming' ? (
               <ETFStreamingDemo />
+            ) : activeDemo === 'bootstrap' ? (
+              <CurveBootstrapDemo />
             ) : !isApiConnected ? (
               <div className="card text-center py-12">
                 <p className="text-slate-600 mb-4">

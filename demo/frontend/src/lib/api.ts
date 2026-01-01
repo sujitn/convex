@@ -1030,3 +1030,52 @@ export async function refreshQuoteProviderCurves(): Promise<{ status: string; cu
   }
   return response.json();
 }
+
+// =============================================================================
+// Curve Bootstrapping API
+// =============================================================================
+
+export interface BootstrapInstrumentInput {
+  type: string;
+  tenor?: number;
+  start_tenor?: number;
+  end_tenor?: number;
+  quote: number;
+  description?: string;
+}
+
+export interface BootstrapCurveRequest {
+  curve_id: string;
+  reference_date?: string;
+  instruments: BootstrapInstrumentInput[];
+  interpolation?: string;
+  method?: 'GlobalFit' | 'Piecewise';
+}
+
+export interface CalibrationStats {
+  converged: boolean;
+  iterations: number;
+  rms_error: number;
+  rms_error_bps: number;
+  max_error_bps: number;
+  residuals_bps: number[];
+  method: string;
+}
+
+export interface BootstrapCurveResponse {
+  curve_id: string;
+  reference_date: string;
+  points: [number, number][];
+  calibration: CalibrationStats;
+}
+
+/**
+ * Bootstrap a yield curve from market instruments using the Convex server.
+ * Supports GlobalFit (Levenberg-Marquardt) and Piecewise (Brent) methods.
+ */
+export async function bootstrapCurve(request: BootstrapCurveRequest): Promise<BootstrapCurveResponse> {
+  return fetchJson<BootstrapCurveResponse>('/api/v1/curves/bootstrap', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}

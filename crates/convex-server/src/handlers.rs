@@ -511,6 +511,220 @@ pub async fn delete_curve(
     }
 }
 
+// ============================================================================
+// CURVE BOOTSTRAPPING
+// ============================================================================
+
+/// Input instrument for curve bootstrapping.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BootstrapInstrumentInput {
+    /// Instrument type: "Deposit", "FRA", "Swap", "OIS"
+    #[serde(rename = "type")]
+    pub instrument_type: String,
+    /// Tenor in years (for Deposit, Swap, OIS)
+    pub tenor: Option<f64>,
+    /// Start tenor for FRA
+    pub start_tenor: Option<f64>,
+    /// End tenor for FRA
+    pub end_tenor: Option<f64>,
+    /// Market quote (rate as decimal, e.g., 0.04 for 4%)
+    pub quote: f64,
+    /// Optional description
+    pub description: Option<String>,
+}
+
+/// Request for curve bootstrapping.
+#[derive(Debug, Deserialize)]
+pub struct BootstrapCurveRequest {
+    /// Curve identifier
+    pub curve_id: String,
+    /// Reference date (YYYY-MM-DD)
+    pub reference_date: Option<String>,
+    /// Instruments to calibrate
+    pub instruments: Vec<BootstrapInstrumentInput>,
+    /// Interpolation method: "Linear", "LogLinear", "CubicSpline" (default: Linear)
+    pub interpolation: Option<String>,
+    /// Calibration method: "GlobalFit", "Piecewise" (default: GlobalFit)
+    pub method: Option<String>,
+}
+
+/// Response from curve bootstrapping.
+#[derive(Debug, Serialize)]
+pub struct BootstrapCurveResponse {
+    /// Curve identifier
+    pub curve_id: String,
+    /// Reference date
+    pub reference_date: String,
+    /// Calibrated curve points: [(tenor, zero_rate), ...]
+    pub points: Vec<(f64, f64)>,
+    /// Calibration statistics
+    pub calibration: CalibrationStats,
+}
+
+/// Calibration statistics.
+#[derive(Debug, Serialize)]
+pub struct CalibrationStats {
+    /// Whether calibration converged
+    pub converged: bool,
+    /// Number of iterations
+    pub iterations: usize,
+    /// RMS error (in rate terms)
+    pub rms_error: f64,
+    /// RMS error in basis points
+    pub rms_error_bps: f64,
+    /// Max error in basis points
+    pub max_error_bps: f64,
+    /// Per-instrument residuals in basis points
+    pub residuals_bps: Vec<f64>,
+    /// Method used
+    pub method: String,
+}
+
+/// Bootstrap a curve from market instruments.
+pub async fn bootstrap_curve(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<BootstrapCurveRequest>,
+) -> impl IntoResponse {
+    use convex_core::daycounts::DayCountConvention;
+    use convex_core::types::Frequency;
+    use convex_curves::calibration::{
+        CalibrationResult, Deposit, Fra, GlobalFitter, InstrumentSet, Ois, PiecewiseBootstrapper,
+        Swap,
+    };
+
+    // Parse reference date
+    let reference_date = match &request.reference_date {
+        Some(date_str) => match Date::parse(date_str) {
+            Ok(d) => d,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": "Invalid reference_date format. Use YYYY-MM-DD" })),
+                );
+            }
+        },
+        None => Date::today(),
+    };
+
+    // Build instrument set
+    let mut instruments = InstrumentSet::new();
+    let dc = DayCountConvention::Act360;
+    let swap_dc = DayCountConvention::Thirty360US;
+
+    for inst in &request.instruments {
+        match inst.instrument_type.to_uppercase().as_str() {
+            "DEPOSIT" => {
+                if let Some(tenor) = inst.tenor {
+                    instruments.add(Deposit::from_tenor(reference_date, tenor, inst.quote, dc));
+                }
+            }
+            "FRA" => {
+                if let (Some(start), Some(end)) = (inst.start_tenor, inst.end_tenor) {
+                    // Convert tenors (in years) to dates
+                    let start_months = (start * 12.0).round() as i32;
+                    let end_months = (end * 12.0).round() as i32;
+                    if let (Ok(start_date), Ok(end_date)) = (
+                        reference_date.add_months(start_months),
+                        reference_date.add_months(end_months),
+                    ) {
+                        instruments.add(Fra::new(reference_date, start_date, end_date, inst.quote, dc));
+                    }
+                }
+            }
+            "SWAP" => {
+                if let Some(tenor) = inst.tenor {
+                    instruments.add(Swap::from_tenor(
+                        reference_date,
+                        tenor,
+                        inst.quote,
+                        Frequency::SemiAnnual,
+                        swap_dc,
+                    ));
+                }
+            }
+            "OIS" => {
+                if let Some(tenor) = inst.tenor {
+                    instruments.add(Ois::from_tenor(reference_date, tenor, inst.quote, dc));
+                }
+            }
+            _ => {
+                // Skip unknown instrument types
+            }
+        }
+    }
+
+    if instruments.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "No valid instruments provided" })),
+        );
+    }
+
+    // Determine calibration method
+    let method = request.method.as_deref().unwrap_or("GlobalFit");
+    let result: CalibrationResult = match method.to_uppercase().as_str() {
+        "PIECEWISE" => {
+            let bootstrapper = PiecewiseBootstrapper::new();
+            match bootstrapper.bootstrap(reference_date, &instruments) {
+                Ok(r) => r,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("Calibration failed: {}", e) })),
+                    );
+                }
+            }
+        }
+        _ => {
+            // Default to GlobalFit
+            let fitter = GlobalFitter::default();
+            match fitter.fit(reference_date, &instruments) {
+                Ok(r) => r,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("Calibration failed: {}", e) })),
+                    );
+                }
+            }
+        }
+    };
+
+    // Extract curve points
+    let points: Vec<(f64, f64)> = result
+        .curve
+        .tenors()
+        .iter()
+        .zip(result.curve.values().iter())
+        .map(|(&t, &v)| (t, v))
+        .collect();
+
+    // Store the curve in the engine
+    let curve_id = CurveId::new(&request.curve_id);
+    let _ = state.engine.curve_builder().create_from_points(
+        curve_id.clone(),
+        reference_date,
+        points.clone(),
+    );
+
+    let response = BootstrapCurveResponse {
+        curve_id: request.curve_id,
+        reference_date: format!("{}-{:02}-{:02}", reference_date.year(), reference_date.month(), reference_date.day()),
+        points,
+        calibration: CalibrationStats {
+            converged: result.converged,
+            iterations: result.iterations,
+            rms_error: result.rms_error,
+            rms_error_bps: result.rms_error * 10_000.0,
+            max_error_bps: result.max_error() * 10_000.0,
+            residuals_bps: result.errors_bps(),
+            method: method.to_string(),
+        },
+    };
+
+    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+}
+
 /// Query parameters for curve rate queries.
 #[derive(Debug, Deserialize)]
 pub struct CurveRateQuery {

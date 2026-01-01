@@ -86,6 +86,10 @@ pub fn create_router_with_stores(
             get(handlers::list_curves).post(handlers::create_curve),
         )
         .route(
+            "/api/v1/curves/bootstrap",
+            post(handlers::bootstrap_curve),
+        )
+        .route(
             "/api/v1/curves/:curve_id",
             get(handlers::get_curve).delete(handlers::delete_curve),
         )
