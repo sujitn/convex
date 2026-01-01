@@ -1,0 +1,44 @@
+# Docker build context exclusions
+
+# Build artifacts
+target/
+*.pdb
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Tests and test data (included in crates, can't exclude)
+test_data/
+
+# Excel add-in (not needed for server)
+excel/
+
+# Demo folder (separate deployment)
+demo/
+
+# Keep all crates - workspace requires them for build
+# (Docker multi-stage build only copies the server binary to final image)
+
+# Misc
+.env
+.env.*
+*.log
+*.bak
+tmp/
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.claude/

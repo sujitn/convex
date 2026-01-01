@@ -202,6 +202,8 @@ pub enum InterpolationMethod {
     /// Monotone convex (production default, positive forwards).
     #[default]
     MonotoneConvex,
+    /// Flat forward interpolation (constant forward rates between pillars).
+    FlatForward,
     /// Piecewise constant (for hazard rates).
     PiecewiseConstant,
     /// Nelson-Siegel parametric model.
@@ -230,6 +232,7 @@ impl InterpolationMethod {
         match self {
             InterpolationMethod::Linear => "C0",
             InterpolationMethod::LogLinear => "C0",
+            InterpolationMethod::FlatForward => "C0", // Zero rates continuous, forwards discontinuous
             InterpolationMethod::CubicSpline => "C2",
             InterpolationMethod::MonotoneConvex => "C1",
             InterpolationMethod::PiecewiseConstant => "C-1",

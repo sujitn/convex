@@ -1,0 +1,45 @@
+[package]
+name = "convex-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reactive pricing engine with calculation graph for the Convex fixed income analytics library"
+keywords = ["finance", "bonds", "pricing", "engine", "reactive"]
+categories = ["finance"]
+
+[dependencies]
+# Existing pure library
+convex-core = { workspace = true }
+convex-bonds = { workspace = true }
+convex-curves = { workspace = true }
+convex-analytics = { workspace = true }
+
+# Trait definitions
+convex-traits = { path = "../convex-traits" }
+
+# Runtime (allowed here - this is the engine)
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+rayon = "1.10"
+dashmap = "6"
+tracing = "0.1"
+parking_lot = "0.12"
+
+# Core dependencies
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+chrono = "0.4"
+cron = "0.12"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+convex-ext-file = { path = "../convex-ext-file" }
+
+[[bench]]
+name = "pricing_benchmarks"
+harness = false

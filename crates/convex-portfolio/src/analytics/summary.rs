@@ -79,7 +79,7 @@ impl PortfolioAnalytics {
         );
 
         let weighted_avg_maturity = weighted_maturity(&portfolio.holdings, config);
-        let weighted_avg_coupon = None; // TODO: implement if coupon data is available
+        let weighted_avg_coupon = weighted_coupon(&portfolio.holdings, config);
 
         Self {
             portfolio_id: portfolio.id.clone(),
@@ -132,6 +132,32 @@ fn weighted_maturity(holdings: &[crate::types::Holding], config: &AnalyticsConfi
             if let Some(maturity) = h.analytics.years_to_maturity {
                 let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
                 (sum_w + maturity * weight, sum_wt + weight)
+            } else {
+                (sum_w, sum_wt)
+            }
+        },
+        |(a, b), (c, d)| (a + c, b + d),
+    );
+
+    if sum_weights > 0.0 {
+        Some(sum_weighted / sum_weights)
+    } else {
+        None
+    }
+}
+
+fn weighted_coupon(holdings: &[crate::types::Holding], config: &AnalyticsConfig) -> Option<f64> {
+    use crate::analytics::parallel::maybe_parallel_fold;
+    use rust_decimal::prelude::ToPrimitive;
+
+    let (sum_weighted, sum_weights) = maybe_parallel_fold(
+        holdings,
+        config,
+        (0.0_f64, 0.0_f64),
+        |(sum_w, sum_wt), h| {
+            if let Some(coupon) = h.analytics.coupon_rate {
+                let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
+                (sum_w + coupon * weight, sum_wt + weight)
             } else {
                 (sum_w, sum_wt)
             }

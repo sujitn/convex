@@ -58,3 +58,10 @@ www/pkg/
 npm-debug.log*
 /excel/Convex.Excel/bin
 /excel/Convex.Excel/obj
+/crates/convex-py/python/convex/__pycache__
+/crates/convex-py/tests/__pycache__
+/data
+/docs/prompts
+/.idea
+/.claude
+.claude/settings.local.json

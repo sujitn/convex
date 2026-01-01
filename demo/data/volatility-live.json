@@ -1,0 +1,45 @@
+{
+  "source": "ICE BofA / Web Search",
+  "fetchedAt": "2025-12-31T00:00:00Z",
+  "asOfDate": "2025-12-29",
+  "moveIndex": {
+    "value": 59.21,
+    "change1d": 1.22,
+    "changePct1d": 0.0122,
+    "week52Low": 58.50,
+    "week52High": 139.88,
+    "allTimeHigh": 264.60,
+    "allTimeHighDate": "2008-10-10",
+    "allTimeLow": 36.62,
+    "allTimeLowDate": "2020-09-29",
+    "percentile52Week": 0.01,
+    "interpretation": "Below 60 indicates low bond market volatility; calm conditions"
+  },
+  "syntheticSwaptionVols": {
+    "note": "Estimated from MOVE level of ~60; ATM vols",
+    "1Mx10Y": 65,
+    "3Mx10Y": 68,
+    "6Mx10Y": 70,
+    "1Yx10Y": 72,
+    "2Yx10Y": 70,
+    "5Yx10Y": 65,
+    "10Yx10Y": 60,
+    "1Yx1Y": 55,
+    "1Yx2Y": 58,
+    "1Yx5Y": 65,
+    "1Yx30Y": 75
+  },
+  "sabrParams": {
+    "note": "Default SABR parameters for USD swaptions",
+    "beta": 0.5,
+    "rho": -0.25,
+    "nu": 0.4,
+    "description": "Normal-like SABR with mild negative correlation and moderate vol-of-vol"
+  },
+  "context": {
+    "fedFundsTarget": "3.50-3.75%",
+    "lastFomcAction": "25bp cut on Dec 10, 2025",
+    "rateVolRegime": "low",
+    "creditVolRegime": "compressed spreads, low realized vol"
+  }
+}

@@ -12,6 +12,13 @@ members = [
     "crates/convex-ffi",
     "crates/convex-wasm",
     "crates/convex-mcp",
+    # Pricing engine crates
+    "crates/convex-traits",
+    "crates/convex-engine",
+    "crates/convex-ext-redb",
+    "crates/convex-ext-file",
+    "crates/convex-ext-json",
+    "crates/convex-server",
 ]
 # Note: convex-spreads has been absorbed into convex-analytics
 
@@ -38,10 +45,17 @@ convex-analytics = { path = "crates/convex-analytics", version = "0.10.32" }
 convex-portfolio = { path = "crates/convex-portfolio", version = "0.10.32" }
 convex-ffi = { path = "crates/convex-ffi", version = "0.10.32" }
 convex-wasm = { path = "crates/convex-wasm", version = "0.10.32" }
+# Pricing engine crates
+convex-traits = { path = "crates/convex-traits", version = "0.10.32" }
+convex-engine = { path = "crates/convex-engine", version = "0.10.32" }
+convex-ext-redb = { path = "crates/convex-ext-redb", version = "0.10.32" }
+convex-ext-file = { path = "crates/convex-ext-file", version = "0.10.32" }
+convex-ext-json = { path = "crates/convex-ext-json", version = "0.10.32" }
+convex-server = { path = "crates/convex-server", version = "0.10.32" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal = { version = "1.34", features = ["serde", "maths"] }
+rust_decimal = { version = "1.34", features = ["serde", "serde-float", "maths"] }
 rust_decimal_macros = "1.34"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -62,6 +76,31 @@ ndarray = { version = "0.17", features = ["rayon", "serde"] }
 uuid = { version = "1.19", features = ["serde", "v4"] }
 log = "0.4"
 once_cell = "1.19"
+
+# Async runtime and utilities
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures-core = "0.3"
+bytes = "1"
+
+# Concurrent data structures
+dashmap = "6"
+parking_lot = "0.12"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Storage backends
+redb = "2"
+
+# File formats
+csv = "1"
+toml = "0.8"
+
+# Web server
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 
 # Development dependencies
 criterion = "0.8"

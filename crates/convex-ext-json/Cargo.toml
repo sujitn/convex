@@ -1,0 +1,25 @@
+[package]
+name = "convex-ext-json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "JSON codec for Convex pricing engine transport layer"
+keywords = ["finance", "bonds", "json", "codec", "serialization"]
+categories = ["finance", "encoding"]
+
+[dependencies]
+# Trait definitions
+convex-traits = { path = "../convex-traits" }
+
+# JSON
+serde_json = { workspace = true }
+
+# Core dependencies
+serde = { workspace = true }
+bytes = "1"
+
+[dev-dependencies]
+rust_decimal = { workspace = true }

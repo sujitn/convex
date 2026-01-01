@@ -1,0 +1,62 @@
+[package]
+name = "convex-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "REST and WebSocket server for Convex pricing engine"
+keywords = ["finance", "bonds", "server", "rest", "websocket"]
+categories = ["finance", "web-programming"]
+
+[dependencies]
+# Engine and traits
+convex-engine = { path = "../convex-engine" }
+convex-traits = { path = "../convex-traits" }
+convex-portfolio = { path = "../convex-portfolio" }
+convex-bonds = { workspace = true }
+convex-core = { workspace = true }
+convex-curves = { workspace = true }
+convex-analytics = { workspace = true }
+
+# Default extensions
+convex-ext-redb = { path = "../convex-ext-redb" }
+convex-ext-file = { path = "../convex-ext-file" }
+convex-ext-json = { path = "../convex-ext-json" }
+
+# Server
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.5"
+dashmap = "6"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+futures = "0.3"
+
+# Configuration
+toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Core dependencies
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = "0.4"
+
+[[bin]]
+name = "convex-server"
+path = "src/main.rs"
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
