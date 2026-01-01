@@ -1056,7 +1056,7 @@ The portfolio module is complete when:
 1. **Functionality**: All 12 categories of analytics from requirements are implemented
 2. **Purity**: All functions are pure (no I/O, no caching, no side effects)
 3. **Performance**: Meets sub-millisecond target for typical portfolios
-4. **Accuracy**: Matches Bloomberg PORT methodology for risk metrics
+4. **Accuracy**: Uses industry-standard portfolio methodology for risk metrics
 5. **Testing**: >90% code coverage with unit, integration, and property tests
 6. **Documentation**: Full rustdoc with formulas and examples
 7. **Integration**: Clean integration with existing Convex crates
@@ -1065,7 +1065,7 @@ The portfolio module is complete when:
 
 ## Appendix A: Industry Reference
 
-### Bloomberg PORT Methodology
+### Industry-Standard Portfolio Methodology
 
 - Duration: Uses modified duration with market value weighting
 - DV01: Aggregated as sum of individual DV01s

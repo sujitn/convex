@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.2] - 2025-12-18
 
 ### Changed
-- Consolidated convex-spreads, convex-risk, convex-yas into convex-analytics crate
+- Consolidated convex-spreads, convex-risk, convex-yields into convex-analytics crate
 - Updated convex-wasm to use StandardYieldEngine for consistent yield calculations
 
 ### Fixed
@@ -74,15 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Accrued interest calculations with all day count conventions
 
 #### convex-analytics
-- Unified analytics crate consolidating spreads, risk, and YAS functionality
+- Unified analytics crate consolidating spreads, risk, and yield functionality
 - Cash flow generation: Schedule, accrued interest, settlement calculations
 - Yield calculations: YTM solver, money market yields, current yield, simple yield
-- Pricing: BondPricer with Bloomberg YAS methodology
+- Pricing: BondPricer with industry-standard methodology
 - Spread analytics: G-Spread, I-Spread, Z-Spread, OAS, ASW, Discount Margin
 - Risk metrics: Duration (Macaulay, modified, effective, key rate, spread), Convexity, DV01
 - Portfolio analytics: VaR framework, hedging calculations
 - Options: Hull-White model, binomial trees for callable bonds
-- Bloomberg YAS-compatible: Street convention, true yield, settlement invoice
+- Industry-standard: Street convention, true yield, settlement invoice
 
 #### convex-ffi
 - C FFI bindings for cross-language integration

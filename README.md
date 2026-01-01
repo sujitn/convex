@@ -7,14 +7,14 @@
 [![Build Status](https://github.com/sujitn/convex/workflows/CI/badge.svg)](https://github.com/sujitn/convex/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Live Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
+**[Live Demo](https://convex-demo.pages.dev/)** | **[WASM Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
 
-Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics capabilities comparable to Bloomberg YAS (Yield Analysis System).
+Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics with industry-standard methodologies.
 
 ## Features
 
 - **Bond Pricing**: All major bond types (government, corporate, callable, putable, sinking fund)
-- **Yield Calculations**: YTM, YTC, YTW with Bloomberg YAS methodology
+- **Yield Calculations**: YTM, YTC, YTW with industry-standard methodology
 - **Yield Curves**: Bootstrap from market data with multiple interpolation methods
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
 - **Risk Metrics**: Duration (Macaulay, Modified, Effective, Key Rate), Convexity, DV01
@@ -22,7 +22,7 @@ Convex is a production-grade fixed income analytics library providing comprehens
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing
 - **Type Safety**: Leverage Rust's type system to prevent errors
-- **WebAssembly**: Full browser support via wasm-pack ([Live Demo](https://sujitn.github.io/convex/))
+- **WebAssembly**: Full browser support via wasm-pack ([Live Demo](https://convex-demo.pages.dev/) | [WASM Demo](https://sujitn.github.io/convex/))
 - **Language Bindings**: C FFI bindings available; Python, Java, C# (coming soon)
 
 ## Quick Start
@@ -126,7 +126,7 @@ convex/
 ├── convex-math        # Mathematical utilities and solvers
 ├── convex-curves      # Yield curve construction and interpolation
 ├── convex-bonds       # Bond instruments and definitions
-├── convex-analytics   # Unified analytics (yields, spreads, risk, YAS)
+├── convex-analytics   # Unified analytics (yields, spreads, risk)
 ├── convex-wasm        # WebAssembly bindings
 └── convex-ffi         # Foreign Function Interface for language bindings
 ```
@@ -148,7 +148,7 @@ Convex is designed for production trading systems with strict performance requir
 
 ## Day Count Conventions
 
-Convex implements all major day count conventions with exact Bloomberg compatibility:
+Convex implements all major day count conventions with industry-standard compliance:
 
 - **ACT/360**: Actual days / 360 (Money market)
 - **ACT/365**: Actual days / 365 (UK Gilts)
@@ -202,14 +202,14 @@ cal.merge_from(&SIFMACalendar::new());
 
 ## Yield Calculation Methodology
 
-Convex uses Bloomberg's YAS methodology for all yield calculations:
+Convex uses industry-standard methodology for all yield calculations:
 
 1. **Sequential Roll-Forward**: Starting from settlement date, roll forward through each period
 2. **Exact Day Counts**: Use actual calendar days with appropriate day count convention
 3. **Newton-Raphson Solver**: Converge to 1e-10 tolerance within 100 iterations
 4. **Compounding Frequency**: Support annual, semi-annual, quarterly, monthly
 
-This ensures exact matching with Bloomberg terminal calculations.
+This ensures accurate results matching professional trading systems.
 
 ## Language Bindings
 
@@ -334,12 +334,11 @@ cargo audit
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Contributions are welcome! Please open an issue or submit a pull request on GitHub.
 
 ### Areas for Contribution
 
 - Additional bond types (inflation-linked, convertibles)
-- More interpolation methods (Nelson-Siegel, Svensson)
 - Additional language bindings
 - Performance improvements
 - Documentation and examples
@@ -351,7 +350,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 - [x] Core infrastructure (Date, Price, Yield types)
 - [x] Day count conventions (all major conventions)
 - [x] Yield curve construction and bootstrapping
-- [x] Fixed-rate bond pricing with Bloomberg YAS methodology
+- [x] Fixed-rate bond pricing with industry-standard methodology
 - [x] Spread calculations (G-spread, Z-spread, I-spread, OAS, ASW)
 - [x] Holiday calendars (SIFMA, TARGET2, UK, Japan)
 - [x] Dynamic calendar system (JSON loading, custom builders)
@@ -378,12 +377,11 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 ## Validation
 
 Convex is validated against:
-- Bloomberg YAS calculations
-- Reuters Eikon
+- Industry-standard reference implementations
 - Known academic test cases
 - Historical market data
 
-All pricing and risk calculations are tested to match Bloomberg within 1e-6 tolerance.
+All pricing and risk calculations are tested to match professional systems within 1e-6 tolerance.
 
 ## Performance Benchmarks
 
@@ -393,14 +391,11 @@ Run benchmarks with:
 cargo bench
 ```
 
-Results are tracked in [BENCHMARKS.md](BENCHMARKS.md).
-
 ## Documentation
 
 - [API Documentation](https://docs.rs/convex)
-- [User Guide](docs/guide.md)
-- [Examples](examples/)
-- [Architecture](docs/architecture.md)
+- [Live Demo](https://convex-demo.pages.dev/)
+- [WASM Demo](https://sujitn.github.io/convex/)
 
 ## License
 
@@ -409,7 +404,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Inspired by QuantLib design patterns
-- Bloomberg YAS methodology
+- Industry-standard fixed income methodologies
 - Rust Financial community
 
 ## Citation
@@ -428,8 +423,6 @@ If you use Convex in academic work, please cite:
 ## Contact
 
 - GitHub Issues: [Bug reports and feature requests](https://github.com/sujitn/convex/issues)
-- Email: your.email@example.com
-- Twitter: @sujitn
 
 ---
 

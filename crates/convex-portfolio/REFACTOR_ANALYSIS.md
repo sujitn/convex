@@ -111,7 +111,7 @@ pub enum Seniority { SeniorSecured, SeniorUnsecured, SeniorNonPreferred, ... }
 - **Reuse Potential**: Low. Provider maps are primarily for:
   - Multi-source data reconciliation
   - Drill-down reporting
-  - Bloomberg/BICS/GICS taxonomy preservation
+  - Industry taxonomy preservation (BICS/GICS/etc.)
 - **Stability**: Medium. Provider hierarchies evolve.
 - **Dependencies**: Base enums + HashMap.
 

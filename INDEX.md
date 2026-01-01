@@ -66,7 +66,7 @@ convex-claude-setup/
 - Complete analytics requirements (YTM, spreads, risk metrics)
 - Technical architecture principles
 - Day count conventions (exact specifications)
-- Bloomberg YAS methodology (exact replication requirements)
+- Industry-standard yield methodology (exact specification)
 - Performance targets (<1μs pricing, <10μs YTM)
 - Project structure and organization
 - Key dependencies and their purposes
@@ -82,7 +82,7 @@ convex-claude-setup/
 ```
 "Implement YTM calculation as described in .claude/context.md section 'Yield Calculation Methodology'"
 
-"Follow the Bloomberg YAS methodology in .claude/context.md for sequential roll-forward"
+"Follow the yield methodology in .claude/context.md for sequential roll-forward"
 
 "Use the day count conventions specified in .claude/context.md"
 ```
