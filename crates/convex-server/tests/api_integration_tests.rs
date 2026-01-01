@@ -1888,7 +1888,7 @@ async fn test_update_position_in_portfolio() {
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(json["positions"][0]["notional"], "2000000");
+    assert_eq!(json["positions"][0]["notional"], 2000000.0);
     assert_eq!(json["positions"][0]["sector"], "Technology");
     assert_eq!(json["positions"][0]["rating"], "AA");
 }
