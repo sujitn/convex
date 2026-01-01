@@ -308,11 +308,11 @@ RTD-enabled functions:
     0, 0)
 ```
 
-### Real-Time Data with Bloomberg BDP
+### Real-Time Data with Market Data Feeds
 
 ```excel
-' Create curve from Bloomberg real-time rates
-' Rates in A1:A5 are fed by =BDP("UST 2Y", "YLD_YTM_MID") etc.
+' Create curve from real-time rates
+' Rates in A1:A5 can be fed by any market data provider (RTD function, DDE, etc.)
 =CX.CURVE.RTD("USD.GOVT.LIVE", TODAY(), {2,5,10,20,30}, A1:A5, 0, 1)
 
 ' Create bond (static, doesn't change)
@@ -320,7 +320,7 @@ RTD-enabled functions:
 
 ' Calculate Z-spread using live curve - updates automatically when curve changes
 =CX.ZSPREAD.RTD("AAPL5%2030", "USD.GOVT.LIVE", TODAY()+2, B1)
-' Where B1 = =BDP("AAPL 5 02/15/30 Corp", "PX_LAST")
+' Where B1 contains real-time price from your data provider
 
 ' Duration, convexity, DV01 all update when price changes
 =CX.DURATION.RTD("AAPL5%2030", TODAY()+2, B1, 2)
@@ -330,7 +330,7 @@ RTD-enabled functions:
 
 **How RTD works:**
 1. RTD functions subscribe to a topic (e.g., "curve:USD.GOVT.LIVE")
-2. When inputs change (e.g., BDP updates), the curve is recalculated
+2. When inputs change (e.g., market data updates), the curve is recalculated
 3. All dependent topics (Z-spread, duration, etc.) automatically update
 4. Updates are throttled (default 100ms) to prevent calculation storms
 

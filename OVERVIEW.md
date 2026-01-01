@@ -175,7 +175,7 @@ architecture defined in .claude/architecture.md.
 **Size**: ~15KB of pure gold
 **Contains**:
 - Bond types, pricing formulas, conventions
-- Bloomberg YAS methodology
+- Industry-standard yield methodology
 - Performance targets
 - Industry standards
 
@@ -276,7 +276,7 @@ All documentation includes:
 ✅ **Mathematical Formulas**: LaTeX notation for algorithms  
 ✅ **Code Examples**: Real-world usage patterns  
 ✅ **Academic References**: Papers and textbooks  
-✅ **Industry Standards**: Bloomberg, ISDA, ICMA  
+✅ **Industry Standards**: ISDA, ICMA, SIFMA  
 ✅ **Performance Targets**: Measurable goals  
 ✅ **Validation Criteria**: How to verify correctness  
 
@@ -310,7 +310,7 @@ Phase 2: Yield Curves (Weeks 3-4)
 Phase 3: Bond Pricing (Weeks 5-6)
 ├── Fixed-rate bonds
 ├── YTM calculations
-└── Bloomberg validation
+└── Validation testing
 
 Phase 4: Spread Analytics (Weeks 7-8)
 ├── G-Spread, Z-Spread
@@ -374,7 +374,7 @@ Phase 8: Production (Weeks 19-24)
 - Complete Cargo.toml workspace template
 - Professional README template
 - Example code snippets throughout
-- Bloomberg comparison methodology
+- Industry-standard comparison methodology
 - Academic references
 - Industry standard references
 
@@ -396,7 +396,7 @@ You'll know the setup is working when:
 ✅ Architecture remains consistent across modules  
 ✅ Tests achieve >90% coverage  
 ✅ Performance meets targets (<1μs bond pricing)  
-✅ Bloomberg validation passes  
+✅ Validation tests pass  
 
 ## 🚀 Ready to Build!
 
