@@ -31,7 +31,7 @@ tower = "0.5"
 dashmap = "6"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.24"
+tokio-tungstenite = "0.28"
 futures = "0.3"
 
 # Configuration
@@ -58,5 +58,5 @@ http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-tokio-tungstenite = "0.24"
+tokio-tungstenite = "0.28"
 futures-util = "0.3"
