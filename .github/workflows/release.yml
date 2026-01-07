@@ -105,6 +105,7 @@ jobs:
           $version = "${{ needs.validate.outputs.version }}"
           New-Item -ItemType Directory -Force -Path convex-excel-addin | Out-Null
           Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll convex-excel-addin\
+          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.dna convex-excel-addin\
           Copy-Item excel\Convex.Excel\bin\Release\net472\convex_ffi.dll convex-excel-addin\
           if (Test-Path excel\ConvexDemo.xlsx) { Copy-Item excel\ConvexDemo.xlsx convex-excel-addin\ }
           "Convex Excel Add-in - Extract and load Convex.Excel64.xll in Excel" | Out-File convex-excel-addin\README.txt
