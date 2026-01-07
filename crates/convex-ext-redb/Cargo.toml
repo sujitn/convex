@@ -16,7 +16,7 @@ convex-traits = { path = "../convex-traits" }
 convex-core = { workspace = true }
 
 # Storage backend
-redb = "2"
+redb = "3"
 
 # Serialization
 serde_json = { workspace = true }

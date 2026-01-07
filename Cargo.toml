@@ -92,7 +92,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Storage backends
-redb = "2"
+redb = "3"
 
 # File formats
 csv = "1"
