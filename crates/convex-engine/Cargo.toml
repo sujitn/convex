@@ -33,7 +33,7 @@ rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = "0.4"
-cron = "0.12"
+cron = "0.15"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
