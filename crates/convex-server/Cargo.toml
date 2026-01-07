@@ -26,7 +26,7 @@ convex-ext-file = { path = "../convex-ext-file" }
 convex-ext-json = { path = "../convex-ext-json" }
 
 # Server
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.8", features = ["ws"] }
 tower = "0.5"
 dashmap = "6"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
