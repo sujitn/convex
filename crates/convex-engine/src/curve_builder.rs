@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use convex_core::Date;
@@ -16,7 +17,7 @@ use crate::error::EngineError;
 /// Built curve (cached in memory).
 ///
 /// Implements `RateCurveDyn` to be compatible with spread calculations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuiltCurve {
     /// Curve identifier
     pub curve_id: CurveId,

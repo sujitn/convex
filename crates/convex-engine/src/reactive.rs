@@ -374,12 +374,13 @@ impl ReactiveEngine {
         let quote_node = NodeId::Quote {
             instrument_id: instrument_id.clone(),
         };
-        let market_price = calc_graph
+        let (market_price, composite_quote) = calc_graph
             .get_cached(&quote_node)
-            .and_then(|cv| match &cv.value {
-                NodeValue::Quote { mid, .. } => *mid,
-                _ => None,
-            });
+            .map(|cv| match &cv.value {
+                NodeValue::Quote(q) => (q.mid_price, Some(q.clone())),
+                _ => (None, None),
+            })
+            .unwrap_or((None, None));
 
         // Look up discount curve based on currency and issuer type
         let discount_curve = Self::lookup_discount_curve(&bond_ref, curve_builder);
@@ -402,6 +403,7 @@ impl ReactiveEngine {
             government_curve: None, // Requires explicit benchmark securities
             volatility: None,
             bid_ask_config: None,
+            composite_quote,
         };
 
         // Execute pricing
@@ -844,11 +846,12 @@ mod tests {
         };
         engine.calc_graph().update_cache(
             &quote_node,
-            NodeValue::Quote {
-                bid: Some(dec!(99.50)),
-                ask: Some(dec!(100.50)),
-                mid: Some(dec!(100.00)),
-            },
+            NodeValue::Quote(convex_traits::market_data::CompositeQuote {
+                bid_price: Some(dec!(99.50)),
+                ask_price: Some(dec!(100.50)),
+                mid_price: Some(dec!(100.00)),
+                ..Default::default()
+            }),
         );
 
         // Mark quote as dirty to trigger recalculation
@@ -950,11 +953,12 @@ mod tests {
         // Update quote - this should propagate to bond
         engine.calc_graph().update_cache(
             &quote_node,
-            NodeValue::Quote {
-                bid: Some(dec!(98.00)),
-                ask: Some(dec!(99.00)),
-                mid: Some(dec!(98.50)),
-            },
+            NodeValue::Quote(convex_traits::market_data::CompositeQuote {
+                bid_price: Some(dec!(98.00)),
+                ask_price: Some(dec!(99.00)),
+                mid_price: Some(dec!(98.50)),
+                ..Default::default()
+            }),
         );
         engine.calc_graph().invalidate(&quote_node);
 

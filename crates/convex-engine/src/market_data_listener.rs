@@ -236,14 +236,13 @@ impl MarketDataListener {
         };
 
         // Update cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::Quote {
-                bid: update.bid,
-                ask: update.ask,
-                mid: update.mid,
-            },
-        );
+        let quote = convex_traits::market_data::CompositeQuote {
+            bid_price: update.bid,
+            ask_price: update.ask,
+            mid_price: update.mid,
+            ..Default::default()
+        };
+        self.calc_graph.update_cache(&node_id, NodeValue::Quote(quote));
 
         // Invalidate the quote node (propagates to dependent bond prices)
         self.calc_graph.invalidate(&node_id);

@@ -93,6 +93,10 @@ pub struct PricingInput {
     // === Bid/Ask spread configuration ===
     /// Configuration for generating bid/ask from mid price (for model-priced bonds)
     pub bid_ask_config: Option<BidAskSpreadConfig>,
+
+    // === Composite Quote ===
+    /// Full composite quote with yields/spreads
+    pub composite_quote: Option<convex_traits::market_data::CompositeQuote>,
 }
 
 impl PricingInput {
@@ -127,6 +131,7 @@ impl PricingInput {
             government_curve,
             volatility,
             bid_ask_config: None,
+            composite_quote: None,
         }
     }
 
@@ -1692,6 +1697,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -1733,6 +1739,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -1767,6 +1774,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -1842,6 +1850,7 @@ mod tests {
             government_curve: Some(gov_curve),
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -1879,6 +1888,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -1919,6 +1929,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2041,6 +2052,7 @@ mod tests {
             government_curve: None,
             volatility: Some(dec!(0.01)), // 1% volatility
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2104,6 +2116,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price_yield_to_worst(&input);
@@ -2154,6 +2167,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result_discount = router.price_yield_to_worst(&input_discount);
@@ -2237,6 +2251,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2300,6 +2315,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2328,6 +2344,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2396,6 +2413,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2468,6 +2486,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2553,6 +2572,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2633,6 +2653,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2710,6 +2731,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: None,
+            composite_quote: None,
         };
 
         let result = router.price(&input);
@@ -2859,6 +2881,7 @@ mod tests {
                     government_curve: None,
                     volatility: None,
                     bid_ask_config: None,
+                    composite_quote: None,
                 }
             })
             .collect();
@@ -2925,6 +2948,7 @@ mod tests {
                     government_curve: None,
                     volatility: None,
                     bid_ask_config: None,
+                    composite_quote: None,
                 }
             })
             .collect();
@@ -3000,6 +3024,7 @@ mod tests {
                 government_curve: None,
                 volatility: None,
                 bid_ask_config: None,
+                composite_quote: None,
             })
             .collect();
 
@@ -3050,6 +3075,7 @@ mod tests {
                 government_curve: None,
                 volatility: None,
                 bid_ask_config: None,
+                composite_quote: None,
             })
             .collect();
 
@@ -3133,6 +3159,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
+            composite_quote: None,
         };
 
         // Test effective prices
@@ -3270,6 +3297,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
+            composite_quote: None,
         };
 
         let (eff_bid, eff_mid, eff_ask) = input.effective_prices();
@@ -3323,6 +3351,7 @@ mod tests {
             government_curve: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
+            composite_quote: None,
         };
 
         let (eff_bid, eff_mid, eff_ask) = input.effective_prices();

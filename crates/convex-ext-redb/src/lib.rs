@@ -7,6 +7,7 @@
 //! - Curve configs and snapshots
 //! - Pricing configurations
 //! - Price overrides
+//! - Portfolios
 //! - Audit logs
 
 #![warn(missing_docs)]
@@ -24,7 +25,7 @@ use convex_traits::reference_data::BondReferenceData;
 use convex_traits::storage::{
     AuditEntry, AuditFilter, AuditStore, BondFilter, BondPricingConfig, BondStore, ConfigStore,
     ConfigVersion, CurveConfig, CurveSnapshot, CurveStore, OverrideAudit, OverrideStore, Page,
-    Pagination, PriceOverride, StorageAdapter,
+    Pagination, PortfolioFilter, PortfolioStore, PriceOverride, StorageAdapter, StoredPortfolio,
 };
 
 // Table definitions
@@ -34,6 +35,7 @@ const CURVE_SNAPSHOTS: TableDefinition<(&str, i64), &[u8]> =
     TableDefinition::new("curve_snapshots");
 const PRICING_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("pricing_configs");
 const OVERRIDES: TableDefinition<&str, &[u8]> = TableDefinition::new("overrides");
+const PORTFOLIOS: TableDefinition<&str, &[u8]> = TableDefinition::new("portfolios");
 const AUDIT: TableDefinition<u64, &[u8]> = TableDefinition::new("audit");
 
 /// Redb-based bond store.
@@ -769,6 +771,208 @@ impl OverrideStore for RedbOverrideStore {
     }
 }
 
+/// Redb-based portfolio store.
+pub struct RedbPortfolioStore {
+    db: Arc<Database>,
+}
+
+impl RedbPortfolioStore {
+    /// Create a new redb portfolio store.
+    pub fn new(db: Arc<Database>) -> Self {
+        Self { db }
+    }
+}
+
+#[async_trait]
+impl PortfolioStore for RedbPortfolioStore {
+    async fn get(&self, id: &str) -> Result<Option<StoredPortfolio>, TraitError> {
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+
+        let table = match read_txn.open_table(PORTFOLIOS) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
+        };
+
+        match table.get(id) {
+            Ok(Some(data)) => {
+                let portfolio: StoredPortfolio = serde_json::from_slice(data.value())
+                    .map_err(|e| TraitError::ParseError(e.to_string()))?;
+                Ok(Some(portfolio))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(TraitError::DatabaseError(e.to_string())),
+        }
+    }
+
+    async fn save(&self, portfolio: &StoredPortfolio) -> Result<(), TraitError> {
+        let write_txn = self
+            .db
+            .begin_write()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+        {
+            let mut table = write_txn
+                .open_table(PORTFOLIOS)
+                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+
+            let bytes = serde_json::to_vec(portfolio)
+                .map_err(|e| TraitError::SerializationError(e.to_string()))?;
+
+            table
+                .insert(portfolio.portfolio_id.as_str(), bytes.as_slice())
+                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+        }
+        write_txn
+            .commit()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn delete(&self, id: &str) -> Result<bool, TraitError> {
+        let write_txn = self
+            .db
+            .begin_write()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+        let deleted = {
+            let mut table = write_txn
+                .open_table(PORTFOLIOS)
+                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+            let result = table
+                .remove(id)
+                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+            result.is_some()
+        };
+        write_txn
+            .commit()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+        Ok(deleted)
+    }
+
+    async fn list(
+        &self,
+        filter: &PortfolioFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<StoredPortfolio>, TraitError> {
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+
+        let table = match read_txn.open_table(PORTFOLIOS) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => {
+                return Ok(Page {
+                    items: vec![],
+                    total: 0,
+                    offset: pagination.offset,
+                    limit: pagination.limit,
+                })
+            }
+            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
+        };
+
+        let mut items = Vec::new();
+        let mut total = 0u64;
+
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
+            let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+            let portfolio: StoredPortfolio = serde_json::from_slice(value.value())
+                .map_err(|e| TraitError::ParseError(e.to_string()))?;
+
+            // Apply filters
+            let matches = if let Some(ref currency) = filter.currency {
+                portfolio.currency == *currency
+            } else {
+                true
+            } && if let Some(ref text_search) = filter.text_search {
+                let search_lower = text_search.to_lowercase();
+                portfolio.name.to_lowercase().contains(&search_lower)
+                    || portfolio
+                        .portfolio_id
+                        .to_lowercase()
+                        .contains(&search_lower)
+                    || portfolio
+                        .description
+                        .as_ref()
+                        .is_some_and(|d| d.to_lowercase().contains(&search_lower))
+            } else {
+                true
+            };
+
+            if matches {
+                total += 1;
+                if total > pagination.offset as u64 && items.len() < pagination.limit {
+                    items.push(portfolio);
+                }
+            }
+        }
+
+        Ok(Page {
+            items,
+            total,
+            offset: pagination.offset,
+            limit: pagination.limit,
+        })
+    }
+
+    async fn count(&self, filter: &PortfolioFilter) -> Result<u64, TraitError> {
+        // Reuse list logic but just count
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+
+        let table = match read_txn.open_table(PORTFOLIOS) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(0),
+            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
+        };
+
+        let mut count = 0;
+
+        for result in table
+            .iter()
+            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
+        {
+            let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
+            let portfolio: StoredPortfolio = serde_json::from_slice(value.value())
+                .map_err(|e| TraitError::ParseError(e.to_string()))?;
+
+            // Apply filters
+            let matches = if let Some(ref currency) = filter.currency {
+                portfolio.currency == *currency
+            } else {
+                true
+            } && if let Some(ref text_search) = filter.text_search {
+                let search_lower = text_search.to_lowercase();
+                portfolio.name.to_lowercase().contains(&search_lower)
+                    || portfolio
+                        .portfolio_id
+                        .to_lowercase()
+                        .contains(&search_lower)
+                    || portfolio
+                        .description
+                        .as_ref()
+                        .is_some_and(|d| d.to_lowercase().contains(&search_lower))
+            } else {
+                true
+            };
+
+            if matches {
+                count += 1;
+            }
+        }
+
+        Ok(count)
+    }
+}
+
 /// Redb-based audit store.
 pub struct RedbAuditStore {
     db: Arc<Database>,
@@ -865,6 +1069,7 @@ pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, Tra
         curves: Arc::new(RedbCurveStore::new(db.clone())),
         configs: Arc::new(RedbConfigStore::new(db.clone())),
         overrides: Arc::new(RedbOverrideStore::new(db.clone())),
+        portfolios: Arc::new(RedbPortfolioStore::new(db.clone())),
         audit: Arc::new(RedbAuditStore::new(db)),
     })
 }

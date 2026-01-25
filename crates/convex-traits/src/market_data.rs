@@ -762,3 +762,28 @@ pub struct MarketDataProvider {
     /// ETF quote source
     pub etf_quotes: Arc<dyn EtfQuoteSource>,
 }
+
+/// Composite market quote containing prices, yields, and spreads.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CompositeQuote {
+    /// Bid price
+    pub bid_price: Option<Decimal>,
+    /// Ask price
+    pub ask_price: Option<Decimal>,
+    /// Mid price
+    pub mid_price: Option<Decimal>,
+    /// Bid yield
+    pub bid_yield: Option<Decimal>,
+    /// Ask yield
+    pub ask_yield: Option<Decimal>,
+    /// Mid yield
+    pub mid_yield: Option<Decimal>,
+    /// Z-Spread
+    pub z_spread: Option<Decimal>,
+    /// G-Spread
+    pub g_spread: Option<Decimal>,
+    /// I-Spread
+    pub i_spread: Option<Decimal>,
+    /// Timestamp
+    pub timestamp: i64,
+}

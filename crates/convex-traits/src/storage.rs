@@ -5,11 +5,13 @@
 //! - [`CurveStore`]: Curve config and snapshot storage
 //! - [`ConfigStore`]: Pricing configuration storage
 //! - [`OverrideStore`]: Price override storage with audit
+//! - [`PortfolioStore`]: Portfolio storage
 //! - [`AuditStore`]: Audit log storage
 //!
 //! Storage implementations are EXTENSIONS (e.g., redb, PostgreSQL, Redis).
 
 use async_trait::async_trait;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::error::TraitError;
@@ -328,6 +330,12 @@ pub struct BondFilter {
     /// Is callable filter.
     pub is_callable: Option<bool>,
 
+    /// Is floating rate note.
+    pub is_floating: Option<bool>,
+
+    /// Is inflation linked.
+    pub is_inflation_linked: Option<bool>,
+
     // === Maturity filters ===
     /// Maturity from (inclusive).
     pub maturity_from: Option<convex_core::Date>,
@@ -432,6 +440,22 @@ impl BondFilter {
             }
         }
 
+        // Is floating match
+        if let Some(is_floating) = self.is_floating {
+            let bond_is_floating = matches!(bond.bond_type, crate::reference_data::BondType::FloatingRate);
+            if bond_is_floating != is_floating {
+                return false;
+            }
+        }
+
+        // Is inflation linked match
+        if let Some(is_inflation_linked) = self.is_inflation_linked {
+            let bond_is_ilb = matches!(bond.bond_type, crate::reference_data::BondType::InflationLinked);
+            if bond_is_ilb != is_inflation_linked {
+                return false;
+            }
+        }
+
         // Sector match
         if let Some(ref sector) = self.sector {
             if &bond.sector != sector {
@@ -498,6 +522,12 @@ impl BondFilter {
             score += 20;
         }
         if self.is_callable.is_some() {
+            score += 10;
+        }
+        if self.is_floating.is_some() {
+            score += 10;
+        }
+        if self.is_inflation_linked.is_some() {
             score += 10;
         }
 
@@ -787,6 +817,74 @@ pub trait OverrideStore: Send + Sync {
 }
 
 // =============================================================================
+// PORTFOLIO STORE
+// =============================================================================
+
+/// Stored position in a portfolio.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredPosition {
+    /// Instrument ID
+    pub instrument_id: String,
+    /// Notional/face value
+    pub notional: Decimal,
+    /// Sector classification
+    pub sector: Option<String>,
+    /// Credit rating
+    pub rating: Option<String>,
+}
+
+/// Stored portfolio for persistence.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredPortfolio {
+    /// Portfolio identifier
+    pub portfolio_id: String,
+    /// Portfolio name
+    pub name: String,
+    /// Reporting currency (USD, EUR, GBP, etc.)
+    pub currency: String,
+    /// Description
+    pub description: Option<String>,
+    /// Positions
+    pub positions: Vec<StoredPosition>,
+    /// Created timestamp
+    pub created_at: i64,
+    /// Last updated timestamp
+    pub updated_at: i64,
+}
+
+/// Filter for portfolio queries.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct PortfolioFilter {
+    /// Currency filter
+    pub currency: Option<String>,
+    /// Text search query
+    pub text_search: Option<String>,
+}
+
+/// Portfolio storage.
+#[async_trait]
+pub trait PortfolioStore: Send + Sync {
+    /// Get portfolio by ID.
+    async fn get(&self, id: &str) -> Result<Option<StoredPortfolio>, TraitError>;
+
+    /// Save portfolio.
+    async fn save(&self, portfolio: &StoredPortfolio) -> Result<(), TraitError>;
+
+    /// Delete portfolio.
+    async fn delete(&self, id: &str) -> Result<bool, TraitError>;
+
+    /// List portfolios with filter and pagination.
+    async fn list(
+        &self,
+        filter: &PortfolioFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<StoredPortfolio>, TraitError>;
+
+    /// Count portfolios matching filter.
+    async fn count(&self, filter: &PortfolioFilter) -> Result<u64, TraitError>;
+}
+
+// =============================================================================
 // AUDIT STORE
 // =============================================================================
 
@@ -858,6 +956,8 @@ pub struct StorageAdapter {
     pub configs: Arc<dyn ConfigStore>,
     /// Override store
     pub overrides: Arc<dyn OverrideStore>,
+    /// Portfolio store
+    pub portfolios: Arc<dyn PortfolioStore>,
     /// Audit store
     pub audit: Arc<dyn AuditStore>,
 }

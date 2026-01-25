@@ -152,14 +152,7 @@ impl std::fmt::Display for NodeId {
 #[derive(Debug, Clone)]
 pub enum NodeValue {
     /// Quote value
-    Quote {
-        /// Bid price
-        bid: Option<Decimal>,
-        /// Ask price
-        ask: Option<Decimal>,
-        /// Mid price
-        mid: Option<Decimal>,
-    },
+    Quote(convex_traits::market_data::CompositeQuote),
 
     /// Curve value (zero rates at various tenors)
     Curve {

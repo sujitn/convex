@@ -2,11 +2,10 @@
 
 use std::sync::Arc;
 
-use axum::routing::{get, post};
+use axum::routing::{get, post, put, delete};
 use axum::Router;
 
 use convex_engine::PricingEngine;
-use convex_ext_file::{InMemoryBondStore, InMemoryPortfolioStore};
 
 use crate::handlers::{self, AppState};
 use crate::websocket::{self, WebSocketState};
@@ -16,47 +15,33 @@ use crate::websocket::{self, WebSocketState};
 /// # Arguments
 /// * `engine` - The pricing engine
 pub fn create_router(engine: Arc<PricingEngine>) -> Router {
-    create_router_with_stores(
-        engine,
-        Arc::new(InMemoryBondStore::new()),
-        Arc::new(InMemoryPortfolioStore::new()),
-    )
-}
-
-/// Create the API router with a specific bond store.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-pub fn create_router_with_bond_store(
-    engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
-) -> Router {
-    create_router_with_stores(engine, bond_store, Arc::new(InMemoryPortfolioStore::new()))
-}
-
-/// Create the API router with all stores.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-/// * `portfolio_store` - The portfolio store for CRUD operations
-pub fn create_router_with_stores(
-    engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
-    portfolio_store: Arc<InMemoryPortfolioStore>,
-) -> Router {
     let state = Arc::new(AppState {
         engine,
         ws_state: WebSocketState::new(),
-        bond_store,
-        portfolio_store,
     });
 
     Router::new()
         // Health
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
+
+        // Market Data (Real-time updates)
+        .route("/api/v1/market-data/quote", post(handlers::market_data::update_quote))
+        .route("/api/v1/market-data/curve", post(handlers::market_data::update_curve))
+
+        // Admin / Configuration
+        // Bond Configs
+        .route("/api/v1/config/bond", get(handlers::config::list_bond_configs).post(handlers::config::create_bond_config))
+        .route("/api/v1/config/bond/:config_id", get(handlers::config::get_bond_config).delete(handlers::config::delete_bond_config))
+
+        // Curve Configs
+        .route("/api/v1/config/curve", get(handlers::config::list_curve_configs).post(handlers::config::create_curve_config))
+        .route("/api/v1/config/curve/:curve_id", get(handlers::config::get_curve_config).delete(handlers::config::delete_curve_config))
+
+        // Overrides
+        .route("/api/v1/config/override", get(handlers::config::list_overrides).post(handlers::config::create_override))
+        .route("/api/v1/config/override/:instrument_id", get(handlers::config::get_override).delete(handlers::config::delete_override))
+
         // Bond Reference Data CRUD
         .route(
             "/api/v1/bonds",
@@ -79,7 +64,8 @@ pub fn create_router_with_stores(
             "/api/v1/quotes/:instrument_id",
             get(handlers::get_bond_quote),
         )
-        .route("/api/v1/quote", post(handlers::price_single_bond))
+        // .route("/api/v1/quote", post(handlers::price_single_bond))
+        /*
         // Curves
         .route(
             "/api/v1/curves",
@@ -104,6 +90,8 @@ pub fn create_router_with_stores(
         )
         // Batch Pricing
         .route("/api/v1/batch/price", post(handlers::batch_price))
+        */
+        /*
         // ETF iNAV
         .route("/api/v1/etf/inav", post(handlers::calculate_inav))
         .route(
@@ -226,6 +214,7 @@ pub fn create_router_with_stores(
             "/api/v1/credit/analysis",
             post(handlers::calculate_credit_analysis),
         )
+        */
         // Portfolio Reference Data CRUD
         .route(
             "/api/v1/portfolios",

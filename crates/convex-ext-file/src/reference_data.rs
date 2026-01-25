@@ -11,6 +11,9 @@ use convex_core::{Currency, Date};
 use convex_traits::error::TraitError;
 use convex_traits::ids::*;
 use convex_traits::reference_data::*;
+use convex_traits::storage::{
+    Page, Pagination, PortfolioFilter, PortfolioStore, StoredPortfolio, StoredPosition,
+};
 
 // =============================================================================
 // CSV BOND REFERENCE SOURCE
@@ -561,49 +564,6 @@ impl BondReferenceSource for InMemoryBondStore {
 // IN-MEMORY PORTFOLIO STORE
 // =============================================================================
 
-use serde::Serialize;
-
-/// Stored position in a portfolio.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StoredPosition {
-    /// Instrument ID
-    pub instrument_id: String,
-    /// Notional/face value
-    pub notional: Decimal,
-    /// Sector classification
-    pub sector: Option<String>,
-    /// Credit rating
-    pub rating: Option<String>,
-}
-
-/// Stored portfolio for persistence.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StoredPortfolio {
-    /// Portfolio identifier
-    pub portfolio_id: String,
-    /// Portfolio name
-    pub name: String,
-    /// Reporting currency (USD, EUR, GBP, etc.)
-    pub currency: String,
-    /// Description
-    pub description: Option<String>,
-    /// Positions
-    pub positions: Vec<StoredPosition>,
-    /// Created timestamp
-    pub created_at: i64,
-    /// Last updated timestamp
-    pub updated_at: i64,
-}
-
-/// Filter for portfolio queries.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct PortfolioFilter {
-    /// Currency filter
-    pub currency: Option<String>,
-    /// Text search query
-    pub text_search: Option<String>,
-}
-
 /// In-memory mutable portfolio store.
 ///
 /// Supports CRUD operations for portfolios, used by the REST API.
@@ -797,5 +757,40 @@ impl InMemoryPortfolioStore {
 impl Default for InMemoryPortfolioStore {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[async_trait]
+impl PortfolioStore for InMemoryPortfolioStore {
+    async fn get(&self, id: &str) -> Result<Option<StoredPortfolio>, TraitError> {
+        Ok(self.get(id))
+    }
+
+    async fn save(&self, portfolio: &StoredPortfolio) -> Result<(), TraitError> {
+        self.upsert(portfolio.clone());
+        Ok(())
+    }
+
+    async fn delete(&self, id: &str) -> Result<bool, TraitError> {
+        Ok(self.delete(id).is_some())
+    }
+
+    async fn list(
+        &self,
+        filter: &PortfolioFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<StoredPortfolio>, TraitError> {
+        let items = self.list(filter, pagination.limit, pagination.offset);
+        let total = self.count(filter) as u64;
+        Ok(Page {
+            items,
+            total,
+            offset: pagination.offset,
+            limit: pagination.limit,
+        })
+    }
+
+    async fn count(&self, filter: &PortfolioFilter) -> Result<u64, TraitError> {
+        Ok(self.count(filter) as u64)
     }
 }

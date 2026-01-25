@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ServerConfig::default()
     };
 
-    // Create storage
+    // Create storage (persistent Redb)
     let storage = convex_ext_redb::create_redb_storage(&server_config.storage_path)?;
 
     // Create empty providers (for demo - in production use file sources or real data)
@@ -55,6 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         etf_quotes: Arc::new(EmptyEtfQuoteSource),
     };
 
+    // Reference data is now primarily served from storage (Redb) via the engine
+    // But we still need this struct for the builder
     let reference_data = ReferenceDataProvider {
         bonds: Arc::new(EmptyBondReferenceSource),
         issuers: Arc::new(EmptyIssuerReferenceSource),
@@ -69,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_config(EngineConfig::default())
         .with_market_data(Arc::new(market_data))
         .with_reference_data(Arc::new(reference_data))
-        .with_storage(Arc::new(storage))
+        .with_storage(Arc::new(storage)) // Pass persistent storage here
         .with_output(Arc::new(output))
         .build()?;
 
