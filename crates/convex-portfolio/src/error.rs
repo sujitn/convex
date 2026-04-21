@@ -1,6 +1,4 @@
 //! Error types for portfolio analytics.
-//!
-//! This module defines the error types used throughout the portfolio crate.
 
 use thiserror::Error;
 
@@ -32,45 +30,6 @@ pub enum PortfolioError {
         id: String,
         /// The reason the holding is invalid.
         reason: String,
-    },
-
-    /// Calculation failed.
-    #[error("Calculation failed: {reason}")]
-    CalculationFailed {
-        /// The reason the calculation failed.
-        reason: String,
-    },
-
-    /// No holdings with required analytics.
-    #[error("No holdings with {metric} available")]
-    NoAnalyticsAvailable {
-        /// The metric that was not available.
-        metric: String,
-    },
-
-    /// Currency mismatch.
-    #[error("Currency mismatch: expected {expected}, got {got}")]
-    CurrencyMismatch {
-        /// The expected currency.
-        expected: String,
-        /// The actual currency.
-        got: String,
-    },
-
-    /// Invalid weight (negative or NaN).
-    #[error("Invalid weight for holding '{id}': {value}")]
-    InvalidWeight {
-        /// The holding ID.
-        id: String,
-        /// The invalid weight value.
-        value: String,
-    },
-
-    /// Division by zero in aggregation.
-    #[error("Division by zero in {operation}")]
-    DivisionByZero {
-        /// The operation that failed.
-        operation: String,
     },
 
     /// Empty portfolio.
@@ -110,22 +69,6 @@ impl PortfolioError {
         Self::InvalidHolding {
             id: id.into(),
             reason: reason.into(),
-        }
-    }
-
-    /// Create a calculation failed error.
-    #[must_use]
-    pub fn calculation_failed(reason: impl Into<String>) -> Self {
-        Self::CalculationFailed {
-            reason: reason.into(),
-        }
-    }
-
-    /// Create a no analytics available error.
-    #[must_use]
-    pub fn no_analytics(metric: impl Into<String>) -> Self {
-        Self::NoAnalyticsAvailable {
-            metric: metric.into(),
         }
     }
 }

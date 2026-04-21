@@ -81,24 +81,10 @@ pub enum CurveError {
         current: f64,
     },
 
-    /// Invalid calibration instrument.
-    #[error("Invalid instrument: {reason}")]
-    InvalidInstrument {
-        /// Description of what's wrong with the instrument.
-        reason: String,
-    },
-
     /// Curve segments overlap.
     #[error("Segment overlap at tenor {tenor:.4}")]
     SegmentOverlap {
         /// Tenor where overlap occurs.
-        tenor: f64,
-    },
-
-    /// No segment covers the requested tenor.
-    #[error("No segment covers tenor {tenor:.4}")]
-    NoSegmentCoverage {
-        /// Tenor not covered by any segment.
         tenor: f64,
     },
 
@@ -109,22 +95,6 @@ pub enum CurveError {
         from: f64,
         /// End of gap.
         to: f64,
-    },
-
-    /// Invalid segment range.
-    #[error("Invalid segment range: start {start:.4} >= end {end:.4}")]
-    InvalidSegmentRange {
-        /// Segment start.
-        start: f64,
-        /// Segment end.
-        end: f64,
-    },
-
-    /// Conversion error between value types.
-    #[error("Conversion error: {reason}")]
-    ConversionError {
-        /// Description of the conversion failure.
-        reason: String,
     },
 
     /// Invalid value (NaN, Inf, or domain error).
@@ -224,34 +194,6 @@ impl CurveError {
             index,
             prev,
             current,
-        }
-    }
-
-    /// Creates an invalid instrument error.
-    #[must_use]
-    pub fn invalid_instrument(reason: impl Into<String>) -> Self {
-        Self::InvalidInstrument {
-            reason: reason.into(),
-        }
-    }
-
-    /// Creates a segment overlap error.
-    #[must_use]
-    pub fn segment_overlap(tenor: f64) -> Self {
-        Self::SegmentOverlap { tenor }
-    }
-
-    /// Creates a no segment coverage error.
-    #[must_use]
-    pub fn no_segment_coverage(tenor: f64) -> Self {
-        Self::NoSegmentCoverage { tenor }
-    }
-
-    /// Creates a conversion error.
-    #[must_use]
-    pub fn conversion_error(reason: impl Into<String>) -> Self {
-        Self::ConversionError {
-            reason: reason.into(),
         }
     }
 

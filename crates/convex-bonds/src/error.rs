@@ -87,13 +87,6 @@ pub enum BondError {
         reason: String,
     },
 
-    /// Cash flow generation failed.
-    #[error("Cash flow generation failed: {reason}")]
-    CashFlowFailed {
-        /// Description of the failure.
-        reason: String,
-    },
-
     /// Settlement date is after maturity.
     #[error("Settlement date {settlement} is after maturity {maturity}")]
     SettlementAfterMaturity {
@@ -110,13 +103,10 @@ pub enum BondError {
         message: String,
     },
 
-    /// Core library error.
+    /// Wrapped core error (lets `?` flow through functions that touch dates or
+    /// cash flows).
     #[error("Core error: {0}")]
     CoreError(#[from] convex_core::ConvexError),
-
-    /// Curve error.
-    #[error("Curve error: {0}")]
-    CurveError(#[from] convex_curves::CurveError),
 }
 
 impl BondError {
