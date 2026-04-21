@@ -65,3 +65,9 @@ npm-debug.log*
 /.idea
 /.claude
 .claude/settings.local.json
+
+# Reconciliation — generated runtime data, not source
+reconciliation/sofr_fixings.csv
+reconciliation/ust_cmt_20251231.csv
+reconciliation/tips_index_ratio_20251231.json
+reconciliation/tips_search_raw.json

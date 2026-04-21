@@ -1,0 +1,97 @@
+{
+  "valuation_date": "2025-12-31",
+  "holiday_note": "2025-12-31 was a regular trading day with SIFMA-recommended 2pm ET early close. No holiday adjustment needed for US/UK/EU/JP markets.",
+  "curves": [
+    {
+      "id": "UST_CMT",
+      "description": "US Treasury constant-maturity yields on 2025-12-31. Used as the discount curve for USD reconciliation. Source: US Treasury H.15 via FRED, confirmed via Advisor Perspectives year-end snapshot.",
+      "currency": "USD",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "quotes": [
+        { "tenor_years": 0.5,  "rate_pct": 3.50, "fred_series": "DGS6MO", "note": "Confirmed" },
+        { "tenor_years": 1.0,  "rate_pct": 3.48, "fred_series": "DGS1",   "note": "Confirmed" },
+        { "tenor_years": 2.0,  "rate_pct": 3.54, "fred_series": "DGS2",   "note": "Confirmed" },
+        { "tenor_years": 3.0,  "rate_pct": 3.51, "fred_series": "DGS3",   "note": "Confirmed" },
+        { "tenor_years": 5.0,  "rate_pct": 3.67, "fred_series": "DGS5",   "note": "Confirmed" },
+        { "tenor_years": 7.0,  "rate_pct": null, "fred_series": "DGS7",   "note": "Pull live from FRED at harness time" },
+        { "tenor_years": 10.0, "rate_pct": 4.18, "fred_series": "DGS10",  "note": "Confirmed" },
+        { "tenor_years": 20.0, "rate_pct": 4.75, "fred_series": "DGS20",  "note": "Confirmed" },
+        { "tenor_years": 30.0, "rate_pct": 4.84, "fred_series": "DGS30",  "note": "Confirmed" }
+      ],
+      "short_end_pull_instruction": {
+        "missing_tenors": ["DGS1MO", "DGS3MO", "DGS7"],
+        "fred_csv_url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS1MO,DGS3MO,DGS6MO,DGS1,DGS2,DGS3,DGS5,DGS7,DGS10,DGS20,DGS30&cosd=2025-12-31&coed=2025-12-31"
+      },
+      "primary_source": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value=2025",
+      "summary_source": "https://www.advisorperspectives.com/dshort/updates/2026/01/02/treasury-yields-snapshot-december-31-2025"
+    },
+    {
+      "id": "SOFR_OIS",
+      "description": "SOFR OIS swap curve. Authoritative quotes (ICE Swap Rate) are paywalled. For this reconciliation we treat UST_CMT as the discount curve proxy; documented explicitly so downstream readers don't mistake this for a bank-quality SOFR discount curve.",
+      "status": "PROXIED_BY_UST_CMT",
+      "currency": "USD",
+      "overnight_fixing_2025_12_31": 3.87,
+      "overnight_fixing_source": "NY Fed reference rate; confirmed via @SOFRRate post 2026-01-02",
+      "overnight_fixing_note": "Year-end turn: 3.87% is elevated vs. normal range 3.70–4.00%. IORB was 3.65% (eff. 2025-12-11), SRF 3.75%.",
+      "historical_series_pull_instruction": {
+        "purpose": "Reconstruct the UST FRN and any SOFR-linked projected coupons",
+        "ny_fed_json": "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json?startDate=2024-01-01&endDate=2025-12-31",
+        "ny_fed_csv": "https://markets.newyorkfed.org/api/rates/secured/sofr/search.csv?startDate=2024-01-01&endDate=2025-12-31",
+        "fred_mirror": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SOFR&cosd=2024-01-01&coed=2025-12-31"
+      },
+      "ois_swap_pull_instructions": {
+        "paywalled": true,
+        "best_free_delayed": "https://www.chathamfinancial.com/technology/us-market-rates",
+        "alternative": "Bootstrap from CME SOFR futures settlement prices (end-of-day free)",
+        "decision_for_reconciliation": "Use UST_CMT as discount curve. Both Convex and QuantLib get the same input, so reconciliation stays valid even if the curve isn't a true market OIS curve."
+      }
+    },
+    {
+      "id": "UK_GILT_CURVE",
+      "description": "UK Gilt yield curve on 2025-12-31 for GBP discount.",
+      "currency": "GBP",
+      "status": "PENDING",
+      "pull_instruction": "BoE Yield Curve publication https://www.bankofengland.co.uk/statistics/yield-curves — pull the Nominal Spot Curve CSV for 2025-12-31",
+      "overnight_fixing": {
+        "rate_name": "SONIA",
+        "value_pct": null,
+        "expected_range": "3.72–3.73 (BoE Bank Rate held at 3.75% per Dec 18 2025 MPC)",
+        "source": "https://www.bankofengland.co.uk/markets/sonia-benchmark",
+        "fred_mirror": "https://fred.stlouisfed.org/series/IUDSOIA"
+      }
+    },
+    {
+      "id": "DE_BUND_CURVE",
+      "description": "German Bund yield curve or ECB AAA euro-area curve for EUR discount.",
+      "currency": "EUR",
+      "status": "PENDING",
+      "pull_instruction": "ECB euro-area AAA government bond yield curve https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html",
+      "overnight_fixing": {
+        "rate_name": "ESTR",
+        "value_pct": null,
+        "expected_range": "1.91–1.93 (ECB DFR held at 2.00% per Dec 18 2025 meeting; €STR typically 8-10bp below DFR)",
+        "source": "https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/html/index.en.html"
+      }
+    },
+    {
+      "id": "JP_JGB_CURVE",
+      "description": "JGB yield curve for JPY discount.",
+      "currency": "JPY",
+      "status": "PENDING",
+      "pull_instruction": "MOF Japan JGB yield curve https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/"
+    }
+  ],
+  "tips_index_ratio_pull_instruction": {
+    "cusip": "91282CNS6",
+    "treasury_api": "https://www.treasurydirect.gov/instit/annceresult/tipscpi/tipscpi.htm",
+    "csv_api": "https://www.treasurydirect.gov/TA_WS/securities/search?cusip=91282CNS6&format=csv",
+    "note": "Index ratio on 2025-12-31 must be pulled at harness time. Index ratio at original issue was 1.00108."
+  },
+  "known_limits": [
+    "No free SOFR-OIS swap curve. UST_CMT used as discount-curve proxy.",
+    "UK / EU / JP curves are pending pull from primary sources; placeholders only.",
+    "7Y, 1M, 3M UST points missing from snapshot source; must be pulled from FRED at harness time.",
+    "TIPS index ratio, SOFR fixing series, and any FRN projection rely on live API pulls; not baked into this file."
+  ]
+}
