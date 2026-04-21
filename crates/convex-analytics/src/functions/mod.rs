@@ -231,17 +231,18 @@ mod tests {
     fn test_ytm_price_roundtrip() {
         let bond = create_test_bond();
         let settlement = date(2021, 1, 15);
-        let ytm =
-            yield_to_maturity(&bond, settlement, dec!(105), Frequency::SemiAnnual).unwrap();
-        let back = clean_price_from_yield(&bond, settlement, ytm.yield_value, Frequency::SemiAnnual)
-            .unwrap();
+        let ytm = yield_to_maturity(&bond, settlement, dec!(105), Frequency::SemiAnnual).unwrap();
+        let back =
+            clean_price_from_yield(&bond, settlement, ytm.yield_value, Frequency::SemiAnnual)
+                .unwrap();
         assert!((back - 105.0).abs() < 0.001);
     }
 
     #[test]
     fn test_modified_duration_range() {
         let bond = create_test_bond();
-        let dur = modified_duration(&bond, date(2020, 6, 15), 0.075, Frequency::SemiAnnual).unwrap();
+        let dur =
+            modified_duration(&bond, date(2020, 6, 15), 0.075, Frequency::SemiAnnual).unwrap();
         assert!(dur > 3.5 && dur < 5.0);
     }
 
@@ -255,7 +256,14 @@ mod tests {
     #[test]
     fn test_dv01_range() {
         let bond = create_test_bond();
-        let d = dv01(&bond, date(2020, 6, 15), 0.075, 100.0, Frequency::SemiAnnual).unwrap();
+        let d = dv01(
+            &bond,
+            date(2020, 6, 15),
+            0.075,
+            100.0,
+            Frequency::SemiAnnual,
+        )
+        .unwrap();
         assert!(d > 0.03 && d < 0.06);
     }
 
@@ -272,14 +280,17 @@ mod tests {
     fn test_price_change_drops_on_yield_rise() {
         let bond = create_test_bond();
         let settle = date(2020, 6, 15);
-        let dp =
-            estimate_price_change(&bond, settle, 0.075, 100.0, 0.01, Frequency::SemiAnnual).unwrap();
+        let dp = estimate_price_change(&bond, settle, 0.075, 100.0, 0.01, Frequency::SemiAnnual)
+            .unwrap();
         assert!(dp > -5.0 && dp < -3.0);
     }
 
     #[test]
     fn test_parse_day_count_known_and_unknown() {
-        assert_eq!(parse_day_count("ACT/360").unwrap(), DayCountConvention::Act360);
+        assert_eq!(
+            parse_day_count("ACT/360").unwrap(),
+            DayCountConvention::Act360
+        );
         assert_eq!(
             parse_day_count("30/360").unwrap(),
             DayCountConvention::Thirty360US

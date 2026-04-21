@@ -145,8 +145,7 @@ impl BondPricer {
             day_count,
             bond.frequency(),
         );
-        let dirty_price =
-            Decimal::from_f64_retain(dirty_f64).unwrap_or(Decimal::ONE_HUNDRED);
+        let dirty_price = Decimal::from_f64_retain(dirty_f64).unwrap_or(Decimal::ONE_HUNDRED);
         let clean_price = dirty_price - accrued;
 
         Ok(PriceResult {

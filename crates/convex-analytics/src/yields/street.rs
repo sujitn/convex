@@ -54,8 +54,7 @@ pub fn street_convention_yield(
     ];
 
     for guess in guesses {
-        if let Ok(result) =
-            solver.solve_primitive(&cf_pairs, dirty_price, periods_per_year, guess)
+        if let Ok(result) = solver.solve_primitive(&cf_pairs, dirty_price, periods_per_year, guess)
         {
             let y = result.yield_value;
             if y > -0.5 && y < 1.0 {
