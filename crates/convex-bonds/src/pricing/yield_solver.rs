@@ -38,6 +38,20 @@ pub struct YieldResult {
     pub residual: f64,
 }
 
+impl YieldResult {
+    /// Returns the yield as a percentage (e.g., 5.0 for 5%).
+    #[must_use]
+    pub fn yield_percent(&self) -> f64 {
+        self.yield_value * 100.0
+    }
+
+    /// Returns the yield as a Decimal.
+    #[must_use]
+    pub fn yield_decimal(&self) -> Decimal {
+        Decimal::from_f64_retain(self.yield_value).unwrap_or(Decimal::ZERO)
+    }
+}
+
 /// Yield-to-maturity solver.
 ///
 /// Uses Bloomberg YAS methodology with Newton-Raphson iteration
@@ -89,6 +103,12 @@ impl YieldSolver {
     pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
         self.config = SolverConfig::new(self.config.tolerance, max_iterations);
         self
+    }
+
+    /// Returns the current yield convention.
+    #[must_use]
+    pub const fn convention(&self) -> YieldConvention {
+        self.convention
     }
 
     /// Solves for yield given cash flows and price.
@@ -169,6 +189,38 @@ impl YieldSolver {
                 // Fallback to Brent's method with wider bracket
                 self.solve_with_brent(objective, initial_guess)
             }
+        }
+    }
+
+    /// Solves for yield from pre-computed (year_fraction, amount) pairs.
+    ///
+    /// Lower-level companion to [`Self::solve`] for callers that already have flat
+    /// arrays of discount times and cash flow amounts (e.g. a Bloomberg YAS
+    /// pipeline). Uses Newton-Raphson with Brent's method as a fallback.
+    pub fn solve_primitive(
+        &self,
+        cash_flows: &[(f64, f64)],
+        target_dirty_price: f64,
+        periods_per_year: f64,
+        initial_guess: f64,
+    ) -> BondResult<YieldResult> {
+        if cash_flows.is_empty() {
+            return Err(BondError::InvalidSpec {
+                reason: "No cash flows".to_string(),
+            });
+        }
+
+        let objective =
+            |y: f64| self.pv_at_yield(cash_flows, y, periods_per_year) - target_dirty_price;
+        let derivative = |y: f64| self.pv_derivative(cash_flows, y, periods_per_year);
+
+        match newton_raphson(objective, derivative, initial_guess, &self.config) {
+            Ok(result) => Ok(YieldResult {
+                yield_value: result.root,
+                iterations: result.iterations,
+                residual: result.residual,
+            }),
+            Err(_) => self.solve_with_brent(objective, initial_guess),
         }
     }
 
