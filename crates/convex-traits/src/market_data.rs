@@ -687,59 +687,6 @@ impl CurveData {
 }
 
 // =============================================================================
-// PRICING DATA PROVIDER TRAIT
-// =============================================================================
-
-/// Trait for providing market data to the pricing router.
-///
-/// This is the interface that PricingRouter uses to fetch market data.
-/// It abstracts away the actual data source (calc graph, database, real-time feed).
-#[async_trait]
-pub trait PricingDataProvider: Send + Sync {
-    /// Get bond quote by instrument ID.
-    async fn get_bond_quote(
-        &self,
-        instrument_id: &InstrumentId,
-    ) -> Result<Option<BondQuote>, TraitError>;
-
-    /// Get multiple bond quotes.
-    async fn get_bond_quotes(
-        &self,
-        instrument_ids: &[InstrumentId],
-    ) -> Result<Vec<BondQuote>, TraitError>;
-
-    /// Get curve data by curve ID.
-    async fn get_curve(&self, curve_id: &CurveId) -> Result<Option<CurveData>, TraitError>;
-
-    /// Get zero rate from curve at specific maturity (days from valuation date).
-    async fn get_zero_rate(
-        &self,
-        curve_id: &CurveId,
-        days: u32,
-    ) -> Result<Option<Decimal>, TraitError>;
-
-    /// Get volatility surface.
-    async fn get_vol_surface(
-        &self,
-        surface_id: &VolSurfaceId,
-    ) -> Result<Option<VolatilitySurface>, TraitError>;
-
-    /// Get index fixing.
-    async fn get_index_fixing(
-        &self,
-        index: &FloatingRateIndex,
-        date: Date,
-    ) -> Result<Option<IndexFixing>, TraitError>;
-
-    /// Get inflation fixing.
-    async fn get_inflation_fixing(
-        &self,
-        index: &InflationIndex,
-        month: YearMonth,
-    ) -> Result<Option<InflationFixing>, TraitError>;
-}
-
-// =============================================================================
 // COMPOSITE MARKET DATA PROVIDER
 // =============================================================================
 
