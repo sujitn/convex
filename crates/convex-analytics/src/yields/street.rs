@@ -4,7 +4,6 @@
 //! preserves the `(dirty_price, cash_flows, times, frequency, initial_guess)`
 //! primitive-array signature used by the YAS pipeline.
 
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 
 use convex_bonds::pricing::YieldSolver;
@@ -98,6 +97,7 @@ fn estimate_current_yield(
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use rust_decimal::prelude::ToPrimitive;
 
     #[test]
     fn test_street_convention_par_bond() {
