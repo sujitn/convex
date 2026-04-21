@@ -50,6 +50,9 @@ Thumbs.db
 *.orig
 *.rej
 
+# Claude worktree markers
+tmpclaude-*
+
 # Node.js / Web
 node_modules/
 www/dist/
