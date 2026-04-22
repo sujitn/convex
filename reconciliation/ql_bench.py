@@ -97,23 +97,21 @@ def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
 
 # ---------------------------------------------------------------- price/risk helpers
 
-def price_bond(
+def build_bullet(
     inst: dict,
-    valuation: ql.Date,
-    ref_yield: float,
-) -> dict[str, float]:
-    """Return {metric_name: value} for one fixed-rate bullet bond."""
-    maturity = to_ql_date(inst["maturity_date"])
-    # Use dated_date (coupon anchor) when the book supplies it, else fall back
-    # to issue_date. Both sides of the reconciliation must agree on this.
+    workout_date: ql.Date,
+    redemption: float = 100.0,
+) -> tuple[ql.FixedRateBond, ql.DayCounter, int]:
+    """Build a hypothetical bullet of `inst` redeeming at `workout_date`.
+    Returns (bond, day_counter, frequency_enum)."""
     issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     freq = FREQUENCY_MAP[inst["frequency"].lower()]
     dcc = day_count(inst["day_count"])
-    coupon = inst["coupon_rate"] / 100.0  # book stores percent
+    coupon = inst["coupon_rate"] / 100.0
 
     schedule = ql.Schedule(
         issue,
-        maturity,
+        workout_date,
         ql.Period(freq),
         ql.NullCalendar(),
         ql.Unadjusted,
@@ -122,12 +120,25 @@ def price_bond(
         False,
     )
     bond = ql.FixedRateBond(
-        0,             # settlement days: price AT valuation date, no T+n
-        100.0,         # face value
+        0,
+        100.0,
         schedule,
         [coupon],
         dcc,
+        ql.Following,
+        redemption,  # non-par redemption for workout-date bullets
     )
+    return bond, dcc, freq
+
+
+def price_bond(
+    inst: dict,
+    valuation: ql.Date,
+    ref_yield: float,
+) -> dict[str, float]:
+    """Return {metric_name: value} for one fixed-rate bullet bond."""
+    maturity = to_ql_date(inst["maturity_date"])
+    bond, dcc, freq = build_bullet(inst, maturity, 100.0)
 
     comp = ql.Compounded
     cmp_freq = COMPOUNDING_FREQUENCY[freq]
@@ -172,11 +183,11 @@ def price_bond(
 # ---------------------------------------------------------------- main
 
 SKIP_CATEGORIES = {
-    "sovereign_frn": "FRN — deferred to M3",
-    "sovereign_linker": "TIPS — deferred to M3",
-    "corporate_callable": "callable — deferred to M3",
-    "synthetic_callable": "synthetic callable — deferred to M3",
+    "sovereign_frn": "FRN — deferred to M5",
+    "sovereign_linker": "TIPS — deferred to M5",
 }
+
+CALLABLE_CATEGORIES = {"corporate_callable", "synthetic_callable"}
 
 
 def main() -> int:
@@ -195,10 +206,8 @@ def main() -> int:
         if cat in SKIP_CATEGORIES:
             skipped.append(f"{inst['id']} ({cat}) — {SKIP_CATEGORIES[cat]}")
             continue
-        if inst.get("synthetic"):
-            skipped.append(f"{inst['id']} — synthetic")
-            continue
-        if cat not in ("sovereign", "corporate_bullet_mw"):
+        is_callable = cat in CALLABLE_CATEGORIES
+        if cat not in ("sovereign", "corporate_bullet_mw") and not is_callable:
             skipped.append(f"{inst['id']} ({cat}) — unknown category")
             continue
 
@@ -216,8 +225,40 @@ def main() -> int:
             y = inst["coupon_rate"] / 100.0
             curve_used = "placeholder"
 
+        # Base metrics (treating the bond as if calls never happen).
         metrics = price_bond(inst, valuation, y)
-        for metric, value in metrics.items():
+        emitted: list[tuple[str, float]] = list(metrics.items())
+
+        # Callable add-ons: YTC per call date + YTW + workout date.
+        if is_callable:
+            clean = metrics["clean_price_pct"]
+            ytm = metrics["ytm_decimal"]
+            bond_price = ql.BondPrice(clean, ql.BondPrice.Clean)
+            worst_yield = ytm
+            worst_date = maturity
+            for entry in inst.get("call_schedule") or []:
+                call_date = to_ql_date(entry["call_date"])
+                if call_date <= valuation:
+                    continue
+                wb, wb_dcc, wb_freq = build_bullet(
+                    inst, call_date, entry["price"]
+                )
+                comp = ql.Compounded
+                cmp_freq = COMPOUNDING_FREQUENCY[wb_freq]
+                ytc = ql.BondFunctions.bondYield(
+                    wb, bond_price, wb_dcc, comp, cmp_freq, valuation
+                )
+                key = f"ytc_{entry['call_date'].replace('-', '')}_decimal"
+                emitted.append((key, ytc))
+                if ytc < worst_yield:
+                    worst_yield = ytc
+                    worst_date = call_date
+            emitted.append(("ytw_decimal", worst_yield))
+            wd = worst_date
+            yyyymmdd = wd.year() * 10000 + wd.month() * 100 + wd.dayOfMonth()
+            emitted.append(("ytw_workout_date_yyyymmdd", float(yyyymmdd)))
+
+        for metric, value in emitted:
             rows.append(
                 {
                     "bond_id": inst["id"],

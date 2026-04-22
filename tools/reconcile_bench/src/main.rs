@@ -61,8 +61,17 @@ struct Instrument {
     #[serde(default)]
     face_value: Option<f64>,
     currency: Option<String>,
+    #[allow(dead_code)]
     #[serde(default)]
     synthetic: bool,
+    #[serde(default)]
+    call_schedule: Option<Vec<CallEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CallEntry {
+    call_date: String,
+    price: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,6 +142,12 @@ fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
     valuation.days_between(&maturity) as f64 / 365.25
 }
 
+/// Encode a date as an integer YYYYMMDD so it diffs cleanly against the
+/// Python side.
+fn workout_date_to_f64(d: Date) -> f64 {
+    (d.year() * 10000 + d.month() as i32 * 100 + d.day() as i32) as f64
+}
+
 /// Linear interpolation of the UST CMT curve at a given tenor.
 ///
 /// Returns a yield in decimal (0.04 = 4%).
@@ -158,6 +173,57 @@ fn interpolate_cmt(cmt: &Curve, tenor_yrs: f64) -> Option<f64> {
         }
     }
     Some(pts.last().unwrap().1)
+}
+
+/// Build a hypothetical "bullet to workout date" bond: same coupon and
+/// conventions as the underlying, but maturing at `workout_date` with
+/// `redemption` as the final principal payment. Used to compute YTC / YTW
+/// via standard YTM on the modified bond.
+fn build_workout_bullet(
+    inst: &Instrument,
+    workout_date: Date,
+    redemption: f64,
+) -> Result<FixedRateBond> {
+    let coupon = inst
+        .coupon_rate
+        .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))?;
+    let anchor = inst
+        .dated_date
+        .as_deref()
+        .or(inst.issue_date.as_deref())
+        .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?;
+    let issue = parse_date(anchor)?;
+    let freq = parse_frequency(
+        inst.frequency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing frequency", inst.id))?,
+    )?;
+    let dcc_str = inst
+        .day_count
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing day_count", inst.id))?;
+    let dcc: DayCountConvention = parse_day_count(dcc_str)
+        .map_err(|e| anyhow!("{}: bad day_count {dcc_str}: {e}", inst.id))?;
+    let ccy = parse_currency(
+        inst.currency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing currency", inst.id))?,
+    )?;
+
+    FixedRateBond::builder()
+        .cusip_unchecked(&format!("{}_to_{}", inst.id, workout_date))
+        .coupon_rate(coupon_to_decimal(coupon, inst.coupon_unit.as_deref()))
+        .issue_date(issue)
+        .maturity(workout_date)
+        .frequency(freq)
+        .day_count(dcc)
+        .currency(ccy)
+        .face_value(dec!(100))
+        .redemption_value(
+            Decimal::try_from(redemption).unwrap_or(dec!(100)),
+        )
+        .build()
+        .with_context(|| format!("building {} workout bullet", inst.id))
 }
 
 fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
@@ -257,22 +323,21 @@ fn main() -> Result<()> {
     let mut skipped: Vec<String> = Vec::new();
 
     for inst in &book.instruments {
-        // MVP: vanilla fixed-rate bullet bonds only.
+        let is_callable = matches!(
+            inst.category.as_str(),
+            "corporate_callable" | "synthetic_callable"
+        );
         let skip_reason = match inst.category.as_str() {
             "sovereign" => None,
             "corporate_bullet_mw" => None,
-            "corporate_callable" => Some("callable — deferred to M3"),
-            "synthetic_callable" => Some("synthetic callable — deferred to M3"),
-            "sovereign_frn" => Some("FRN — deferred to M3"),
-            "sovereign_linker" => Some("TIPS — deferred to M3"),
+            "corporate_callable" => None,
+            "synthetic_callable" => None,
+            "sovereign_frn" => Some("FRN — deferred to M5"),
+            "sovereign_linker" => Some("TIPS — deferred to M5"),
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {
             skipped.push(format!("{} ({}) — {}", inst.id, inst.category, reason));
-            continue;
-        }
-        if inst.synthetic {
-            skipped.push(format!("{} — synthetic", inst.id));
             continue;
         }
 
@@ -300,16 +365,58 @@ fn main() -> Result<()> {
         let cvx = convexity(&bond, valuation, ref_yield, freq)?;
         let dv01_v = dv01(&bond, valuation, ref_yield, dirty, freq)?;
 
-        for (metric, value) in [
-            ("clean_price_pct", clean),
-            ("dirty_price_pct", dirty),
-            ("accrued", accrued),
-            ("ytm_decimal", ytm),
-            ("macaulay_duration", mac),
-            ("modified_duration", modd),
-            ("convexity", cvx),
-            ("dv01_per_100", dv01_v),
-        ] {
+        let mut rows: Vec<(String, f64)> = vec![
+            ("clean_price_pct".to_string(), clean),
+            ("dirty_price_pct".to_string(), dirty),
+            ("accrued".to_string(), accrued),
+            ("ytm_decimal".to_string(), ytm),
+            ("macaulay_duration".to_string(), mac),
+            ("modified_duration".to_string(), modd),
+            ("convexity".to_string(), cvx),
+            ("dv01_per_100".to_string(), dv01_v),
+        ];
+
+        // 4) For callables: compute YTC at each call date and YTW.
+        if is_callable {
+            let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+            let mut worst = ytm;
+            let mut worst_date = maturity;
+
+            if let Some(schedule) = &inst.call_schedule {
+                for entry in schedule {
+                    let call_date = parse_date(&entry.call_date)?;
+                    if call_date <= valuation {
+                        continue; // call date already passed
+                    }
+                    let workout_bullet =
+                        build_workout_bullet(inst, call_date, entry.price)?;
+                    // Build a synthetic "clean price" that treats the workout bullet as
+                    // having the same current clean market price as the actual callable.
+                    let ytc_result =
+                        yield_to_maturity(&workout_bullet, valuation, clean_dec, freq)
+                            .with_context(|| {
+                                format!("yield_to_call {} @ {}", inst.id, entry.call_date)
+                            })?;
+                    let ytc = ytc_result.yield_value;
+                    let key = format!(
+                        "ytc_{}_decimal",
+                        entry.call_date.replace('-', "")
+                    );
+                    rows.push((key, ytc));
+                    if ytc < worst {
+                        worst = ytc;
+                        worst_date = call_date;
+                    }
+                }
+            }
+            rows.push(("ytw_decimal".to_string(), worst));
+            rows.push((
+                "ytw_workout_date_yyyymmdd".to_string(),
+                workout_date_to_f64(worst_date),
+            ));
+        }
+
+        for (metric, value) in rows {
             writeln!(
                 out,
                 "{},{},{},{:.10},{:.10},{},",
