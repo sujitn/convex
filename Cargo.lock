@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "convex-analytics"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "chrono",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "convex-bonds"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "convex-core",
@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "convex-core"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "chrono",
@@ -617,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "convex-curves"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "argmin",
@@ -637,7 +637,7 @@ dependencies = [
 
 [[package]]
 name = "convex-engine"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "chrono",
  "convex-analytics",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-file"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-json"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "bytes",
  "convex-traits",
@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-redb"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -704,7 +704,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ffi"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "cbindgen",
  "convex-analytics",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "convex-math"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "criterion 0.8.1",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "convex-mcp"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
@@ -762,7 +762,7 @@ dependencies = [
 
 [[package]]
 name = "convex-portfolio"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "approx",
  "chrono",
@@ -782,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "convex-server"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "axum 0.7.9",
  "chrono",
@@ -817,7 +817,7 @@ dependencies = [
 
 [[package]]
 name = "convex-traits"
-version = "0.10.32"
+version = "0.11.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2486,6 +2486,20 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "reconcile_bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "convex-analytics",
+ "convex-bonds",
+ "convex-core",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

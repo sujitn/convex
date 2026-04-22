@@ -71,3 +71,6 @@ reconciliation/sofr_fixings.csv
 reconciliation/ust_cmt_20251231.csv
 reconciliation/tips_index_ratio_20251231.json
 reconciliation/tips_search_raw.json
+reconciliation/convex.csv
+reconciliation/ql.csv
+reconciliation/reconciliation_report.md

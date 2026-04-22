@@ -1,0 +1,336 @@
+//! Convex side of the QuantLib reconciliation bench.
+//!
+//! Reads reconciliation/book.json and curves.json, prices every vanilla
+//! fixed-rate bullet bond with Convex, and emits reconciliation/convex.csv.
+//!
+//! Scope (Milestone 2 MVP):
+//! - Fixed-rate bullet bonds only. Callable, FRN, TIPS are intentionally
+//!   skipped here; they land in a later milestone.
+//! - For each bond, the "reference yield" is the UST CMT yield at the bond's
+//!   remaining maturity (linear interpolation). Non-USD bonds fall back to
+//!   a placeholder and are flagged in the output.
+//! - Columns: clean_price_pct, dirty_price_pct, accrued, ytm,
+//!   macaulay_duration, modified_duration, convexity, dv01.
+//!
+//! Run from the repo root:
+//!   cargo run -p reconcile_bench
+//!
+//! Output: reconciliation/convex.csv (one row per (bond_id, metric)).
+
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+
+use anyhow::{anyhow, Context, Result};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use serde::Deserialize;
+
+use convex_analytics::functions::{
+    clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
+    modified_duration, parse_day_count, yield_to_maturity,
+};
+use convex_bonds::instruments::FixedRateBond;
+use convex_core::daycounts::DayCountConvention;
+use convex_core::types::{Currency, Date, Frequency};
+
+// ------------------------------------------------------------------ schemas
+
+#[derive(Debug, Deserialize)]
+struct Book {
+    valuation_date: String,
+    instruments: Vec<Instrument>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Instrument {
+    id: String,
+    category: String,
+    #[allow(dead_code)]
+    issuer: String,
+    coupon_rate: Option<f64>,
+    #[serde(default)]
+    coupon_unit: Option<String>,
+    issue_date: Option<String>,
+    #[serde(default)]
+    dated_date: Option<String>,
+    maturity_date: Option<String>,
+    frequency: Option<String>,
+    day_count: Option<String>,
+    #[allow(dead_code)]
+    #[serde(default)]
+    face_value: Option<f64>,
+    currency: Option<String>,
+    #[serde(default)]
+    synthetic: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct Curves {
+    curves: Vec<Curve>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Curve {
+    id: String,
+    #[allow(dead_code)]
+    #[serde(default)]
+    currency: String,
+    #[serde(default)]
+    quotes: Vec<Quote>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Quote {
+    tenor_years: f64,
+    rate_pct: Option<f64>,
+}
+
+// ------------------------------------------------------------------ helpers
+
+fn parse_date(s: &str) -> Result<Date> {
+    // "YYYY-MM-DD"
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 3 {
+        return Err(anyhow!("bad date {s}"));
+    }
+    let y: i32 = parts[0].parse()?;
+    let m: u32 = parts[1].parse()?;
+    let d: u32 = parts[2].parse()?;
+    Date::from_ymd(y, m, d).map_err(|e| anyhow!("Date::from_ymd failed for {s}: {e}"))
+}
+
+fn parse_frequency(s: &str) -> Result<Frequency> {
+    match s.to_ascii_lowercase().replace('_', "-").as_str() {
+        "annual" => Ok(Frequency::Annual),
+        "semi-annual" | "semi" => Ok(Frequency::SemiAnnual),
+        "quarterly" => Ok(Frequency::Quarterly),
+        "monthly" => Ok(Frequency::Monthly),
+        other => Err(anyhow!("unsupported frequency {other}")),
+    }
+}
+
+fn parse_currency(s: &str) -> Result<Currency> {
+    match s {
+        "USD" => Ok(Currency::USD),
+        "GBP" => Ok(Currency::GBP),
+        "EUR" => Ok(Currency::EUR),
+        "JPY" => Ok(Currency::JPY),
+        other => Err(anyhow!("unsupported currency {other}")),
+    }
+}
+
+/// Coupon in book.json is in percent (e.g. 4.000 for 4%).
+/// Normalise to decimal for the Convex builder.
+fn coupon_to_decimal(pct: f64, unit: Option<&str>) -> Decimal {
+    let is_decimal = matches!(unit, Some(u) if u.contains("decimal"));
+    let rate = if is_decimal { pct } else { pct / 100.0 };
+    Decimal::try_from(rate).unwrap_or(Decimal::ZERO)
+}
+
+/// Years from valuation date to bond maturity.
+fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
+    valuation.days_between(&maturity) as f64 / 365.25
+}
+
+/// Linear interpolation of the UST CMT curve at a given tenor.
+///
+/// Returns a yield in decimal (0.04 = 4%).
+fn interpolate_cmt(cmt: &Curve, tenor_yrs: f64) -> Option<f64> {
+    let pts: Vec<(f64, f64)> = cmt
+        .quotes
+        .iter()
+        .filter_map(|q| q.rate_pct.map(|r| (q.tenor_years, r / 100.0)))
+        .collect();
+    if pts.is_empty() {
+        return None;
+    }
+    // Below min → flat at min; above max → flat at max.
+    if tenor_yrs <= pts[0].0 {
+        return Some(pts[0].1);
+    }
+    for w in pts.windows(2) {
+        let (t0, r0) = w[0];
+        let (t1, r1) = w[1];
+        if tenor_yrs >= t0 && tenor_yrs <= t1 {
+            let w = (tenor_yrs - t0) / (t1 - t0);
+            return Some(r0 + w * (r1 - r0));
+        }
+    }
+    Some(pts.last().unwrap().1)
+}
+
+fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
+    let coupon = inst
+        .coupon_rate
+        .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    // Use dated_date (start of interest accrual) if present; fall back to
+    // issue_date. The schedule is anchored here, so both libraries must use
+    // the same value for schedules to align.
+    let anchor = inst
+        .dated_date
+        .as_deref()
+        .or(inst.issue_date.as_deref())
+        .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?;
+    let issue = parse_date(anchor)?;
+    let freq = parse_frequency(
+        inst.frequency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing frequency", inst.id))?,
+    )?;
+    let dcc_str = inst
+        .day_count
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing day_count", inst.id))?;
+    let dcc: DayCountConvention = parse_day_count(dcc_str)
+        .map_err(|e| anyhow!("{}: bad day_count {dcc_str}: {e}", inst.id))?;
+    let ccy = parse_currency(
+        inst.currency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing currency", inst.id))?,
+    )?;
+
+    FixedRateBond::builder()
+        .cusip_unchecked(&inst.id)
+        .coupon_rate(coupon_to_decimal(coupon, inst.coupon_unit.as_deref()))
+        .issue_date(issue)
+        .maturity(maturity)
+        .frequency(freq)
+        .day_count(dcc)
+        .currency(ccy)
+        .face_value(dec!(100))
+        .build()
+        .with_context(|| format!("building {}", inst.id))
+}
+
+/// Decide which curve + which reference yield to use for a given bond.
+fn reference_yield(inst: &Instrument, maturity: Date, valuation: Date, ust: &Curve) -> (f64, &'static str) {
+    let ccy = inst.currency.as_deref().unwrap_or("USD");
+    let yrs = years_to_maturity(valuation, maturity);
+    match ccy {
+        "USD" => {
+            if let Some(y) = interpolate_cmt(ust, yrs) {
+                return (y, "UST_CMT");
+            }
+        }
+        _ => {}
+    }
+    // Placeholder for GBP / EUR / JPY until curves are populated.
+    // Use the coupon rate as the reference; the reconciliation still tests
+    // self-consistency across libraries.
+    let fallback = inst
+        .coupon_rate
+        .map(|c| c / 100.0)
+        .unwrap_or(0.04);
+    (fallback, "placeholder")
+}
+
+// ------------------------------------------------------------------ main
+
+fn main() -> Result<()> {
+    let root = Path::new("reconciliation");
+    let book: Book = serde_json::from_reader(File::open(root.join("book.json"))?)
+        .context("reading book.json")?;
+    let curves: Curves = serde_json::from_reader(File::open(root.join("curves.json"))?)
+        .context("reading curves.json")?;
+    let ust = curves
+        .curves
+        .iter()
+        .find(|c| c.id == "UST_CMT")
+        .ok_or_else(|| anyhow!("UST_CMT curve not found in curves.json"))?;
+
+    let valuation = parse_date(&book.valuation_date)?;
+
+    let out_path = root.join("convex.csv");
+    let mut out = BufWriter::new(File::create(&out_path)?);
+    writeln!(
+        out,
+        "bond_id,currency,metric,value,reference_yield,curve_used,notes"
+    )?;
+
+    let mut ok_count = 0usize;
+    let mut skipped: Vec<String> = Vec::new();
+
+    for inst in &book.instruments {
+        // MVP: vanilla fixed-rate bullet bonds only.
+        let skip_reason = match inst.category.as_str() {
+            "sovereign" => None,
+            "corporate_bullet_mw" => None,
+            "corporate_callable" => Some("callable — deferred to M3"),
+            "synthetic_callable" => Some("synthetic callable — deferred to M3"),
+            "sovereign_frn" => Some("FRN — deferred to M3"),
+            "sovereign_linker" => Some("TIPS — deferred to M3"),
+            _other => Some("unknown category"),
+        };
+        if let Some(reason) = skip_reason {
+            skipped.push(format!("{} ({}) — {}", inst.id, inst.category, reason));
+            continue;
+        }
+        if inst.synthetic {
+            skipped.push(format!("{} — synthetic", inst.id));
+            continue;
+        }
+
+        let bond = build_bond(inst).with_context(|| format!("build {}", inst.id))?;
+        let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+        let (ref_yield, curve_used) = reference_yield(inst, maturity, valuation, ust);
+        let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
+
+        // 1) Clean and dirty price at the reference yield.
+        let clean = clean_price_from_yield(&bond, valuation, ref_yield, freq)
+            .with_context(|| format!("clean_price_from_yield {}", inst.id))?;
+        let dirty = dirty_price_from_yield(&bond, valuation, ref_yield, freq)
+            .with_context(|| format!("dirty_price_from_yield {}", inst.id))?;
+        let accrued = dirty - clean;
+
+        // 2) Round-trip: YTM from the clean price should recover ref_yield.
+        let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+        let ytm_result = yield_to_maturity(&bond, valuation, clean_dec, freq)
+            .with_context(|| format!("yield_to_maturity {}", inst.id))?;
+        let ytm = ytm_result.yield_value;
+
+        // 3) Risk at the reference yield.
+        let mac = macaulay_duration(&bond, valuation, ref_yield, freq)?;
+        let modd = modified_duration(&bond, valuation, ref_yield, freq)?;
+        let cvx = convexity(&bond, valuation, ref_yield, freq)?;
+        let dv01_v = dv01(&bond, valuation, ref_yield, dirty, freq)?;
+
+        for (metric, value) in [
+            ("clean_price_pct", clean),
+            ("dirty_price_pct", dirty),
+            ("accrued", accrued),
+            ("ytm_decimal", ytm),
+            ("macaulay_duration", mac),
+            ("modified_duration", modd),
+            ("convexity", cvx),
+            ("dv01_per_100", dv01_v),
+        ] {
+            writeln!(
+                out,
+                "{},{},{},{:.10},{:.10},{},",
+                inst.id,
+                inst.currency.as_deref().unwrap_or("?"),
+                metric,
+                value,
+                ref_yield,
+                curve_used,
+            )?;
+        }
+        ok_count += 1;
+    }
+
+    out.flush()?;
+    eprintln!("convex_bench: wrote {} — {} bonds priced", out_path.display(), ok_count);
+    if !skipped.is_empty() {
+        eprintln!("convex_bench: skipped:");
+        for s in &skipped {
+            eprintln!("  - {s}");
+        }
+    }
+    Ok(())
+}
