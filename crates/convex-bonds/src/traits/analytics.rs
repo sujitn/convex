@@ -19,6 +19,8 @@
 //! let duration = bond.modified_duration(settlement, ytm)?;
 //! ```
 
+use std::str::FromStr;
+
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -414,27 +416,12 @@ pub trait BondAnalytics: Bond {
 
     // ==================== Helper Methods ====================
 
-    /// Parses the day count convention string to enum.
-    ///
-    /// This method converts the string returned by `day_count_convention()`
-    /// back to the `DayCountConvention` enum.
+    /// Parses the day count convention string to its enum.
     fn parse_day_count(&self) -> BondResult<DayCountConvention> {
         let dcc_str = self.day_count_convention();
-        match dcc_str {
-            "ACT/360" => Ok(DayCountConvention::Act360),
-            "ACT/365F" | "ACT/365 Fixed" => Ok(DayCountConvention::Act365Fixed),
-            "ACT/365L" | "ACT/365 Leap" => Ok(DayCountConvention::Act365Leap),
-            "ACT/ACT ISDA" | "ACT/ACT" => Ok(DayCountConvention::ActActIsda),
-            "ACT/ACT ICMA" => Ok(DayCountConvention::ActActIcma),
-            "ACT/ACT AFB" => Ok(DayCountConvention::ActActAfb),
-            "30/360 US" | "30/360" => Ok(DayCountConvention::Thirty360US),
-            "30E/360" | "30/360 E" => Ok(DayCountConvention::Thirty360E),
-            "30E/360 ISDA" => Ok(DayCountConvention::Thirty360EIsda),
-            "30/360 German" => Ok(DayCountConvention::Thirty360German),
-            _ => Err(BondError::InvalidSpec {
-                reason: format!("unknown day count convention: {dcc_str}"),
-            }),
-        }
+        DayCountConvention::from_str(dcc_str).map_err(|e| BondError::InvalidSpec {
+            reason: format!("unknown day count convention '{dcc_str}': {e}"),
+        })
     }
 }
 

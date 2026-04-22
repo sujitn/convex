@@ -11,9 +11,8 @@
 //! - [`reference_data`]: Traits for reference data sources (bonds, issuers, ratings)
 //! - [`storage`]: Traits for persistence (bonds, curves, configs)
 //! - [`transport`]: Traits for communication (REST, gRPC, WebSocket, Kafka)
-//! - [`config`]: Traits for configuration sources
+//! - [`config`]: Configuration types (EngineConfig, NodeConfig, ...)
 //! - [`output`]: Traits for output publishing
-//! - [`coordination`]: Traits for distributed coordination (service registry, partitioning, leader election)
 //!
 //! ## Dependency Injection
 //!
@@ -24,7 +23,6 @@
 //!     .with_market_data(impl MarketDataProvider)
 //!     .with_reference_data(impl ReferenceDataProvider)
 //!     .with_storage(impl Storage)
-//!     .with_config(impl ConfigSource)
 //!     .with_output(impl OutputPublisher)
 //!     .build()
 //! ```
@@ -33,7 +31,6 @@
 #![warn(clippy::all)]
 
 pub mod config;
-pub mod coordination;
 pub mod error;
 pub mod ids;
 pub mod market_data;

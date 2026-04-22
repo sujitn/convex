@@ -23,7 +23,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -35,11 +35,7 @@ namespace Convex.Excel
 
                 double zSpread = ConvexWrapper.CalculateZSpread(bondHandle, curveHandle, settlement, cleanPrice);
                 return double.IsNaN(zSpread) ? (object)ExcelError.ExcelErrorValue : zSpread;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -56,7 +52,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Bond yield (decimal, e.g. 0.05 for 5%)")] double bondYield)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -68,11 +64,7 @@ namespace Convex.Excel
 
                 double iSpread = ConvexWrapper.CalculateISpread(bondHandle, curveHandle, settlement, bondYield);
                 return double.IsNaN(iSpread) ? (object)ExcelError.ExcelErrorValue : iSpread;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -89,7 +81,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Bond yield (decimal, e.g. 0.05 for 5%)")] double bondYield)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -101,11 +93,7 @@ namespace Convex.Excel
 
                 double gSpread = ConvexWrapper.CalculateGSpread(bondHandle, curveHandle, settlement, bondYield);
                 return double.IsNaN(gSpread) ? (object)ExcelError.ExcelErrorValue : gSpread;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -122,7 +110,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -134,11 +122,7 @@ namespace Convex.Excel
 
                 double asw = ConvexWrapper.CalculateASWSpread(bondHandle, curveHandle, settlement, cleanPrice);
                 return double.IsNaN(asw) ? (object)ExcelError.ExcelErrorValue : asw;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -154,7 +138,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -178,11 +162,7 @@ namespace Convex.Excel
                 result[2, 1] = analytics.SpreadDuration;
 
                 return result;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -202,7 +182,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Z-spread in basis points")] double zSpreadBps)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -214,11 +194,7 @@ namespace Convex.Excel
 
                 double price = ConvexWrapper.PriceFromZSpread(bondHandle, curveHandle, settlement, zSpreadBps);
                 return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -234,7 +210,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Z-spread in basis points")] double zSpreadBps)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 if (bondHandle == NativeMethods.INVALID_HANDLE)
@@ -246,11 +222,7 @@ namespace Convex.Excel
 
                 double price = ConvexWrapper.DirtyPriceFromZSpread(bondHandle, curveHandle, settlement, zSpreadBps);
                 return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -267,7 +239,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Discount margin in basis points")] double dmBps)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong frnHandle = HandleHelper.Parse(frnRef);
                 if (frnHandle == NativeMethods.INVALID_HANDLE)
@@ -283,11 +255,7 @@ namespace Convex.Excel
 
                 double price = ConvexWrapper.FrnPriceFromDM(frnHandle, forwardCurveHandle, discountCurveHandle, settlement, dmBps);
                 return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
     }
 }

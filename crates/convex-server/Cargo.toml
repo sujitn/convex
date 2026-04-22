@@ -23,7 +23,6 @@ convex-analytics = { workspace = true }
 # Default extensions
 convex-ext-redb = { path = "../convex-ext-redb" }
 convex-ext-file = { path = "../convex-ext-file" }
-convex-ext-json = { path = "../convex-ext-json" }
 
 # Server
 axum = { version = "0.7", features = ["ws"] }

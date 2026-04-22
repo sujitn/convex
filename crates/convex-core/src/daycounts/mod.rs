@@ -216,10 +216,108 @@ impl std::fmt::Display for DayCountConvention {
     }
 }
 
+/// Error returned when a day count convention string is not recognized.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseDayCountError(pub String);
+
+impl std::fmt::Display for ParseDayCountError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unknown day count convention: {}", self.0)
+    }
+}
+
+impl std::error::Error for ParseDayCountError {}
+
+impl std::str::FromStr for DayCountConvention {
+    type Err = ParseDayCountError;
+
+    /// Parses a day count convention from common market notations.
+    ///
+    /// Whitespace, case and underscore separators are ignored. `"ACT/ACT"` without a
+    /// suffix maps to ISDA (the ISDA default); callers that need ICMA must spell it
+    /// out as `"ACT/ACT ICMA"`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized: String = s
+            .chars()
+            .filter(|c| !c.is_whitespace() && *c != '_')
+            .collect::<String>()
+            .to_uppercase();
+
+        let dc = match normalized.as_str() {
+            "ACT/360" | "ACTUAL/360" => DayCountConvention::Act360,
+            "ACT/365" | "ACT/365F" | "ACT/365FIXED" | "ACTUAL/365" => {
+                DayCountConvention::Act365Fixed
+            }
+            "ACT/365L" | "ACT/365LEAP" => DayCountConvention::Act365Leap,
+            "ACT/ACT" | "ACT/ACTISDA" | "ACTUAL/ACTUAL" => DayCountConvention::ActActIsda,
+            "ACT/ACTICMA" => DayCountConvention::ActActIcma,
+            "ACT/ACTAFB" => DayCountConvention::ActActAfb,
+            "30/360" | "30/360US" | "30/360NASD" | "BOND" => DayCountConvention::Thirty360US,
+            "30E/360" | "30/360E" | "30/360EU" | "30/360ISMA" | "EUROBOND" => {
+                DayCountConvention::Thirty360E
+            }
+            "30E/360ISDA" => DayCountConvention::Thirty360EIsda,
+            "30/360GERMAN" => DayCountConvention::Thirty360German,
+            _ => return Err(ParseDayCountError(s.to_string())),
+        };
+        Ok(dc)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_parse_canonical_names() {
+        assert_eq!(
+            DayCountConvention::from_str("ACT/360").unwrap(),
+            DayCountConvention::Act360
+        );
+        assert_eq!(
+            DayCountConvention::from_str("30/360 US").unwrap(),
+            DayCountConvention::Thirty360US
+        );
+        assert_eq!(
+            DayCountConvention::from_str("ACT/ACT ICMA").unwrap(),
+            DayCountConvention::ActActIcma
+        );
+    }
+
+    #[test]
+    fn test_parse_common_aliases() {
+        assert_eq!(
+            DayCountConvention::from_str("30/360").unwrap(),
+            DayCountConvention::Thirty360US
+        );
+        assert_eq!(
+            DayCountConvention::from_str("actual/360").unwrap(),
+            DayCountConvention::Act360
+        );
+        assert_eq!(
+            DayCountConvention::from_str("ACT/365").unwrap(),
+            DayCountConvention::Act365Fixed
+        );
+        assert_eq!(
+            DayCountConvention::from_str("30E/360").unwrap(),
+            DayCountConvention::Thirty360E
+        );
+    }
+
+    #[test]
+    fn test_parse_act_act_defaults_to_isda() {
+        assert_eq!(
+            DayCountConvention::from_str("ACT/ACT").unwrap(),
+            DayCountConvention::ActActIsda
+        );
+    }
+
+    #[test]
+    fn test_parse_unknown_errors() {
+        assert!(DayCountConvention::from_str("MADE-UP/360").is_err());
+    }
 
     #[test]
     fn test_act360() {

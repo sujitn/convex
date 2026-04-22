@@ -80,20 +80,6 @@ pub enum MathError {
         /// Description of the invalid input.
         reason: String,
     },
-
-    /// Numerical overflow.
-    #[error("Numerical overflow in {operation}")]
-    Overflow {
-        /// The operation that caused overflow.
-        operation: String,
-    },
-
-    /// Numerical underflow.
-    #[error("Numerical underflow in {operation}")]
-    Underflow {
-        /// The operation that caused underflow.
-        operation: String,
-    },
 }
 
 impl MathError {

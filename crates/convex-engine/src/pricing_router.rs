@@ -1,5 +1,6 @@
 //! Pricing router - selects pricing model based on bond type and config.
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use rust_decimal::prelude::*;
@@ -354,23 +355,14 @@ impl PricingRouter {
             .map_err(|e| EngineError::PricingError(format!("Failed to build FRN: {}", e)))
     }
 
-    /// Parse day count convention string to enum.
+    /// Parse day count convention string to enum, defaulting to 30/360 US on
+    /// unknown input so reference data with stray labels doesn't fail the
+    /// pricing request.
     fn parse_day_count(&self, dcc_str: &str) -> Result<DayCountConvention, EngineError> {
-        match dcc_str.to_uppercase().as_str() {
-            "ACT/360" | "ACTUAL/360" => Ok(DayCountConvention::Act360),
-            "ACT/365F" | "ACT/365" | "ACT/365 FIXED" | "ACTUAL/365" => {
-                Ok(DayCountConvention::Act365Fixed)
-            }
-            "ACT/ACT" | "ACT/ACT ISDA" | "ACTUAL/ACTUAL" => Ok(DayCountConvention::ActActIsda),
-            "ACT/ACT ICMA" => Ok(DayCountConvention::ActActIcma),
-            "30/360" | "30/360 US" | "BOND" => Ok(DayCountConvention::Thirty360US),
-            "30E/360" | "30/360 E" | "EUROBOND" => Ok(DayCountConvention::Thirty360E),
-            "30E/360 ISDA" => Ok(DayCountConvention::Thirty360EIsda),
-            _ => {
-                warn!("Unknown day count '{}', defaulting to 30/360", dcc_str);
-                Ok(DayCountConvention::Thirty360US)
-            }
-        }
+        Ok(DayCountConvention::from_str(dcc_str).unwrap_or_else(|_| {
+            warn!("Unknown day count '{}', defaulting to 30/360 US", dcc_str);
+            DayCountConvention::Thirty360US
+        }))
     }
 
     /// Get frequency enum from reference data.
