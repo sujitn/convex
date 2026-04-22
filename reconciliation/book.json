@@ -28,6 +28,7 @@
       "coupon_rate": 4.625,
       "coupon_unit": "percent_annual",
       "issue_date": "2025-11-17",
+      "dated_date": "2025-11-15",
       "maturity_date": "2055-11-15",
       "frequency": "semi_annual",
       "day_count": "ACT/ACT ICMA",

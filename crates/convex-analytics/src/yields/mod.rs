@@ -59,7 +59,7 @@ mod engine;
 mod money_market;
 mod short_date;
 mod simple;
-mod solver;
+pub(crate) mod solver;
 mod street;
 mod true_yield;
 

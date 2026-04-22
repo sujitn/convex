@@ -27,6 +27,94 @@ use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
+/// Project future cash flows into `(year_fraction_from_settlement, amount)` pairs
+/// suitable for PV / duration / convexity loops.
+///
+/// Implements the same **period-based** ISMA/ICMA formula QuantLib uses for
+/// `BondFunctions::cleanPrice`:
+///
+/// ```text
+///   v   = day_count_days(period_start, settlement) / day_count_days(period_start, period_end)
+///   t_i = ((i + 1) - v) / freq     for i = 0, 1, 2, …            [in years]
+/// ```
+///
+/// Using `day_count.day_count()` for both the accrued and the period length is
+/// what lets this unify the ACT/ACT ICMA case (where `accrued + remaining =
+/// period_days`) with the 30/360 US case (where the d1=31→30 rule breaks that
+/// identity by one day). The old formula — *remaining / period_days* — matched
+/// QL on ACT/ACT but drifted by ~1 bp of price on 30/360 exactly because of
+/// that one-day overlap.
+///
+/// For short first stubs (issue after the nominal period start) the reference
+/// period is extended back to the nominal start, again matching QL's ISMA
+/// behaviour. Long stubs aren't in the test book and aren't handled.
+///
+/// If the leading cash flow has no accrual boundaries we fall back to the
+/// plain `day_count.year_fraction(settlement, cashflow_date)` path.
+pub(crate) fn project_discount_fractions(
+    cash_flows: &[BondCashFlow],
+    settlement: Date,
+    day_count: DayCountConvention,
+    periods_per_year: f64,
+) -> Vec<(f64, f64)> {
+    let future: Vec<&BondCashFlow> = cash_flows
+        .iter()
+        .filter(|cf| cf.date > settlement)
+        .collect();
+
+    let period_aware = future
+        .first()
+        .map_or(false, |cf| cf.accrual_start.is_some() && cf.accrual_end.is_some());
+
+    if period_aware {
+        let first = future[0];
+        let astart = first.accrual_start.unwrap();
+        let aend = first.accrual_end.unwrap();
+        let dc = day_count.to_day_count();
+
+        // For a short first stub, the ISMA reference period is the nominal
+        // coupon period (one period step back from aend), not the stubbed span.
+        let months_per_period = (12.0 / periods_per_year).round() as i32;
+        let nominal_start = aend.add_months(-months_per_period).unwrap_or(astart);
+        let actual_days = dc.day_count(astart, aend).abs() as f64;
+        let nominal_days = dc.day_count(nominal_start, aend).abs() as f64;
+        let is_stub = (actual_days - nominal_days).abs() > 5.0 && nominal_days > 0.0;
+        let (ref_start, ref_period_days) = if is_stub {
+            (nominal_start, nominal_days)
+        } else {
+            (astart, actual_days)
+        };
+
+        if ref_period_days > 0.0 {
+            // v = fraction of the reference period already accrued at settlement.
+            let v = if settlement > ref_start {
+                dc.day_count(ref_start, settlement).abs() as f64 / ref_period_days
+            } else {
+                0.0
+            };
+
+            return future
+                .iter()
+                .enumerate()
+                .map(|(i, cf)| {
+                    let years = ((i + 1) as f64 - v) / periods_per_year;
+                    let amount = cf.amount.to_f64().unwrap_or(0.0);
+                    (years, amount)
+                })
+                .collect();
+        }
+    }
+
+    future
+        .iter()
+        .map(|cf| {
+            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
+            let amount = cf.amount.to_f64().unwrap_or(0.0);
+            (years.to_f64().unwrap_or(0.0), amount)
+        })
+        .collect()
+}
+
 /// Result of a yield calculation.
 #[derive(Debug, Clone, Copy)]
 pub struct YieldResult {
@@ -137,24 +225,15 @@ impl YieldSolver {
         let dirty_price = clean_price + accrued;
         let target = dirty_price.to_f64().unwrap_or(100.0);
 
-        // Convert cash flows to f64 for performance
-        let cf_data: Vec<(f64, f64)> = cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years.to_f64().unwrap_or(0.0), amount)
-            })
-            .collect();
+        let periods_per_year = f64::from(frequency.periods_per_year());
+        let cf_data =
+            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year);
 
         if cf_data.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "No future cash flows".to_string(),
             ));
         }
-
-        let periods_per_year = f64::from(frequency.periods_per_year());
 
         // Initial guess based on current yield approximation
         let total_coupons: f64 = cf_data.iter().map(|(_, amt)| amt).sum();
@@ -325,17 +404,9 @@ impl YieldSolver {
         day_count: DayCountConvention,
         frequency: Frequency,
     ) -> f64 {
-        let cf_data: Vec<(f64, f64)> = cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years.to_f64().unwrap_or(0.0), amount)
-            })
-            .collect();
-
         let periods_per_year = f64::from(frequency.periods_per_year());
+        let cf_data =
+            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year);
         self.pv_at_yield(&cf_data, yield_rate, periods_per_year)
     }
 
