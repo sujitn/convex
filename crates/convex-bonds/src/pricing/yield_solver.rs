@@ -508,16 +508,10 @@ pub fn discount_margin(
     let target = dirty_price.to_f64().unwrap_or(100.0);
     let periods_per_year = f64::from(frequency.periods_per_year());
 
-    // Convert cash flows to (years_to_payment, amount) pairs
-    let cf_data: Vec<(f64, f64)> = projected_cash_flows
-        .iter()
-        .filter(|cf| cf.date > settlement)
-        .map(|cf| {
-            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-            let amount = cf.amount.to_f64().unwrap_or(0.0);
-            (years.to_f64().unwrap_or(0.0), amount)
-        })
-        .collect();
+    // Period-aware year fractions (matches QL ISMA), same helper as the
+    // yield solver.
+    let cf_data =
+        project_discount_fractions(projected_cash_flows, settlement, day_count, periods_per_year);
 
     if cf_data.is_empty() {
         return Err(BondError::invalid_spec("No future cash flows"));
