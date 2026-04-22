@@ -31,6 +31,8 @@ use convex_analytics::functions::{
     modified_duration, parse_day_count, yield_to_maturity,
 };
 use convex_bonds::instruments::FixedRateBond;
+use convex_bonds::types::CalendarId;
+use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
@@ -66,6 +68,11 @@ struct Instrument {
     synthetic: bool,
     #[serde(default)]
     call_schedule: Option<Vec<CallEntry>>,
+    // FRN-specific, ignored for other categories.
+    #[serde(default)]
+    index_rate_pct: Option<f64>,
+    #[serde(default)]
+    spread_bps: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -140,6 +147,19 @@ fn coupon_to_decimal(pct: f64, unit: Option<&str>) -> Decimal {
 /// Years from valuation date to bond maturity.
 fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
     valuation.days_between(&maturity) as f64 / 365.25
+}
+
+/// True when `date` is the last day of its month. Used to pick the
+/// `end_of_month` flag for schedule generation — QL's `Schedule` with a
+/// month-end *maturity* snaps dates back to month-end after short months
+/// (Oct 31 → Apr 30 → Jul 31 → Oct 31). Convex with `end_of_month(true)`
+/// reproduces that behaviour; with `false` it drifts to the 30th.
+fn is_end_of_month(date: Date) -> bool {
+    let Ok(next_day) = Date::from_ymd(date.year(), date.month() as u32, date.day() as u32 + 1)
+    else {
+        return true; // next day isn't a valid date in the same month → month-end
+    };
+    next_day.month() != date.month()
 }
 
 /// Encode a date as an integer YYYYMMDD so it diffs cleanly against the
@@ -219,6 +239,11 @@ fn build_workout_bullet(
         .day_count(dcc)
         .currency(ccy)
         .face_value(dec!(100))
+        // Match QL's NullCalendar + Unadjusted so coupon dates aren't shifted
+        // off weekends. EOM driven by the workout date (new maturity).
+        .calendar(CalendarId::new(""))
+        .business_day_convention(BusinessDayConvention::Unadjusted)
+        .end_of_month(is_end_of_month(workout_date))
         .redemption_value(
             Decimal::try_from(redemption).unwrap_or(dec!(100)),
         )
@@ -226,10 +251,25 @@ fn build_workout_bullet(
         .with_context(|| format!("building {} workout bullet", inst.id))
 }
 
+/// Effective coupon rate for a bond. For a fixed-rate instrument this is just
+/// the book's `coupon_rate`. For an FRN we project all future coupons at a
+/// flat (index_rate + spread_bps/100) — good enough to reconcile the PV / risk
+/// path under quarterly + ACT/360 conventions.
+fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
+    if inst.category == "sovereign_frn" {
+        let idx = inst
+            .index_rate_pct
+            .ok_or_else(|| anyhow!("{}: FRN missing index_rate_pct", inst.id))?;
+        let spread = inst.spread_bps.unwrap_or(0.0);
+        Ok(idx + spread / 100.0)
+    } else {
+        inst.coupon_rate
+            .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))
+    }
+}
+
 fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
-    let coupon = inst
-        .coupon_rate
-        .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))?;
+    let coupon = effective_coupon_percent(inst)?;
     let maturity = parse_date(
         inst.maturity_date
             .as_deref()
@@ -270,6 +310,12 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
         .day_count(dcc)
         .currency(ccy)
         .face_value(dec!(100))
+        // Match QL: NullCalendar + Unadjusted so schedules agree exactly.
+        // EOM = true only when the seed (issue/dated) date is month-end;
+        // QL's Schedule does that "snap back to 31" behaviour either way.
+        .calendar(CalendarId::new(""))
+        .business_day_convention(BusinessDayConvention::Unadjusted)
+        .end_of_month(is_end_of_month(maturity))
         .build()
         .with_context(|| format!("building {}", inst.id))
 }
@@ -278,21 +324,28 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
 fn reference_yield(inst: &Instrument, maturity: Date, valuation: Date, ust: &Curve) -> (f64, &'static str) {
     let ccy = inst.currency.as_deref().unwrap_or("USD");
     let yrs = years_to_maturity(valuation, maturity);
-    match ccy {
-        "USD" => {
-            if let Some(y) = interpolate_cmt(ust, yrs) {
-                return (y, "UST_CMT");
-            }
+
+    // TIPS are priced on a real yield, not the nominal UST curve. Use the
+    // latest 10Y TIPS auction real yield as a flat placeholder.
+    if inst.category == "sovereign_linker" {
+        return (0.0185, "tips_real_placeholder");
+    }
+
+    // FRN: discount at the projected (index + spread) so the flat-forward
+    // reconciliation exercises the quarterly ACT/360 convention path.
+    if inst.category == "sovereign_frn" {
+        if let (Some(idx), spread) = (inst.index_rate_pct, inst.spread_bps.unwrap_or(0.0)) {
+            return ((idx + spread / 100.0) / 100.0, "frn_flat_projection");
         }
-        _ => {}
+    }
+
+    if ccy == "USD" {
+        if let Some(y) = interpolate_cmt(ust, yrs) {
+            return (y, "UST_CMT");
+        }
     }
     // Placeholder for GBP / EUR / JPY until curves are populated.
-    // Use the coupon rate as the reference; the reconciliation still tests
-    // self-consistency across libraries.
-    let fallback = inst
-        .coupon_rate
-        .map(|c| c / 100.0)
-        .unwrap_or(0.04);
+    let fallback = inst.coupon_rate.map(|c| c / 100.0).unwrap_or(0.04);
     (fallback, "placeholder")
 }
 
@@ -332,8 +385,8 @@ fn main() -> Result<()> {
             "corporate_bullet_mw" => None,
             "corporate_callable" => None,
             "synthetic_callable" => None,
-            "sovereign_frn" => Some("FRN — deferred to M5"),
-            "sovereign_linker" => Some("TIPS — deferred to M5"),
+            "sovereign_linker" => None, // TIPS priced on real yield
+            "sovereign_frn" => None,     // FRN: flat-forward projection
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {

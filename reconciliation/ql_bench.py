@@ -107,7 +107,7 @@ def build_bullet(
     issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     freq = FREQUENCY_MAP[inst["frequency"].lower()]
     dcc = day_count(inst["day_count"])
-    coupon = inst["coupon_rate"] / 100.0
+    coupon = effective_coupon_pct(inst) / 100.0
 
     schedule = ql.Schedule(
         issue,
@@ -182,12 +182,20 @@ def price_bond(
 
 # ---------------------------------------------------------------- main
 
-SKIP_CATEGORIES = {
-    "sovereign_frn": "FRN — deferred to M5",
-    "sovereign_linker": "TIPS — deferred to M5",
-}
+SKIP_CATEGORIES: dict[str, str] = {}  # all categories now handled
 
 CALLABLE_CATEGORIES = {"corporate_callable", "synthetic_callable"}
+
+
+def effective_coupon_pct(inst: dict) -> float:
+    """For an FRN, project future coupons at a flat (index + spread)."""
+    if inst["category"] == "sovereign_frn":
+        idx = inst.get("index_rate_pct")
+        if idx is None:
+            raise ValueError(f"{inst['id']}: FRN missing index_rate_pct")
+        spread = inst.get("spread_bps", 0.0)
+        return idx + spread / 100.0
+    return inst["coupon_rate"]
 
 
 def main() -> int:
@@ -207,7 +215,10 @@ def main() -> int:
             skipped.append(f"{inst['id']} ({cat}) — {SKIP_CATEGORIES[cat]}")
             continue
         is_callable = cat in CALLABLE_CATEGORIES
-        if cat not in ("sovereign", "corporate_bullet_mw") and not is_callable:
+        is_linker = cat == "sovereign_linker"
+        is_frn = cat == "sovereign_frn"
+        known = {"sovereign", "corporate_bullet_mw", "sovereign_linker", "sovereign_frn"}
+        if cat not in known and not is_callable:
             skipped.append(f"{inst['id']} ({cat}) — unknown category")
             continue
 
@@ -215,7 +226,19 @@ def main() -> int:
         maturity = to_ql_date(inst["maturity_date"])
         yrs = years_to_maturity(valuation, maturity)
 
-        if ccy == "USD":
+        if is_linker:
+            # TIPS priced on real yield. Placeholder: 1.85% (10Y TIPS real
+            # yield from the 2025-11-20 reopening auction).
+            y = 0.0185
+            curve_used = "tips_real_placeholder"
+        elif is_frn:
+            # Reconcile the FRN as a flat-forward proxy: discount at the same
+            # projected coupon (index + spread). That makes the bond price at
+            # par on the first-coupon anniversary and tests the quarterly
+            # ACT/360 convention path on both libraries.
+            y = effective_coupon_pct(inst) / 100.0
+            curve_used = "frn_flat_projection"
+        elif ccy == "USD":
             y = interpolate_cmt(cmt, yrs)
             curve_used = "UST_CMT"
             if y is None:
