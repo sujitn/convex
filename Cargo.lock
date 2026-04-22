@@ -792,7 +792,6 @@ dependencies = [
  "convex-curves",
  "convex-engine",
  "convex-ext-file",
- "convex-ext-json",
  "convex-ext-redb",
  "convex-portfolio",
  "convex-traits",

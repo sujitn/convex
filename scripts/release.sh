@@ -45,7 +45,7 @@ echo "✓ Documentation built"
 echo ""
 
 echo "Step 6: Dry run publish for all crates..."
-CRATES="convex-core convex-math convex-curves convex-bonds convex-spreads convex-risk convex-yas"
+CRATES="convex-core convex-math convex-curves convex-bonds convex-analytics convex-portfolio"
 
 for crate in $CRATES; do
   echo "  - Testing $crate..."

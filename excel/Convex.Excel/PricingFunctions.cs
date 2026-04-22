@@ -26,13 +26,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 double ytm = ConvexWrapper.CalculateYield(handle, settlement, cleanPrice, freq);
                 if (double.IsNaN(ytm))
@@ -40,11 +40,7 @@ namespace Convex.Excel
 
                 // Convert from decimal (0.05) to percentage (5.0)
                 return ytm * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -61,13 +57,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // Convention 1 = True Yield
                 double ytm = ConvexWrapper.CalculateYieldWithConvention(handle, settlement, cleanPrice, freq, 1);
@@ -75,11 +71,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return ytm * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -96,7 +88,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -110,11 +102,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return ytm * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -131,13 +119,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // Convention 3 = Simple Yield
                 double ytm = ConvexWrapper.CalculateYieldWithConvention(handle, settlement, cleanPrice, freq, 3);
@@ -145,11 +133,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return ytm * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -165,23 +149,19 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Yield to maturity (%)")] double yieldPercent,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // Convert from percentage (5.0) to decimal (0.05)
                 double ytmDecimal = yieldPercent / 100.0;
                 double price = ConvexWrapper.CalculatePrice(handle, settlement, ytmDecimal, freq);
                 return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -197,23 +177,19 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Yield to maturity (%)")] double yieldPercent,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // Convert from percentage (5.0) to decimal (0.05)
                 double ytmDecimal = yieldPercent / 100.0;
                 double price = ConvexWrapper.CalculateDirtyPrice(handle, settlement, ytmDecimal, freq);
                 return double.IsNaN(price) ? (object)ExcelError.ExcelErrorValue : price;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -233,13 +209,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // First calculate YTM from clean price (Rust returns decimal)
                 double ytm = ConvexWrapper.CalculateYield(handle, settlement, cleanPrice, freq);
@@ -249,11 +225,7 @@ namespace Convex.Excel
                 // Pass YTM (not clean price) to duration function
                 double dur = ConvexWrapper.CalculateModifiedDuration(handle, settlement, ytm, freq);
                 return double.IsNaN(dur) ? (object)ExcelError.ExcelErrorValue : dur;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -269,13 +241,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // First calculate YTM from clean price (Rust returns decimal)
                 double ytm = ConvexWrapper.CalculateYield(handle, settlement, cleanPrice, freq);
@@ -285,11 +257,7 @@ namespace Convex.Excel
                 // Pass YTM (not clean price) to duration function
                 double dur = ConvexWrapper.CalculateMacaulayDuration(handle, settlement, ytm, freq);
                 return double.IsNaN(dur) ? (object)ExcelError.ExcelErrorValue : dur;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -305,13 +273,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // First calculate YTM from clean price (Rust returns decimal)
                 double ytm = ConvexWrapper.CalculateYield(handle, settlement, cleanPrice, freq);
@@ -321,11 +289,7 @@ namespace Convex.Excel
                 // Pass YTM (not clean price) to convexity function
                 double cvx = ConvexWrapper.CalculateConvexity(handle, settlement, ytm, freq);
                 return double.IsNaN(cvx) ? (object)ExcelError.ExcelErrorValue : cvx;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -341,13 +305,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 // First calculate YTM from clean price (Rust returns decimal)
                 double ytm = ConvexWrapper.CalculateYield(handle, settlement, cleanPrice, freq);
@@ -361,11 +325,7 @@ namespace Convex.Excel
                 // Pass YTM and dirty price to DV01 function
                 double dv01 = ConvexWrapper.CalculateDV01(handle, settlement, ytm, dirtyPrice, freq);
                 return double.IsNaN(dv01) ? (object)ExcelError.ExcelErrorValue : dv01;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -385,13 +345,13 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Clean price")] double cleanPrice,
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
                     return ExcelError.ExcelErrorRef;
 
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
 
                 var analytics = ConvexWrapper.CalculateAnalytics(handle, settlement, cleanPrice, freq);
                 if (analytics == null)
@@ -417,11 +377,7 @@ namespace Convex.Excel
                 result[7, 1] = analytics.DV01;
 
                 return result;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -440,7 +396,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "End date")] DateTime endDate,
             [ExcelArgument(Description = "Day count (0-5)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 double yf = ConvexWrapper.CalculateDayCountFraction(
                     startDate,
@@ -448,11 +404,7 @@ namespace Convex.Excel
                     (ConvexWrapper.DayCount)dayCount);
 
                 return double.IsNaN(yf) ? (object)ExcelError.ExcelErrorValue : yf;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -471,7 +423,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Bond handle or name")] object bondRef,
             [ExcelArgument(Description = "Settlement date")] DateTime settlement)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -503,11 +455,7 @@ namespace Convex.Excel
                 }
 
                 return result;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -521,7 +469,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Bond handle or name")] object bondRef,
             [ExcelArgument(Description = "Settlement date")] DateTime settlement)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -529,11 +477,7 @@ namespace Convex.Excel
 
                 int count = ConvexWrapper.GetCashFlowCount(handle, settlement);
                 return count >= 0 ? (object)count : ExcelError.ExcelErrorValue;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
     }

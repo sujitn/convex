@@ -3,6 +3,8 @@
 //! This crate provides WASM bindings for the Convex library, enabling
 //! Bloomberg YAS-equivalent bond analytics in web browsers.
 
+use std::str::FromStr;
+
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -203,28 +205,10 @@ fn date_to_naive(date: Date) -> chrono::NaiveDate {
 }
 
 fn parse_day_count(s: &str) -> DayCountConvention {
-    let normalized = s.to_uppercase().replace(' ', "");
-    match normalized.as_str() {
-        // 30/360 US (NASD) - default for US bonds
-        "30/360" | "30/360US" | "30_360" | "THIRTY_360" | "30/360NASD" => {
-            DayCountConvention::Thirty360US
-        }
-        // 30E/360 European (ISMA)
-        "30E/360" | "30/360E" | "30/360EU" | "30/360EURO" | "30/360EUROPEAN" | "30E_360"
-        | "THIRTY360E" | "30/360ISMA" => DayCountConvention::Thirty360E,
-        // Actual/360
-        "ACT/360" | "ACT_360" | "ACTUAL_360" | "ACTUAL/360" => DayCountConvention::Act360,
-        // Actual/365 Fixed
-        "ACT/365" | "ACT_365" | "ACTUAL_365" | "ACTUAL/365" | "ACT/365F" | "ACT/365FIXED" => {
-            DayCountConvention::Act365Fixed
-        }
-        // Actual/Actual ICMA
-        "ACT/ACT" | "ACT_ACT" | "ACTUAL_ACTUAL" | "ACTUAL/ACTUAL" | "ACT/ACTICMA" => {
-            DayCountConvention::ActActIcma
-        }
-        // Default for US bonds
-        _ => DayCountConvention::Thirty360US,
-    }
+    // Delegate to the canonical parser; fall back to the 30/360 US that this
+    // endpoint defaulted to before, to preserve the "unknown input doesn't
+    // blow up the demo" guarantee for browser callers.
+    DayCountConvention::from_str(s).unwrap_or(DayCountConvention::Thirty360US)
 }
 
 fn parse_frequency(f: u32) -> Frequency {
@@ -1797,9 +1781,11 @@ mod tests {
             parse_day_count("ACT/365"),
             DayCountConvention::Act365Fixed
         ));
+        // Bare "ACT/ACT" maps to the ISDA interpretation (the canonical default).
+        // Callers that want ICMA must spell it out as "ACT/ACT ICMA".
         assert!(matches!(
             parse_day_count("act/act"),
-            DayCountConvention::ActActIcma
+            DayCountConvention::ActActIsda
         ));
     }
 

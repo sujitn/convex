@@ -508,55 +508,6 @@ pub unsafe extern "C" fn convex_bond_coupon_rate(bond: Handle) -> c_double {
     .unwrap_or(f64::NAN)
 }
 
-/// Gets the face value of a bond.
-///
-/// # Returns
-///
-/// Face value, or NaN on error.
-#[no_mangle]
-pub unsafe extern "C" fn convex_bond_face_value(bond: Handle) -> c_double {
-    registry::with_object::<FixedRateBond, _, _>(bond, |b| b.face_value().to_f64().unwrap_or(100.0))
-        .unwrap_or(f64::NAN)
-}
-
-/// Gets the payment frequency of a bond.
-///
-/// # Returns
-///
-/// Periods per year (1=Annual, 2=Semi, 4=Quarterly, 12=Monthly), or 0 on error.
-#[no_mangle]
-pub unsafe extern "C" fn convex_bond_frequency(bond: Handle) -> c_int {
-    registry::with_object::<FixedRateBond, _, _>(bond, |b| {
-        b.frequency().periods_per_year() as c_int
-    })
-    .unwrap_or(0)
-}
-
-/// Gets the day count convention of a bond as a string.
-///
-/// # Safety
-///
-/// Returns a pointer to a static string. Do not free.
-#[no_mangle]
-pub unsafe extern "C" fn convex_bond_day_count_name(bond: Handle) -> *const c_char {
-    static UNKNOWN: &[u8] = b"UNKNOWN\0";
-
-    registry::with_object::<FixedRateBond, _, _>(bond, |b| {
-        let name = b.day_count_convention();
-        // We need to return a static string, so match on known conventions
-        match name {
-            "ACT/360" => b"ACT/360\0".as_ptr() as *const c_char,
-            "ACT/365F" => b"ACT/365F\0".as_ptr() as *const c_char,
-            "ACT/ACT ISDA" => b"ACT/ACT ISDA\0".as_ptr() as *const c_char,
-            "ACT/ACT ICMA" => b"ACT/ACT ICMA\0".as_ptr() as *const c_char,
-            "30/360 US" => b"30/360 US\0".as_ptr() as *const c_char,
-            "30E/360" => b"30E/360\0".as_ptr() as *const c_char,
-            _ => UNKNOWN.as_ptr() as *const c_char,
-        }
-    })
-    .unwrap_or(UNKNOWN.as_ptr() as *const c_char)
-}
-
 // ============================================================================
 // Callable Bond Functions
 // ============================================================================
@@ -1527,12 +1478,6 @@ mod tests {
             // Check bond properties
             let coupon = convex_bond_coupon_rate(handle);
             assert!((coupon - 0.075).abs() < 0.001);
-
-            let face = convex_bond_face_value(handle);
-            assert!((face - 100.0).abs() < 0.001);
-
-            let freq = convex_bond_frequency(handle);
-            assert_eq!(freq, 2);
 
             // Calculate accrued interest
             let accrued = convex_bond_accrued(handle, 2020, 4, 29);

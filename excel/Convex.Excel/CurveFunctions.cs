@@ -25,7 +25,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Interpolation method (0-3)")] int interpolation,
             [ExcelArgument(Description = "Day count convention (0-5)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string curveName = (name is ExcelMissing || name is ExcelEmpty) ? null : name?.ToString();
 
@@ -48,11 +48,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -71,7 +67,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Interpolation method (0-3)")] int interpolation,
             [ExcelArgument(Description = "Day count convention (0-5)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string curveName = (name is ExcelMissing || name is ExcelEmpty) ? null : name?.ToString();
 
@@ -87,11 +83,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -105,7 +97,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Curve handle or name")] object curveRef,
             [ExcelArgument(Description = "Tenor in years")] double tenor)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -114,11 +106,7 @@ namespace Convex.Excel
                 double rate = ConvexWrapper.GetZeroRate(handle, tenor);
                 // Return as percentage (4.5 for 4.5%)
                 return double.IsNaN(rate) ? (object)ExcelError.ExcelErrorValue : rate * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -132,7 +120,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Curve handle or name")] object curveRef,
             [ExcelArgument(Description = "Tenor in years")] double tenor)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -140,11 +128,7 @@ namespace Convex.Excel
 
                 double df = ConvexWrapper.GetDiscountFactor(handle, tenor);
                 return double.IsNaN(df) ? (object)ExcelError.ExcelErrorValue : df;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -159,7 +143,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Start tenor in years")] double startTenor,
             [ExcelArgument(Description = "End tenor in years")] double endTenor)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -168,11 +152,7 @@ namespace Convex.Excel
                 double fwd = ConvexWrapper.GetForwardRate(handle, startTenor, endTenor);
                 // Return as percentage (4.5 for 4.5%)
                 return double.IsNaN(fwd) ? (object)ExcelError.ExcelErrorValue : fwd * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -187,7 +167,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Shift in basis points")] double basisPoints,
             [ExcelArgument(Description = "Optional new curve name")] object newName)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -199,11 +179,7 @@ namespace Convex.Excel
                 return newHandle == NativeMethods.INVALID_HANDLE
                     ? (object)ExcelError.ExcelErrorValue
                     : HandleHelper.Format(newHandle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -220,7 +196,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Pivot tenor in years")] double pivotTenor,
             [ExcelArgument(Description = "Optional new curve name")] object newName)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -232,11 +208,7 @@ namespace Convex.Excel
                 return newHandle == NativeMethods.INVALID_HANDLE
                     ? (object)ExcelError.ExcelErrorValue
                     : HandleHelper.Format(newHandle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -252,7 +224,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Bump in basis points")] double basisPoints,
             [ExcelArgument(Description = "Optional new curve name")] object newName)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(curveRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -264,11 +236,7 @@ namespace Convex.Excel
                 return newHandle == NativeMethods.INVALID_HANDLE
                     ? (object)ExcelError.ExcelErrorValue
                     : HandleHelper.Format(newHandle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -293,7 +261,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Interpolation (0=Linear, 1=LogLinear, 2=Cubic, 3=MonotoneConvex)")] int interpolation,
             [ExcelArgument(Description = "Day count (0=ACT/360, 1=ACT/365)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string curveName = (name is ExcelMissing || name is ExcelEmpty) ? null : name?.ToString();
 
@@ -314,11 +282,7 @@ namespace Convex.Excel
                 }
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -337,7 +301,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Interpolation (0=Linear, 1=LogLinear, 2=Cubic, 3=MonotoneConvex)")] int interpolation,
             [ExcelArgument(Description = "Day count (0=ACT/360, 1=ACT/365)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string curveName = (name is ExcelMissing || name is ExcelEmpty) ? null : name?.ToString();
 
@@ -356,11 +320,7 @@ namespace Convex.Excel
                 }
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -380,7 +340,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Interpolation (0=Linear, 1=LogLinear, 2=Cubic, 3=MonotoneConvex)")] int interpolation,
             [ExcelArgument(Description = "Day count (0=ACT/360, 1=ACT/365)")] int dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string curveName = (name is ExcelMissing || name is ExcelEmpty) ? null : name?.ToString();
 
@@ -405,11 +365,7 @@ namespace Convex.Excel
                 }
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
     }
 }

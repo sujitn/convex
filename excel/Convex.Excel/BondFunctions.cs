@@ -26,7 +26,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Day count (0-5)")] object dayCount,
             [ExcelArgument(Description = "Business day convention (0-3)")] object bdc)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (isin is ExcelMissing || isin is ExcelEmpty) ? null : isin?.ToString();
                 int dc = (dayCount is ExcelMissing || dayCount is ExcelEmpty) ? 4 : Convert.ToInt32(dayCount);
@@ -45,11 +45,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -66,7 +62,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Maturity date")] DateTime maturity,
             [ExcelArgument(Description = "Issue date")] DateTime issue)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (isin is ExcelMissing || isin is ExcelEmpty) ? null : isin?.ToString();
 
@@ -80,11 +76,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -101,7 +93,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Maturity date")] DateTime maturity,
             [ExcelArgument(Description = "Issue date")] DateTime issue)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (cusip is ExcelMissing || cusip is ExcelEmpty) ? null : cusip?.ToString();
 
@@ -115,11 +107,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -133,7 +121,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Bond handle or name")] object bondRef,
             [ExcelArgument(Description = "Settlement date")] DateTime settlement)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -141,11 +129,7 @@ namespace Convex.Excel
 
                 double accrued = ConvexWrapper.GetAccruedInterest(handle, settlement);
                 return double.IsNaN(accrued) ? (object)ExcelError.ExcelErrorValue : accrued;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -158,7 +142,7 @@ namespace Convex.Excel
         public static object CxBondMaturity(
             [ExcelArgument(Description = "Bond handle or name")] object bondRef)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -166,11 +150,7 @@ namespace Convex.Excel
 
                 var maturity = ConvexWrapper.GetMaturityDate(handle);
                 return maturity == DateTime.MinValue ? (object)ExcelError.ExcelErrorValue : maturity;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -183,7 +163,7 @@ namespace Convex.Excel
         public static object CxBondCoupon(
             [ExcelArgument(Description = "Bond handle or name")] object bondRef)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -195,11 +175,7 @@ namespace Convex.Excel
 
                 // Convert from decimal (0.05) to percentage (5.0)
                 return coupon * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -223,9 +199,9 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Frequency (1,2,4,12)")] object frequency,
             [ExcelArgument(Description = "Day count (0-5)")] object dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
-                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 2 : Convert.ToInt32(frequency);
+                int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? ConventionDefaults.DefaultCouponFrequency : Convert.ToInt32(frequency);
                 int dc = (dayCount is ExcelMissing || dayCount is ExcelEmpty) ? 4 : Convert.ToInt32(dayCount);
 
                 ulong handle = ConvexWrapper.CreateCallableBond(
@@ -237,11 +213,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -256,7 +228,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -268,11 +240,7 @@ namespace Convex.Excel
 
                 // Convert from decimal (0.05) to percentage (5.0)
                 return ytc * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -285,7 +253,7 @@ namespace Convex.Excel
         public static object CxBondCallDate(
             [ExcelArgument(Description = "Callable bond handle or name")] object bondRef)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -296,11 +264,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return callDate;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -313,7 +277,7 @@ namespace Convex.Excel
         public static object CxBondCallPrice(
             [ExcelArgument(Description = "Callable bond handle or name")] object bondRef)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -321,11 +285,7 @@ namespace Convex.Excel
 
                 double callPrice = ConvexWrapper.GetFirstCallPrice(handle);
                 return double.IsNaN(callPrice) ? (object)ExcelError.ExcelErrorValue : callPrice;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -346,7 +306,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Compounding (0=Annual, 1=Semi, 2=Quarterly, 3=Monthly, 4=Continuous)")] object compounding,
             [ExcelArgument(Description = "Day count (0-5)")] object dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (isin is ExcelMissing || isin is ExcelEmpty) ? null : isin?.ToString();
                 int comp = (compounding is ExcelMissing || compounding is ExcelEmpty) ? 1 : Convert.ToInt32(compounding);
@@ -362,11 +322,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -381,7 +337,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Maturity date")] DateTime maturity,
             [ExcelArgument(Description = "Issue date")] DateTime issue)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (cusip is ExcelMissing || cusip is ExcelEmpty) ? null : cusip?.ToString();
 
@@ -395,11 +351,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -422,7 +374,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Rate index (0=SOFR, 1=ESTR, 2=SONIA, etc.)")] object rateIndex,
             [ExcelArgument(Description = "Day count (0-5)")] object dayCount)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (isin is ExcelMissing || isin is ExcelEmpty) ? null : isin?.ToString();
                 int freq = (frequency is ExcelMissing || frequency is ExcelEmpty) ? 4 : Convert.ToInt32(frequency);
@@ -440,11 +392,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -460,7 +408,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Maturity date")] DateTime maturity,
             [ExcelArgument(Description = "Issue date")] DateTime issue)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 string identifier = (cusip is ExcelMissing || cusip is ExcelEmpty) ? null : cusip?.ToString();
 
@@ -474,11 +422,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return HandleHelper.Format(handle);
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -497,7 +441,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -509,11 +453,7 @@ namespace Convex.Excel
 
                 // Convert from decimal (0.05) to percentage (5.0)
                 return result.Yield * 100.0;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -528,7 +468,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Clean price")] double cleanPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -539,11 +479,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return result.WorkoutDate;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -560,7 +496,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Dirty price")] double dirtyPrice,
             [ExcelArgument(Description = "Volatility (%)")] object volatility)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 ulong curveHandle = HandleHelper.Parse(curveRef);
@@ -575,11 +511,7 @@ namespace Convex.Excel
                     return ExcelError.ExcelErrorValue;
 
                 return result.OasBps;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         // ========================================================================
@@ -599,7 +531,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Dirty price")] double dirtyPrice,
             [ExcelArgument(Description = "Current index rate (%)")] double currentIndexPercent)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong handle = HandleHelper.Parse(bondRef);
                 if (handle == NativeMethods.INVALID_HANDLE)
@@ -609,11 +541,7 @@ namespace Convex.Excel
                 double margin = ConvexWrapper.CalculateSimpleMargin(handle, settlement, dirtyPrice, currentIndex);
 
                 return double.IsNaN(margin) ? (object)ExcelError.ExcelErrorValue : margin;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
 
         /// <summary>
@@ -630,7 +558,7 @@ namespace Convex.Excel
             [ExcelArgument(Description = "Settlement date")] DateTime settlement,
             [ExcelArgument(Description = "Dirty price")] double dirtyPrice)
         {
-            try
+            return ExcelErrorHelper.SafeCall(() =>
             {
                 ulong bondHandle = HandleHelper.Parse(bondRef);
                 ulong fwdCurveHandle = HandleHelper.Parse(fwdCurveRef);
@@ -645,11 +573,7 @@ namespace Convex.Excel
                     bondHandle, fwdCurveHandle, discCurveHandle, settlement, dirtyPrice);
 
                 return double.IsNaN(dm) ? (object)ExcelError.ExcelErrorValue : dm;
-            }
-            catch (Exception ex)
-            {
-                return "#ERROR: " + ex.Message;
-            }
+            });
         }
     }
 }

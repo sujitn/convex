@@ -10,7 +10,7 @@
 
 pub mod short_date;
 mod yield_engine;
-mod yield_solver;
+pub(crate) mod yield_solver;
 
 pub use short_date::{RollForwardMethod, ShortDateCalculator};
 pub use yield_engine::{
@@ -19,15 +19,19 @@ pub use yield_engine::{
 };
 pub use yield_solver::{current_yield, current_yield_from_bond, YieldResult, YieldSolver};
 
+use std::str::FromStr;
+
+use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
+use convex_core::daycounts::DayCountConvention;
 use convex_core::traits::YieldCurve;
 use convex_core::types::{Date, Price};
-use convex_math::solvers::{newton_raphson, SolverConfig};
 
 use crate::cashflows::CashFlowGenerator;
 use crate::error::{BondError, BondResult};
 use crate::instruments::{Bond, FixedBond};
+use crate::traits::BondCashFlow;
 
 /// Result of a bond pricing calculation.
 #[derive(Debug, Clone)]
@@ -40,6 +44,20 @@ pub struct PriceResult {
     pub accrued_interest: Decimal,
     /// Present value of cash flows.
     pub present_value: Decimal,
+}
+
+impl PriceResult {
+    /// Returns the clean price as a percentage of par.
+    #[must_use]
+    pub fn clean_price_percent(&self) -> Decimal {
+        self.clean_price.as_percentage()
+    }
+
+    /// Returns the dirty price as a percentage of par.
+    #[must_use]
+    pub fn dirty_price_percent(&self) -> Decimal {
+        self.dirty_price.as_percentage()
+    }
 }
 
 /// Bond pricing engine.
@@ -82,95 +100,52 @@ impl BondPricer {
         })
     }
 
-    /// Calculates the yield-to-maturity given a price.
+    /// Calculates the yield-to-maturity given a clean price.
     ///
-    /// Uses Newton-Raphson iteration to find the yield.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond
-    /// * `clean_price` - Market clean price
-    /// * `settlement` - Settlement date
+    /// Uses the frequency and day-count convention declared on the bond,
+    /// delegating to [`YieldSolver`] for the actual root-finding.
     pub fn yield_to_maturity(
         bond: &FixedBond,
         clean_price: Price,
         settlement: Date,
     ) -> BondResult<Decimal> {
-        let schedule = CashFlowGenerator::generate(bond, settlement)?;
+        let cash_flows = bond_cash_flows(bond, settlement)?;
         let accrued = CashFlowGenerator::accrued_interest(bond, settlement)?;
+        let day_count = parse_bond_day_count(bond)?;
 
-        let target_dirty_price = clean_price.as_percentage() + accrued;
-        let target = target_dirty_price
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(100.0);
+        let result = YieldSolver::new().solve(
+            &cash_flows,
+            clean_price.as_percentage(),
+            accrued,
+            settlement,
+            day_count,
+            bond.frequency(),
+        )?;
 
-        // Initial guess based on coupon rate
-        let coupon_rate = bond
-            .coupon_rate()
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(0.05);
-        let initial_guess = coupon_rate;
-
-        // Objective: PV(yield) - target_price = 0
-        let objective = |y: f64| {
-            let mut pv = 0.0;
-            for cf in schedule.iter() {
-                let t = settlement.days_between(&cf.date()) as f64 / 365.0;
-                let df = 1.0 / (1.0 + y / 2.0).powf(2.0 * t); // Semi-annual compounding
-                let amount = cf.amount().to_string().parse::<f64>().unwrap_or(0.0);
-                pv += amount * df;
-            }
-            pv - target
-        };
-
-        let derivative = |y: f64| {
-            let mut dpv = 0.0;
-            for cf in schedule.iter() {
-                let t = settlement.days_between(&cf.date()) as f64 / 365.0;
-                let df = 1.0 / (1.0 + y / 2.0).powf(2.0 * t);
-                let amount = cf.amount().to_string().parse::<f64>().unwrap_or(0.0);
-                // d(df)/dy = -t * df / (1 + y/2)
-                dpv += amount * (-t) * df / (1.0 + y / 2.0);
-            }
-            dpv
-        };
-
-        let config = SolverConfig::new(1e-10, 100);
-        let result = newton_raphson(objective, derivative, initial_guess, &config)
-            .map_err(|_| BondError::YieldConvergenceFailed { iterations: 100 })?;
-
-        Ok(Decimal::from_f64_retain(result.root).unwrap_or(Decimal::ZERO))
+        Ok(Decimal::from_f64_retain(result.yield_value).unwrap_or(Decimal::ZERO))
     }
 
-    /// Calculates the price given a yield.
+    /// Calculates price from yield.
     ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond
-    /// * `yield_value` - Yield (as decimal, e.g., 0.05 for 5%)
-    /// * `settlement` - Settlement date
+    /// `yield_value` is a decimal rate (0.05 == 5%).
     pub fn price_from_yield(
         bond: &FixedBond,
         yield_value: Decimal,
         settlement: Date,
     ) -> BondResult<PriceResult> {
-        let schedule = CashFlowGenerator::generate(bond, settlement)?;
+        let cash_flows = bond_cash_flows(bond, settlement)?;
         let accrued = CashFlowGenerator::accrued_interest(bond, settlement)?;
+        let day_count = parse_bond_day_count(bond)?;
+        let y = yield_value.to_f64().unwrap_or(0.05);
 
-        let y = yield_value.to_string().parse::<f64>().unwrap_or(0.05);
-
-        // Calculate PV using yield
-        let mut pv = 0.0;
-        for cf in schedule.iter() {
-            let t = settlement.days_between(&cf.date()) as f64 / 365.0;
-            let df = 1.0 / (1.0 + y / 2.0).powf(2.0 * t);
-            let amount = cf.amount().to_string().parse::<f64>().unwrap_or(0.0);
-            pv += amount * df;
-        }
-
-        let dirty_price = Decimal::from_f64_retain(pv).unwrap_or(Decimal::ONE_HUNDRED);
+        let dirty_f64 = YieldSolver::new().dirty_price_from_yield(
+            &cash_flows,
+            y,
+            settlement,
+            day_count,
+            bond.frequency(),
+        );
+        let dirty_price = Decimal::from_f64_retain(dirty_f64).unwrap_or(Decimal::ONE_HUNDRED);
         let clean_price = dirty_price - accrued;
 
         Ok(PriceResult {
@@ -180,6 +155,25 @@ impl BondPricer {
             present_value: dirty_price,
         })
     }
+}
+
+fn bond_cash_flows(bond: &FixedBond, settlement: Date) -> BondResult<Vec<BondCashFlow>> {
+    let schedule = CashFlowGenerator::generate(bond, settlement)?;
+    Ok(schedule
+        .iter()
+        .map(|cf| BondCashFlow::coupon(cf.date(), cf.amount()))
+        .collect())
+}
+
+fn parse_bond_day_count(bond: &FixedBond) -> BondResult<DayCountConvention> {
+    DayCountConvention::from_str(bond.day_count()).map_err(|e| {
+        BondError::invalid_spec(format!(
+            "bond '{}' has unrecognized day count '{}': {}",
+            bond.identifier(),
+            bond.day_count(),
+            e
+        ))
+    })
 }
 
 #[cfg(test)]
