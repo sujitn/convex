@@ -48,6 +48,19 @@ impl AccruedInterestCalculator {
         }
 
         let dc = day_count.to_day_count();
+
+        // ACT/360 and ACT/365* don't return 1/freq for a regular period, so the
+        // "coupon_per_period × accrued/period" prorata understates accrued.
+        // Match QL: `face × rate × year_fraction(last, settlement)` directly.
+        if matches!(
+            day_count,
+            DayCountConvention::Act360
+                | DayCountConvention::Act365Fixed
+                | DayCountConvention::Act365Leap
+        ) {
+            return face_value * coupon_rate * dc.year_fraction(last_coupon, settlement);
+        }
+
         let accrual_days = dc.day_count(last_coupon, settlement);
         let period_days = dc.day_count(last_coupon, next_coupon);
 

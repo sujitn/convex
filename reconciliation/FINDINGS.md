@@ -11,6 +11,7 @@ instruments and 8–14 metrics each.
 | 4 | 97 / 97 | Callable bonds via workout-bullet proxies |
 | 5 | 113 / 113 | + TIPS real-yield, FRN flat-forward, calendar/EOM fixes |
 | post-M5 | 117 / 117 | + real UK/EU/JP curves + TIPS nominal pricing (Tier 2.2) |
+| post-M5 | 117 / 117 | FRN flipped to real ACT/360; day-count-aware coupon/accrued/PV (Tier 2.1) |
 
 Workspace lib tests: 1736 pass, 0 fail. Clippy clean.
 

@@ -60,9 +60,20 @@ pub(crate) fn project_discount_fractions(
         .filter(|cf| cf.date > settlement)
         .collect();
 
-    let period_aware = future.first().map_or(false, |cf| {
-        cf.accrual_start.is_some() && cf.accrual_end.is_some()
-    });
+    // ACT/360 and ACT/365* aren't period-based — time-to-cash-flow is literally
+    // day_count / {360,365}, not `(i+1-v)/freq`. The ISMA block below would give
+    // the wrong answer; fall straight through to the day-count-driven formula.
+    let use_raw_year_fraction = matches!(
+        day_count,
+        DayCountConvention::Act360
+            | DayCountConvention::Act365Fixed
+            | DayCountConvention::Act365Leap
+    );
+
+    let period_aware = !use_raw_year_fraction
+        && future.first().map_or(false, |cf| {
+            cf.accrual_start.is_some() && cf.accrual_end.is_some()
+        });
 
     if period_aware {
         let first = future[0];

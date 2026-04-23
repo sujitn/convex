@@ -29,20 +29,26 @@ plus a pivot to internal-only (dropped crates.io publishing, removed
 
 ## Tier 2 — Real library work
 
-### 2.1 Day-count-aware `FixedRateBond::coupon_per_period` — blocked on 5.1
+### 2.1 Day-count-aware coupon / accrued / discount time — done
 
-Under ACT/360 quarterly, QL computes `coupon = rate × year_fraction(start, end)`
-(0.9225–0.9427 depending on 89–92-day quarter); Convex returns `rate × face
-/ freq` (flat 0.9225). For semi-annual 30/360 / ACT-ACT ICMA these agree.
-UST FRN in `book.json` uses ACT/ACT ICMA as a documented workaround.
+ACT/360 and ACT/365* now behave correctly on three fronts (leaving the
+semi-annual 30/360 / ACT-ACT paths untouched since they already return
+1/freq for a regular period):
 
-Cleanest fix: leave `coupon_per_period` as a nominal value, but have
-`FixedRateBond::cash_flows` scale each coupon by
-`day_count.year_fraction(accrual_start, accrual_end)` when the day count
-is ACT/360 or ACT/365. The stub-coupon path already does this — generalize.
+* `FixedRateBond::cash_flows` uses `annual_coupon × year_fraction(start, end)`
+  so each quarterly coupon varies with the 89–92-day period length.
+* `AccruedInterestCalculator::standard` uses `face × rate × year_fraction(last, settle)`
+  (prorata-in-period is still used for ICMA/30-360).
+* `project_discount_fractions` in `yield_solver` short-circuits the ISMA
+  `(i+1-v)/freq` formula and falls through to day-count-driven
+  `year_fraction(settle, cf_date)`, matching QL's PV path.
 
-Validation: swap UST FRN back to ACT/360, rerun reconciliation; should
-stay at 113/113. ~1 hr.
+UST FRN in `book.json` flipped back to ACT/360 (removed the
+`day_count_actual` sidecar note that now duplicates `day_count`).
+Reconciliation stays at 117/117 under the real market convention.
+
+Unblocks 2.3: real SOFR forward projection on the same day-count
+footing.
 
 ### 2.2 TIPS nominal pricing — done
 

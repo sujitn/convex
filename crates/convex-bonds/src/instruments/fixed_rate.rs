@@ -401,6 +401,18 @@ impl Bond for FixedRateBond {
                 } else {
                     self.coupon_per_period()
                 }
+            } else if matches!(
+                self.day_count,
+                DayCountConvention::Act360
+                    | DayCountConvention::Act365Fixed
+                    | DayCountConvention::Act365Leap
+            ) {
+                // Under ACT/360 and ACT/365*, period lengths differ (89–92 days for
+                // quarterly, etc.) and the year-fraction-based coupon varies with
+                // the period. Match QL's `rate * year_fraction(start, end)`; for
+                // 30/360 and ACT/ACT that collapses to `rate / freq` already.
+                let dc = self.day_count.to_day_count();
+                self.annual_coupon() * dc.year_fraction(accrual_start, accrual_end)
             } else {
                 self.coupon_per_period()
             };
