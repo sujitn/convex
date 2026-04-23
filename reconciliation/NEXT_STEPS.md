@@ -4,7 +4,7 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Branch `reconcile/milestone-1-book`. Reconciliation **113 / 113**, zero delta.
+Branch `reconcile/milestone-1-book`. Reconciliation **117 / 117**, zero delta.
 Workspace `cargo test --all-targets` **1736 / 0**. Clippy clean under
 `-D warnings`. Doc tests 4 / 0. Excel add-in builds. CI has a
 reconciliation gate (`.github/workflows/reconcile.yml`).
@@ -44,17 +44,15 @@ is ACT/360 or ACT/365. The stub-coupon path already does this — generalize.
 Validation: swap UST FRN back to ACT/360, rerun reconciliation; should
 stay at 113/113. ~1 hr.
 
-### 2.2 TIPS nominal pricing with live CPI index ratio
+### 2.2 TIPS nominal pricing — done
 
-Real-yield TIPS already reconciles 8/8. Nominal pricing scales principal
-+ coupons by the index ratio on valuation date.
-
-1. Finish `pull_tips_index_ratio` for CUSIP `91282CNS6` on 2025-12-31
-   from TreasuryDirect (CSV on the TIPS/CPI detail page).
-2. Both benches price with ratio applied — simplest is to scale coupons
-   and re-use the fixed-rate path.
-3. Add `nominal_clean_price_pct`, `nominal_dirty_price_pct`,
-   `inflation_accrued`. Expect +4–6 new rows. ~1–1.5 hr.
+`pull_tips_index_ratio` walks TreasuryDirect `/xml/CPI_*.xml` and captures
+the (CUSIP 91282CNS6, 2025-12-31) row: `index_ratio = 1.01395`. Both
+benches emit 4 nominal metrics (`cpi_index_ratio`, `nominal_clean_price_pct`,
+`nominal_dirty_price_pct`, `nominal_accrued`); reconciliation went 113 → 117.
+Follow-up: bake the ratio into `book.json` as `cpi_index_ratio_on_valuation`
+once we're comfortable pinning the snapshot, OR let the puller stay the
+single source of truth.
 
 ### 2.3 UST FRN with real SOFR forward projection
 
