@@ -317,17 +317,6 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
         .with_context(|| format!("building {}", inst.id))
 }
 
-/// Pick the discount curve id for a given currency.
-fn curve_id_for_ccy(ccy: &str) -> &'static str {
-    match ccy {
-        "USD" => "UST_CMT",
-        "GBP" => "UK_GILT_CURVE",
-        "EUR" => "DE_BUND_CURVE",
-        "JPY" => "JP_JGB_CURVE",
-        _ => "UST_CMT",
-    }
-}
-
 /// Decide which curve + which reference yield to use for a given bond.
 fn reference_yield<'a>(
     inst: &Instrument,
@@ -338,21 +327,27 @@ fn reference_yield<'a>(
     let ccy = inst.currency.as_deref().unwrap_or("USD");
     let yrs = years_to_maturity(valuation, maturity);
 
-    // TIPS are priced on a real yield, not the nominal UST curve. Use the
-    // latest 10Y TIPS auction real yield as a flat placeholder.
+    // TIPS: discount at a flat real yield, not the nominal curve.
     if inst.category == "sovereign_linker" {
         return (0.0185, "tips_real_placeholder");
     }
-
-    // FRN: discount at the projected (index + spread) so the flat-forward
-    // reconciliation exercises the quarterly ACT/360 convention path.
+    // FRN: flat forward at (index + spread), exercises the quarterly ACT/360 path.
     if inst.category == "sovereign_frn" {
         if let (Some(idx), spread) = (inst.index_rate_pct, inst.spread_bps.unwrap_or(0.0)) {
             return ((idx + spread / 100.0) / 100.0, "frn_flat_projection");
         }
     }
 
-    let curve_id = curve_id_for_ccy(ccy);
+    let curve_id = match ccy {
+        "USD" => "UST_CMT",
+        "GBP" => "UK_GILT_CURVE",
+        "EUR" => "DE_BUND_CURVE",
+        "JPY" => "JP_JGB_CURVE",
+        other => {
+            // parse_currency upstream rejects anything else.
+            unreachable!("unexpected currency {other} on {}", inst.id)
+        }
+    };
     if let Some(curve) = curves.iter().find(|c| c.id == curve_id) {
         if let Some(y) = interpolate_cmt(curve, yrs) {
             return (y, curve.id.as_str());

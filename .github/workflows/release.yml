@@ -136,15 +136,6 @@ jobs:
           name: convex-excel-addin
           path: ./artifacts
 
-      - name: Extract changelog section
-        id: changelog
-        run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          CHANGELOG=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

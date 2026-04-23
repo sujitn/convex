@@ -151,7 +151,3 @@ strip = true
 [workspace.metadata.cargo-deny]
 # See https://github.com/EmbarkStudios/cargo-deny for configuration
 
-# Docs.rs configuration
-[workspace.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]

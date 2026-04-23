@@ -192,17 +192,9 @@ impl DayCount for ActActIcma {
         "ACT/ACT ICMA"
     }
 
-    /// Fallback year fraction when coupon-period bounds are unknown.
-    ///
-    /// ICMA is a period-aware convention — the correct answer requires the
-    /// enclosing coupon period, which this trait method does not receive. For
-    /// accrual and period-aware PV use [`ActActIcma::year_fraction_with_period`]
-    /// (or the `project_discount_fractions` helper in `convex-bonds`).
-    ///
-    /// For the unbounded fallback we delegate to the ACT/ACT ISDA calendar
-    /// split: it sits in the same family, returns exactly 1 for a full year,
-    /// and prorates multi-year spans by leap-year days. That is the most
-    /// honest generic answer when nothing else is known about the period.
+    // ICMA needs period bounds for an exact answer; the trait method
+    // doesn't get them, so fall through to the ISDA calendar split. Use
+    // year_fraction_with_period for accrual.
     fn year_fraction(&self, start: Date, end: Date) -> Decimal {
         ActActIsda.year_fraction(start, end)
     }
