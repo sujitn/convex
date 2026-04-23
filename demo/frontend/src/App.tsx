@@ -365,7 +365,7 @@ function App() {
               <span>View on GitHub</span>
             </a>
             <a
-              href="https://docs.rs/convex-bonds"
+              href="https://github.com/sujitn/convex#readme"
               target="_blank"
               rel="noopener noreferrer"
               className="btn border border-white/30 text-white hover:bg-white/10 flex items-center space-x-2"

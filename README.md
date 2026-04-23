@@ -2,8 +2,6 @@
 
 **High-Performance Fixed Income Analytics Library in Rust**
 
-[![Crates.io](https://img.shields.io/crates/v/convex.svg)](https://crates.io/crates/convex)
-[![Documentation](https://docs.rs/convex/badge.svg)](https://docs.rs/convex)
 [![Build Status](https://github.com/sujitn/convex/workflows/CI/badge.svg)](https://github.com/sujitn/convex/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -29,12 +27,17 @@ Convex is a production-grade fixed income analytics library providing comprehens
 
 ### Installation
 
-Add this to your `Cargo.toml`:
+Convex is an internal workspace — it is not published to crates.io. Depend on the
+crate(s) you need via a git dependency:
 
 ```toml
 [dependencies]
-convex = "0.1"
+convex-bonds    = { git = "https://github.com/sujitn/convex.git" }
+convex-analytics = { git = "https://github.com/sujitn/convex.git" }
+convex-curves   = { git = "https://github.com/sujitn/convex.git" }
 ```
+
+or clone the repo and use a path dependency.
 
 ### Example: Pricing a US Treasury Bond
 
@@ -393,7 +396,7 @@ cargo bench
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/convex)
+- API Documentation — generate locally with `cargo doc --no-deps --workspace --open`
 - [Live Demo](https://convex-demo.pages.dev/)
 - [WASM Demo](https://sujitn.github.io/convex/)
 

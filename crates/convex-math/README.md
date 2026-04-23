@@ -80,7 +80,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-convex-math = "0.1"
+convex-math = { git = "https://github.com/sujitn/convex.git" }
 ```
 
 ## License
