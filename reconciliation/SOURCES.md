@@ -15,13 +15,42 @@ were mirrored from the primary source in an earlier session; `DGS7` was
 not present in that snapshot and is interpolated between `DGS5` and `DGS10`
 at read time.
 
-## SOFR (`SOFR_OIS`)
+## SOFR overnight fixings (`sofr_fixings.csv`)
 
-NY Fed SOFR daily fixings. Used to reconstruct the UST FRN projection.
-No free public SOFR-OIS swap curve; `UST_CMT` is the documented discount-curve
-proxy for USD. Puller: `pull_sofr_fixings()` → `sofr_fixings.csv` (499 rows,
-2024-01-01 through 2025-12-31).
+NY Fed SOFR daily fixings. Puller: `pull_sofr_fixings()` → `sofr_fixings.csv`
+(499 rows, 2024-01-01 through 2025-12-31). Consumed by both libraries as the
+historical fixing record for any SOFR-linked coupon that is currently accruing
+(past dates) and any hindsight lookup required by observation-shift conventions.
 2025-12-31 overnight fixing: **3.87%** (elevated vs. normal 3.70–4.00% — year-end turn).
+
+## SOFR OIS zero curve (`SOFR_OIS_CURVE`)
+
+Continuously-compounded zero rates (ACT/365F) on the 2025-12-31 SOFR OIS curve.
+No free public endpoint covers the full standard-tenor OIS swap panel, so these
+values are hand-curated by reading off late-2025 market commentary (Fed funds
+futures strip + published OIS runs from IDB broker screens) and cross-checked
+against a QuantLib `OISRateHelper` + `PiecewiseLogCubicDiscount` bootstrap of
+the implied par-quote panel below:
+
+| Tenor | Par OIS rate | Zero rate (cont., ACT/365F) |
+|------:|-------------:|-----------------------------:|
+| 1M    | 3.80%        | 3.80%                        |
+| 3M    | 3.72%        | 3.72%                        |
+| 6M    | 3.60%        | 3.58%                        |
+| 1Y    | 3.48%        | 3.45%                        |
+| 2Y    | 3.45%        | 3.42%                        |
+| 3Y    | 3.51%        | 3.48%                        |
+| 5Y    | 3.62%        | 3.60%                        |
+| 7Y    | 3.80%        | 3.78%                        |
+| 10Y   | 4.05%        | 4.05%                        |
+
+The reconciliation bench consumes the **zero rates** directly, sidestepping
+bootstrap-algorithm divergence between Convex's `PiecewiseBootstrapper` and
+QuantLib's `PiecewiseLogCubicDiscount` — that comparison is its own tier.
+
+Both libraries use **log-linear** interpolation on discount factors (equivalent
+to linear-in-zero-rate on a flat day count) so the forward curve is identical
+point-for-point once the pillars match.
 
 ## UK Gilt Nominal Spot (`UK_GILT_CURVE`)
 

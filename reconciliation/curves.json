@@ -19,10 +19,24 @@
       ]
     },
     {
-      "id": "SOFR_OIS",
-      "status": "PROXIED_BY_UST_CMT",
+      "id": "SOFR_OIS_CURVE",
       "currency": "USD",
-      "overnight_fixing_2025_12_31": 3.87
+      "compounding": "continuous",
+      "day_count": "ACT/365F",
+      "observation_date": "2025-12-31",
+      "overnight_fixing_2025_12_31": 3.87,
+      "note": "Continuously-compounded zero rates on the 2025-12-31 SOFR OIS curve. Pre-bootstrapped so both benches consume an identical input (Convex vs QL OIS bootstrap convergence is a separate reconciliation scope). Par OIS quotes + methodology: SOURCES.md.",
+      "quotes": [
+        { "tenor_years": 0.0833, "rate_pct": 3.80 },
+        { "tenor_years": 0.25,   "rate_pct": 3.72 },
+        { "tenor_years": 0.5,    "rate_pct": 3.58 },
+        { "tenor_years": 1.0,    "rate_pct": 3.45 },
+        { "tenor_years": 2.0,    "rate_pct": 3.42 },
+        { "tenor_years": 3.0,    "rate_pct": 3.48 },
+        { "tenor_years": 5.0,    "rate_pct": 3.60 },
+        { "tenor_years": 7.0,    "rate_pct": 3.78 },
+        { "tenor_years": 10.0,   "rate_pct": 4.05 }
+      ]
     },
     {
       "id": "UK_GILT_CURVE",

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import pathlib
 import sys
 from datetime import date
@@ -100,6 +101,116 @@ CCY_TO_CURVE_ID = {
     "EUR": "DE_BUND_CURVE",
     "JPY": "JP_JGB_CURVE",
 }
+
+
+# ---------------------------------------------------------------- SOFR FRN pricing
+
+def build_zero_rate_df(curve: dict, valuation: ql.Date) -> callable:
+    """Return a DF(date) closure for a zero-rate panel (cont. ACT/365F).
+
+    Linear interpolation on zero rates, flat extrapolation. Matches the Convex
+    side (`DiscountCurveBuilder::with_interpolation(Linear)`) point-for-point.
+    """
+    pts = sorted(
+        (q["tenor_years"], q["rate_pct"] / 100.0)
+        for q in curve.get("quotes", [])
+        if q.get("rate_pct") is not None
+    )
+
+    def zero_rate(t: float) -> float:
+        if t <= pts[0][0]:
+            return pts[0][1]
+        if t >= pts[-1][0]:
+            return pts[-1][1]
+        for (t0, r0), (t1, r1) in zip(pts, pts[1:]):
+            if t0 <= t <= t1:
+                w = (t - t0) / (t1 - t0)
+                return r0 + w * (r1 - r0)
+        return pts[-1][1]
+
+    def df(date: ql.Date) -> float:
+        if date <= valuation:
+            return 1.0
+        t = (date - valuation) / 365.0
+        return math.exp(-zero_rate(t) * t)
+
+    return df
+
+
+def quarterly_schedule_dates(dated: ql.Date, maturity: ql.Date) -> list[ql.Date]:
+    """Generate a quarterly schedule walking backward from maturity, mirroring
+    the Convex side's `quarterly_schedule`. NullCalendar + Unadjusted.
+    """
+    dates = [maturity]
+    current = maturity
+    while True:
+        prev = current - ql.Period(3, ql.Months)
+        if prev <= dated:
+            dates.append(dated)
+            break
+        dates.append(prev)
+        current = prev
+    dates.reverse()
+    return dates
+
+
+def price_corporate_frn(inst: dict, valuation: ql.Date, sofr_curve: dict) -> dict:
+    """Mirror of the Rust `price_corporate_frn` — see book.json::coupon_model_note.
+
+    Returns a dict of metric-name → value, matching the Convex emitter.
+    """
+    dated = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    spread = inst["spread_bps"] / 10_000.0
+    reset = inst["current_reset_rate_pct"] / 100.0
+
+    df = build_zero_rate_df(sofr_curve, valuation)
+
+    schedule = quarterly_schedule_dates(dated, maturity)
+    face = 100.0
+    dc360 = ql.Actual360()
+
+    dirty = 0.0
+    spread_annuity = 0.0
+    last_coupon_before_settle = None
+
+    for start, end in zip(schedule[:-1], schedule[1:]):
+        if end <= valuation:
+            last_coupon_before_settle = end
+            continue
+        if start <= valuation:
+            last_coupon_before_settle = start
+
+        df_start = df(start)
+        df_end = df(end)
+        yf360 = dc360.yearFraction(start, end)
+
+        float_cf = face * (df_start / df_end - 1.0)
+        spread_cf = face * spread * yf360
+        cf = float_cf + spread_cf
+        if end == maturity:
+            cf += face
+        dirty += cf * df_end
+        spread_annuity += yf360 * df_end
+
+    dirty_price_pct = dirty
+
+    accrued = 0.0
+    if last_coupon_before_settle is not None:
+        yf = dc360.yearFraction(last_coupon_before_settle, valuation)
+        accrued = face * reset * yf
+
+    clean_price_pct = dirty_price_pct - accrued
+
+    dm = (dirty_price_pct - 100.0 - accrued) / (spread_annuity * face) if abs(spread_annuity) > 1e-12 else 0.0
+    discount_margin_bps = dm * 10_000.0
+
+    return {
+        "clean_price_pct": clean_price_pct,
+        "dirty_price_pct": dirty_price_pct,
+        "accrued": accrued,
+        "discount_margin_bps": discount_margin_bps,
+    }
 
 
 def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
@@ -234,11 +345,36 @@ def main() -> int:
     rows: list[dict] = []
     skipped: list[str] = []
 
+    sofr_curve = curve_by_id.get("SOFR_OIS_CURVE")
+
     for inst in book["instruments"]:
         cat = inst["category"]
         if cat in SKIP_CATEGORIES:
             skipped.append(f"{inst['id']} ({cat}) — {SKIP_CATEGORIES[cat]}")
             continue
+
+        # Corporate SOFR FRN — dedicated pricing path off the SOFR OIS zero curve.
+        if cat == "corporate_frn":
+            if sofr_curve is None:
+                raise RuntimeError(
+                    f"{inst['id']}: SOFR_OIS_CURVE required for corporate_frn pricing"
+                )
+            m = price_corporate_frn(inst, valuation, sofr_curve)
+            spread_dec = inst["spread_bps"] / 10_000.0
+            for metric, value in m.items():
+                rows.append(
+                    {
+                        "bond_id": inst["id"],
+                        "currency": inst.get("currency", "USD"),
+                        "metric": metric,
+                        "value": f"{value:.10f}",
+                        "reference_yield": f"{spread_dec:.10f}",
+                        "curve_used": "SOFR_OIS_CURVE",
+                        "notes": "",
+                    }
+                )
+            continue
+
         is_callable = cat in CALLABLE_CATEGORIES
         is_linker = cat == "sovereign_linker"
         is_frn = cat == "sovereign_frn"

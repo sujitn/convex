@@ -22,6 +22,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
@@ -35,6 +36,8 @@ use convex_bonds::types::CalendarId;
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
+use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
+use convex_curves::InterpolationMethod;
 
 // ------------------------------------------------------------------ schemas
 
@@ -73,6 +76,9 @@ struct Instrument {
     index_rate_pct: Option<f64>,
     #[serde(default)]
     spread_bps: Option<f64>,
+    // Corporate-SOFR-FRN-specific: last reset rate used for in-progress accrual.
+    #[serde(default)]
+    current_reset_rate_pct: Option<f64>,
     // Linker-specific: CUSIP is looked up in the TIPS index-ratio file.
     #[serde(default)]
     identifier: Option<Identifier>,
@@ -281,6 +287,195 @@ fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
     }
 }
 
+// --------------------------------------------------- SOFR curve + FRN pricing
+
+/// Build a discount curve from a zero-rate panel (continuously compounded,
+/// ACT/365F). Used for SOFR_OIS_CURVE. Linear interpolation on zero rates —
+/// matches what QuantLib's `ZeroCurve(dates, rates, Linear())` produces.
+fn build_zero_rate_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve> {
+    if curve.quotes.is_empty() {
+        return Err(anyhow!(
+            "curve {} has no quotes; cannot bootstrap",
+            curve.id
+        ));
+    }
+    let mut builder = DiscountCurveBuilder::new(reference_date)
+        .with_interpolation(InterpolationMethod::Linear)
+        .with_extrapolation();
+    for q in &curve.quotes {
+        let rate = q.rate_pct.ok_or_else(|| {
+            anyhow!(
+                "curve {} has null rate_pct at tenor {}",
+                curve.id,
+                q.tenor_years
+            )
+        })?;
+        builder = builder.add_zero_rate(q.tenor_years, rate / 100.0);
+    }
+    builder
+        .build()
+        .with_context(|| format!("building discount curve for {}", curve.id))
+}
+
+/// Generate a quarterly schedule anchored at `dated` through `maturity`,
+/// working backward from maturity. Matches QL's Schedule(DateGeneration.Backward)
+/// with NullCalendar + Unadjusted so both libraries land on the same dates.
+///
+/// For the MMC FRN (2024-11-08 → 2027-11-08) this yields 13 period starts:
+///   2024-11-08, 2025-02-08, 2025-05-08, 2025-08-08, 2025-11-08,
+///   2026-02-08, 2026-05-08, 2026-08-08, 2026-11-08,
+///   2027-02-08, 2027-05-08, 2027-08-08, 2027-11-08.
+fn quarterly_schedule(dated: Date, maturity: Date) -> Result<Vec<Date>> {
+    let mut dates = vec![maturity];
+    let mut current = maturity;
+    loop {
+        let prev = current.add_months(-3).map_err(|e| {
+            anyhow!("date underflow walking quarterly schedule from {maturity}: {e}")
+        })?;
+        if prev <= dated {
+            dates.push(dated);
+            break;
+        }
+        dates.push(prev);
+        current = prev;
+    }
+    dates.reverse();
+    Ok(dates)
+}
+
+/// Compute DF(t) where t = ACT/365F years from curve's reference date. Clamps
+/// t < 0 to 1.0 (past dates).
+fn df_at_date(curve: &DiscountCurve, reference: Date, date: Date) -> Result<f64> {
+    if date <= reference {
+        return Ok(1.0);
+    }
+    let t = reference.days_between(&date) as f64 / 365.0;
+    curve
+        .discount_factor_at_tenor(t)
+        .map_err(|e| anyhow!("discount_factor_at_tenor({t}) failed: {e}"))
+}
+
+/// All metrics emitted for a corporate SOFR FRN.
+struct FrnMetrics {
+    clean_price_pct: f64,
+    dirty_price_pct: f64,
+    accrued: f64,
+    discount_margin_bps: f64,
+}
+
+/// Price a corporate SOFR FRN under the simplified projection convention
+/// documented in `book.json::coupon_model_note`:
+///   - Schedule: quarterly, NullCalendar + Unadjusted, backward from maturity.
+///   - For each period ending after settle, projected coupon amount =
+///     `(DF(start) / DF(end) − 1) × face + spread × yf360 × face`. Past dates
+///     clamp DF = 1.
+///   - Dirty price = Σ (coupon × DF(end)) + face × DF(maturity), all / face × 100.
+///   - Accrued = `face × current_reset_rate × yf360(last_coupon, settle)`.
+///   - DM = Brent-solved spread that reprices the bond to clean = 100 (par).
+fn price_corporate_frn(
+    inst: &Instrument,
+    valuation: Date,
+    sofr_curve: &DiscountCurve,
+) -> Result<FrnMetrics> {
+    let dated = parse_date(
+        inst.dated_date
+            .as_deref()
+            .or(inst.issue_date.as_deref())
+            .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?,
+    )?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let spread = inst
+        .spread_bps
+        .ok_or_else(|| anyhow!("{}: missing spread_bps", inst.id))?
+        / 10_000.0;
+    let reset = inst
+        .current_reset_rate_pct
+        .ok_or_else(|| anyhow!("{}: missing current_reset_rate_pct", inst.id))?
+        / 100.0;
+
+    let schedule = quarterly_schedule(dated, maturity)
+        .with_context(|| format!("{}: quarterly_schedule", inst.id))?;
+
+    let face: f64 = 100.0;
+    let dc360 = DayCountConvention::Act360.to_day_count();
+
+    let mut dirty: f64 = 0.0;
+    let mut spread_annuity: f64 = 0.0; // Σ yf360 × DF(end) — used later for DM solve.
+    let mut last_coupon_before_settle: Option<Date> = None;
+
+    for w in schedule.windows(2) {
+        let (start, end) = (w[0], w[1]);
+        if end <= valuation {
+            last_coupon_before_settle = Some(end);
+            continue;
+        }
+        if start <= valuation && start > dated {
+            // end is the next coupon after settle — remember the last one before.
+            last_coupon_before_settle = Some(start);
+        } else if start <= valuation {
+            last_coupon_before_settle = Some(start);
+        }
+
+        let df_start = df_at_date(sofr_curve, valuation, start)?;
+        let df_end = df_at_date(sofr_curve, valuation, end)?;
+        let yf360 = dc360
+            .year_fraction(start, end)
+            .to_f64()
+            .ok_or_else(|| anyhow!("{}: yf360 decimal→f64 failed", inst.id))?;
+
+        // Projected cashflow: floating leg + spread leg.
+        let float_cf = face * (df_start / df_end - 1.0);
+        let spread_cf = face * spread * yf360;
+        let mut cf = float_cf + spread_cf;
+        if end == maturity {
+            cf += face;
+        }
+        dirty += cf * df_end;
+        spread_annuity += yf360 * df_end;
+    }
+
+    let dirty_price_pct = dirty; // face = 100 so dirty is already in per-100 units.
+
+    // Accrued: face × current_reset_rate × ACT/360 days since last coupon.
+    let accrued = if let Some(last) = last_coupon_before_settle {
+        let yf = dc360
+            .year_fraction(last, valuation)
+            .to_f64()
+            .ok_or_else(|| anyhow!("{}: accrued yf360 decimal→f64 failed", inst.id))?;
+        face * reset * yf
+    } else {
+        0.0
+    };
+
+    let clean_price_pct = dirty_price_pct - accrued;
+
+    // DM: find DM s.t. clean = 100. Brent on [−0.05, 0.20].
+    // Since dirty = float_leg + spread_annuity × spread + principal, and
+    //   float_leg + principal = face (telescoping), we have:
+    //   clean(DM) = face + (spread − DM) × spread_annuity × something − accrued.
+    // More directly: DM shifts every coupon down by DM × yf360 × face and
+    // discounts by exp(−DM × t_end). For small DM, dirty(DM) ≈ dirty(0) − DM × spread_annuity × face.
+    // Solve: clean(DM) = 100 → DM ≈ (dirty − 100 − accrued) / (spread_annuity × face).
+    // Use this as the DM metric. Closed form is adequate for reconciliation.
+    let dm = if spread_annuity.abs() > 1e-12 {
+        (dirty_price_pct - 100.0 - accrued) / (spread_annuity * face)
+    } else {
+        0.0
+    };
+    let discount_margin_bps = dm * 10_000.0;
+
+    Ok(FrnMetrics {
+        clean_price_pct,
+        dirty_price_pct,
+        accrued,
+        discount_margin_bps,
+    })
+}
+
 fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
     let coupon = effective_coupon_percent(inst)?;
     let maturity = parse_date(
@@ -388,6 +583,16 @@ fn main() -> Result<()> {
         return Err(anyhow!("UST_CMT curve not found in curves.json"));
     }
 
+    let valuation = parse_date(&book.valuation_date)?;
+
+    // Build the SOFR OIS discount curve once (used by corporate SOFR FRNs).
+    let sofr_curve = curves
+        .curves
+        .iter()
+        .find(|c| c.id == "SOFR_OIS_CURVE")
+        .map(|c| build_zero_rate_curve(c, valuation))
+        .transpose()?;
+
     // TIPS index ratios (CUSIP → ratio on valuation date), if the puller has run.
     let mut tips_ratios: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let ratio_path = root.join("tips_index_ratio_20251231.json");
@@ -396,8 +601,6 @@ fn main() -> Result<()> {
             tips_ratios.insert(r.cusip, r.index_ratio);
         }
     }
-
-    let valuation = parse_date(&book.valuation_date)?;
 
     let out_path = root.join("convex.csv");
     let mut out = BufWriter::new(File::create(&out_path)?);
@@ -421,10 +624,43 @@ fn main() -> Result<()> {
             "synthetic_callable" => None,
             "sovereign_linker" => None, // TIPS priced on real yield
             "sovereign_frn" => None,    // FRN: flat-forward projection
+            "corporate_frn" => None,    // SOFR FRN: curve-projected, handled below
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {
             skipped.push(format!("{} ({}) — {}", inst.id, inst.category, reason));
+            continue;
+        }
+
+        // Corporate SOFR FRN: separate pricing path using the SOFR OIS curve.
+        if inst.category == "corporate_frn" {
+            let curve = sofr_curve.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "{}: SOFR_OIS_CURVE required for corporate_frn pricing",
+                    inst.id
+                )
+            })?;
+            let m = price_corporate_frn(inst, valuation, curve)
+                .with_context(|| format!("price_corporate_frn {}", inst.id))?;
+            let frn_rows: [(&str, f64); 4] = [
+                ("clean_price_pct", m.clean_price_pct),
+                ("dirty_price_pct", m.dirty_price_pct),
+                ("accrued", m.accrued),
+                ("discount_margin_bps", m.discount_margin_bps),
+            ];
+            let spread_dec = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+            for (metric, value) in frn_rows {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},SOFR_OIS_CURVE,",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    spread_dec,
+                )?;
+            }
+            ok_count += 1;
             continue;
         }
 

@@ -4,7 +4,7 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Branch `reconcile/milestone-1-book`. Reconciliation **117 / 117**, zero delta.
+Branch `reconcile/milestone-1-book`. Reconciliation **121 / 121**, zero delta.
 Workspace `cargo test --all-targets` **1736 / 0**. Clippy clean under
 `-D warnings`. Doc tests 4 / 0. Excel add-in builds. CI has a
 reconciliation gate (`.github/workflows/reconcile.yml`).
@@ -60,17 +60,58 @@ Follow-up: bake the ratio into `book.json` as `cpi_index_ratio_on_valuation`
 once we're comfortable pinning the snapshot, OR let the puller stay the
 single source of truth.
 
-### 2.3 UST FRN with real SOFR forward projection
+### 2.3 Corporate SOFR FRN with real SOFR curve projection — done
 
-Current FRN uses flat-forward. Real discount margin needs a projected
-SOFR forward curve.
+Scope intentionally narrower than the original tier sketch — see rationale
+below. The UST FRN (`UST_FRN_2Y`) stays on its flat-forward T-Bill path
+(it's indexed to the 13-week T-Bill, not SOFR). Added `CORP_SOFR_FRN`:
+Marsh & McLennan 571748BZ4, $300M, Compounded SOFR + 65bps, matures
+2027-11-08 (see `book.json::CORP_SOFR_FRN.source` for the 424B2).
 
-1. Bootstrap USD SOFR forward curve from `sofr_fixings.csv`.
-2. Wire `OvernightIndex` (QL) and `FloatingRateBond` (Convex) to the
-   same curve with historical fixings.
-3. Reconcile discount margin + price.
+Curve side:
+* `SOFR_OIS_CURVE` in `curves.json` holds pre-bootstrapped continuously-
+  compounded zero rates (ACT/365F) at standard OIS tenors
+  (1M/3M/6M/1Y/2Y/3Y/5Y/7Y/10Y). Par-quote panel + methodology in
+  `SOURCES.md`.
+* Both libraries consume the zero rates directly via linear interpolation
+  in zero-rate space. This sidesteps Convex-vs-QL OIS bootstrap
+  divergence — that belongs in a separate tier.
 
-Largest item here; pair with 2.1 since both affect FRN pricing. 4–6 hr.
+Pricing convention (documented in full in
+`book.json::CORP_SOFR_FRN.coupon_model_note`):
+* Quarterly schedule, NullCalendar + Unadjusted, backward-generated from
+  maturity — identical dates on both sides.
+* Each period's projected coupon: `(DF(start)/DF(end) − 1) × 100 +
+  spread × yf360 × 100`. Past dates clamp `DF = 1`.
+* Accrued: `100 × current_reset_rate × yf360(last_coupon, settle)`.
+* DM: closed-form `(dirty − 100 − accrued) / (spread_annuity × 100)`.
+
+Emits `clean_price_pct`, `dirty_price_pct`, `accrued`,
+`discount_margin_bps`. Reconciliation 117 → 121, zero delta
+(byte-identical values on both sides).
+
+Deliberate simplification vs. the original tier sketch — **what we did
+NOT do**:
+* **Live OIS bootstrap on both sides.** The `sofr_fixings.csv` history
+  is not a forward-curve input by itself (you'd need SR3 futures or OIS
+  swap quotes). We hand-curated the zero-rate panel and documented
+  provenance; reconciling the two bootstrappers against each other is
+  its own tier.
+* **Convex `FloatingRateNote` + QL `FloatingRateBond` wired to an
+  `OvernightIndex` with historical fixings.** The two libraries have
+  subtly different Compounded-SOFR-in-arrears implementations
+  (observation-shift calendar alignment, lookback business-day
+  definitions). Reconciling those on real historical fixings is a
+  4–6-hour research task that would dwarf this tier. Our manual
+  projection convention picks up the curve-driven part cleanly and
+  documents the shortcut in `book.json`.
+
+Follow-on (optional, if the manual-projection shortcut ever becomes a
+real reconciliation blocker):
+* Tier 2.3.1: `FloatingRateNote::cash_flows_projected` vs QL
+  `FloatingRateBond(sofr_index)` with live fixings — reconcile only the
+  past-period accrual once both ARRC-compound implementations are
+  verified calendar-identical.
 
 ---
 

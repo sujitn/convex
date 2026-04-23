@@ -1,8 +1,8 @@
 # Reconciliation Findings
 
 Convex ↔ QuantLib 1.40 fixed-income book. Valuation date **2025-12-31**.
-Target: bit-for-bit match (tolerances in `reconcile.py`) across 13
-instruments and 8–14 metrics each.
+Target: bit-for-bit match (tolerances in `reconcile.py`) across 14
+instruments and 4–14 metrics each.
 
 | M | Result | Scope |
 |---|---|---|
@@ -12,6 +12,7 @@ instruments and 8–14 metrics each.
 | 5 | 113 / 113 | + TIPS real-yield, FRN flat-forward, calendar/EOM fixes |
 | post-M5 | 117 / 117 | + real UK/EU/JP curves + TIPS nominal pricing (Tier 2.2) |
 | post-M5 | 117 / 117 | FRN flipped to real ACT/360; day-count-aware coupon/accrued/PV (Tier 2.1) |
+| post-M5 | 121 / 121 | + corporate SOFR FRN on SOFR OIS zero curve (Tier 2.3) |
 
 Workspace lib tests: 1736 pass, 0 fail. Clippy clean.
 

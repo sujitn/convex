@@ -2495,6 +2495,7 @@ dependencies = [
  "convex-analytics",
  "convex-bonds",
  "convex-core",
+ "convex-curves",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
