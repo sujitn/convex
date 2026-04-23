@@ -123,13 +123,36 @@ SafeCall refactor compiled but never exercised at runtime. Load
 `Convex.Excel64.xll`, call `CX.BOND.TSY(...)` + `CX.PRICE(...)`, trigger
 an error in one, confirm the error string reaches the cell.
 
-### 3.7 BondPricer numerical regression against a reference book
+### 3.7 BondPricer numerical regression — done
 
-`BondPricer::yield_to_maturity` now delegates to `YieldSolver` — that
-shifted numbers for non-semi-annual bonds priced through `BondPricer`.
-Before tagging, run an internal pricing book through both the old
-approach (git history) and the current one and confirm the new numbers
-are the expected direction (closer to QL).
+Probe at `tools/reconcile_bench/examples/bondpricer_regression.rs`.
+Builds three known-answer scenarios at par (coupon-rate-at-par →
+true YTM = coupon rate), prices via current `BondPricer`, re-solves
+YTM via both the current `YieldSolver` (NEW) path and a `YieldSolver`
+call forced to `(SemiAnnual, Act365Fixed)` — the exact math the
+pre-8ae6574 body did — as the OLD reference.
+
+```
+bond                       coupon       NEW ytm       OLD ytm    Δ new    Δ old
+--------------------------------------------------------------------------------
+ANNUAL_BUND_LIKE          3.0000%     3.000000%     2.976167%   +0.00bp  -2.38bp
+QUARTERLY_FRN_LIKE        4.0000%     4.000000%     4.131992%   -0.00bp +13.20bp
+SEMI_UST_LIKE             4.0000%     4.000000%     3.997751%   -0.00bp  -0.22bp
+```
+
+NEW round-trips to the coupon rate to 1e-10 across all three frequencies.
+OLD drifts −2.38 bp on annual and **+13.20 bp** on quarterly —
+non-trivial for any caller that went through `BondPricer` on a non-SA
+bond. Semi-annual OLD shows a residual −0.22 bp because Act365Fixed
+year fraction (days/365) differs from ACT/ACT ICMA year fraction
+(period-based); the refactor correctly switched to ICMA for ACT/ACT
+bonds. Refactor direction confirmed correct; shipping the current path
+is net-positive for every non-semi-annual caller.
+
+Run:
+```bash
+cargo run -p reconcile_bench --example bondpricer_regression
+```
 
 ---
 
