@@ -12,6 +12,7 @@ A pick-up-and-execute plan for anyone continuing this work in a fresh session.
 * **Tier 1 complete**: real UK/EU/JP curves pulled into `curves.json` (1.1); `ActActIcma::year_fraction` trait fallback fixed (1.2); `FINDINGS_M*.md` consolidated into `FINDINGS.md` (1.3).
 * **Tier 3 complete** (validation): clippy clean, test suite green, doc tests green, FRED pull retried (blocked in env, other sources work), release script dry-run surfaced a version-bump blocker (see 3.6).
 * **Tier 4.1 complete**: `.gitattributes` expanded.
+* **Tier 4.3 complete**: `.github/workflows/reconcile.yml` gates every push/PR against a 113/113 reconciliation.
 
 Everything below is safe to start after checking out the branch and running:
 
@@ -202,7 +203,13 @@ The reconciliation branch is clean-merged on top of main. Once any Tier 1 quick 
 
 ### 4.3  CI integration
 
-Add `.github/workflows/reconcile.yml` that runs `cargo run -p reconcile_bench && python reconciliation/ql_bench.py && python reconciliation/reconcile.py` and asserts `exit == 0`. Any future PR that breaks reconciliation fails CI.
+*Status.* **Done.** `.github/workflows/reconcile.yml` runs on every push/PR to `main`:
+* installs Rust stable + Python 3.13 + `QuantLib==1.40`,
+* runs `cargo run -p reconcile_bench` → `python reconciliation/ql_bench.py` → `python reconciliation/reconcile.py`,
+* fails the build if reconcile.py exits non-zero,
+* uploads `convex.csv`, `ql.csv`, and `reconciliation_report.md` as a 14-day artifact on every run (pass or fail) so reviewers can diff.
+
+Also update the banner at the top of this file to reflect the new completion.
 
 ### 4.4  INDEX.md / OVERVIEW.md cleanup
 
