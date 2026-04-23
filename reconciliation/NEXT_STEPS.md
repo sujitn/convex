@@ -183,7 +183,18 @@ The SafeCall refactor compiled but was never exercised at runtime. Load `excel/C
 
 *Root cause.* Local `convex-bonds` / `convex-analytics` at `version = "0.11.1"` call APIs added on the cleanup branch. Publishing would require every crate to bump (likely to `0.12.0`) so Cargo.toml version constraints pick up the new APIs. This is pre-existing — not a regression from any Tier-1/3 work this session.
 
-*Next action when ready to release.* Bump workspace version to `0.12.0`, re-run this script; should go clean.
+*Follow-up.* Workspace bumped to `0.12.0` in commit `<version-bump-commit>`. Post-bump dry-run:
+
+| Crate | dry-run | Note |
+|---|---|---|
+| convex-core | ✓ | packages clean |
+| convex-math | ✓ | packages clean |
+| convex-curves | ✗ | `convex-core = "^0.12.0"` not on crates.io yet — chicken-and-egg |
+| convex-bonds | ✗ | same |
+| convex-analytics | ✗ | same |
+| convex-portfolio | ✗ | same |
+
+This second batch of failures is now a normal pre-release ordering problem: downstream dry-run can't resolve dep constraints until upstream crates are actually published. The original API-mismatch errors (`from_str`, `solve_primitive`) are gone. The real release flow publishes in order — upstream first, then each downstream once its dep is visible on the index — and the release script's `for crate in ...` loop already iterates in dependency order. No further action before release.
 
 ### 3.7  BondPricer numerical regression against a known reference book
 
