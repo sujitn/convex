@@ -117,11 +117,23 @@ real reconciliation blocker):
 
 ## Tier 3 — Remaining validation
 
-### 3.5 Excel UDF runtime smoke test
+### 3.5 Excel UDF runtime smoke test — done
 
-SafeCall refactor compiled but never exercised at runtime. Load
-`Convex.Excel64.xll`, call `CX.BOND.TSY(...)` + `CX.PRICE(...)`, trigger
-an error in one, confirm the error string reaches the cell.
+Protocol at `excel/SMOKE_TEST.md`. Exercised in Excel against the fresh
+`Convex.Excel64.xll` + `convex_ffi.dll` pair, all four assertions
+passed:
+
+* `CX.BOND.TSY(...)` returned a `#CX#...` handle.
+* `CX.PRICE(handle, issue, 5.0, 2)` returned `100.000000` (yield = coupon → par).
+* `CX.PRICE("GARBAGE_HANDLE", ..., 2)` surfaced as native `#REF!`
+  (controlled-error path — `HandleHelper.Parse` → `INVALID_HANDLE`
+  → `ExcelError.ExcelErrorRef`).
+* `CX.PRICE(handle, ..., "not_a_number")` surfaced as text starting
+  `#ERROR:` (exception path — `Convert.ToInt32` throws
+  `FormatException`, `SafeCall` catches and returns the message).
+
+The text-string form on the exception path is the load-bearing
+assertion — that's what the SafeCall refactor was for.
 
 ### 3.7 BondPricer numerical regression — done
 
