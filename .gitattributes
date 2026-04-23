@@ -1,13 +1,44 @@
-# Set default behavior to automatically normalize line endings
+# Default: let Git decide per file, normalize to LF in the index.
 * text=auto
 
-# Rust files should always use LF
-*.rs text eol=lf
-*.toml text eol=lf
+# --------------------------------------------------------- LF (Unix/cross-platform)
+*.rs        text eol=lf
+*.toml      text eol=lf
+*.md        text eol=lf
+*.json      text eol=lf
+*.py        text eol=lf
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.txt       text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+*.html      text eol=lf
+*.lock      text eol=lf
+Cargo.lock  text eol=lf
 
-# Shell scripts should use LF
-*.sh text eol=lf
+# --------------------------------------------------------- CRLF (.NET / Windows tooling)
+*.cs        text eol=crlf
+*.sln       text eol=crlf
+*.csproj    text eol=crlf
+*.resx      text eol=crlf
+*.manifest  text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
 
-# Windows batch files should use CRLF
-*.bat text eol=crlf
-*.cmd text eol=crlf
+# --------------------------------------------------------- Binary
+*.xll       binary
+*.dll       binary
+*.pdb       binary
+*.exe       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.xlsx      binary
+*.xls       binary

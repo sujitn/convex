@@ -155,7 +155,7 @@ fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
 /// (Oct 31 → Apr 30 → Jul 31 → Oct 31). Convex with `end_of_month(true)`
 /// reproduces that behaviour; with `false` it drifts to the 30th.
 fn is_end_of_month(date: Date) -> bool {
-    let Ok(next_day) = Date::from_ymd(date.year(), date.month() as u32, date.day() as u32 + 1)
+    let Ok(next_day) = Date::from_ymd(date.year(), date.month(), date.day() + 1)
     else {
         return true; // next day isn't a valid date in the same month → month-end
     };
@@ -320,8 +320,24 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
         .with_context(|| format!("building {}", inst.id))
 }
 
+/// Pick the discount curve id for a given currency.
+fn curve_id_for_ccy(ccy: &str) -> &'static str {
+    match ccy {
+        "USD" => "UST_CMT",
+        "GBP" => "UK_GILT_CURVE",
+        "EUR" => "DE_BUND_CURVE",
+        "JPY" => "JP_JGB_CURVE",
+        _ => "UST_CMT",
+    }
+}
+
 /// Decide which curve + which reference yield to use for a given bond.
-fn reference_yield(inst: &Instrument, maturity: Date, valuation: Date, ust: &Curve) -> (f64, &'static str) {
+fn reference_yield<'a>(
+    inst: &Instrument,
+    maturity: Date,
+    valuation: Date,
+    curves: &'a [Curve],
+) -> (f64, &'a str) {
     let ccy = inst.currency.as_deref().unwrap_or("USD");
     let yrs = years_to_maturity(valuation, maturity);
 
@@ -339,12 +355,13 @@ fn reference_yield(inst: &Instrument, maturity: Date, valuation: Date, ust: &Cur
         }
     }
 
-    if ccy == "USD" {
-        if let Some(y) = interpolate_cmt(ust, yrs) {
-            return (y, "UST_CMT");
+    let curve_id = curve_id_for_ccy(ccy);
+    if let Some(curve) = curves.iter().find(|c| c.id == curve_id) {
+        if let Some(y) = interpolate_cmt(curve, yrs) {
+            return (y, curve.id.as_str());
         }
     }
-    // Placeholder for GBP / EUR / JPY until curves are populated.
+    // Last-resort fallback: coupon rate as reference yield.
     let fallback = inst.coupon_rate.map(|c| c / 100.0).unwrap_or(0.04);
     (fallback, "placeholder")
 }
@@ -357,11 +374,11 @@ fn main() -> Result<()> {
         .context("reading book.json")?;
     let curves: Curves = serde_json::from_reader(File::open(root.join("curves.json"))?)
         .context("reading curves.json")?;
-    let ust = curves
-        .curves
-        .iter()
-        .find(|c| c.id == "UST_CMT")
-        .ok_or_else(|| anyhow!("UST_CMT curve not found in curves.json"))?;
+    // Sanity-check the anchor curve is present; additional sovereign curves
+    // are resolved by currency inside `reference_yield`.
+    if !curves.curves.iter().any(|c| c.id == "UST_CMT") {
+        return Err(anyhow!("UST_CMT curve not found in curves.json"));
+    }
 
     let valuation = parse_date(&book.valuation_date)?;
 
@@ -396,7 +413,7 @@ fn main() -> Result<()> {
 
         let bond = build_bond(inst).with_context(|| format!("build {}", inst.id))?;
         let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
-        let (ref_yield, curve_used) = reference_yield(inst, maturity, valuation, ust);
+        let (ref_yield, curve_used) = reference_yield(inst, maturity, valuation, &curves.curves);
         let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
 
         // 1) Clean and dirty price at the reference yield.

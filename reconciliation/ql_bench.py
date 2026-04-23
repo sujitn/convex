@@ -73,11 +73,14 @@ def to_ql_date(s: str) -> ql.Date:
 
 # ---------------------------------------------------------------- curve utilities
 
-def interpolate_cmt(cmt: dict, tenor_yrs: float) -> float | None:
-    """Linear interp on the UST_CMT quotes, matching the Rust side."""
+def interpolate_curve(curve: dict, tenor_yrs: float) -> float | None:
+    """Linear interp on a discount-curve's `quotes`, matching the Rust side.
+
+    Returns a decimal yield (0.04 = 4%) or None if the curve has no quotes.
+    """
     pts = sorted(
         (q["tenor_years"], q["rate_pct"])
-        for q in cmt["quotes"]
+        for q in curve.get("quotes", [])
         if q.get("rate_pct") is not None
     )
     if not pts:
@@ -89,6 +92,14 @@ def interpolate_cmt(cmt: dict, tenor_yrs: float) -> float | None:
             w = (tenor_yrs - t0) / (t1 - t0)
             return (r0 + w * (r1 - r0)) / 100.0
     return pts[-1][1] / 100.0
+
+
+CCY_TO_CURVE_ID = {
+    "USD": "UST_CMT",
+    "GBP": "UK_GILT_CURVE",
+    "EUR": "DE_BUND_CURVE",
+    "JPY": "JP_JGB_CURVE",
+}
 
 
 def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
@@ -201,7 +212,9 @@ def effective_coupon_pct(inst: dict) -> float:
 def main() -> int:
     book = json.loads((HERE / "book.json").read_text())
     curves = json.loads((HERE / "curves.json").read_text())
-    cmt = next(c for c in curves["curves"] if c["id"] == "UST_CMT")
+    curve_by_id = {c["id"]: c for c in curves["curves"]}
+    if "UST_CMT" not in curve_by_id:
+        raise RuntimeError("UST_CMT curve not found in curves.json")
 
     valuation = to_ql_date(book["valuation_date"])
     ql.Settings.instance().evaluationDate = valuation
@@ -238,15 +251,15 @@ def main() -> int:
             # ACT/360 convention path on both libraries.
             y = effective_coupon_pct(inst) / 100.0
             curve_used = "frn_flat_projection"
-        elif ccy == "USD":
-            y = interpolate_cmt(cmt, yrs)
-            curve_used = "UST_CMT"
+        else:
+            curve_id = CCY_TO_CURVE_ID.get(ccy, "UST_CMT")
+            curve = curve_by_id.get(curve_id)
+            y = interpolate_curve(curve, yrs) if curve is not None else None
             if y is None:
                 y = inst["coupon_rate"] / 100.0
                 curve_used = "placeholder"
-        else:
-            y = inst["coupon_rate"] / 100.0
-            curve_used = "placeholder"
+            else:
+                curve_used = curve_id
 
         # Base metrics (treating the bond as if calls never happen).
         metrics = price_bond(inst, valuation, y)

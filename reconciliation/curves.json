@@ -49,10 +49,22 @@
     },
     {
       "id": "UK_GILT_CURVE",
-      "description": "UK Gilt yield curve on 2025-12-31 for GBP discount.",
+      "description": "UK Gilt nominal spot curve on 2025-12-31. Source: BoE 'GLC Nominal daily data_2025 to present.xlsx' inside https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalddata.zip (sheet '4. spot curve'). BoE publishes continuously-compounded spot yields; values stored here are converted to semi-annual (r_sa = 2·(exp(r_c/2)−1)) to match UST_CMT labelling.",
       "currency": "GBP",
-      "status": "PENDING",
-      "pull_instruction": "BoE Yield Curve publication https://www.bankofengland.co.uk/statistics/yield-curves — pull the Nominal Spot Curve CSV for 2025-12-31",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 3.5851, "source": "BoE nominal spot 2025-12-31 (continuous 3.5533% → s.a.)" },
+        { "tenor_years": 2.0,  "rate_pct": 3.6657, "source": "BoE nominal spot 2025-12-31 (continuous 3.6325% → s.a.)" },
+        { "tenor_years": 3.0,  "rate_pct": 3.7471, "source": "BoE nominal spot 2025-12-31 (continuous 3.7124% → s.a.)" },
+        { "tenor_years": 5.0,  "rate_pct": 3.9756, "source": "BoE nominal spot 2025-12-31 (continuous 3.9366% → s.a.)" },
+        { "tenor_years": 7.0,  "rate_pct": 4.2436, "source": "BoE nominal spot 2025-12-31 (continuous 4.1992% → s.a.)" },
+        { "tenor_years": 10.0, "rate_pct": 4.6242, "source": "BoE nominal spot 2025-12-31 (continuous 4.5716% → s.a.)" },
+        { "tenor_years": 20.0, "rate_pct": 5.3111, "source": "BoE nominal spot 2025-12-31 (continuous 5.2418% → s.a.)" },
+        { "tenor_years": 30.0, "rate_pct": 5.3842, "source": "BoE nominal spot 2025-12-31 (continuous 5.3130% → s.a.)" }
+      ],
+      "primary_source": "https://www.bankofengland.co.uk/statistics/yield-curves",
+      "archive_zip": "https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-curves/glcnominalddata.zip",
       "overnight_fixing": {
         "rate_name": "SONIA",
         "value_pct": null,
@@ -63,10 +75,23 @@
     },
     {
       "id": "DE_BUND_CURVE",
-      "description": "German Bund yield curve or ECB AAA euro-area curve for EUR discount.",
+      "description": "ECB euro-area AAA-rated government bond spot curve on 2025-12-31. Source: SDMX series YC.B.U2.EUR.4F.G_N_A.SV_C_YM.SR_<tenor> via https://data-api.ecb.europa.eu/service/data/YC/... ECB publishes continuously-compounded Svensson-model spot yields; values stored here are converted to semi-annual (r_sa = 2·(exp(r_c/2)−1)) for consistency with UST_CMT labelling. Used for EUR discount rather than the Bund-only curve because the AAA euro-area curve is the ECB's primary daily publication.",
       "currency": "EUR",
-      "status": "PENDING",
-      "pull_instruction": "ECB euro-area AAA government bond yield curve https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 2.0340, "source": "ECB AAA SR_1Y  2025-12-31 (continuous 2.0237% → s.a.)" },
+        { "tenor_years": 2.0,  "rate_pct": 2.1196, "source": "ECB AAA SR_2Y  2025-12-31 (continuous 2.1085% → s.a.)" },
+        { "tenor_years": 3.0,  "rate_pct": 2.2246, "source": "ECB AAA SR_3Y  2025-12-31 (continuous 2.2124% → s.a.)" },
+        { "tenor_years": 5.0,  "rate_pct": 2.4557, "source": "ECB AAA SR_5Y  2025-12-31 (continuous 2.4407% → s.a.)" },
+        { "tenor_years": 7.0,  "rate_pct": 2.6808, "source": "ECB AAA SR_7Y  2025-12-31 (continuous 2.6630% → s.a.)" },
+        { "tenor_years": 10.0, "rate_pct": 2.9699, "source": "ECB AAA SR_10Y 2025-12-31 (continuous 2.9480% → s.a.)" },
+        { "tenor_years": 15.0, "rate_pct": 3.2991, "source": "ECB AAA SR_15Y 2025-12-31 (continuous 3.2722% → s.a.)" },
+        { "tenor_years": 20.0, "rate_pct": 3.4683, "source": "ECB AAA SR_20Y 2025-12-31 (continuous 3.4386% → s.a.)" },
+        { "tenor_years": 30.0, "rate_pct": 3.5091, "source": "ECB AAA SR_30Y 2025-12-31 (continuous 3.4786% → s.a.)" }
+      ],
+      "primary_source": "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y?startPeriod=2025-12-31&endPeriod=2025-12-31&format=csvdata",
+      "portal": "https://data.ecb.europa.eu/data/datasets/YC",
       "overnight_fixing": {
         "rate_name": "ESTR",
         "value_pct": null,
@@ -76,10 +101,23 @@
     },
     {
       "id": "JP_JGB_CURVE",
-      "description": "JGB yield curve for JPY discount.",
+      "description": "Japan Government Bond par yield curve on 2025-12-30 (Japanese markets closed 2025-12-31 for year-end holiday; last business day used). Source: MOF jgbcme_all.csv. MOF publishes daily par yields by fixed tenor; market convention is semi-annual compounding so values are stored as-is.",
       "currency": "JPY",
-      "status": "PENDING",
-      "pull_instruction": "MOF Japan JGB yield curve https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/"
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "observation_date": "2025-12-30",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 0.906, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 2.0,  "rate_pct": 1.167, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 3.0,  "rate_pct": 1.282, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 5.0,  "rate_pct": 1.567, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 7.0,  "rate_pct": 1.762, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 10.0, "rate_pct": 2.066, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 15.0, "rate_pct": 2.606, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 20.0, "rate_pct": 2.952, "source": "MOF JGB par 2025-12-30" },
+        { "tenor_years": 30.0, "rate_pct": 3.354, "source": "MOF JGB par 2025-12-30" }
+      ],
+      "primary_source": "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/historical/jgbcme_all.csv"
     }
   ],
   "tips_index_ratio_pull_instruction": {
@@ -90,7 +128,8 @@
   },
   "known_limits": [
     "No free SOFR-OIS swap curve. UST_CMT used as discount-curve proxy.",
-    "UK / EU / JP curves are pending pull from primary sources; placeholders only.",
+    "UK Gilt + ECB AAA curves are ECB-/BoE-model spot yields (continuous) converted to semi-annual for consistency; not par yields. Use for relative comparison, not absolute price matching to Bloomberg YAS.",
+    "JGB curve is observed on 2025-12-30 (last business day before the Japanese year-end holiday).",
     "7Y, 1M, 3M UST points missing from snapshot source; must be pulled from FRED at harness time.",
     "TIPS index ratio, SOFR fixing series, and any FRN projection rely on live API pulls; not baked into this file."
   ]
