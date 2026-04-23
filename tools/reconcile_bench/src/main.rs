@@ -155,8 +155,7 @@ fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
 /// (Oct 31 → Apr 30 → Jul 31 → Oct 31). Convex with `end_of_month(true)`
 /// reproduces that behaviour; with `false` it drifts to the 30th.
 fn is_end_of_month(date: Date) -> bool {
-    let Ok(next_day) = Date::from_ymd(date.year(), date.month(), date.day() + 1)
-    else {
+    let Ok(next_day) = Date::from_ymd(date.year(), date.month(), date.day() + 1) else {
         return true; // next day isn't a valid date in the same month → month-end
     };
     next_day.month() != date.month()
@@ -244,9 +243,7 @@ fn build_workout_bullet(
         .calendar(CalendarId::new(""))
         .business_day_convention(BusinessDayConvention::Unadjusted)
         .end_of_month(is_end_of_month(workout_date))
-        .redemption_value(
-            Decimal::try_from(redemption).unwrap_or(dec!(100)),
-        )
+        .redemption_value(Decimal::try_from(redemption).unwrap_or(dec!(100)))
         .build()
         .with_context(|| format!("building {} workout bullet", inst.id))
 }
@@ -403,7 +400,7 @@ fn main() -> Result<()> {
             "corporate_callable" => None,
             "synthetic_callable" => None,
             "sovereign_linker" => None, // TIPS priced on real yield
-            "sovereign_frn" => None,     // FRN: flat-forward projection
+            "sovereign_frn" => None,    // FRN: flat-forward projection
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {
@@ -458,20 +455,15 @@ fn main() -> Result<()> {
                     if call_date <= valuation {
                         continue; // call date already passed
                     }
-                    let workout_bullet =
-                        build_workout_bullet(inst, call_date, entry.price)?;
+                    let workout_bullet = build_workout_bullet(inst, call_date, entry.price)?;
                     // Build a synthetic "clean price" that treats the workout bullet as
                     // having the same current clean market price as the actual callable.
-                    let ytc_result =
-                        yield_to_maturity(&workout_bullet, valuation, clean_dec, freq)
-                            .with_context(|| {
-                                format!("yield_to_call {} @ {}", inst.id, entry.call_date)
-                            })?;
+                    let ytc_result = yield_to_maturity(&workout_bullet, valuation, clean_dec, freq)
+                        .with_context(|| {
+                            format!("yield_to_call {} @ {}", inst.id, entry.call_date)
+                        })?;
                     let ytc = ytc_result.yield_value;
-                    let key = format!(
-                        "ytc_{}_decimal",
-                        entry.call_date.replace('-', "")
-                    );
+                    let key = format!("ytc_{}_decimal", entry.call_date.replace('-', ""));
                     rows.push((key, ytc));
                     if ytc < worst {
                         worst = ytc;
@@ -502,7 +494,11 @@ fn main() -> Result<()> {
     }
 
     out.flush()?;
-    eprintln!("convex_bench: wrote {} — {} bonds priced", out_path.display(), ok_count);
+    eprintln!(
+        "convex_bench: wrote {} — {} bonds priced",
+        out_path.display(),
+        ok_count
+    );
     if !skipped.is_empty() {
         eprintln!("convex_bench: skipped:");
         for s in &skipped {

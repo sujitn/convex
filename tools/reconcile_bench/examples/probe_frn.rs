@@ -29,7 +29,10 @@ fn main() {
     let cfs = bond.cash_flows(settle);
     println!("Convex FRN cashflows from {settle}:");
     for cf in cfs {
-        let astart = cf.accrual_start.map(|d| d.to_string()).unwrap_or("?".into());
+        let astart = cf
+            .accrual_start
+            .map(|d| d.to_string())
+            .unwrap_or("?".into());
         let aend = cf.accrual_end.map(|d| d.to_string()).unwrap_or("?".into());
         println!(
             "  pay={}  amt={:.6}  accrual=[{}, {}]",

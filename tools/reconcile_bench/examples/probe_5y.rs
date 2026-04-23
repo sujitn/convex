@@ -26,9 +26,15 @@ fn main() {
         let settle = Date::from_ymd(2025, 12, 31).unwrap();
         println!("--- {label} ---");
         for cf in bond.cash_flows(settle) {
-            let astart = cf.accrual_start.map(|d| d.to_string()).unwrap_or("?".into());
+            let astart = cf
+                .accrual_start
+                .map(|d| d.to_string())
+                .unwrap_or("?".into());
             let aend = cf.accrual_end.map(|d| d.to_string()).unwrap_or("?".into());
-            println!("  pay={} amt={:.4} accrual=[{}, {}]", cf.date, cf.amount, astart, aend);
+            println!(
+                "  pay={} amt={:.4} accrual=[{}, {}]",
+                cf.date, cf.amount, astart, aend
+            );
         }
     }
 }

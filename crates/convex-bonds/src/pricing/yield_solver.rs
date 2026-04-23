@@ -60,9 +60,9 @@ pub(crate) fn project_discount_fractions(
         .filter(|cf| cf.date > settlement)
         .collect();
 
-    let period_aware = future
-        .first()
-        .map_or(false, |cf| cf.accrual_start.is_some() && cf.accrual_end.is_some());
+    let period_aware = future.first().map_or(false, |cf| {
+        cf.accrual_start.is_some() && cf.accrual_end.is_some()
+    });
 
     if period_aware {
         let first = future[0];
@@ -510,8 +510,12 @@ pub fn discount_margin(
 
     // Period-aware year fractions (matches QL ISMA), same helper as the
     // yield solver.
-    let cf_data =
-        project_discount_fractions(projected_cash_flows, settlement, day_count, periods_per_year);
+    let cf_data = project_discount_fractions(
+        projected_cash_flows,
+        settlement,
+        day_count,
+        periods_per_year,
+    );
 
     if cf_data.is_empty() {
         return Err(BondError::invalid_spec("No future cash flows"));
