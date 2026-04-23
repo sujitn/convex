@@ -118,52 +118,10 @@ jobs:
           path: convex-excel-addin-v*.zip
           retention-days: 5
 
-  publish:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    needs: validate
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: Swatinem/rust-cache@v2
-
-      - name: Publish convex-core
-        run: cargo publish -p convex-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-math
-        run: cargo publish -p convex-math --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-curves
-        run: cargo publish -p convex-curves --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-bonds
-        run: cargo publish -p convex-bonds --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Wait for crates.io index update
-        run: sleep 120
-
-      - name: Publish convex-analytics
-        run: cargo publish -p convex-analytics --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate, publish, build-excel-addin]
+    needs: [validate, build-excel-addin]
     permissions:
       contents: write
     steps:
@@ -195,15 +153,12 @@ jobs:
           body: |
             ## Installation
 
-            ### Rust Crates
-            Add to Cargo.toml: convex-core, convex-math, convex-curves, convex-bonds, convex-analytics
+            Internal workspace — not published to crates.io. Clone the repo
+            and depend on the crates via path.
 
             ### Excel Add-in
-            Download convex-excel-addin zip from assets below.
-
-            ## Links
-            - [crates.io](https://crates.io/crates/convex-core)
-            - [Documentation](https://docs.rs/convex-core)
+            Download the `convex-excel-addin` zip from assets below, extract,
+            and load `Convex.Excel64.xll` in Excel.
           files: ./artifacts/*.zip
           draft: false
           prerelease: false

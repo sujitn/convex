@@ -38,22 +38,22 @@ keywords = ["finance", "bonds", "fixed-income", "pricing", "quantitative"]
 categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
-# Internal crates
-convex-core = { path = "crates/convex-core", version = "0.12.0" }
-convex-math = { path = "crates/convex-math", version = "0.12.0" }
-convex-curves = { path = "crates/convex-curves", version = "0.12.0" }
-convex-bonds = { path = "crates/convex-bonds", version = "0.12.0" }
-convex-analytics = { path = "crates/convex-analytics", version = "0.12.0" }
-convex-portfolio = { path = "crates/convex-portfolio", version = "0.12.0" }
-convex-ffi = { path = "crates/convex-ffi", version = "0.12.0" }
-convex-wasm = { path = "crates/convex-wasm", version = "0.12.0" }
+# Internal crates — path-only; this workspace is not published to crates.io.
+convex-core = { path = "crates/convex-core" }
+convex-math = { path = "crates/convex-math" }
+convex-curves = { path = "crates/convex-curves" }
+convex-bonds = { path = "crates/convex-bonds" }
+convex-analytics = { path = "crates/convex-analytics" }
+convex-portfolio = { path = "crates/convex-portfolio" }
+convex-ffi = { path = "crates/convex-ffi" }
+convex-wasm = { path = "crates/convex-wasm" }
 # Pricing engine crates
-convex-traits = { path = "crates/convex-traits", version = "0.12.0" }
-convex-engine = { path = "crates/convex-engine", version = "0.12.0" }
-convex-ext-redb = { path = "crates/convex-ext-redb", version = "0.12.0" }
-convex-ext-file = { path = "crates/convex-ext-file", version = "0.12.0" }
-convex-ext-json = { path = "crates/convex-ext-json", version = "0.12.0" }
-convex-server = { path = "crates/convex-server", version = "0.12.0" }
+convex-traits = { path = "crates/convex-traits" }
+convex-engine = { path = "crates/convex-engine" }
+convex-ext-redb = { path = "crates/convex-ext-redb" }
+convex-ext-file = { path = "crates/convex-ext-file" }
+convex-ext-json = { path = "crates/convex-ext-json" }
+convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }

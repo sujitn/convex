@@ -168,33 +168,16 @@ Not a code issue — `fred.stlouisfed.org` is specifically blocked in this sessi
 
 The SafeCall refactor compiled but was never exercised at runtime. Load `excel/Convex.Excel/bin/Release/net472/Convex.Excel64.xll` in Excel, call `CX.BOND.TSY(...)`, `CX.PRICE(...)`, cause an error in one, confirm the error string appears in the cell.
 
-### 3.6  Run `scripts/release.sh` dry-run
+### 3.6  ~~Run `scripts/release.sh` dry-run~~ — retired
 
-*Status.* **Done — release blocker surfaced.** `cargo publish --dry-run --allow-dirty -p <crate>` for the six release crates:
+*Status.* **Retired.** Workspace is now internal-only:
 
-| Crate | dry-run | Note |
-|---|---|---|
-| convex-core | ✓ | |
-| convex-math | ✓ | |
-| convex-curves | ✓ | |
-| convex-bonds | ✗ | Uses `DayCountConvention::from_str`, absent from published `convex-core@0.11.1` |
-| convex-analytics | ✗ | Uses `YieldSolver::solve_primitive` (absent from published `convex-bonds@0.11.1`) + `DayCountConvention::from_str` |
-| convex-portfolio | ✓ | |
+* `scripts/release.sh` deleted.
+* `[workspace.dependencies]` entries stripped of `version = "..."`; path-only.
+* `.github/workflows/release.yml` publish-to-crates.io job removed; validate + build-excel-addin + github-release jobs kept for versioned Excel add-in zips.
+* `.github/workflows/version-bump.yml` left in place — still works for tagging internal releases; no crates.io side-effect.
 
-*Root cause.* Local `convex-bonds` / `convex-analytics` at `version = "0.11.1"` call APIs added on the cleanup branch. Publishing would require every crate to bump (likely to `0.12.0`) so Cargo.toml version constraints pick up the new APIs. This is pre-existing — not a regression from any Tier-1/3 work this session.
-
-*Follow-up.* Workspace bumped to `0.12.0` in commit `<version-bump-commit>`. Post-bump dry-run:
-
-| Crate | dry-run | Note |
-|---|---|---|
-| convex-core | ✓ | packages clean |
-| convex-math | ✓ | packages clean |
-| convex-curves | ✗ | `convex-core = "^0.12.0"` not on crates.io yet — chicken-and-egg |
-| convex-bonds | ✗ | same |
-| convex-analytics | ✗ | same |
-| convex-portfolio | ✗ | same |
-
-This second batch of failures is now a normal pre-release ordering problem: downstream dry-run can't resolve dep constraints until upstream crates are actually published. The original API-mismatch errors (`from_str`, `solve_primitive`) are gone. The real release flow publishes in order — upstream first, then each downstream once its dep is visible on the index — and the release script's `for crate in ...` loop already iterates in dependency order. No further action before release.
+Consumers of Convex must now clone and depend via path. The workspace version in `[workspace.package]` (currently `0.12.0`) is an internal stamp only; per-crate `version.workspace = true` inheritance still works.
 
 ### 3.7  BondPricer numerical regression against a known reference book
 
