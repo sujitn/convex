@@ -209,12 +209,24 @@ def effective_coupon_pct(inst: dict) -> float:
     return inst["coupon_rate"]
 
 
+def load_tips_index_ratios() -> dict[str, float]:
+    """Map CUSIP → index ratio on the valuation date, from pull_market_data.py output."""
+    out = {}
+    ratio_file = HERE / "tips_index_ratio_20251231.json"
+    if ratio_file.exists():
+        data = json.loads(ratio_file.read_text())
+        if data.get("index_ratio") is not None:
+            out[data["cusip"]] = float(data["index_ratio"])
+    return out
+
+
 def main() -> int:
     book = json.loads((HERE / "book.json").read_text())
     curves = json.loads((HERE / "curves.json").read_text())
     curve_by_id = {c["id"]: c for c in curves["curves"]}
     if "UST_CMT" not in curve_by_id:
         raise RuntimeError("UST_CMT curve not found in curves.json")
+    index_ratios = load_tips_index_ratios()
 
     valuation = to_ql_date(book["valuation_date"])
     ql.Settings.instance().evaluationDate = valuation
@@ -264,6 +276,16 @@ def main() -> int:
         # Base metrics (treating the bond as if calls never happen).
         metrics = price_bond(inst, valuation, y)
         emitted: list[tuple[str, float]] = list(metrics.items())
+
+        # Linker add-ons: nominal price/accrued = real × CPI index ratio.
+        if is_linker:
+            cusip = (inst.get("identifier") or {}).get("value")
+            ratio = index_ratios.get(cusip)
+            if ratio is not None:
+                emitted.append(("cpi_index_ratio", ratio))
+                emitted.append(("nominal_clean_price_pct", metrics["clean_price_pct"] * ratio))
+                emitted.append(("nominal_dirty_price_pct", metrics["dirty_price_pct"] * ratio))
+                emitted.append(("nominal_accrued", metrics["accrued"] * ratio))
 
         # Callable add-ons: YTC per call date + YTW + workout date.
         if is_callable:

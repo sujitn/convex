@@ -73,6 +73,22 @@ struct Instrument {
     index_rate_pct: Option<f64>,
     #[serde(default)]
     spread_bps: Option<f64>,
+    // Linker-specific: CUSIP is looked up in the TIPS index-ratio file.
+    #[serde(default)]
+    identifier: Option<Identifier>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Identifier {
+    #[serde(default)]
+    value: Option<String>,
+}
+
+/// TIPS index ratio file written by pull_tips_index_ratio() in pull_market_data.py.
+#[derive(Debug, Deserialize)]
+struct TipsIndexRatio {
+    cusip: String,
+    index_ratio: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -372,6 +388,15 @@ fn main() -> Result<()> {
         return Err(anyhow!("UST_CMT curve not found in curves.json"));
     }
 
+    // TIPS index ratios (CUSIP → ratio on valuation date), if the puller has run.
+    let mut tips_ratios: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let ratio_path = root.join("tips_index_ratio_20251231.json");
+    if ratio_path.exists() {
+        if let Ok(r) = serde_json::from_reader::<_, TipsIndexRatio>(File::open(&ratio_path)?) {
+            tips_ratios.insert(r.cusip, r.index_ratio);
+        }
+    }
+
     let valuation = parse_date(&book.valuation_date)?;
 
     let out_path = root.join("convex.csv");
@@ -438,7 +463,19 @@ fn main() -> Result<()> {
             ("dv01_per_100".to_string(), dv01_v),
         ];
 
-        // 4) For callables: compute YTC at each call date and YTW.
+        // 4a) For linkers: emit nominal (= real × CPI index ratio) metrics
+        // when the index ratio is available.
+        if inst.category == "sovereign_linker" {
+            let cusip = inst.identifier.as_ref().and_then(|i| i.value.as_deref());
+            if let Some(ratio) = cusip.and_then(|c| tips_ratios.get(c)) {
+                rows.push(("cpi_index_ratio".to_string(), *ratio));
+                rows.push(("nominal_clean_price_pct".to_string(), clean * ratio));
+                rows.push(("nominal_dirty_price_pct".to_string(), dirty * ratio));
+                rows.push(("nominal_accrued".to_string(), accrued * ratio));
+            }
+        }
+
+        // 4b) For callables: compute YTC at each call date and YTW.
         if is_callable {
             let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
             let mut worst = ytm;

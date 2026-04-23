@@ -29,6 +29,11 @@ TOLERANCES: dict[str, float] = {
     "modified_duration":  1e-4,
     "convexity":          1e-3,
     "dv01_per_100":       1e-7,
+    # TIPS nominal add-ons (both sides compute as real × CPI ratio).
+    "cpi_index_ratio":        1e-10,
+    "nominal_clean_price_pct": 1e-6,
+    "nominal_dirty_price_pct": 1e-6,
+    "nominal_accrued":         1e-8,
 }
 
 

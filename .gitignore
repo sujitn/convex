@@ -69,11 +69,12 @@ __pycache__/
 /.claude
 .claude/settings.local.json
 
-# Reconciliation — generated runtime data, not source
-reconciliation/sofr_fixings.csv
-reconciliation/ust_cmt_20251231.csv
-reconciliation/tips_index_ratio_20251231.json
-reconciliation/tips_search_raw.json
+# Reconciliation — per-run outputs, not snapshots.
+# Market-data snapshots (sofr_fixings.csv, tips_index_ratio_20251231.json,
+# uk_gilt_20251231.csv, ecb_aaa_20251231.csv, jgb_eoy2025.csv) ARE checked
+# in so CI runs against the same inputs as local dev.
 reconciliation/convex.csv
 reconciliation/ql.csv
 reconciliation/reconciliation_report.md
+reconciliation/tips_search_raw.json
+reconciliation/ust_cmt_20251231.csv

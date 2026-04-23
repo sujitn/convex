@@ -90,40 +90,42 @@ def pull_sofr_fixings() -> None:
 
 
 def pull_tips_index_ratio() -> None:
-    """TIPS 91282CNS6 index ratio on the valuation date (daily-published)."""
+    """TIPS 91282CNS6 index ratio + reference CPI on the valuation date.
+
+    TreasuryDirect publishes monthly XML files at /xml/CPI_YYYYMMDD.xml (the
+    filename date is the publication date, ~mid-month-prior). Each file
+    carries ~a month of daily (cusip, date, ref_cpi, index_ratio) rows. We
+    walk the index, newest-first, and stop at the file that contains our
+    (cusip, VAL_DATE) pair.
+    """
+    import re
+    import xml.etree.ElementTree as ET
+
     cusip = "91282CNS6"
-    url = (
-        "https://www.treasurydirect.gov/TA_WS/securities/search"
-        f"?cusip={cusip}&format=json"
-    )
-    raw = fetch(url).decode("utf-8")
 
-    (HERE / "tips_search_raw.json").write_text(raw)
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        print("tips payload was not json; raw saved", file=sys.stderr)
-        return
+    listing = fetch("https://treasurydirect.gov/xml/").decode("utf-8", errors="replace")
+    files = sorted({m.group(1) for m in re.finditer(r'href="(CPI_\d{8}\.xml)"', listing)},
+                   reverse=True)
 
-    out = HERE / "tips_index_ratio_20251231.json"
-    out.write_text(json.dumps({
-        "cusip": cusip,
-        "valuation_date": VAL_DATE,
-        "index_ratio": None,
-        "raw_search": data,
-        "manual_pull_url": (
-            "https://www.treasurydirect.gov/auctions/"
-            "announcements-data-results/tips-cpi-data/tips-cpi-detail/"
-            f"?cusip={cusip}"
-        ),
-        "note": (
-            "The index-ratio time series lives on the TIPS/CPI detail page. "
-            "If this script doesn't capture it automatically, open the URL "
-            "above, download the CSV for the December 2025 range, and edit "
-            "index_ratio manually."
-        ),
-    }, indent=2))
-    print(f"wrote {out}")
+    for fn in files:
+        xml_bytes = fetch(f"https://treasurydirect.gov/xml/{fn}")
+        root = ET.fromstring(xml_bytes)
+        for row in root.iter("DailyIndexRatio"):
+            if row.findtext("CUSIP") == cusip and row.findtext("Date") == VAL_DATE:
+                ref_cpi = float(row.findtext("RefCPI"))
+                ratio = float(row.findtext("IndexRatio"))
+                out = HERE / "tips_index_ratio_20251231.json"
+                out.write_text(json.dumps({
+                    "cusip": cusip,
+                    "valuation_date": VAL_DATE,
+                    "ref_cpi": ref_cpi,
+                    "index_ratio": ratio,
+                    "source_file": f"https://treasurydirect.gov/xml/{fn}",
+                }, indent=2))
+                print(f"wrote {out} (ratio={ratio})")
+                return
+
+    raise RuntimeError(f"CUSIP {cusip} / {VAL_DATE} not found in any CPI_*.xml")
 
 
 # --------------------------------------------------------------- UK / EU / JP
