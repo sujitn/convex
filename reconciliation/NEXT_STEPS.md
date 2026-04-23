@@ -139,10 +139,14 @@ are the expected direction (closer to QL).
 
 Branch clean-merges on top of main. CI green.
 
-### 4.4 INDEX.md / OVERVIEW.md cleanup
+### 4.4 INDEX.md / OVERVIEW.md cleanup — done
 
-Original review flagged both as emoji-heavy / duplicative with README
-and CLAUDE.md. Decide delete vs. consolidate.
+Deleted both. They were setup-package docs from project inception that
+had rotted past the point of salvage: referenced non-existent
+`Cargo.toml.template` / `README.md.template`, described Java JNI
+bindings that were never built, quoted Phase-1 / Weeks-1-2 timelines
+long since irrelevant, and duplicated material now in `README.md` and
+`CLAUDE.md`. No source file referenced them outside this queue.
 
 ---
 
