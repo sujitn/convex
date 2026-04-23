@@ -256,7 +256,7 @@ async fn test_batch_price_multiple_bonds_parallel() {
             let bond = create_test_bond(
                 &format!("US91281{}TD00", i),
                 dec!(0.04) + Decimal::from(i) * dec!(0.005),
-                2028 + (i as i32 % 5),
+                2028 + (i % 5),
             );
             json!({
                 "bond": bond,
@@ -1265,7 +1265,7 @@ async fn test_list_bonds_with_pagination() {
         let bond = create_test_bond(
             &format!("PAGE{:03}", i),
             dec!(0.04) + Decimal::from(i) * dec!(0.001),
-            2030 + i as i32,
+            2030 + i,
         );
         let (status, _) =
             post_json(app, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
@@ -1402,7 +1402,7 @@ async fn test_get_bond_by_isin() {
     // Get by ISIN
     let app2 = create_router_with_bond_store(engine, bond_store);
     let request = Request::builder()
-        .uri(&format!("/api/v1/bonds/isin/{}", isin))
+        .uri(format!("/api/v1/bonds/isin/{}", isin))
         .body(Body::empty())
         .unwrap();
 

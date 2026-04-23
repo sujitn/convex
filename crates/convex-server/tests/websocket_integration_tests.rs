@@ -450,7 +450,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
     });
 
     let response = client
-        .post(&format!("http://{}/api/v1/batch/price", addr))
+        .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
         .send()
         .await
@@ -538,7 +538,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
     });
 
     let response = client
-        .post(&format!("http://{}/api/v1/batch/price", addr))
+        .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
         .send()
         .await
@@ -644,7 +644,7 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
     });
 
     let response = client
-        .post(&format!("http://{}/api/v1/batch/price", addr))
+        .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
         .send()
         .await
@@ -744,7 +744,7 @@ async fn test_websocket_status_shows_active_connections() {
     // Check initial status - 0 connections
     let client = reqwest::Client::new();
     let response = client
-        .get(&format!("http://{}/api/v1/ws/status", addr))
+        .get(format!("http://{}/api/v1/ws/status", addr))
         .send()
         .await
         .unwrap();
@@ -763,7 +763,7 @@ async fn test_websocket_status_shows_active_connections() {
 
     // Check status again - should show 1 connection
     let response = client
-        .get(&format!("http://{}/api/v1/ws/status", addr))
+        .get(format!("http://{}/api/v1/ws/status", addr))
         .send()
         .await
         .unwrap();
