@@ -18,64 +18,45 @@ at read time.
 ## SOFR overnight fixings (`sofr_fixings.csv`)
 
 NY Fed SOFR daily fixings. Puller: `pull_sofr_fixings()` → `sofr_fixings.csv`
-(499 rows, 2024-01-01 through 2025-12-31). Consumed by both libraries as the
-historical fixing record for any SOFR-linked coupon that is currently accruing
-(past dates) and any hindsight lookup required by observation-shift conventions.
-2025-12-31 overnight fixing: **3.87%** (elevated vs. normal 3.70–4.00% — year-end turn).
+(499 rows, 2024-01-01 through 2025-12-31). 2025-12-31 O/N: **3.87%** (year-end turn).
 
 ## SOFR OIS zero curve (`SOFR_OIS_CURVE`)
 
-Continuously-compounded zero rates (ACT/365F) on the 2025-12-31 SOFR OIS curve.
-No free public endpoint covers the full standard-tenor OIS swap panel, so these
-values are hand-curated by reading off late-2025 market commentary (Fed funds
-futures strip + published OIS runs from IDB broker screens) and cross-checked
-against a QuantLib `OISRateHelper` + `PiecewiseLogCubicDiscount` bootstrap of
-the implied par-quote panel below:
+Hand-curated continuously-compounded zero rates (ACT/365F) on 2025-12-31.
+No free public endpoint covers the full OIS swap panel.
 
-| Tenor | Par OIS rate | Zero rate (cont., ACT/365F) |
-|------:|-------------:|-----------------------------:|
-| 1M    | 3.80%        | 3.80%                        |
-| 3M    | 3.72%        | 3.72%                        |
-| 6M    | 3.60%        | 3.58%                        |
-| 1Y    | 3.48%        | 3.45%                        |
-| 2Y    | 3.45%        | 3.42%                        |
-| 3Y    | 3.51%        | 3.48%                        |
-| 5Y    | 3.62%        | 3.60%                        |
-| 7Y    | 3.80%        | 3.78%                        |
-| 10Y   | 4.05%        | 4.05%                        |
+| Tenor | Par OIS | Zero (cont., ACT/365F) |
+|------:|--------:|------------------------:|
+| 1M    | 3.80%   | 3.80%                   |
+| 3M    | 3.72%   | 3.72%                   |
+| 6M    | 3.60%   | 3.58%                   |
+| 1Y    | 3.48%   | 3.45%                   |
+| 2Y    | 3.45%   | 3.42%                   |
+| 3Y    | 3.51%   | 3.48%                   |
+| 5Y    | 3.62%   | 3.60%                   |
+| 7Y    | 3.80%   | 3.78%                   |
+| 10Y   | 4.05%   | 4.05%                   |
 
-The reconciliation bench consumes the **zero rates** directly, sidestepping
-bootstrap-algorithm divergence between Convex's `PiecewiseBootstrapper` and
-QuantLib's `PiecewiseLogCubicDiscount` — that comparison is its own tier.
-
-Both libraries use **linear** interpolation in zero-rate space on integer-day
-pillar placements (`days = round(tenor_years × 365)` with half-away-from-zero
-rounding — Python's `math.floor(x + 0.5)`, Rust's `f64::round`; Python's
-builtin `round` is banker's and picks different days at the 6M / 18M pillars).
+Both benches consume the **zero rates** directly. Linear interp in zero-rate
+space, pillars at integer days from the reference (`round(tenor × 365)` with
+half-away-from-zero rounding — use `math.floor(x + 0.5)` in Python since
+builtin `round` is banker's and picks different days at .5 boundaries).
 
 ## SOFR FRN projection convention
 
-The `CORP_SOFR_FRN` entry in `book.json` is a real Marsh & McLennan ARRC
-Compounded-SOFR-in-arrears bond, but the reconciliation bench does not model
-the ARRC compounding — implementing observation-shift / lookback calendar
-alignment identically in two libraries is its own tier. Instead both sides
-price the bond with a simplified curve-only convention:
+The `CORP_SOFR_FRN` book entry is a real Marsh & McLennan ARRC
+Compounded-SOFR-in-arrears bond. Both libraries price it off a simpler,
+curve-only model (matching ARRC compounding across two libraries is its
+own tier):
 
-* Future periods: coupon = `(DF(start)/DF(end) − 1) × face + spread × yf360 × face`.
-  This is the textbook floating-leg identity; no historical fixings read.
-* In-progress period (valuation between coupon dates): `DF(start)` clamps to
-  `1.0`, so the coupon projection falls back onto the curve's forward over
-  the full period.
-* Accrued: `face × current_reset_rate × ACT/360 days since last coupon`,
-  where `current_reset_rate_pct` on the book entry is the observed market
-  reset (late-2025 ~4.366%). This stands in for the ARRC-compounded rate
-  that real market quotes would give.
-* Discount margin: closed-form `(dirty − 100 − accrued) / (spread_annuity × face)`
-  — the par-equivalent DM. Exact because the floating-leg PV is
-  spread-independent.
+* Future coupon = `(DF(start)/DF(end) − 1) × face + spread × yf360 × face`.
+* In-progress period: `DF(start)` clamps to 1.0 (curve forward over the
+  full period stands in for the partially-realised compound rate).
+* Accrued = `face × current_reset_rate_pct/100 × ACT/360 days since last coupon`.
+* DM = `(dirty − 100 − accrued) / (spread_annuity × face)` — par-equivalent,
+  closed-form because the floating-leg PV is spread-independent.
 
-Call sites: `tools/reconcile_bench/src/main.rs::price_corporate_frn` and
-`reconciliation/ql_bench.py::price_corporate_frn`.
+Call sites: `reconcile_bench::price_corporate_frn` (Rust) and `ql_bench.py::price_corporate_frn`.
 
 ## UK Gilt Nominal Spot (`UK_GILT_CURVE`)
 

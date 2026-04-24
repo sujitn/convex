@@ -159,40 +159,32 @@ fn parse_currency(s: &str) -> Result<Currency> {
     }
 }
 
-/// Coupon in book.json is in percent (e.g. 4.000 for 4%).
-/// Normalise to decimal for the Convex builder.
+/// Book.json coupon is percent unless `coupon_unit` says otherwise. Returns a decimal.
 fn coupon_to_decimal(pct: f64, unit: Option<&str>) -> Decimal {
     let is_decimal = matches!(unit, Some(u) if u.contains("decimal"));
     let rate = if is_decimal { pct } else { pct / 100.0 };
     Decimal::try_from(rate).unwrap_or(Decimal::ZERO)
 }
 
-/// Years from valuation date to bond maturity.
 fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
     valuation.days_between(&maturity) as f64 / 365.25
 }
 
-/// True when `date` is the last day of its month. Used to pick the
-/// `end_of_month` flag for schedule generation — QL's `Schedule` with a
-/// month-end *maturity* snaps dates back to month-end after short months
-/// (Oct 31 → Apr 30 → Jul 31 → Oct 31). Convex with `end_of_month(true)`
-/// reproduces that behaviour; with `false` it drifts to the 30th.
+/// Matches QL's `Schedule` "snap back to month-end after a short month"
+/// behaviour (Oct 31 → Apr 30 → Jul 31 → Oct 31) so both sides agree on
+/// coupon dates when the maturity lands on a month-end.
 fn is_end_of_month(date: Date) -> bool {
     let Ok(next_day) = Date::from_ymd(date.year(), date.month(), date.day() + 1) else {
-        return true; // next day isn't a valid date in the same month → month-end
+        return true;
     };
     next_day.month() != date.month()
 }
 
-/// Encode a date as an integer YYYYMMDD so it diffs cleanly against the
-/// Python side.
+/// YYYYMMDD so the date diffs as a plain number against the Python side.
 fn workout_date_to_f64(d: Date) -> f64 {
     (d.year() * 10000 + d.month() as i32 * 100 + d.day() as i32) as f64
 }
 
-/// Linear interpolation of the UST CMT curve at a given tenor.
-///
-/// Returns a yield in decimal (0.04 = 4%).
 fn interpolate_cmt(cmt: &Curve, tenor_yrs: f64) -> Option<f64> {
     let pts: Vec<(f64, f64)> = cmt
         .quotes
@@ -217,10 +209,8 @@ fn interpolate_cmt(cmt: &Curve, tenor_yrs: f64) -> Option<f64> {
     Some(pts.last().unwrap().1)
 }
 
-/// Build a hypothetical "bullet to workout date" bond: same coupon and
-/// conventions as the underlying, but maturing at `workout_date` with
-/// `redemption` as the final principal payment. Used to compute YTC / YTW
-/// via standard YTM on the modified bond.
+/// Same bond re-maturing at `workout_date` with `redemption` as the final
+/// principal. Running YTM on this gives YTC at that call date; iterating gives YTW.
 fn build_workout_bullet(
     inst: &Instrument,
     workout_date: Date,
@@ -271,10 +261,8 @@ fn build_workout_bullet(
         .with_context(|| format!("building {} workout bullet", inst.id))
 }
 
-/// Effective coupon rate for a bond. For a fixed-rate instrument this is just
-/// the book's `coupon_rate`. For an FRN we project all future coupons at a
-/// flat (index_rate + spread_bps/100) — good enough to reconcile the PV / risk
-/// path under quarterly + ACT/360 conventions.
+/// Sovereign FRN projection: flat (index + spread). Fixed-rate bonds return
+/// their book coupon directly.
 fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
     if inst.category == "sovereign_frn" {
         let idx = inst
@@ -290,10 +278,8 @@ fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
 
 // --------------------------------------------------- SOFR curve + FRN pricing
 
-/// Build a zero-rate discount curve from the SOFR OIS panel. Linear interp in
-/// zero-rate space with pillars placed on integer days from the reference date
-/// (`t = round(tenor_years × 365) / 365`). QL's ZeroCurve is Date-based, so
-/// matching its pillar placement is what lets both sides agree to 1e-10.
+/// Pillars placed on integer days (`round(tenor_years × 365) / 365`) so
+/// `DiscreteCurve` lines up with QL's Date-based `ZeroCurve` to 1e-10.
 fn build_sofr_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve> {
     let mut builder = DiscountCurveBuilder::new(reference_date)
         .with_interpolation(InterpolationMethod::Linear)
@@ -311,7 +297,6 @@ fn build_sofr_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve
         .with_context(|| format!("building {}", curve.id))
 }
 
-/// Past dates clamp to DF = 1; future dates use curve.
 fn df(curve: &DiscountCurve, reference: Date, date: Date) -> f64 {
     if date <= reference {
         return 1.0;
@@ -338,10 +323,8 @@ fn price_corporate_frn(
     let reset = inst.current_reset_rate_pct.unwrap_or(0.0) / 100.0;
     let face = 100.0_f64;
 
-    // Build a bare `FloatingRateNote` just to get its schedule dates out of
-    // `cash_flows()`. The library's coupon amounts use a current-rate proxy
-    // we're about to overwrite with curve-implied projections below, so we
-    // only read `accrual_start` / `accrual_end` off the cashflows.
+    // FRN built solely for its schedule — we ignore its coupon amounts and
+    // reproject from the curve below.
     let dated = parse_date(
         inst.dated_date
             .as_deref()
@@ -372,9 +355,6 @@ fn price_corporate_frn(
     let mut spread_annuity = 0.0;
     let mut last_coupon_before_settle: Option<Date> = None;
 
-    // `cash_flows(dated_date)` returns every period, past and future, with
-    // accrual boundaries. We need the past ones only to find the last
-    // coupon date before settle for the accrued calc.
     for cf in frn.cash_flows(dated) {
         let (start, end) = match (cf.accrual_start, cf.accrual_end) {
             (Some(s), Some(e)) => (s, e),
@@ -430,9 +410,7 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
             .as_deref()
             .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
     )?;
-    // Use dated_date (start of interest accrual) if present; fall back to
-    // issue_date. The schedule is anchored here, so both libraries must use
-    // the same value for schedules to align.
+    // `dated_date` wins; `issue_date` is the fallback (both libraries must agree).
     let anchor = inst
         .dated_date
         .as_deref()
@@ -465,9 +443,9 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
         .day_count(dcc)
         .currency(ccy)
         .face_value(dec!(100))
-        // Match QL: NullCalendar + Unadjusted so schedules agree exactly.
-        // EOM = true only when the seed (issue/dated) date is month-end;
-        // QL's Schedule does that "snap back to 31" behaviour either way.
+        // NullCalendar + Unadjusted so coupon dates don't shift off weekends
+        // (QL's Schedule reproduces the same dates). EOM flag from the
+        // maturity so month-end maturities snap back after short months.
         .calendar(CalendarId::new(""))
         .business_day_convention(BusinessDayConvention::Unadjusted)
         .end_of_month(is_end_of_month(maturity))
@@ -475,7 +453,6 @@ fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
         .with_context(|| format!("building {}", inst.id))
 }
 
-/// Decide which curve + which reference yield to use for a given bond.
 fn reference_yield<'a>(
     inst: &Instrument,
     maturity: Date,
@@ -485,11 +462,9 @@ fn reference_yield<'a>(
     let ccy = inst.currency.as_deref().unwrap_or("USD");
     let yrs = years_to_maturity(valuation, maturity);
 
-    // TIPS: discount at a flat real yield, not the nominal curve.
     if inst.category == "sovereign_linker" {
         return (0.0185, "tips_real_placeholder");
     }
-    // FRN: flat forward at (index + spread), exercises the quarterly ACT/360 path.
     if inst.category == "sovereign_frn" {
         if let (Some(idx), spread) = (inst.index_rate_pct, inst.spread_bps.unwrap_or(0.0)) {
             return ((idx + spread / 100.0) / 100.0, "frn_flat_projection");
@@ -501,17 +476,13 @@ fn reference_yield<'a>(
         "GBP" => "UK_GILT_CURVE",
         "EUR" => "DE_BUND_CURVE",
         "JPY" => "JP_JGB_CURVE",
-        other => {
-            // parse_currency upstream rejects anything else.
-            unreachable!("unexpected currency {other} on {}", inst.id)
-        }
+        other => unreachable!("unexpected currency {other} on {}", inst.id),
     };
     if let Some(curve) = curves.iter().find(|c| c.id == curve_id) {
         if let Some(y) = interpolate_cmt(curve, yrs) {
             return (y, curve.id.as_str());
         }
     }
-    // Last-resort fallback: coupon rate as reference yield.
     let fallback = inst.coupon_rate.map(|c| c / 100.0).unwrap_or(0.04);
     (fallback, "placeholder")
 }
@@ -524,15 +495,12 @@ fn main() -> Result<()> {
         .context("reading book.json")?;
     let curves: Curves = serde_json::from_reader(File::open(root.join("curves.json"))?)
         .context("reading curves.json")?;
-    // Sanity-check the anchor curve is present; additional sovereign curves
-    // are resolved by currency inside `reference_yield`.
     if !curves.curves.iter().any(|c| c.id == "UST_CMT") {
         return Err(anyhow!("UST_CMT curve not found in curves.json"));
     }
 
     let valuation = parse_date(&book.valuation_date)?;
 
-    // Build the SOFR OIS discount curve once (used by corporate SOFR FRNs).
     let sofr_curve = curves
         .curves
         .iter()
@@ -540,7 +508,6 @@ fn main() -> Result<()> {
         .map(|c| build_sofr_curve(c, valuation))
         .transpose()?;
 
-    // TIPS index ratios (CUSIP → ratio on valuation date), if the puller has run.
     let mut tips_ratios: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let ratio_path = root.join("tips_index_ratio_20251231.json");
     if ratio_path.exists() {

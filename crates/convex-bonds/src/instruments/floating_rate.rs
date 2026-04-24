@@ -22,140 +22,97 @@ use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin, RateIndex
 /// compounding / observation-shift policy is the caller's responsibility.
 #[derive(Debug, Clone)]
 pub struct FloatingRateNote {
-    /// Bond identifiers
     identifiers: BondIdentifiers,
-
-    /// Reference rate index
     index: RateIndex,
-
-    /// Spread over reference rate in basis points
     spread_bps: Decimal,
-
-    /// Maturity date
     maturity: Date,
-
-    /// Issue date
     issue_date: Date,
-
-    /// Payment frequency
     frequency: Frequency,
-
-    /// Day count convention
     day_count: DayCountConvention,
-
-    /// Reset lag in business days before period start
+    /// Business days before period start when the fixing is read.
     reset_lag: i32,
-
-    /// Payment delay in business days after period end
+    /// Business days after period end when the coupon pays.
     payment_delay: u32,
-
-    /// Rate cap (optional)
     cap: Option<Decimal>,
-
-    /// Rate floor (optional)
     floor: Option<Decimal>,
-
-    /// Settlement days
     settlement_days: u32,
-
-    /// Calendar for business day adjustments
     calendar: CalendarId,
-
-    /// Currency
     currency: Currency,
-
-    /// Face value per unit
     face_value: Decimal,
-
-    /// Current reference rate fixing (if known)
     current_rate: Option<Decimal>,
 }
 
 impl FloatingRateNote {
-    /// Creates a new builder for `FloatingRateNote`.
     #[must_use]
     pub fn builder() -> FloatingRateNoteBuilder {
         FloatingRateNoteBuilder::default()
     }
 
-    /// Returns the reference rate index.
     #[must_use]
     pub fn index(&self) -> &RateIndex {
         &self.index
     }
 
-    /// Returns the spread in basis points.
     #[must_use]
     pub fn spread_bps(&self) -> Decimal {
         self.spread_bps
     }
 
-    /// Returns the spread as a decimal rate.
     #[must_use]
     pub fn spread_decimal(&self) -> Decimal {
         self.spread_bps / Decimal::from(10000)
     }
 
-    /// Returns the maturity date.
     #[must_use]
     pub fn maturity_date(&self) -> Date {
         self.maturity
     }
 
-    /// Returns the issue date.
     #[must_use]
     pub fn get_issue_date(&self) -> Date {
         self.issue_date
     }
 
-    /// Returns the payment frequency.
     #[must_use]
     pub fn frequency(&self) -> Frequency {
         self.frequency
     }
 
-    /// Returns the day count convention.
     #[must_use]
     pub fn day_count(&self) -> DayCountConvention {
         self.day_count
     }
 
-    /// Returns the cap rate if any.
     #[must_use]
     pub fn cap(&self) -> Option<Decimal> {
         self.cap
     }
 
-    /// Returns the floor rate if any.
     #[must_use]
     pub fn floor(&self) -> Option<Decimal> {
         self.floor
     }
 
-    /// Returns the settlement days.
     #[must_use]
     pub fn settlement_days(&self) -> u32 {
         self.settlement_days
     }
 
-    /// Returns the reset lag in business days.
     #[must_use]
     pub fn reset_lag(&self) -> i32 {
         self.reset_lag
     }
 
-    /// Sets the current reference rate.
     pub fn set_current_rate(&mut self, rate: Decimal) {
         self.current_rate = Some(rate);
     }
 
-    /// Returns the current reference rate if set.
     #[must_use]
     pub fn current_rate(&self) -> Option<Decimal> {
         self.current_rate
     }
 
-    /// Calculates the effective coupon rate after applying cap/floor.
+    /// Coupon rate after applying cap/floor (if any).
     #[must_use]
     pub fn effective_rate(&self, index_rate: Decimal) -> Decimal {
         let mut rate = index_rate + self.spread_decimal();
@@ -177,7 +134,6 @@ impl FloatingRateNote {
         rate
     }
 
-    /// Calculates the coupon amount for a period given the index rate.
     #[must_use]
     pub fn period_coupon(
         &self,
@@ -188,11 +144,12 @@ impl FloatingRateNote {
         let dc = self.day_count.to_day_count();
         let year_frac = dc.year_fraction(period_start, period_end);
         let effective_rate = self.effective_rate(index_rate);
-
         self.face_value * effective_rate * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO)
     }
 
-    /// Calculates accrued interest with a given reference rate.
+    /// ISMA-style period-prorata accrual (accrued_days / period_days × period coupon),
+    /// not ACT-day-count × rate — callers wanting exact day-count accrual should
+    /// compute it themselves.
     #[must_use]
     pub fn accrued_interest_with_rate(&self, settlement: Date, index_rate: Decimal) -> Decimal {
         if settlement <= self.issue_date {
@@ -226,15 +183,12 @@ impl FloatingRateNote {
         period_coupon * Decimal::from(accrued_days) / Decimal::from(period_days)
     }
 
-    /// Generates the payment schedule.
     fn schedule(&self) -> BondResult<Schedule> {
         let config = ScheduleConfig::new(self.issue_date, self.maturity, self.frequency)
             .with_calendar(self.calendar.clone());
         Schedule::generate(config)
     }
 }
-
-// ==================== Bond Trait Implementation ====================
 
 impl Bond for FloatingRateNote {
     fn identifiers(&self) -> &BondIdentifiers {
@@ -354,8 +308,6 @@ impl Bond for FloatingRateNote {
     }
 }
 
-// ==================== FloatingCouponBond Trait Implementation ====================
-
 impl FloatingCouponBond for FloatingRateNote {
     fn rate_index(&self) -> &RateIndex {
         &self.index
@@ -391,9 +343,6 @@ impl FloatingCouponBond for FloatingRateNote {
     }
 }
 
-// ==================== Builder ====================
-
-/// Builder for `FloatingRateNote`.
 #[derive(Debug, Clone, Default)]
 pub struct FloatingRateNoteBuilder {
     identifiers: Option<BondIdentifiers>,
@@ -414,148 +363,126 @@ pub struct FloatingRateNoteBuilder {
 }
 
 impl FloatingRateNoteBuilder {
-    /// Creates a new builder.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Sets the bond identifiers.
     #[must_use]
     pub fn identifiers(mut self, ids: BondIdentifiers) -> Self {
         self.identifiers = Some(ids);
         self
     }
 
-    /// Sets the CUSIP identifier with validation.
     pub fn cusip(mut self, cusip: &str) -> Result<Self, crate::error::IdentifierError> {
         let cusip = Cusip::new(cusip)?;
         self.identifiers = Some(BondIdentifiers::new().with_cusip(cusip));
         Ok(self)
     }
 
-    /// Sets the CUSIP identifier without validation.
     #[must_use]
     pub fn cusip_unchecked(mut self, cusip: &str) -> Self {
         self.identifiers = Some(BondIdentifiers::new().with_cusip(Cusip::new_unchecked(cusip)));
         self
     }
 
-    /// Sets the ISIN identifier.
     #[must_use]
     pub fn isin_unchecked(mut self, isin: &str) -> Self {
         self.identifiers = Some(BondIdentifiers::new().with_isin(Isin::new_unchecked(isin)));
         self
     }
 
-    /// Sets the reference rate index.
     #[must_use]
     pub fn index(mut self, index: RateIndex) -> Self {
         self.index = Some(index);
         self
     }
 
-    /// Sets the spread in basis points.
     #[must_use]
     pub fn spread_bps(mut self, bps: i32) -> Self {
         self.spread_bps = Some(Decimal::from(bps));
         self
     }
 
-    /// Sets the spread as a decimal.
     #[must_use]
     pub fn spread_decimal(mut self, spread: Decimal) -> Self {
         self.spread_bps = Some(spread * Decimal::from(10000));
         self
     }
 
-    /// Sets the maturity date.
     #[must_use]
     pub fn maturity(mut self, date: Date) -> Self {
         self.maturity = Some(date);
         self
     }
 
-    /// Sets the issue date.
     #[must_use]
     pub fn issue_date(mut self, date: Date) -> Self {
         self.issue_date = Some(date);
         self
     }
 
-    /// Sets the payment frequency.
     #[must_use]
     pub fn frequency(mut self, freq: Frequency) -> Self {
         self.frequency = Some(freq);
         self
     }
 
-    /// Sets the day count convention.
     #[must_use]
     pub fn day_count(mut self, dc: DayCountConvention) -> Self {
         self.day_count = Some(dc);
         self
     }
 
-    /// Sets the reset lag in business days.
     #[must_use]
     pub fn reset_lag(mut self, days: i32) -> Self {
         self.reset_lag = Some(days);
         self
     }
 
-    /// Sets the payment delay in business days.
     #[must_use]
     pub fn payment_delay(mut self, days: u32) -> Self {
         self.payment_delay = Some(days);
         self
     }
 
-    /// Sets the rate cap.
     #[must_use]
     pub fn cap(mut self, rate: Decimal) -> Self {
         self.cap = Some(rate);
         self
     }
 
-    /// Sets the rate floor.
     #[must_use]
     pub fn floor(mut self, rate: Decimal) -> Self {
         self.floor = Some(rate);
         self
     }
 
-    /// Sets the settlement days.
     #[must_use]
     pub fn settlement_days(mut self, days: u32) -> Self {
         self.settlement_days = Some(days);
         self
     }
 
-    /// Sets the calendar.
     #[must_use]
     pub fn calendar(mut self, calendar: CalendarId) -> Self {
         self.calendar = Some(calendar);
         self
     }
 
-    /// Sets the currency.
     #[must_use]
     pub fn currency(mut self, currency: Currency) -> Self {
         self.currency = Some(currency);
         self
     }
 
-    /// Sets the face value.
     #[must_use]
     pub fn face_value(mut self, value: Decimal) -> Self {
         self.face_value = Some(value);
         self
     }
 
-    // ==================== Market Convention Presets ====================
-
-    /// Applies US Treasury FRN conventions (SOFR + ACT/360, quarterly, T+1).
+    /// US Treasury FRN: SOFR, ACT/360, quarterly, T+1.
     #[must_use]
     pub fn us_treasury_frn(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
@@ -568,7 +495,7 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Applies corporate SOFR FRN conventions (ACT/360, quarterly, T+2).
+    /// Corporate SOFR FRN: ACT/360, quarterly, T+2.
     #[must_use]
     pub fn corporate_sofr(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
@@ -581,12 +508,7 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Applies UK SONIA FRN conventions.
-    ///
-    /// - Index: SONIA
-    /// - Day count: ACT/365F
-    /// - Frequency: Quarterly
-    /// - Settlement: T+1
+    /// UK SONIA FRN: ACT/365F, quarterly, T+1.
     #[must_use]
     pub fn uk_sonia_frn(mut self) -> Self {
         self.index = Some(RateIndex::Sonia);
@@ -599,12 +521,7 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Applies €STR FRN conventions.
-    ///
-    /// - Index: €STR
-    /// - Day count: ACT/360
-    /// - Frequency: Quarterly
-    /// - Settlement: T+2
+    /// €STR FRN: ACT/360, quarterly, T+2.
     #[must_use]
     pub fn estr_frn(mut self) -> Self {
         self.index = Some(RateIndex::Estr);
@@ -617,11 +534,7 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Applies EURIBOR FRN conventions.
-    ///
-    /// - Day count: ACT/360
-    /// - Frequency: Based on tenor (monthly for 1M, quarterly for 3M, semi-annual for 6M, annual for 12M)
-    /// - Settlement: T+2
+    /// EURIBOR FRN: ACT/360, T+2, frequency matches tenor (1M→monthly, 3M→quarterly, ...).
     #[must_use]
     pub fn euribor_frn(mut self, tenor: crate::types::Tenor) -> Self {
         use crate::types::Tenor;
@@ -649,7 +562,6 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Builds the `FloatingRateNote`.
     pub fn build(self) -> BondResult<FloatingRateNote> {
         let identifiers = self.identifiers.unwrap_or_default();
         let index = self.index.ok_or(BondError::MissingField {
@@ -688,8 +600,6 @@ impl FloatingRateNoteBuilder {
         })
     }
 }
-
-// ==================== Serde Support ====================
 
 // Helper functions for DayCountConvention serialization
 fn day_count_to_string(dc: &DayCountConvention) -> &'static str {

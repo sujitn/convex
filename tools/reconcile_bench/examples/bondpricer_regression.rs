@@ -1,10 +1,8 @@
-//! BondPricer numerical regression probe — Tier 3.7.
-//!
-//! Pre-8ae6574 `BondPricer::yield_to_maturity` hardcoded `(1+y/2)^(2·t)` with
-//! `t = days/365`. The refactor delegates to `YieldSolver` with the bond's
-//! own frequency + day count. This probe confirms the direction: for a bond
-//! priced at coupon-rate-at-par, the true YTM equals the coupon rate, and
-//! forcing the solver to `(SemiAnnual, Act365F)` reproduces the old math.
+//! Tier 3.7 — BondPricer regression. Pre-8ae6574 the YTM body was hardcoded
+//! to `(1+y/2)^(2·t)` with `t=days/365`; the refactor routes through
+//! `YieldSolver` with the bond's own frequency + day count. Pricing at
+//! coupon-rate-at-par gives true YTM = coupon; forcing the solver to
+//! `(SemiAnnual, Act365F)` reproduces the old behaviour.
 //!
 //! Run: `cargo run -p reconcile_bench --example bondpricer_regression`
 

@@ -32,7 +32,6 @@
 //! let ytm = bond.yield_to_maturity(price, settlement).unwrap();
 //! ```
 
-#![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
