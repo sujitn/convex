@@ -5,7 +5,7 @@ Work queue for picking up this branch in a fresh session.
 ## Status
 
 Branch `reconcile/milestone-1-book`. Reconciliation **121 / 121**, zero delta.
-Workspace `cargo test --all-targets` **1715 / 0**. Clippy clean under
+Workspace `cargo test --all-targets` **1672 / 0**. Clippy clean under
 `-D warnings`. Excel add-in builds. CI has a reconciliation gate
 (`.github/workflows/reconcile.yml`).
 
@@ -54,23 +54,17 @@ Branch clean-merges on top of main. CI green.
 
 ## Tier 5 — Design calls (don't start without input)
 
-- **5.1** `CashFlowGenerator` match QL coupon-by-day-count — **done**.
-  `CashFlowGenerator::generate` (both `convex-bonds` and `convex-analytics`)
-  now computes `rate × face × year_fraction(start, end)` per period using
-  the bond's own day count. `accrued_interest` delegates to
-  `accrued_interest_with_daycount`. On ACT/ACT ICMA and 30/360 the result
-  still collapses to `rate / freq`; on ACT/360 quarterly the coupons now
-  vary 0.9888–1.0222 per 100 matching QL. `FixedBond::coupon_per_period`
-  itself remains untouched — it's still a valid "nominal" accessor, just
-  no longer the source of truth for cashflow amounts.
+- **5.1** `CashFlowGenerator` match QL coupon-by-day-count — **done**
+  (`3b23dc8`). Superseded by the 5.3 purge below, which deleted
+  `CashFlowGenerator` entirely.
+- **5.3** Delete the `FixedBond` / `BondPricer` / `CashFlowGenerator` /
+  `GovernmentCouponBond` legacy island — **done**. Everything in the
+  production call graph (FFI, Excel, engine, server, MCP, portfolio,
+  reconcile bench) already went through `FixedRateBond` +
+  `BondAnalytics`; the legacy types were only self-referenced.
 
 ### 5.2 OAS / tree models for callables
 
 Current reconciliation uses deterministic YTC/YTW on workout-bullet
 proxies. Real OAS against Hull-White / BK isn't tested. Needs a shared
 model choice first.
-
-### 5.3 Deprecate `BondPricer::yield_to_maturity`?
-
-Now a thin delegate to `YieldSolver`; duplicates
-`FixedRateBond::yield_to_maturity`. Low urgency.

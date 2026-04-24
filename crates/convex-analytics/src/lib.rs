@@ -51,17 +51,9 @@ pub use error::{AnalyticsError, AnalyticsResult};
 // MODULES
 // ============================================================================
 
-// Phase 1: Cash flows (from convex-bonds/cashflows/)
 pub mod cashflows;
-
-// Phase 1c: Yields (from convex-bonds/pricing/ + convex-yas/yields/)
-pub mod yields;
-
-// Phase 1c: Pricing (from convex-bonds/pricing/)
-pub mod pricing;
-
-// Phase 2: Risk (from convex-risk/)
 pub mod risk;
+pub mod yields;
 
 // Phase 3: Spreads (from convex-spreads/)
 pub mod spreads;
@@ -85,8 +77,8 @@ pub mod prelude {
 
     // Cash flows
     pub use crate::cashflows::{
-        AccruedInterestCalculator, CashFlowGenerator, IrregularPeriodHandler, Schedule,
-        ScheduleConfig, SettlementCalculator, SettlementRules, SettlementStatus, StubType,
+        AccruedInterestCalculator, IrregularPeriodHandler, Schedule, ScheduleConfig,
+        SettlementCalculator, SettlementRules, SettlementStatus, StubType,
     };
 
     // Yields
@@ -95,9 +87,6 @@ pub mod prelude {
         ShortDateCalculator, StandardYieldEngine, YieldEngine, YieldEngineResult, YieldResult,
         YieldSolver,
     };
-
-    // Pricing
-    pub use crate::pricing::{BondPricer, PriceResult};
 
     // Risk
     pub use crate::risk::{
