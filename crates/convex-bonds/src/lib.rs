@@ -74,7 +74,6 @@ pub mod cashflows;
 pub mod conventions;
 pub mod curve_instruments;
 pub mod error;
-pub mod indices;
 pub mod instruments;
 pub mod options;
 pub mod pricing;
@@ -99,12 +98,6 @@ pub mod prelude {
 
     // Errors
     pub use crate::error::{BondError, BondResult, IdentifierError};
-
-    // Indices (for FRN support)
-    pub use crate::indices::{
-        ArrearConvention, IndexConventions, IndexFixing, IndexFixingStore, IndexSource,
-        OvernightCompounding, PublicationTime, ShiftType,
-    };
 
     // Instruments
     pub use crate::instruments::{
@@ -136,15 +129,11 @@ pub mod prelude {
         AccruedConvention, AmortizationEntry, AmortizationSchedule, AmortizationType,
         BondIdentifiers, BondType, CalendarId, CallEntry, CallSchedule, CallType, Cusip, Figi,
         InflationIndexType, Isin, PriceQuote, PriceQuoteConvention, PutEntry, PutSchedule, PutType,
-        RateIndex, RoundingConvention, SOFRConvention, Sedol, Tenor, YieldConvention,
+        RateIndex, RoundingConvention, Sedol, Tenor, YieldConvention,
     };
 }
 
 pub use error::{BondError, BondResult};
-pub use indices::{
-    ArrearConvention, IndexConventions, IndexFixing, IndexFixingStore, IndexSource,
-    OvernightCompounding, PublicationTime, ShiftType,
-};
 pub use instruments::{
     AccelerationOption, CallableBond, CallableBondBuilder, FixedBond, FixedBondBuilder,
     FixedRateBond, FixedRateBondBuilder, FloatingRateNote, FloatingRateNoteBuilder,

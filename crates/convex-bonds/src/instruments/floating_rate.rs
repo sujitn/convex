@@ -1,32 +1,10 @@
 //! Floating Rate Notes (FRNs).
 //!
-//! This module provides floating rate note implementation with support for:
-//! - SOFR compounding (in arrears, simple average, Term SOFR)
-//! - EURIBOR, SONIA, €STR, and other reference rates
-//! - Caps and floors (collars)
-//! - Lookback and lockout conventions
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use convex_bonds::instruments::FloatingRateNote;
-//! use convex_bonds::types::{RateIndex, SOFRConvention};
-//! use convex_core::types::Date;
-//!
-//! let frn = FloatingRateNote::builder()
-//!     .cusip_unchecked("912828ZQ7")
-//!     .index(RateIndex::Sofr)
-//!     .sofr_convention(SOFRConvention::arrc_standard())
-//!     .spread_bps(50)  // 50 basis points
-//!     .maturity(Date::from_ymd(2026, 7, 31).unwrap())
-//!     .issue_date(Date::from_ymd(2024, 7, 31).unwrap())
-//!     .us_treasury_frn()
-//!     .build()
-//!     .unwrap();
-//!
-//! // Calculate accrued interest with current rate
-//! let accrued = frn.accrued_interest_with_rate(settlement, dec!(0.053));
-//! ```
+//! Index + spread + schedule, priced with an externally-supplied in-progress
+//! rate. Callers own the compounding / observation-shift policy for the
+//! current accrual period — this type only tracks what the contract says
+//! (index, spread, schedule, caps/floors) and what the bond has paid or
+//! will pay under a given reset rate.
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -37,20 +15,11 @@ use convex_core::types::{Currency, Date, Frequency};
 use crate::cashflows::{Schedule, ScheduleConfig};
 use crate::error::{BondError, BondResult};
 use crate::traits::{Bond, BondCashFlow, FloatingCouponBond};
-use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin, RateIndex, SOFRConvention};
+use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin, RateIndex};
 
-/// A floating rate note (FRN).
-///
-/// FRNs pay coupons that reset periodically based on a reference rate
-/// (such as SOFR, EURIBOR, or SONIA) plus a fixed spread.
-///
-/// # Features
-///
-/// - Support for all major reference rates (SOFR, €STR, SONIA, EURIBOR, etc.)
-/// - SOFR compounding conventions (in arrears, simple average, Term SOFR)
-/// - Caps and floors (rate collars)
-/// - Lookback and lockout periods
-/// - Full Bond trait implementation
+/// A floating rate note (FRN): index + spread + schedule + optional caps/floors.
+/// The in-progress coupon rate is supplied externally via `set_current_rate`;
+/// compounding / observation-shift policy is the caller's responsibility.
 #[derive(Debug, Clone)]
 pub struct FloatingRateNote {
     /// Bond identifiers
@@ -58,9 +27,6 @@ pub struct FloatingRateNote {
 
     /// Reference rate index
     index: RateIndex,
-
-    /// SOFR-specific compounding convention (if applicable)
-    sofr_convention: Option<SOFRConvention>,
 
     /// Spread over reference rate in basis points
     spread_bps: Decimal,
@@ -116,12 +82,6 @@ impl FloatingRateNote {
     #[must_use]
     pub fn index(&self) -> &RateIndex {
         &self.index
-    }
-
-    /// Returns the SOFR convention if applicable.
-    #[must_use]
-    pub fn sofr_convention(&self) -> Option<&SOFRConvention> {
-        self.sofr_convention.as_ref()
     }
 
     /// Returns the spread in basis points.
@@ -264,358 +224,6 @@ impl FloatingRateNote {
         let period_coupon = self.face_value * effective_rate / periods_per_year;
 
         period_coupon * Decimal::from(accrued_days) / Decimal::from(period_days)
-    }
-
-    /// Calculates SOFR compounded in arrears for a period.
-    ///
-    /// This implements the ARRC standard methodology for calculating
-    /// compounded SOFR over an interest period.
-    ///
-    /// # Arguments
-    ///
-    /// * `daily_rates` - Vector of (date, rate) tuples for daily SOFR fixings
-    /// * `period_start` - Start of the interest period
-    /// * `period_end` - End of the interest period
-    ///
-    /// # Returns
-    ///
-    /// The compounded rate for the period (annualized).
-    #[must_use]
-    pub fn sofr_compounded_in_arrears(
-        &self,
-        daily_rates: &[(Date, Decimal)],
-        period_start: Date,
-        period_end: Date,
-    ) -> Decimal {
-        let Some(SOFRConvention::CompoundedInArrears {
-            lookback_days,
-            observation_shift,
-            lockout_days,
-        }) = &self.sofr_convention
-        else {
-            return Decimal::ZERO;
-        };
-
-        let calendar = self.calendar.to_calendar();
-        let mut compounded = 1.0_f64;
-        let mut current = period_start;
-        let mut days_count = 0_i64;
-
-        while current < period_end {
-            let next = calendar.add_business_days(current, 1);
-            let weight_days = current.days_between(&next);
-
-            // Determine observation date with lookback
-            let observation_date = if *observation_shift {
-                calendar.add_business_days(current, -(*lookback_days as i32))
-            } else {
-                current
-            };
-
-            // Apply lockout if applicable
-            let rate_date = if let Some(lock) = lockout_days {
-                let lock_start = calendar.add_business_days(period_end, -(*lock as i32));
-                if current >= lock_start {
-                    lock_start
-                } else {
-                    observation_date
-                }
-            } else {
-                observation_date
-            };
-
-            // Look up the rate
-            let rate = daily_rates
-                .iter()
-                .find(|(d, _)| *d == rate_date)
-                .map_or(0.0, |(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0));
-
-            // Compound: (1 + rate * days/360)
-            compounded *= 1.0 + rate * weight_days as f64 / 360.0;
-            days_count += weight_days;
-            current = next;
-        }
-
-        if days_count == 0 {
-            return Decimal::ZERO;
-        }
-
-        // Annualize: ((compounded - 1) * 360 / days)
-        let annualized = (compounded - 1.0) * 360.0 / days_count as f64;
-        Decimal::try_from(annualized).unwrap_or(Decimal::ZERO)
-    }
-
-    /// Calculates simple average SOFR for a period.
-    #[must_use]
-    pub fn sofr_simple_average(
-        &self,
-        daily_rates: &[(Date, Decimal)],
-        period_start: Date,
-        period_end: Date,
-    ) -> Decimal {
-        let Some(SOFRConvention::SimpleAverage { lookback_days }) = &self.sofr_convention else {
-            return Decimal::ZERO;
-        };
-
-        let calendar = self.calendar.to_calendar();
-        let mut sum = 0.0_f64;
-        let mut count = 0_i32;
-        let mut current = period_start;
-
-        while current < period_end {
-            let observation_date = calendar.add_business_days(current, -(*lookback_days as i32));
-
-            let rate = daily_rates
-                .iter()
-                .find(|(d, _)| *d == observation_date)
-                .map_or(0.0, |(_, r)| r.to_string().parse::<f64>().unwrap_or(0.0));
-
-            sum += rate;
-            count += 1;
-            current = calendar.add_business_days(current, 1);
-        }
-
-        if count == 0 {
-            return Decimal::ZERO;
-        }
-
-        Decimal::try_from(sum / f64::from(count)).unwrap_or(Decimal::ZERO)
-    }
-
-    /// Returns an identifier string for display.
-    #[must_use]
-    pub fn identifier(&self) -> String {
-        if let Some(cusip) = self.identifiers.cusip() {
-            return cusip.to_string();
-        }
-        if let Some(isin) = self.identifiers.isin() {
-            return isin.to_string();
-        }
-        if let Some(ticker) = self.identifiers.ticker() {
-            return ticker.to_string();
-        }
-        "UNKNOWN".to_string()
-    }
-
-    /// Generates cash flows with projected rates from a forward curve.
-    ///
-    /// This method projects coupon amounts using forward rates from the
-    /// provided curve, applying the spread and any caps/floors.
-    ///
-    /// # Arguments
-    ///
-    /// * `from` - Settlement date
-    /// * `forward_curve` - Curve for projecting forward rates
-    ///
-    /// # Returns
-    ///
-    /// Vector of cash flows with projected coupon amounts.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let flows = frn.cash_flows_projected(settlement, &forward_curve);
-    /// for flow in flows {
-    ///     println!("Date: {}, Amount: {}", flow.date(), flow.amount());
-    /// }
-    /// ```
-    pub fn cash_flows_projected<C>(&self, from: Date, forward_curve: &C) -> Vec<BondCashFlow>
-    where
-        C: convex_curves::RateCurveDyn + ?Sized,
-    {
-        if from >= self.maturity {
-            return Vec::new();
-        }
-
-        let Ok(schedule) = self.schedule() else {
-            return Vec::new();
-        };
-
-        let mut flows = Vec::new();
-        let ref_date = forward_curve.reference_date();
-
-        for (start, end) in schedule.unadjusted_periods() {
-            if end <= from {
-                continue;
-            }
-
-            // Calculate time fractions for forward rate lookup
-            let t1 = start.days_between(&ref_date) as f64 / 365.0;
-            let t2 = end.days_between(&ref_date) as f64 / 365.0;
-
-            // Get forward rate from curve
-            let fwd_rate = if t1 < 0.0 && t2 > 0.0 {
-                // Period spans reference date - use rate to end
-                forward_curve.forward_rate(0.0, t2.abs()).unwrap_or(0.0)
-            } else if t1 >= 0.0 && t2 > 0.0 {
-                forward_curve.forward_rate(t1, t2).unwrap_or(0.0)
-            } else {
-                // Historical period - use spot rate
-                forward_curve
-                    .zero_rate(t2.abs(), convex_curves::Compounding::Continuous)
-                    .unwrap_or(0.0)
-            };
-
-            // Apply spread, cap, and floor
-            let projected_rate = Decimal::try_from(fwd_rate).unwrap_or(Decimal::ZERO);
-            let effective_rate = self.effective_rate(projected_rate);
-
-            // Calculate coupon using day count
-            let dc = self.day_count.to_day_count();
-            let year_frac = dc.year_fraction(start, end);
-            let coupon_amount = self.face_value
-                * effective_rate
-                * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO);
-
-            if end == self.maturity {
-                flows.push(
-                    BondCashFlow::coupon_and_principal(end, coupon_amount, self.face_value)
-                        .with_accrual(start, end)
-                        .with_reference_rate(projected_rate),
-                );
-            } else {
-                flows.push(
-                    BondCashFlow::coupon(end, coupon_amount)
-                        .with_accrual(start, end)
-                        .with_reference_rate(projected_rate),
-                );
-            }
-        }
-
-        flows
-    }
-
-    /// Returns all fixing dates required for coupon calculations.
-    ///
-    /// For overnight compounded rates (SOFR, SONIA), this returns all business
-    /// days in each coupon period. For term rates (EURIBOR, Term SOFR), this
-    /// returns only the fixing dates based on reset lag.
-    ///
-    /// # Arguments
-    ///
-    /// * `from` - Settlement date (only returns dates for future periods)
-    ///
-    /// # Returns
-    ///
-    /// Vector of dates when index fixings are needed.
-    #[must_use]
-    pub fn required_fixing_dates(&self, from: Date) -> Vec<Date> {
-        let Ok(schedule) = self.schedule() else {
-            return Vec::new();
-        };
-
-        let calendar = self.calendar.to_calendar();
-        let mut dates = Vec::new();
-
-        // Determine if this is an overnight compounding index
-        let is_overnight = matches!(
-            self.index,
-            RateIndex::Sofr
-                | RateIndex::Sonia
-                | RateIndex::Estr
-                | RateIndex::Tonar
-                | RateIndex::Saron
-                | RateIndex::Corra
-                | RateIndex::Aonia
-                | RateIndex::Honia
-        );
-
-        for (start, end) in schedule.unadjusted_periods() {
-            if end <= from {
-                continue;
-            }
-
-            if is_overnight {
-                // For overnight rates - need all business days in period
-                if let Some(conv) = &self.sofr_convention {
-                    let lookback = conv.lookback_days().unwrap_or(0);
-                    let obs_shift = conv.is_in_arrears();
-
-                    let mut current = start;
-                    while current < end {
-                        let obs_date = if obs_shift {
-                            calendar.add_business_days(current, -(lookback as i32))
-                        } else {
-                            current
-                        };
-                        dates.push(obs_date);
-                        current = calendar.add_business_days(current, 1);
-                    }
-                }
-            } else {
-                // For term rates - just the fixing date
-                let fixing_date = calendar.add_business_days(start, self.reset_lag);
-                dates.push(fixing_date);
-            }
-        }
-
-        // Remove duplicates and sort
-        dates.sort();
-        dates.dedup();
-        dates
-    }
-
-    /// Calculates accrued interest using rates from a fixing store.
-    ///
-    /// For overnight compounded rates, this compounds the daily rates
-    /// from period start to settlement. For term rates, uses the fixed
-    /// rate for the period.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `store` - Index fixing store with historical rates
-    ///
-    /// # Returns
-    ///
-    /// Accrued interest amount, or zero if fixings are unavailable.
-    #[must_use]
-    pub fn accrued_interest_from_store(
-        &self,
-        settlement: Date,
-        store: &crate::indices::IndexFixingStore,
-    ) -> Decimal {
-        if settlement <= self.issue_date {
-            return Decimal::ZERO;
-        }
-
-        let Some(last_coupon) = self.previous_coupon_date(settlement) else {
-            return Decimal::ZERO;
-        };
-
-        // For overnight compounded rates, we need to compound from period start to settlement
-        if let Some(conv) = &self.sofr_convention {
-            if conv.is_in_arrears() {
-                let calendar = self.calendar.to_calendar();
-                let rate = crate::indices::OvernightCompounding::compounded_rate(
-                    store,
-                    &self.index,
-                    last_coupon,
-                    settlement,
-                    conv,
-                    calendar.as_ref(),
-                );
-
-                if let Some(r) = rate {
-                    let dc = self.day_count.to_day_count();
-                    let year_frac = dc.year_fraction(last_coupon, settlement);
-                    let effective = self.effective_rate(r);
-                    return self.face_value
-                        * effective
-                        * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO);
-                }
-            }
-        }
-
-        // Fall back to term rate lookup
-        let calendar = self.calendar.to_calendar();
-        let fixing_date = calendar.add_business_days(last_coupon, self.reset_lag);
-
-        if let Some(rate) = store.get_fixing(&self.index, fixing_date) {
-            self.accrued_interest_with_rate(settlement, rate)
-        } else {
-            Decimal::ZERO
-        }
     }
 
     /// Generates the payment schedule.
@@ -762,10 +370,7 @@ impl FloatingCouponBond for FloatingRateNote {
     }
 
     fn lookback_days(&self) -> u32 {
-        self.sofr_convention
-            .as_ref()
-            .and_then(crate::types::SOFRConvention::lookback_days)
-            .unwrap_or(0)
+        0
     }
 
     fn floor(&self) -> Option<Decimal> {
@@ -793,7 +398,6 @@ impl FloatingCouponBond for FloatingRateNote {
 pub struct FloatingRateNoteBuilder {
     identifiers: Option<BondIdentifiers>,
     index: Option<RateIndex>,
-    sofr_convention: Option<SOFRConvention>,
     spread_bps: Option<Decimal>,
     maturity: Option<Date>,
     issue_date: Option<Date>,
@@ -848,13 +452,6 @@ impl FloatingRateNoteBuilder {
     #[must_use]
     pub fn index(mut self, index: RateIndex) -> Self {
         self.index = Some(index);
-        self
-    }
-
-    /// Sets the SOFR compounding convention.
-    #[must_use]
-    pub fn sofr_convention(mut self, convention: SOFRConvention) -> Self {
-        self.sofr_convention = Some(convention);
         self
     }
 
@@ -958,17 +555,10 @@ impl FloatingRateNoteBuilder {
 
     // ==================== Market Convention Presets ====================
 
-    /// Applies US Treasury FRN conventions.
-    ///
-    /// - Index: SOFR
-    /// - Convention: Simple average with 2-day lookback
-    /// - Day count: ACT/360
-    /// - Frequency: Quarterly
-    /// - Settlement: T+1
+    /// Applies US Treasury FRN conventions (SOFR + ACT/360, quarterly, T+1).
     #[must_use]
     pub fn us_treasury_frn(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
-        self.sofr_convention = Some(SOFRConvention::SimpleAverage { lookback_days: 2 });
         self.day_count = Some(DayCountConvention::Act360);
         self.frequency = Some(Frequency::Quarterly);
         self.settlement_days = Some(1);
@@ -978,17 +568,10 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// Applies corporate SOFR FRN conventions.
-    ///
-    /// - Index: SOFR
-    /// - Convention: Compounded in arrears with 5-day lookback
-    /// - Day count: ACT/360
-    /// - Frequency: Quarterly
-    /// - Settlement: T+2
+    /// Applies corporate SOFR FRN conventions (ACT/360, quarterly, T+2).
     #[must_use]
     pub fn corporate_sofr(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
-        self.sofr_convention = Some(SOFRConvention::arrc_standard());
         self.day_count = Some(DayCountConvention::Act360);
         self.frequency = Some(Frequency::Quarterly);
         self.settlement_days = Some(2);
@@ -1088,7 +671,6 @@ impl FloatingRateNoteBuilder {
         Ok(FloatingRateNote {
             identifiers,
             index,
-            sofr_convention: self.sofr_convention,
             spread_bps: self.spread_bps.unwrap_or(Decimal::ZERO),
             maturity,
             issue_date,
@@ -1147,10 +729,9 @@ impl Serialize for FloatingRateNote {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("FloatingRateNote", 16)?;
+        let mut state = serializer.serialize_struct("FloatingRateNote", 15)?;
         state.serialize_field("identifiers", &self.identifiers)?;
         state.serialize_field("index", &self.index)?;
-        state.serialize_field("sofr_convention", &self.sofr_convention)?;
         state.serialize_field("spread_bps", &self.spread_bps)?;
         state.serialize_field("maturity", &self.maturity)?;
         state.serialize_field("issue_date", &self.issue_date)?;
@@ -1177,7 +758,6 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
         struct FloatingRateNoteData {
             identifiers: BondIdentifiers,
             index: RateIndex,
-            sofr_convention: Option<SOFRConvention>,
             spread_bps: Decimal,
             maturity: Date,
             issue_date: Date,
@@ -1197,7 +777,6 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
         Ok(FloatingRateNote {
             identifiers: data.identifiers,
             index: data.index,
-            sofr_convention: data.sofr_convention,
             spread_bps: data.spread_bps,
             maturity: data.maturity,
             issue_date: data.issue_date,
@@ -1230,7 +809,6 @@ mod tests {
         let frn = FloatingRateNote::builder()
             .cusip_unchecked("912828ZQ7")
             .index(RateIndex::Sofr)
-            .sofr_convention(SOFRConvention::arrc_standard())
             .spread_bps(50)
             .maturity(date(2026, 7, 31))
             .issue_date(date(2024, 7, 31))
@@ -1239,7 +817,6 @@ mod tests {
 
         assert_eq!(frn.spread_bps(), dec!(50));
         assert_eq!(frn.spread_decimal(), dec!(0.0050));
-        assert!(frn.sofr_convention().is_some());
     }
 
     #[test]
@@ -1271,7 +848,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(*frn.index(), RateIndex::Sofr);
-        assert!(frn.sofr_convention().unwrap().is_in_arrears());
         assert_eq!(frn.settlement_days(), 2);
     }
 
@@ -1485,14 +1061,6 @@ mod tests {
         assert_eq!(*frn.index(), RateIndex::Estr);
         assert_eq!(frn.day_count(), DayCountConvention::Act360);
         assert_eq!(frn.currency(), Currency::EUR);
-    }
-
-    #[test]
-    fn test_sofr_convention_display() {
-        let conv = SOFRConvention::arrc_standard();
-        let display = format!("{}", conv);
-        assert!(display.contains("5D lookback"));
-        assert!(display.contains("observation shift"));
     }
 
     #[test]
