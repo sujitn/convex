@@ -105,111 +105,71 @@ CCY_TO_CURVE_ID = {
 
 # ---------------------------------------------------------------- SOFR FRN pricing
 
-def build_zero_rate_df(curve: dict, valuation: ql.Date) -> callable:
-    """Return a DF(date) closure for a zero-rate panel (cont. ACT/365F).
-
-    Linear interpolation on zero rates, flat extrapolation. Matches the Convex
-    side (`DiscountCurveBuilder::with_interpolation(Linear)`) point-for-point.
-    """
-    pts = sorted(
-        (q["tenor_years"], q["rate_pct"] / 100.0)
-        for q in curve.get("quotes", [])
-        if q.get("rate_pct") is not None
-    )
-
-    def zero_rate(t: float) -> float:
-        if t <= pts[0][0]:
-            return pts[0][1]
-        if t >= pts[-1][0]:
-            return pts[-1][1]
-        for (t0, r0), (t1, r1) in zip(pts, pts[1:]):
-            if t0 <= t <= t1:
-                w = (t - t0) / (t1 - t0)
-                return r0 + w * (r1 - r0)
-        return pts[-1][1]
-
-    def df(date: ql.Date) -> float:
-        if date <= valuation:
-            return 1.0
-        t = (date - valuation) / 365.0
-        return math.exp(-zero_rate(t) * t)
-
-    return df
+def build_sofr_curve(sofr: dict, valuation: ql.Date) -> ql.YieldTermStructureHandle:
+    """Build a QL `ZeroCurve` from the SOFR OIS zero-rate panel. Linear interp
+    in zero-rate space so both sides match point-for-point. Pillar days use
+    half-away-from-zero rounding to match Rust's `f64::round` (Python's
+    built-in `round` is banker's — they disagree at .5 boundaries like 6M)."""
+    dc = ql.Actual365Fixed()
+    dates = [valuation]
+    rates = [sofr["quotes"][0]["rate_pct"] / 100.0]  # anchor at t=0
+    for q in sofr["quotes"]:
+        days = math.floor(q["tenor_years"] * 365.0 + 0.5)
+        dates.append(valuation + ql.Period(days, ql.Days))
+        rates.append(q["rate_pct"] / 100.0)
+    curve = ql.ZeroCurve(dates, rates, dc, ql.NullCalendar(), ql.Linear())
+    curve.enableExtrapolation()
+    return ql.YieldTermStructureHandle(curve)
 
 
-def quarterly_schedule_dates(dated: ql.Date, maturity: ql.Date) -> list[ql.Date]:
-    """Generate a quarterly schedule walking backward from maturity, mirroring
-    the Convex side's `quarterly_schedule`. NullCalendar + Unadjusted.
-    """
-    dates = [maturity]
-    current = maturity
-    while True:
-        prev = current - ql.Period(3, ql.Months)
-        if prev <= dated:
-            dates.append(dated)
-            break
-        dates.append(prev)
-        current = prev
-    dates.reverse()
-    return dates
-
-
-def price_corporate_frn(inst: dict, valuation: ql.Date, sofr_curve: dict) -> dict:
-    """Mirror of the Rust `price_corporate_frn` — see book.json::coupon_model_note.
-
-    Returns a dict of metric-name → value, matching the Convex emitter.
-    """
+def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
+    """See SOURCES.md § 'SOFR FRN projection convention' for the shared
+    pricing model. Paired with reconcile_bench's price_corporate_frn."""
     dated = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     maturity = to_ql_date(inst["maturity_date"])
     spread = inst["spread_bps"] / 10_000.0
     reset = inst["current_reset_rate_pct"] / 100.0
-
-    df = build_zero_rate_df(sofr_curve, valuation)
-
-    schedule = quarterly_schedule_dates(dated, maturity)
     face = 100.0
     dc360 = ql.Actual360()
+
+    handle = build_sofr_curve(sofr, valuation)
+    schedule = ql.Schedule(
+        dated, maturity, ql.Period(ql.Quarterly), ql.NullCalendar(),
+        ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
+    )
+
+    def df(d: ql.Date) -> float:
+        return 1.0 if d <= valuation else handle.discount(d)
 
     dirty = 0.0
     spread_annuity = 0.0
     last_coupon_before_settle = None
 
-    for start, end in zip(schedule[:-1], schedule[1:]):
+    for start, end in zip(schedule, list(schedule)[1:]):
         if end <= valuation:
             last_coupon_before_settle = end
             continue
         if start <= valuation:
             last_coupon_before_settle = start
 
-        df_start = df(start)
-        df_end = df(end)
-        yf360 = dc360.yearFraction(start, end)
+        yf = dc360.yearFraction(start, end)
+        coupon = face * (df(start) / df(end) - 1.0 + spread * yf)
+        amount = coupon + (face if end == maturity else 0.0)
+        dirty += amount * df(end)
+        spread_annuity += yf * df(end)
 
-        float_cf = face * (df_start / df_end - 1.0)
-        spread_cf = face * spread * yf360
-        cf = float_cf + spread_cf
-        if end == maturity:
-            cf += face
-        dirty += cf * df_end
-        spread_annuity += yf360 * df_end
-
-    dirty_price_pct = dirty
-
-    accrued = 0.0
-    if last_coupon_before_settle is not None:
-        yf = dc360.yearFraction(last_coupon_before_settle, valuation)
-        accrued = face * reset * yf
-
-    clean_price_pct = dirty_price_pct - accrued
-
-    dm = (dirty_price_pct - 100.0 - accrued) / (spread_annuity * face) if abs(spread_annuity) > 1e-12 else 0.0
-    discount_margin_bps = dm * 10_000.0
+    accrued = (
+        face * reset * dc360.yearFraction(last_coupon_before_settle, valuation)
+        if last_coupon_before_settle is not None else 0.0
+    )
+    clean = dirty - accrued
+    dm = (dirty - 100.0 - accrued) / (spread_annuity * face) if abs(spread_annuity) > 1e-12 else 0.0
 
     return {
-        "clean_price_pct": clean_price_pct,
-        "dirty_price_pct": dirty_price_pct,
+        "clean_price_pct": clean,
+        "dirty_price_pct": dirty,
         "accrued": accrued,
-        "discount_margin_bps": discount_margin_bps,
+        "discount_margin_bps": dm * 10_000.0,
     }
 
 

@@ -48,9 +48,34 @@ The reconciliation bench consumes the **zero rates** directly, sidestepping
 bootstrap-algorithm divergence between Convex's `PiecewiseBootstrapper` and
 QuantLib's `PiecewiseLogCubicDiscount` — that comparison is its own tier.
 
-Both libraries use **log-linear** interpolation on discount factors (equivalent
-to linear-in-zero-rate on a flat day count) so the forward curve is identical
-point-for-point once the pillars match.
+Both libraries use **linear** interpolation in zero-rate space on integer-day
+pillar placements (`days = round(tenor_years × 365)` with half-away-from-zero
+rounding — Python's `math.floor(x + 0.5)`, Rust's `f64::round`; Python's
+builtin `round` is banker's and picks different days at the 6M / 18M pillars).
+
+## SOFR FRN projection convention
+
+The `CORP_SOFR_FRN` entry in `book.json` is a real Marsh & McLennan ARRC
+Compounded-SOFR-in-arrears bond, but the reconciliation bench does not model
+the ARRC compounding — implementing observation-shift / lookback calendar
+alignment identically in two libraries is its own tier. Instead both sides
+price the bond with a simplified curve-only convention:
+
+* Future periods: coupon = `(DF(start)/DF(end) − 1) × face + spread × yf360 × face`.
+  This is the textbook floating-leg identity; no historical fixings read.
+* In-progress period (valuation between coupon dates): `DF(start)` clamps to
+  `1.0`, so the coupon projection falls back onto the curve's forward over
+  the full period.
+* Accrued: `face × current_reset_rate × ACT/360 days since last coupon`,
+  where `current_reset_rate_pct` on the book entry is the observed market
+  reset (late-2025 ~4.366%). This stands in for the ARRC-compounded rate
+  that real market quotes would give.
+* Discount margin: closed-form `(dirty − 100 − accrued) / (spread_annuity × face)`
+  — the par-equivalent DM. Exact because the floating-leg PV is
+  spread-independent.
+
+Call sites: `tools/reconcile_bench/src/main.rs::price_corporate_frn` and
+`reconciliation/ql_bench.py::price_corporate_frn`.
 
 ## UK Gilt Nominal Spot (`UK_GILT_CURVE`)
 

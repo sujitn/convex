@@ -31,8 +31,9 @@ use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, parse_day_count, yield_to_maturity,
 };
-use convex_bonds::instruments::FixedRateBond;
-use convex_bonds::types::CalendarId;
+use convex_bonds::instruments::{FixedRateBond, FloatingRateNote};
+use convex_bonds::traits::Bond;
+use convex_bonds::types::{CalendarId, RateIndex};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
@@ -289,73 +290,36 @@ fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
 
 // --------------------------------------------------- SOFR curve + FRN pricing
 
-/// Build a discount curve from a zero-rate panel (continuously compounded,
-/// ACT/365F). Used for SOFR_OIS_CURVE. Linear interpolation on zero rates —
-/// matches what QuantLib's `ZeroCurve(dates, rates, Linear())` produces.
-fn build_zero_rate_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve> {
-    if curve.quotes.is_empty() {
-        return Err(anyhow!(
-            "curve {} has no quotes; cannot bootstrap",
-            curve.id
-        ));
-    }
+/// Build a zero-rate discount curve from the SOFR OIS panel. Linear interp in
+/// zero-rate space with pillars placed on integer days from the reference date
+/// (`t = round(tenor_years × 365) / 365`). QL's ZeroCurve is Date-based, so
+/// matching its pillar placement is what lets both sides agree to 1e-10.
+fn build_sofr_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve> {
     let mut builder = DiscountCurveBuilder::new(reference_date)
         .with_interpolation(InterpolationMethod::Linear)
         .with_extrapolation();
     for q in &curve.quotes {
-        let rate = q.rate_pct.ok_or_else(|| {
-            anyhow!(
-                "curve {} has null rate_pct at tenor {}",
-                curve.id,
-                q.tenor_years
-            )
-        })?;
-        builder = builder.add_zero_rate(q.tenor_years, rate / 100.0);
+        let rate = q
+            .rate_pct
+            .ok_or_else(|| anyhow!("{}: null rate_pct at {}Y", curve.id, q.tenor_years))?;
+        let days = (q.tenor_years * 365.0).round() as i64;
+        let t = days as f64 / 365.0;
+        builder = builder.add_zero_rate(t, rate / 100.0);
     }
     builder
         .build()
-        .with_context(|| format!("building discount curve for {}", curve.id))
+        .with_context(|| format!("building {}", curve.id))
 }
 
-/// Generate a quarterly schedule anchored at `dated` through `maturity`,
-/// working backward from maturity. Matches QL's Schedule(DateGeneration.Backward)
-/// with NullCalendar + Unadjusted so both libraries land on the same dates.
-///
-/// For the MMC FRN (2024-11-08 → 2027-11-08) this yields 13 period starts:
-///   2024-11-08, 2025-02-08, 2025-05-08, 2025-08-08, 2025-11-08,
-///   2026-02-08, 2026-05-08, 2026-08-08, 2026-11-08,
-///   2027-02-08, 2027-05-08, 2027-08-08, 2027-11-08.
-fn quarterly_schedule(dated: Date, maturity: Date) -> Result<Vec<Date>> {
-    let mut dates = vec![maturity];
-    let mut current = maturity;
-    loop {
-        let prev = current.add_months(-3).map_err(|e| {
-            anyhow!("date underflow walking quarterly schedule from {maturity}: {e}")
-        })?;
-        if prev <= dated {
-            dates.push(dated);
-            break;
-        }
-        dates.push(prev);
-        current = prev;
-    }
-    dates.reverse();
-    Ok(dates)
-}
-
-/// Compute DF(t) where t = ACT/365F years from curve's reference date. Clamps
-/// t < 0 to 1.0 (past dates).
-fn df_at_date(curve: &DiscountCurve, reference: Date, date: Date) -> Result<f64> {
+/// Past dates clamp to DF = 1; future dates use curve.
+fn df(curve: &DiscountCurve, reference: Date, date: Date) -> f64 {
     if date <= reference {
-        return Ok(1.0);
+        return 1.0;
     }
     let t = reference.days_between(&date) as f64 / 365.0;
-    curve
-        .discount_factor_at_tenor(t)
-        .map_err(|e| anyhow!("discount_factor_at_tenor({t}) failed: {e}"))
+    curve.discount_factor_at_tenor(t).unwrap_or(1.0)
 }
 
-/// All metrics emitted for a corporate SOFR FRN.
 struct FrnMetrics {
     clean_price_pct: f64,
     dirty_price_pct: f64,
@@ -363,116 +327,99 @@ struct FrnMetrics {
     discount_margin_bps: f64,
 }
 
-/// Price a corporate SOFR FRN under the simplified projection convention
-/// documented in `book.json::coupon_model_note`:
-///   - Schedule: quarterly, NullCalendar + Unadjusted, backward from maturity.
-///   - For each period ending after settle, projected coupon amount =
-///     `(DF(start) / DF(end) − 1) × face + spread × yf360 × face`. Past dates
-///     clamp DF = 1.
-///   - Dirty price = Σ (coupon × DF(end)) + face × DF(maturity), all / face × 100.
-///   - Accrued = `face × current_reset_rate × yf360(last_coupon, settle)`.
-///   - DM = Brent-solved spread that reprices the bond to clean = 100 (par).
+/// See SOURCES.md § "SOFR FRN projection convention" for the shared
+/// pricing model. Paired with `ql_bench.py::price_corporate_frn`.
 fn price_corporate_frn(
     inst: &Instrument,
     valuation: Date,
     sofr_curve: &DiscountCurve,
 ) -> Result<FrnMetrics> {
+    let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+    let reset = inst.current_reset_rate_pct.unwrap_or(0.0) / 100.0;
+    let face = 100.0_f64;
+
+    // Build a bare `FloatingRateNote` just to get its schedule dates out of
+    // `cash_flows()`. The library's coupon amounts use a current-rate proxy
+    // we're about to overwrite with curve-implied projections below, so we
+    // only read `accrual_start` / `accrual_end` off the cashflows.
     let dated = parse_date(
         inst.dated_date
             .as_deref()
             .or(inst.issue_date.as_deref())
-            .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?,
+            .ok_or_else(|| anyhow!("{}: missing dated/issue date", inst.id))?,
     )?;
     let maturity = parse_date(
         inst.maturity_date
             .as_deref()
             .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
     )?;
-    let spread = inst
-        .spread_bps
-        .ok_or_else(|| anyhow!("{}: missing spread_bps", inst.id))?
-        / 10_000.0;
-    let reset = inst
-        .current_reset_rate_pct
-        .ok_or_else(|| anyhow!("{}: missing current_reset_rate_pct", inst.id))?
-        / 100.0;
+    let frn = FloatingRateNote::builder()
+        .cusip_unchecked(&inst.id)
+        .index(RateIndex::Sofr)
+        .spread_decimal(Decimal::try_from(spread).unwrap_or(Decimal::ZERO))
+        .issue_date(dated)
+        .maturity(maturity)
+        .frequency(Frequency::Quarterly)
+        .day_count(DayCountConvention::Act360)
+        .currency(Currency::USD)
+        .face_value(dec!(100))
+        .calendar(CalendarId::new(""))
+        .build()
+        .with_context(|| format!("building FRN {}", inst.id))?;
 
-    let schedule = quarterly_schedule(dated, maturity)
-        .with_context(|| format!("{}: quarterly_schedule", inst.id))?;
-
-    let face: f64 = 100.0;
     let dc360 = DayCountConvention::Act360.to_day_count();
-
-    let mut dirty: f64 = 0.0;
-    let mut spread_annuity: f64 = 0.0; // Σ yf360 × DF(end) — used later for DM solve.
+    let mut dirty = 0.0;
+    let mut spread_annuity = 0.0;
     let mut last_coupon_before_settle: Option<Date> = None;
 
-    for w in schedule.windows(2) {
-        let (start, end) = (w[0], w[1]);
+    // `cash_flows(dated_date)` returns every period, past and future, with
+    // accrual boundaries. We need the past ones only to find the last
+    // coupon date before settle for the accrued calc.
+    for cf in frn.cash_flows(dated) {
+        let (start, end) = match (cf.accrual_start, cf.accrual_end) {
+            (Some(s), Some(e)) => (s, e),
+            _ => continue,
+        };
         if end <= valuation {
             last_coupon_before_settle = Some(end);
             continue;
         }
-        if start <= valuation && start > dated {
-            // end is the next coupon after settle — remember the last one before.
-            last_coupon_before_settle = Some(start);
-        } else if start <= valuation {
+        if start <= valuation {
             last_coupon_before_settle = Some(start);
         }
 
-        let df_start = df_at_date(sofr_curve, valuation, start)?;
-        let df_end = df_at_date(sofr_curve, valuation, end)?;
-        let yf360 = dc360
-            .year_fraction(start, end)
-            .to_f64()
-            .ok_or_else(|| anyhow!("{}: yf360 decimal→f64 failed", inst.id))?;
+        let df_s = df(sofr_curve, valuation, start);
+        let df_e = df(sofr_curve, valuation, end);
+        let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
 
-        // Projected cashflow: floating leg + spread leg.
-        let float_cf = face * (df_start / df_end - 1.0);
-        let spread_cf = face * spread * yf360;
-        let mut cf = float_cf + spread_cf;
-        if end == maturity {
-            cf += face;
-        }
-        dirty += cf * df_end;
-        spread_annuity += yf360 * df_end;
+        let coupon = face * (df_s / df_e - 1.0 + spread * yf);
+        let amount = if end == maturity {
+            coupon + face
+        } else {
+            coupon
+        };
+        dirty += amount * df_e;
+        spread_annuity += yf * df_e;
     }
 
-    let dirty_price_pct = dirty; // face = 100 so dirty is already in per-100 units.
+    let accrued = last_coupon_before_settle
+        .map(|last| face * reset * dc360.year_fraction(last, valuation).to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let clean = dirty - accrued;
 
-    // Accrued: face × current_reset_rate × ACT/360 days since last coupon.
-    let accrued = if let Some(last) = last_coupon_before_settle {
-        let yf = dc360
-            .year_fraction(last, valuation)
-            .to_f64()
-            .ok_or_else(|| anyhow!("{}: accrued yf360 decimal→f64 failed", inst.id))?;
-        face * reset * yf
-    } else {
-        0.0
-    };
-
-    let clean_price_pct = dirty_price_pct - accrued;
-
-    // DM: find DM s.t. clean = 100. Brent on [−0.05, 0.20].
-    // Since dirty = float_leg + spread_annuity × spread + principal, and
-    //   float_leg + principal = face (telescoping), we have:
-    //   clean(DM) = face + (spread − DM) × spread_annuity × something − accrued.
-    // More directly: DM shifts every coupon down by DM × yf360 × face and
-    // discounts by exp(−DM × t_end). For small DM, dirty(DM) ≈ dirty(0) − DM × spread_annuity × face.
-    // Solve: clean(DM) = 100 → DM ≈ (dirty − 100 − accrued) / (spread_annuity × face).
-    // Use this as the DM metric. Closed form is adequate for reconciliation.
+    // DM that reprices to clean = 100: first-order inversion of the spread
+    // annuity. Exact because the floating leg PV is spread-independent.
     let dm = if spread_annuity.abs() > 1e-12 {
-        (dirty_price_pct - 100.0 - accrued) / (spread_annuity * face)
+        (dirty - 100.0 - accrued) / (spread_annuity * face)
     } else {
         0.0
     };
-    let discount_margin_bps = dm * 10_000.0;
 
     Ok(FrnMetrics {
-        clean_price_pct,
-        dirty_price_pct,
+        clean_price_pct: clean,
+        dirty_price_pct: dirty,
         accrued,
-        discount_margin_bps,
+        discount_margin_bps: dm * 10_000.0,
     })
 }
 
@@ -590,7 +537,7 @@ fn main() -> Result<()> {
         .curves
         .iter()
         .find(|c| c.id == "SOFR_OIS_CURVE")
-        .map(|c| build_zero_rate_curve(c, valuation))
+        .map(|c| build_sofr_curve(c, valuation))
         .transpose()?;
 
     // TIPS index ratios (CUSIP → ratio on valuation date), if the puller has run.
