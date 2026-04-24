@@ -21,6 +21,8 @@ pub use irregular::IrregularPeriodHandler;
 pub use schedule::{Schedule, ScheduleConfig, StubType};
 pub use settlement::{SettlementCalculator, SettlementStatus};
 
+use std::str::FromStr;
+
 use rust_decimal::Decimal;
 
 use convex_core::daycounts::DayCountConvention;
@@ -72,46 +74,47 @@ impl CashFlowGenerator {
         }
 
         let frequency = bond.frequency();
-        let coupon_amount = bond.coupon_per_period();
         let face_value = bond.face_value();
+        let annual_coupon = bond.annual_coupon();
+        let fallback_period_coupon = bond.coupon_per_period();
 
         let mut schedule = CashFlowSchedule::new();
 
         if frequency.is_zero() {
-            // Zero coupon bond - single payment at maturity
             schedule.push(CashFlow::principal(maturity, face_value));
             return Ok(schedule);
         }
 
-        // Generate coupon dates by working backwards from maturity
         let months_per_period = frequency.months_per_period() as i32;
         let mut coupon_dates = Vec::new();
-
         let mut date = maturity;
         while date > settlement {
             coupon_dates.push(date);
             date = date.add_months(-months_per_period)?;
         }
-
-        // Store the previous coupon date for accrual info
         let prev_coupon = date;
-
-        // Reverse to get chronological order
         coupon_dates.reverse();
 
-        // Generate cash flows with accrual periods
-        for (i, &cf_date) in coupon_dates.iter().enumerate() {
-            let is_final = i == coupon_dates.len() - 1;
+        // Vary coupon by day count: QL's `rate × face × year_fraction(start, end)`.
+        // For 30/360 and ACT/ACT ICMA this collapses to `rate / freq` (same as
+        // `coupon_per_period`) on regular periods; for ACT/360 and ACT/365* it
+        // differs because actual period lengths are 89–92 days per quarter.
+        // Unparseable day-count strings fall back to the flat value.
+        let dc = DayCountConvention::from_str(bond.day_count()).ok();
 
-            // Determine accrual start date
+        for (i, &cf_date) in coupon_dates.iter().enumerate() {
             let accrual_start = if i == 0 {
                 prev_coupon
             } else {
                 coupon_dates[i - 1]
             };
+            let coupon_amount = match dc {
+                Some(dc) => annual_coupon * dc.to_day_count().year_fraction(accrual_start, cf_date),
+                None => fallback_period_coupon,
+            };
 
+            let is_final = i == coupon_dates.len() - 1;
             if is_final {
-                // Final payment includes principal
                 schedule.push(CashFlow::final_payment_with_accrual(
                     cf_date,
                     coupon_amount,
@@ -398,42 +401,35 @@ impl CashFlowGenerator {
         flows
     }
 
-    /// Calculates accrued interest for a bond.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond
-    /// * `settlement` - Settlement date
+    /// Accrued interest using the bond's day count. Delegates to
+    /// `accrued_interest_with_daycount` (which itself delegates to
+    /// `AccruedInterestCalculator::standard` for QL-parity on ACT/360 and
+    /// ACT/365*). Unparseable day-count strings fall back to ISMA-style
+    /// pro-rata on the calendar-day period.
     pub fn accrued_interest(bond: &FixedBond, settlement: Date) -> BondResult<Decimal> {
         let frequency = bond.frequency();
-
         if frequency.is_zero() {
             return Ok(Decimal::ZERO);
         }
 
-        let coupon_amount = bond.coupon_per_period();
-        let months_per_period = frequency.months_per_period() as i32;
+        if let Ok(dc) = DayCountConvention::from_str(bond.day_count()) {
+            return Self::accrued_interest_with_daycount(bond, settlement, dc);
+        }
 
-        // Find the previous coupon date
+        // Fallback: pro-rata on calendar days.
+        let months_per_period = frequency.months_per_period() as i32;
         let mut prev_coupon = bond.maturity();
         while prev_coupon > settlement {
             prev_coupon = prev_coupon.add_months(-months_per_period)?;
         }
-
-        // Find the next coupon date
         let next_coupon = prev_coupon.add_months(months_per_period)?;
-
-        // Calculate accrued as proportion of period
         let days_accrued = prev_coupon.days_between(&settlement);
         let days_in_period = prev_coupon.days_between(&next_coupon);
-
         if days_in_period == 0 {
             return Ok(Decimal::ZERO);
         }
-
         let accrued_fraction = Decimal::from(days_accrued) / Decimal::from(days_in_period);
-
-        Ok(coupon_amount * accrued_fraction)
+        Ok(bond.coupon_per_period() * accrued_fraction)
     }
 
     /// Calculates accrued interest using the day count convention.
@@ -544,6 +540,39 @@ mod tests {
 
         let result = CashFlowGenerator::generate(&bond, settlement);
         assert!(result.is_err());
+    }
+
+    /// Day-count-aware coupon on ACT/360 quarterly — each quarter varies
+    /// with 89–92 actual days, matching QL. Under the old `rate/freq` rule
+    /// every quarter was 1.00 flat.
+    #[test]
+    fn test_generate_act360_quarterly_varies_by_period() {
+        let bond = FixedBondBuilder::new()
+            .isin("ACT360_TEST")
+            .coupon_rate(dec!(0.04))
+            .day_count("ACT/360")
+            .maturity(Date::from_ymd(2027, 12, 31).unwrap())
+            .issue_date(Date::from_ymd(2025, 12, 31).unwrap())
+            .frequency(Frequency::Quarterly)
+            .currency(Currency::USD)
+            .build()
+            .unwrap();
+        let schedule =
+            CashFlowGenerator::generate(&bond, Date::from_ymd(2025, 12, 31).unwrap()).unwrap();
+
+        let coupons: Vec<Decimal> = schedule
+            .iter()
+            .map(|cf| if cf.is_principal() { cf.amount() - dec!(100) } else { cf.amount() })
+            .collect();
+
+        // Flat rate/4 would be 1.0000; ACT/360 quarters run 89–92 days so
+        // coupons are 4% × days/360 ∈ {0.9888..0.10222..}. At least one
+        // must differ from 1.0 — this is the regression guard.
+        assert!(coupons.iter().any(|c| (*c - dec!(1.0)).abs() > dec!(0.005)));
+        // No quarter should be >5% off nominal.
+        for c in &coupons {
+            assert!((*c - dec!(1.0)).abs() < dec!(0.05));
+        }
     }
 
     #[test]
