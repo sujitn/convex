@@ -204,23 +204,21 @@ pub trait BondAnalytics: Bond {
         let periods_per_year = f64::from(frequency.periods_per_year());
         let rate_per_period = ytm / periods_per_year;
 
+        // Period-aware year fractions (ICMA / 30-360-US unified) — matches QL.
+        let cf_data = crate::pricing::yield_solver::project_discount_fractions(
+            &cash_flows,
+            settlement,
+            day_count,
+            periods_per_year,
+        );
+
         let mut weighted_time = 0.0;
         let mut total_pv = 0.0;
-
-        for cf in &cash_flows {
-            if cf.date <= settlement {
-                continue;
-            }
-
-            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-            let years_f64 = years.to_f64().unwrap_or(0.0);
-            let periods = years_f64 * periods_per_year;
-            let amount = cf.amount.to_f64().unwrap_or(0.0);
-
+        for (years, amount) in &cf_data {
+            let periods = years * periods_per_year;
             let df = 1.0 / (1.0 + rate_per_period).powf(periods);
             let pv = amount * df;
-
-            weighted_time += years_f64 * pv;
+            weighted_time += years * pv;
             total_pv += pv;
         }
 
@@ -302,24 +300,22 @@ pub trait BondAnalytics: Bond {
         let periods_per_year = f64::from(frequency.periods_per_year());
         let rate_per_period = ytm / periods_per_year;
 
+        let cf_data = crate::pricing::yield_solver::project_discount_fractions(
+            &cash_flows,
+            settlement,
+            day_count,
+            periods_per_year,
+        );
+
         let mut weighted_convexity = 0.0;
         let mut total_pv = 0.0;
-
-        for cf in &cash_flows {
-            if cf.date <= settlement {
-                continue;
-            }
-
-            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-            let years_f64 = years.to_f64().unwrap_or(0.0);
-            let periods = years_f64 * periods_per_year;
-            let amount = cf.amount.to_f64().unwrap_or(0.0);
-
+        for (years, amount) in &cf_data {
+            let periods = years * periods_per_year;
             let df = 1.0 / (1.0 + rate_per_period).powf(periods);
             let pv = amount * df;
 
-            // Convexity contribution: t(t+1) * PV / (1+y/f)^2
-            let convex_term = years_f64 * (years_f64 + 1.0 / periods_per_year) * pv;
+            // Convexity contribution: t(t+1/f) * PV / (1+y/f)^2
+            let convex_term = years * (years + 1.0 / periods_per_year) * pv;
             weighted_convexity += convex_term;
             total_pv += pv;
         }

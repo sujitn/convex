@@ -1,0 +1,7 @@
+{
+  "cusip": "91282CNS6",
+  "valuation_date": "2025-12-31",
+  "ref_cpi": 325.57806,
+  "index_ratio": 1.01395,
+  "source_file": "https://treasurydirect.gov/xml/CPI_20251126.xml"
+}

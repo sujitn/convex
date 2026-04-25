@@ -121,7 +121,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-convex-bonds = "0.1"
+convex-bonds = { git = "https://github.com/sujitn/convex.git" }
 ```
 
 ## License

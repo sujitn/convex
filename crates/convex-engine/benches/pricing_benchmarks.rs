@@ -109,6 +109,7 @@ fn create_pricing_inputs(
                 benchmark_curve: Some(curve.clone()),
                 government_curve: None,
                 volatility: None,
+                bid_ask_config: None,
             }
         })
         .collect()
@@ -243,6 +244,7 @@ fn bench_single_bond_pricing(c: &mut Criterion) {
         benchmark_curve: Some(curve.clone()),
         government_curve: None,
         volatility: None,
+        bid_ask_config: None,
     };
 
     c.bench_function("single_bond_price", |b| {
@@ -265,6 +267,7 @@ fn bench_single_bond_no_curves(c: &mut Criterion) {
         benchmark_curve: None,
         government_curve: None,
         volatility: None,
+        bid_ask_config: None,
     };
 
     c.bench_function("single_bond_price_no_curves", |b| {

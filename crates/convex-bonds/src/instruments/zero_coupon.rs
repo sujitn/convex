@@ -821,7 +821,7 @@ impl ZeroCouponBondBuilder {
         let issue_date = self.issue_date.unwrap_or(maturity);
 
         // Validate
-        if maturity <= issue_date && maturity != issue_date {
+        if maturity < issue_date {
             return Err(BondError::invalid_spec(
                 "maturity must be on or after issue_date",
             ));

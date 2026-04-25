@@ -19,13 +19,15 @@ members = [
     "crates/convex-ext-file",
     "crates/convex-ext-json",
     "crates/convex-server",
+    # Reconciliation harness (not published)
+    "tools/reconcile_bench",
 ]
 # Note: convex-spreads has been absorbed into convex-analytics
 
 resolver = "2"
 
 [workspace.package]
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Sujit Nair"]
@@ -36,22 +38,22 @@ keywords = ["finance", "bonds", "fixed-income", "pricing", "quantitative"]
 categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
-# Internal crates
-convex-core = { path = "crates/convex-core", version = "0.11.1" }
-convex-math = { path = "crates/convex-math", version = "0.11.1" }
-convex-curves = { path = "crates/convex-curves", version = "0.11.1" }
-convex-bonds = { path = "crates/convex-bonds", version = "0.11.1" }
-convex-analytics = { path = "crates/convex-analytics", version = "0.11.1" }
-convex-portfolio = { path = "crates/convex-portfolio", version = "0.11.1" }
-convex-ffi = { path = "crates/convex-ffi", version = "0.11.1" }
-convex-wasm = { path = "crates/convex-wasm", version = "0.11.1" }
+# Internal crates — path-only; this workspace is not published to crates.io.
+convex-core = { path = "crates/convex-core" }
+convex-math = { path = "crates/convex-math" }
+convex-curves = { path = "crates/convex-curves" }
+convex-bonds = { path = "crates/convex-bonds" }
+convex-analytics = { path = "crates/convex-analytics" }
+convex-portfolio = { path = "crates/convex-portfolio" }
+convex-ffi = { path = "crates/convex-ffi" }
+convex-wasm = { path = "crates/convex-wasm" }
 # Pricing engine crates
-convex-traits = { path = "crates/convex-traits", version = "0.11.1" }
-convex-engine = { path = "crates/convex-engine", version = "0.11.1" }
-convex-ext-redb = { path = "crates/convex-ext-redb", version = "0.11.1" }
-convex-ext-file = { path = "crates/convex-ext-file", version = "0.11.1" }
-convex-ext-json = { path = "crates/convex-ext-json", version = "0.11.1" }
-convex-server = { path = "crates/convex-server", version = "0.11.1" }
+convex-traits = { path = "crates/convex-traits" }
+convex-engine = { path = "crates/convex-engine" }
+convex-ext-redb = { path = "crates/convex-ext-redb" }
+convex-ext-file = { path = "crates/convex-ext-file" }
+convex-ext-json = { path = "crates/convex-ext-json" }
+convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
@@ -149,7 +151,3 @@ strip = true
 [workspace.metadata.cargo-deny]
 # See https://github.com/EmbarkStudios/cargo-deny for configuration
 
-# Docs.rs configuration
-[workspace.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]

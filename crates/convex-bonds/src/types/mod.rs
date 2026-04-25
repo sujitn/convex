@@ -42,7 +42,7 @@ pub use ex_dividend::{DayType, ExDivAccruedMethod, ExDividendRules, ExDividendSt
 pub use identifiers::{BondIdentifiers, CalendarId, Cusip, Figi, Isin, Sedol};
 pub use options::{CallEntry, CallSchedule, CallType, PutEntry, PutSchedule, PutType};
 pub use price_quote::{PriceQuote, PriceQuoteConvention};
-pub use rate_index::{InflationIndexType, RateIndex, SOFRConvention, Tenor};
+pub use rate_index::{InflationIndexType, RateIndex, Tenor};
 pub use rating::{CreditRating, RatingBucket};
 pub use sector::Sector;
 pub use seniority::Seniority;

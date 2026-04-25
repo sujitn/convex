@@ -18,7 +18,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-convex-ffi = "0.1"
+convex-ffi = { git = "https://github.com/sujitn/convex.git" }
 ```
 
 ## Building

@@ -1,0 +1,691 @@
+//! Convex side of the QuantLib reconciliation bench.
+//!
+//! Reads reconciliation/book.json and curves.json, prices every vanilla
+//! fixed-rate bullet bond with Convex, and emits reconciliation/convex.csv.
+//!
+//! Scope (Milestone 2 MVP):
+//! - Fixed-rate bullet bonds only. Callable, FRN, TIPS are intentionally
+//!   skipped here; they land in a later milestone.
+//! - For each bond, the "reference yield" is the UST CMT yield at the bond's
+//!   remaining maturity (linear interpolation). Non-USD bonds fall back to
+//!   a placeholder and are flagged in the output.
+//! - Columns: clean_price_pct, dirty_price_pct, accrued, ytm,
+//!   macaulay_duration, modified_duration, convexity, dv01.
+//!
+//! Run from the repo root:
+//!   cargo run -p reconcile_bench
+//!
+//! Output: reconciliation/convex.csv (one row per (bond_id, metric)).
+
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+
+use anyhow::{anyhow, Context, Result};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use serde::Deserialize;
+
+use convex_analytics::functions::{
+    clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
+    modified_duration, parse_day_count, yield_to_maturity,
+};
+use convex_bonds::instruments::{FixedRateBond, FloatingRateNote};
+use convex_bonds::traits::Bond;
+use convex_bonds::types::{CalendarId, RateIndex};
+use convex_core::calendars::BusinessDayConvention;
+use convex_core::daycounts::DayCountConvention;
+use convex_core::types::{Currency, Date, Frequency};
+use convex_curves::curves::{DiscountCurve, DiscountCurveBuilder};
+use convex_curves::InterpolationMethod;
+
+// ------------------------------------------------------------------ schemas
+
+#[derive(Debug, Deserialize)]
+struct Book {
+    valuation_date: String,
+    instruments: Vec<Instrument>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Instrument {
+    id: String,
+    category: String,
+    #[allow(dead_code)]
+    issuer: String,
+    coupon_rate: Option<f64>,
+    #[serde(default)]
+    coupon_unit: Option<String>,
+    issue_date: Option<String>,
+    #[serde(default)]
+    dated_date: Option<String>,
+    maturity_date: Option<String>,
+    frequency: Option<String>,
+    day_count: Option<String>,
+    #[allow(dead_code)]
+    #[serde(default)]
+    face_value: Option<f64>,
+    currency: Option<String>,
+    #[allow(dead_code)]
+    #[serde(default)]
+    synthetic: bool,
+    #[serde(default)]
+    call_schedule: Option<Vec<CallEntry>>,
+    // FRN-specific, ignored for other categories.
+    #[serde(default)]
+    index_rate_pct: Option<f64>,
+    #[serde(default)]
+    spread_bps: Option<f64>,
+    // Corporate-SOFR-FRN-specific: last reset rate used for in-progress accrual.
+    #[serde(default)]
+    current_reset_rate_pct: Option<f64>,
+    // Linker-specific: CUSIP is looked up in the TIPS index-ratio file.
+    #[serde(default)]
+    identifier: Option<Identifier>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Identifier {
+    #[serde(default)]
+    value: Option<String>,
+}
+
+/// TIPS index ratio file written by pull_tips_index_ratio() in pull_market_data.py.
+#[derive(Debug, Deserialize)]
+struct TipsIndexRatio {
+    cusip: String,
+    index_ratio: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CallEntry {
+    call_date: String,
+    price: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct Curves {
+    curves: Vec<Curve>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Curve {
+    id: String,
+    #[allow(dead_code)]
+    #[serde(default)]
+    currency: String,
+    #[serde(default)]
+    quotes: Vec<Quote>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Quote {
+    tenor_years: f64,
+    rate_pct: Option<f64>,
+}
+
+// ------------------------------------------------------------------ helpers
+
+fn parse_date(s: &str) -> Result<Date> {
+    // "YYYY-MM-DD"
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 3 {
+        return Err(anyhow!("bad date {s}"));
+    }
+    let y: i32 = parts[0].parse()?;
+    let m: u32 = parts[1].parse()?;
+    let d: u32 = parts[2].parse()?;
+    Date::from_ymd(y, m, d).map_err(|e| anyhow!("Date::from_ymd failed for {s}: {e}"))
+}
+
+fn parse_frequency(s: &str) -> Result<Frequency> {
+    match s.to_ascii_lowercase().replace('_', "-").as_str() {
+        "annual" => Ok(Frequency::Annual),
+        "semi-annual" | "semi" => Ok(Frequency::SemiAnnual),
+        "quarterly" => Ok(Frequency::Quarterly),
+        "monthly" => Ok(Frequency::Monthly),
+        other => Err(anyhow!("unsupported frequency {other}")),
+    }
+}
+
+fn parse_currency(s: &str) -> Result<Currency> {
+    match s {
+        "USD" => Ok(Currency::USD),
+        "GBP" => Ok(Currency::GBP),
+        "EUR" => Ok(Currency::EUR),
+        "JPY" => Ok(Currency::JPY),
+        other => Err(anyhow!("unsupported currency {other}")),
+    }
+}
+
+/// Book.json coupon is percent unless `coupon_unit` says otherwise. Returns a decimal.
+fn coupon_to_decimal(pct: f64, unit: Option<&str>) -> Decimal {
+    let is_decimal = matches!(unit, Some(u) if u.contains("decimal"));
+    let rate = if is_decimal { pct } else { pct / 100.0 };
+    Decimal::try_from(rate).unwrap_or(Decimal::ZERO)
+}
+
+fn years_to_maturity(valuation: Date, maturity: Date) -> f64 {
+    valuation.days_between(&maturity) as f64 / 365.25
+}
+
+/// Matches QL's `Schedule` "snap back to month-end after a short month"
+/// behaviour (Oct 31 → Apr 30 → Jul 31 → Oct 31) so both sides agree on
+/// coupon dates when the maturity lands on a month-end.
+fn is_end_of_month(date: Date) -> bool {
+    let Ok(next_day) = Date::from_ymd(date.year(), date.month(), date.day() + 1) else {
+        return true;
+    };
+    next_day.month() != date.month()
+}
+
+/// YYYYMMDD so the date diffs as a plain number against the Python side.
+fn workout_date_to_f64(d: Date) -> f64 {
+    (d.year() * 10000 + d.month() as i32 * 100 + d.day() as i32) as f64
+}
+
+fn interpolate_cmt(cmt: &Curve, tenor_yrs: f64) -> Option<f64> {
+    let pts: Vec<(f64, f64)> = cmt
+        .quotes
+        .iter()
+        .filter_map(|q| q.rate_pct.map(|r| (q.tenor_years, r / 100.0)))
+        .collect();
+    if pts.is_empty() {
+        return None;
+    }
+    // Below min → flat at min; above max → flat at max.
+    if tenor_yrs <= pts[0].0 {
+        return Some(pts[0].1);
+    }
+    for w in pts.windows(2) {
+        let (t0, r0) = w[0];
+        let (t1, r1) = w[1];
+        if tenor_yrs >= t0 && tenor_yrs <= t1 {
+            let w = (tenor_yrs - t0) / (t1 - t0);
+            return Some(r0 + w * (r1 - r0));
+        }
+    }
+    Some(pts.last().unwrap().1)
+}
+
+/// Same bond re-maturing at `workout_date` with `redemption` as the final
+/// principal. Running YTM on this gives YTC at that call date; iterating gives YTW.
+fn build_workout_bullet(
+    inst: &Instrument,
+    workout_date: Date,
+    redemption: f64,
+) -> Result<FixedRateBond> {
+    let coupon = inst
+        .coupon_rate
+        .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))?;
+    let anchor = inst
+        .dated_date
+        .as_deref()
+        .or(inst.issue_date.as_deref())
+        .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?;
+    let issue = parse_date(anchor)?;
+    let freq = parse_frequency(
+        inst.frequency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing frequency", inst.id))?,
+    )?;
+    let dcc_str = inst
+        .day_count
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing day_count", inst.id))?;
+    let dcc: DayCountConvention = parse_day_count(dcc_str)
+        .map_err(|e| anyhow!("{}: bad day_count {dcc_str}: {e}", inst.id))?;
+    let ccy = parse_currency(
+        inst.currency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing currency", inst.id))?,
+    )?;
+
+    FixedRateBond::builder()
+        .cusip_unchecked(&format!("{}_to_{}", inst.id, workout_date))
+        .coupon_rate(coupon_to_decimal(coupon, inst.coupon_unit.as_deref()))
+        .issue_date(issue)
+        .maturity(workout_date)
+        .frequency(freq)
+        .day_count(dcc)
+        .currency(ccy)
+        .face_value(dec!(100))
+        // Match QL's NullCalendar + Unadjusted so coupon dates aren't shifted
+        // off weekends. EOM driven by the workout date (new maturity).
+        .calendar(CalendarId::new(""))
+        .business_day_convention(BusinessDayConvention::Unadjusted)
+        .end_of_month(is_end_of_month(workout_date))
+        .redemption_value(Decimal::try_from(redemption).unwrap_or(dec!(100)))
+        .build()
+        .with_context(|| format!("building {} workout bullet", inst.id))
+}
+
+/// Sovereign FRN projection: flat (index + spread). Fixed-rate bonds return
+/// their book coupon directly.
+fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
+    if inst.category == "sovereign_frn" {
+        let idx = inst
+            .index_rate_pct
+            .ok_or_else(|| anyhow!("{}: FRN missing index_rate_pct", inst.id))?;
+        let spread = inst.spread_bps.unwrap_or(0.0);
+        Ok(idx + spread / 100.0)
+    } else {
+        inst.coupon_rate
+            .ok_or_else(|| anyhow!("{}: missing coupon_rate", inst.id))
+    }
+}
+
+// --------------------------------------------------- SOFR curve + FRN pricing
+
+/// Pillars placed on integer days (`round(tenor_years × 365) / 365`) so
+/// `DiscreteCurve` lines up with QL's Date-based `ZeroCurve` to 1e-10.
+fn build_sofr_curve(curve: &Curve, reference_date: Date) -> Result<DiscountCurve> {
+    let mut builder = DiscountCurveBuilder::new(reference_date)
+        .with_interpolation(InterpolationMethod::Linear)
+        .with_extrapolation();
+    for q in &curve.quotes {
+        let rate = q
+            .rate_pct
+            .ok_or_else(|| anyhow!("{}: null rate_pct at {}Y", curve.id, q.tenor_years))?;
+        let days = (q.tenor_years * 365.0).round() as i64;
+        let t = days as f64 / 365.0;
+        builder = builder.add_zero_rate(t, rate / 100.0);
+    }
+    builder
+        .build()
+        .with_context(|| format!("building {}", curve.id))
+}
+
+fn df(curve: &DiscountCurve, reference: Date, date: Date) -> f64 {
+    if date <= reference {
+        return 1.0;
+    }
+    let t = reference.days_between(&date) as f64 / 365.0;
+    curve.discount_factor_at_tenor(t).unwrap_or(1.0)
+}
+
+struct FrnMetrics {
+    clean_price_pct: f64,
+    dirty_price_pct: f64,
+    accrued: f64,
+    discount_margin_bps: f64,
+}
+
+/// See SOURCES.md § "SOFR FRN projection convention" for the shared
+/// pricing model. Paired with `ql_bench.py::price_corporate_frn`.
+fn price_corporate_frn(
+    inst: &Instrument,
+    valuation: Date,
+    sofr_curve: &DiscountCurve,
+) -> Result<FrnMetrics> {
+    let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+    let reset = inst.current_reset_rate_pct.unwrap_or(0.0) / 100.0;
+    let face = 100.0_f64;
+
+    // FRN built solely for its schedule — we ignore its coupon amounts and
+    // reproject from the curve below.
+    let dated = parse_date(
+        inst.dated_date
+            .as_deref()
+            .or(inst.issue_date.as_deref())
+            .ok_or_else(|| anyhow!("{}: missing dated/issue date", inst.id))?,
+    )?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let frn = FloatingRateNote::builder()
+        .cusip_unchecked(&inst.id)
+        .index(RateIndex::Sofr)
+        .spread_decimal(Decimal::try_from(spread).unwrap_or(Decimal::ZERO))
+        .issue_date(dated)
+        .maturity(maturity)
+        .frequency(Frequency::Quarterly)
+        .day_count(DayCountConvention::Act360)
+        .currency(Currency::USD)
+        .face_value(dec!(100))
+        .calendar(CalendarId::new(""))
+        .build()
+        .with_context(|| format!("building FRN {}", inst.id))?;
+
+    let dc360 = DayCountConvention::Act360.to_day_count();
+    let mut dirty = 0.0;
+    let mut spread_annuity = 0.0;
+    let mut last_coupon_before_settle: Option<Date> = None;
+
+    for cf in frn.cash_flows(dated) {
+        let (start, end) = match (cf.accrual_start, cf.accrual_end) {
+            (Some(s), Some(e)) => (s, e),
+            _ => continue,
+        };
+        if end <= valuation {
+            last_coupon_before_settle = Some(end);
+            continue;
+        }
+        if start <= valuation {
+            last_coupon_before_settle = Some(start);
+        }
+
+        let df_s = df(sofr_curve, valuation, start);
+        let df_e = df(sofr_curve, valuation, end);
+        let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
+
+        let coupon = face * (df_s / df_e - 1.0 + spread * yf);
+        let amount = if end == maturity {
+            coupon + face
+        } else {
+            coupon
+        };
+        dirty += amount * df_e;
+        spread_annuity += yf * df_e;
+    }
+
+    let accrued = last_coupon_before_settle
+        .map(|last| face * reset * dc360.year_fraction(last, valuation).to_f64().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let clean = dirty - accrued;
+
+    // DM that reprices to clean = 100: first-order inversion of the spread
+    // annuity. Exact because the floating leg PV is spread-independent.
+    let dm = if spread_annuity.abs() > 1e-12 {
+        (dirty - 100.0 - accrued) / (spread_annuity * face)
+    } else {
+        0.0
+    };
+
+    Ok(FrnMetrics {
+        clean_price_pct: clean,
+        dirty_price_pct: dirty,
+        accrued,
+        discount_margin_bps: dm * 10_000.0,
+    })
+}
+
+fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
+    let coupon = effective_coupon_percent(inst)?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    // `dated_date` wins; `issue_date` is the fallback (both libraries must agree).
+    let anchor = inst
+        .dated_date
+        .as_deref()
+        .or(inst.issue_date.as_deref())
+        .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?;
+    let issue = parse_date(anchor)?;
+    let freq = parse_frequency(
+        inst.frequency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing frequency", inst.id))?,
+    )?;
+    let dcc_str = inst
+        .day_count
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing day_count", inst.id))?;
+    let dcc: DayCountConvention = parse_day_count(dcc_str)
+        .map_err(|e| anyhow!("{}: bad day_count {dcc_str}: {e}", inst.id))?;
+    let ccy = parse_currency(
+        inst.currency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing currency", inst.id))?,
+    )?;
+
+    FixedRateBond::builder()
+        .cusip_unchecked(&inst.id)
+        .coupon_rate(coupon_to_decimal(coupon, inst.coupon_unit.as_deref()))
+        .issue_date(issue)
+        .maturity(maturity)
+        .frequency(freq)
+        .day_count(dcc)
+        .currency(ccy)
+        .face_value(dec!(100))
+        // NullCalendar + Unadjusted so coupon dates don't shift off weekends
+        // (QL's Schedule reproduces the same dates). EOM flag from the
+        // maturity so month-end maturities snap back after short months.
+        .calendar(CalendarId::new(""))
+        .business_day_convention(BusinessDayConvention::Unadjusted)
+        .end_of_month(is_end_of_month(maturity))
+        .build()
+        .with_context(|| format!("building {}", inst.id))
+}
+
+fn reference_yield<'a>(
+    inst: &Instrument,
+    maturity: Date,
+    valuation: Date,
+    curves: &'a [Curve],
+) -> (f64, &'a str) {
+    let ccy = inst.currency.as_deref().unwrap_or("USD");
+    let yrs = years_to_maturity(valuation, maturity);
+
+    if inst.category == "sovereign_linker" {
+        return (0.0185, "tips_real_placeholder");
+    }
+    if inst.category == "sovereign_frn" {
+        if let (Some(idx), spread) = (inst.index_rate_pct, inst.spread_bps.unwrap_or(0.0)) {
+            return ((idx + spread / 100.0) / 100.0, "frn_flat_projection");
+        }
+    }
+
+    let curve_id = match ccy {
+        "USD" => "UST_CMT",
+        "GBP" => "UK_GILT_CURVE",
+        "EUR" => "DE_BUND_CURVE",
+        "JPY" => "JP_JGB_CURVE",
+        other => unreachable!("unexpected currency {other} on {}", inst.id),
+    };
+    if let Some(curve) = curves.iter().find(|c| c.id == curve_id) {
+        if let Some(y) = interpolate_cmt(curve, yrs) {
+            return (y, curve.id.as_str());
+        }
+    }
+    let fallback = inst.coupon_rate.map(|c| c / 100.0).unwrap_or(0.04);
+    (fallback, "placeholder")
+}
+
+// ------------------------------------------------------------------ main
+
+fn main() -> Result<()> {
+    let root = Path::new("reconciliation");
+    let book: Book = serde_json::from_reader(File::open(root.join("book.json"))?)
+        .context("reading book.json")?;
+    let curves: Curves = serde_json::from_reader(File::open(root.join("curves.json"))?)
+        .context("reading curves.json")?;
+    if !curves.curves.iter().any(|c| c.id == "UST_CMT") {
+        return Err(anyhow!("UST_CMT curve not found in curves.json"));
+    }
+
+    let valuation = parse_date(&book.valuation_date)?;
+
+    let sofr_curve = curves
+        .curves
+        .iter()
+        .find(|c| c.id == "SOFR_OIS_CURVE")
+        .map(|c| build_sofr_curve(c, valuation))
+        .transpose()?;
+
+    let mut tips_ratios: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let ratio_path = root.join("tips_index_ratio_20251231.json");
+    if ratio_path.exists() {
+        if let Ok(r) = serde_json::from_reader::<_, TipsIndexRatio>(File::open(&ratio_path)?) {
+            tips_ratios.insert(r.cusip, r.index_ratio);
+        }
+    }
+
+    let out_path = root.join("convex.csv");
+    let mut out = BufWriter::new(File::create(&out_path)?);
+    writeln!(
+        out,
+        "bond_id,currency,metric,value,reference_yield,curve_used,notes"
+    )?;
+
+    let mut ok_count = 0usize;
+    let mut skipped: Vec<String> = Vec::new();
+
+    for inst in &book.instruments {
+        let is_callable = matches!(
+            inst.category.as_str(),
+            "corporate_callable" | "synthetic_callable"
+        );
+        let skip_reason = match inst.category.as_str() {
+            "sovereign" => None,
+            "corporate_bullet_mw" => None,
+            "corporate_callable" => None,
+            "synthetic_callable" => None,
+            "sovereign_linker" => None, // TIPS priced on real yield
+            "sovereign_frn" => None,    // FRN: flat-forward projection
+            "corporate_frn" => None,    // SOFR FRN: curve-projected, handled below
+            _other => Some("unknown category"),
+        };
+        if let Some(reason) = skip_reason {
+            skipped.push(format!("{} ({}) — {}", inst.id, inst.category, reason));
+            continue;
+        }
+
+        // Corporate SOFR FRN: separate pricing path using the SOFR OIS curve.
+        if inst.category == "corporate_frn" {
+            let curve = sofr_curve.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "{}: SOFR_OIS_CURVE required for corporate_frn pricing",
+                    inst.id
+                )
+            })?;
+            let m = price_corporate_frn(inst, valuation, curve)
+                .with_context(|| format!("price_corporate_frn {}", inst.id))?;
+            let frn_rows: [(&str, f64); 4] = [
+                ("clean_price_pct", m.clean_price_pct),
+                ("dirty_price_pct", m.dirty_price_pct),
+                ("accrued", m.accrued),
+                ("discount_margin_bps", m.discount_margin_bps),
+            ];
+            let spread_dec = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+            for (metric, value) in frn_rows {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},SOFR_OIS_CURVE,",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    spread_dec,
+                )?;
+            }
+            ok_count += 1;
+            continue;
+        }
+
+        let bond = build_bond(inst).with_context(|| format!("build {}", inst.id))?;
+        let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+        let (ref_yield, curve_used) = reference_yield(inst, maturity, valuation, &curves.curves);
+        let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
+
+        // 1) Clean and dirty price at the reference yield.
+        let clean = clean_price_from_yield(&bond, valuation, ref_yield, freq)
+            .with_context(|| format!("clean_price_from_yield {}", inst.id))?;
+        let dirty = dirty_price_from_yield(&bond, valuation, ref_yield, freq)
+            .with_context(|| format!("dirty_price_from_yield {}", inst.id))?;
+        let accrued = dirty - clean;
+
+        // 2) Round-trip: YTM from the clean price should recover ref_yield.
+        let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+        let ytm_result = yield_to_maturity(&bond, valuation, clean_dec, freq)
+            .with_context(|| format!("yield_to_maturity {}", inst.id))?;
+        let ytm = ytm_result.yield_value;
+
+        // 3) Risk at the reference yield.
+        let mac = macaulay_duration(&bond, valuation, ref_yield, freq)?;
+        let modd = modified_duration(&bond, valuation, ref_yield, freq)?;
+        let cvx = convexity(&bond, valuation, ref_yield, freq)?;
+        let dv01_v = dv01(&bond, valuation, ref_yield, dirty, freq)?;
+
+        let mut rows: Vec<(String, f64)> = vec![
+            ("clean_price_pct".to_string(), clean),
+            ("dirty_price_pct".to_string(), dirty),
+            ("accrued".to_string(), accrued),
+            ("ytm_decimal".to_string(), ytm),
+            ("macaulay_duration".to_string(), mac),
+            ("modified_duration".to_string(), modd),
+            ("convexity".to_string(), cvx),
+            ("dv01_per_100".to_string(), dv01_v),
+        ];
+
+        // 4a) For linkers: emit nominal (= real × CPI index ratio) metrics
+        // when the index ratio is available.
+        if inst.category == "sovereign_linker" {
+            let cusip = inst.identifier.as_ref().and_then(|i| i.value.as_deref());
+            if let Some(ratio) = cusip.and_then(|c| tips_ratios.get(c)) {
+                rows.push(("cpi_index_ratio".to_string(), *ratio));
+                rows.push(("nominal_clean_price_pct".to_string(), clean * ratio));
+                rows.push(("nominal_dirty_price_pct".to_string(), dirty * ratio));
+                rows.push(("nominal_accrued".to_string(), accrued * ratio));
+            }
+        }
+
+        // 4b) For callables: compute YTC at each call date and YTW.
+        if is_callable {
+            let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+            let mut worst = ytm;
+            let mut worst_date = maturity;
+
+            if let Some(schedule) = &inst.call_schedule {
+                for entry in schedule {
+                    let call_date = parse_date(&entry.call_date)?;
+                    if call_date <= valuation {
+                        continue; // call date already passed
+                    }
+                    let workout_bullet = build_workout_bullet(inst, call_date, entry.price)?;
+                    // Build a synthetic "clean price" that treats the workout bullet as
+                    // having the same current clean market price as the actual callable.
+                    let ytc_result = yield_to_maturity(&workout_bullet, valuation, clean_dec, freq)
+                        .with_context(|| {
+                            format!("yield_to_call {} @ {}", inst.id, entry.call_date)
+                        })?;
+                    let ytc = ytc_result.yield_value;
+                    let key = format!("ytc_{}_decimal", entry.call_date.replace('-', ""));
+                    rows.push((key, ytc));
+                    if ytc < worst {
+                        worst = ytc;
+                        worst_date = call_date;
+                    }
+                }
+            }
+            rows.push(("ytw_decimal".to_string(), worst));
+            rows.push((
+                "ytw_workout_date_yyyymmdd".to_string(),
+                workout_date_to_f64(worst_date),
+            ));
+        }
+
+        for (metric, value) in rows {
+            writeln!(
+                out,
+                "{},{},{},{:.10},{:.10},{},",
+                inst.id,
+                inst.currency.as_deref().unwrap_or("?"),
+                metric,
+                value,
+                ref_yield,
+                curve_used,
+            )?;
+        }
+        ok_count += 1;
+    }
+
+    out.flush()?;
+    eprintln!(
+        "convex_bench: wrote {} — {} bonds priced",
+        out_path.display(),
+        ok_count
+    );
+    if !skipped.is_empty() {
+        eprintln!("convex_bench: skipped:");
+        for s in &skipped {
+            eprintln!("  - {s}");
+        }
+    }
+    Ok(())
+}

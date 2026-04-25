@@ -1,0 +1,96 @@
+{
+  "valuation_date": "2025-12-31",
+  "note": "See SOURCES.md for provenance. Curves are regeneratable via pull_market_data.py — the intermediate *.csv files alongside this file are the primary-source mirror.",
+  "curves": [
+    {
+      "id": "UST_CMT",
+      "currency": "USD",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "quotes": [
+        { "tenor_years": 0.5,  "rate_pct": 3.50 },
+        { "tenor_years": 1.0,  "rate_pct": 3.48 },
+        { "tenor_years": 2.0,  "rate_pct": 3.54 },
+        { "tenor_years": 3.0,  "rate_pct": 3.51 },
+        { "tenor_years": 5.0,  "rate_pct": 3.67 },
+        { "tenor_years": 10.0, "rate_pct": 4.18 },
+        { "tenor_years": 20.0, "rate_pct": 4.75 },
+        { "tenor_years": 30.0, "rate_pct": 4.84 }
+      ]
+    },
+    {
+      "id": "SOFR_OIS_CURVE",
+      "currency": "USD",
+      "compounding": "continuous",
+      "day_count": "ACT/365F",
+      "observation_date": "2025-12-31",
+      "overnight_fixing_2025_12_31": 3.87,
+      "note": "Continuously-compounded zero rates on the 2025-12-31 SOFR OIS curve. Pre-bootstrapped so both benches consume an identical input (Convex vs QL OIS bootstrap convergence is a separate reconciliation scope). Par OIS quotes + methodology: SOURCES.md.",
+      "quotes": [
+        { "tenor_years": 0.0833, "rate_pct": 3.80 },
+        { "tenor_years": 0.25,   "rate_pct": 3.72 },
+        { "tenor_years": 0.5,    "rate_pct": 3.58 },
+        { "tenor_years": 1.0,    "rate_pct": 3.45 },
+        { "tenor_years": 2.0,    "rate_pct": 3.42 },
+        { "tenor_years": 3.0,    "rate_pct": 3.48 },
+        { "tenor_years": 5.0,    "rate_pct": 3.60 },
+        { "tenor_years": 7.0,    "rate_pct": 3.78 },
+        { "tenor_years": 10.0,   "rate_pct": 4.05 }
+      ]
+    },
+    {
+      "id": "UK_GILT_CURVE",
+      "currency": "GBP",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "observation_date": "2025-12-31",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 3.5851 },
+        { "tenor_years": 2.0,  "rate_pct": 3.6657 },
+        { "tenor_years": 3.0,  "rate_pct": 3.7471 },
+        { "tenor_years": 5.0,  "rate_pct": 3.9756 },
+        { "tenor_years": 7.0,  "rate_pct": 4.2436 },
+        { "tenor_years": 10.0, "rate_pct": 4.6242 },
+        { "tenor_years": 15.0, "rate_pct": 5.0808 },
+        { "tenor_years": 20.0, "rate_pct": 5.3111 },
+        { "tenor_years": 30.0, "rate_pct": 5.3842 }
+      ]
+    },
+    {
+      "id": "DE_BUND_CURVE",
+      "currency": "EUR",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "observation_date": "2025-12-31",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 2.0340 },
+        { "tenor_years": 2.0,  "rate_pct": 2.1196 },
+        { "tenor_years": 3.0,  "rate_pct": 2.2246 },
+        { "tenor_years": 5.0,  "rate_pct": 2.4557 },
+        { "tenor_years": 7.0,  "rate_pct": 2.6808 },
+        { "tenor_years": 10.0, "rate_pct": 2.9699 },
+        { "tenor_years": 15.0, "rate_pct": 3.2991 },
+        { "tenor_years": 20.0, "rate_pct": 3.4683 },
+        { "tenor_years": 30.0, "rate_pct": 3.5091 }
+      ]
+    },
+    {
+      "id": "JP_JGB_CURVE",
+      "currency": "JPY",
+      "compounding": "semi_annual",
+      "day_count": "ACT/ACT ICMA",
+      "observation_date": "2025-12-30",
+      "quotes": [
+        { "tenor_years": 1.0,  "rate_pct": 0.906 },
+        { "tenor_years": 2.0,  "rate_pct": 1.167 },
+        { "tenor_years": 3.0,  "rate_pct": 1.282 },
+        { "tenor_years": 5.0,  "rate_pct": 1.567 },
+        { "tenor_years": 7.0,  "rate_pct": 1.762 },
+        { "tenor_years": 10.0, "rate_pct": 2.066 },
+        { "tenor_years": 15.0, "rate_pct": 2.606 },
+        { "tenor_years": 20.0, "rate_pct": 2.952 },
+        { "tenor_years": 30.0, "rate_pct": 3.354 }
+      ]
+    }
+  ]
+}

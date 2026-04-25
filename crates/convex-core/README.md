@@ -224,7 +224,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-convex-core = "0.1"
+convex-core = { git = "https://github.com/sujitn/convex.git" }
 ```
 
 ## License

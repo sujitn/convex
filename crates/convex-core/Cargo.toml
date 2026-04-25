@@ -39,6 +39,3 @@ convex-curves = { path = "../convex-curves" }
 default = []
 simd = []  # Future SIMD optimizations
 
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]

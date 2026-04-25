@@ -386,11 +386,33 @@ impl Bond for FixedRateBond {
             let is_stub_period = is_first_period && (actual_days - regular_days).abs() > 30;
 
             let coupon = if is_stub_period {
-                // Prorate first coupon based on actual period length vs regular period
-                // Use day count convention for proper calculation
+                // Prorate the regular coupon by actual_days / nominal_period_days,
+                // matching ISMA/ICMA convention (and QuantLib's stub handling).
+                // Using the DayCount's own day_count() keeps 30/360 rules in sync.
                 let dc = self.day_count.to_day_count();
-                let year_frac = dc.year_fraction(accrual_start, accrual_end);
-                self.face_value * self.coupon_rate * year_frac
+                let months_per_period = 12 / self.frequency.periods_per_year() as i32;
+                let nominal_start = accrual_end
+                    .add_months(-months_per_period)
+                    .unwrap_or(accrual_start);
+                let nominal_days = dc.day_count(nominal_start, accrual_end).abs();
+                let actual = dc.day_count(accrual_start, accrual_end).abs();
+                if nominal_days > 0 {
+                    self.coupon_per_period() * Decimal::from(actual) / Decimal::from(nominal_days)
+                } else {
+                    self.coupon_per_period()
+                }
+            } else if matches!(
+                self.day_count,
+                DayCountConvention::Act360
+                    | DayCountConvention::Act365Fixed
+                    | DayCountConvention::Act365Leap
+            ) {
+                // Under ACT/360 and ACT/365*, period lengths differ (89–92 days for
+                // quarterly, etc.) and the year-fraction-based coupon varies with
+                // the period. Match QL's `rate * year_fraction(start, end)`; for
+                // 30/360 and ACT/ACT that collapses to `rate / freq` already.
+                let dc = self.day_count.to_day_count();
+                self.annual_coupon() * dc.year_fraction(accrual_start, accrual_end)
             } else {
                 self.coupon_per_period()
             };

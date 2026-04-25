@@ -61,10 +61,20 @@ www/pkg/
 npm-debug.log*
 /excel/Convex.Excel/bin
 /excel/Convex.Excel/obj
-/crates/convex-py/python/convex/__pycache__
-/crates/convex-py/tests/__pycache__
+__pycache__/
+*.pyc
 /data
 /docs/prompts
 /.idea
 /.claude
 .claude/settings.local.json
+
+# Reconciliation — per-run outputs, not snapshots.
+# Market-data snapshots (sofr_fixings.csv, tips_index_ratio_20251231.json,
+# uk_gilt_20251231.csv, ecb_aaa_20251231.csv, jgb_eoy2025.csv) ARE checked
+# in so CI runs against the same inputs as local dev.
+reconciliation/convex.csv
+reconciliation/ql.csv
+reconciliation/reconciliation_report.md
+reconciliation/tips_search_raw.json
+reconciliation/ust_cmt_20251231.csv

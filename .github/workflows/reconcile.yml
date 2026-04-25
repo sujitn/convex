@@ -1,0 +1,55 @@
+name: Reconcile
+
+# Runs the Convex ↔ QuantLib bond reconciliation on every push/PR to main.
+# Fails if any bond/metric drifts outside the tolerances defined in
+# reconciliation/reconcile.py.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  reconcile:
+    name: Convex vs QuantLib
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install QuantLib Python bindings
+        run: python -m pip install --upgrade pip && pip install QuantLib==1.40
+
+      - name: Run Convex bench
+        run: cargo run -p reconcile_bench
+
+      - name: Run QuantLib bench
+        run: python reconciliation/ql_bench.py
+
+      - name: Reconcile and assert
+        run: python reconciliation/reconcile.py
+
+      - name: Upload reconciliation artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: reconciliation-report
+          path: |
+            reconciliation/convex.csv
+            reconciliation/ql.csv
+            reconciliation/reconciliation_report.md
+          retention-days: 14

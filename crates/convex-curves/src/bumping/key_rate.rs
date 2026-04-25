@@ -148,14 +148,9 @@ impl KeyRateBump {
                     (t - left) / (self.key_tenor - left)
                 }
                 Some(left) if t < left => 0.0,
-                None => {
-                    // No left neighbor - flat from 0 to key_tenor
-                    if t >= 0.0 {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
+                // No left neighbor - flat from 0 to key_tenor (undefined for t < 0)
+                None if t >= 0.0 => 1.0,
+                None => 0.0,
                 _ => 0.0,
             }
         } else {
