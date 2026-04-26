@@ -61,7 +61,6 @@ mod short_date;
 mod simple;
 pub(crate) mod solver;
 mod street;
-mod true_yield;
 
 // Re-export all public types and functions
 pub use current::{current_yield, current_yield_from_amount, current_yield_from_bond};
@@ -77,4 +76,3 @@ pub use short_date::{RollForwardMethod, ShortDateCalculator};
 pub use simple::simple_yield;
 pub use solver::{current_yield_decimal, current_yield_from_fixed_bond, YieldResult, YieldSolver};
 pub use street::street_convention_yield;
-pub use true_yield::{settlement_adjustment, true_yield};

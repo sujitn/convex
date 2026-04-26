@@ -30,6 +30,7 @@ serde = { workspace = true }
 uuid = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
+csv = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
@@ -39,5 +40,8 @@ serde_json = { workspace = true }
 
 [features]
 default = []
-parallel = []  # Enable parallel pricing
+
+[[bench]]
+name = "trinomial_tree"
+harness = false
 

@@ -1,0 +1,27 @@
+{
+  "valuation_date": "2025-06-30",
+  "comment": "FRN-focused mini-book for Tier 2.3.2 mid-period reconciliation. CORP_SOFR_FRN sits inside its 2025-05-08 → 2025-08-08 coupon period, with two prior coupons already paid (2025-02-10, 2025-05-08). Exercises the multi-coupon ARRC compounding path — the same FRN at 2025-12-31 only had one in-progress period.",
+  "instruments": [
+    {
+      "id": "CORP_SOFR_FRN",
+      "category": "corporate_frn",
+      "issuer": "Marsh & McLennan Companies, Inc.",
+      "identifier": { "type": "CUSIP", "value": "571748BZ4" },
+      "isin": "US571748BZ47",
+      "description": "MMC $300M FRN due 2027-11-08, Compounded SOFR + 65bps. Mid-period valuation snapshot.",
+      "coupon_type": "floating",
+      "index": "SOFR",
+      "spread_bps": 65,
+      "current_reset_rate_pct": 4.45,
+      "frequency": "quarterly",
+      "issue_date": "2024-11-08",
+      "dated_date": "2024-11-08",
+      "maturity_date": "2027-11-08",
+      "day_count": "ACT/360",
+      "face_value": 100.0,
+      "currency": "USD",
+      "source": "https://www.sec.gov/Archives/edgar/data/62709/000119312524247022/d898547d424b2.htm",
+      "current_reset_rate_pct_note": "Same bond as in book.json; current_reset_rate_pct is informational only — the ARRC pricer uses sofr_fixings.csv directly."
+    }
+  ]
+}

@@ -360,7 +360,7 @@ impl CalendarId {
     #[must_use]
     pub fn to_calendar(&self) -> Box<dyn Calendar> {
         match self.as_str() {
-            "US_GOVERNMENT" | "US-GOV" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
+            "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
             "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
             _ => Box::new(WeekendCalendar),
         }

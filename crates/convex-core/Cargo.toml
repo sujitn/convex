@@ -37,5 +37,4 @@ convex-curves = { path = "../convex-curves" }
 
 [features]
 default = []
-simd = []  # Future SIMD optimizations
 

@@ -32,5 +32,4 @@ criterion = { workspace = true }
 
 [features]
 default = []
-simd = []  # Future SIMD optimizations
 

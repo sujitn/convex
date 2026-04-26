@@ -1,11 +1,4 @@
-//! Fixed rate bond implementation.
-//!
-//! Provides a complete fixed rate bond implementation with:
-//! - Validated identifiers (CUSIP, ISIN)
-//! - Market conventions (US Corporate, US Treasury, UK Gilt, etc.)
-//! - Schedule caching
-//! - Ex-dividend support
-//! - Full Bond and `FixedCouponBond` trait implementation
+//! Fixed-rate bond.
 
 use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
@@ -21,40 +14,7 @@ use crate::error::{BondError, BondResult, IdentifierError};
 use crate::traits::{Bond, BondCashFlow, FixedCouponBond};
 use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip};
 
-/// A fixed rate bond with full convention support.
-///
-/// This is a comprehensive fixed rate bond implementation that supports:
-/// - Validated security identifiers (CUSIP, ISIN, etc.)
-/// - Market-specific conventions (US Corporate, US Treasury, UK Gilt, etc.)
-/// - Schedule generation with stub handling
-/// - Ex-dividend accrued interest (for UK Gilts)
-/// - Business day adjustments
-///
-/// # Performance
-///
-/// - Bond construction: < 500ns
-/// - Cash flow generation: < 1μs (cached schedule)
-/// - Accrued interest: < 100ns
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use convex_bonds::instruments::FixedRateBond;
-/// use rust_decimal_macros::dec;
-///
-/// // Create a US corporate bond
-/// let bond = FixedRateBond::builder()
-///     .cusip("097023AH7")?
-///     .coupon_percent(7.5)
-///     .maturity(Date::from_ymd(2025, 6, 15).unwrap())
-///     .issue_date(Date::from_ymd(2005, 5, 31).unwrap())
-///     .us_corporate()
-///     .build()?;
-///
-/// // Calculate accrued interest
-/// let settlement = Date::from_ymd(2020, 4, 29).unwrap();
-/// let accrued = bond.accrued_interest(settlement);
-/// ```
+/// Fixed-rate bond. Cashflow schedule is built lazily on first use.
 #[derive(Debug, Clone)]
 pub struct FixedRateBond {
     // Identification

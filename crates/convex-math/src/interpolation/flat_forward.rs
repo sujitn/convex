@@ -1,27 +1,4 @@
-//! Flat forward interpolation.
-//!
-//! Flat forward interpolation assumes constant forward rates between pillar points.
-//! This is a common choice for yield curve construction as it:
-//! - Guarantees positive forward rates (if zero rates are positive)
-//! - Produces step-function forward rate curves
-//! - Is computationally efficient
-//!
-//! # Mathematical Background
-//!
-//! Given zero rates r(t) at pillar points t_i, the forward rate f_i between
-//! t_i and t_{i+1} is:
-//!
-//! ```text
-//! f_i = (r_{i+1} * t_{i+1} - r_i * t_i) / (t_{i+1} - t_i)
-//! ```
-//!
-//! For t between t_i and t_{i+1}, the interpolated zero rate is:
-//!
-//! ```text
-//! r(t) = (r_i * t_i + f_i * (t - t_i)) / t
-//! ```
-//!
-//! This ensures the forward rate is constant (flat) within each segment.
+//! Flat-forward interpolation: constant forward rates between pillars.
 
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;

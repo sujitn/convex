@@ -4,67 +4,58 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Branch `reconcile/milestone-1-book`. Reconciliation **121 / 121**, zero delta.
-Workspace `cargo test --all-targets` **1672 / 0**. Clippy clean under
-`-D warnings`. Excel add-in builds. CI has a reconciliation gate
-(`.github/workflows/reconcile.yml`).
+Reconciliation **141 / 141** across 2025-12-31 and 2025-06-30 snapshots
+(`cargo test --workspace --lib`, `cargo clippy --workspace --tests --examples
+-- -D warnings`, and `python reconciliation/reconcile.py` all clean). 16 of
+141 are HW1F trinomial-tree OAS or calibration metrics on the two callables;
+σ is calibrated independently on each side against the same ATM SOFR
+co-terminal strip with `a=0.03` fixed. Excel add-in builds; CI's
+`.github/workflows/reconcile.yml` runs both snapshots.
 
 Smoke test:
 
 ```bash
 cargo test --workspace --lib
-cargo run -p reconcile_bench
 python reconciliation/ql_bench.py
+cargo run -p reconcile_bench
 python reconciliation/reconcile.py    # exit 0
 ```
 
-## Tier 2 — Real library work
+## Done
 
-- **2.1** Day-count-aware coupon / accrued / discount time — **done** (`d353c99`)
-- **2.2** TIPS nominal pricing — **done** (`8cbe181`)
-- **2.3** Corporate SOFR FRN with real SOFR curve projection — **done**
-  (`b5de93d`, refined `ac4f1b9`). UST FRN stays on its flat-forward
-  T-Bill path. Followup `2.3.1` below if the ARRC shortcut ever becomes
-  a blocker.
+- **2.1** Day-count-aware coupon / accrued / discount time (`d353c99`).
+- **2.2** TIPS nominal pricing (`8cbe181`).
+- **2.3** Corporate SOFR FRN with real SOFR projection (`b5de93d`, `ac4f1b9`).
+- **2.3.1** Live `FloatingRateNote` × `FloatingRateBond` reconciliation
+  (also fixed `CalendarId::us_government()` silently dispatching to
+  `WeekendCalendar`).
+- **2.3.2** 2025-06-30 mid-period FRN snapshot + multi-snapshot reconcile.
+- **3.5** Excel UDF runtime smoke test (`c67846a`, `aaa6a90`).
+- **3.7** BondPricer numerical regression probe (`4ec1e03`).
+- **4.4** Stale INDEX.md / OVERVIEW.md cleanup (`74090c4`).
+- **5.1** `CashFlowGenerator` coupon-by-day-count (`3b23dc8`, then deleted in 5.3).
+- **5.2** HW1F trinomial-tree OAS, reconciled against
+  `ql.TreeCallableFixedRateBondEngine`.
+- **5.2.1** Event-aligned trinomial `TimeGrid` + coupon-on-call convention
+  (`1668ce7`).
+- **5.2.2** Per-bond ATM swaption-strip σ calibration on the QL side, with
+  `a=0.03` held fixed (`5405c5e`).
+- **5.2.4** Native Rust HW1F calibrator (Jamshidian closed-form +
+  golden-section), reconciled against QL σ to ~1e-5 (`5405c5e`).
+- **5.3** Removed legacy `FixedBond` / `BondPricer` / `CashFlowGenerator` /
+  `GovernmentCouponBond` island.
 
-### 2.3.1 Live FloatingRateNote × FloatingRateBond reconciliation (deferred)
+## Open
 
-Wire Convex `FloatingRateNote` and QL `FloatingRateBond(sofr_index)` to
-the same curve with live historical fixings and reconcile past-period
-accrual. Needs the two ARRC compound-in-arrears implementations
-verified calendar-identical first (observation shift, lookback
-business-day rules, publication lag). 4–6 hours of research + impl.
+### 5.2.3 Real CME swaption vol ingest
 
-## Tier 3 — Remaining validation
+Replace `swaptions_20251231.csv` with real ATM USD SOFR normal vols. Blocked:
+no clean free programmatic feed (CME publishes settlement data via website
+UI only; DataMine and MDP are licensed). Unblock when (a) a CSV is dropped
+into the repo manually or (b) a free feed appears.
 
-- **3.5** Excel UDF runtime smoke test — **done**. Protocol at
-  `excel/SMOKE_TEST.md` (`c67846a`, confirmed pass `aaa6a90`).
-- **3.7** BondPricer numerical regression — **done**. Probe at
-  `tools/reconcile_bench/examples/bondpricer_regression.rs` (`4ec1e03`).
-  OLD path drifts +13.2 bp on quarterly, −2.4 bp on annual; NEW
-  round-trips to 1e-10. Refactor direction confirmed correct.
+### 5.2.5 Piecewise-constant σ(t)
 
-## Tier 4 — Housekeeping
-
-### 4.2 Merge PR #77
-
-Branch clean-merges on top of main. CI green.
-
-- **4.4** Delete stale INDEX.md / OVERVIEW.md — **done** (`74090c4`).
-
-## Tier 5 — Design calls (don't start without input)
-
-- **5.1** `CashFlowGenerator` match QL coupon-by-day-count — **done**
-  (`3b23dc8`). Superseded by the 5.3 purge below, which deleted
-  `CashFlowGenerator` entirely.
-- **5.3** Delete the `FixedBond` / `BondPricer` / `CashFlowGenerator` /
-  `GovernmentCouponBond` legacy island — **done**. Everything in the
-  production call graph (FFI, Excel, engine, server, MCP, portfolio,
-  reconcile bench) already went through `FixedRateBond` +
-  `BondAnalytics`; the legacy types were only self-referenced.
-
-### 5.2 OAS / tree models for callables
-
-Current reconciliation uses deterministic YTC/YTW on workout-bullet
-proxies. Real OAS against Hull-White / BK isn't tested. Needs a shared
-model choice first.
+Extend HW1F to piecewise-σ on call dates (matches QL's `Gsr`). Only worth
+doing once a long-dated callable (NC10 30y) is in the book — current 5y/4y
+residuals don't move under term structure of vol.

@@ -1,14 +1,16 @@
 //! Option-Adjusted Spread (OAS) calculator.
 //!
-//! Calculates OAS for callable bonds using binomial tree pricing.
-//! OAS is the constant spread that, when added to all rates in the
-//! interest rate tree, makes the model price equal to the market price.
+//! Calculates OAS for callable bonds using a Hull-White trinomial-tree
+//! pricer (matching `ql.TreeCallableFixedRateBondEngine`'s lattice).
+//! OAS is the constant spread that, when added to the short rate at
+//! every tree node, makes the model price equal the market price.
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use convex_bonds::instruments::CallableBond;
-use convex_bonds::options::{BinomialTree, HullWhite, ShortRateModel};
-use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, EmbeddedOptionBond, FixedCouponBond};
+use convex_bonds::options::{build_event_grid, HullWhite, ShortRateModel, TrinomialTree};
+use convex_bonds::traits::{Bond, CashFlowType, EmbeddedOptionBond};
 use convex_core::types::{Date, Spread, SpreadType};
 use convex_curves::RateCurveDyn;
 use convex_curves::{Compounding, CurveResult};
@@ -139,7 +141,7 @@ impl OASCalculator {
             });
         }
 
-        let target_price = dirty_price.to_string().parse::<f64>().unwrap_or(100.0);
+        let target_price = dirty_price.to_f64().unwrap_or(100.0);
 
         // Binary search for OAS
         let mut low = -0.05;
@@ -174,7 +176,9 @@ impl OASCalculator {
         ))
     }
 
-    /// Prices a callable bond given an OAS spread.
+    /// Prices a callable on an event-aligned HW1F trinomial tree:
+    /// every cashflow and step-down boundary lands on a layer exactly
+    /// (mirrors QL's `TimeGrid` inside `TreeCallableFixedRateBondEngine`).
     pub fn price_with_oas(
         &self,
         bond: &CallableBond,
@@ -193,99 +197,120 @@ impl OASCalculator {
             ));
         }
 
+        let base_bond = bond.base_bond();
+        let call_schedule = bond
+            .call_schedule()
+            .ok_or_else(|| AnalyticsError::InvalidInput("Bond has no call schedule".to_string()))?;
+        let cash_flows = base_bond.cash_flows(settlement);
+        let face_value = base_bond.face_value().to_f64().unwrap_or(100.0);
+
+        // Mandatory event times in (0, T): coupon/principal payments and
+        // each step-down boundary date (where the call price changes).
+        let mut mandatory: Vec<f64> = Vec::new();
+        for cf in &cash_flows {
+            if cf.flow_type != CashFlowType::Coupon
+                && cf.flow_type != CashFlowType::Principal
+                && cf.flow_type != CashFlowType::CouponAndPrincipal
+            {
+                continue;
+            }
+            let t = settlement.days_between(&cf.date) as f64 / 365.0;
+            if t > 0.0 && t < maturity_years {
+                mandatory.push(t);
+            }
+        }
+        for entry in &call_schedule.entries {
+            if entry.start_date > settlement && entry.start_date < maturity {
+                let t = settlement.days_between(&entry.start_date) as f64 / 365.0;
+                mandatory.push(t);
+            }
+        }
+
+        let times = build_event_grid(maturity_years, &mandatory, self.tree_steps);
+
+        let a = self.model.mean_reversion();
+        let sigma = self.model.volatility(0.0);
         let zero_rates = |t: f64| -> f64 {
             if t <= 0.0 {
                 return 0.0;
             }
             curve.zero_rate(t, Compounding::Continuous).unwrap_or(0.05)
         };
+        let tree = TrinomialTree::build_hull_white_on_grid(zero_rates, a, sigma, &times);
 
-        let tree = self
-            .model
-            .build_tree(&zero_rates, maturity_years, self.tree_steps);
-
-        self.backward_induction(bond, &tree, oas, settlement)
+        self.trinomial_backward_induction(bond, &tree, oas, settlement, face_value)
     }
 
-    fn backward_induction(
+    fn trinomial_backward_induction(
         &self,
         bond: &CallableBond,
-        tree: &BinomialTree,
+        tree: &TrinomialTree,
         oas: f64,
         settlement: Date,
+        face_value: f64,
     ) -> AnalyticsResult<f64> {
         let base_bond = bond.base_bond();
         let call_schedule = bond
             .call_schedule()
             .ok_or_else(|| AnalyticsError::InvalidInput("Bond has no call schedule".to_string()))?;
         let cash_flows = base_bond.cash_flows(settlement);
-        let face_value = base_bond
-            .face_value()
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(100.0);
 
         let n = tree.steps;
-        let _maturity = bond.maturity().unwrap();
+        let mut step_amount = vec![0.0_f64; n + 1];
+        let mut step_call: Vec<Option<f64>> = vec![None; n + 1];
 
-        let coupon_rate = base_bond
-            .coupon_rate()
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(0.05);
-        let frequency = f64::from(base_bond.coupon_frequency());
-        let coupon_payment = face_value * coupon_rate / frequency;
-
-        let final_value = face_value + coupon_payment;
-        let mut values = vec![final_value; n + 1];
-
-        for i in (0..n).rev() {
-            let t = tree.time_at_step(i);
-            let tree_days = (t * 365.0) as i64;
-            let tree_date = settlement.add_days(tree_days);
-
-            let cf_at_step = self.cash_flow_at_time(&cash_flows, settlement, t, tree.dt);
-
-            let mut new_values = vec![0.0; i + 1];
-
-            for j in 0..=i {
-                let df = tree.discount_factor(i, j, oas);
-                let p_up = tree.prob_up(i, j);
-                let p_down = tree.prob_down(i, j);
-
-                let continuation = df * (p_up * values[j + 1] + p_down * values[j]);
-                let value_with_cf = continuation + cf_at_step;
-
-                new_values[j] = if call_schedule.is_callable_on(tree_date) {
-                    let call_price = call_schedule.call_price_on(tree_date).unwrap_or(100.0);
-                    value_with_cf.min(call_price)
-                } else {
-                    value_with_cf
-                };
+        for cf in &cash_flows {
+            if !matches!(
+                cf.flow_type,
+                CashFlowType::Coupon | CashFlowType::Principal | CashFlowType::CouponAndPrincipal
+            ) {
+                continue;
             }
-
-            values = new_values;
+            let cf_t = settlement.days_between(&cf.date) as f64 / 365.0;
+            if cf_t <= 0.0 {
+                continue;
+            }
+            // Cashflows on or after maturity (e.g., BDC-adjusted final flows)
+            // bucket into the maturity layer; everything else must hit a
+            // mandatory layer exactly.
+            let i = tree.step_at_time(cf_t).unwrap_or(n).min(n);
+            step_amount[i] += cf.amount.to_f64().unwrap_or(0.0);
         }
 
-        Ok(values[0])
-    }
+        // If the bond emits only coupons (no terminal principal flow),
+        // inject face at maturity so the bullet leg prices.
+        if step_amount[n] < face_value * 0.5 {
+            step_amount[n] += face_value;
+        }
 
-    fn cash_flow_at_time(
-        &self,
-        cash_flows: &[BondCashFlow],
-        settlement: Date,
-        t: f64,
-        dt: f64,
-    ) -> f64 {
-        cash_flows
-            .iter()
-            .filter(|cf| cf.flow_type == CashFlowType::Coupon)
-            .filter(|cf| {
-                let cf_t = settlement.days_between(&cf.date) as f64 / 365.0;
-                (cf_t - t).abs() < dt / 2.0
-            })
-            .map(|cf| cf.amount.to_string().parse::<f64>().unwrap_or(0.0))
-            .sum()
+        // Call cap = clean + accrued (QL's `Callability(price, Clean, date)`
+        // ⇒ issuer pays clean + accrued). Coupon-on-call convention follows
+        // QL's `withinNextWeek` snap: receive the coupon at the first
+        // callable layer (no prior callability to snap to), forfeit it
+        // elsewhere. Forfeit is encoded by `cap - cashflow` since
+        // `min(cont, cap - cf) + cf == min(cont + cf, cap)`.
+        let first_callable_date = call_schedule.first_call_date();
+        for i in 1..=n {
+            let days = (tree.times[i] * 365.0).round() as i64;
+            let tree_date = settlement.add_days(days);
+            if !call_schedule.is_callable_on(tree_date) {
+                continue;
+            }
+            let clean_cap = call_schedule.call_price_on(tree_date).unwrap_or(100.0);
+            let accrued = base_bond
+                .accrued_interest(tree_date)
+                .to_f64()
+                .unwrap_or(0.0);
+            let dirty_cap = clean_cap + accrued;
+            let receive = first_callable_date.is_some_and(|d| tree_date == d);
+            step_call[i] = Some(if receive {
+                dirty_cap
+            } else {
+                dirty_cap - step_amount[i]
+            });
+        }
+
+        Ok(tree.price(oas, |i| step_amount[i], |i| step_call[i]))
     }
 
     /// Calculates effective duration using OAS.
@@ -355,7 +380,7 @@ impl OASCalculator {
         for cf in &cash_flows {
             let t = settlement.days_between(&cf.date) as f64 / 365.0;
             let df = curve.discount_factor(t).unwrap_or(1.0) * (-oas * t).exp();
-            let amount = cf.amount.to_string().parse::<f64>().unwrap_or(0.0);
+            let amount = cf.amount.to_f64().unwrap_or(0.0);
             straight_price += amount * df;
         }
 

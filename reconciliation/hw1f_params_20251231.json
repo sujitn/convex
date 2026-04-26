@@ -1,0 +1,45 @@
+{
+  "snapshot_date": "2025-12-31",
+  "swaption_strip_source": "swaptions_20251231.csv",
+  "calibrations": {
+    "F_6_798_2028": {
+      "a": 0.03,
+      "sigma": 0.009813433746204534,
+      "rmse_price": 0.00014584680080620706,
+      "helpers": [
+        {
+          "expiry_yrs": 1,
+          "tail_yrs": 2,
+          "atm_normal_vol_bps": 95.0
+        },
+        {
+          "expiry_yrs": 2,
+          "tail_yrs": 1,
+          "atm_normal_vol_bps": 100.0
+        }
+      ]
+    },
+    "SYNTH_HY_STEPDOWN_01": {
+      "a": 0.03,
+      "sigma": 0.01019646372437064,
+      "rmse_price": 0.0003384264465691643,
+      "helpers": [
+        {
+          "expiry_yrs": 1,
+          "tail_yrs": 3,
+          "atm_normal_vol_bps": 95.0
+        },
+        {
+          "expiry_yrs": 2,
+          "tail_yrs": 2,
+          "atm_normal_vol_bps": 100.0
+        },
+        {
+          "expiry_yrs": 3,
+          "tail_yrs": 1,
+          "atm_normal_vol_bps": 105.0
+        }
+      ]
+    }
+  }
+}

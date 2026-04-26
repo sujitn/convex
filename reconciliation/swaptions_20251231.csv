@@ -1,0 +1,22 @@
+# Synthetic ATM USD SOFR swaption normal-vol surface, snapshot 2025-12-31.
+#
+# This is a synthetic-but-realistic vol strip used to drive HW1F mean-reversion-
+# fixed (a=0.03), volatility-only calibration on a co-terminal swaption strip
+# per callable bond. Both QuantLib and Convex consume the same vols, so any
+# reconciliation parity is preserved regardless of how realistic the levels are.
+#
+# Term structure shape: humped — short end pinned by Fed-path uncertainty,
+# belly peaks 5y-7y, long end mean-reverts. Levels are in line with post-2022
+# USD SOFR ATM normal vol (~80-120 bp). Tail dimension is flat; a co-terminal
+# strip is sliced from this surface by picking the expiry equal to the call
+# date (or nearest neighbor) and using the bond's actual tail to maturity.
+#
+# Source: synthetic, calibrated to look like a typical 2026 USD SOFR surface.
+# Replace with CME QuikStrike data when a free feed becomes available.
+expiry_years,atm_normal_vol_bps
+1,95
+2,100
+3,105
+5,110
+7,110
+10,105

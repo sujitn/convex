@@ -25,6 +25,7 @@ import math
 import pathlib
 import sys
 from datetime import date
+from typing import Optional
 
 import QuantLib as ql
 
@@ -122,19 +123,59 @@ def build_sofr_curve(sofr: dict, valuation: ql.Date) -> ql.YieldTermStructureHan
     return ql.YieldTermStructureHandle(curve)
 
 
+_SOFR_FIXINGS_LOADED = False
+
+
+def _load_sofr_fixings(sofr_index: ql.OvernightIndex) -> int:
+    """Register historical SOFR fixings with the supplied index.
+
+    Reads reconciliation/sofr_fixings.csv (effective_date,rate_pct,...) once
+    per process; subsequent calls return immediately. Returns the number of
+    fixings registered on first call, 0 thereafter.
+    """
+    global _SOFR_FIXINGS_LOADED
+    if _SOFR_FIXINGS_LOADED:
+        return 0
+    path = HERE / "sofr_fixings.csv"
+    if not path.exists():
+        _SOFR_FIXINGS_LOADED = True
+        return 0
+    n = 0
+    with path.open() as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            d = to_ql_date(row["effective_date"])
+            r = float(row["rate_pct"]) / 100.0
+            sofr_index.addFixing(d, r, True)  # forceOverwrite=True
+            n += 1
+    _SOFR_FIXINGS_LOADED = True
+    return n
+
+
 def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
-    """See SOURCES.md § 'SOFR FRN projection convention' for the shared
-    pricing model. Paired with reconcile_bench's price_corporate_frn."""
+    """ARRC compound-in-arrears pricing on the QL side.
+
+    In-progress period is priced under `OvernightIndexedCoupon` with
+    `applyObservationShift=True, lookbackDays=2, lockoutDays=0` consuming
+    real fixings from `sofr_fixings.csv` for past business days and the
+    SOFR projection curve for the rest. Future periods use the same
+    machinery (forecast-only, no fixings touched). Spread is additive
+    (post-compounding), matching `reconcile_bench`'s
+    `price_corporate_frn`.
+    """
     dated = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     maturity = to_ql_date(inst["maturity_date"])
     spread = inst["spread_bps"] / 10_000.0
-    reset = inst["current_reset_rate_pct"] / 100.0
     face = 100.0
     dc360 = ql.Actual360()
 
     handle = build_sofr_curve(sofr, valuation)
+    sofr_index = ql.Sofr(handle)
+    _load_sofr_fixings(sofr_index)
+
+    cal = ql.UnitedStates(ql.UnitedStates.GovernmentBond)
     schedule = ql.Schedule(
-        dated, maturity, ql.Period(ql.Quarterly), ql.NullCalendar(),
+        dated, maturity, ql.Period(ql.Quarterly), cal,
         ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
     )
 
@@ -143,25 +184,58 @@ def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
 
     dirty = 0.0
     spread_annuity = 0.0
-    last_coupon_before_settle = None
+    accrued = 0.0
 
     for start, end in zip(schedule, list(schedule)[1:]):
         if end <= valuation:
-            last_coupon_before_settle = end
             continue
-        if start <= valuation:
-            last_coupon_before_settle = start
 
         yf = dc360.yearFraction(start, end)
-        coupon = face * (df(start) / df(end) - 1.0 + spread * yf)
+
+        if start <= valuation:
+            # In-progress period: real ARRC compounded coupon.
+            coupon_obj = ql.OvernightIndexedCoupon(
+                cal.adjust(end, ql.Following),  # paymentDate
+                face,                           # nominal
+                start, end,                     # startDate, endDate
+                sofr_index,
+                1.0,                            # gearing
+                0.0,                            # spread (we add it manually, additive)
+                ql.Date(), ql.Date(),           # refPeriodStart/End
+                dc360,
+                False,                          # telescopicValueDates
+                ql.RateAveraging.Compound,
+                2,                              # lookbackDays
+                0,                              # lockoutDays
+                True,                           # applyObservationShift
+            )
+            comp_rate = coupon_obj.rate()       # annualized compounded SOFR
+            comp_minus_one = comp_rate * yf
+            coupon = face * (comp_minus_one + spread * yf)
+
+            # Accrued portion: same coupon construction over [start, valuation].
+            accr_obj = ql.OvernightIndexedCoupon(
+                cal.adjust(valuation, ql.Following),
+                face,
+                start, valuation,
+                sofr_index,
+                1.0, 0.0,
+                ql.Date(), ql.Date(),
+                dc360,
+                False,
+                ql.RateAveraging.Compound,
+                2, 0, True,
+            )
+            accr_yf = dc360.yearFraction(start, valuation)
+            accrued = face * (accr_obj.rate() * accr_yf + spread * accr_yf)
+        else:
+            # Future period: curve-forward equals deterministic compound rate.
+            coupon = face * (df(start) / df(end) - 1.0 + spread * yf)
+
         amount = coupon + (face if end == maturity else 0.0)
         dirty += amount * df(end)
         spread_annuity += yf * df(end)
 
-    accrued = (
-        face * reset * dc360.yearFraction(last_coupon_before_settle, valuation)
-        if last_coupon_before_settle is not None else 0.0
-    )
     clean = dirty - accrued
     dm = (dirty - 100.0 - accrued) / (spread_annuity * face) if abs(spread_annuity) > 1e-12 else 0.0
 
@@ -175,6 +249,234 @@ def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
 
 def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
     return (maturity - valuation) / 365.25
+
+
+# ---------------------------------------------------------------- callable OAS
+
+# Hull-White 1F mean reversion is fixed exogenously (industry standard for
+# corporate callable OAS — Bloomberg OAS1, Strata, QL's CallableBonds.cpp
+# example all do this). Volatility σ is calibrated per-bond against a
+# co-terminal ATM USD SOFR swaption strip via SwaptionHelper + LM.
+HW_MEAN_REVERSION_FIXED = 0.03
+# Initial guess for σ before calibration — a reasonable post-2022 USD prior.
+HW_VOLATILITY_INITIAL = 0.008
+# 500 timesteps to match the Convex side. QL's TimeGrid auto-injects all
+# event dates regardless, but lifting numTimeSteps from 100→500 keeps QL
+# from being limited by the parameter when the auto-injected grid is sparse.
+HW_TREE_STEPS = 500
+
+
+def load_swaption_surface(path: pathlib.Path) -> list[tuple[float, float]]:
+    """Read an ATM normal-vol surface CSV (expiry_years, atm_normal_vol_bps).
+
+    Lines starting with ``#`` are comments. Returns sorted (expiry, vol_bp)
+    pairs for linear interpolation.
+    """
+    pts: list[tuple[float, float]] = []
+    with path.open() as fh:
+        for row in csv.reader(fh):
+            if not row or row[0].lstrip().startswith("#"):
+                continue
+            if row[0].strip() == "expiry_years":
+                continue
+            pts.append((float(row[0]), float(row[1])))
+    pts.sort()
+    if not pts:
+        raise ValueError(f"swaption surface {path} is empty")
+    return pts
+
+
+def interp_vol_bp(surface: list[tuple[float, float]], expiry_yrs: float) -> float:
+    """Linear interp on (expiry_years, atm_normal_vol_bps); flat extrapolation."""
+    if expiry_yrs <= surface[0][0]:
+        return surface[0][1]
+    for (t0, v0), (t1, v1) in zip(surface, surface[1:]):
+        if t0 <= expiry_yrs <= t1:
+            w = (expiry_yrs - t0) / (t1 - t0)
+            return v0 + w * (v1 - v0)
+    return surface[-1][1]
+
+
+def coterminal_helpers(
+    valuation: ql.Date,
+    maturity: ql.Date,
+    surface: list[tuple[float, float]],
+    base_handle: ql.YieldTermStructureHandle,
+) -> list[tuple[ql.SwaptionHelper, int, int, float]]:
+    """Build a co-terminal ATM SOFR swaption strip for this bond.
+
+    Strip structure follows the QuantLib bermudan-swaption.py example: integer-
+    year expiries 1, 2, ..., floor(residual_yrs - 0.5), with tail = maturity -
+    expiry. Each helper is ATM (strike = fair forward swap rate) with normal/
+    Bachelier vol pulled from the surface by linear interp on expiry. Returns
+    (helper, expiry_yrs, tail_yrs, vol_bp) so we can record the strip used.
+    """
+    residual = (maturity - valuation) / 365.25
+    max_expiry = int(math.floor(residual - 0.5))
+    if max_expiry < 1:
+        return []
+
+    sofr_index = ql.OvernightIndex(
+        "SOFR", 2, ql.USDCurrency(), ql.UnitedStates(ql.UnitedStates.SOFR),
+        ql.Actual360(), base_handle,
+    )
+
+    helpers: list[tuple[ql.SwaptionHelper, int, int, float]] = []
+    for expiry in range(1, max_expiry + 1):
+        tail = max(1, int(round(residual - expiry)))
+        vol_bp = interp_vol_bp(surface, float(expiry))
+        vol_quote = ql.QuoteHandle(ql.SimpleQuote(vol_bp / 1e4))
+        helper = ql.SwaptionHelper(
+            ql.Period(expiry, ql.Years),
+            ql.Period(tail, ql.Years),
+            vol_quote,
+            sofr_index,
+            ql.Period(1, ql.Years),       # fixed-leg tenor (annual is fine for ATM strike)
+            ql.Thirty360(ql.Thirty360.USA),
+            ql.Actual360(),
+            base_handle,
+            ql.BlackCalibrationHelper.RelativePriceError,
+            ql.nullDouble(),               # ATM strike
+            1.0,                           # nominal
+            ql.Normal,                     # Bachelier/normal vol
+        )
+        helpers.append((helper, expiry, tail, vol_bp))
+    return helpers
+
+
+def calibrate_hw1f(
+    helpers: list[ql.SwaptionHelper],
+    base_handle: ql.YieldTermStructureHandle,
+) -> tuple[float, float, float]:
+    """Calibrate HW1F σ against the supplied helpers, holding a = 0.03 fixed.
+
+    Returns (a, sigma, rmse_price). The fixParameters mask [True, False] is
+    QuantLib's canonical "fix a, float σ" switch.
+    """
+    model = ql.HullWhite(base_handle, HW_MEAN_REVERSION_FIXED, HW_VOLATILITY_INITIAL)
+    engine = ql.JamshidianSwaptionEngine(model, base_handle)
+    for h in helpers:
+        h.setPricingEngine(engine)
+    optimizer = ql.LevenbergMarquardt(1e-8, 1e-8, 1e-8)
+    end_criteria = ql.EndCriteria(400, 100, 1e-8, 1e-8, 1e-8)
+    model.calibrate(
+        helpers, optimizer, end_criteria,
+        ql.NoConstraint(), [], [True, False],
+    )
+    a, sigma = model.params()[0], model.params()[1]
+    sse = 0.0
+    for h in helpers:
+        diff = h.modelValue() - h.marketValue()
+        sse += diff * diff
+    rmse = math.sqrt(sse / max(len(helpers), 1))
+    return a, sigma, rmse
+
+
+def _build_callable_bond(inst: dict) -> ql.CallableFixedRateBond:
+    """Constructs a `ql.CallableFixedRateBond` from a book.json callable
+    record. Mirrors `build_callable_bond` on the Convex side.
+
+    Convex's `CallType::American` is continuously callable from the first
+    `call_date` with a step-down price. QL's `CallabilitySchedule` is
+    Bermudan — each entry is a single-date right. To match the American
+    semantics we densify the schedule to a monthly grid from the first
+    `call_date` through maturity, with each grid date carrying the
+    prevailing step-down price.
+    """
+    issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    freq = FREQUENCY_MAP[inst["frequency"].lower()]
+    dcc = day_count(inst["day_count"])
+    coupon = effective_coupon_pct(inst) / 100.0
+
+    schedule = ql.Schedule(
+        issue, maturity, ql.Period(freq), ql.NullCalendar(),
+        ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
+    )
+    callability = ql.CallabilitySchedule()
+
+    raw = sorted(
+        inst.get("call_schedule") or [],
+        key=lambda e: to_ql_date(e["call_date"]),
+    )
+    if raw:
+        first = to_ql_date(raw[0]["call_date"])
+        # Walk a *daily* grid from the first call date to (maturity - 1d).
+        # Skip past `maturity` itself — QL doesn't accept a callability on or
+        # after the bond's maturity. Daily granularity is required: any
+        # coarser grid (monthly, weekly) leaves QL exercising on fewer dates
+        # than Convex's American-callable backward induction, which checks
+        # call optionality at every tree step.
+        dt = first
+        while dt < maturity:
+            applicable = [e for e in raw if to_ql_date(e["call_date"]) <= dt]
+            price = applicable[-1]["price"]
+            callability.append(
+                ql.Callability(
+                    ql.BondPrice(price, ql.BondPrice.Clean),
+                    ql.Callability.Call,
+                    dt,
+                )
+            )
+            dt = dt + ql.Period(1, ql.Days)
+
+    return ql.CallableFixedRateBond(
+        0, 100.0, schedule, [coupon], dcc, ql.Following,
+        100.0, issue, callability,
+    )
+
+
+def _hw_engine_for_curve(
+    base_handle: ql.YieldTermStructureHandle,
+    total_shift: float,
+    a: float,
+    sigma: float,
+) -> ql.TreeCallableFixedRateBondEngine:
+    """Builds an HW1F-tree pricing engine for a curve = base + total_shift
+    (continuous-compounded parallel shift). `total_shift` packs OAS plus
+    any rate-bump (used for effective duration / convexity). `(a, sigma)`
+    come from per-bond swaption-strip calibration."""
+    if abs(total_shift) < 1e-15:
+        handle = base_handle
+    else:
+        spread_quote = ql.QuoteHandle(ql.SimpleQuote(total_shift))
+        handle = ql.YieldTermStructureHandle(
+            ql.ZeroSpreadedTermStructure(base_handle, spread_quote)
+        )
+    model = ql.HullWhite(handle, a, sigma)
+    return ql.TreeCallableFixedRateBondEngine(model, HW_TREE_STEPS)
+
+
+def _ql_callable_price(
+    inst: dict,
+    base_handle: ql.YieldTermStructureHandle,
+    oas: float,
+    a: float,
+    sigma: float,
+    rate_shift: float = 0.0,
+) -> float:
+    """Clean-price the callable under OAS (and optional parallel rate
+    bump) using `TreeCallableFixedRateBondEngine` on a HW1F tree."""
+    bond = _build_callable_bond(inst)
+    engine = _hw_engine_for_curve(base_handle, oas + rate_shift, a, sigma)
+    bond.setPricingEngine(engine)
+    return bond.cleanPrice()
+
+
+def _ql_solve_oas_at_price(
+    inst: dict,
+    base_handle: ql.YieldTermStructureHandle,
+    target_clean: float,
+    a: float,
+    sigma: float,
+) -> float:
+    """Brent solver: OAS such that tree-price(OAS) == `target_clean`.
+    Mirrors `OASCalculator.calculate()` on the Convex side."""
+    def f(oas: float) -> float:
+        return _ql_callable_price(inst, base_handle, oas, a, sigma) - target_clean
+    solver = ql.Brent()
+    solver.setMaxEvaluations(100)
+    return solver.solve(f, 1e-8, 0.0, -0.05, 0.10)
 
 
 # ---------------------------------------------------------------- price/risk helpers
@@ -291,12 +593,42 @@ def load_tips_index_ratios() -> dict[str, float]:
     return out
 
 
+SNAPSHOTS = [
+    {
+        "book": "book.json",
+        "curves": "curves.json",
+        "out": "ql.csv",
+        "require_ust_cmt": True,
+        "swaptions": "swaptions_20251231.csv",
+        "hw1f_params": "hw1f_params_20251231.json",
+    },
+    {
+        "book": "book_20250630.json",
+        "curves": "curves_20250630.json",
+        "out": "ql_20250630.csv",
+        "require_ust_cmt": False,
+        # 2025-06-30 mid-period snapshot is FRN-focused; no callables in book.
+        "swaptions": None,
+        "hw1f_params": None,
+    },
+]
+
+
 def main() -> int:
-    book = json.loads((HERE / "book.json").read_text())
-    curves = json.loads((HERE / "curves.json").read_text())
+    global _SOFR_FIXINGS_LOADED  # reset per-snapshot so SOFR fixings re-register on the new index
+    rc = 0
+    for snap in SNAPSHOTS:
+        _SOFR_FIXINGS_LOADED = False
+        rc |= _run_snapshot(snap)
+    return rc
+
+
+def _run_snapshot(snap: dict) -> int:
+    book = json.loads((HERE / snap["book"]).read_text())
+    curves = json.loads((HERE / snap["curves"]).read_text())
     curve_by_id = {c["id"]: c for c in curves["curves"]}
-    if "UST_CMT" not in curve_by_id:
-        raise RuntimeError("UST_CMT curve not found in curves.json")
+    if snap["require_ust_cmt"] and "UST_CMT" not in curve_by_id:
+        raise RuntimeError(f"UST_CMT curve not found in {snap['curves']}")
     index_ratios = load_tips_index_ratios()
 
     valuation = to_ql_date(book["valuation_date"])
@@ -306,6 +638,13 @@ def main() -> int:
     skipped: list[str] = []
 
     sofr_curve = curve_by_id.get("SOFR_OIS_CURVE")
+
+    # HW1F per-bond calibration: load swaption surface once for this snapshot,
+    # accumulate calibrated (a, σ) per callable, dump to hw1f_params_*.json.
+    swaption_surface: Optional[list[tuple[float, float]]] = None
+    if snap.get("swaptions"):
+        swaption_surface = load_swaption_surface(HERE / snap["swaptions"])
+    hw1f_calibrations: dict[str, dict] = {}
 
     for inst in book["instruments"]:
         cat = inst["category"]
@@ -412,6 +751,61 @@ def main() -> int:
             yyyymmdd = wd.year() * 10000 + wd.month() * 100 + wd.dayOfMonth()
             emitted.append(("ytw_workout_date_yyyymmdd", float(yyyymmdd)))
 
+            # Tier 5.2.2: HW1F per-bond σ calibrated against an ATM USD SOFR
+            # co-terminal swaption strip (a fixed at 0.03). Both sides use the
+            # SOFR_OIS_CURVE as the discount curve (continuously-compounded).
+            if sofr_curve is not None and swaption_surface is not None:
+                base_handle = build_sofr_curve(sofr_curve, valuation)
+                strip = coterminal_helpers(
+                    valuation, maturity, swaption_surface, base_handle,
+                )
+                if not strip:
+                    raise RuntimeError(
+                        f"{inst['id']}: residual maturity too short for a "
+                        "co-terminal swaption strip"
+                    )
+                helpers = [h for (h, _, _, _) in strip]
+                a_cal, sigma_cal, rmse = calibrate_hw1f(helpers, base_handle)
+                hw1f_calibrations[inst["id"]] = {
+                    "a": a_cal,
+                    "sigma": sigma_cal,
+                    "rmse_price": rmse,
+                    "helpers": [
+                        {"expiry_yrs": e, "tail_yrs": t, "atm_normal_vol_bps": v}
+                        for (_, e, t, v) in strip
+                    ],
+                }
+                # Tier 5.2.4: emit calibrated (a, σ) as reconciliation rows so
+                # the Rust independent calibration can diff against QL's σ to
+                # ~1e-5 tolerance (calibration parity, separate from pricing
+                # parity which uses these same params).
+                emitted.append(("hw1f_a_calibrated", a_cal))
+                emitted.append(("hw1f_sigma_calibrated", sigma_cal))
+                # Stage 1: OAS-given parity. Three reference spreads.
+                for bps in (25, 50, 100):
+                    px = _ql_callable_price(
+                        inst, base_handle, bps / 10_000.0, a_cal, sigma_cal,
+                    )
+                    emitted.append((f"price_at_oas_{bps}bps", px))
+                # Stage 2: OAS-from-price parity. Use a synthetic 99.0 target
+                # so the solver runs end-to-end and Convex/QL agree on the
+                # implied spread.
+                target = 99.0
+                oas = _ql_solve_oas_at_price(
+                    inst, base_handle, target, a_cal, sigma_cal,
+                )
+                emitted.append(("oas_bps_at_market", oas * 10_000.0))
+                # Effective duration + convexity at the solved OAS, sticky-strike
+                # (hold OAS fixed, parallel-shift the rate curve ±1 bp).
+                shift = 1e-4
+                px0 = _ql_callable_price(inst, base_handle, oas, a_cal, sigma_cal, 0.0)
+                px_up = _ql_callable_price(inst, base_handle, oas, a_cal, sigma_cal, shift)
+                px_dn = _ql_callable_price(inst, base_handle, oas, a_cal, sigma_cal, -shift)
+                eff_dur = (px_dn - px_up) / (2.0 * px0 * shift)
+                eff_cnv = (px_dn + px_up - 2.0 * px0) / (px0 * shift * shift)
+                emitted.append(("effective_duration_at_oas", eff_dur))
+                emitted.append(("effective_convexity_at_oas", eff_cnv))
+
         for metric, value in emitted:
             rows.append(
                 {
@@ -425,7 +819,7 @@ def main() -> int:
                 }
             )
 
-    out = HERE / "ql.csv"
+    out = HERE / snap["out"]
     with out.open("w", newline="") as fh:
         w = csv.DictWriter(
             fh,
@@ -441,6 +835,23 @@ def main() -> int:
         )
         w.writeheader()
         w.writerows(rows)
+
+    if snap.get("hw1f_params") and hw1f_calibrations:
+        params_path = HERE / snap["hw1f_params"]
+        params_path.write_text(
+            json.dumps(
+                {
+                    "snapshot_date": book["valuation_date"],
+                    "swaption_strip_source": snap.get("swaptions"),
+                    "calibrations": hw1f_calibrations,
+                },
+                indent=2,
+            )
+        )
+        print(
+            f"ql_bench: wrote {params_path} — {len(hw1f_calibrations)} HW1F calibrations",
+            file=sys.stderr,
+        )
 
     print(f"ql_bench: wrote {out} — {len(rows) // 8} bonds priced", file=sys.stderr)
     if skipped:

@@ -1,0 +1,25 @@
+{
+  "comment": "FRN-focused mini-curve set for Tier 2.3.2. Only SOFR_OIS_CURVE is required — the FRN reconciliation path consumes only this curve. Rates are a plausible synthetic SOFR OIS term structure for 2025-06-30, anchored to the published overnight fixing (4.45%) and shaped to reflect the rate-cut path implied by the fixing trajectory through year-end. The reconciliation test only requires Convex and QL to see identical inputs; market accuracy of the curve doesn't affect the equality check.",
+  "curves": [
+    {
+      "id": "SOFR_OIS_CURVE",
+      "currency": "USD",
+      "compounding": "continuous",
+      "day_count": "ACT/365F",
+      "observation_date": "2025-06-30",
+      "overnight_fixing_2025_06_30": 4.45,
+      "note": "Synthetic — see comment above. Both benches consume the same zero rates so the reconciliation is meaningful regardless of market accuracy.",
+      "quotes": [
+        { "tenor_years": 0.0833, "rate_pct": 4.35 },
+        { "tenor_years": 0.25,   "rate_pct": 4.20 },
+        { "tenor_years": 0.5,    "rate_pct": 4.00 },
+        { "tenor_years": 1.0,    "rate_pct": 3.85 },
+        { "tenor_years": 2.0,    "rate_pct": 3.70 },
+        { "tenor_years": 3.0,    "rate_pct": 3.65 },
+        { "tenor_years": 5.0,    "rate_pct": 3.70 },
+        { "tenor_years": 7.0,    "rate_pct": 3.85 },
+        { "tenor_years": 10.0,   "rate_pct": 4.05 }
+      ]
+    }
+  ]
+}

@@ -587,6 +587,7 @@ dependencies = [
  "convex-curves",
  "convex-math",
  "criterion 0.8.1",
+ "csv",
  "log",
  "once_cell",
  "proptest",

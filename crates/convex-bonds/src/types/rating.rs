@@ -75,26 +75,19 @@ pub enum CreditRating {
 }
 
 impl CreditRating {
-    /// Returns the numeric score (1 = AAA, 22 = D, 99 = NR).
-    #[must_use]
+    /// Numeric score (1 = AAA, 22 = D, 99 = NR).
     pub fn score(&self) -> u8 {
         *self as u8
     }
 
-    /// Returns true if this is investment grade (BBB- or better).
-    #[must_use]
     pub fn is_investment_grade(&self) -> bool {
         *self <= CreditRating::BBBMinus && *self != CreditRating::NotRated
     }
 
-    /// Returns true if this is high yield (BB+ or below, excluding NR and D).
-    #[must_use]
     pub fn is_high_yield(&self) -> bool {
         *self >= CreditRating::BBPlus && *self <= CreditRating::C
     }
 
-    /// Returns the rating bucket for this rating.
-    #[must_use]
     pub fn bucket(&self) -> RatingBucket {
         match self {
             Self::AAA => RatingBucket::AAA,
@@ -109,8 +102,6 @@ impl CreditRating {
         }
     }
 
-    /// Returns the S&P-style notation.
-    #[must_use]
     pub fn sp_notation(&self) -> &'static str {
         match self {
             Self::AAA => "AAA",
@@ -139,8 +130,6 @@ impl CreditRating {
         }
     }
 
-    /// Returns the Moody's-style notation.
-    #[must_use]
     pub fn moodys_notation(&self) -> &'static str {
         match self {
             Self::AAA => "Aaa",

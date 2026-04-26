@@ -1,12 +1,5 @@
-//! Rate curve wrapper providing interest rate semantics.
-//!
-//! `RateCurve<T>` wraps any `TermStructure` and provides semantic methods
-//! for interest rate operations regardless of the underlying value type.
-//!
-//! # Backward Compatibility
-//!
-//! `RateCurve<T>` implements `convex_core::traits::YieldCurve`, enabling
-//! seamless use with existing code that expects `&dyn YieldCurve`.
+//! `RateCurve<T>`: interest-rate semantics over any `TermStructure`. Implements
+//! `convex_core::traits::YieldCurve` so callers can pass `&dyn YieldCurve`.
 
 use convex_core::daycounts::DayCount;
 use convex_core::error::ConvexResult;
@@ -19,12 +12,8 @@ use crate::error::{CurveError, CurveResult};
 use crate::term_structure::TermStructure;
 use crate::value_type::ValueType;
 
-/// A wrapper providing interest rate operations on any term structure.
-///
-/// This wrapper handles the conversion from whatever value type the
-/// underlying curve stores to the requested rate representation.
-///
-/// # Example
+/// Interest-rate operations over any term structure, regardless of stored
+/// value type (zero rates, discount factors, …).
 ///
 /// ```rust,ignore
 /// use convex_curves::{RateCurve, DiscreteCurve};
