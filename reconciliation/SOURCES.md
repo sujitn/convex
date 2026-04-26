@@ -42,21 +42,50 @@ space, pillars at integer days from the reference (`round(tenor × 365)` with
 half-away-from-zero rounding — use `math.floor(x + 0.5)` in Python since
 builtin `round` is banker's and picks different days at .5 boundaries).
 
-## SOFR FRN projection convention
+## Callable-bond OAS (Tier 5.2)
 
-The `CORP_SOFR_FRN` book entry is a real Marsh & McLennan ARRC
-Compounded-SOFR-in-arrears bond. Both libraries price it off a simpler,
-curve-only model (matching ARRC compounding across two libraries is its
-own tier):
+HW1F trinomial tree on the SOFR_OIS_CURVE; both sides locked to
+`a=0.03, σ=0.008, 500 steps`. QL: `ql.TreeCallableFixedRateBondEngine`
+with daily-densified `CallabilitySchedule` (matches Convex's
+`CallType::American`) and `ZeroSpreadedTermStructure` for OAS shifts.
+Convex: `OASCalculator` + `TrinomialTree::build_hull_white`. Call cap
+on the Convex side is dirty (`clean_price + accrued(tree_date)`) to
+match QL's `Callability(_, Clean, _)` semantics.
 
-* Future coupon = `(DF(start)/DF(end) − 1) × face + spread × yf360 × face`.
-* In-progress period: `DF(start)` clamps to 1.0 (curve forward over the
-  full period stands in for the partially-realised compound rate).
-* Accrued = `face × current_reset_rate_pct/100 × ACT/360 days since last coupon`.
-* DM = `(dirty − 100 − accrued) / (spread_annuity × face)` — par-equivalent,
-  closed-form because the floating-leg PV is spread-independent.
+Call sites: `tools/reconcile_bench/src/main.rs::callable_oas_rows` and
+the callable block in `reconciliation/ql_bench.py`.
 
-Call sites: `reconcile_bench::price_corporate_frn` (Rust) and `ql_bench.py::price_corporate_frn`.
+## SOFR FRN ARRC compound-in-arrears convention
+
+The `CORP_SOFR_FRN` book entry is a Marsh & McLennan ARRC
+Compounded-SOFR-in-arrears bond. Both libraries now price the
+in-progress period with real ARRC compounding (Tier 2.3.1):
+
+* **Convention:** `applyObservationShift=true, lookbackDays=2,
+  lockoutDays=0`, NY (SIFMA) calendar, ACT/360, spread-additive
+  (post-compounding). Verified industry-standard for USD corporate
+  SOFR FRNs — distinct from the lockout convention used in syndicated
+  loans.
+* **Past business days** (with publications in `sofr_fixings.csv`)
+  contribute `(1 + r_published × τ_d)` per day.
+* **Future business days** contribute `DF(d)/DF(next_bd)` directly via
+  curve telescoping — no `(DF/DF − 1)` subtraction (which catastrophically
+  cancels for sub-day intervals).
+* **In-progress coupon (paid at period end):** `face × ((Π factor − 1)
+  + spread × yf_period)`, discounted to valuation by `DF(period_end)`.
+* **Accrued at valuation:** same compounding restricted to obs window
+  ending at valuation, with spread component over `yf(period_start,
+  valuation)`.
+* **Future periods (start > valuation):** stay on the curve-forward
+  shortcut `face × (DF(start)/DF(end) − 1 + spread × yf)`, mathematically
+  equivalent under deterministic curves.
+* **DM:** `(dirty − 100 − accrued) / (spread_annuity × face)` — same
+  closed-form as before (floating-leg PV is spread-independent).
+
+Call sites: `reconcile_bench::price_corporate_frn` (Rust, using
+`convex_bonds::arrc::compound_in_arrears`) and
+`ql_bench.py::price_corporate_frn` (Python, using
+`ql.OvernightIndexedCoupon` with the same ARRC config).
 
 ## UK Gilt Nominal Spot (`UK_GILT_CURVE`)
 

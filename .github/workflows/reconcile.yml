@@ -51,5 +51,7 @@ jobs:
           path: |
             reconciliation/convex.csv
             reconciliation/ql.csv
+            reconciliation/convex_20250630.csv
+            reconciliation/ql_20250630.csv
             reconciliation/reconciliation_report.md
           retention-days: 14

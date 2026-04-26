@@ -4,10 +4,15 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Branch `reconcile/milestone-1-book`. Reconciliation **121 / 121**, zero delta.
-Workspace `cargo test --all-targets` **1672 / 0**. Clippy clean under
-`-D warnings`. Excel add-in builds. CI has a reconciliation gate
-(`.github/workflows/reconcile.yml`).
+Branch `reconcile/milestone-1-book`. Reconciliation **137 / 137**, zero delta
+across two snapshots (2025-12-31 full mixed book + 2025-06-30 FRN-focused
+mid-period mini-book). 12 of those 137 are HW1F trinomial OAS metrics
+on the two callables under documented tolerances (sub-ppm on Ford,
+~$2 / 7 bp on the coupon-aligned-call SYNTH_HY pending event-aligned
+TimeGrid; see Tier 5.2.1). Workspace `cargo test --all-targets` clean.
+Clippy clean under `-D warnings`. Excel add-in builds. CI has a
+reconciliation gate (`.github/workflows/reconcile.yml`) that runs both
+snapshots.
 
 Smoke test:
 
@@ -24,16 +29,44 @@ python reconciliation/reconcile.py    # exit 0
 - **2.2** TIPS nominal pricing — **done** (`8cbe181`)
 - **2.3** Corporate SOFR FRN with real SOFR curve projection — **done**
   (`b5de93d`, refined `ac4f1b9`). UST FRN stays on its flat-forward
-  T-Bill path. Followup `2.3.1` below if the ARRC shortcut ever becomes
-  a blocker.
+  T-Bill path.
+- **2.3.1** Live FloatingRateNote × FloatingRateBond reconciliation
+  (narrow scope) — **done**.
+  - `convex_bonds::arrc::compound_in_arrears` implements ARRC
+    compound-in-arrears with observation shift, lookback, lockout, and
+    spread-additive convention matching QL `OvernightIndexedCoupon`
+    (`applyObservationShift=true, lookbackDays=2, lockoutDays=0`).
+  - `convex_bonds::fixings::OvernightFixings` registers daily SOFR
+    fixings from `reconciliation/sofr_fixings.csv`.
+  - Both reconcile_bench and `ql_bench.py` price the in-progress coupon
+    with real fixings + curve forwards; future periods use deterministic
+    curve projection on both sides. Settlement 2025-12-31 → all four
+    FRN metrics agree to 1e-10 (clean/dirty/accrued/DM).
+  - Fixed a longstanding bug along the way: `CalendarId::us_government()`
+    was silently dispatching to `WeekendCalendar` because the const value
+    `"USGov"` wasn't in the dispatch table — so US holidays were ignored
+    in any logic that walked business days. Calendar adjustments on
+    `Unadjusted`-BDC schedules masked it from the prior 121/121.
 
-### 2.3.1 Live FloatingRateNote × FloatingRateBond reconciliation (deferred)
-
-Wire Convex `FloatingRateNote` and QL `FloatingRateBond(sofr_index)` to
-the same curve with live historical fixings and reconcile past-period
-accrual. Needs the two ARRC compound-in-arrears implementations
-verified calendar-identical first (observation shift, lookback
-business-day rules, publication lag). 4–6 hours of research + impl.
+- **2.3.2** Mid-period FRN snapshot — **done**.
+  - New 2025-06-30 snapshot: `book_20250630.json` + `curves_20250630.json`
+    (FRN-focused mini-book; CORP_SOFR_FRN sits inside its 2025-05-08 →
+    2025-08-08 coupon period, with two prior coupons paid).
+  - `reconcile_bench` and `ql_bench.py` both iterate a `SNAPSHOTS` list;
+    output goes to `convex_<label>.csv` / `ql_<label>.csv`. Default
+    snapshot keeps `convex.csv` / `ql.csv` for backward compat.
+  - `reconcile.py` aggregates across snapshots — full report shows one
+    section per snapshot, single pass/fail count rolled up.
+  - **Total reconciliation: 125 / 125, zero delta.** (121 from 2025-12-31
+    + 4 FRN metrics from 2025-06-30.)
+  - Library change: added `as_of: Option<Date>` to
+    `compound_in_arrears`. Avoids look-ahead bias when the fixings
+    registry contains rates published after the valuation date — for
+    obs days strictly after `as_of` the pricer falls through to the
+    projection-curve forward, matching QL's
+    `OvernightIndex::fixing(d > evaluationDate) → forecastFixing(d)`
+    behaviour.
+  - CI artifact list extended to include the new snapshot CSVs.
 
 ## Tier 3 — Remaining validation
 
@@ -63,8 +96,28 @@ Branch clean-merges on top of main. CI green.
   reconcile bench) already went through `FixedRateBond` +
   `BondAnalytics`; the legacy types were only self-referenced.
 
-### 5.2 OAS / tree models for callables
+### 5.2 OAS / tree models for callables — **done (HW1F)**
 
-Current reconciliation uses deterministic YTC/YTW on workout-bullet
-proxies. Real OAS against Hull-White / BK isn't tested. Needs a shared
-model choice first.
+HW1F trinomial-tree OAS on both callables in the book, reconciled against
+`ql.TreeCallableFixedRateBondEngine`. New
+`convex_bonds::options::TrinomialTree` (Hagan-Brace, Arrow-Debreu α(t)
+calibration); `OASCalculator` rewired to it. QL side uses
+`ql.HullWhite(handle, 0.03, 0.008)` with a daily-densified
+`CallabilitySchedule` and `ZeroSpreadedTermStructure` for OAS shifts.
+Metrics: `price_at_oas_{25,50,100}bps`, `oas_bps_at_market`,
+`effective_duration_at_oas`, `effective_convexity_at_oas`. Sub-ppm
+parity on Ford; ~$1.7 / 1.6 bp residual on the coupon-aligned
+SYNTH_HY callable, tracked under 5.2.1.
+
+### 5.2.1 Event-aligned trinomial TimeGrid
+
+Convex's tree uses a uniform Δt; QL injects coupon and callability dates
+into its grid so events land on nodes exactly. The mismatch shows up
+when calls coincide with coupon dates (~$1.7 residual on SYNTH_HY).
+Fix: build the tree on an event-aware time grid. ~4–6 hours.
+
+### 5.2.2 ATM swaption-strip vol calibration
+
+Replace the hardcoded `(a=0.03, σ=0.008)` with calibration against an
+ATM USD swaption strip via `ql.SwaptionHelper` +
+`ql.JamshidianSwaptionEngine` + `ql.LevenbergMarquardt`. ~1 day.

@@ -1,10 +1,10 @@
 //! Floating Rate Notes (FRNs).
 //!
-//! Index + spread + schedule, priced with an externally-supplied in-progress
-//! rate. Callers own the compounding / observation-shift policy for the
-//! current accrual period — this type only tracks what the contract says
-//! (index, spread, schedule, caps/floors) and what the bond has paid or
-//! will pay under a given reset rate.
+//! Index + spread + schedule + ARRC-style compounding config (observation
+//! shift, lookback, lockout, payment lag). The legacy `effective_rate` /
+//! `period_coupon` / `accrued_interest_with_rate` API still works for callers
+//! that supply a flat reset rate; the ARRC compound-in-arrears path lives in
+//! `crate::arrc` and consumes daily fixings + a projection curve.
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -29,10 +29,18 @@ pub struct FloatingRateNote {
     issue_date: Date,
     frequency: Frequency,
     day_count: DayCountConvention,
-    /// Business days before period start when the fixing is read.
+    /// Business days before period start when the fixing is read (legacy LIBOR-style FRNs).
     reset_lag: i32,
     /// Business days after period end when the coupon pays.
     payment_delay: u32,
+    /// ARRC observation-shift (true = shift the observation period itself,
+    /// false = keep the observation period == accrual period).
+    observation_shift: bool,
+    /// ARRC lookback in business days (typical USD corporate SOFR FRN: 2).
+    lookback_days: u32,
+    /// ARRC lockout in business days at end of period (FRNs typically 0;
+    /// syndicated loans use 5).
+    lockout_days: u32,
     cap: Option<Decimal>,
     floor: Option<Decimal>,
     settlement_days: u32,
@@ -101,6 +109,26 @@ impl FloatingRateNote {
     #[must_use]
     pub fn reset_lag(&self) -> i32 {
         self.reset_lag
+    }
+
+    #[must_use]
+    pub fn observation_shift(&self) -> bool {
+        self.observation_shift
+    }
+
+    #[must_use]
+    pub fn arrc_lookback_days(&self) -> u32 {
+        self.lookback_days
+    }
+
+    #[must_use]
+    pub fn lockout_days(&self) -> u32 {
+        self.lockout_days
+    }
+
+    #[must_use]
+    pub fn payment_delay(&self) -> u32 {
+        self.payment_delay
     }
 
     pub fn set_current_rate(&mut self, rate: Decimal) {
@@ -322,7 +350,7 @@ impl FloatingCouponBond for FloatingRateNote {
     }
 
     fn lookback_days(&self) -> u32 {
-        0
+        self.lookback_days
     }
 
     fn floor(&self) -> Option<Decimal> {
@@ -354,6 +382,9 @@ pub struct FloatingRateNoteBuilder {
     day_count: Option<DayCountConvention>,
     reset_lag: Option<i32>,
     payment_delay: Option<u32>,
+    observation_shift: Option<bool>,
+    lookback_days: Option<u32>,
+    lockout_days: Option<u32>,
     cap: Option<Decimal>,
     floor: Option<Decimal>,
     settlement_days: Option<u32>,
@@ -447,6 +478,24 @@ impl FloatingRateNoteBuilder {
     }
 
     #[must_use]
+    pub fn observation_shift(mut self, on: bool) -> Self {
+        self.observation_shift = Some(on);
+        self
+    }
+
+    #[must_use]
+    pub fn lookback_days(mut self, days: u32) -> Self {
+        self.lookback_days = Some(days);
+        self
+    }
+
+    #[must_use]
+    pub fn lockout_days(mut self, days: u32) -> Self {
+        self.lockout_days = Some(days);
+        self
+    }
+
+    #[must_use]
     pub fn cap(mut self, rate: Decimal) -> Self {
         self.cap = Some(rate);
         self
@@ -482,7 +531,9 @@ impl FloatingRateNoteBuilder {
         self
     }
 
-    /// US Treasury FRN: SOFR, ACT/360, quarterly, T+1.
+    /// US Treasury FRN: SOFR-index-flat-forward path. T+1, ACT/360.
+    /// Note: UST FRN is *not* compounded — it uses weekly-set 13W T-bill auctions.
+    /// We keep the legacy reset_lag path; ARRC compounding flags stay off.
     #[must_use]
     pub fn us_treasury_frn(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
@@ -492,10 +543,14 @@ impl FloatingRateNoteBuilder {
         self.calendar = Some(CalendarId::us_government());
         self.currency = Some(Currency::USD);
         self.reset_lag = Some(-2);
+        self.observation_shift = Some(false);
+        self.lookback_days = Some(0);
+        self.lockout_days = Some(0);
         self
     }
 
-    /// Corporate SOFR FRN: ACT/360, quarterly, T+2.
+    /// Corporate SOFR FRN: ARRC-compliant compound-in-arrears with observation
+    /// shift, 2BD lookback, no lockout. ACT/360, quarterly, T+2, NY calendar.
     #[must_use]
     pub fn corporate_sofr(mut self) -> Self {
         self.index = Some(RateIndex::Sofr);
@@ -505,10 +560,14 @@ impl FloatingRateNoteBuilder {
         self.calendar = Some(CalendarId::us_government());
         self.currency = Some(Currency::USD);
         self.reset_lag = Some(-2);
+        self.observation_shift = Some(true);
+        self.lookback_days = Some(2);
+        self.lockout_days = Some(0);
         self
     }
 
-    /// UK SONIA FRN: ACT/365F, quarterly, T+1.
+    /// UK SONIA FRN: ARRC-equivalent compound-in-arrears with observation shift,
+    /// 5BD lookback, ACT/365F, quarterly, T+1, UK calendar.
     #[must_use]
     pub fn uk_sonia_frn(mut self) -> Self {
         self.index = Some(RateIndex::Sonia);
@@ -518,10 +577,14 @@ impl FloatingRateNoteBuilder {
         self.calendar = Some(CalendarId::uk());
         self.currency = Some(Currency::GBP);
         self.reset_lag = Some(-5);
+        self.observation_shift = Some(true);
+        self.lookback_days = Some(5);
+        self.lockout_days = Some(0);
         self
     }
 
-    /// €STR FRN: ACT/360, quarterly, T+2.
+    /// €STR FRN: compound-in-arrears with observation shift, 2BD lookback,
+    /// ACT/360, quarterly, T+2, TARGET2 calendar.
     #[must_use]
     pub fn estr_frn(mut self) -> Self {
         self.index = Some(RateIndex::Estr);
@@ -531,6 +594,9 @@ impl FloatingRateNoteBuilder {
         self.calendar = Some(CalendarId::target2());
         self.currency = Some(Currency::EUR);
         self.reset_lag = Some(-2);
+        self.observation_shift = Some(true);
+        self.lookback_days = Some(2);
+        self.lockout_days = Some(0);
         self
     }
 
@@ -590,6 +656,9 @@ impl FloatingRateNoteBuilder {
             day_count: self.day_count.unwrap_or(DayCountConvention::Act360),
             reset_lag: self.reset_lag.unwrap_or(-2),
             payment_delay: self.payment_delay.unwrap_or(0),
+            observation_shift: self.observation_shift.unwrap_or(false),
+            lookback_days: self.lookback_days.unwrap_or(0),
+            lockout_days: self.lockout_days.unwrap_or(0),
             cap: self.cap,
             floor: self.floor,
             settlement_days: self.settlement_days.unwrap_or(2),
@@ -639,7 +708,7 @@ impl Serialize for FloatingRateNote {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("FloatingRateNote", 15)?;
+        let mut state = serializer.serialize_struct("FloatingRateNote", 18)?;
         state.serialize_field("identifiers", &self.identifiers)?;
         state.serialize_field("index", &self.index)?;
         state.serialize_field("spread_bps", &self.spread_bps)?;
@@ -649,6 +718,9 @@ impl Serialize for FloatingRateNote {
         state.serialize_field("day_count", &day_count_to_string(&self.day_count))?;
         state.serialize_field("reset_lag", &self.reset_lag)?;
         state.serialize_field("payment_delay", &self.payment_delay)?;
+        state.serialize_field("observation_shift", &self.observation_shift)?;
+        state.serialize_field("lookback_days", &self.lookback_days)?;
+        state.serialize_field("lockout_days", &self.lockout_days)?;
         state.serialize_field("cap", &self.cap)?;
         state.serialize_field("floor", &self.floor)?;
         state.serialize_field("settlement_days", &self.settlement_days)?;
@@ -675,6 +747,12 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
             day_count: String,
             reset_lag: i32,
             payment_delay: u32,
+            #[serde(default)]
+            observation_shift: bool,
+            #[serde(default)]
+            lookback_days: u32,
+            #[serde(default)]
+            lockout_days: u32,
             cap: Option<Decimal>,
             floor: Option<Decimal>,
             settlement_days: u32,
@@ -694,6 +772,9 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
             day_count: string_to_day_count(&data.day_count),
             reset_lag: data.reset_lag,
             payment_delay: data.payment_delay,
+            observation_shift: data.observation_shift,
+            lookback_days: data.lookback_days,
+            lockout_days: data.lockout_days,
             cap: data.cap,
             floor: data.floor,
             settlement_days: data.settlement_days,

@@ -347,7 +347,7 @@ impl Schedule {
 #[must_use]
 pub fn calendar_id_to_calendar(calendar_id: &CalendarId) -> Box<dyn Calendar> {
     match calendar_id.as_str() {
-        "US_GOVERNMENT" | "US-GOV" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
+        "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
         "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
         _ => Box::new(WeekendCalendar),
     }

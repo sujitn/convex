@@ -29,6 +29,8 @@
 
 pub mod binomial_tree;
 pub mod models;
+pub mod trinomial_tree;
 
 pub use binomial_tree::BinomialTree;
 pub use models::{HullWhite, ModelError, ShortRateModel};
+pub use trinomial_tree::TrinomialTree;

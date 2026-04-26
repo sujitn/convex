@@ -31,9 +31,15 @@ use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, parse_day_count, yield_to_maturity,
 };
-use convex_bonds::instruments::{FixedRateBond, FloatingRateNote};
+use convex_analytics::spreads::OASCalculator;
+use convex_bonds::arrc::{compound_in_arrears, ArrcConfig};
+use convex_bonds::fixings::OvernightFixings;
+use convex_bonds::instruments::{CallableBond, FixedRateBond, FloatingRateNote};
+use convex_bonds::options::HullWhite;
 use convex_bonds::traits::Bond;
-use convex_bonds::types::{CalendarId, RateIndex};
+use convex_bonds::types::{
+    CalendarId, CallEntry as BondCallEntry, CallSchedule as BondCallSchedule, CallType,
+};
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
@@ -78,6 +84,9 @@ struct Instrument {
     #[serde(default)]
     spread_bps: Option<f64>,
     // Corporate-SOFR-FRN-specific: last reset rate used for in-progress accrual.
+    // Retained as a fallback / sanity field; the ARRC path prefers
+    // sofr_fixings.csv.
+    #[allow(dead_code)]
     #[serde(default)]
     current_reset_rate_pct: Option<f64>,
     // Linker-specific: CUSIP is looked up in the TIPS index-ratio file.
@@ -261,6 +270,79 @@ fn build_workout_bullet(
         .with_context(|| format!("building {} workout bullet", inst.id))
 }
 
+/// Build a `CallableBond` from the bench `Instrument`. Mirrors the QL-side
+/// `_build_callable_bond` so both pricers see the same call schedule and base
+/// fixed-rate bond.
+fn build_callable_bond(inst: &Instrument) -> Result<CallableBond> {
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let base = build_workout_bullet(inst, maturity, 100.0)?;
+    let mut schedule = BondCallSchedule::new(CallType::American);
+    if let Some(entries) = &inst.call_schedule {
+        for e in entries {
+            let d = parse_date(&e.call_date)?;
+            schedule = schedule.with_entry(BondCallEntry::new(d, e.price));
+        }
+    }
+    Ok(CallableBond::new(base, schedule))
+}
+
+/// HW1F trinomial OAS metrics for one callable. Constants must match
+/// `ql_bench.py::HW_*` so both sides see the same model.
+fn callable_oas_rows(
+    inst: &Instrument,
+    valuation: Date,
+    sofr_curve: &DiscountCurve,
+) -> Result<Vec<(String, f64)>> {
+    const HW_MEAN_REVERSION: f64 = 0.03;
+    const HW_VOLATILITY: f64 = 0.008;
+    const HW_TREE_STEPS: usize = 500;
+    const TARGET_CLEAN: f64 = 99.0;
+
+    let bond = build_callable_bond(inst)?;
+    let calc = OASCalculator::new(HullWhite::new(HW_MEAN_REVERSION, HW_VOLATILITY), HW_TREE_STEPS);
+
+    // OASCalculator returns dirty PV; subtract accrued so emitted prices
+    // are clean (matches QL `bond.cleanPrice()`).
+    let accrued = bond
+        .base_bond()
+        .accrued_interest(valuation)
+        .to_f64()
+        .unwrap_or(0.0);
+
+    let mut rows = Vec::new();
+
+    for bps in [25_i32, 50, 100] {
+        let oas = bps as f64 / 10_000.0;
+        let dirty = calc
+            .price_with_oas(&bond, sofr_curve, oas, valuation)
+            .with_context(|| format!("price_with_oas {}bps for {}", bps, inst.id))?;
+        rows.push((format!("price_at_oas_{}bps", bps), dirty - accrued));
+    }
+
+    let target = Decimal::try_from(TARGET_CLEAN + accrued).unwrap_or(Decimal::ONE_HUNDRED);
+    let oas_spread = calc
+        .calculate(&bond, target, sofr_curve, valuation)
+        .with_context(|| format!("OAS solve for {}", inst.id))?;
+    let oas_bps = oas_spread.as_bps().to_f64().unwrap_or(0.0);
+    rows.push(("oas_bps_at_market".to_string(), oas_bps));
+
+    let oas_dec = oas_bps / 10_000.0;
+    let eff_dur = calc
+        .effective_duration(&bond, sofr_curve, oas_dec, valuation)
+        .with_context(|| format!("effective_duration for {}", inst.id))?;
+    let eff_cvx = calc
+        .effective_convexity(&bond, sofr_curve, oas_dec, valuation)
+        .with_context(|| format!("effective_convexity for {}", inst.id))?;
+    rows.push(("effective_duration_at_oas".to_string(), eff_dur));
+    rows.push(("effective_convexity_at_oas".to_string(), eff_cvx));
+
+    Ok(rows)
+}
+
 /// Sovereign FRN projection: flat (index + spread). Fixed-rate bonds return
 /// their book coupon directly.
 fn effective_coupon_percent(inst: &Instrument) -> Result<f64> {
@@ -314,17 +396,21 @@ struct FrnMetrics {
 
 /// See SOURCES.md § "SOFR FRN projection convention" for the shared
 /// pricing model. Paired with `ql_bench.py::price_corporate_frn`.
+///
+/// The in-progress period is priced under ARRC compound-in-arrears using
+/// `fixings` for already-published business days and the SOFR projection
+/// curve for the remainder. Future periods stay on the curve-implied
+/// forward (mathematically equivalent to compound-in-arrears under
+/// deterministic curves). Spread is additive (post-compounding).
 fn price_corporate_frn(
     inst: &Instrument,
     valuation: Date,
     sofr_curve: &DiscountCurve,
+    fixings: &OvernightFixings,
 ) -> Result<FrnMetrics> {
     let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
-    let reset = inst.current_reset_rate_pct.unwrap_or(0.0) / 100.0;
     let face = 100.0_f64;
 
-    // FRN built solely for its schedule — we ignore its coupon amounts and
-    // reproject from the curve below.
     let dated = parse_date(
         inst.dated_date
             .as_deref()
@@ -338,22 +424,37 @@ fn price_corporate_frn(
     )?;
     let frn = FloatingRateNote::builder()
         .cusip_unchecked(&inst.id)
-        .index(RateIndex::Sofr)
         .spread_decimal(Decimal::try_from(spread).unwrap_or(Decimal::ZERO))
         .issue_date(dated)
         .maturity(maturity)
-        .frequency(Frequency::Quarterly)
-        .day_count(DayCountConvention::Act360)
-        .currency(Currency::USD)
+        .corporate_sofr() // ARRC defaults: obs-shift on, lookback=2, lockout=0, NY cal
         .face_value(dec!(100))
-        .calendar(CalendarId::new(""))
         .build()
         .with_context(|| format!("building FRN {}", inst.id))?;
 
+    let arrc = ArrcConfig::usd_corporate_sofr();
+    let calendar = CalendarId::us_government();
+    let calendar_obj = calendar.to_calendar();
     let dc360 = DayCountConvention::Act360.to_day_count();
+
+    // Daily forward callback: derives an annualized 1-business-day SOFR rate
+    // from the projection curve. Only invoked on business days that have no
+    // published fixing.
+    let curve_daily_forward = |d: Date| -> Decimal {
+        let next_bd = calendar_obj.add_business_days(d, 1);
+        let df_d = df(sofr_curve, valuation, d);
+        let df_n = df(sofr_curve, valuation, next_bd);
+        let yf = dc360.year_fraction(d, next_bd).to_f64().unwrap_or(0.0);
+        if yf <= 0.0 {
+            return Decimal::ZERO;
+        }
+        let rate = (df_d / df_n - 1.0) / yf;
+        Decimal::try_from(rate).unwrap_or(Decimal::ZERO)
+    };
+
     let mut dirty = 0.0;
     let mut spread_annuity = 0.0;
-    let mut last_coupon_before_settle: Option<Date> = None;
+    let mut accrued = 0.0;
 
     for cf in frn.cash_flows(dated) {
         let (start, end) = match (cf.accrual_start, cf.accrual_end) {
@@ -361,18 +462,54 @@ fn price_corporate_frn(
             _ => continue,
         };
         if end <= valuation {
-            last_coupon_before_settle = Some(end);
             continue;
         }
-        if start <= valuation {
-            last_coupon_before_settle = Some(start);
-        }
 
-        let df_s = df(sofr_curve, valuation, start);
         let df_e = df(sofr_curve, valuation, end);
         let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
 
-        let coupon = face * (df_s / df_e - 1.0 + spread * yf);
+        let coupon = if start <= valuation {
+            // In-progress period: real ARRC compounding (fixings ⨁ curve).
+            let comp = compound_in_arrears(
+                start,
+                end,
+                DayCountConvention::Act360,
+                calendar_obj.as_ref(),
+                arrc,
+                fixings,
+                &curve_daily_forward,
+            );
+            let comp_rate_minus_one: f64 =
+                comp.compounded_rate_minus_one().try_into().unwrap_or(0.0);
+            let coupon_amount = face * (comp_rate_minus_one + spread * yf);
+
+            // Accrued portion: compound through valuation only.
+            let accrued_comp = compound_in_arrears(
+                start,
+                valuation,
+                DayCountConvention::Act360,
+                calendar_obj.as_ref(),
+                arrc,
+                fixings,
+                &curve_daily_forward,
+            );
+            let accrued_minus_one: f64 = accrued_comp
+                .compounded_rate_minus_one()
+                .try_into()
+                .unwrap_or(0.0);
+            let accrued_yf: f64 = accrued_comp
+                .period_year_fraction
+                .try_into()
+                .unwrap_or(0.0);
+            accrued = face * (accrued_minus_one + spread * accrued_yf);
+
+            coupon_amount
+        } else {
+            // Future period: curve-projection equivalent of compound-in-arrears.
+            let df_s = df(sofr_curve, valuation, start);
+            face * (df_s / df_e - 1.0 + spread * yf)
+        };
+
         let amount = if end == maturity {
             coupon + face
         } else {
@@ -382,9 +519,6 @@ fn price_corporate_frn(
         spread_annuity += yf * df_e;
     }
 
-    let accrued = last_coupon_before_settle
-        .map(|last| face * reset * dc360.year_fraction(last, valuation).to_f64().unwrap_or(0.0))
-        .unwrap_or(0.0);
     let clean = dirty - accrued;
 
     // DM that reprices to clean = 100: first-order inversion of the spread
@@ -489,14 +623,49 @@ fn reference_yield<'a>(
 
 // ------------------------------------------------------------------ main
 
+/// Snapshot definition: which book + curves to load, and where to write
+/// the Convex output. The default 2025-12-31 snapshot covers the full
+/// mixed book; additional snapshots can carry a focused subset (see e.g.
+/// `book_20250630.json` for the FRN-only mid-period snapshot from Tier
+/// 2.3.2).
+struct Snapshot<'a> {
+    book: &'a str,
+    curves: &'a str,
+    out_csv: &'a str,
+    require_ust_cmt: bool,
+}
+
+const SNAPSHOTS: &[Snapshot<'static>] = &[
+    Snapshot {
+        book: "book.json",
+        curves: "curves.json",
+        out_csv: "convex.csv",
+        require_ust_cmt: true,
+    },
+    Snapshot {
+        book: "book_20250630.json",
+        curves: "curves_20250630.json",
+        out_csv: "convex_20250630.csv",
+        require_ust_cmt: false,
+    },
+];
+
 fn main() -> Result<()> {
     let root = Path::new("reconciliation");
-    let book: Book = serde_json::from_reader(File::open(root.join("book.json"))?)
-        .context("reading book.json")?;
-    let curves: Curves = serde_json::from_reader(File::open(root.join("curves.json"))?)
-        .context("reading curves.json")?;
-    if !curves.curves.iter().any(|c| c.id == "UST_CMT") {
-        return Err(anyhow!("UST_CMT curve not found in curves.json"));
+    for snap in SNAPSHOTS {
+        run_snapshot(root, snap)
+            .with_context(|| format!("snapshot {}", snap.book))?;
+    }
+    Ok(())
+}
+
+fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
+    let book: Book = serde_json::from_reader(File::open(root.join(snap.book))?)
+        .with_context(|| format!("reading {}", snap.book))?;
+    let curves: Curves = serde_json::from_reader(File::open(root.join(snap.curves))?)
+        .with_context(|| format!("reading {}", snap.curves))?;
+    if snap.require_ust_cmt && !curves.curves.iter().any(|c| c.id == "UST_CMT") {
+        return Err(anyhow!("UST_CMT curve not found in {}", snap.curves));
     }
 
     let valuation = parse_date(&book.valuation_date)?;
@@ -508,6 +677,17 @@ fn main() -> Result<()> {
         .map(|c| build_sofr_curve(c, valuation))
         .transpose()?;
 
+    let sofr_fixings = {
+        let path = root.join("sofr_fixings.csv");
+        let raw = if path.exists() {
+            OvernightFixings::from_csv(&path)
+                .with_context(|| format!("loading {}", path.display()))?
+        } else {
+            OvernightFixings::new()
+        };
+        raw.with_as_of(valuation)
+    };
+
     let mut tips_ratios: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let ratio_path = root.join("tips_index_ratio_20251231.json");
     if ratio_path.exists() {
@@ -516,7 +696,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let out_path = root.join("convex.csv");
+    let out_path = root.join(snap.out_csv);
     let mut out = BufWriter::new(File::create(&out_path)?);
     writeln!(
         out,
@@ -554,7 +734,7 @@ fn main() -> Result<()> {
                     inst.id
                 )
             })?;
-            let m = price_corporate_frn(inst, valuation, curve)
+            let m = price_corporate_frn(inst, valuation, curve, &sofr_fixings)
                 .with_context(|| format!("price_corporate_frn {}", inst.id))?;
             let frn_rows: [(&str, f64); 4] = [
                 ("clean_price_pct", m.clean_price_pct),
@@ -658,6 +838,14 @@ fn main() -> Result<()> {
                 "ytw_workout_date_yyyymmdd".to_string(),
                 workout_date_to_f64(worst_date),
             ));
+
+            // Tier 5.2: HW1F trinomial OAS rows. Skipped if the SOFR curve
+            // isn't loaded (mid-period mini-snapshot doesn't carry callables).
+            if let Some(curve) = sofr_curve.as_ref() {
+                let oas_rows = callable_oas_rows(inst, valuation, curve)
+                    .with_context(|| format!("callable_oas_rows {}", inst.id))?;
+                rows.extend(oas_rows);
+            }
         }
 
         for (metric, value) in rows {

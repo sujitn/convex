@@ -41,9 +41,11 @@
 #![allow(clippy::borrowed_box)]
 #![allow(dead_code)]
 
+pub mod arrc;
 pub mod cashflows;
 pub mod conventions;
 pub mod error;
+pub mod fixings;
 pub mod instruments;
 pub mod options;
 pub mod pricing;
