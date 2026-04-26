@@ -47,6 +47,12 @@ TOLERANCES: dict[str, float] = {
     "oas_bps_at_market":           10.0,
     "effective_duration_at_oas":   1.5,
     "effective_convexity_at_oas":  500.0,
+    # Tier 5.2.4 — independent calibration parity. Mean reversion is held
+    # fixed on both sides at 0.03, so a-tolerance is exact. σ tolerance is
+    # 1e-4 absolute: observed Rust-vs-QL σ residual is 1.6e-5 worst-case
+    # (Ford, sparse 2-helper strip), well within margin.
+    "hw1f_a_calibrated":           1e-12,
+    "hw1f_sigma_calibrated":       1e-4,
 }
 
 

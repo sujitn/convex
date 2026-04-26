@@ -4,13 +4,17 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Branch `reconcile/milestone-1-book`. Reconciliation **137 / 137**, zero delta
-across two snapshots (2025-12-31 full mixed book + 2025-06-30 FRN-focused
-mid-period mini-book). 12 of those 137 are HW1F trinomial OAS metrics
-on the two callables under documented tolerances (sub-ppm on Ford,
-~$2 / 7 bp on the coupon-aligned-call SYNTH_HY pending event-aligned
-TimeGrid; see Tier 5.2.1). Workspace `cargo test --all-targets` clean.
-Clippy clean under `-D warnings`. Excel add-in builds. CI has a
+Branch `reconcile/milestone-1-book`. Reconciliation **141 / 141** under
+calibrated HW1F params (137 prior + 4 new calibration-parity rows from Tier
+5.2.4), across two snapshots (2025-12-31 full mixed book + 2025-06-30
+FRN-focused mid-period mini-book). 16 of 141 are HW1F trinomial OAS or
+calibration metrics on the two callables. Per-bond σ is calibrated on
+*both* sides independently (QL: `JamshidianSwaptionEngine` + LM; Rust:
+`payer_swaption_hw1f` + golden-section), against the same ATM USD SOFR
+co-terminal swaption strip in `swaptions_20251231.csv` with `a=0.03`
+fixed. Worst Rust-vs-QL σ residual: 1.6e-5 absolute on Ford (sparse
+2-helper strip); SYNTH_HY agrees to 4.8e-6. Workspace `cargo test --lib`
+clean. Clippy clean under `-D warnings`. Excel add-in builds. CI has a
 reconciliation gate (`.github/workflows/reconcile.yml`) that runs both
 snapshots.
 
@@ -123,8 +127,49 @@ Reconciliation 137 / 137. SYNTH_HY_STEPDOWN_01 collapsed from $1.7 / 1.6 bp
 residuals to sub-ppm on the OAS-given prices (Δ < $2e-4) and 0.40 bps on
 `oas_bps_at_market`.
 
-### 5.2.2 ATM swaption-strip vol calibration
+### 5.2.2 ATM swaption-strip vol calibration — **done**
 
-Replace the hardcoded `(a=0.03, σ=0.008)` with calibration against an
-ATM USD swaption strip via `ql.SwaptionHelper` +
-`ql.JamshidianSwaptionEngine` + `ql.LevenbergMarquardt`. ~1 day.
+Per-bond σ is calibrated by `ql_bench.py` against an ATM USD SOFR co-terminal
+swaption strip (`SwaptionHelper` + `JamshidianSwaptionEngine` +
+`LevenbergMarquardt`, `fixParameters=[True, False]` to hold a=0.03 fixed,
+matching QL's `Examples/CallableBonds/CallableBonds.cpp` and Bloomberg OAS1).
+Calibrated `(a, σ)` is emitted to `hw1f_params_<snapshot>.json` and consumed
+by `reconcile_bench`. The synthetic swaption surface in
+`swaptions_20251231.csv` is humped (95→110 bp normal vol from 1y→7y) — typical
+post-2022 USD shape. Calibration vs hardcoded params: SYNTH_HY tightened from
+0.40 bp to 0.14 bp on `oas_bps_at_market`; Ford prices stay sub-cent. The
+calibration step is upstream — Rust consumes parameters as inputs, not a
+recalibration target (LM bit-parity across QL and a Rust optimizer is tracked
+under 5.2.4 below).
+
+### 5.2.3 Real CME swaption vol ingest
+
+Replace the synthetic vol surface in `swaptions_20251231.csv` with daily ATM
+USD SOFR normal vols pulled from CME QuikStrike (free download). Adds a
+`pull_swaption_vols.py` to `pull_market_data.py`, keys quotes by snapshot
+date, no other code changes needed (the calibration loop is surface-agnostic).
+Light lift — half a day, mostly schema work + handling missing data.
+
+### 5.2.4 Rust HW1F calibrator — **done**
+
+Native Rust calibrator implemented as Jamshidian closed-form (new module
+`crates/convex-bonds/src/options/swaption_hw1f.rs`) + golden-section search
+on relative-price residual (`crates/convex-analytics/src/calibration/hw1f.rs`).
+With `a` fixed at 0.03 the problem is 1D, so a full LM driver isn't justified
+— golden-section is dependency-free and converges in ~50 iterations. Self-
+consistent test: feed back HW1F-implied Bachelier vols and recover `σ` to
+<1e-5 (passes). On the live SOFR strip Rust σ matches QL σ to 1.6e-5 (Ford,
+sparse strip) and 4.8e-6 (SYNTH_HY). Calibration-parity rows
+`hw1f_a_calibrated` and `hw1f_sigma_calibrated` now flow through the
+reconcile pipeline with 1e-12 / 1e-4 absolute tolerances. Calibration is
+still loaded *upstream* for OAS pricing (from
+`hw1f_params_20251231.json`) — Rust calibration runs in parallel as an
+independent validation, not as a replacement, so QL remains the
+single source of truth for the params used in the trinomial tree.
+
+### 5.2.5 Piecewise-constant σ(t) on event grid
+
+Stretch goal: extend HW1F to piecewise-constant σ(t) with step dates aligned
+to call dates (matches QL's `Gsr` model and the event-aligned trinomial grid
+from 5.2.1). Real value-add for long-dated callables (NC10 30y) where front
+vs back vol genuinely differ; skip for the current 5y / 4y book.

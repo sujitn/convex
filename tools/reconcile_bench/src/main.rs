@@ -27,6 +27,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
+use convex_analytics::calibration::{calibrate_hw1f_sigma, CoterminalSwaptionHelper};
 use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, parse_day_count, yield_to_maturity,
@@ -105,6 +106,22 @@ struct Identifier {
 struct TipsIndexRatio {
     cusip: String,
     index_ratio: f64,
+}
+
+/// Per-bond HW1F calibration result (`reconciliation/hw1f_params_*.json`).
+/// The QL bench writes this after fitting σ against an ATM SOFR co-terminal
+/// swaption strip, with `a` held fixed at 0.03. Convex consumes `(a, σ)` as
+/// inputs to the OAS pricer; the Rust side runs an independent calibration
+/// (Tier 5.2.4) to validate optimizer parity against the same strip.
+#[derive(Debug, Deserialize)]
+struct Hw1fCalibrations {
+    calibrations: std::collections::HashMap<String, Hw1fParams>,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+struct Hw1fParams {
+    a: f64,
+    sigma: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -290,20 +307,93 @@ fn build_callable_bond(inst: &Instrument) -> Result<CallableBond> {
     Ok(CallableBond::new(base, schedule))
 }
 
-/// HW1F trinomial OAS metrics for one callable. Constants must match
-/// `ql_bench.py::HW_*` so both sides see the same model.
+/// Read an ATM normal-vol surface CSV (mirrors `ql_bench.load_swaption_surface`).
+/// Lines starting with `#` are comments. Returns sorted `(expiry_yrs, vol_bp)`
+/// pairs.
+fn read_swaption_surface(path: &Path) -> Result<Vec<(f64, f64)>> {
+    let mut pts: Vec<(f64, f64)> = Vec::new();
+    let raw = std::fs::read_to_string(path)
+        .with_context(|| format!("reading {}", path.display()))?;
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if trimmed.starts_with("expiry_years") {
+            continue;
+        }
+        let parts: Vec<&str> = trimmed.split(',').collect();
+        if parts.len() < 2 {
+            continue;
+        }
+        let e: f64 = parts[0].trim().parse()?;
+        let v: f64 = parts[1].trim().parse()?;
+        pts.push((e, v));
+    }
+    pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    if pts.is_empty() {
+        return Err(anyhow!("swaption surface {} is empty", path.display()));
+    }
+    Ok(pts)
+}
+
+fn interp_vol_bp(surface: &[(f64, f64)], expiry_yrs: f64) -> f64 {
+    if expiry_yrs <= surface[0].0 {
+        return surface[0].1;
+    }
+    for w in surface.windows(2) {
+        let (t0, v0) = w[0];
+        let (t1, v1) = w[1];
+        if t0 <= expiry_yrs && expiry_yrs <= t1 {
+            let alpha = (expiry_yrs - t0) / (t1 - t0);
+            return v0 + alpha * (v1 - v0);
+        }
+    }
+    surface[surface.len() - 1].1
+}
+
+/// Build the same co-terminal strip QL uses (`coterminal_helpers` in
+/// `ql_bench.py`): integer-year expiries 1..floor(residual − 0.5) with
+/// `tail = max(1, round(residual − expiry))`, vol interpolated by expiry.
+fn build_coterminal_strip(
+    valuation: Date,
+    maturity: Date,
+    surface: &[(f64, f64)],
+) -> Vec<CoterminalSwaptionHelper> {
+    let residual = valuation.days_between(&maturity) as f64 / 365.25;
+    let max_expiry = residual.floor() as i32 - if residual.fract() > 0.5 { 0 } else { 1 };
+    let max_expiry = max_expiry.max(0);
+    let mut out = Vec::new();
+    for e in 1..=max_expiry {
+        let tail = (residual - e as f64).round().max(1.0) as i32;
+        let vol_bp = interp_vol_bp(surface, e as f64);
+        out.push(CoterminalSwaptionHelper {
+            expiry_years: e as f64,
+            tail_years: tail as f64,
+            fixed_freq_years: 1.0,
+            atm_normal_vol_bps: vol_bp,
+        });
+    }
+    out
+}
+
+/// HW1F trinomial OAS metrics for one callable. `(a, sigma)` come from a
+/// per-snapshot, per-bond swaption-strip calibration produced by the QL
+/// side (`reconciliation/hw1f_params_<snapshot>.json`); both pricers run
+/// against the same parameters so reconciliation tests pricing parity, not
+/// optimizer parity.
 fn callable_oas_rows(
     inst: &Instrument,
     valuation: Date,
     sofr_curve: &DiscountCurve,
+    a: f64,
+    sigma: f64,
 ) -> Result<Vec<(String, f64)>> {
-    const HW_MEAN_REVERSION: f64 = 0.03;
-    const HW_VOLATILITY: f64 = 0.008;
     const HW_TREE_STEPS: usize = 500;
     const TARGET_CLEAN: f64 = 99.0;
 
     let bond = build_callable_bond(inst)?;
-    let calc = OASCalculator::new(HullWhite::new(HW_MEAN_REVERSION, HW_VOLATILITY), HW_TREE_STEPS);
+    let calc = OASCalculator::new(HullWhite::new(a, sigma), HW_TREE_STEPS);
 
     // OASCalculator returns dirty PV; subtract accrued so emitted prices
     // are clean (matches QL `bond.cleanPrice()`).
@@ -633,6 +723,12 @@ struct Snapshot<'a> {
     curves: &'a str,
     out_csv: &'a str,
     require_ust_cmt: bool,
+    /// Path to the QL-emitted HW1F calibration file. `None` means the snapshot
+    /// has no callables (e.g. the FRN-focused mid-period mini-book).
+    hw1f_params: Option<&'a str>,
+    /// Path to the ATM normal-vol swaption surface CSV used to drive Tier
+    /// 5.2.4 native Rust calibration. `None` ⇒ skip Rust-side calibration.
+    swaptions_csv: Option<&'a str>,
 }
 
 const SNAPSHOTS: &[Snapshot<'static>] = &[
@@ -641,12 +737,16 @@ const SNAPSHOTS: &[Snapshot<'static>] = &[
         curves: "curves.json",
         out_csv: "convex.csv",
         require_ust_cmt: true,
+        hw1f_params: Some("hw1f_params_20251231.json"),
+        swaptions_csv: Some("swaptions_20251231.csv"),
     },
     Snapshot {
         book: "book_20250630.json",
         curves: "curves_20250630.json",
         out_csv: "convex_20250630.csv",
         require_ust_cmt: false,
+        hw1f_params: None,
+        swaptions_csv: None,
     },
 ];
 
@@ -695,6 +795,21 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             tips_ratios.insert(r.cusip, r.index_ratio);
         }
     }
+
+    let hw1f_calibrations: std::collections::HashMap<String, Hw1fParams> = match snap.hw1f_params {
+        Some(name) => {
+            let path = root.join(name);
+            let raw: Hw1fCalibrations = serde_json::from_reader(File::open(&path)?)
+                .with_context(|| format!("reading {}", path.display()))?;
+            raw.calibrations
+        }
+        None => std::collections::HashMap::new(),
+    };
+
+    let swaption_surface: Option<Vec<(f64, f64)>> = match snap.swaptions_csv {
+        Some(name) => Some(read_swaption_surface(&root.join(name))?),
+        None => None,
+    };
 
     let out_path = root.join(snap.out_csv);
     let mut out = BufWriter::new(File::create(&out_path)?);
@@ -839,12 +954,34 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
                 workout_date_to_f64(worst_date),
             ));
 
-            // Tier 5.2: HW1F trinomial OAS rows. Skipped if the SOFR curve
-            // isn't loaded (mid-period mini-snapshot doesn't carry callables).
-            if let Some(curve) = sofr_curve.as_ref() {
-                let oas_rows = callable_oas_rows(inst, valuation, curve)
-                    .with_context(|| format!("callable_oas_rows {}", inst.id))?;
+            // Tier 5.2.2: HW1F trinomial OAS rows. Per-bond (a, σ) come from
+            // the QL-emitted calibration file. Skipped if either the SOFR
+            // curve or the calibration is absent (mid-period mini-snapshot
+            // doesn't carry callables).
+            if let (Some(curve), Some(params)) = (
+                sofr_curve.as_ref(),
+                hw1f_calibrations.get(&inst.id).copied(),
+            ) {
+                let oas_rows =
+                    callable_oas_rows(inst, valuation, curve, params.a, params.sigma)
+                        .with_context(|| format!("callable_oas_rows {}", inst.id))?;
                 rows.extend(oas_rows);
+            }
+
+            // Tier 5.2.4: native Rust HW1F σ calibration. Independent of the
+            // QL-emitted params — we run our own Jamshidian + golden-section
+            // pipeline on the same swaption strip, then emit the calibrated
+            // (a, σ) so reconcile.py can diff Rust vs QL σ to ~1e-5.
+            if let (Some(curve), Some(surface)) =
+                (sofr_curve.as_ref(), swaption_surface.as_ref())
+            {
+                let strip = build_coterminal_strip(valuation, maturity, surface);
+                if !strip.is_empty() {
+                    let cal = calibrate_hw1f_sigma(curve, 0.03, &strip)
+                        .with_context(|| format!("calibrate_hw1f_sigma {}", inst.id))?;
+                    rows.push(("hw1f_a_calibrated".to_string(), cal.a));
+                    rows.push(("hw1f_sigma_calibrated".to_string(), cal.sigma));
+                }
             }
         }
 

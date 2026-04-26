@@ -67,6 +67,9 @@ pub mod options;
 // Phase 6: Standalone functions (converted from BondAnalytics trait)
 pub mod functions;
 
+// Phase 7: Short-rate model calibration (HW1F single-σ via co-terminal swaptions)
+pub mod calibration;
+
 /// Prelude module for convenient imports.
 ///
 /// ```rust,ignore

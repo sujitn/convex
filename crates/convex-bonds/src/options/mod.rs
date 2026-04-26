@@ -29,8 +29,12 @@
 
 pub mod binomial_tree;
 pub mod models;
+pub mod swaption_hw1f;
 pub mod trinomial_tree;
 
 pub use binomial_tree::BinomialTree;
 pub use models::{HullWhite, ModelError, ShortRateModel};
+pub use swaption_hw1f::{
+    bachelier_atm_price, forward_annuity, forward_swap_rate, payer_swaption_hw1f,
+};
 pub use trinomial_tree::{build_event_grid, TrinomialTree};
