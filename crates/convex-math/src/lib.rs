@@ -49,6 +49,7 @@ pub mod interpolation;
 pub mod linear_algebra;
 pub mod optimization;
 pub mod solvers;
+pub mod stats;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
