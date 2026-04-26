@@ -109,12 +109,19 @@ Metrics: `price_at_oas_{25,50,100}bps`, `oas_bps_at_market`,
 parity on Ford; ~$1.7 / 1.6 bp residual on the coupon-aligned
 SYNTH_HY callable, tracked under 5.2.1.
 
-### 5.2.1 Event-aligned trinomial TimeGrid
+### 5.2.1 Event-aligned trinomial TimeGrid — **done**
 
-Convex's tree uses a uniform Δt; QL injects coupon and callability dates
-into its grid so events land on nodes exactly. The mismatch shows up
-when calls coincide with coupon dates (~$1.7 residual on SYNTH_HY).
-Fix: build the tree on an event-aware time grid. ~4–6 hours.
+* `TrinomialTree` runs on a non-uniform grid via
+  `build_hull_white_on_grid`; new `build_event_grid` mirrors QL's
+  `TimeGrid` (mandatory times land on layers exactly).
+* `OASCalculator` builds the grid from cashflow dates + step-down
+  boundaries and matches QL's coupon-on-call convention: receive at the
+  first callable layer, forfeit elsewhere (the latter encoded as
+  `cap - cashflow`).
+
+Reconciliation 137 / 137. SYNTH_HY_STEPDOWN_01 collapsed from $1.7 / 1.6 bp
+residuals to sub-ppm on the OAS-given prices (Δ < $2e-4) and 0.40 bps on
+`oas_bps_at_market`.
 
 ### 5.2.2 ATM swaption-strip vol calibration
 
