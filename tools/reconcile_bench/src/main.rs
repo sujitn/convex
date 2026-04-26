@@ -523,10 +523,7 @@ fn price_corporate_frn(
                 .compounded_rate_minus_one()
                 .try_into()
                 .unwrap_or(0.0);
-            let accrued_yf: f64 = accrued_comp
-                .period_year_fraction
-                .try_into()
-                .unwrap_or(0.0);
+            let accrued_yf: f64 = accrued_comp.period_year_fraction.try_into().unwrap_or(0.0);
             accrued = face * (accrued_minus_one + spread * accrued_yf);
 
             coupon_amount
@@ -683,8 +680,7 @@ const SNAPSHOTS: &[Snapshot<'static>] = &[
 fn main() -> Result<()> {
     let root = Path::new("reconciliation");
     for snap in SNAPSHOTS {
-        run_snapshot(root, snap)
-            .with_context(|| format!("snapshot {}", snap.book))?;
+        run_snapshot(root, snap).with_context(|| format!("snapshot {}", snap.book))?;
     }
     Ok(())
 }
@@ -886,9 +882,8 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             if let (Some(curve), Some(params)) =
                 (sofr_curve.as_ref(), hw1f_calibrations.get(&inst.id))
             {
-                let oas_rows =
-                    callable_oas_rows(inst, valuation, curve, params.a, params.sigma)
-                        .with_context(|| format!("callable_oas_rows {}", inst.id))?;
+                let oas_rows = callable_oas_rows(inst, valuation, curve, params.a, params.sigma)
+                    .with_context(|| format!("callable_oas_rows {}", inst.id))?;
                 rows.extend(oas_rows);
 
                 let helpers: Vec<CoterminalSwaptionHelper> = params

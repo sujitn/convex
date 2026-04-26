@@ -204,7 +204,10 @@ mod tests {
         // 5% on the obs days (Dec 3-5), 10% on accrual days (Dec 8-9).
         // 2BD shift on accrual [Dec 8, Dec 9) → obs [Dec 4, Dec 5).
         for day in [3, 4, 5, 8, 9] {
-            fix.insert(d(2025, 12, day), if day < 6 { dec!(0.05) } else { dec!(0.10) });
+            fix.insert(
+                d(2025, 12, day),
+                if day < 6 { dec!(0.05) } else { dec!(0.10) },
+            );
         }
         let result = compound_in_arrears(
             d(2025, 12, 8),

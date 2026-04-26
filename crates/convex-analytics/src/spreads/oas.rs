@@ -297,10 +297,17 @@ impl OASCalculator {
                 continue;
             }
             let clean_cap = call_schedule.call_price_on(tree_date).unwrap_or(100.0);
-            let accrued = base_bond.accrued_interest(tree_date).to_f64().unwrap_or(0.0);
+            let accrued = base_bond
+                .accrued_interest(tree_date)
+                .to_f64()
+                .unwrap_or(0.0);
             let dirty_cap = clean_cap + accrued;
             let receive = first_callable_date.is_some_and(|d| tree_date == d);
-            step_call[i] = Some(if receive { dirty_cap } else { dirty_cap - step_amount[i] });
+            step_call[i] = Some(if receive {
+                dirty_cap
+            } else {
+                dirty_cap - step_amount[i]
+            });
         }
 
         Ok(tree.price(oas, |i| step_amount[i], |i| step_call[i]))

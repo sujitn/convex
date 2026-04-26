@@ -35,14 +35,11 @@ pub(crate) fn zcb_option(p_t: f64, p_s: f64, k: f64, sigma_p: f64, is_call: bool
 
 /// Annuity at time 0 for a fixed leg of `n = round(tail / freq)` accruals
 /// from `expiry` to `expiry + tail`: `Σ τ_i · P(0, T_i)`.
-pub fn forward_annuity<F: Fn(f64) -> f64>(
-    discount: &F,
-    expiry: f64,
-    tail: f64,
-    freq: f64,
-) -> f64 {
+pub fn forward_annuity<F: Fn(f64) -> f64>(discount: &F, expiry: f64, tail: f64, freq: f64) -> f64 {
     let n = (tail / freq).round() as usize;
-    (1..=n).map(|i| freq * discount(expiry + i as f64 * freq)).sum()
+    (1..=n)
+        .map(|i| freq * discount(expiry + i as f64 * freq))
+        .sum()
 }
 
 /// Forward swap rate at time 0: `(P(0, T_0) - P(0, T_n)) / Annuity`.
@@ -103,17 +100,24 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
         .collect();
 
     let bond_value = |r: f64| -> f64 {
-        cs.iter().map(|(ti, ci)| ci * big_a(*ti) * (-big_b(*ti) * r).exp()).sum()
+        cs.iter()
+            .map(|(ti, ci)| ci * big_a(*ti) * (-big_b(*ti) * r).exp())
+            .sum()
     };
 
     let cfg = SolverConfig::new(1e-12, 100);
-    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg)
-        .map_or(0.0, |res| res.root);
+    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg).map_or(0.0, |res| res.root);
 
     cs.iter()
         .map(|(ti, ci)| {
             let xi = big_a(*ti) * (-big_b(*ti) * r_star).exp();
-            ci * zcb_option(p_t, discount(*ti), xi, zcb_option_vol(a, sigma, expiry, *ti), false)
+            ci * zcb_option(
+                p_t,
+                discount(*ti),
+                xi,
+                zcb_option_vol(a, sigma, expiry, *ti),
+                false,
+            )
         })
         .sum()
 }

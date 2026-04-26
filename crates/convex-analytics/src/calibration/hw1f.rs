@@ -73,7 +73,13 @@ pub fn calibrate_hw1f_sigma(
             .enumerate()
             .map(|(i, h)| {
                 let model = payer_swaption_hw1f(
-                    &discount, a, sigma, f0t[i], h.expiry_years, h.tail_years, strikes[i],
+                    &discount,
+                    a,
+                    sigma,
+                    f0t[i],
+                    h.expiry_years,
+                    h.tail_years,
+                    strikes[i],
                 );
                 let res = (model - market[i]) / market[i];
                 res * res
