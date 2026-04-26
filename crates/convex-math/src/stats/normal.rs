@@ -1,7 +1,8 @@
-//! Standard normal CDF.
+//! Standard normal CDF. Hand-rolled (not `statrs`) so we can keep the math
+//! crate dep-light; this single closed-form is all the swaption / Black-76
+//! paths need and has tighter error bounds than statrs' default.
 
 /// Standard normal CDF via Abramowitz & Stegun 26.2.17. Max abs error ~7.5e-8.
-#[must_use]
 pub fn standard_normal_cdf(x: f64) -> f64 {
     let ax = x.abs();
     let k = 1.0 / (1.0 + 0.231_641_9 * ax);

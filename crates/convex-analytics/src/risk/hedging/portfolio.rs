@@ -53,15 +53,22 @@ impl Position {
 ///
 /// Aggregated portfolio risk metrics
 pub fn aggregate_portfolio_risk(positions: &[Position]) -> PortfolioRisk {
-    let total_value: f64 = positions.iter().map(|p| p.market_value).sum();
-    let total_dv01: f64 = positions.iter().map(|p| p.dv01.as_f64()).sum();
+    // Fused single-pass aggregation: total market value, total DV01, and
+    // duration·value numerator computed in one fold so we touch the position
+    // slice once instead of three times.
+    let (total_value, total_dv01, dur_value_num) = positions.iter().fold(
+        (0.0_f64, 0.0_f64, 0.0_f64),
+        |(v, d, dv), p| {
+            (
+                v + p.market_value,
+                d + p.dv01.as_f64(),
+                dv + p.duration.as_f64() * p.market_value,
+            )
+        },
+    );
 
     let weighted_duration = if total_value.abs() > 1e-10 {
-        positions
-            .iter()
-            .map(|p| p.duration.as_f64() * p.market_value)
-            .sum::<f64>()
-            / total_value
+        dur_value_num / total_value
     } else {
         0.0
     };

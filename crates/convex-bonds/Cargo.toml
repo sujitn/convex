@@ -40,5 +40,8 @@ serde_json = { workspace = true }
 
 [features]
 default = []
-parallel = []  # Enable parallel pricing
+
+[[bench]]
+name = "trinomial_tree"
+harness = false
 

@@ -45,3 +45,7 @@ criterion = { workspace = true }
 default = []
 parallel = ["rayon"]
 
+[[bench]]
+name = "spread_pv_kernel"
+harness = false
+

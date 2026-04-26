@@ -43,4 +43,3 @@ proptest = { workspace = true }
 
 [features]
 default = []
-parallel = []  # Enable parallel calibration

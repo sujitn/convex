@@ -55,38 +55,32 @@ impl Date {
         Date(chrono::Local::now().date_naive())
     }
 
-    /// Returns the year component.
-    #[must_use]
+    /// Year component.
     pub fn year(&self) -> i32 {
         self.0.year()
     }
 
-    /// Returns the month component (1-12).
-    #[must_use]
+    /// Month component (1..=12).
     pub fn month(&self) -> u32 {
         self.0.month()
     }
 
-    /// Returns the day component (1-31).
-    #[must_use]
+    /// Day-of-month component (1..=31).
     pub fn day(&self) -> u32 {
         self.0.day()
     }
 
-    /// Returns the day of year (1-366).
-    #[must_use]
+    /// 1-based day of year (1..=366).
     pub fn day_of_year(&self) -> u32 {
         self.0.ordinal()
     }
 
-    /// Checks if the year is a leap year.
-    #[must_use]
+    /// True if `year` is a leap year.
     pub fn is_leap_year(&self) -> bool {
         self.0.leap_year()
     }
 
-    /// Returns the number of days in the date's month.
-    #[must_use]
+    /// Number of days in this date's month.
     pub fn days_in_month(&self) -> u32 {
         match self.month() {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -97,8 +91,7 @@ impl Date {
         }
     }
 
-    /// Returns the number of days in the date's year.
-    #[must_use]
+    /// Number of days in this date's year (365 or 366).
     pub fn days_in_year(&self) -> u32 {
         if self.is_leap_year() {
             366

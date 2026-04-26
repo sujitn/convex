@@ -612,20 +612,30 @@ impl PricingRouter {
 
         let bump_size = 0.0001; // 1 bp
 
-        // Calculate price sensitivity at each tenor
-        let mut tenor_prices: Vec<(f64, f64, f64)> = Vec::new();
-
-        for &tenor in &relevant_tenors {
-            // Create bumped curves
+        // Calculate price sensitivity at each tenor. Each tenor independently
+        // bumps the discount curve and reprices, so the loop parallelises
+        // cleanly. Gated on tenor count to avoid rayon overhead on short bonds
+        // where only a couple of tenors are in scope.
+        let price_at_tenor = |tenor: f64| -> Option<(f64, f64, f64)> {
             let curve_up = self.bump_curve_at_tenor(discount_curve, tenor, bump_size);
             let curve_down = self.bump_curve_at_tenor(discount_curve, tenor, -bump_size);
-
-            // Reprice with bumped curves
             let price_up = self.price_from_curve(bond, settlement, &curve_up)?;
             let price_down = self.price_from_curve(bond, settlement, &curve_down)?;
+            Some((tenor, price_up, price_down))
+        };
 
-            tenor_prices.push((tenor, price_up, price_down));
-        }
+        let tenor_prices: Vec<(f64, f64, f64)> = if relevant_tenors.len() >= 4 {
+            use rayon::prelude::*;
+            relevant_tenors
+                .par_iter()
+                .map(|&tenor| price_at_tenor(tenor))
+                .collect::<Option<Vec<_>>>()?
+        } else {
+            relevant_tenors
+                .iter()
+                .map(|&tenor| price_at_tenor(tenor))
+                .collect::<Option<Vec<_>>>()?
+        };
 
         // Calculate KRDs
         let calc = KeyRateDurationCalculator::with_tenors(relevant_tenors).with_bump_bps(1.0);

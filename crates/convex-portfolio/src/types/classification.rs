@@ -1,30 +1,11 @@
-//! Flexible classification system for holdings.
-//!
-//! This module provides a dual-layer classification system:
-//! - **Composite enums**: Normalized values for analytics (from `convex-bonds`)
-//! - **Provider maps**: Preserve source data from any provider (Bloomberg, GICS, etc.)
-//!
-//! This design allows simple users to work with basic enums while licensed users
-//! can preserve and query their full hierarchical taxonomies.
-//!
-//! ## Core Types (from convex-bonds)
-//!
-//! - [`CreditRating`]: Agency-agnostic credit rating (AAA to D)
-//! - [`RatingBucket`]: Grouped rating categories
-//! - [`Sector`]: Issuer sector classification
-//! - [`Seniority`]: Capital structure position
-//!
-//! ## Provider Info Types (defined here)
-//!
-//! - [`SectorInfo`]: Sector with provider hierarchies
-//! - [`RatingInfo`]: Rating with multi-agency data
-//! - [`SeniorityInfo`]: Seniority with CoCo/AT1 details
-//! - [`Classification`]: Unified container for all metadata
+//! Holding classification. Normalized enums (`CreditRating`, `Sector`,
+//! `Seniority`, …) come from `convex-bonds`; this module adds provider-aware
+//! wrappers (`SectorInfo`, `RatingInfo`, `Classification`) that preserve
+//! source-system hierarchies (Bloomberg, GICS, …) alongside the normalized form.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// Re-export core classification types from convex-bonds for backward compatibility
 pub use convex_bonds::types::{CreditRating, RatingBucket, Sector, Seniority};
 
 // =============================================================================
