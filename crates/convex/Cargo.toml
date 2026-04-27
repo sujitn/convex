@@ -1,0 +1,21 @@
+[package]
+name = "convex"
+description = "Convex fixed income analytics — single-import facade."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "bonds", "pricing", "quantitative"]
+categories = ["finance"]
+
+[features]
+schemars = ["convex-core/schemars"]
+
+[dependencies]
+convex-core = { workspace = true }
+convex-curves = { workspace = true }
+convex-bonds = { workspace = true }
+convex-analytics = { workspace = true }

@@ -559,6 +559,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex"
+version = "0.12.0"
+dependencies = [
+ "convex-analytics",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+]
+
+[[package]]
 name = "convex-analytics"
 version = "0.12.0"
 dependencies = [
@@ -610,6 +620,7 @@ dependencies = [
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -741,10 +752,7 @@ dependencies = [
  "anyhow",
  "axum 0.8.8",
  "clap",
- "convex-analytics",
- "convex-bonds",
- "convex-core",
- "convex-curves",
+ "convex",
  "criterion 0.8.1",
  "proptest",
  "rmcp",
@@ -2486,21 +2494,6 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "reconcile_bench"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "convex-analytics",
- "convex-bonds",
- "convex-core",
- "convex-curves",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ use std::fmt;
 
 /// Payment frequency for coupon bonds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Frequency {
     /// Annual payments (1 per year)
     Annual,
@@ -66,6 +67,7 @@ impl fmt::Display for Frequency {
 
 /// Interest compounding convention.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Compounding {
     /// Simple interest (no compounding)
     Simple,

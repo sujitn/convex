@@ -67,6 +67,9 @@ pub mod options;
 // Phase 6: Standalone functions (converted from BondAnalytics trait)
 pub mod functions;
 
+// Mark-driven pricing (the trader-mark sovereignty entry point)
+pub mod pricing;
+
 // Phase 7: Short-rate model calibration (HW1F single-σ via co-terminal swaptions)
 pub mod calibration;
 
@@ -176,6 +179,9 @@ pub mod prelude {
 
     // Options (callable/puttable bonds)
     pub use crate::options::{BinomialTree, HullWhite, ModelError, ShortRateModel};
+
+    // Mark-driven pricing
+    pub use crate::pricing::{price_from_mark, PricingResult};
 
     // Standalone bond analytics functions (replacing BondAnalytics trait)
     pub use crate::functions::{

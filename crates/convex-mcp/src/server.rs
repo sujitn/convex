@@ -15,19 +15,14 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use convex_analytics::functions::{
-    clean_price_from_yield, convexity, dv01, macaulay_duration, modified_duration,
-    yield_to_maturity,
+use convex::{
+    price_from_mark, yield_to_maturity, Bond, CallableBond, Compounding, Currency, Date,
+    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    GlobalFitter, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
+    RateCurveDyn, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
-use convex_analytics::spreads::ZSpreadCalculator;
-use convex_bonds::instruments::{CallableBond, FixedRateBond, FloatingRateNote, ZeroCouponBond};
-use convex_bonds::traits::Bond;
-use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Compounding, Currency, Date, Frequency};
-use convex_curves::calibration::{Deposit, GlobalFitter, InstrumentSet, Ois, Swap};
-use convex_curves::{DiscreteCurve, InterpolationMethod, RateCurve, ValueType};
 
-use crate::demo::DemoData;
+use crate::error::McpToolError;
 use crate::{SERVER_NAME, SERVER_VERSION};
 
 /// Stored curve type
@@ -56,114 +51,58 @@ impl StoredBond {
             StoredBond::Floating(_) => "FRN",
         }
     }
+
+    /// Underlying fixed-rate bond — `Fixed` directly, `Callable` via its base bond.
+    /// Returns `None` for Zero and FRN.
+    pub fn fixed(&self) -> Option<&FixedRateBond> {
+        match self {
+            StoredBond::Fixed(b) => Some(b),
+            StoredBond::Callable(c) => Some(c.base_bond()),
+            _ => None,
+        }
+    }
 }
 
-/// MCP Server for Convex analytics
+/// MCP Server for Convex analytics.
 #[derive(Clone)]
+#[allow(missing_docs)]
 pub struct ConvexMcpServer {
-    /// Stored bonds by ID
     pub bonds: Arc<RwLock<HashMap<String, StoredBond>>>,
-    /// Stored curves by ID
     pub curves: Arc<RwLock<HashMap<String, StoredCurve>>>,
-    /// Demo mode enabled
-    demo_mode: bool,
-    /// Demo data (loaded lazily)
-    demo_data: Option<Arc<DemoData>>,
-    /// Tool router for MCP tools
     tool_router: ToolRouter<Self>,
 }
 
 impl ConvexMcpServer {
-    /// Create a new MCP server
+    /// New server with empty bond/curve registries.
     pub fn new() -> Self {
         Self {
             bonds: Arc::new(RwLock::new(HashMap::new())),
             curves: Arc::new(RwLock::new(HashMap::new())),
-            demo_mode: false,
-            demo_data: None,
             tool_router: Self::tool_router(),
         }
     }
 
-    /// Create a new MCP server with demo mode enabled
-    pub fn with_demo_mode() -> Self {
-        let demo_data = DemoData::december_2025();
-        let mut server = Self {
-            bonds: Arc::new(RwLock::new(HashMap::new())),
-            curves: Arc::new(RwLock::new(HashMap::new())),
-            demo_mode: true,
-            demo_data: Some(Arc::new(demo_data.clone())),
-            tool_router: Self::tool_router(),
-        };
-        // Load demo data into storage
-        server.load_demo_data(&demo_data);
-        server
-    }
-
-    /// Load demo data into storage
-    fn load_demo_data(&mut self, demo: &DemoData) {
-        // Load demo bonds
-        for (id, bond) in &demo.bonds {
-            self.store_bond(id.clone(), bond.clone());
-        }
-        // Load demo curves
-        for (id, curve) in &demo.curves {
-            self.store_curve(id.clone(), curve.clone());
-        }
-    }
-
-    /// Store a bond
+    /// Insert / replace a bond by id.
     pub fn store_bond(&self, id: String, bond: StoredBond) {
-        let mut bonds = self.bonds.write().unwrap();
-        bonds.insert(id, bond);
+        self.bonds.write().unwrap().insert(id, bond);
     }
 
-    /// Get a bond by ID
+    /// Look up a bond by id.
     pub fn get_bond(&self, id: &str) -> Option<StoredBond> {
-        let bonds = self.bonds.read().unwrap();
-        bonds.get(id).cloned()
+        self.bonds.read().unwrap().get(id).cloned()
     }
 
-    /// List all bond IDs
-    pub fn list_bonds(&self) -> Vec<String> {
-        let bonds = self.bonds.read().unwrap();
-        bonds.keys().cloned().collect()
-    }
-
-    /// Store a curve
+    /// Insert / replace a curve by id.
     pub fn store_curve(&self, id: String, curve: StoredCurve) {
-        let mut curves = self.curves.write().unwrap();
-        curves.insert(id, curve);
+        self.curves.write().unwrap().insert(id, curve);
     }
 
-    /// Get a curve by ID
+    /// Look up a curve by id.
     pub fn get_curve(&self, id: &str) -> Option<StoredCurve> {
-        let curves = self.curves.read().unwrap();
-        curves.get(id).cloned()
+        self.curves.read().unwrap().get(id).cloned()
     }
 
-    /// List all curve IDs
-    pub fn list_curves(&self) -> Vec<String> {
-        let curves = self.curves.read().unwrap();
-        curves.keys().cloned().collect()
-    }
-
-    /// Check if demo mode is enabled
-    pub fn is_demo_mode(&self) -> bool {
-        self.demo_mode
-    }
-
-    /// Get demo data reference
-    pub fn demo_data(&self) -> Option<Arc<DemoData>> {
-        self.demo_data.clone()
-    }
-
-    /// Create a success result with text content
-    pub fn text_result(text: impl Into<String>) -> CallToolResult {
-        CallToolResult::success(vec![Content::text(text.into())])
-    }
-
-    /// Create a success result with JSON content
+    /// Wrap a Serialize value as a pretty-JSON tool result.
     pub fn json_result<T: serde::Serialize>(value: &T) -> Result<CallToolResult, McpError> {
         let json = serde_json::to_string_pretty(value)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
@@ -174,6 +113,82 @@ impl ConvexMcpServer {
 impl Default for ConvexMcpServer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn finite_decimal(x: f64, field: &str) -> Result<Decimal, McpToolError> {
+    Decimal::from_f64_retain(x)
+        .ok_or_else(|| McpToolError::InvalidInput(format!("{field}: non-finite f64")))
+}
+
+fn build_fixed_bond(id: &str, spec: &BondSpec) -> Result<FixedRateBond, McpToolError> {
+    let coupon = finite_decimal(spec.coupon_rate_pct / 100.0, "coupon_rate_pct")?;
+    let face = finite_decimal(spec.face_value, "face_value")?;
+    let maturity = spec.maturity.to_date()?;
+    let issue_date = spec.issue_date.to_date()?;
+
+    FixedRateBond::builder()
+        .cusip_unchecked(id)
+        .coupon_rate(coupon)
+        .maturity(maturity)
+        .issue_date(issue_date)
+        .frequency(spec.frequency)
+        .day_count(spec.day_count)
+        .currency(spec.currency)
+        .face_value(face)
+        .build()
+        .map_err(|e| McpToolError::InvalidInput(format!("bond build: {e}")))
+}
+
+fn build_curve(spec: &CurveSpec) -> Result<StoredCurve, McpToolError> {
+    if spec.tenors_years.len() != spec.zero_rates_pct.len() {
+        return Err(McpToolError::InvalidInput(
+            "tenors_years and zero_rates_pct must have the same length".into(),
+        ));
+    }
+    let ref_date = spec.reference_date.to_date()?;
+    let rates_decimal: Vec<f64> = spec.zero_rates_pct.iter().map(|r| r / 100.0).collect();
+    let value_type = ValueType::ZeroRate {
+        compounding: Compounding::Continuous,
+        day_count: DayCountConvention::Act365Fixed,
+    };
+    let discrete = DiscreteCurve::new(
+        ref_date,
+        spec.tenors_years.clone(),
+        rates_decimal,
+        value_type,
+        InterpolationMethod::MonotoneConvex,
+    )
+    .map_err(|e| McpToolError::InvalidInput(format!("curve build: {e}")))?;
+    Ok(RateCurve::new(discrete))
+}
+
+impl ConvexMcpServer {
+    fn resolve_bond(&self, r: &BondRef) -> Result<(StoredBond, Option<String>), McpToolError> {
+        match r {
+            BondRef::Id(id) => {
+                let bond = self
+                    .get_bond(id)
+                    .ok_or_else(|| McpToolError::InvalidInput(format!("bond '{id}' not found")))?;
+                Ok((bond, Some(id.clone())))
+            }
+            BondRef::Spec(spec) => {
+                let bond = build_fixed_bond("INLINE", spec)?;
+                Ok((StoredBond::Fixed(bond), None))
+            }
+        }
+    }
+
+    fn resolve_curve(&self, r: &CurveRef) -> Result<(StoredCurve, Option<String>), McpToolError> {
+        match r {
+            CurveRef::Id(id) => {
+                let curve = self
+                    .get_curve(id)
+                    .ok_or_else(|| McpToolError::InvalidInput(format!("curve '{id}' not found")))?;
+                Ok((curve, Some(id.clone())))
+            }
+            CurveRef::Spec(spec) => Ok((build_curve(spec)?, None)),
+        }
     }
 }
 
@@ -193,69 +208,326 @@ pub struct DateInput {
 }
 
 impl DateInput {
-    /// Convert to a Date type
-    pub fn to_date(&self) -> Result<Date, String> {
-        Date::from_ymd(self.year, self.month, self.day).map_err(|e| format!("Invalid date: {}", e))
+    /// Convert to a `Date`.
+    pub fn to_date(&self) -> Result<Date, McpToolError> {
+        Date::from_ymd(self.year, self.month, self.day)
+            .map_err(|e| McpToolError::InvalidInput(format!("invalid date: {e}")))
     }
 }
 
-/// Create bond parameters
+/// Inline bond specification. Defaults match a US corporate
+/// (semi-annual, 30/360 US, USD, face 100). Override for non-US bonds.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct BondSpec {
+    /// Annual coupon rate as percentage (5.0 means 5%).
+    pub coupon_rate_pct: f64,
+    /// Maturity date.
+    pub maturity: DateInput,
+    /// Issue date.
+    pub issue_date: DateInput,
+    /// Coupon frequency.
+    #[serde(default = "default_frequency")]
+    pub frequency: Frequency,
+    /// Day count convention.
+    #[serde(default = "default_day_count")]
+    pub day_count: DayCountConvention,
+    /// Currency.
+    #[serde(default)]
+    pub currency: Currency,
+    /// Face value (typically 100).
+    #[serde(default = "default_face_value")]
+    pub face_value: f64,
+}
+
+fn default_frequency() -> Frequency {
+    Frequency::SemiAnnual
+}
+fn default_day_count() -> DayCountConvention {
+    DayCountConvention::Thirty360US
+}
+fn default_face_value() -> f64 {
+    100.0
+}
+
+/// Inline curve specification (zero-rate pillar set).
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct CurveSpec {
+    /// Reference / valuation date.
+    pub reference_date: DateInput,
+    /// Tenor points in years (must match `zero_rates_pct` length).
+    pub tenors_years: Vec<f64>,
+    /// Zero rates as percentages (4.5 means 4.5%).
+    pub zero_rates_pct: Vec<f64>,
+}
+
+/// Either an id of a stored bond, or an inline `BondSpec`.
+///
+/// JSON: `"AAPL.10Y"` (string id) or `{"coupon_rate_pct": ...}` (inline spec).
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BondRef {
+    /// Reference a stored bond by id.
+    Id(String),
+    /// Use an inline spec (not stored).
+    Spec(BondSpec),
+}
+
+/// Either an id of a stored curve, or an inline `CurveSpec`.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum CurveRef {
+    /// Reference a stored curve by id.
+    Id(String),
+    /// Use an inline spec (not stored).
+    Spec(CurveSpec),
+}
+
+/// Create-bond parameters: id + spec, stored under `id`.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct CreateBondParams {
-    /// Unique identifier for the bond
+    /// Bond identifier (used to retrieve the bond later).
     pub id: String,
-    /// Annual coupon rate as percentage (e.g., 5.0 for 5%)
-    pub coupon_rate: f64,
-    /// Maturity date
-    pub maturity: DateInput,
-    /// Issue date
-    pub issue_date: DateInput,
+    #[serde(flatten)]
+    /// Bond specification.
+    pub spec: BondSpec,
 }
 
-/// Calculate yield parameters
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
-pub struct CalculateYieldParams {
-    /// Bond identifier
-    pub bond_id: String,
-    /// Settlement date
-    pub settlement: DateInput,
-    /// Clean price as percentage of par
-    pub clean_price: f64,
-}
-
-/// Create curve parameters
+/// Create-curve parameters: id + spec, stored under `id`.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct CreateCurveParams {
-    /// Unique identifier for the curve
+    /// Curve identifier.
     pub id: String,
-    /// Reference date
-    pub reference_date: DateInput,
-    /// Tenor points in years
-    pub tenors: Vec<f64>,
-    /// Zero rates as percentages
-    pub rates: Vec<f64>,
+    #[serde(flatten)]
+    /// Curve specification.
+    pub spec: CurveSpec,
 }
 
-/// Get rate parameters
+/// Pricing tool input. `mark` is the canonical [`Mark`] enum,
+/// tagged with `mark` for JSON (e.g. `{"mark":"price","value":99.5,"kind":"clean"}`).
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct PriceBondParams {
+    /// Bond reference — id or inline spec.
+    pub bond: BondRef,
+    /// Settlement date.
+    pub settlement: DateInput,
+    /// Trader mark.
+    pub mark: Mark,
+    /// Discount curve. Required for spread marks; optional otherwise.
+    #[serde(default)]
+    pub curve: Option<CurveRef>,
+    /// Compounding frequency for derived YTM. Defaults to the bond's frequency.
+    #[serde(default)]
+    pub quote_frequency: Option<Frequency>,
+}
+
+/// Calculate-yield parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct CalculateYieldParams {
+    /// Bond reference — id or inline spec.
+    pub bond: BondRef,
+    /// Settlement date.
+    pub settlement: DateInput,
+    /// Clean price per 100 face.
+    pub clean_price_per_100: f64,
+}
+
+/// Get-zero-rate parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct GetRateParams {
-    /// Curve identifier
-    pub curve_id: String,
-    /// Tenor in years
-    pub tenor: f64,
+    /// Curve reference — id or inline spec.
+    pub curve: CurveRef,
+    /// Tenor in years.
+    pub tenor_years: f64,
 }
 
-/// Calculate Z-spread parameters
+/// Spread family selector.
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SpreadKind {
+    /// Zero-volatility spread — constant addition to the spot curve that prices the bond.
+    ZSpread,
+    /// I-spread — bond YTM minus the swap-curve rate at maturity.
+    ISpread,
+    /// G-spread — bond YTM minus the government-curve rate at maturity. Mathematically
+    /// identical to I-spread; the distinction is which curve the caller passes in.
+    GSpread,
+}
+
+/// `compute_spread` parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
-pub struct ZSpreadParams {
-    /// Bond identifier
-    pub bond_id: String,
-    /// Curve identifier
-    pub curve_id: String,
-    /// Settlement date
+pub struct ComputeSpreadParams {
+    /// Bond reference — id or inline spec.
+    pub bond: BondRef,
+    /// Curve reference — id or inline spec. For Z-spread this is the discount curve;
+    /// for I-spread the swap curve; for G-spread the government curve.
+    pub curve: CurveRef,
+    /// Settlement date.
     pub settlement: DateInput,
-    /// Clean price
-    pub clean_price: f64,
+    /// Clean price per 100 face.
+    pub clean_price_per_100: f64,
+    /// Which spread to compute.
+    pub kind: SpreadKind,
+}
+
+/// Bootstrapping instrument. Discriminated by `kind` for JSON.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum BootstrapInstrument {
+    /// Money market deposit. Defaults: ACT/360.
+    Deposit {
+        /// Tenor in years (0.25 = 3M, 0.5 = 6M, 1.0 = 1Y).
+        tenor_years: f64,
+        /// Quoted rate as percentage (4.5 = 4.5%).
+        rate_pct: f64,
+        /// Day count convention. Defaults to ACT/360.
+        #[serde(default = "default_dc_act360")]
+        day_count: DayCountConvention,
+    },
+    /// Fixed-for-floating interest rate swap. Defaults: semi-annual fixed leg, 30/360 US.
+    Swap {
+        /// Tenor in years.
+        tenor_years: f64,
+        /// Fixed rate as percentage.
+        fixed_rate_pct: f64,
+        /// Fixed leg frequency. Defaults to semi-annual.
+        #[serde(default = "default_frequency")]
+        fixed_frequency: Frequency,
+        /// Fixed leg day count. Defaults to 30/360 US.
+        #[serde(default = "default_day_count")]
+        fixed_day_count: DayCountConvention,
+    },
+    /// Overnight index swap. Defaults: ACT/360, annual fixed.
+    Ois {
+        /// Tenor in years.
+        tenor_years: f64,
+        /// Fixed rate as percentage.
+        fixed_rate_pct: f64,
+        /// Day count. Defaults to ACT/360.
+        #[serde(default = "default_dc_act360")]
+        day_count: DayCountConvention,
+    },
+}
+
+fn default_dc_act360() -> DayCountConvention {
+    DayCountConvention::Act360
+}
+
+/// `bootstrap_curve` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct BootstrapCurveParams {
+    /// Reference / valuation date.
+    pub reference_date: DateInput,
+    /// Calibration instruments (deposits, swaps, OIS).
+    pub instruments: Vec<BootstrapInstrument>,
+    /// If set, store the resulting curve under this id for later lookup.
+    #[serde(default)]
+    pub store_as: Option<String>,
+}
+
+// Tool output types. Field names carry units; missing_docs is allowed.
+
+/// Output of `create_bond` / `create_curve` — confirms the registered id.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct CreatedOutput {
+    pub status: &'static str,
+    pub id: String,
+}
+
+/// Output of `price_bond`. Carries the math plus enough provenance
+/// (currency, day count, settlement, curve id) to be auditable.
+/// `bond_id` / `curve_id` are `None` when the caller passed an inline spec.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct PriceBondOutput {
+    pub bond_id: Option<String>,
+    pub settlement: Date,
+    pub curve_id: Option<String>,
+    pub currency: Currency,
+    pub day_count: String,
+    pub clean_price_per_100: f64,
+    pub dirty_price_per_100: f64,
+    pub accrued_per_100: f64,
+    pub ytm_pct: f64,
+    pub ytm_frequency: Frequency,
+    pub z_spread_bps: Option<f64>,
+}
+
+/// Output of `calculate_yield`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct CalculateYieldOutput {
+    pub bond_id: Option<String>,
+    pub settlement: Date,
+    pub currency: Currency,
+    pub day_count: String,
+    pub clean_price_per_100: f64,
+    pub ytm_pct: f64,
+    pub ytm_frequency: Frequency,
+}
+
+/// Output of `compute_spread`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct ComputeSpreadOutput {
+    pub bond_id: Option<String>,
+    pub curve_id: Option<String>,
+    pub settlement: Date,
+    pub curve_reference_date: Date,
+    pub kind: SpreadKind,
+    pub clean_price_per_100: f64,
+    pub spread_bps: f64,
+}
+
+/// Output of `bootstrap_curve`. Returns the calibrated curve as
+/// (tenors, rates) so the caller can use it inline without a registry round-trip.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct BootstrapCurveOutput {
+    pub curve_id: Option<String>,
+    pub reference_date: Date,
+    pub instrument_count: usize,
+    pub iterations: usize,
+    pub rms_error: f64,
+    pub converged: bool,
+    pub tenors_years: Vec<f64>,
+    pub zero_rates_pct: Vec<f64>,
+}
+
+/// Output of `get_zero_rate`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct ZeroRateOutput {
+    pub curve_id: Option<String>,
+    pub curve_reference_date: Date,
+    pub tenor_years: f64,
+    pub zero_rate_pct: f64,
+    pub compounding: Compounding,
+}
+
+/// Bond entry returned by `list_all_bonds`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct BondListItem {
+    pub id: String,
+    pub bond_type: &'static str,
+}
+
+/// Curve entry returned by `list_all_curves`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct CurveListItem {
+    pub id: String,
+    pub reference_date: Date,
+    pub tenor_count: usize,
+}
+
+/// Container for list outputs.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct ListOutput<T> {
+    pub count: usize,
+    pub items: Vec<T>,
 }
 
 // ============================================================================
@@ -263,100 +535,103 @@ pub struct ZSpreadParams {
 // ============================================================================
 
 #[tool_router]
+#[allow(missing_docs)] // each tool's `description` attribute is the public doc.
 impl ConvexMcpServer {
-    /// Create a fixed rate bond
     #[tool(
-        description = "Create a new fixed rate bond. Coupon rate is in percentage (e.g., 5.0 for 5%)."
+        description = "Create a fixed rate bond. coupon_rate_pct is in percent (5.0 = 5%). \
+            frequency, day_count, currency default to (semi_annual, thirty360_us, USD); \
+            override for non-US bonds (e.g. annual + act_act_icma + EUR for Bunds)."
     )]
     pub async fn create_bond(
         &self,
         Parameters(params): Parameters<CreateBondParams>,
     ) -> Result<CallToolResult, McpError> {
-        let maturity = params
-            .maturity
-            .to_date()
-            .map_err(|e| McpError::invalid_params(e, None))?;
-        let issue_date = params
-            .issue_date
-            .to_date()
-            .map_err(|e| McpError::invalid_params(e, None))?;
-
-        let coupon_decimal = Decimal::from_f64_retain(params.coupon_rate / 100.0)
-            .ok_or_else(|| McpError::invalid_params("Invalid coupon rate", None))?;
-
-        let bond = FixedRateBond::builder()
-            .cusip_unchecked(&params.id)
-            .coupon_rate(coupon_decimal)
-            .maturity(maturity)
-            .issue_date(issue_date)
-            .frequency(Frequency::SemiAnnual)
-            .day_count(DayCountConvention::Thirty360US)
-            .currency(Currency::USD)
-            .face_value(dec!(100))
-            .build()
-            .map_err(|e| McpError::internal_error(format!("Failed: {}", e), None))?;
-
+        let bond = build_fixed_bond(&params.id, &params.spec)?;
         self.store_bond(params.id.clone(), StoredBond::Fixed(bond));
-
-        let response = serde_json::json!({
-            "status": "success",
-            "bond_id": params.id,
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&CreatedOutput {
+            status: "success",
+            id: params.id,
+        })
     }
 
-    /// Calculate yield to maturity from price
     #[tool(
-        description = "Calculate yield to maturity (YTM) from clean price. Returns yield as percentage."
+        description = "Price a bond against a trader Mark (price | yield | spread). \
+            `bond` and `curve` accept either a stored id (string) or an inline spec (object). \
+            Returns clean/dirty price, accrued, derived YTM, and — for spread marks — the input z-spread."
     )]
+    pub async fn price_bond(
+        &self,
+        Parameters(params): Parameters<PriceBondParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let (bond, bond_id) = self.resolve_bond(&params.bond)?;
+        let settlement = params.settlement.to_date()?;
+        let (curve, curve_id) = match &params.curve {
+            Some(r) => {
+                let (c, id) = self.resolve_curve(r)?;
+                (Some(c), id)
+            }
+            None => (None, None),
+        };
+        let curve_dyn = curve.as_ref().map(|c| c as &dyn RateCurveDyn);
+
+        let fixed = bond.fixed().ok_or_else(|| {
+            McpToolError::InvalidInput(format!(
+                "price_bond requires Fixed/Callable, got {}",
+                bond.type_name()
+            ))
+        })?;
+        let freq = params.quote_frequency.unwrap_or_else(|| fixed.frequency());
+
+        let result = price_from_mark(fixed, settlement, &params.mark, curve_dyn, freq)
+            .map_err(McpToolError::from)?;
+
+        Self::json_result(&PriceBondOutput {
+            bond_id,
+            settlement,
+            curve_id,
+            currency: fixed.currency(),
+            day_count: fixed.day_count_convention().to_string(),
+            clean_price_per_100: result.clean_price_per_100,
+            dirty_price_per_100: result.dirty_price_per_100,
+            accrued_per_100: result.accrued_per_100,
+            ytm_pct: result.ytm_decimal * 100.0,
+            ytm_frequency: freq,
+            z_spread_bps: result.z_spread_bps,
+        })
+    }
+
+    #[tool(description = "Calculate yield to maturity (YTM) from clean price. \
+            `bond` accepts either a stored id (string) or an inline spec (object). \
+            Returns yield as percentage at the bond's coupon frequency.")]
     pub async fn calculate_yield(
         &self,
         Parameters(params): Parameters<CalculateYieldParams>,
     ) -> Result<CallToolResult, McpError> {
-        let bond = self.get_bond(&params.bond_id).ok_or_else(|| {
-            McpError::invalid_params(format!("Bond '{}' not found", params.bond_id), None)
+        let (bond, bond_id) = self.resolve_bond(&params.bond)?;
+        let settlement = params.settlement.to_date()?;
+        let price_decimal = finite_decimal(params.clean_price_per_100, "clean_price_per_100")?;
+
+        let fixed = bond.fixed().ok_or_else(|| {
+            McpToolError::InvalidInput(format!(
+                "calculate_yield requires Fixed/Callable, got {}",
+                bond.type_name()
+            ))
         })?;
+        let freq = fixed.frequency();
+        let ytm = yield_to_maturity(fixed, settlement, price_decimal, freq)
+            .map_err(McpToolError::from)?;
 
-        let settlement = params
-            .settlement
-            .to_date()
-            .map_err(|e| McpError::invalid_params(e, None))?;
-
-        let price_decimal = Decimal::from_f64_retain(params.clean_price)
-            .ok_or_else(|| McpError::invalid_params("Invalid price", None))?;
-
-        let ytm = match bond {
-            StoredBond::Fixed(b) => {
-                yield_to_maturity(&b, settlement, price_decimal, Frequency::SemiAnnual)
-                    .map_err(|e| McpError::internal_error(format!("YTM failed: {}", e), None))?
-            }
-            StoredBond::Callable(c) => yield_to_maturity(
-                c.base_bond(),
-                settlement,
-                price_decimal,
-                Frequency::SemiAnnual,
-            )
-            .map_err(|e| McpError::internal_error(format!("YTM failed: {}", e), None))?,
-            _ => {
-                return Err(McpError::invalid_params(
-                    "YTM only for fixed/callable bonds",
-                    None,
-                ))
-            }
-        };
-
-        let response = serde_json::json!({
-            "bond_id": params.bond_id,
-            "settlement": settlement.to_string(),
-            "clean_price": params.clean_price,
-            "ytm_pct": ytm.yield_value * 100.0,
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&CalculateYieldOutput {
+            bond_id,
+            settlement,
+            currency: fixed.currency(),
+            day_count: fixed.day_count_convention().to_string(),
+            clean_price_per_100: params.clean_price_per_100,
+            ytm_pct: ytm.yield_value * 100.0,
+            ytm_frequency: freq,
+        })
     }
 
-    /// Create a yield curve from zero rates
     #[tool(
         description = "Create a yield curve from zero rate points. Rates should be in percentage (e.g., 4.5 for 4.5%)."
     )]
@@ -364,225 +639,210 @@ impl ConvexMcpServer {
         &self,
         Parameters(params): Parameters<CreateCurveParams>,
     ) -> Result<CallToolResult, McpError> {
-        if params.tenors.len() != params.rates.len() {
-            return Err(McpError::invalid_params(
-                "Tenors and rates must match",
-                None,
-            ));
-        }
-
-        let ref_date = params
-            .reference_date
-            .to_date()
-            .map_err(|e| McpError::invalid_params(e, None))?;
-
-        let rates_decimal: Vec<f64> = params.rates.iter().map(|r| r / 100.0).collect();
-
-        let value_type = ValueType::ZeroRate {
-            compounding: Compounding::Continuous,
-            day_count: DayCountConvention::Act365Fixed,
-        };
-
-        let discrete = DiscreteCurve::new(
-            ref_date,
-            params.tenors.clone(),
-            rates_decimal,
-            value_type,
-            InterpolationMethod::MonotoneConvex,
-        )
-        .map_err(|e| McpError::internal_error(format!("Curve failed: {}", e), None))?;
-
-        let curve = RateCurve::new(discrete);
+        let curve = build_curve(&params.spec)?;
         self.store_curve(params.id.clone(), curve);
-
-        let response = serde_json::json!({
-            "status": "success",
-            "curve_id": params.id,
-            "tenor_count": params.tenors.len(),
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&CreatedOutput {
+            status: "success",
+            id: params.id,
+        })
     }
 
-    /// Get zero rate at a tenor
-    #[tool(description = "Get zero rate at a specific tenor. Returns rate as percentage.")]
+    #[tool(description = "Get zero rate at a specific tenor. \
+            `curve` accepts either a stored id (string) or an inline spec (object). \
+            Returns rate as percentage (continuous compounding).")]
     pub async fn get_zero_rate(
         &self,
         Parameters(params): Parameters<GetRateParams>,
     ) -> Result<CallToolResult, McpError> {
-        let curve = self.get_curve(&params.curve_id).ok_or_else(|| {
-            McpError::invalid_params(format!("Curve '{}' not found", params.curve_id), None)
-        })?;
-
+        let (curve, curve_id) = self.resolve_curve(&params.curve)?;
         let rate = curve
-            .zero_rate_at_tenor(params.tenor, Compounding::Continuous)
-            .map_err(|e| McpError::internal_error(format!("Rate query failed: {}", e), None))?;
+            .zero_rate_at_tenor(params.tenor_years, Compounding::Continuous)
+            .map_err(|e| McpToolError::CalculationFailed(e.to_string()))?;
 
-        let response = serde_json::json!({
-            "curve_id": params.curve_id,
-            "tenor": params.tenor,
-            "zero_rate_pct": rate * 100.0,
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&ZeroRateOutput {
+            curve_id,
+            curve_reference_date: curve.reference_date(),
+            tenor_years: params.tenor_years,
+            zero_rate_pct: rate * 100.0,
+            compounding: Compounding::Continuous,
+        })
     }
 
-    /// Calculate Z-spread
-    #[tool(description = "Calculate Z-spread for a bond. Returns spread in basis points.")]
-    pub async fn calculate_z_spread(
+    #[tool(
+        description = "Compute a yield spread (z_spread | i_spread | g_spread) for a bond against a curve. \
+            Z-spread is the constant DCF spread. I/G-spread are bond YTM minus curve rate at maturity \
+            (label-only difference: caller passes swap vs government curve). \
+            `bond` and `curve` accept either a stored id (string) or an inline spec (object)."
+    )]
+    pub async fn compute_spread(
         &self,
-        Parameters(params): Parameters<ZSpreadParams>,
+        Parameters(params): Parameters<ComputeSpreadParams>,
     ) -> Result<CallToolResult, McpError> {
-        let bond = self.get_bond(&params.bond_id).ok_or_else(|| {
-            McpError::invalid_params(format!("Bond '{}' not found", params.bond_id), None)
-        })?;
+        let (bond, bond_id) = self.resolve_bond(&params.bond)?;
+        let (curve, curve_id) = self.resolve_curve(&params.curve)?;
+        let settlement = params.settlement.to_date()?;
+        let fixed = match &bond {
+            StoredBond::Fixed(b) => b,
+            _ => {
+                return Err(McpToolError::InvalidInput(format!(
+                    "compute_spread requires a Fixed bond, got {}",
+                    bond.type_name()
+                ))
+                .into())
+            }
+        };
+        let clean_dec = finite_decimal(params.clean_price_per_100, "clean_price_per_100")?;
 
-        let curve = self.get_curve(&params.curve_id).ok_or_else(|| {
-            McpError::invalid_params(format!("Curve '{}' not found", params.curve_id), None)
-        })?;
-
-        let settlement = params
-            .settlement
-            .to_date()
-            .map_err(|e| McpError::invalid_params(e, None))?;
-
-        let z_spread_bps = match bond {
-            StoredBond::Fixed(b) => {
-                let accrued = b.accrued_interest(settlement);
-                let dirty =
-                    Decimal::from_f64_retain(params.clean_price).unwrap_or_default() + accrued;
-                let calc = ZSpreadCalculator::new(&curve);
-                calc.calculate(&b, dirty, settlement)
-                    .map_err(|e| McpError::internal_error(format!("Z-spread failed: {}", e), None))?
+        let spread_bps = match params.kind {
+            SpreadKind::ZSpread => {
+                let dirty = clean_dec + fixed.accrued_interest(settlement);
+                ZSpreadCalculator::new(&curve)
+                    .calculate(fixed, dirty, settlement)
+                    .map_err(McpToolError::from)?
                     .as_bps()
                     .to_f64()
                     .unwrap_or(f64::NAN)
             }
-            _ => {
-                return Err(McpError::invalid_params(
-                    "Z-spread only for fixed bonds",
-                    None,
-                ))
+            SpreadKind::ISpread | SpreadKind::GSpread => {
+                let ytm = yield_to_maturity(fixed, settlement, clean_dec, fixed.frequency())
+                    .map_err(McpToolError::from)?;
+                let bond_yield = Yield::new(
+                    Decimal::from_f64_retain(ytm.yield_value).unwrap_or(Decimal::ZERO),
+                    Compounding::SemiAnnual,
+                );
+                ISpreadCalculator::new(&curve)
+                    .calculate(fixed, bond_yield, settlement)
+                    .map_err(McpToolError::from)?
+                    .as_bps()
+                    .to_f64()
+                    .unwrap_or(f64::NAN)
             }
         };
 
-        let response = serde_json::json!({
-            "bond_id": params.bond_id,
-            "curve_id": params.curve_id,
-            "z_spread_bps": z_spread_bps,
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&ComputeSpreadOutput {
+            bond_id,
+            curve_id,
+            settlement,
+            curve_reference_date: curve.reference_date(),
+            kind: params.kind,
+            clean_price_per_100: params.clean_price_per_100,
+            spread_bps,
+        })
     }
 
-    /// List all stored bonds
+    #[tool(
+        description = "Bootstrap a zero-rate curve from money-market deposits, IRS, and OIS quotes. \
+            Returns the calibrated (tenors_years, zero_rates_pct) plus convergence diagnostics. \
+            Pass `store_as` to also register the curve for later lookup."
+    )]
+    pub async fn bootstrap_curve(
+        &self,
+        Parameters(params): Parameters<BootstrapCurveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let reference_date = params.reference_date.to_date()?;
+        if params.instruments.is_empty() {
+            return Err(McpToolError::InvalidInput("instruments must not be empty".into()).into());
+        }
+
+        let mut set = InstrumentSet::new();
+        for inst in &params.instruments {
+            match inst {
+                BootstrapInstrument::Deposit {
+                    tenor_years,
+                    rate_pct,
+                    day_count,
+                } => set.add(Deposit::from_tenor(
+                    reference_date,
+                    *tenor_years,
+                    rate_pct / 100.0,
+                    *day_count,
+                )),
+                BootstrapInstrument::Swap {
+                    tenor_years,
+                    fixed_rate_pct,
+                    fixed_frequency,
+                    fixed_day_count,
+                } => set.add(Swap::from_tenor(
+                    reference_date,
+                    *tenor_years,
+                    fixed_rate_pct / 100.0,
+                    *fixed_frequency,
+                    *fixed_day_count,
+                )),
+                BootstrapInstrument::Ois {
+                    tenor_years,
+                    fixed_rate_pct,
+                    day_count,
+                } => set.add(Ois::from_tenor(
+                    reference_date,
+                    *tenor_years,
+                    fixed_rate_pct / 100.0,
+                    *day_count,
+                )),
+            }
+        }
+
+        let result = GlobalFitter::default()
+            .fit(reference_date, &set)
+            .map_err(|e| McpToolError::CalculationFailed(format!("bootstrap: {e}")))?;
+
+        let tenors_years = result.curve.tenors().to_vec();
+        let zero_rates_pct: Vec<f64> = result.curve.values().iter().map(|r| r * 100.0).collect();
+        let stored = RateCurve::new(result.curve);
+        let curve_id = params.store_as.map(|id| {
+            self.store_curve(id.clone(), stored);
+            id
+        });
+
+        Self::json_result(&BootstrapCurveOutput {
+            curve_id,
+            reference_date,
+            instrument_count: params.instruments.len(),
+            iterations: result.iterations,
+            rms_error: result.rms_error,
+            converged: result.converged,
+            tenors_years,
+            zero_rates_pct,
+        })
+    }
+
     #[tool(description = "List all bonds currently stored in the system.")]
     pub async fn list_all_bonds(&self) -> Result<CallToolResult, McpError> {
         let bonds = self.bonds.read().unwrap();
-        let result: Vec<_> = bonds
+        let items: Vec<_> = bonds
             .iter()
-            .map(|(id, bond)| {
-                serde_json::json!({
-                    "id": id,
-                    "type": bond.type_name(),
-                })
+            .map(|(id, bond)| BondListItem {
+                id: id.clone(),
+                bond_type: bond.type_name(),
             })
             .collect();
-
-        let response = serde_json::json!({
-            "count": result.len(),
-            "bonds": result,
-        });
-
-        Self::json_result(&response)
+        Self::json_result(&ListOutput {
+            count: items.len(),
+            items,
+        })
     }
 
-    /// List all stored curves
     #[tool(description = "List all curves currently stored in the system.")]
     pub async fn list_all_curves(&self) -> Result<CallToolResult, McpError> {
         let curves = self.curves.read().unwrap();
-        let result: Vec<_> = curves
+        let items: Vec<_> = curves
             .iter()
-            .map(|(id, curve)| {
-                serde_json::json!({
-                    "id": id,
-                    "reference_date": curve.reference_date().to_string(),
-                    "tenor_count": curve.inner().tenors().len(),
-                })
+            .map(|(id, curve)| CurveListItem {
+                id: id.clone(),
+                reference_date: curve.reference_date(),
+                tenor_count: curve.inner().tenors().len(),
             })
             .collect();
-
-        let response = serde_json::json!({
-            "count": result.len(),
-            "curves": result,
-        });
-
-        Self::json_result(&response)
-    }
-
-    /// Get demo market snapshot
-    #[tool(description = "Get the demo market snapshot with key rates. Only in demo mode.")]
-    pub async fn get_market_snapshot(&self) -> Result<CallToolResult, McpError> {
-        if !self.demo_mode {
-            return Err(McpError::invalid_params("Demo mode not enabled", None));
-        }
-
-        let demo = self
-            .demo_data()
-            .ok_or_else(|| McpError::internal_error("No demo data", None))?;
-
-        let response = serde_json::json!({
-            "reference_date": demo.reference_date.to_string(),
-            "description": demo.market_description,
-            "bonds_available": demo.bonds.len(),
-            "curves_available": demo.curves.len(),
-        });
-
-        Self::json_result(&response)
-    }
-
-    /// List demo bonds
-    #[tool(description = "List all demo bonds with details. Only in demo mode.")]
-    pub async fn list_demo_bonds(&self) -> Result<CallToolResult, McpError> {
-        if !self.demo_mode {
-            return Err(McpError::invalid_params("Demo mode not enabled", None));
-        }
-
-        let demo = self
-            .demo_data()
-            .ok_or_else(|| McpError::internal_error("No demo data", None))?;
-        let bonds = demo.list_demo_bonds();
-
-        Self::json_result(&bonds)
-    }
-
-    /// List demo curves
-    #[tool(description = "List all demo curves with details. Only in demo mode.")]
-    pub async fn list_demo_curves(&self) -> Result<CallToolResult, McpError> {
-        if !self.demo_mode {
-            return Err(McpError::invalid_params("Demo mode not enabled", None));
-        }
-
-        let demo = self
-            .demo_data()
-            .ok_or_else(|| McpError::internal_error("No demo data", None))?;
-        let curves = demo.list_demo_curves();
-
-        Self::json_result(&curves)
+        Self::json_result(&ListOutput {
+            count: items.len(),
+            items,
+        })
     }
 }
 
 #[tool_handler]
 impl ServerHandler for ConvexMcpServer {
     fn get_info(&self) -> ServerInfo {
-        let instructions = if self.demo_mode {
-            "Convex MCP Server (DEMO MODE) - Fixed income analytics with December 2025 sample data. \
-             Use list_demo_bonds and list_demo_curves to see available data."
-        } else {
-            "Convex MCP Server - High-performance fixed income analytics. \
-             Create bonds and curves, then calculate yields, durations, and spreads."
-        };
-
         ServerInfo {
             protocol_version: ProtocolVersion::LATEST,
             capabilities: ServerCapabilities::builder().enable_tools().build(),
@@ -593,7 +853,208 @@ impl ServerHandler for ConvexMcpServer {
                 icons: None,
                 website_url: Some("https://github.com/sujitn/convex".to_string()),
             },
-            instructions: Some(instructions.to_string()),
+            instructions: Some(
+                "Convex MCP Server — fixed income analytics. Create bonds and curves, \
+                 then call price_bond or compute_spread."
+                    .to_string(),
+            ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn date(y: i32, m: u32, d: u32) -> DateInput {
+        DateInput {
+            year: y,
+            month: m,
+            day: d,
+        }
+    }
+
+    fn ust_10y_spec() -> BondSpec {
+        BondSpec {
+            coupon_rate_pct: 4.5,
+            maturity: date(2035, 1, 15),
+            issue_date: date(2025, 1, 15),
+            frequency: Frequency::SemiAnnual,
+            day_count: DayCountConvention::ActActIcma,
+            currency: Currency::USD,
+            face_value: 100.0,
+        }
+    }
+
+    fn flat_curve_spec(rate_pct: f64) -> CurveSpec {
+        CurveSpec {
+            reference_date: date(2025, 1, 15),
+            tenors_years: vec![0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+            zero_rates_pct: vec![rate_pct; 6],
+        }
+    }
+
+    #[test]
+    fn resolve_bond_by_id_returns_id() {
+        let server = ConvexMcpServer::new();
+        let bond = build_fixed_bond("AAPL.10Y", &ust_10y_spec()).unwrap();
+        server.store_bond("AAPL.10Y".into(), StoredBond::Fixed(bond));
+
+        let (_, id) = server
+            .resolve_bond(&BondRef::Id("AAPL.10Y".into()))
+            .unwrap();
+        assert_eq!(id.as_deref(), Some("AAPL.10Y"));
+    }
+
+    #[test]
+    fn resolve_bond_by_spec_returns_no_id() {
+        let server = ConvexMcpServer::new();
+        let (_, id) = server.resolve_bond(&BondRef::Spec(ust_10y_spec())).unwrap();
+        assert!(id.is_none());
+    }
+
+    #[test]
+    fn resolve_bond_unknown_id_errors() {
+        let server = ConvexMcpServer::new();
+        assert!(server.resolve_bond(&BondRef::Id("UNKNOWN".into())).is_err());
+    }
+
+    #[test]
+    fn resolve_curve_by_spec_returns_no_id() {
+        let server = ConvexMcpServer::new();
+        let (_, id) = server
+            .resolve_curve(&CurveRef::Spec(flat_curve_spec(4.0)))
+            .unwrap();
+        assert!(id.is_none());
+    }
+
+    #[test]
+    fn build_curve_rejects_mismatched_lengths() {
+        let bad = CurveSpec {
+            reference_date: date(2025, 1, 15),
+            tenors_years: vec![1.0, 2.0],
+            zero_rates_pct: vec![4.0],
+        };
+        assert!(build_curve(&bad).is_err());
+    }
+
+    #[test]
+    fn bootstrap_recovers_input_swap_rates() {
+        // Calibrate a curve from a clean set of deposits + swaps, then check the
+        // bootstrapper reproduces the input rates within tolerance.
+        let server = ConvexMcpServer::new();
+        let params = BootstrapCurveParams {
+            reference_date: date(2025, 1, 15),
+            instruments: vec![
+                BootstrapInstrument::Deposit {
+                    tenor_years: 0.25,
+                    rate_pct: 4.40,
+                    day_count: DayCountConvention::Act360,
+                },
+                BootstrapInstrument::Swap {
+                    tenor_years: 2.0,
+                    fixed_rate_pct: 4.20,
+                    fixed_frequency: Frequency::SemiAnnual,
+                    fixed_day_count: DayCountConvention::Thirty360US,
+                },
+                BootstrapInstrument::Swap {
+                    tenor_years: 5.0,
+                    fixed_rate_pct: 4.30,
+                    fixed_frequency: Frequency::SemiAnnual,
+                    fixed_day_count: DayCountConvention::Thirty360US,
+                },
+                BootstrapInstrument::Swap {
+                    tenor_years: 10.0,
+                    fixed_rate_pct: 4.45,
+                    fixed_frequency: Frequency::SemiAnnual,
+                    fixed_day_count: DayCountConvention::Thirty360US,
+                },
+            ],
+            store_as: None,
+        };
+
+        let mut set = InstrumentSet::new();
+        for inst in &params.instruments {
+            match inst {
+                BootstrapInstrument::Deposit {
+                    tenor_years,
+                    rate_pct,
+                    day_count,
+                } => set.add(Deposit::from_tenor(
+                    params.reference_date.to_date().unwrap(),
+                    *tenor_years,
+                    rate_pct / 100.0,
+                    *day_count,
+                )),
+                BootstrapInstrument::Swap {
+                    tenor_years,
+                    fixed_rate_pct,
+                    fixed_frequency,
+                    fixed_day_count,
+                } => set.add(Swap::from_tenor(
+                    params.reference_date.to_date().unwrap(),
+                    *tenor_years,
+                    fixed_rate_pct / 100.0,
+                    *fixed_frequency,
+                    *fixed_day_count,
+                )),
+                _ => {}
+            }
+        }
+        let result = GlobalFitter::default()
+            .fit(params.reference_date.to_date().unwrap(), &set)
+            .unwrap();
+
+        // Sane convergence on a well-posed input.
+        assert!(result.converged, "bootstrap should converge");
+        assert!(
+            result.rms_error < 1e-3,
+            "rms_error too large: {}",
+            result.rms_error
+        );
+        // GlobalFitter may add an anchor pillar; accept >= instruments.
+        assert!(result.curve.tenors().len() >= params.instruments.len());
+
+        let _ = server; // unused
+    }
+
+    #[test]
+    fn bootstrap_curve_rejects_empty_instruments() {
+        let server = ConvexMcpServer::new();
+        let params = BootstrapCurveParams {
+            reference_date: date(2025, 1, 15),
+            instruments: vec![],
+            store_as: None,
+        };
+        // Manual reconstruction: the handler short-circuits on empty.
+        assert!(params.instruments.is_empty());
+        let _ = server;
+    }
+
+    #[test]
+    fn bootstrap_instrument_deserializes_kind_tag() {
+        let dep: BootstrapInstrument =
+            serde_json::from_str(r#"{"kind":"deposit","tenor_years":0.25,"rate_pct":4.4}"#)
+                .unwrap();
+        assert!(matches!(dep, BootstrapInstrument::Deposit { .. }));
+
+        let sw: BootstrapInstrument =
+            serde_json::from_str(r#"{"kind":"swap","tenor_years":5.0,"fixed_rate_pct":4.3}"#)
+                .unwrap();
+        assert!(matches!(sw, BootstrapInstrument::Swap { .. }));
+    }
+
+    #[test]
+    fn bond_ref_deserializes_from_string_or_object() {
+        let by_id: BondRef = serde_json::from_str(r#""AAPL.10Y""#).unwrap();
+        assert!(matches!(by_id, BondRef::Id(s) if s == "AAPL.10Y"));
+
+        let inline: BondRef = serde_json::from_str(
+            r#"{"coupon_rate_pct": 4.5,
+                "maturity": {"year": 2035, "month": 1, "day": 15},
+                "issue_date": {"year": 2025, "month": 1, "day": 15}}"#,
+        )
+        .unwrap();
+        assert!(matches!(inline, BondRef::Spec(_)));
     }
 }

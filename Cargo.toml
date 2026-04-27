@@ -3,6 +3,7 @@
 
 [workspace]
 members = [
+    "crates/convex",
     "crates/convex-core",
     "crates/convex-math",
     "crates/convex-curves",
@@ -19,9 +20,9 @@ members = [
     "crates/convex-ext-file",
     "crates/convex-ext-json",
     "crates/convex-server",
-    # Reconciliation harness (not published)
-    "tools/reconcile_bench",
 ]
+# Out-of-workspace: keeps Docker/fly.io minimal. Run with --manifest-path.
+exclude = ["tools/reconcile_bench"]
 # Note: convex-spreads has been absorbed into convex-analytics
 
 resolver = "2"
@@ -39,6 +40,7 @@ categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
 # Internal crates — path-only; this workspace is not published to crates.io.
+convex = { path = "crates/convex" }
 convex-core = { path = "crates/convex-core" }
 convex-math = { path = "crates/convex-math" }
 convex-curves = { path = "crates/convex-curves" }

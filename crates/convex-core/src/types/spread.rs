@@ -8,6 +8,7 @@ use std::ops::{Add, Neg, Sub};
 
 /// Types of spreads used in fixed income analytics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SpreadType {
     /// Zero-volatility spread over benchmark curve.
     #[default]
@@ -59,8 +60,10 @@ impl fmt::Display for SpreadType {
 /// assert_eq!(spread.as_decimal(), dec!(0.0125));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Spread {
     /// Spread value in basis points
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     value_bps: Decimal,
     /// Type of spread
     spread_type: SpreadType,
