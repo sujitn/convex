@@ -170,10 +170,7 @@ fn build_curve(spec: &CurveSpec) -> Result<StoredCurve, McpToolError> {
 }
 
 impl ConvexMcpServer {
-    fn resolve_bond(
-        &self,
-        r: &BondRef,
-    ) -> Result<(StoredBond, Option<String>), McpToolError> {
+    fn resolve_bond(&self, r: &BondRef) -> Result<(StoredBond, Option<String>), McpToolError> {
         match r {
             BondRef::Id(id) => {
                 let bond = self
@@ -188,10 +185,7 @@ impl ConvexMcpServer {
         }
     }
 
-    fn resolve_curve(
-        &self,
-        r: &CurveRef,
-    ) -> Result<(StoredCurve, Option<String>), McpToolError> {
+    fn resolve_curve(&self, r: &CurveRef) -> Result<(StoredCurve, Option<String>), McpToolError> {
         match r {
             CurveRef::Id(id) => {
                 let curve = self
@@ -584,7 +578,9 @@ impl ConvexMcpServer {
             }
             None => (None, None),
         };
-        let curve_dyn = curve.as_ref().map(|c| c as &dyn convex_curves::RateCurveDyn);
+        let curve_dyn = curve
+            .as_ref()
+            .map(|c| c as &dyn convex_curves::RateCurveDyn);
 
         let fixed = bond.fixed().ok_or_else(|| {
             McpToolError::InvalidInput(format!(
@@ -612,11 +608,9 @@ impl ConvexMcpServer {
         })
     }
 
-    #[tool(
-        description = "Calculate yield to maturity (YTM) from clean price. \
+    #[tool(description = "Calculate yield to maturity (YTM) from clean price. \
             `bond` accepts either a stored id (string) or an inline spec (object). \
-            Returns yield as percentage at the bond's coupon frequency."
-    )]
+            Returns yield as percentage at the bond's coupon frequency.")]
     pub async fn calculate_yield(
         &self,
         Parameters(params): Parameters<CalculateYieldParams>,
@@ -661,11 +655,9 @@ impl ConvexMcpServer {
         })
     }
 
-    #[tool(
-        description = "Get zero rate at a specific tenor. \
+    #[tool(description = "Get zero rate at a specific tenor. \
             `curve` accepts either a stored id (string) or an inline spec (object). \
-            Returns rate as percentage (continuous compounding)."
-    )]
+            Returns rate as percentage (continuous compounding).")]
     pub async fn get_zero_rate(
         &self,
         Parameters(params): Parameters<GetRateParams>,
@@ -925,18 +917,14 @@ mod tests {
     #[test]
     fn resolve_bond_by_spec_returns_no_id() {
         let server = ConvexMcpServer::new();
-        let (_, id) = server
-            .resolve_bond(&BondRef::Spec(ust_10y_spec()))
-            .unwrap();
+        let (_, id) = server.resolve_bond(&BondRef::Spec(ust_10y_spec())).unwrap();
         assert!(id.is_none());
     }
 
     #[test]
     fn resolve_bond_unknown_id_errors() {
         let server = ConvexMcpServer::new();
-        assert!(server
-            .resolve_bond(&BondRef::Id("UNKNOWN".into()))
-            .is_err());
+        assert!(server.resolve_bond(&BondRef::Id("UNKNOWN".into())).is_err());
     }
 
     #[test]
@@ -996,18 +984,28 @@ mod tests {
         let mut set = InstrumentSet::new();
         for inst in &params.instruments {
             match inst {
-                BootstrapInstrument::Deposit { tenor_years, rate_pct, day_count } => {
-                    set.add(Deposit::from_tenor(
-                        params.reference_date.to_date().unwrap(),
-                        *tenor_years, rate_pct / 100.0, *day_count,
-                    ))
-                }
-                BootstrapInstrument::Swap { tenor_years, fixed_rate_pct, fixed_frequency, fixed_day_count } => {
-                    set.add(Swap::from_tenor(
-                        params.reference_date.to_date().unwrap(),
-                        *tenor_years, fixed_rate_pct / 100.0, *fixed_frequency, *fixed_day_count,
-                    ))
-                }
+                BootstrapInstrument::Deposit {
+                    tenor_years,
+                    rate_pct,
+                    day_count,
+                } => set.add(Deposit::from_tenor(
+                    params.reference_date.to_date().unwrap(),
+                    *tenor_years,
+                    rate_pct / 100.0,
+                    *day_count,
+                )),
+                BootstrapInstrument::Swap {
+                    tenor_years,
+                    fixed_rate_pct,
+                    fixed_frequency,
+                    fixed_day_count,
+                } => set.add(Swap::from_tenor(
+                    params.reference_date.to_date().unwrap(),
+                    *tenor_years,
+                    fixed_rate_pct / 100.0,
+                    *fixed_frequency,
+                    *fixed_day_count,
+                )),
                 _ => {}
             }
         }
@@ -1017,7 +1015,11 @@ mod tests {
 
         // Sane convergence on a well-posed input.
         assert!(result.converged, "bootstrap should converge");
-        assert!(result.rms_error < 1e-3, "rms_error too large: {}", result.rms_error);
+        assert!(
+            result.rms_error < 1e-3,
+            "rms_error too large: {}",
+            result.rms_error
+        );
         // GlobalFitter may add an anchor pillar; accept >= instruments.
         assert!(result.curve.tenors().len() >= params.instruments.len());
 
@@ -1044,10 +1046,9 @@ mod tests {
                 .unwrap();
         assert!(matches!(dep, BootstrapInstrument::Deposit { .. }));
 
-        let sw: BootstrapInstrument = serde_json::from_str(
-            r#"{"kind":"swap","tenor_years":5.0,"fixed_rate_pct":4.3}"#,
-        )
-        .unwrap();
+        let sw: BootstrapInstrument =
+            serde_json::from_str(r#"{"kind":"swap","tenor_years":5.0,"fixed_rate_pct":4.3}"#)
+                .unwrap();
         assert!(matches!(sw, BootstrapInstrument::Swap { .. }));
     }
 

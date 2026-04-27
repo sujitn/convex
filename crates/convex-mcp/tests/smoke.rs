@@ -129,7 +129,11 @@ async fn end_to_end_happy_path() {
     }
 
     // 6. compute_spread for each kind.
-    for kind in [SpreadKind::ZSpread, SpreadKind::ISpread, SpreadKind::GSpread] {
+    for kind in [
+        SpreadKind::ZSpread,
+        SpreadKind::ISpread,
+        SpreadKind::GSpread,
+    ] {
         server
             .compute_spread(Parameters(ComputeSpreadParams {
                 bond: BondRef::Id("UST.10Y".into()),

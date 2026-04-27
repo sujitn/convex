@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /app
 
-# Copy manifests first (for better layer caching)
+# Copy manifests first (for better layer caching).
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 

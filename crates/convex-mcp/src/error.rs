@@ -54,9 +54,10 @@ impl From<AnalyticsError> for McpToolError {
             AnalyticsError::SolverConvergenceFailed { .. }
             | AnalyticsError::YieldSolverFailed { .. } => Self::ConvergenceFailure(err.to_string()),
             AnalyticsError::InvalidInput(msg) => Self::InvalidInput(msg),
-            AnalyticsError::InvalidSettlement { settlement, maturity } => {
-                Self::InvalidInput(format!("settlement {settlement} >= maturity {maturity}"))
-            }
+            AnalyticsError::InvalidSettlement {
+                settlement,
+                maturity,
+            } => Self::InvalidInput(format!("settlement {settlement} >= maturity {maturity}")),
             other => Self::CalculationFailed(other.to_string()),
         }
     }

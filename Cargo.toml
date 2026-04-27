@@ -19,9 +19,11 @@ members = [
     "crates/convex-ext-file",
     "crates/convex-ext-json",
     "crates/convex-server",
-    # Reconciliation harness (not published)
-    "tools/reconcile_bench",
 ]
+# `tools/reconcile_bench` is intentionally excluded from the workspace so
+# minimal consumers (Docker, fly.io) don't need to copy it. Run the bench
+# standalone with: cargo run --manifest-path tools/reconcile_bench/Cargo.toml
+exclude = ["tools/reconcile_bench"]
 # Note: convex-spreads has been absorbed into convex-analytics
 
 resolver = "2"

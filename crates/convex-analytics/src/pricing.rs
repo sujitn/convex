@@ -77,7 +77,10 @@ where
         }
         Mark::Yield { value, frequency } => {
             let y = dec_to_f64(*value, "yield")?;
-            (dirty_price_from_yield(bond, settlement, y, *frequency)?, None)
+            (
+                dirty_price_from_yield(bond, settlement, y, *frequency)?,
+                None,
+            )
         }
         Mark::Spread { value, .. } => {
             let curve = curve.ok_or_else(|| {
@@ -90,7 +93,8 @@ where
                 )));
             }
             let z_decimal = dec_to_f64(value.as_decimal(), "z-spread")?;
-            let dirty = ZSpreadCalculator::new(curve).price_with_spread(bond, z_decimal, settlement);
+            let dirty =
+                ZSpreadCalculator::new(curve).price_with_spread(bond, z_decimal, settlement);
             let z_bps = dec_to_f64(value.as_bps(), "z-spread bps")?;
             (dirty, Some(z_bps))
         }
@@ -238,8 +242,8 @@ mod tests {
             value: Spread::new(dec!(50), SpreadType::ZSpread),
             benchmark: "USD.SOFR".into(),
         };
-        let err = price_from_mark(&bond, d(2025, 4, 15), &mark, None, Frequency::SemiAnnual)
-            .unwrap_err();
+        let err =
+            price_from_mark(&bond, d(2025, 4, 15), &mark, None, Frequency::SemiAnnual).unwrap_err();
         assert!(matches!(err, AnalyticsError::InvalidInput(_)));
     }
 
