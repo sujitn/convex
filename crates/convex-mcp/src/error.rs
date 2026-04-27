@@ -12,7 +12,7 @@
 use rmcp::ErrorData as McpError;
 use thiserror::Error;
 
-use convex_analytics::error::AnalyticsError;
+use convex::AnalyticsError;
 
 #[derive(Debug, Error)]
 #[allow(missing_docs)]

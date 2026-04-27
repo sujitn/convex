@@ -559,6 +559,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex"
+version = "0.12.0"
+dependencies = [
+ "convex-analytics",
+ "convex-bonds",
+ "convex-core",
+ "convex-curves",
+]
+
+[[package]]
 name = "convex-analytics"
 version = "0.12.0"
 dependencies = [
@@ -742,10 +752,7 @@ dependencies = [
  "anyhow",
  "axum 0.8.8",
  "clap",
- "convex-analytics",
- "convex-bonds",
- "convex-core",
- "convex-curves",
+ "convex",
  "criterion 0.8.1",
  "proptest",
  "rmcp",

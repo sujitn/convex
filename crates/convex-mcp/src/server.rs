@@ -15,18 +15,12 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use convex_analytics::functions::{
-    clean_price_from_yield, convexity, dv01, macaulay_duration, modified_duration,
-    yield_to_maturity,
+use convex::{
+    price_from_mark, yield_to_maturity, Bond, CallableBond, Compounding, Currency, Date,
+    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    GlobalFitter, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
+    RateCurveDyn, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
-use convex_analytics::pricing::price_from_mark;
-use convex_analytics::spreads::{ISpreadCalculator, ZSpreadCalculator};
-use convex_bonds::instruments::{CallableBond, FixedRateBond, FloatingRateNote, ZeroCouponBond};
-use convex_bonds::traits::Bond;
-use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Compounding, Currency, Date, Frequency, Mark, Yield};
-use convex_curves::calibration::{Deposit, GlobalFitter, InstrumentSet, Ois, Swap};
-use convex_curves::{DiscreteCurve, InterpolationMethod, RateCurve, ValueType};
 
 use crate::error::McpToolError;
 use crate::{SERVER_NAME, SERVER_VERSION};
@@ -578,9 +572,7 @@ impl ConvexMcpServer {
             }
             None => (None, None),
         };
-        let curve_dyn = curve
-            .as_ref()
-            .map(|c| c as &dyn convex_curves::RateCurveDyn);
+        let curve_dyn = curve.as_ref().map(|c| c as &dyn RateCurveDyn);
 
         let fixed = bond.fixed().ok_or_else(|| {
             McpToolError::InvalidInput(format!(

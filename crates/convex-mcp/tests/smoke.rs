@@ -8,8 +8,7 @@
 use rmcp::handler::server::wrapper::Parameters;
 use rust_decimal_macros::dec;
 
-use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Currency, Frequency, Mark, PriceKind, Spread, SpreadType};
+use convex::{Currency, DayCountConvention, Frequency, Mark, PriceKind, Spread, SpreadType};
 use convex_mcp::server::*;
 
 fn d(year: i32, month: u32, day: u32) -> DateInput {

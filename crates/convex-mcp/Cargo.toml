@@ -22,10 +22,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Internal crates
-convex-core = { workspace = true, features = ["schemars"] }
-convex-curves = { workspace = true }
-convex-bonds = { workspace = true }
-convex-analytics = { workspace = true }
+convex = { workspace = true, features = ["schemars"] }
 
 # MCP SDK
 rmcp = { version = "0.12", features = ["server", "macros"] }

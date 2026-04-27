@@ -3,6 +3,7 @@
 
 [workspace]
 members = [
+    "crates/convex",
     "crates/convex-core",
     "crates/convex-math",
     "crates/convex-curves",
@@ -39,6 +40,7 @@ categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
 # Internal crates — path-only; this workspace is not published to crates.io.
+convex = { path = "crates/convex" }
 convex-core = { path = "crates/convex-core" }
 convex-math = { path = "crates/convex-math" }
 convex-curves = { path = "crates/convex-curves" }
