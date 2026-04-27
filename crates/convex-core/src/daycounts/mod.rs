@@ -110,6 +110,7 @@ pub trait DayCount: Send + Sync {
 /// let yf = dc.year_fraction(start, end);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum DayCountConvention {
     // =========================================================================
     // ACT Family

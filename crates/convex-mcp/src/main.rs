@@ -1,49 +1,27 @@
-//! Convex MCP Server - Fixed Income Analytics via Model Context Protocol
-//!
-//! This binary provides an MCP server that exposes Convex's bond pricing
-//! and analytics capabilities to AI assistants.
-//!
-//! # Usage
-//!
-//! ## stdio transport (for Claude Desktop, local use)
-//! ```bash
-//! convex-mcp-server
-//! convex-mcp-server --demo  # with sample data
-//! ```
-//!
-//! ## HTTP transport (for remote hosting)
-//! ```bash
-//! convex-mcp-server --http --port 8080
-//! convex-mcp-server --http --port 8080 --demo
-//! ```
+//! Convex MCP server binary. stdio by default; pass `--http` for remote hosting.
 
 use clap::Parser;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use convex_mcp::server::ConvexMcpServer;
 
-/// Convex MCP Server - Fixed Income Analytics
 #[derive(Parser, Debug)]
 #[command(name = "convex-mcp-server")]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Enable demo mode with December 2025 sample market data
-    #[arg(short, long)]
-    demo: bool,
-
-    /// Use HTTP transport instead of stdio (for remote hosting)
+    /// Use HTTP transport instead of stdio.
     #[arg(long)]
     http: bool,
 
-    /// HTTP port (only used with --http)
+    /// HTTP port (only used with --http).
     #[arg(short, long, default_value = "8080")]
     port: u16,
 
-    /// HTTP host to bind to (only used with --http)
+    /// HTTP host to bind to (only used with --http).
     #[arg(long, default_value = "127.0.0.1")]
     host: String,
 
-    /// Enable verbose logging
+    /// Enable verbose logging.
     #[arg(short, long)]
     verbose: bool,
 }
@@ -52,37 +30,26 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    // Initialize logging
-    let filter = if args.verbose {
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new("convex_mcp=debug,rmcp=debug"))
-    } else {
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new("convex_mcp=info,rmcp=warn"))
-    };
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(if args.verbose {
+            "convex_mcp=debug,rmcp=debug"
+        } else {
+            "convex_mcp=info,rmcp=warn"
+        })
+    });
 
-    // Only log to stderr for stdio transport to avoid corrupting the protocol
+    // stdio transport must keep stdout clean for the protocol — log to stderr only.
+    let registry = tracing_subscriber::registry().with(filter);
     if args.http {
-        tracing_subscriber::registry()
-            .with(filter)
-            .with(tracing_subscriber::fmt::layer())
-            .init();
+        registry.with(tracing_subscriber::fmt::layer()).init();
     } else {
-        tracing_subscriber::registry()
-            .with(filter)
+        registry
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .init();
     }
 
-    // Create server
-    let server = if args.demo {
-        tracing::info!("Starting Convex MCP Server in DEMO mode");
-        tracing::info!("Demo data: December 2025 market snapshot");
-        ConvexMcpServer::with_demo_mode()
-    } else {
-        tracing::info!("Starting Convex MCP Server");
-        ConvexMcpServer::new()
-    };
+    tracing::info!("Starting Convex MCP Server");
+    let server = ConvexMcpServer::new();
 
     if args.http {
         run_http_server(server, &args.host, args.port).await
@@ -113,7 +80,7 @@ async fn run_stdio_server(server: ConvexMcpServer) -> anyhow::Result<()> {
 
 /// Run the server with HTTP transport (for remote hosting)
 #[cfg(feature = "http")]
-async fn run_http_server(server: ConvexMcpServer, host: &str, port: u16) -> anyhow::Result<()> {
+async fn run_http_server(_server: ConvexMcpServer, host: &str, port: u16) -> anyhow::Result<()> {
     use axum::Router;
     use rmcp::transport::streamable_http_server::{
         session::local::LocalSessionManager, StreamableHttpService,
@@ -122,16 +89,8 @@ async fn run_http_server(server: ConvexMcpServer, host: &str, port: u16) -> anyh
 
     tracing::info!("Using HTTP transport on {}:{}", host, port);
 
-    let demo_mode = server.is_demo_mode();
-
     let mcp_service = StreamableHttpService::new(
-        move || {
-            if demo_mode {
-                Ok(ConvexMcpServer::with_demo_mode())
-            } else {
-                Ok(ConvexMcpServer::new())
-            }
-        },
+        || Ok(ConvexMcpServer::new()),
         LocalSessionManager::default().into(),
         Default::default(),
     );

@@ -76,8 +76,8 @@ pub mod prelude {
     pub use crate::error::{ConvexError, ConvexResult};
     pub use crate::traits::{Discountable, PricingEngine, RiskCalculator, YieldCurve};
     pub use crate::types::{
-        CashFlow, CashFlowSchedule, CashFlowType, Compounding, Currency, Date, Frequency, Price,
-        Spread, SpreadType, Yield,
+        CashFlow, CashFlowSchedule, CashFlowType, Compounding, Currency, Date, Frequency, Mark,
+        Price, PriceKind, Spread, SpreadType, Yield,
     };
 }
 

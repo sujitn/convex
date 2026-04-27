@@ -7,6 +7,7 @@ use std::fmt;
 ///
 /// Represents currencies commonly used in fixed income markets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub enum Currency {
     /// United States Dollar
