@@ -1,6 +1,6 @@
 [package]
 name = "convex"
-description = "Convex fixed income analytics — facade re-exporting the public API of convex-core, convex-curves, convex-bonds, and convex-analytics."
+description = "Convex fixed income analytics — single-import facade."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -12,8 +12,6 @@ keywords = ["finance", "fixed-income", "bonds", "pricing", "quantitative"]
 categories = ["finance"]
 
 [features]
-default = []
-# Pass-through: enables `schemars` derives on convex-core domain types.
 schemars = ["convex-core/schemars"]
 
 [dependencies]
@@ -21,4 +19,3 @@ convex-core = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
-
