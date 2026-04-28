@@ -67,9 +67,8 @@ pub extern "C" fn convex_clear_error() {
 /// Library version (`CARGO_PKG_VERSION`). Static; do not free.
 #[no_mangle]
 pub extern "C" fn convex_version() -> *const c_char {
-    static VERSION: once_cell::sync::Lazy<CString> = once_cell::sync::Lazy::new(|| {
-        CString::new(env!("CARGO_PKG_VERSION")).unwrap()
-    });
+    static VERSION: once_cell::sync::Lazy<CString> =
+        once_cell::sync::Lazy::new(|| CString::new(env!("CARGO_PKG_VERSION")).unwrap());
     VERSION.as_ptr()
 }
 
@@ -240,10 +239,7 @@ where
     f(s)
 }
 
-unsafe fn rpc(
-    request_json: *const c_char,
-    handler: fn(&str) -> String,
-) -> *mut c_char {
+unsafe fn rpc(request_json: *const c_char, handler: fn(&str) -> String) -> *mut c_char {
     let response = match with_str_owned(request_json, |s| Ok::<String, String>(handler(s))) {
         Ok(r) => r,
         Err(e) => err_envelope("invalid_input", &e),

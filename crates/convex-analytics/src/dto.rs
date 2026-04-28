@@ -270,10 +270,22 @@ pub enum BootstrapMethod {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CurveInstrument {
     /// Tenor in years; rate as decimal (0.05 = 5%).
-    Deposit { tenor: f64, rate: f64 },
-    Fra { tenor: f64, rate: f64 },
-    Swap { tenor: f64, rate: f64 },
-    Ois { tenor: f64, rate: f64 },
+    Deposit {
+        tenor: f64,
+        rate: f64,
+    },
+    Fra {
+        tenor: f64,
+        rate: f64,
+    },
+    Swap {
+        tenor: f64,
+        rate: f64,
+    },
+    Ois {
+        tenor: f64,
+        rate: f64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

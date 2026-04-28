@@ -83,11 +83,7 @@ static REGISTRY: Lazy<Inner> = Lazy::new(Inner::new);
 
 /// Register an object. If `name` is provided and already exists, the prior
 /// handle is released first (so dependent cells see a fresh handle).
-pub fn register<T: Any + Send + Sync>(
-    object: T,
-    kind: ObjectKind,
-    name: Option<String>,
-) -> Handle {
+pub fn register<T: Any + Send + Sync>(object: T, kind: ObjectKind, name: Option<String>) -> Handle {
     if let Some(ref n) = name {
         let prior = REGISTRY.names.read().unwrap().get(n).copied();
         if let Some(old) = prior {
@@ -111,10 +107,7 @@ pub fn register<T: Any + Send + Sync>(
 
 /// Run `f` against the typed object behind `handle`, returning `None` if
 /// the handle is unknown or the type doesn't match.
-pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(
-    handle: Handle,
-    f: F,
-) -> Option<R> {
+pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(handle: Handle, f: F) -> Option<R> {
     let objects = REGISTRY.objects.read().unwrap();
     objects
         .get(&handle)
@@ -124,7 +117,12 @@ pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(
 
 /// Returns the kind/tag of an object, or `None` if the handle is unknown.
 pub fn kind_of(handle: Handle) -> Option<ObjectKind> {
-    REGISTRY.objects.read().unwrap().get(&handle).map(|e| e.kind)
+    REGISTRY
+        .objects
+        .read()
+        .unwrap()
+        .get(&handle)
+        .map(|e| e.kind)
 }
 
 /// Returns the optional name attached to a handle.

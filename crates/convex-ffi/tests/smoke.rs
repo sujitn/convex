@@ -166,7 +166,11 @@ fn cashflows_are_returned() {
         );
         assert_eq!(resp["ok"], "true");
         let flows = resp["result"]["flows"].as_array().unwrap();
-        assert!(flows.len() >= 19, "expected ≥19 semi-annual flows, got {}", flows.len());
+        assert!(
+            flows.len() >= 19,
+            "expected ≥19 semi-annual flows, got {}",
+            flows.len()
+        );
     }
 }
 
@@ -480,7 +484,10 @@ fn krd_returns_one_entry_per_tenor() {
         let sum_krd: f64 = kr.iter().map(|e| e["duration"].as_f64().unwrap()).sum();
         let mod_dur = resp["result"]["modified_duration"].as_f64().unwrap();
         // Loose bound — KRDs only cover 2/5/10 of the term structure here.
-        assert!(sum_krd > 0.0 && sum_krd < mod_dur * 2.0, "sum_krd={sum_krd}, mod_dur={mod_dur}");
+        assert!(
+            sum_krd > 0.0 && sum_krd < mod_dur * 2.0,
+            "sum_krd={sum_krd}, mod_dur={mod_dur}"
+        );
     }
 }
 

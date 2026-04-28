@@ -5,9 +5,9 @@
 //! last-error slot and the function returns `INVALID_HANDLE`.
 
 use convex_analytics::dto::{
-    BondIdentifier, BondSpec, CallableSpec, CouponSpec, CurveInstrument, CurveSpec,
-    CurveValueKind, DiscreteCurveSpec, FixedRateSpec, FloatingRateSpec, InterpolationMethodCode,
-    RateIndexCode, SinkingFundSpec, ZeroCouponSpec,
+    BondIdentifier, BondSpec, CallableSpec, CouponSpec, CurveInstrument, CurveSpec, CurveValueKind,
+    DiscreteCurveSpec, FixedRateSpec, FloatingRateSpec, InterpolationMethodCode, RateIndexCode,
+    SinkingFundSpec, ZeroCouponSpec,
 };
 use convex_bonds::instruments::{
     CallableBond, FixedRateBond, FloatingRateNote, SinkingFundBond, SinkingFundPayment,
@@ -121,13 +121,27 @@ trait CouponBuilder: Sized {
 }
 
 impl CouponBuilder for convex_bonds::instruments::FixedRateBondBuilder {
-    fn coupon_rate(self, v: Decimal) -> Self { self.coupon_rate(v) }
-    fn frequency(self, v: Frequency) -> Self { self.frequency(v) }
-    fn maturity(self, v: Date) -> Self { self.maturity(v) }
-    fn issue_date(self, v: Date) -> Self { self.issue_date(v) }
-    fn day_count(self, v: convex_core::daycounts::DayCountConvention) -> Self { self.day_count(v) }
-    fn currency(self, v: convex_core::types::Currency) -> Self { self.currency(v) }
-    fn face_value(self, v: Decimal) -> Self { self.face_value(v) }
+    fn coupon_rate(self, v: Decimal) -> Self {
+        self.coupon_rate(v)
+    }
+    fn frequency(self, v: Frequency) -> Self {
+        self.frequency(v)
+    }
+    fn maturity(self, v: Date) -> Self {
+        self.maturity(v)
+    }
+    fn issue_date(self, v: Date) -> Self {
+        self.issue_date(v)
+    }
+    fn day_count(self, v: convex_core::daycounts::DayCountConvention) -> Self {
+        self.day_count(v)
+    }
+    fn currency(self, v: convex_core::types::Currency) -> Self {
+        self.currency(v)
+    }
+    fn face_value(self, v: Decimal) -> Self {
+        self.face_value(v)
+    }
 }
 
 fn build_fixed_rate(spec: FixedRateSpec) -> Handle {
@@ -341,12 +355,23 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
     for inst in &spec.instruments {
         match *inst {
             CurveInstrument::Deposit { tenor, rate } => {
-                set.add(Deposit::from_tenor(spec.ref_date, tenor, rate, spec.day_count));
+                set.add(Deposit::from_tenor(
+                    spec.ref_date,
+                    tenor,
+                    rate,
+                    spec.day_count,
+                ));
             }
             CurveInstrument::Fra { tenor, rate } => {
                 let start_m = (tenor.fract() * 12.0).round() as i32;
                 let end_m = ((tenor + 0.25) * 12.0).round() as i32;
-                set.add(Fra::from_tenors(spec.ref_date, start_m, end_m, rate, spec.day_count));
+                set.add(Fra::from_tenors(
+                    spec.ref_date,
+                    start_m,
+                    end_m,
+                    rate,
+                    spec.day_count,
+                ));
             }
             CurveInstrument::Swap { tenor, rate } => {
                 set.add(Swap::from_tenor(
@@ -367,11 +392,9 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
         BootstrapMethod::GlobalFit => {
             let fitter = GlobalFitter::new().interpolation(map_interp(spec.interpolation));
             match fitter.fit(spec.ref_date, &set) {
-                Ok(result) => registry::register(
-                    RateCurve::new(result.curve),
-                    ObjectKind::Curve,
-                    spec.name,
-                ),
+                Ok(result) => {
+                    registry::register(RateCurve::new(result.curve), ObjectKind::Curve, spec.name)
+                }
                 Err(e) => {
                     set_last_error(format!("GlobalFit error: {e}"));
                     INVALID_HANDLE
