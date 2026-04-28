@@ -1,45 +1,110 @@
 # Convex Excel add-in smoke test
 
-Validates `ExcelErrorHelper.SafeCall` at runtime — happy path,
-controlled errors, unchecked exceptions.
+Sanity-checks the cell layer end-to-end: handle construction, mark-driven
+pricing (clean / yield round-trip), spread routing, and structured error
+envelopes.
+
+The Rust side has its own integration test suite — run
+
+```bash
+cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+```
+
+to validate every dispatcher arm. The checklist below is the manual
+counterpart for the Excel side.
 
 ## Setup
 
-Artifacts live at `excel/Convex.Excel/bin/Release/net472/`: the xll
-and `convex_ffi.dll` must sit side-by-side. Rebuild if stale:
+Build artifacts:
 
 ```bash
 cargo build --release -p convex-ffi
 cd excel/Convex.Excel && dotnet build --configuration Release
-cp ../../target/release/convex_ffi.dll bin/Release/net472/
 ```
 
-Launch:
+The build copies `convex_ffi.dll` next to the packed `.xll` automatically.
+Launch Excel with the add-in:
 
 ```bash
-start excel /x "excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll"
+start excel /x "excel\Convex.Excel\bin\Release\net472\publish\Convex.Excel64-packed.xll"
 ```
 
 ## Test matrix
 
-Paste into `A2:A5` on a fresh sheet:
+Paste into `A1:A8` on a fresh sheet. Replace `A1` first; the rest reference it.
 
 | Cell | Formula | Expected | Validates |
 |:---:|---|---|---|
-| `A2` | `=CX.BOND.TSY("TEST123", 5.0, DATE(2035,12,31), DATE(2025,12,31))` | `#CX#100` or similar | Bond creation |
-| `A3` | `=CX.PRICE(A2, DATE(2025,12,31), 5.0, 2)` | `100.000000` | Happy path — par yield = coupon |
-| `A4` | `=CX.PRICE("GARBAGE_HANDLE", DATE(2025,12,31), 5.0, 2)` | native `#REF!` | Controlled error — `INVALID_HANDLE` → `ExcelErrorRef` |
-| `A5` | `=CX.PRICE(A2, DATE(2025,12,31), 5.0, "not_a_number")` | text `#ERROR: ...` | Exception — `Convert.ToInt32` throws, `SafeCall` catches |
+| `A1` | `=CX.BOND("TEST10Y5", 0.05, DATE(2035,1,15), DATE(2025,1,15))` | `#CX#100` (or similar) | `convex_bond_from_json` happy path |
+| `A2` | `=CX.PRICE(A1, DATE(2025,4,15), "99.5C")` | clean ≈ `99.5` | mark-driven pricing, default field |
+| `A3` | `=CX.PRICE(A1, DATE(2025,4,15), "99.5C", , , "ytm")` | YTM (%) ≈ `5.07` | yield from clean price, percent units |
+| `A4` | `=CX.PRICE(A1, DATE(2025,4,15), "99-16+")` | clean ≈ `99.515625` | 32nds parser |
+| `A5` | `=CX.PRICE(A1, DATE(2025,4,15), "abc")` | `#ERROR: invalid_input (mark): ...` | typed envelope reaches the cell |
+| `A6` | `=CX.PRICE("BAD_HANDLE", DATE(2025,4,15), "99.5C")` | `#ERROR: invalid_input (handle): ...` | bad handle text |
+| `A7` | `=CX.OBJECTS()` | integer ≥ 1 | registry alive |
+| `A8` | `=CX.RELEASE(A1)` then `=CX.OBJECTS()` | drops by 1 | release path |
 
-**The load-bearing assertion is A5**: the cell must contain a *text
-string* starting `#ERROR:`, not a native `#VALUE!`. A native Excel
-error means the exception bypassed `SafeCall` and the refactor isn't
-live.
+**Load-bearing assertion (A5/A6)**: the cell contains a *text string*
+starting `#ERROR: <code>`, not a native `#VALUE!` / `#REF!`. A native
+Excel error means an exception bypassed the safe-call wrapper.
 
-## Optional expanded check
+## Spread sanity checks
 
-| Cell | Formula | Expected (QuantLib 1.40) |
-|:---:|---|---|
-| `A6` | `=CX.PRICE(A2, DATE(2030,12,31), 5.0, 2)` | `100.000000` |
-| `A7` | `=CX.PRICE(A2, DATE(2025,12,31), 6.0, 2)` | `92.561263` ±1e-4 |
-| `A8` | `=CX.PRICE(A2, DATE(2025,12,31), 4.0, 2)` | `108.175717` ±1e-4 |
+```excel
+B1: =CX.CURVE("USD.SOFR", DATE(2025,1,15), {0.5,1,2,5,10,30}, {0.04,0.04,0.04,0.04,0.04,0.04}, "zero_rate", "linear")
+B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")            ' ~80–120 bps
+B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "I")            ' I-spread bps, finite
+B4: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")            ' #ERROR: invalid_input (params.govt_curve)
+```
+
+`B4` must be the structured error — G-spread only computes against an
+explicitly-supplied government curve. Use the **Spread Ticket** ribbon
+form, which threads `params.govt_curve` through, for the positive path.
+
+## Risk + KRD
+
+```excel
+C1: =CX.RISK(A1, DATE(2025,4,15), "99.5C")                       ' grid: mod_dur, mac_dur, convexity, dv01
+C2: =CX.RISK(A1, DATE(2025,4,15), "99.5C", , "dv01")             ' scalar
+C3: =CX.RISK(A1, DATE(2025,4,15), "99.5C", B1, "krd", , "2,5,10")' KRD grid: 3 rows
+```
+
+The sum of the three KRDs should fall well within `[0, 2 × mod_dur]`.
+
+## Schema browser
+
+```excel
+D1: =CX.SCHEMA("Mark")                                           ' multi-line JSON schema text
+D2: =CX.SCHEMA("PricingRequest")                                 ' includes forward_curve field
+D3: =CX.SCHEMA("SpreadRequest")                                  ' includes params.govt_curve, params.volatility, ...
+```
+
+If any of these returns `#ERROR: invalid_input ...` the schemas table in
+`crates/convex-ffi/src/schemas.rs` is out of sync with the DTOs.
+
+## Ribbon
+
+Open the **Convex** tab. Smoke each form once:
+
+- **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`.
+- **Pricing Ticket** → Refresh objects → pick the bond → mark `99.5C` →
+  Compute → grid populates with finite numbers.
+- **Spread Ticket** → pick bond + curve → spread `Z` → Compute → finite bps.
+- **Curve Viewer** → pick a curve → chart renders an upward yield curve.
+- **Object Browser** → handles match `=CX.OBJECTS()` → Describe shows
+  bond fields (coupon, maturity, frequency, currency, face).
+- **Schemas** → flip through types → JSON renders without error.
+- **Settings** → save → re-open → values persisted to
+  `%APPDATA%\Convex\settings.json`.
+
+If any step throws into a Windows error dialog, the form is bypassing the
+JSON RPC layer — that's a regression.
+
+## Demo workbook
+
+`excel/ConvexDemo.xlsx` is regenerated by `excel/build_demo.py` (openpyxl).
+Open it with the add-in loaded for an end-to-end tour: every sheet
+(Bonds, Curves, Spreads, Scenarios, Schemas) exercises a different slice
+of the surface. If any cell shows `#NAME?` the add-in is not loaded; if
+you see structured `#ERROR: <code>: <message>` strings, that's the
+intended JSON envelope reaching the worksheet.

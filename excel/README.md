@@ -1,390 +1,269 @@
 # Convex Excel Add-In
 
-High-performance fixed income analytics for Microsoft Excel, powered by Rust.
+Mark-driven fixed income analytics for Microsoft Excel, powered by Rust.
+
+The add-in is intentionally small: a 13-function FFI surface, a typed JSON
+wire format, ~15 cell UDFs, and a ribbon. Adding a new bond shape, spread
+family, or pricing convention is a serde enum variant on the Rust side plus
+one dispatch arm — no new C symbol, no new P/Invoke, no new UDF.
 
 ## Installation
 
 ### Prerequisites
 - Microsoft Excel 2016 or later (64-bit)
-- .NET 8.0 Runtime (Windows)
+- .NET Framework 4.7.2 (Windows 10 +)
+- Visual Studio Build Tools or .NET SDK (only needed to build from source)
 
-### Build from Source
+### Build from source
 
-1. Build the Rust FFI library (release mode):
-   ```powershell
-   cd convex
-   cargo build --release -p convex-ffi
-   ```
+```powershell
+# Build the Rust FFI (release)
+cargo build --release -p convex-ffi
 
-2. Build the Excel add-in:
-   ```powershell
-   cd excel/Convex.Excel
-   dotnet build --configuration Release
-   ```
-
-3. Copy `target/release/convex_ffi.dll` to the output directory:
-   ```powershell
-   copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
-   copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\publish\
-   ```
-
-### Loading the Add-In
-
-1. Open Excel
-2. Go to File > Options > Add-ins
-3. At the bottom, select "Excel Add-ins" and click "Go"
-4. Click "Browse" and navigate to:
-   - `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`
-5. Click OK
-
-## Excel Functions
-
-All functions use the `CX.` prefix.
-
-### Curve Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.CURVE(name, refDate, tenors, rates, interp, dayCount)` | Create curve from zero rates |
-| `CX.CURVE.DF(name, refDate, tenors, dfs, interp, dayCount)` | Create curve from discount factors |
-| `CX.CURVE.ZERO(curve, tenor)` | Get zero rate at tenor |
-| `CX.CURVE.DISCOUNT(curve, tenor)` | Get discount factor at tenor |
-| `CX.CURVE.FORWARD(curve, start, end)` | Get forward rate between tenors |
-| `CX.CURVE.SHIFT(curve, bps, newName)` | Parallel shift curve |
-| `CX.CURVE.TWIST(curve, shortBp, longBp, pivot, newName)` | Twist curve |
-| `CX.CURVE.BUMP(curve, tenor, bps, newName)` | Bump specific tenor |
-
-### Bond Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.BOND(isin, coupon%, freq, maturity, issue, dayCount, bdc)` | Create fixed-rate bond |
-| `CX.BOND.CORP(isin, coupon%, maturity, issue)` | Create US corporate bond |
-| `CX.BOND.TSY(cusip, coupon%, maturity, issue)` | Create US Treasury bond |
-| `CX.BOND.ZERO(isin, maturity, issue, compounding, dayCount)` | Create zero coupon bond |
-| `CX.BOND.TBILL(cusip, maturity, issue)` | Create US Treasury Bill |
-| `CX.BOND.FRN(isin, spread, rateIndex, maturity, issue, freq, dayCount, cap, floor)` | Create floating rate note |
-| `CX.BOND.TSYFRN(cusip, spread, maturity, issue)` | Create US Treasury FRN |
-| `CX.BOND.CALLABLE(isin, coupon%, maturity, issue, callDates, callPrices, freq)` | Create callable bond |
-| `CX.BOND.ACCRUED(bond, settle)` | Get accrued interest |
-| `CX.BOND.MATURITY(bond)` | Get maturity date |
-| `CX.BOND.COUPON(bond)` | Get coupon rate |
-
-### Pricing Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.YIELD(bond, settle, price, freq)` | Calculate YTM from price |
-| `CX.PRICE(bond, settle, yield, freq)` | Calculate price from yield |
-| `CX.DIRTY.PRICE(bond, settle, yield, freq)` | Calculate dirty price |
-
-### Risk Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.DURATION(bond, settle, price, freq)` | Modified duration |
-| `CX.DURATION.MAC(bond, settle, price, freq)` | Macaulay duration |
-| `CX.CONVEXITY(bond, settle, price, freq)` | Convexity |
-| `CX.DV01(bond, settle, price, freq)` | Dollar value of 1bp |
-| `CX.ANALYTICS(bond, settle, price, freq)` | All metrics (array) |
-
-### Spread Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.ZSPREAD(bond, curve, settle, price)` | Z-spread (constant spread over spot curve) |
-| `CX.ISPREAD(bond, swapCurve, settle, yield)` | I-spread (spread over swap curve) |
-| `CX.GSPREAD(bond, govtCurve, settle, yield)` | G-spread (spread over government curve) |
-| `CX.ASW(bond, swapCurve, settle, price)` | Asset swap spread (par-par) |
-| `CX.ZSPREAD.ANALYTICS(bond, curve, settle, price)` | Z-spread with DV01 and duration (array) |
-
-### Price from Spread Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.PRICE.ZSPREAD(bond, curve, settle, zSpreadBps)` | Clean price from Z-spread |
-| `CX.DIRTY.PRICE.ZSPREAD(bond, curve, settle, zSpreadBps)` | Dirty price from Z-spread |
-| `CX.PRICE.DM(frn, fwdCurve, discCurve, settle, dmBps)` | FRN price from discount margin |
-
-### Callable Bond Analytics
-
-| Function | Description |
-|----------|-------------|
-| `CX.YIELD.WORST(callable, settle, price, freq)` | Yield to worst |
-| `CX.WORKOUT.DATE(callable, settle, price, freq)` | Workout date for YTW |
-| `CX.OAS(callable, curve, settle, price, vol)` | Option-adjusted spread |
-
-### FRN Analytics
-
-| Function | Description |
-|----------|-------------|
-| `CX.DISCOUNT.MARGIN(frn, fwdCurve, discCurve, settle, price)` | Discount margin (Z-DM) |
-| `CX.SIMPLE.MARGIN(frn, settle, price)` | Simple margin |
-
-### Curve Bootstrapping
-
-| Function | Description |
-|----------|-------------|
-| `CX.BOOTSTRAP(name, refDate, depTenors, depRates, swapTenors, swapRates, interp, dayCount)` | Bootstrap from deposits + swaps |
-| `CX.BOOTSTRAP.OIS(name, refDate, tenors, rates, interp, dayCount)` | Bootstrap OIS curve |
-| `CX.BOOTSTRAP.MIXED(name, refDate, types, tenors, rates, interp, dayCount)` | Bootstrap from mixed instruments |
-| `CX.BOOTSTRAP.PIECEWISE(name, refDate, types, tenors, rates, interp, dayCount)` | Piecewise bootstrap (Brent solver) |
-
-### Utility Functions
-
-| Function | Description |
-|----------|-------------|
-| `CX.YEARFRAC(start, end, dayCount)` | Day count fraction |
-| `CX.VERSION()` | Library version |
-| `CX.OBJECT.COUNT()` | Registered object count |
-| `CX.TYPE(handle)` | Object type |
-| `CX.LOOKUP(name)` | Find object by name |
-| `CX.RELEASE(handle)` | Release object |
-| `CX.CLEAR.ALL()` | Clear all objects |
-| `CX.LAST.ERROR()` | Last error message |
-
-### RTD Functions (Real-Time Data) - Optional
-
-**Note:** Regular `CX.*` functions now work correctly with Excel's dependency chain. When inputs change (e.g., BDP updates), curves/bonds are recreated with new handles, forcing dependent cells to recalculate.
-
-**When to use regular functions:** Most scenarios - they now handle BDP/streaming data correctly.
-
-**When to use RTD functions:** Only for advanced scenarios requiring:
-- Server-side calculation throttling
-- Explicit subscription management
-- Integration with custom data feeds
-
-RTD-enabled functions:
-
-| Function | Description |
-|----------|-------------|
-| `CX.CURVE.RTD(name, refDate, tenors, rates, interp, dayCount)` | Create curve with real-time updates |
-| `CX.CURVE.ZERO.RTD(curveName, tenor)` | Get zero rate with real-time updates |
-| `CX.BOND.RTD(id, coupon%, freq, maturity, issue, dayCount, bdc)` | Create bond with real-time updates |
-| `CX.BOND.CORP.RTD(id, coupon%, maturity, issue)` | Create US corporate bond (RTD) |
-| `CX.YIELD.RTD(bondName, settle, price, freq)` | Calculate YTM with real-time updates |
-| `CX.PRICE.RTD(bondName, settle, yield%, freq)` | Calculate price with real-time updates |
-| `CX.DURATION.RTD(bondName, settle, price, freq)` | Modified duration with real-time updates |
-| `CX.CONVEXITY.RTD(bondName, settle, price, freq)` | Convexity with real-time updates |
-| `CX.DV01.RTD(bondName, settle, price, freq)` | DV01 with real-time updates |
-| `CX.ZSPREAD.RTD(bondName, curveName, settle, price)` | Z-spread with real-time updates |
-| `CX.PRICE.ZSPREAD.RTD(bondName, curveName, settle, zSpreadBps)` | Price from Z-spread (RTD) |
-| `CX.RTD.STATS()` | Get RTD server statistics |
-| `CX.RTD.REFRESH(pattern)` | Force refresh of topics matching pattern |
-
-## Parameters
-
-### Interpolation Methods
-- `0` = Linear
-- `1` = Log-Linear
-- `2` = Cubic Spline
-- `3` = Monotone Convex
-
-### Day Count Conventions
-- `0` = ACT/360
-- `1` = ACT/365 Fixed
-- `2` = ACT/ACT ISDA
-- `3` = ACT/ACT ICMA
-- `4` = 30/360 US
-- `5` = 30E/360
-
-### Business Day Conventions
-- `0` = Unadjusted
-- `1` = Following
-- `2` = Modified Following
-- `3` = Preceding
-
-### Compounding Frequencies (Zero Coupon Bonds)
-- `0` = Continuous
-- `1` = Annual
-- `2` = Semi-Annual
-- `4` = Quarterly
-
-### Rate Index (FRN)
-- `0` = SOFR
-- `1` = SONIA
-- `2` = EURIBOR
-- `3` = LIBOR (legacy)
-
-### Bootstrap Instrument Types
-- `0` = Deposit (money market)
-- `1` = FRA (forward rate agreement)
-- `2` = Swap (interest rate swap)
-- `3` = OIS (overnight index swap)
-
-## Example Usage
-
-### Creating a Yield Curve
-
-```excel
-=CX.CURVE("USD.GOVT", TODAY(), {1,2,5,10}, {0.03,0.035,0.04,0.045}, 0, 1)
+# Build the Excel add-in
+cd excel/Convex.Excel
+dotnet build --configuration Release
 ```
 
-### Creating a Bond and Calculating Analytics
+The native `convex_ffi.dll` is copied next to the `.xll` automatically by
+the build.
+
+### Loading the add-in
+
+1. Open Excel → File → Options → Add-ins.
+2. At the bottom, "Excel Add-ins" → Go.
+3. Browse to `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
+4. OK.
+
+## Trader marks
+
+Every pricing/risk/spread call accepts a single textual mark. The grammar:
+
+| Form | Example | Meaning |
+|---|---|---|
+| Decimal price | `99.5`, `99.5C` | Clean price |
+| Decimal price (dirty) | `99.5D`, `99.5 dirty` | Dirty price |
+| 32nds | `99-16`, `99-16+` | Treasury 32nds (`+` = ½) |
+| Yield | `4.65%`, `4.65%@SA` | Yield with optional frequency suffix |
+| Spread | `+125bps@USD.SOFR` | Z-spread over benchmark (default) |
+| Spread w/ type | `125 OAS@USD.TSY`, `-50 G@USD.TSY.10Y` | Explicit family + benchmark |
+
+Frequency tokens: `A` (Annual), `SA` (SemiAnnual, default), `Q`, `M`, `Z`.
+Spread types: `Z`, `G`, `I`, `OAS`, `DM`, `ASW`, `ASW_PROC`, `CREDIT`.
+
+## Cell UDFs
+
+Every UDF lives behind the `CX.` prefix and routes through the JSON FFI.
+The full surface:
+
+### Construction (returns a `#CX#…` handle)
+
+| UDF | Description |
+|---|---|
+| `CX.BOND(id, couponDecimal, maturity, issue, [freq], [dayCount], [currency], [face])` | Fixed-rate bond. |
+| `CX.BOND.CALLABLE(id, couponDecimal, maturity, issue, callDates, callPrices, [freq], [style], [dayCount])` | Callable bond. American/European/Bermudan. |
+| `CX.BOND.FRN(id, spreadBps, maturity, issue, [index], [freq], [dayCount], [cap], [floor])` | Floating-rate note. |
+| `CX.BOND.ZERO(id, maturity, issue, [compounding], [dayCount])` | Zero-coupon bond. |
+| `CX.CURVE(name, refDate, tenors, values, [valueKind], [interp], [dayCount], [compounding])` | Discrete curve from `(tenor, value)` pairs. |
+| `CX.CURVE.BOOTSTRAP(name, refDate, kinds, tenors, rates, [method], [interp], [dayCount])` | Bootstrap from market instruments. |
+
+### Stateless analytics
+
+| UDF | Description |
+|---|---|
+| `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` | Returns clean / dirty / accrued / YTM / Z-bps. `field`: `clean` (default), `dirty`, `accrued`, `ytm`, `z_spread`, `grid`. |
+| `CX.RISK(bond, settle, mark, [curve], [metric], [quoteFreq], [krdTenors])` | `metric`: `grid` (default), `mod_dur`, `mac_dur`, `convexity`, `dv01`, `spread_dur`, `krd`. |
+| `CX.SPREAD(bond, curve, settle, mark, [type], [vol], [field])` | Z / G / I / ASW / ASW_PROC / OAS / DM / Credit. `field`: `bps` (default), `grid`. |
+| `CX.CASHFLOWS(bond, settle)` | Cashflow grid: `Date, Amount, Kind`. |
+| `CX.CURVE.QUERY(curve, tenor, [query], [tenorEnd])` | `query`: `zero` (default), `df`, `forward`. |
+
+### Diagnostics / utilities
+
+| UDF | Description |
+|---|---|
+| `CX.SCHEMA(typeName)` | JSON schema for any DTO (`Mark`, `BondSpec`, `PricingRequest`, …). |
+| `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
+| `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
+| `CX.VERSION()` | Library version. |
+| `CX.OBJECTS()` | Number of registered objects. |
+| `CX.RELEASE(handle)` | Release one handle. |
+| `CX.CLEAR()` | Release every handle. |
+
+## Examples
+
+### Build a fixed-rate bond and price it three ways
 
 ```excel
-' Create a 5-year corporate bond
-=CX.BOND.CORP("AAPL4.65%2026", 4.65, DATE(2026,2,15), DATE(2021,2,15))
-
-' Calculate yield from price (returns handle in B1)
-=CX.YIELD(B1, TODAY(), 102.5, 2)
-
-' Calculate all risk metrics
-=CX.ANALYTICS(B1, TODAY(), 102.5, 2)
+A1: =CX.BOND("US037833100", 0.05, DATE(2035,1,15), DATE(2025,1,15))     ' returns #CX#100
+A2: =CX.PRICE(A1, DATE(2025,4,15), "99.5C")                              ' clean price as input
+A3: =CX.PRICE(A1, DATE(2025,4,15), "4.65%@SA")                           ' yield mark
+A4: =CX.PRICE(A1, DATE(2025,4,15), "99-16+")                             ' 32nds
+A5: =CX.PRICE(A1, DATE(2025,4,15), "99.5C", , , "grid")                  ' full grid: clean/dirty/accrued/ytm/z
 ```
 
-### Curve Transformations
+### Build a curve and compute spreads
 
 ```excel
-' Shift curve +50bp
-=CX.CURVE.SHIFT(A1, 50, "USD.GOVT.+50")
-
-' Flatten curve (short +25bp, long -25bp, pivot at 5Y)
-=CX.CURVE.TWIST(A1, 25, -25, 5, "USD.GOVT.FLAT")
-
-' Bump 10Y point by 10bp
-=CX.CURVE.BUMP(A1, 10, 10, "USD.GOVT.10Y+10")
+B1: =CX.CURVE("USD.SOFR", TODAY(),
+              {0.5, 1, 2, 5, 10, 30},
+              {0.045, 0.046, 0.047, 0.048, 0.049, 0.050},
+              "zero_rate", "linear")
+B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")                    ' Z-spread bps
+B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z", , "grid")          ' grid: bps + spread DV01
 ```
 
-### Spread Calculations
+### G-spread requires a separate government curve
 
 ```excel
-' Calculate Z-spread from market price
-=CX.ZSPREAD(bondHandle, curveHandle, TODAY()+2, 98.5)
-
-' Calculate price from Z-spread (inverse)
-=CX.PRICE.ZSPREAD(bondHandle, curveHandle, TODAY()+2, 150)
-
-' Get full Z-spread analytics (spread, DV01, duration)
-=CX.ZSPREAD.ANALYTICS(bondHandle, curveHandle, TODAY()+2, 98.5)
+B4: =CX.CURVE("USD.TSY", TODAY(), {2,5,10,30}, {0.042,0.044,0.045,0.046}, "zero_rate", "linear")
+B5: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")
+    ' #ERROR: invalid_input (params.govt_curve): G-spread requires a separate government curve handle
+B6: ' UDF doesn't yet expose params.govt_curve directly — call via the ribbon
+    ' Spread Ticket form, which threads the field through.
 ```
 
-### Callable Bond Analytics
+### Bootstrap a curve from market instruments
 
 ```excel
-' Create a callable bond with call schedule
-=CX.BOND.CALLABLE("XYZ5%2030", 5.0, DATE(2030,6,15), DATE(2020,6,15),
-    {DATE(2025,6,15), DATE(2027,6,15)}, {100, 100}, 2)
-
-' Calculate yield to worst
-=CX.YIELD.WORST(callableHandle, TODAY()+2, 102.5, 2)
-
-' Get workout date (when YTW occurs)
-=CX.WORKOUT.DATE(callableHandle, TODAY()+2, 102.5, 2)
-
-' Calculate OAS with 20% volatility
-=CX.OAS(callableHandle, curveHandle, TODAY()+2, 102.5, 0.20)
+B7: =CX.CURVE.BOOTSTRAP("USD.SOFR.LIVE", TODAY(),
+        {"deposit","deposit","swap","swap","swap","swap"},
+        {0.25, 0.5, 2, 5, 10, 30},
+        {0.0525, 0.0530, 0.0475, 0.0425, 0.0410, 0.0425},
+        "global_fit", "linear", "Act360")
 ```
 
-### FRN Analytics
+### Risk grid + KRD
 
 ```excel
-' Create an FRN (SOFR + 50bp, quarterly)
-=CX.BOND.FRN("FRN2027", 50, 0, DATE(2027,3,15), DATE(2024,3,15), 4, 0, 0, 0)
-
-' Calculate discount margin
-=CX.DISCOUNT.MARGIN(frnHandle, fwdCurve, discCurve, TODAY()+2, 99.75)
-
-' Calculate price from discount margin (inverse)
-=CX.PRICE.DM(frnHandle, fwdCurve, discCurve, TODAY()+2, 55)
+C1: =CX.RISK(A1, DATE(2025,4,15), "99.5C")                               ' default grid
+C2: =CX.RISK(A1, DATE(2025,4,15), "99.5C", , "dv01")                     ' scalar
+C3: =CX.RISK(A1, DATE(2025,4,15), "99.5C", B1, "krd", , "2,5,10")        ' KRD grid
 ```
 
-### Curve Bootstrapping
+### FRN price by discount margin
 
 ```excel
-' Bootstrap curve from deposits and swaps
-=CX.BOOTSTRAP("USD.SWAP", TODAY(),
-    {0.25, 0.5, 1},          ' Deposit tenors
-    {5.25, 5.30, 5.35},      ' Deposit rates (%)
-    {2, 3, 5, 7, 10, 30},    ' Swap tenors
-    {4.75, 4.50, 4.25, 4.15, 4.10, 4.25},  ' Swap rates (%)
-    0, 0)  ' Linear interp, ACT/360
-
-' Bootstrap from mixed instrument types
-=CX.BOOTSTRAP.MIXED("USD.OIS", TODAY(),
-    {0, 0, 3, 3, 3},         ' Types: Deposit, Deposit, OIS, OIS, OIS
-    {0.25, 0.5, 1, 2, 5},    ' Tenors
-    {5.25, 5.30, 5.00, 4.50, 4.00},  ' Rates (%)
-    0, 0)
+D1: =CX.BOND.FRN("US-FRN-001", 75, DATE(2030,1,15), DATE(2025,1,15), "sofr", "Quarterly", "Act360")
+D2: =CX.PRICE(D1, DATE(2025,4,15), "100D", B1)                           ' price mark
+D3: =CX.SPREAD(D1, B1, DATE(2025,4,15), "100D", "DM")                    ' DM in bps
 ```
 
-### Real-Time Data with Market Data Feeds
+## Ribbon
+
+The Convex tab has five groups:
+
+- **Bonds**: New Bond (tabbed: fixed-rate, callable, FRN, zero) · Pricing
+  Ticket · Spread Ticket.
+- **Curves**: New Curve (tabbed: discrete, bootstrap) · Curve Viewer
+  (chart of zero + 1Y forward).
+- **Scenarios**: Run Scenario (parallel shift bumps over a CSV bps list).
+- **Tools**: Objects (browse / inspect / paste handle / release) · Schemas
+  (JSON schema viewer for any DTO) · Settings (default frequency, day count,
+  spread family, currency persisted to `%APPDATA%\Convex\settings.json`) ·
+  Clear All.
+- **Help**: About.
+
+Every form routes through the same JSON RPC the cell UDFs use, so the
+ribbon and the worksheet can never disagree.
+
+## DTOs and the wire format
+
+The complete request/response shapes are exposed via `=CX.SCHEMA(...)`:
 
 ```excel
-' Create curve from real-time rates
-' Rates in A1:A5 can be fed by any market data provider (RTD function, DDE, etc.)
-=CX.CURVE.RTD("USD.GOVT.LIVE", TODAY(), {2,5,10,20,30}, A1:A5, 0, 1)
-
-' Create bond (static, doesn't change)
-=CX.BOND.CORP.RTD("AAPL5%2030", 5.0, DATE(2030,2,15), DATE(2020,2,15))
-
-' Calculate Z-spread using live curve - updates automatically when curve changes
-=CX.ZSPREAD.RTD("AAPL5%2030", "USD.GOVT.LIVE", TODAY()+2, B1)
-' Where B1 contains real-time price from your data provider
-
-' Duration, convexity, DV01 all update when price changes
-=CX.DURATION.RTD("AAPL5%2030", TODAY()+2, B1, 2)
-=CX.CONVEXITY.RTD("AAPL5%2030", TODAY()+2, B1, 2)
-=CX.DV01.RTD("AAPL5%2030", TODAY()+2, B1, 2)
+=CX.SCHEMA("Mark")                ' textual + tagged JSON forms
+=CX.SCHEMA("BondSpec")            ' fixed_rate / callable / floating_rate / zero_coupon / sinking_fund
+=CX.SCHEMA("CurveSpec")           ' discrete | bootstrap
+=CX.SCHEMA("PricingRequest")
+=CX.SCHEMA("PricingResponse")
+=CX.SCHEMA("RiskRequest")
+=CX.SCHEMA("RiskResponse")
+=CX.SCHEMA("SpreadRequest")
+=CX.SCHEMA("SpreadResponse")
+=CX.SCHEMA("CashflowRequest")
+=CX.SCHEMA("CashflowResponse")
+=CX.SCHEMA("CurveQueryRequest")
+=CX.SCHEMA("CurveQueryResponse")
 ```
 
-**How RTD works:**
-1. RTD functions subscribe to a topic (e.g., "curve:USD.GOVT.LIVE")
-2. When inputs change (e.g., market data updates), the curve is recalculated
-3. All dependent topics (Z-spread, duration, etc.) automatically update
-4. Updates are throttled (default 100ms) to prevent calculation storms
+## Conventions
 
-## Demo Workbook Layout
-
-Create a workbook with these sheets:
-
-### Sheet 1: Curves
-- Row 1: Headers (Tenor, Rate, DF, Forward)
-- Column A: Tenors (0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30)
-- Column B: Input rates
-- Column C: `=CX.CURVE.DISCOUNT($B$1, A2)`
-- Column D: `=CX.CURVE.FORWARD($B$1, A2, A3)`
-
-### Sheet 2: Bonds
-- Create several test bonds
-- Calculate price/yield for each
-- Show risk metrics side-by-side
-
-### Sheet 3: Scenario Analysis
-- Create base curve
-- Apply parallel shifts (+50, +100, -50, -100 bp)
-- Show price impact on portfolio
-
-## Ribbon UI
-
-The add-in includes a "Convex" ribbon tab with:
-
-- **Curves Group**: New Curve, Curve Viewer, Bootstrap
-- **Bonds Group**: New Bond (Fixed, Zero, FRN, Callable), Bond Analyzer
-- **Analysis Group**: Price/Yield, Risk Metrics, Spreads
-- **Tools Group**: Object Browser, Clear All, Help, About
-
-## Troubleshooting
-
-### DLL Not Found
-Ensure `convex_ffi.dll` is in the same directory as the .xll file.
-
-### Function Returns #VALUE!
-Use `=CX.LAST.ERROR()` to see the error message.
-
-### Handle Invalid
-Handles are 64-bit integers. If a function returns 0, the operation failed.
+| Field | Convention |
+|---|---|
+| Coupon rates | Decimal (0.05 = 5%). |
+| Spread bps | Basis points (75 = 75 bp). |
+| OAS volatility | Decimal (0.01 = 1%). |
+| Prices | Per 100 face. |
+| Dates | ISO-8601 strings on the wire; Excel `DateTime` cells in UDFs. |
+| Frequency | `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`, `Zero` (or `A`/`SA`/`Q`/`M`). |
+| Day count | `Act360`, `Act365Fixed`, `ActActIsda`, `ActActIcma`, `Thirty360US`, `Thirty360E`. |
+| Compounding | `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`, `Continuous`, `Simple`. |
 
 ## Architecture
 
 ```
-Excel <-> Excel-DNA (.NET) <-> P/Invoke <-> convex_ffi.dll (Rust)
-                                               |
-                                               v
-                                    convex-core, convex-curves,
-                                    convex-bonds, convex-analytics
+   Excel cell  ─►  CX.* UDF  ─┐
+                              ├─►  Cx (P/Invoke)  ─►  convex_ffi.dll  (Rust)
+   Excel ribbon ─► form ──────┘                              │
+                                                             ▼
+                                              registry → typed bonds/curves
+                                                             │
+                                                             ▼
+                                          convex-analytics → convex-bonds /
+                                                              convex-curves /
+                                                              convex-core
 ```
 
-All complex objects (curves, bonds) are stored in a thread-safe Rust registry
-and accessed via 64-bit handles. This ensures memory safety while providing
-high performance.
+The FFI is 13 C symbols total: 5 stateful (build bond, build curve,
+describe, release, list, count, clear) and 5 stateless analytics RPCs
+(`convex_price`, `convex_risk`, `convex_spread`, `convex_cashflows`,
+`convex_curve_query`) plus 3 utilities (`convex_schema`,
+`convex_mark_parse`, `convex_string_free`/`last_error`/`version`).
+
+Bonds and curves live in a thread-safe Rust registry behind opaque
+`u64` handles displayed in cells as `#CX#100`, `#CX#101`, ….
+
+## Errors
+
+Stateless RPCs return a JSON envelope:
+
+```json
+{ "ok": "true",  "result": { ... } }
+{ "ok": "false", "error": { "code": "invalid_input", "message": "...", "field": "mark" } }
+```
+
+Codes:
+
+- `invalid_input` — bad JSON shape, unparseable mark, missing required field.
+- `invalid_handle` — handle not in the registry, or wrong kind for the call.
+- `analytics` — solver did not converge, settle ≥ maturity, or other domain error.
+
+The cell UDFs surface these as `#ERROR: <code>: <message>` strings in the
+cell so `=IFERROR(...)` and `=ISERROR(...)` continue to work.
+
+## Demo workbook
+
+`excel/ConvexDemo.xlsx` ships a Bonds / Curves / Spreads / Scenarios /
+Schemas tour. The workbook is a derived artifact — regenerate it from
+the canonical script:
+
+```powershell
+pip install openpyxl
+python excel/build_demo.py
+```
+
+Open it with the add-in loaded; every formula should evaluate without
+`#NAME?`. Any `#ERROR: ...` text in a cell is a structured FFI envelope
+(see *Errors*) — the message tells you which argument was rejected.
+
+## Smoke tests
+
+```powershell
+cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+```
+
+19 end-to-end tests cover: every spread family, FRN/zero/sinking-fund
+pricing and risk, KRD, cashflow tag stability, schema introspection, mark
+parsing, and the error envelope.
+
+For a manual cell-side checklist see `excel/SMOKE_TEST.md`.

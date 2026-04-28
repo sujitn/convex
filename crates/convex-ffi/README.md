@@ -1,177 +1,257 @@
 # convex-ffi
 
-C FFI bindings for the Convex fixed income analytics library.
+C-ABI FFI for the Convex fixed-income analytics library.
 
-## Overview
-
-`convex-ffi` provides C-compatible foreign function interface bindings for the Convex library, enabling integration with:
-
-- Python (via ctypes or CFFI)
-- Java (via JNI)
-- C# (via P/Invoke)
-- Excel (via XLL)
-- Any language with C FFI support
-
-## Installation
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-convex-ffi = { git = "https://github.com/sujitn/convex.git" }
-```
+The boundary is JSON. Construction takes a `*Spec` JSON string and returns
+an opaque `u64` handle. Analytics take a request JSON, return a response
+JSON. Adding a new bond shape, spread family, or pricing convention is a
+serde enum variant plus a dispatch arm in `convex-analytics` /
+`convex-ffi::dispatch` — **no new C symbol** has to ship.
 
 ## Building
 
-### Shared Library
-
 ```bash
 cargo build --release -p convex-ffi
 ```
 
-This produces:
-- Linux: `libconvex_ffi.so`
-- macOS: `libconvex_ffi.dylib`
-- Windows: `convex_ffi.dll`
+Produces:
 
-### Static Library
+| Artifact | Linux | macOS | Windows |
+|---|---|---|---|
+| Shared library | `libconvex_ffi.so` | `libconvex_ffi.dylib` | `convex_ffi.dll` |
+| Static archive | `libconvex_ffi.a`  | `libconvex_ffi.a`   | `convex_ffi.lib` |
+| Rust rlib | `libconvex_ffi.rlib` (for integration tests) |
 
-```bash
-cargo build --release -p convex-ffi
-```
+## C surface (13 symbols)
 
-This also produces:
-- Linux/macOS: `libconvex_ffi.a`
-- Windows: `convex_ffi.lib`
-
-### C Header Generation
-
-The build automatically generates `convex.h` using cbindgen.
-
-## C API
-
-### Bond Pricing
+### Construction
 
 ```c
-#include "convex.h"
+uint64_t    convex_bond_from_json(const char* spec_json);
+uint64_t    convex_curve_from_json(const char* spec_json);
+const char* convex_describe(uint64_t handle);   // free with convex_string_free
+void        convex_release(uint64_t handle);
+int32_t     convex_object_count(void);
+const char* convex_list_objects(void);          // free with convex_string_free
+void        convex_clear_all(void);
+```
 
-// Create a fixed rate bond
-ConvexBond* bond = convex_bond_create(
-    "097023AH7",        // CUSIP
-    0.075,              // Coupon rate
-    20250615,           // Maturity (YYYYMMDD)
-    2,                  // Frequency (2 = semi-annual)
-    DAYCOUNT_30_360_US  // Day count convention
-);
+`convex_bond_from_json` and `convex_curve_from_json` return `0` on failure;
+read `convex_last_error()` for diagnostics.
 
-// Calculate yield to maturity
-double ytm;
-ConvexError err = convex_bond_ytm(bond, 110.503, 20240429, &ytm);
-if (err != CONVEX_OK) {
-    const char* msg = convex_error_message(err);
-    fprintf(stderr, "Error: %s\n", msg);
+### Stateless analytics (JSON in / JSON out)
+
+```c
+const char* convex_price        (const char* request_json);
+const char* convex_risk         (const char* request_json);
+const char* convex_spread       (const char* request_json);
+const char* convex_cashflows    (const char* request_json);
+const char* convex_curve_query  (const char* request_json);
+```
+
+All five return a heap-allocated UTF-8 string the caller MUST free with
+`convex_string_free`. The body is a JSON envelope:
+
+```json
+{ "ok": "true",  "result": { ... } }
+{ "ok": "false", "error": { "code": "...", "message": "...", "field": "..." } }
+```
+
+Error codes:
+
+| Code | Meaning |
+|---|---|
+| `invalid_input` | Bad JSON, missing required field, or unparseable mark. May carry a `field` pointer. |
+| `invalid_handle` | Handle not in the registry, or wrong kind for the call. |
+| `analytics` | Solver did not converge, settlement ≥ maturity, etc. |
+
+### Utilities
+
+```c
+const char* convex_schema(const char* type_name);  // free with convex_string_free
+const char* convex_mark_parse(const char* text);   // free with convex_string_free
+const char* convex_last_error(void);               // borrowed; do NOT free
+const char* convex_version(void);                  // static
+void        convex_clear_error(void);
+void        convex_string_free(const char* s);
+```
+
+`convex_schema` accepts: `"Mark"`, `"BondSpec"`, `"CurveSpec"`,
+`"PricingRequest"`, `"PricingResponse"`, `"RiskRequest"`, `"RiskResponse"`,
+`"SpreadRequest"`, `"SpreadResponse"`, `"CashflowRequest"`,
+`"CashflowResponse"`, `"CurveQueryRequest"`, `"CurveQueryResponse"`.
+
+## DTOs
+
+The complete request / response shapes are defined in
+[`convex_analytics::dto`](../convex-analytics/src/dto.rs). Highlights:
+
+### `BondSpec` (tagged JSON `"type"`)
+
+```json
+{ "type": "fixed_rate", "cusip": "037833100",
+  "coupon_rate": 0.05, "frequency": "SemiAnnual",
+  "maturity": "2035-01-15", "issue": "2025-01-15",
+  "day_count": "Thirty360US", "currency": "USD", "face_value": 100 }
+
+{ "type": "callable", ...fixed_rate fields...,
+  "call_schedule": [{ "date": "2030-01-15", "price": 102.0 }],
+  "call_style": "american" }
+
+{ "type": "floating_rate", "spread_bps": 75, "rate_index": "sofr",
+  "frequency": "Quarterly", "day_count": "Act360", ... }
+
+{ "type": "zero_coupon", "compounding": "SemiAnnual",
+  "day_count": "ActActIcma", ... }
+
+{ "type": "sinking_fund", ...fixed_rate fields...,
+  "schedule": [{ "date": "2031-01-15", "amount": 20.0, "price": 100.0 }] }
+```
+
+### `CurveSpec` (tagged JSON `"type"`)
+
+```json
+{ "type": "discrete", "ref_date": "2025-01-15",
+  "tenors": [0.5, 1, 2, 5, 10, 30],
+  "values": [0.045, 0.046, 0.047, 0.048, 0.049, 0.050],
+  "value_kind": "zero_rate", "interpolation": "linear",
+  "day_count": "Act365Fixed", "compounding": "Continuous" }
+
+{ "type": "bootstrap", "ref_date": "2025-01-15",
+  "method": "global_fit",
+  "instruments": [
+    { "kind": "deposit", "tenor": 0.25, "rate": 0.0525 },
+    { "kind": "swap",    "tenor": 5.0,  "rate": 0.0425 }
+  ],
+  "interpolation": "linear", "day_count": "Act360" }
+```
+
+### `Mark` — accepted as text or tagged JSON
+
+```text
+99.5            ' clean price (default)
+99.5C / 99.5D   ' explicit clean / dirty
+99-16 / 99-16+  ' Treasury 32nds
+4.65% / 4.65%@SA ' yield + frequency
++125bps@USD.SOFR ' Z-spread (default) over benchmark
+125 OAS@USD.TSY  ' explicit spread type
+```
+
+### `PricingRequest`
+
+```json
+{ "bond": 100, "settlement": "2025-04-15",
+  "mark": "99.5C",
+  "curve": null,                   /* required for spread marks and FRNs */
+  "quote_frequency": "SemiAnnual",
+  "forward_curve": null            /* FRN projection curve */
 }
-
-// Calculate accrued interest
-double accrued;
-convex_bond_accrued(bond, 20240429, &accrued);
-
-// Clean up
-convex_bond_free(bond);
 ```
 
-### Curve Operations
+### `SpreadRequest.params`
+
+| Field | Used by | Meaning |
+|---|---|---|
+| `volatility` | OAS | Short-rate volatility, decimal (0.01 = 1%). |
+| `forward_curve` | DM | Projection curve handle. Defaults to discount curve. |
+| `current_index` | DM (simple-margin shortcut) | Current index rate, decimal. |
+| `govt_curve` | G-spread | **Required.** Separate government curve handle. |
+
+## C example
 
 ```c
-// Create a discount curve
-ConvexCurve* curve = convex_curve_create(20240115);
+#include "convex.h"   // generated by cbindgen
+#include <stdio.h>
 
-// Add instruments
-convex_curve_add_deposit(curve, "1M", 0.0525);
-convex_curve_add_deposit(curve, "3M", 0.0535);
-convex_curve_add_swap(curve, "2Y", 0.0545);
-convex_curve_add_swap(curve, "5Y", 0.0560);
+int main(void) {
+    const char* bond_spec =
+        "{\"type\":\"fixed_rate\",\"cusip\":\"TEST10Y5\","
+        "\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\","
+        "\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\","
+        "\"day_count\":\"Thirty360US\",\"currency\":\"USD\","
+        "\"face_value\":100}";
 
-// Build the curve
-convex_curve_build(curve);
+    uint64_t bond = convex_bond_from_json(bond_spec);
+    if (bond == 0) {
+        fprintf(stderr, "build failed: %s\n", convex_last_error());
+        return 1;
+    }
 
-// Get discount factor
-double df;
-convex_curve_discount_factor(curve, 3.0, &df);
+    char request[512];
+    snprintf(request, sizeof request,
+        "{\"bond\":%llu,\"settlement\":\"2025-04-15\","
+        "\"mark\":\"99.5C\",\"quote_frequency\":\"SemiAnnual\"}",
+        (unsigned long long)bond);
 
-// Clean up
-convex_curve_free(curve);
-```
+    const char* response = convex_price(request);
+    printf("%s\n", response);
+    convex_string_free((char*)response);
 
-### Error Handling
-
-```c
-ConvexError err = convex_some_operation(...);
-
-switch (err) {
-    case CONVEX_OK:
-        // Success
-        break;
-    case CONVEX_ERROR_INVALID_INPUT:
-        // Handle invalid input
-        break;
-    case CONVEX_ERROR_SOLVER_FAILED:
-        // Handle solver failure
-        break;
-    default:
-        // Handle other errors
-        break;
+    convex_release(bond);
+    return 0;
 }
-
-// Get error message
-const char* msg = convex_error_message(err);
 ```
 
-## Python Integration
+## Python (ctypes)
 
 ```python
-import ctypes
+import ctypes, json
 
-# Load the library
 lib = ctypes.CDLL("./libconvex_ffi.so")
+lib.convex_bond_from_json.argtypes = [ctypes.c_char_p]
+lib.convex_bond_from_json.restype  = ctypes.c_uint64
+lib.convex_price.argtypes          = [ctypes.c_char_p]
+lib.convex_price.restype           = ctypes.c_char_p
+lib.convex_string_free.argtypes    = [ctypes.c_char_p]
 
-# Define function signatures
-lib.convex_bond_create.argtypes = [
-    ctypes.c_char_p, ctypes.c_double, ctypes.c_int,
-    ctypes.c_int, ctypes.c_int
-]
-lib.convex_bond_create.restype = ctypes.c_void_p
+bond = lib.convex_bond_from_json(json.dumps({
+    "type": "fixed_rate", "cusip": "TEST10Y5",
+    "coupon_rate": 0.05, "frequency": "SemiAnnual",
+    "maturity": "2035-01-15", "issue": "2025-01-15",
+    "day_count": "Thirty360US", "currency": "USD", "face_value": 100,
+}).encode())
 
-lib.convex_bond_ytm.argtypes = [
-    ctypes.c_void_p, ctypes.c_double, ctypes.c_int,
-    ctypes.POINTER(ctypes.c_double)
-]
-lib.convex_bond_ytm.restype = ctypes.c_int
+raw = lib.convex_price(json.dumps({
+    "bond": bond, "settlement": "2025-04-15",
+    "mark": "99.5C", "quote_frequency": "SemiAnnual",
+}).encode())
+print(json.loads(raw.decode()))
 
-# Create a bond
-bond = lib.convex_bond_create(
-    b"097023AH7", 0.075, 20250615, 2, 0
-)
+# Free the response string returned by convex_price.
+# (raw was a c_char_p alias of the pointer; pass it back unchanged.)
+lib.convex_string_free(raw)
 
-# Calculate YTM
-ytm = ctypes.c_double()
-err = lib.convex_bond_ytm(bond, 110.503, 20240429, ctypes.byref(ytm))
-print(f"YTM: {ytm.value:.6%}")
-
-# Clean up
-lib.convex_bond_free(bond)
+lib.convex_release(bond)
 ```
 
-## Thread Safety
+## Thread safety
 
-All FFI functions are thread-safe. The underlying Rust implementation uses appropriate synchronization primitives.
+The registry uses `RwLock<HashMap<...>>` for concurrent reads. Every public
+FFI function is safe to call from multiple threads. The thread-local
+`last_error` slot is per-thread; check it on the same thread that triggered
+the failure.
 
-## Memory Management
+## Memory model
 
-- Functions returning opaque pointers (e.g., `ConvexBond*`, `ConvexCurve*`) allocate memory that must be freed with the corresponding `_free` function.
-- String outputs use caller-provided buffers or return static strings.
-- Error messages from `convex_error_message` are static and should not be freed.
+- Strings returned by `convex_*` (any function with `*const c_char` or
+  `*mut c_char` return type **other than** `convex_last_error` and
+  `convex_version`) are heap-allocated by Rust; free with `convex_string_free`.
+- `convex_last_error` returns a pointer into a thread-local `CString`; it
+  remains valid until the next call into the library on the same thread.
+- `convex_version` returns a `'static` pointer.
+- Inputs are borrowed; the FFI never takes ownership of caller-allocated
+  memory.
+
+## Tests
+
+```bash
+cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+```
+
+19 end-to-end tests: every spread family (Z / G / I / ASW / OAS / DM),
+FRN / zero / sinking-fund pricing and risk, KRD, cashflow tag stability,
+schema introspection, mark parsing, error envelopes.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+MIT — see [LICENSE](../../LICENSE).

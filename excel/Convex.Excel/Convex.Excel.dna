@@ -2,70 +2,37 @@
 <DnaLibrary Name="Convex Excel Add-In" RuntimeVersion="v4.0">
   <ExternalLibrary Path="Convex.Excel.dll" ExplicitExports="false" LoadFromBytes="true" Pack="true" />
 
-  <!-- Native Convex library - for runtime loading -->
+  <!-- Newtonsoft.Json — the reference JSON library on .NET Framework, single
+       DLL with no transitive dependencies. Packed into the .xll. -->
+  <Reference Path="Newtonsoft.Json.dll" Pack="true" />
+
   <NativeLibrary Name="convex_ffi" Path="convex_ffi.dll" />
 
-  <!-- Ribbon UI -->
   <CustomUI>
     <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" loadImage="LoadImage">
       <ribbon>
         <tabs>
           <tab id="ConvexTab" label="Convex">
-            <!-- Curves Group -->
-            <group id="CurvesGroup" label="Curves">
-              <button id="btnNewCurve" label="New Curve"
-                      size="large" image="curve_new"
-                      onAction="OnNewCurve" screentip="Create a new yield curve" />
-              <button id="btnBootstrap" label="Bootstrap"
-                      size="large" image="bootstrap"
-                      onAction="OnBootstrap" screentip="Bootstrap curve from market instruments" />
-              <button id="btnCurveViewer" label="Curve Viewer"
-                      size="large" image="curve_view"
-                      onAction="OnCurveViewer" screentip="View curve data and chart" />
-            </group>
-
-            <!-- Bonds Group -->
             <group id="BondsGroup" label="Bonds">
-              <button id="btnNewBond" label="New Bond"
-                      size="large" image="bond_new"
-                      onAction="OnNewBond" screentip="Create a new bond" />
-              <button id="btnBondAnalyzer" label="Bond Analyzer"
-                      size="large" image="bond_analyze"
-                      onAction="OnBondAnalyzer" screentip="Analyze bond metrics and cashflows" />
+              <button id="btnNewBond"      label="New Bond"        size="large" image="bond_new"      onAction="OnNewBond"      screentip="Build a bond and register a handle." />
+              <button id="btnPricingTicket" label="Pricing Ticket"  size="large" image="bond_analyze"  onAction="OnPricingTicket" screentip="Mark a bond and read clean / dirty / accrued / YTM / Z." />
+              <button id="btnSpreadTicket"  label="Spread Ticket"   size="large" image="bond_analyze"  onAction="OnSpreadTicket"  screentip="Compute Z / G / I / OAS / DM / ASW spreads." />
             </group>
-
-            <!-- RTD Group -->
-            <group id="RtdGroup" label="Real-Time Data">
-              <button id="btnRtdSettings" label="RTD Settings"
-                      size="large" image="rtd_settings"
-                      onAction="OnRtdSettings" screentip="Configure RTD update settings" />
-              <toggleButton id="btnRtdToggle" label="RTD Enabled"
-                      size="normal" image="rtd_toggle"
-                      onAction="OnRtdToggle" getPressed="GetRtdEnabled"
-                      screentip="Enable/disable RTD updates" />
-              <button id="btnRtdRefresh" label="Refresh All"
-                      size="normal" image="rtd_refresh"
-                      onAction="OnRtdRefresh" screentip="Force refresh all RTD topics" />
+            <group id="CurvesGroup" label="Curves">
+              <button id="btnNewCurve"     label="New Curve"      size="large" image="curve_new"   onAction="OnNewCurve"      screentip="Build a discrete or bootstrapped curve." />
+              <button id="btnCurveViewer"  label="Curve Viewer"   size="large" image="curve_view"  onAction="OnCurveViewer"   screentip="Plot zero and forward curves; query points." />
             </group>
-
-            <!-- Tools Group -->
+            <group id="ScenariosGroup" label="Scenarios">
+              <button id="btnScenario"     label="Run Scenario"   size="large" image="bootstrap"   onAction="OnScenario"      screentip="Parallel shift, twist, and key-rate durations." />
+            </group>
             <group id="ToolsGroup" label="Tools">
-              <button id="btnObjectBrowser" label="Objects"
-                      size="large" image="objects"
-                      onAction="OnObjectBrowser" screentip="Browse registered objects" />
-              <button id="btnClearAll" label="Clear All"
-                      size="normal" image="clear"
-                      onAction="OnClearAll" screentip="Clear all registered objects" />
+              <button id="btnObjects"      label="Objects"        size="large" image="objects"  onAction="OnObjectBrowser" screentip="Browse, paste, describe, or release registered handles." />
+              <button id="btnSchema"       label="Schemas"        size="normal" image="about"   onAction="OnSchemaBrowser" screentip="Inspect the JSON wire format for any DTO." />
+              <button id="btnSettings"     label="Settings"       size="normal" image="about"   onAction="OnSettings"      screentip="Default frequency, day count, and spread family." />
+              <button id="btnClearAll"     label="Clear All"      size="normal" image="clear"   onAction="OnClearAll"      screentip="Release every registered Convex object." />
             </group>
-
-            <!-- Help Group -->
             <group id="HelpGroup" label="Help">
-              <button id="btnHelp" label="Help"
-                      size="large" image="help"
-                      onAction="OnHelp" screentip="View function documentation" />
-              <button id="btnAbout" label="About"
-                      size="normal" image="about"
-                      onAction="OnAbout" screentip="About Convex Excel Add-In" />
+              <button id="btnAbout"        label="About"          size="normal" image="about"   onAction="OnAbout"         screentip="About this add-in." />
             </group>
           </tab>
         </tabs>

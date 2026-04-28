@@ -1,210 +1,190 @@
-# Convex Project - Claude Code Memory
+# Convex — Claude Code memory
 
-## Project Overview
-Convex is a high-performance fixed income analytics library built in Rust with an Excel add-in interface via Excel-DNA (.NET Framework 4.7.2).
+High-performance fixed-income analytics in Rust, surfaced through:
 
-## Architecture
+- **Excel add-in** via Excel-DNA (.NET Framework 4.7.2 + P/Invoke).
+- **MCP server** for tool/agent integration.
+- **Convex umbrella crate** for direct embedding (CLI tools, services).
 
-### Rust Crates
-- `convex-bonds` - Bond types, pricing, risk metrics
-- `convex-curves` - Yield curve construction and interpolation
-- `convex-ffi` - C FFI layer for Excel integration
-- `convex-dates` - Date handling and day count conventions
+The boundary in every case is the same JSON wire format. Adding a new bond
+shape, spread family, or pricing convention is a serde enum variant plus a
+dispatch arm — no new C symbol, no new P/Invoke, no new Excel UDF.
 
-### Excel Add-in (C#)
-- Location: `excel/Convex.Excel/`
-- Uses Excel-DNA for UDF and ribbon integration
-- P/Invoke calls to `convex_ffi.dll`
+## Crates
 
-## Key Technical Details
+| Crate | Role |
+|---|---|
+| `convex-core` | Domain types: `Date`, `Currency`, `Frequency`, `Compounding`, `Mark`, `Spread`, `Yield`, `Price`, day-count conventions, calendars. |
+| `convex-math` | Numerical kernels: Brent solver, Newton, Levenberg-Marquardt, interpolators. |
+| `convex-curves` | Discrete curves, bootstrapping (global-fit + piecewise), bumping (parallel / key-rate / scenario). |
+| `convex-bonds` | Instruments: `FixedRateBond`, `CallableBond`, `FloatingRateNote`, `ZeroCouponBond`, `SinkingFundBond`. |
+| `convex-analytics` | Pricing (`price_from_mark`), risk, spreads (Z/G/I/ASW/OAS/DM), DTOs (`dto.rs`). |
+| `convex-ffi` | C-ABI FFI: 13 symbols, JSON-in / JSON-out, opaque handle registry. |
+| `convex` | Umbrella facade re-exporting the public API. |
+| `convex-mcp` | MCP server speaking the same DTOs. |
 
-### Handle System
-- Format: `#CX#100`, `#CX#101`, etc. (starts from 100)
-- Defined in `HandleHelper.cs` and `registry.rs`
-- Registry starts at handle 100 (changed from 6000)
+## FFI surface (13 C symbols)
 
-### Object Types (registry.rs)
-- 1 = Curve
-- 2 = FixedBond
-- 3 = ZeroBond
-- 4 = FloatingRateNote
-- 5 = CallableBond
+Construction (returns `u64` handle, `0` = invalid):
 
-### FFI Parameter Conventions
-- `convex_bond_fixed`: coupon as decimal (0.05 for 5%)
-- `convex_bond_us_corporate`: coupon as percentage (5.0 for 5%)
-- `convex_bond_us_treasury`: coupon as percentage (5.0 for 5%)
-- `convex_curve_from_zero_rates`: rates as decimal (0.04 for 4%)
-- **Excel UDFs** (`CX.CURVE`, etc.): rates as percentage (4.0 for 4%) - automatically converted
-- Dates passed as year, month, day integers
+| Symbol | Purpose |
+|---|---|
+| `convex_bond_from_json(spec)` | Build a bond from a `BondSpec` JSON. |
+| `convex_curve_from_json(spec)` | Build a curve from a `CurveSpec` JSON. |
+| `convex_describe(handle)` | JSON description of a registered object. |
+| `convex_release(handle)` | Drop a handle. |
+| `convex_object_count()` | Number of registered objects. |
+| `convex_clear_all()` | Drop every handle. |
+| `convex_list_objects()` | JSON list `[{handle,kind,name?}]`. |
 
-### NativeMethods Signature (convex_bond_fixed)
-```csharp
-public static extern ulong convex_bond_fixed(
-    string isin,
-    double couponRate,        // decimal (0.05)
-    int maturityYear, int maturityMonth, int maturityDay,
-    int issueYear, int issueMonth, int issueDay,
-    int frequency,
-    int dayCount,
-    int currency,             // 0 = USD
-    double faceValue);        // typically 100.0
-```
+Stateless analytics (JSON RPC envelopes):
 
-## Excel Functions (CX. prefix)
+| Symbol | Request → Response |
+|---|---|
+| `convex_price` | `PricingRequest` → `PricingResponse` |
+| `convex_risk` | `RiskRequest` → `RiskResponse` |
+| `convex_spread` | `SpreadRequest` → `SpreadResponse` |
+| `convex_cashflows` | `CashflowRequest` → `CashflowResponse` |
+| `convex_curve_query` | `CurveQueryRequest` → `CurveQueryResponse` |
 
-### Curves
-- `CX.CURVE` - Create curve from zero rates (input rates as %, e.g., 4.5 for 4.5%)
-- `CX.CURVE.ZERO` - Query zero rate (returns %)
-- `CX.CURVE.DISCOUNT` - Query discount factor
-- `CX.CURVE.FORWARD` - Query forward rate (returns %)
+Utilities:
 
-### Bonds
-- `CX.BOND` - Create generic fixed bond
-- `CX.BOND.CORP` - Create US corporate bond
-- `CX.BOND.TSY` - Create US Treasury bond
-- `CX.BOND.CALLABLE` - Create callable bond
-- `CX.BOND.ACCRUED` - Get accrued interest
+| Symbol | Purpose |
+|---|---|
+| `convex_schema(typeName)` | JSON schema for any DTO. |
+| `convex_mark_parse(text)` | Parse a textual mark into canonical JSON. |
+| `convex_last_error` / `convex_clear_error` / `convex_version` / `convex_string_free` | Boilerplate. |
 
-### Pricing
-- `CX.YIELD` - Calculate YTM (returns %)
-- `CX.PRICE` - Calculate clean price from yield
-- `CX.DIRTY.PRICE` - Calculate dirty price
-- `CX.YIELD.CALL` - Yield to call
+The envelope is `{"ok":"true","result":...}` on success and
+`{"ok":"false","error":{"code","message","field?"}}` on failure. Codes are
+`invalid_input`, `invalid_handle`, `analytics`.
 
-### Risk
-- `CX.DURATION` - Modified duration
-- `CX.DURATION.MAC` - Macaulay duration
-- `CX.CONVEXITY` - Convexity
-- `CX.DV01` - Dollar value of 1bp
-- `CX.ANALYTICS` - All metrics at once
+## Trader marks
 
-### Spreads
-- `CX.ZSPREAD` - Z-spread
-- `CX.ISPREAD` - I-spread
-- `CX.GSPREAD` - G-spread
-- `CX.ASW` - Asset swap spread
+Every pricing / risk / spread call accepts one textual mark string. The
+parser (`Mark::from_str`) recognises:
 
-### Bootstrapping
-- `CX.BOOTSTRAP` - Bootstrap curve from deposits and swaps (Global Fit method)
-- `CX.BOOTSTRAP.OIS` - Bootstrap OIS curve
-- `CX.BOOTSTRAP.MIXED` - Bootstrap curve from mixed instrument types (Deposit, FRA, Swap, OIS)
-- `CX.BOOTSTRAP.PIECEWISE` - Bootstrap using piecewise/iterative method (Brent root-finding)
+| Form | Example |
+|---|---|
+| Decimal price (clean default) | `99.5`, `99.5C`, `99.5 dirty`, `99.5D` |
+| 32nds | `99-16`, `99-16+` |
+| Yield + frequency | `4.65%`, `4.65%@SA`, `4.65%@A` |
+| Spread + benchmark (default Z) | `+125bps@USD.SOFR` |
+| Spread with explicit type | `125 OAS@USD.TSY`, `-50 G@USD.TSY.10Y` |
 
-## Curve Bootstrapping
+Spread types: `Z` / `G` / `I` / `OAS` / `DM` / `ASW` / `ASW_PROC` / `CREDIT`.
 
-### Supported Instrument Types
-- **Deposit** (type=0): Money market deposits, simple interest
-- **FRA** (type=1): Forward rate agreements
-- **Swap** (type=2): Interest rate swaps (semi-annual, 30/360)
-- **OIS** (type=3): Overnight index swaps
+## Conventions
 
-### Calibration Methods
+| Field | Convention |
+|---|---|
+| Coupon rate | Decimal (0.05 = 5%). |
+| Spread bps | Basis points (75 = 75 bp). |
+| OAS volatility | Decimal (0.01 = 1%). |
+| Prices | Per 100 face. |
+| Dates | ISO-8601 strings on the wire; `DateTime` cells in Excel. |
+| Day count | `Act360`, `Act365Fixed`, `ActActIsda`, `ActActIcma`, `Thirty360US`, `Thirty360E`. |
+| Compounding | `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`, `Continuous`, `Simple`. |
+| Frequency | `Annual`, `SemiAnnual`, `Quarterly`, `Monthly`, `Zero`. |
 
-**Global Fit (Default):** Uses Levenberg-Marquardt optimization to fit all instruments simultaneously.
-- Better stability with over-determined systems
-- Handles instrument interdependencies
-- May not exactly match market quotes
+## Excel UDFs (`CX.` prefix)
 
-**Piecewise Bootstrap:** Iterative bootstrap using Brent root-finding.
-- Exact fit to market quotes (within tolerance)
-- Faster for standard curves
-- Industry standard approach
-- Sensitive to instrument ordering
+### Construction (returns `#CX#…` handle)
+- `CX.BOND` · `CX.BOND.CALLABLE` · `CX.BOND.FRN` · `CX.BOND.ZERO`
+- `CX.CURVE` · `CX.CURVE.BOOTSTRAP`
 
-### FFI Functions
-```rust
-// Deposit + Swap bootstrap
-convex_bootstrap_from_instruments(
-    name, ref_year, ref_month, ref_day,
-    deposit_tenors, deposit_rates, deposit_count,
-    swap_tenors, swap_rates, swap_count,
-    interpolation, day_count
-) -> Handle
+### Stateless analytics
+- `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` — clean / dirty / accrued / ytm / z_spread / grid.
+- `CX.RISK(bond, settle, mark, [curve], [metric], [quoteFreq], [krdTenors])` — grid / mod_dur / mac_dur / convexity / dv01 / spread_dur / krd.
+- `CX.SPREAD(bond, curve, settle, mark, [type], [vol], [field])` — Z / G / I / ASW / ASW_PROC / OAS / DM / Credit.
+- `CX.CASHFLOWS(bond, settle)` — `Date · Amount · Kind` grid.
+- `CX.CURVE.QUERY(curve, tenor, [query], [tenorEnd])` — zero / df / forward.
 
-// OIS only bootstrap
-convex_bootstrap_ois(
-    name, ref_year, ref_month, ref_day,
-    tenors, rates, count,
-    interpolation, day_count
-) -> Handle
+### Diagnostics
+- `CX.SCHEMA(typeName)` · `CX.MARK(text)` · `CX.DESCRIBE(handle)` ·
+  `CX.VERSION()` · `CX.OBJECTS()` · `CX.RELEASE(handle)` · `CX.CLEAR()`.
 
-// Mixed instruments bootstrap
-convex_bootstrap_mixed(
-    name, ref_year, ref_month, ref_day,
-    instrument_types, tenors, rates, count,
-    interpolation, day_count
-) -> Handle
-```
+## Ribbon
 
-### C# Wrapper Methods
-```csharp
-ConvexWrapper.BootstrapCurve(name, refDate, depositTenors, depositRates, swapTenors, swapRates, interpolation, dayCount)
-ConvexWrapper.BootstrapOISCurve(name, refDate, tenors, rates, interpolation, dayCount)
-ConvexWrapper.BootstrapMixedCurve(name, refDate, instrumentTypes, tenors, rates, interpolation, dayCount)
-```
+Convex tab, five groups:
 
-## Ribbon Forms
+- **Bonds**: `BondBuilderForm` · `PricingTicketForm` · `SpreadTicketForm`.
+- **Curves**: `CurveBuilderForm` · `CurveViewerForm`.
+- **Scenarios**: `ScenarioForm`.
+- **Tools**: `ObjectBrowserForm` · `SchemaBrowserForm` · `SettingsForm` ·
+  Clear All.
+- **Help**: About.
 
-### Implemented Forms
-1. **NewCurveForm** - Create curves with data grid for tenor/rate points
-2. **NewBondForm** - Create bonds with callable option support
-3. **CurveViewerForm** - View curves with chart (zero rate + forward rate)
-4. **BondAnalyzerForm** - Analyze bonds with cashflow chart
-5. **ObjectBrowserForm** - Browse registered objects
-6. **HelpForm** - Tabbed documentation
-7. **BootstrapForm** - Bootstrap curves from market instruments (deposits, swaps, OIS, FRAs)
+Every form routes through the same JSON RPC the cell UDFs use, so the
+worksheet and the ribbon can never disagree. JSON-spec construction lives in
+`excel/Convex.Excel/helpers/BondSpecs.cs` and `CurveSpecs.cs` — single
+source of truth shared by UDFs and forms. Ribbon icons live in
+`helpers/IconAtlas.cs` (programmatic GDI+ paint, cached on first use).
 
-### Custom Ribbon Icons
-- Icons are programmatically generated in `RibbonController.LoadImage()`
-- 32x32 pixel bitmaps drawn with System.Drawing
-- No external icon files required
+## Handle registry
 
-## Common Issues & Solutions
+- Format: `#CX#100`, `#CX#101`, … (starts at 100 for visual contrast).
+- Type-erased `Box<dyn Any + Send + Sync>` keyed by `u64`.
+- Bond shapes are tracked via `BondKind { FixedRate, Callable, FloatingRate, ZeroCoupon, SinkingFund }`.
+- Curves stored as `RateCurve<DiscreteCurve>`.
+- Re-registering the same name releases the prior handle (so dependent cells
+  see a fresh handle and recalc).
 
-### SplitContainer Error
-Don't set Panel1MinSize/Panel2MinSize in initializer - can cause "SplitterDistance must be between..." error. Set them after construction or omit them.
+## Routing model in `convex_ffi::dispatch`
 
-### Bond Creation Fails
-Check parameter order matches Rust FFI signature. `convex_bond_fixed` expects coupon as decimal, dates before frequency.
+- **Fixed-coupon shapes** (FixedRate, Callable, SinkingFund) share a single
+  generic body via `with_fixed_bond!`.
+- **FRN** doesn't impl `FixedCouponBond`; gets dedicated `price_frn` /
+  `risk_frn` / `spread_dm` paths driven off price marks and DM spread marks.
+- **Zero-coupon** uses closed-form yield ↔ price (`ZeroCouponBond` exposes
+  `price_from_yield` / `yield_from_price`); risk is closed-form
+  Macaulay = years to maturity.
+- **OAS** routes through `CallableBond`; effective duration / convexity are
+  ±1bp **curve** parallel shifts holding OAS constant. Option value =
+  bullet PV at the implied Z-spread minus callable model price.
+- **G-spread** requires an explicit `params.govt_curve` handle — a synthesised
+  benchmark from the discount curve is dishonest (G-spread on its own curve
+  is identically zero), so the dispatcher refuses without one.
+- **DM** uses `params.forward_curve` (defaults to the discount curve when
+  omitted). Simple-margin shortcut: passing `params.current_index` returns
+  the closed-form simple margin instead of the iterative DM solver.
+- **KRD**: hold the implied Z-spread fixed, bump the discount curve at each
+  key tenor (triangular weight), reprice. Output is per-tenor partial
+  duration.
 
-### Missing Microsoft.CSharp
-Add `<Reference Include="Microsoft.CSharp" />` to .csproj for dynamic keyword usage.
-
-## Build Commands
+## Build commands
 
 ```bash
-# Build Rust FFI
+# Rust
 cargo build --release -p convex-ffi
+cargo test  --release -p convex-ffi --test smoke -- --test-threads=1
 
-# Build Excel add-in
+# Excel add-in
 cd excel/Convex.Excel
 dotnet build --configuration Release
 
-# Copy DLL (if needed)
-copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
-
-# Launch Excel with add-in
-start excel /x "excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll"
+# Launch Excel with the packed .xll
+start excel /x "excel\Convex.Excel\bin\Release\net472\publish\Convex.Excel64-packed.xll"
 ```
 
-## Recent Changes (Session Summary)
+## Conventions for adding new functionality
 
-### Handle Format Change
-- Changed from `#XXXX` to `#CX#XXX`
-- Registry starts at 100 instead of 6000
+| Goal | Where to change |
+|---|---|
+| New bond shape | Add a variant to `convex_analytics::dto::BondSpec` + a builder arm in `convex_ffi::build` + (if new trait surface) a dedicated dispatch path in `convex_ffi::dispatch`. |
+| New spread family | Add a variant to `convex_core::types::SpreadType` (already broad) + an arm in `dispatch::spread_fixed` (or a dedicated handler if it needs a different bond trait). |
+| New curve type | Add a variant to `convex_analytics::dto::CurveSpec` + a builder arm in `convex_ffi::build`. |
+| New analytic | Pick the right RPC (`convex_price` / `convex_risk` / `convex_spread`) and add a field to its response DTO. |
 
-### New Forms Added
-- CurveViewerForm with yield curve chart
-- BondAnalyzerForm with cashflow chart
-- NewCurveForm and NewBondForm for object creation
-- HelpForm with tabbed documentation
+The C FFI surface, P/Invoke layer, and Excel UDFs do not need to change for
+any of the above.
 
-### Custom Ribbon Icons
-- Replaced imageMso with programmatically drawn icons
-- LoadImage override in RibbonController
+## Documentation map
 
-### Bug Fixes
-- Fixed convex_bond_fixed signature mismatch
-- Fixed SplitContainer initialization errors
-- Fixed BondAnalyzerForm layout (input panel height 80→130)
+- `excel/README.md` — Excel-side user docs (UDF surface + examples).
+- `excel/SMOKE_TEST.md` — manual smoke-test checklist.
+- `excel/build_demo.py` — regenerates `excel/ConvexDemo.xlsx` from scratch
+  whenever the cell API changes (treat the `.xlsx` as a derived artifact).
+- `crates/convex-ffi/README.md` — FFI integration guide.
+- `crates/convex-mcp/README.md` — MCP server.
+- `docs/mcp-audit.md` / `docs/mcp-gaps.md` — MCP-specific notes.

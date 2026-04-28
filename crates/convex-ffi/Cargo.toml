@@ -11,7 +11,7 @@ keywords = ["finance", "fixed-income", "ffi", "c-bindings"]
 categories = ["finance", "api-bindings"]
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 # Internal crates
@@ -32,6 +32,13 @@ libc = { workspace = true }
 
 # Error handling
 thiserror = { workspace = true }
+
+# Serde glue
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
 
 [build-dependencies]
 cbindgen = { workspace = true }

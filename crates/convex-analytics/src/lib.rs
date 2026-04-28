@@ -70,6 +70,9 @@ pub mod functions;
 // Mark-driven pricing (the trader-mark sovereignty entry point)
 pub mod pricing;
 
+// JSON-wire DTOs for FFI / MCP / WASM boundaries.
+pub mod dto;
+
 // Phase 7: Short-rate model calibration (HW1F single-σ via co-terminal swaptions)
 pub mod calibration;
 
