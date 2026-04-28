@@ -192,15 +192,24 @@ impl DayCount for ActActIcma {
         "ACT/ACT ICMA"
     }
 
-    // ICMA needs period bounds for an exact answer; the trait method
-    // doesn't get them, so fall through to the ISDA calendar split. Use
-    // year_fraction_with_period for accrual.
+    // ICMA needs period bounds. Without them, fall back to ISDA (matches QL).
+    // Accrual paths must go through `period_year_fraction`.
     fn year_fraction(&self, start: Date, end: Date) -> Decimal {
         ActActIsda.year_fraction(start, end)
     }
 
     fn day_count(&self, start: Date, end: Date) -> i64 {
         start.days_between(&end)
+    }
+
+    fn period_year_fraction(
+        &self,
+        accrual_start: Date,
+        accrual_end: Date,
+        period_start: Date,
+        period_end: Date,
+    ) -> Decimal {
+        self.year_fraction_with_period(accrual_start, accrual_end, period_start, period_end)
     }
 }
 

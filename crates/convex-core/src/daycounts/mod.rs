@@ -89,6 +89,17 @@ pub trait DayCount: Send + Sync {
     /// For ACT conventions, this is actual calendar days.
     /// For 30/360 conventions, this uses the 30-day month assumption.
     fn day_count(&self, start: Date, end: Date) -> i64;
+
+    /// Period-aware year fraction. ICMA needs `period_*`; the rest ignore it.
+    fn period_year_fraction(
+        &self,
+        accrual_start: Date,
+        accrual_end: Date,
+        _period_start: Date,
+        _period_end: Date,
+    ) -> Decimal {
+        self.year_fraction(accrual_start, accrual_end)
+    }
 }
 
 /// Enumeration of all supported day count conventions.

@@ -115,6 +115,26 @@ impl ForwardCurve {
     pub fn forward_tenor(&self) -> f64 {
         self.forward_tenor
     }
+
+    /// Simple forward over [t_start, t_end]: `(DF(t1)/DF(t2) - 1) / (t2 - t1)`.
+    /// What an FRN coupon actually accrues at — not the instantaneous forward.
+    pub fn simple_forward_period(&self, t_start: f64, t_end: f64) -> CurveResult<f64> {
+        let span = t_end - t_start;
+        if span <= 0.0 {
+            return Ok(0.0);
+        }
+        let df_start = self.discount_curve.discount_factor(t_start.max(0.0))?;
+        let df_end = self.discount_curve.discount_factor(t_end)?;
+        if df_end <= 0.0 {
+            return Ok(0.0);
+        }
+        Ok((df_start / df_end - 1.0) / span)
+    }
+
+    /// Borrow the underlying discount curve.
+    pub fn discount_curve(&self) -> &Arc<dyn RateCurveDyn> {
+        &self.discount_curve
+    }
 }
 
 // ============================================================================

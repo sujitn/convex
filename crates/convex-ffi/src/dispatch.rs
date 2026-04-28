@@ -21,8 +21,8 @@ use convex_analytics::dto::{
 };
 use convex_analytics::pricing::price_from_mark;
 use convex_analytics::spreads::{
-    DiscountMarginCalculator, GSpreadCalculator, ISpreadCalculator, OASCalculator,
-    ParParAssetSwap, ProceedsAssetSwap, ZSpreadCalculator,
+    DiscountMarginCalculator, GSpreadCalculator, ISpreadCalculator, OASCalculator, ParParAssetSwap,
+    ProceedsAssetSwap, ZSpreadCalculator,
 };
 use convex_bonds::instruments::{
     CallableBond, FixedRateBond, FloatingRateNote, SinkingFundBond, ZeroCouponBond,
@@ -41,7 +41,10 @@ use crate::registry::{self, BondKind, Handle, ObjectKind};
 /// Routes to one of the three error codes the FFI envelope exposes.
 enum DispatchError {
     /// Bad JSON shape, missing required field, or wrong bond/curve type.
-    InvalidInput { message: String, field: Option<&'static str> },
+    InvalidInput {
+        message: String,
+        field: Option<&'static str>,
+    },
     /// Handle not in the registry, or wrong kind for the requested op.
     InvalidHandle(String),
     /// Analytics call failed (solver did not converge, settle ≥ maturity, …).
@@ -50,10 +53,16 @@ enum DispatchError {
 
 impl DispatchError {
     fn input(message: impl Into<String>) -> Self {
-        Self::InvalidInput { message: message.into(), field: None }
+        Self::InvalidInput {
+            message: message.into(),
+            field: None,
+        }
     }
     fn input_field(field: &'static str, message: impl Into<String>) -> Self {
-        Self::InvalidInput { message: message.into(), field: Some(field) }
+        Self::InvalidInput {
+            message: message.into(),
+            field: Some(field),
+        }
     }
     fn handle(message: impl Into<String>) -> Self {
         Self::InvalidHandle(message.into())
@@ -75,12 +84,14 @@ impl<E: std::fmt::Display> From<E> for DispatchError {
 fn to_envelope<T: serde::Serialize>(r: Result<T, DispatchError>) -> String {
     match r {
         Ok(v) => crate::ok_envelope(&v),
-        Err(DispatchError::InvalidInput { message, field: Some(f) }) => {
-            crate::err_envelope_field("invalid_input", &message, f)
-        }
-        Err(DispatchError::InvalidInput { message, field: None }) => {
-            crate::err_envelope("invalid_input", &message)
-        }
+        Err(DispatchError::InvalidInput {
+            message,
+            field: Some(f),
+        }) => crate::err_envelope_field("invalid_input", &message, f),
+        Err(DispatchError::InvalidInput {
+            message,
+            field: None,
+        }) => crate::err_envelope("invalid_input", &message),
         Err(DispatchError::InvalidHandle(m)) => crate::err_envelope("invalid_handle", &m),
         Err(DispatchError::Analytics(m)) => crate::err_envelope("analytics", &m),
     }
@@ -141,7 +152,8 @@ pub fn describe(handle: Handle) -> String {
                 let inner = c.inner();
                 payload["ref_date"] = serde_json::json!(inner.get_reference_date().to_string());
                 payload["tenor_count"] = serde_json::json!(inner.tenors().len());
-                payload["max_tenor"] = serde_json::json!(inner.tenors().last().copied().unwrap_or(0.0));
+                payload["max_tenor"] =
+                    serde_json::json!(inner.tenors().last().copied().unwrap_or(0.0));
             });
         }
     }
@@ -181,7 +193,13 @@ fn price_inner(request_json: &str) -> Result<PricingResponse, DispatchError> {
 fn price_fixed_coupon(req: &PricingRequest, mark: &Mark) -> Result<PricingResponse, DispatchError> {
     let curve = optional_curve(req.curve)?;
     with_fixed_bond!(req.bond, bond, {
-        let r = price_from_mark(bond, req.settlement, mark, curve.as_deref(), req.quote_frequency)?;
+        let r = price_from_mark(
+            bond,
+            req.settlement,
+            mark,
+            curve.as_deref(),
+            req.quote_frequency,
+        )?;
         Ok(PricingResponse {
             clean_price: r.clean_price_per_100,
             dirty_price: r.dirty_price_per_100,
@@ -218,8 +236,11 @@ fn price_frn(req: &PricingRequest, mark: &Mark) -> Result<PricingResponse, Dispa
             let forward_curve = build_forward_curve(req.forward_curve.unwrap_or(discount_handle))?;
             let dm_decimal = dec_to_f64(value.as_decimal());
             let dirty = with_frn(req.bond, |frn| {
-                DiscountMarginCalculator::new(&forward_curve, &*discount)
-                    .price_with_dm(frn, dm_decimal, req.settlement)
+                DiscountMarginCalculator::new(&forward_curve, &*discount).price_with_dm(
+                    frn,
+                    dm_decimal,
+                    req.settlement,
+                )
             })?;
             Ok(PricingResponse {
                 clean_price: dirty - accrued,
@@ -288,7 +309,11 @@ fn risk_inner(request_json: &str) -> Result<RiskResponse, DispatchError> {
         Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => risk_zero(&req, &mark),
         _ => {
             let curve = optional_curve(req.curve)?;
-            with_fixed_bond!(req.bond, bond, risk_fixed(bond, &mark, &req, curve.as_deref()))
+            with_fixed_bond!(
+                req.bond,
+                bond,
+                risk_fixed(bond, &mark, &req, curve.as_deref())
+            )
         }
     }
 }
@@ -344,9 +369,9 @@ fn risk_frn(req: &RiskRequest, mark: &Mark) -> Result<RiskResponse, DispatchErro
             "FRN risk requires a DiscountMargin spread mark",
         ));
     }
-    let discount_handle = req.curve.ok_or_else(|| {
-        DispatchError::input_field("curve", "FRN risk requires a discount curve")
-    })?;
+    let discount_handle = req
+        .curve
+        .ok_or_else(|| DispatchError::input_field("curve", "FRN risk requires a discount curve"))?;
     let discount = required_curve(discount_handle)?;
     let forward_curve = build_forward_curve(req.forward_curve.unwrap_or(discount_handle))?;
     let dm = *value;
@@ -420,14 +445,19 @@ fn compute_krd<B: Bond + FixedCouponBond>(
     .ok_or_else(|| DispatchError::handle(format!("curve handle {curve_handle} not found")))?;
     let base_wrapper = RateCurve::new(base_inner.clone());
 
-    let priced =
-        price_from_mark(bond, req.settlement, mark, Some(&base_wrapper), req.quote_frequency)?;
+    let priced = price_from_mark(
+        bond,
+        req.settlement,
+        mark,
+        Some(&base_wrapper),
+        req.quote_frequency,
+    )?;
     let dirty = Decimal::from_f64_retain(priced.dirty_price_per_100)
         .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
     let z = ZSpreadCalculator::new(&base_wrapper).calculate(bond, dirty, req.settlement)?;
     let z_decimal = dec_to_f64(z.as_decimal());
-    let p0 = priced.clean_price_per_100;
-    let accrued = priced.accrued_per_100;
+    // Bloomberg KRD divides by dirty (numerator already cancels accrued).
+    let p0_dirty = priced.dirty_price_per_100;
 
     let bump_bps = 1.0;
     let dy = bump_bps * 1e-4;
@@ -435,10 +465,15 @@ fn compute_krd<B: Bond + FixedCouponBond>(
     for &tenor in &req.key_rate_tenors {
         let up = RateCurve::new(KeyRateBump::new(tenor, bump_bps).apply(&base_inner));
         let dn = RateCurve::new(KeyRateBump::new(tenor, -bump_bps).apply(&base_inner));
-        let dirty_up = ZSpreadCalculator::new(&up).price_with_spread(bond, z_decimal, req.settlement);
-        let dirty_dn = ZSpreadCalculator::new(&dn).price_with_spread(bond, z_decimal, req.settlement);
-        let krd = ((dirty_dn - accrued) - (dirty_up - accrued)) / (2.0 * p0 * dy);
-        out.push(KeyRate { tenor, duration: krd });
+        let dirty_up =
+            ZSpreadCalculator::new(&up).price_with_spread(bond, z_decimal, req.settlement);
+        let dirty_dn =
+            ZSpreadCalculator::new(&dn).price_with_spread(bond, z_decimal, req.settlement);
+        let krd = (dirty_dn - dirty_up) / (2.0 * p0_dirty * dy);
+        out.push(KeyRate {
+            tenor,
+            duration: krd,
+        });
     }
     Ok(out)
 }
@@ -480,7 +515,13 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
     req: &SpreadRequest,
     curve: &dyn RateCurveDyn,
 ) -> Result<SpreadResponse, DispatchError> {
-    let priced = price_from_mark(bond, req.settlement, mark, Some(curve), Frequency::SemiAnnual)?;
+    let priced = price_from_mark(
+        bond,
+        req.settlement,
+        mark,
+        Some(curve),
+        Frequency::SemiAnnual,
+    )?;
     let dirty = Decimal::from_f64_retain(priced.dirty_price_per_100)
         .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
     let clean = Decimal::from_f64_retain(priced.clean_price_per_100)
@@ -502,10 +543,12 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
         }
         SpreadType::GSpread => {
-            let gov_handle = req.params.govt_curve.ok_or_else(|| DispatchError::input_field(
-                "params.govt_curve",
-                "G-spread requires a separate government curve handle",
-            ))?;
+            let gov_handle = req.params.govt_curve.ok_or_else(|| {
+                DispatchError::input_field(
+                    "params.govt_curve",
+                    "G-spread requires a separate government curve handle",
+                )
+            })?;
             let gov_curve = build_government_curve(gov_handle)?;
             let s = GSpreadCalculator::new(&gov_curve).calculate(
                 bond,
@@ -544,7 +587,10 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
 fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, DispatchError> {
     let typed_curve = clone_typed_curve(req.curve)?;
     let vol = req.params.volatility.ok_or_else(|| {
-        DispatchError::input_field("params.volatility", "OAS requires short-rate volatility (decimal)")
+        DispatchError::input_field(
+            "params.volatility",
+            "OAS requires short-rate volatility (decimal)",
+        )
     })?;
 
     let dirty = with_callable(req.bond, |cb| {
@@ -565,7 +611,11 @@ fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, Dispat
             .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
         let calc = ZSpreadCalculator::new(&typed_curve);
         let z = calc.calculate(bb, dirty_dec, req.settlement)?;
-        Ok::<f64, DispatchError>(calc.price_with_spread(bb, dec_to_f64(z.as_decimal()), req.settlement))
+        Ok::<f64, DispatchError>(calc.price_with_spread(
+            bb,
+            dec_to_f64(z.as_decimal()),
+            req.settlement,
+        ))
     })??;
 
     with_callable(req.bond, |cb| {
@@ -610,7 +660,8 @@ fn spread_dm(req: &SpreadRequest) -> Result<SpreadResponse, DispatchError> {
                 .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
             let idx_dec = Decimal::from_f64_retain(idx)
                 .ok_or_else(|| DispatchError::input_field("params.current_index", "non-finite"))?;
-            let s = convex_analytics::spreads::simple_margin(frn, dirty_dec, idx_dec, req.settlement);
+            let s =
+                convex_analytics::spreads::simple_margin(frn, dirty_dec, idx_dec, req.settlement);
             Ok::<SpreadResponse, DispatchError>(bps_only(dec_to_f64(s.as_bps()), None))
         })?;
     }
@@ -686,16 +737,18 @@ fn curve_query_inner(request_json: &str) -> Result<CurveQueryResponse, DispatchE
     let req: CurveQueryRequest = serde_json::from_str(request_json)
         .map_err(|e| DispatchError::input(format!("CurveQueryRequest: {e}")))?;
 
-    let value = registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| {
-        match req.query {
-            CurveQueryKind::Zero => c.zero_rate_at_tenor(req.tenor, Compounding::Continuous).ok(),
+    let value =
+        registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| match req.query {
+            CurveQueryKind::Zero => c
+                .zero_rate_at_tenor(req.tenor, Compounding::Continuous)
+                .ok(),
             CurveQueryKind::Df => c.discount_factor_at_tenor(req.tenor).ok(),
             CurveQueryKind::Forward => {
                 let end = req.tenor_end.unwrap_or(req.tenor + 0.25);
-                c.forward_rate_at_tenors(req.tenor, end, Compounding::Continuous).ok()
+                c.forward_rate_at_tenors(req.tenor, end, Compounding::Continuous)
+                    .ok()
             }
-        }
-    });
+        });
 
     match value.flatten() {
         Some(v) => Ok(CurveQueryResponse { value: v }),
@@ -748,7 +801,10 @@ fn optional_curve(handle: Option<Handle>) -> Result<Option<CurveBox>, DispatchEr
 
 fn required_curve(handle: Handle) -> Result<CurveBox, DispatchError> {
     if handle == 0 {
-        return Err(DispatchError::input_field("curve", "curve handle is required"));
+        return Err(DispatchError::input_field(
+            "curve",
+            "curve handle is required",
+        ));
     }
     clone_curve(handle)
 }
@@ -845,27 +901,44 @@ macro_rules! with_fixed_bond {
     ($handle:expr, $bond:ident, $body:expr) => {{
         let h = $handle;
         match registry::kind_of(h) {
-            Some(ObjectKind::Bond(BondKind::FixedRate)) => registry::with_object::<FixedRateBond, _, _>(h, |$bond| $body)
-                .ok_or_else(|| DispatchError::handle(format!("bond handle {} downcast failed", h)))?,
-            Some(ObjectKind::Bond(BondKind::Callable)) => registry::with_object::<CallableBond, _, _>(h, |cb| {
-                let $bond = cb.base_bond();
-                $body
-            })
-            .ok_or_else(|| DispatchError::handle(format!("bond handle {} downcast failed", h)))?,
-            Some(ObjectKind::Bond(BondKind::SinkingFund)) => registry::with_object::<SinkingFundBond, _, _>(h, |sb| {
-                let $bond = sb.base_bond();
-                $body
-            })
-            .ok_or_else(|| DispatchError::handle(format!("bond handle {} downcast failed", h)))?,
-            Some(ObjectKind::Bond(BondKind::FloatingRate)) => return Err(DispatchError::handle(format!(
-                "FRN analytics route through dedicated FRN paths (handle {h})"
-            ))),
-            Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => return Err(DispatchError::handle(format!(
-                "zero-coupon analytics route through dedicated zero paths (handle {h})"
-            ))),
-            Some(ObjectKind::Curve) => return Err(DispatchError::handle(format!(
-                "handle {h} is a curve, not a bond"
-            ))),
+            Some(ObjectKind::Bond(BondKind::FixedRate)) => {
+                registry::with_object::<FixedRateBond, _, _>(h, |$bond| $body).ok_or_else(|| {
+                    DispatchError::handle(format!("bond handle {} downcast failed", h))
+                })?
+            }
+            Some(ObjectKind::Bond(BondKind::Callable)) => {
+                registry::with_object::<CallableBond, _, _>(h, |cb| {
+                    let $bond = cb.base_bond();
+                    $body
+                })
+                .ok_or_else(|| {
+                    DispatchError::handle(format!("bond handle {} downcast failed", h))
+                })?
+            }
+            Some(ObjectKind::Bond(BondKind::SinkingFund)) => {
+                registry::with_object::<SinkingFundBond, _, _>(h, |sb| {
+                    let $bond = sb.base_bond();
+                    $body
+                })
+                .ok_or_else(|| {
+                    DispatchError::handle(format!("bond handle {} downcast failed", h))
+                })?
+            }
+            Some(ObjectKind::Bond(BondKind::FloatingRate)) => {
+                return Err(DispatchError::handle(format!(
+                    "FRN analytics route through dedicated FRN paths (handle {h})"
+                )))
+            }
+            Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => {
+                return Err(DispatchError::handle(format!(
+                    "zero-coupon analytics route through dedicated zero paths (handle {h})"
+                )))
+            }
+            Some(ObjectKind::Curve) => {
+                return Err(DispatchError::handle(format!(
+                    "handle {h} is a curve, not a bond"
+                )))
+            }
             None => return Err(DispatchError::handle(format!("bond handle {h} not found"))),
         }
     }};

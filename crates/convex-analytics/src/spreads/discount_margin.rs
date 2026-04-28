@@ -86,12 +86,16 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         ))
     }
 
-    /// Prices an FRN given a discount margin.
+    /// Prices an FRN at a given discount margin.
+    ///
+    /// In-progress coupon (already fixed) is taken from the bond's cashflow as-is.
+    /// Future coupons project from the simple forward over `[start, end]`, with
+    /// the bond's day count for the year fraction. Cashflows discount from the
+    /// settlement date, not the curve's reference date.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
         let Some(maturity) = frn.maturity() else {
             return 0.0;
         };
-
         if settlement >= maturity {
             return 0.0;
         }
@@ -99,63 +103,65 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         let face_value = frn.face_value().to_f64().unwrap_or(100.0);
         let quoted_spread = frn.spread_decimal().to_f64().unwrap_or(0.0);
         let ref_date = self.forward_curve.reference_date();
-        let mut price = 0.0;
-
+        let day_count = frn.day_count().to_day_count();
         let cash_flows = frn.cash_flows(settlement);
 
         if cash_flows.is_empty() {
             return 0.0;
         }
 
+        let t_settle = ref_date.days_between(&settlement) as f64 / 365.0;
+        let df_settle = match self.discount_curve.discount_factor(t_settle.max(0.0)) {
+            Ok(v) if v > 0.0 => v,
+            _ => return 0.0,
+        };
+
+        let mut price = 0.0;
         for cf in &cash_flows {
             if cf.date <= settlement {
                 continue;
             }
+            let t_cf = ref_date.days_between(&cf.date) as f64 / 365.0;
+            let dt = settlement.days_between(&cf.date) as f64 / 365.0;
+            let Ok(df_cf) = self.discount_curve.discount_factor(t_cf) else {
+                return 0.0;
+            };
+            let adjusted_df = (df_cf / df_settle) * (-dm * dt).exp();
 
-            let years_to_cf = settlement.days_between(&cf.date) as f64 / 365.0;
-
-            let df = self
-                .discount_curve
-                .discount_factor(years_to_cf)
-                .unwrap_or(1.0);
-
-            let adjusted_df = df * (-dm * years_to_cf).exp();
-
-            let cf_amount = if cf.is_principal() {
-                let coupon_amount =
-                    if let (Some(start), Some(end)) = (cf.accrual_start, cf.accrual_end) {
-                        let t1 = ref_date.days_between(&start) as f64 / 365.0;
-                        let period_years = start.days_between(&end) as f64 / 365.0;
-
-                        let fwd_rate = self.forward_curve.forward_rate_at(t1).unwrap_or(0.05);
-
-                        let coupon_rate = fwd_rate + quoted_spread;
-                        let effective_rate = frn.effective_rate(
-                            Decimal::from_f64_retain(coupon_rate).unwrap_or(Decimal::ZERO),
-                        );
-
-                        face_value * effective_rate.to_f64().unwrap_or(0.0) * period_years
-                    } else {
-                        cf.amount.to_f64().unwrap_or(0.0) - face_value
+            let coupon = match (cf.accrual_start, cf.accrual_end) {
+                (Some(start), Some(end)) if start > settlement => {
+                    let t_start = ref_date.days_between(&start) as f64 / 365.0;
+                    let t_end = ref_date.days_between(&end) as f64 / 365.0;
+                    let Ok(simple_fwd) = self.forward_curve.simple_forward_period(t_start, t_end)
+                    else {
+                        return 0.0;
                     };
-
-                coupon_amount + face_value
-            } else if let (Some(start), Some(end)) = (cf.accrual_start, cf.accrual_end) {
-                let t1 = ref_date.days_between(&start) as f64 / 365.0;
-                let period_years = start.days_between(&end) as f64 / 365.0;
-
-                let fwd_rate = self.forward_curve.forward_rate_at(t1).unwrap_or(0.05);
-
-                let coupon_rate = fwd_rate + quoted_spread;
-                let effective_rate = frn
-                    .effective_rate(Decimal::from_f64_retain(coupon_rate).unwrap_or(Decimal::ZERO));
-
-                face_value * effective_rate.to_f64().unwrap_or(0.0) * period_years
-            } else {
-                cf.amount.to_f64().unwrap_or(0.0)
+                    let rate = frn.effective_rate(
+                        Decimal::from_f64_retain(simple_fwd + quoted_spread).unwrap_or_default(),
+                    );
+                    let yf = day_count
+                        .period_year_fraction(start, end, start, end)
+                        .to_f64()
+                        .unwrap_or(0.0);
+                    face_value * rate.to_f64().unwrap_or(0.0) * yf
+                }
+                _ => {
+                    // In-progress period or missing accrual info: trust the bond's amount.
+                    let raw = cf.amount.to_f64().unwrap_or(0.0);
+                    if cf.is_principal() {
+                        raw - face_value
+                    } else {
+                        raw
+                    }
+                }
             };
 
-            price += cf_amount * adjusted_df;
+            let total = if cf.is_principal() {
+                coupon + face_value
+            } else {
+                coupon
+            };
+            price += total * adjusted_df;
         }
 
         price / face_value * 100.0
