@@ -93,15 +93,18 @@ impl FromStr for Mark {
     /// Parse a trader-style mark string.
     ///
     /// Grammar (case-insensitive, whitespace-tolerant):
+    ///
+    /// ```text
     ///   PRICE  := <number>[ ('C'|'CLEAN'|'D'|'DIRTY') ]      e.g. "99.5", "99.5C", "99.5D"
-    ///          | <int>'-'<int>['+']                            32nds form: "99-16", "99-16+"
-    ///   YIELD  := <number>'%'[ '@' <FREQ> ]                    e.g. "4.65%", "4.65%@SA"
+    ///          | <int>'-'<int>['+']                          32nds form: "99-16", "99-16+"
+    ///   YIELD  := <number>'%'[ '@' <FREQ> ]                  e.g. "4.65%", "4.65%@SA"
     ///   SPREAD := ['+'|'-']<number>[ 'BPS' ][ ' ' <SPREADTYPE> ] '@' <BENCH>
-    ///                                                          e.g. "+125bps@USD.SOFR",
-    ///                                                          "125 OAS@USD.TSY"
+    ///                                                        e.g. "+125bps@USD.SOFR",
+    ///                                                        "125 OAS@USD.TSY"
     ///   FREQ        := A | SA | Q | M | CONT | ANNUAL | SEMI | SEMI_ANNUAL | QUARTERLY | MONTHLY
     ///   SPREADTYPE  := Z | G | I | OAS | DM | ASW | ASW_PROC | CREDIT  (default Z)
     ///   BENCH       := any non-whitespace identifier (e.g. USD.SOFR, USD.TSY.10Y)
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let raw = s.trim();
         if raw.is_empty() {
@@ -169,7 +172,9 @@ fn parse_32nds(raw: &str, dash: usize) -> Result<Mark, MarkParseError> {
         .parse()
         .map_err(|_| MarkParseError(format!("invalid 32nds fraction in {raw:?}")))?;
     if !(0..32).contains(&frac) {
-        return Err(MarkParseError(format!("32nds fraction out of range in {raw:?}")));
+        return Err(MarkParseError(format!(
+            "32nds fraction out of range in {raw:?}"
+        )));
     }
     let mut value = Decimal::from(whole) + Decimal::from(frac) / Decimal::from(32);
     if plus {
@@ -313,7 +318,10 @@ mod tests {
     fn parse_decimal_price_default_clean() {
         assert_eq!(
             parse("99.5"),
-            Mark::Price { value: dec!(99.5), kind: PriceKind::Clean }
+            Mark::Price {
+                value: dec!(99.5),
+                kind: PriceKind::Clean
+            }
         );
     }
 
@@ -321,15 +329,24 @@ mod tests {
     fn parse_clean_dirty_suffix() {
         assert_eq!(
             parse("99.5C"),
-            Mark::Price { value: dec!(99.5), kind: PriceKind::Clean }
+            Mark::Price {
+                value: dec!(99.5),
+                kind: PriceKind::Clean
+            }
         );
         assert_eq!(
             parse("99.5 dirty"),
-            Mark::Price { value: dec!(99.5), kind: PriceKind::Dirty }
+            Mark::Price {
+                value: dec!(99.5),
+                kind: PriceKind::Dirty
+            }
         );
         assert_eq!(
             parse("101.25 D"),
-            Mark::Price { value: dec!(101.25), kind: PriceKind::Dirty }
+            Mark::Price {
+                value: dec!(101.25),
+                kind: PriceKind::Dirty
+            }
         );
     }
 
@@ -338,12 +355,18 @@ mod tests {
         // 99-16 = 99 + 16/32 = 99.5
         assert_eq!(
             parse("99-16"),
-            Mark::Price { value: dec!(99.5), kind: PriceKind::Clean }
+            Mark::Price {
+                value: dec!(99.5),
+                kind: PriceKind::Clean
+            }
         );
         // 99-16+ = 99 + 16/32 + 1/64 = 99.515625
         assert_eq!(
             parse("99-16+"),
-            Mark::Price { value: dec!(99.515625), kind: PriceKind::Clean }
+            Mark::Price {
+                value: dec!(99.515625),
+                kind: PriceKind::Clean
+            }
         );
     }
 
@@ -351,7 +374,10 @@ mod tests {
     fn parse_yield_default_semi() {
         assert_eq!(
             parse("4.65%"),
-            Mark::Yield { value: dec!(0.0465), frequency: Frequency::SemiAnnual }
+            Mark::Yield {
+                value: dec!(0.0465),
+                frequency: Frequency::SemiAnnual
+            }
         );
     }
 
@@ -359,11 +385,17 @@ mod tests {
     fn parse_yield_with_frequency() {
         assert_eq!(
             parse("4.65%@A"),
-            Mark::Yield { value: dec!(0.0465), frequency: Frequency::Annual }
+            Mark::Yield {
+                value: dec!(0.0465),
+                frequency: Frequency::Annual
+            }
         );
         assert_eq!(
             parse("4.65% @ Q"),
-            Mark::Yield { value: dec!(0.0465), frequency: Frequency::Quarterly }
+            Mark::Yield {
+                value: dec!(0.0465),
+                frequency: Frequency::Quarterly
+            }
         );
     }
 
