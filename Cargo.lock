@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "convex"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "convex-analytics",
  "convex-bonds",
@@ -570,7 +570,7 @@ dependencies = [
 
 [[package]]
 name = "convex-analytics"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "chrono",
@@ -591,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "convex-bonds"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "convex-core",
@@ -612,7 +612,7 @@ dependencies = [
 
 [[package]]
 name = "convex-core"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "chrono",
@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "convex-curves"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "argmin",
@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "convex-engine"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "chrono",
  "convex-analytics",
@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-file"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-json"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bytes",
  "convex-traits",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-redb"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -717,7 +717,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ffi"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "cbindgen",
  "convex-analytics",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "convex-math"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "criterion 0.8.1",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "convex-mcp"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "convex-portfolio"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "approx",
  "chrono",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "convex-server"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "axum 0.7.9",
  "chrono",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "convex-traits"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "async-trait",
  "bytes",
