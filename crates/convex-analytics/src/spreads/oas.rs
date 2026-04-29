@@ -160,8 +160,20 @@ impl OASCalculator {
                 .unwrap_or(f64::NAN)
         };
 
+        // Widen the bracket on the low side: callable bonds trading at a
+        // premium need deeply negative OAS, but the price asymptotes to the
+        // call price as OAS → −∞, so this can still hit a no-bracket wall
+        // (in which case Brent honestly errors).
         let cfg = SolverConfig::new(1e-8, 100);
-        let result = brent(objective, -0.05, 0.10, &cfg).map_err(|e| {
+        let mut low = -0.05;
+        let high = 0.10;
+        let f_high = objective(high);
+        let mut f_low = objective(low);
+        while f_low.is_finite() && f_high.is_finite() && f_low * f_high > 0.0 && low > -0.50 {
+            low -= 0.05;
+            f_low = objective(low);
+        }
+        let result = brent(objective, low, high, &cfg).map_err(|e| {
             AnalyticsError::SolverConvergenceFailed {
                 solver: format!("OAS Brent: {e}"),
                 iterations: cfg.max_iterations,
