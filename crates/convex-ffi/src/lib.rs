@@ -79,13 +79,13 @@ pub extern "C" fn convex_version() -> *const c_char {
 /// Build a bond from a `BondSpec` JSON. Returns `0` on failure.
 #[no_mangle]
 pub unsafe extern "C" fn convex_bond_from_json(spec_json: *const c_char) -> Handle {
-    with_str(spec_json, |s| build::bond_from_json(s))
+    with_str(spec_json, build::bond_from_json)
 }
 
 /// Build a curve from a `CurveSpec` JSON. Returns `0` on failure.
 #[no_mangle]
 pub unsafe extern "C" fn convex_curve_from_json(spec_json: *const c_char) -> Handle {
-    with_str(spec_json, |s| build::curve_from_json(s))
+    with_str(spec_json, build::curve_from_json)
 }
 
 /// Returns a JSON description of the registered object.
@@ -179,7 +179,7 @@ pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut
 /// `CurveQueryRequest`, `CurveQueryResponse`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char {
-    let result = with_str_owned(type_name, |s| schemas::lookup(s));
+    let result = with_str_owned(type_name, schemas::lookup);
     to_owned_c(match result {
         Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
         Err(msg) => err_envelope("schema", &msg),
