@@ -1086,4 +1086,36 @@ mod tests {
         let result = ZeroCouponBond::builder().cusip_unchecked("TEST").build();
         assert!(result.is_err()); // Missing maturity
     }
+
+    /// price_from_yield (closed-form) ≡ Bond::clean_price_from_yield (analytics).
+    #[test]
+    fn test_zero_closed_form_matches_trait() {
+        use crate::traits::BondAnalytics;
+        use convex_core::types::Frequency;
+
+        let bond = ZeroCouponBond::builder()
+            .cusip_unchecked("STRIP_TEST")
+            .maturity(date(2055, 11, 15))
+            .issue_date(date(2025, 11, 15))
+            .compounding(Compounding::SemiAnnual)
+            .day_count(DayCountConvention::ActActIsda)
+            .build()
+            .unwrap();
+
+        let settle = date(2025, 12, 31);
+        for y in [0.02, 0.045, 0.0625, 0.10] {
+            let closed = bond
+                .price_from_yield(Decimal::try_from(y).unwrap(), settle)
+                .to_string()
+                .parse::<f64>()
+                .unwrap();
+            let via_trait = bond
+                .clean_price_from_yield(settle, y, Frequency::SemiAnnual)
+                .unwrap();
+            assert!(
+                (closed - via_trait).abs() < 1e-8,
+                "y={y}: closed={closed}, trait={via_trait}",
+            );
+        }
+    }
 }

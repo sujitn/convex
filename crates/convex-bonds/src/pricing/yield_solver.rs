@@ -98,11 +98,19 @@ pub(crate) fn project_discount_fractions(
             } else {
                 0.0
             };
+            // Period index advances on each unique CF date so two CFs on the
+            // same date (sinker SF + coupon) share a period.
+            // TODO: off-cycle sink dates between coupon dates aren't handled.
+            let mut period_idx: usize = 0;
+            let mut last_date: Option<Date> = None;
             return future
                 .iter()
-                .enumerate()
-                .map(|(i, cf)| {
-                    let years = ((i + 1) as f64 - v) / periods_per_year;
+                .map(|cf| {
+                    if last_date != Some(cf.date) {
+                        period_idx += 1;
+                        last_date = Some(cf.date);
+                    }
+                    let years = (period_idx as f64 - v) / periods_per_year;
                     let amount = cf.amount.to_f64().unwrap_or(0.0);
                     (years, amount)
                 })

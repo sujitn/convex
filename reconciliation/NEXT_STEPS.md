@@ -59,3 +59,56 @@ into the repo manually or (b) a free feed appears.
 Extend HW1F to piecewise-σ on call dates (matches QL's `Gsr`). Only worth
 doing once a long-dated callable (NC10 30y) is in the book — current 5y/4y
 residuals don't move under term structure of vol.
+
+### A1.1 Off-cycle sinker dates
+
+`project_discount_fractions` advances the ICMA period index on each unique
+CF date. That works when sink dates align with coupon dates (current
+synthetic). For real FHLB / agency sinkers where the paydown date sits
+between two coupon dates, the period index will be wrong. Fix: derive the
+period index from `cf.date` directly via month arithmetic, not from
+date-change detection. Pin with a regression test.
+
+### A3.1 Wire make-whole through the FFI surface
+
+`CallableBond::make_whole_call_price` exists and is reconciled to QL,
+but the function isn't exposed through the JSON-RPC FFI. So `convex_price`
+on a make-whole-callable returns bullet pricing — Excel sheets pricing
+AAPL or Ford Credit silently ignore the MW provision. Wiring needs:
+
+1. `MakeWholeRequest { bond, call_date, treasury_rate }` and response DTO
+   in `convex_analytics::dto`.
+2. New `convex_make_whole` C symbol in `convex_ffi::ffi`.
+3. Dispatch arm in `convex_ffi::dispatch` with a `with_callable_bond!` macro.
+4. MCP tool registration.
+5. Excel UDF `CX.MW(bond, call_date, ust_rate)`.
+
+### A3.2 MW convention is ACT/365F, not bond day-count
+
+`CallableBond::make_whole_call_price` discounts at ACT/365F time × bond
+frequency. Real US-corp 424B2 prospectuses typically specify the bond's
+own day-count (30/360 US for Apple, MSFT, Verizon, Ford). The two
+conventions disagree by basis points on long-dated MW. Fix: read the
+day-count from the underlying bond and use it for MW discount time.
+
+### A4.1 Put-only `CallableBond` is fragile
+
+The bench builds a put-only bond by passing an empty `American` call
+schedule to `CallableBond::new(...)` then attaching a put schedule. This
+relies on `CallSchedule::is_callable_on(date) → false` for empty
+entries — an invariant a future contributor could break with a
+"no entries means perpetual call" optimization. Two clean fixes:
+
+(a) Extract `PutableBond` as a sibling of `CallableBond`.
+(b) Make `call_schedule: Option<CallSchedule>` on `CallableBond`.
+
+(b) is less code and reuses the existing tree pricer.
+
+### A.x Replace synthetics with real CUSIPs
+
+Three reconciled instruments are clearly-labelled synthetics
+(`SYNTH_HY_STEPDOWN_01`, `SYNTH_PLAIN_SINKER_10Y`,
+`SYNTH_PUTTABLE_5Y_BERMUDAN`). Each is a placeholder for a real bond
+whose schedule sits behind a feed gate (FHLB search form, HY indenture
+403s). When a primary-source schedule is digitized, swap the entry —
+reconciliation tolerances stay unchanged.

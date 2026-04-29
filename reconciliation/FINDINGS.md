@@ -13,8 +13,13 @@ instruments and 4–14 metrics each.
 | post-M5 | 117 / 117 | + real UK/EU/JP curves + TIPS nominal pricing (Tier 2.2) |
 | post-M5 | 117 / 117 | FRN flipped to real ACT/360; day-count-aware coupon/accrued/PV (Tier 2.1) |
 | post-M5 | 121 / 121 | + corporate SOFR FRN on SOFR OIS zero curve (Tier 2.3) |
+| A2 | 149 / 149 | + UST 52-week Bill (real CUSIP 912797TC1) via ZeroCouponBond |
+| A1 | 157 / 157 | + plain sinker; surfaced two bugs in factor-adjusted pricing |
+| A3 | 161 / 161 | + Ford Credit make-whole redemption (verified +35bp spread) |
+| A4 | 174 / 174 | + Bermudan puttable; YTP/YTB workout-bullet path |
+| A4 cleanup | 172 / 172 | trimmed 4→2 MW scenarios; refactored 8-metric duplication |
 
-Workspace lib tests: 1736 pass, 0 fail. Clippy clean.
+Workspace lib tests: 1738 pass, 0 fail. Clippy clean.
 
 ## M2 — ICMA year-fraction in Convex
 
@@ -103,6 +108,75 @@ bit-for-bit.
   (zero_coupon.rs double-comparison; key_rate.rs collapsible match); a
   bench that had drifted from its struct (`PricingInput.bid_ask_config`);
   `&format!` and `i as i32` cleanups in integration tests.
+
+## A2 — Zero-coupon via the Bond trait
+
+Real instrument: UST 52-week Bill (CUSIP 912797TC1, 2025-12-26 → 2026-12-24).
+
+Architectural finding: the analytics surface is `&dyn Bond`, not
+`&dyn FixedCouponBond`. `ZeroCouponBond::cash_flows(settle)` returns a
+single principal CF; `project_discount_fractions` falls through its raw
+`day_count.year_fraction(settle, maturity)` branch, and the pricing
+math reduces to `face / (1 + y/m)^(years × m)` — exactly the closed
+form. A `FixedCouponBond` impl would have been wrong (zeros have no
+coupon); a parity test in `zero_coupon.rs` pins the equivalence.
+
+## A1 — Sinking-fund bond, two real bugs
+
+Synthetic 10Y plain sinker (5 annual paydowns of 20%) reconciled
+against `ql.AmortizingFixedRateBond`. Two bugs surfaced and fixed.
+
+1. **`SinkingFundBond::cash_flows_to_date` used post-paydown factor.**
+   Coupon at sink date `D` accrued on the factor *after* the paydown
+   instead of the principal outstanding during the prior period.
+   Result: every December coupon was understated by 20% of the period
+   coupon, and the maturity coupon (factor=0 after final sink) was
+   silently dropped. Fix: snapshot `pre_paydown_factor` before applying
+   the sink. Regression test
+   `test_sinker_coupon_uses_pre_paydown_factor`.
+
+2. **`project_discount_fractions` used iterator-position period index.**
+   The ICMA period-aware time-to-CF formula `(i+1 − v) / freq` was
+   indexed by enumerator position. For sinkers (and any shape with
+   multiple CFs on the same date), the second CF on a shared date got
+   shifted forward by one full period. Fix: advance the period index
+   only on date change. For one-CF-per-period bonds the formula is
+   unchanged. Off-cycle sink dates (between coupon dates) are not yet
+   handled — flagged with TODO and listed in NEXT_STEPS.
+
+## A3 — Make-whole call redemption
+
+Ford Credit 6.798% '28 (verified +35bp spread from 424B2). Reconciled
+the MW PV formula at `(call_date, treasury_rate)` scenarios on both
+sides: ITM (UST 3% → MW well above par) and near-ATM (UST 5% ≈
+coupon → MW close to par). Convention: discount at `treasury + spread`
+using ACT/365F time × bond frequency, floored at the first call entry
+price. ACT/365F is what `CallableBond::make_whole_call_price` already
+uses; mirrored on the QL side hand-rolled. Note: real US-corp 424B
+typically uses the bond's own day-count for MW discount — flagged as
+a convention gap in NEXT_STEPS.
+
+The library function (`CallableBond::make_whole_call_price`) is not
+exposed through the `convex_price` FFI RPC or any Excel UDF. So Excel
+sheets pricing Ford Credit today still ignore make-whole. Listed as a
+production gap in NEXT_STEPS.
+
+## A4 — Bermudan puttable
+
+Synthetic 5Y annual-put bond. The library already had `PutType`,
+`PutEntry`, `PutSchedule`, and `CallableBond.with_put_schedule(...)`.
+The bench composes a `CallableBond` with empty call schedule + put
+schedule — fragile (relies on "no entries → not callable" being a
+permanent invariant). Tracked in NEXT_STEPS as a refactor candidate
+(either `PutableBond` or `Optional<CallSchedule>` on `CallableBond`).
+
+YTP per put date computed via the same workout-bullet trick used for
+callable YTC pre-OAS (M4): build a hypothetical bullet maturing at the
+put date with redemption = put price; YTM on that bullet = YTP. YTB
+(best for holder) = max yield over YTM and all YTPs. The synthetic
+trades at premium so puts are OTM (YTB = YTM); the negative YTP at the
+14-day-out put still surfaces — both sides reach the same number,
+exercising the workout-bullet solver in the negative-yield regime.
 
 ## Deferred
 
