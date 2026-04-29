@@ -63,9 +63,7 @@ struct Entry {
     object: Box<dyn Any + Send + Sync>,
 }
 
-/// Both maps live behind a single lock so name↔handle updates stay atomic.
-/// Splitting them into two locks let a reader observe the new name binding
-/// before the new handle was inserted (or vice-versa during release).
+/// Single lock over both maps so name↔handle updates stay atomic.
 #[derive(Default)]
 struct Tables {
     objects: HashMap<Handle, Entry>,

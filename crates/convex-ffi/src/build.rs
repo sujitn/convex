@@ -258,8 +258,7 @@ fn build_zero_coupon(spec: ZeroCouponSpec) -> Handle {
         CoreComp::Quarterly => ZcbComp::Quarterly,
         CoreComp::Monthly => ZcbComp::Monthly,
         CoreComp::Continuous => ZcbComp::Continuous,
-        // Simple/Daily aren't first-class on the bond builder; closest sane
-        // discrete fallback is annual / continuous respectively.
+        // Simple/Daily aren't on the bond builder; nearest fallback.
         CoreComp::Simple => ZcbComp::Annual,
         CoreComp::Daily => ZcbComp::Continuous,
     };

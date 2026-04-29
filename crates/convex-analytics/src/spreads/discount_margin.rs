@@ -87,11 +87,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
     }
 
     /// Prices an FRN at a given discount margin.
-    ///
-    /// In-progress coupon (already fixed) is taken from the bond's cashflow as-is.
-    /// Future coupons project from the simple forward over `[start, end]`, with
-    /// the bond's day count for the year fraction. Cashflows discount from the
-    /// settlement date, not the curve's reference date.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
         let Some(maturity) = frn.maturity() else {
             return 0.0;
@@ -102,10 +97,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
 
         let face_value = frn.face_value().to_f64().unwrap_or(100.0);
         let quoted_spread = frn.spread_decimal().to_f64().unwrap_or(0.0);
-        // Tenors must be measured against the right curve's own reference date —
-        // discount-curve queries use the discount-curve's ref date, projection
-        // queries use the forward-curve's. Mixing them silently miscomputes DFs
-        // when the two curves were built on different dates.
+        // Each curve's tenors anchor to its own reference date.
         let disc_ref = self.discount_curve.reference_date();
         let fwd_ref = self.forward_curve.reference_date();
         let day_count = frn.day_count().to_day_count();
@@ -134,11 +126,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let adjusted_df = (df_cf / df_settle) * (-dm * dt).exp();
 
             let coupon = match (cf.accrual_start, cf.accrual_end) {
-                // start >= settlement: period hasn't accrued — project via the
-                // forward curve. A period starting *exactly* on settlement is a
-                // reset-day boundary; trusting cf.amount there assumes the caller
-                // updated frn.current_rate to the freshly-set rate, which we don't
-                // require.
+                // Period hasn't accrued — project via the forward curve.
                 (Some(start), Some(end)) if start >= settlement => {
                     let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
                     let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
@@ -156,7 +144,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
                     face_value * rate.to_f64().unwrap_or(0.0) * yf
                 }
                 _ => {
-                    // In-progress period or missing accrual info: trust the bond's amount.
+                    // In-progress period: trust the bond's amount (driven by current_rate).
                     let raw = cf.amount.to_f64().unwrap_or(0.0);
                     if cf.is_principal() {
                         raw - face_value

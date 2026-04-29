@@ -13,9 +13,7 @@ use convex_math::solvers::{brent, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
-/// Project cash flows to (years_from_settle, forward_df_from_settle, amount)
-/// triples. The forward DF is `DF(cf) / DF(settle)` — that's what anchors a
-/// Z-spread to the settlement date instead of the curve's reference date.
+/// (years_from_settle, fwd_df_from_settle, amount) — Z-spread anchored at settle.
 fn forward_cashflows(
     curve: &dyn RateCurveDyn,
     cash_flows: &[convex_bonds::traits::BondCashFlow],

@@ -579,11 +579,8 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
     }
 }
 
-// OAS via Hull-White trinomial. Effective duration/convexity come from a ±1bp
-// **parallel curve shift** holding OAS constant — they should not be confused
-// with spread DV01 (the OAS-space sensitivity, which the spread family does
-// expose via separate calls). Option value = bullet PV at the implied Z-spread
-// minus the callable model price.
+// OAS via HW1F trinomial. Effective dur/cvx are ±1bp parallel curve shifts at
+// constant OAS (not spread DV01).
 fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, DispatchError> {
     let typed_curve = clone_typed_curve(req.curve)?;
     let vol = req.params.volatility.ok_or_else(|| {
@@ -622,10 +619,8 @@ fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, Dispat
         let eff_dur = (p_dn - p_up) / (2.0 * p0 * dy);
         let eff_cvx = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
 
-        // Option value = bullet PV at the same OAS minus callable model price.
-        // OASCalculator::option_value rebuilds bullet PV against the same curve
-        // and OAS, so it isolates the optionality cost cleanly (the previous
-        // bullet-at-Z minus callable-at-OAS path collapsed by construction).
+        // Bullet PV at OAS minus callable PV — same curve and OAS, so the
+        // optionality cost is isolated cleanly.
         let opt_val = calc.option_value(cb, &typed_curve, oas_decimal, req.settlement)?;
 
         Ok::<SpreadResponse, DispatchError>(SpreadResponse {

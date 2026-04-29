@@ -99,10 +99,7 @@ impl OASCalculator {
         }
     }
 
-    /// Creates a calculator with default Hull-White model.
-    ///
-    /// Uses 3% mean reversion and 200 tree steps (Bloomberg-comparable for
-    /// 30-year multi-call schedules).
+    /// Default Hull-White: 3% mean reversion, 200 tree steps.
     #[must_use]
     pub fn default_hull_white(volatility: f64) -> Self {
         Self::new(HullWhite::new(0.03, volatility), 200)
@@ -152,7 +149,7 @@ impl OASCalculator {
 
         let target_price = dirty_price.to_f64().unwrap_or(100.0);
 
-        // Tree depends only on curve+model — build once, then Brent-search OAS.
+        // Tree depends only on curve+model — build once, Brent-solve OAS.
         let ctx = self.build_tree_context(bond, curve, settlement)?;
         let objective = |oas: f64| {
             self.price_on_tree(&ctx, oas)
@@ -160,10 +157,7 @@ impl OASCalculator {
                 .unwrap_or(f64::NAN)
         };
 
-        // Widen the bracket on the low side: callable bonds trading at a
-        // premium need deeply negative OAS, but the price asymptotes to the
-        // call price as OAS → −∞, so this can still hit a no-bracket wall
-        // (in which case Brent honestly errors).
+        // Premium callables can need deeply negative OAS; widen the low side.
         let cfg = SolverConfig::new(1e-8, 100);
         let mut low = -0.05;
         let high = 0.10;
@@ -188,9 +182,8 @@ impl OASCalculator {
         ))
     }
 
-    /// Prices a callable on an event-aligned HW1F trinomial tree.
-    /// Rebuilds the tree per call — for OAS root-solving use `calculate`
-    /// (builds once, prices many times).
+    /// Price on an event-aligned HW1F trinomial tree. Rebuilds the tree
+    /// per call; root-solving should go through `calculate`.
     pub fn price_with_oas(
         &self,
         bond: &CallableBond,
@@ -226,8 +219,7 @@ impl OASCalculator {
         let cash_flows = base_bond.cash_flows(settlement);
         let face_value = base_bond.face_value().to_f64().unwrap_or(100.0);
 
-        // Carry the date alongside each event time so callability lookup
-        // doesn't have to recover it from `t * 365`.
+        // (event_time, date) pairs — avoids a `t * 365` round-trip later.
         let mut mandatory_pairs: Vec<(f64, Date)> = Vec::new();
         for cf in &cash_flows {
             if !matches!(
@@ -251,8 +243,7 @@ impl OASCalculator {
         let mandatory_times: Vec<f64> = mandatory_pairs.iter().map(|p| p.0).collect();
         let times = build_event_grid(maturity_years, &mandatory_times, self.tree_steps);
 
-        // Pre-evaluate zero rates so curve extrapolation errors surface here
-        // (instead of being silently substituted inside the tree builder).
+        // Pre-evaluate so curve extrapolation errors surface here, not silently inside the tree.
         let mut zero_at_times: Vec<f64> = Vec::with_capacity(times.len());
         for &t in &times {
             if t <= 0.0 {
@@ -291,8 +282,7 @@ impl OASCalculator {
             if cf_t <= 0.0 {
                 continue;
             }
-            // BDC-adjusted final flows that land on/after maturity bucket
-            // into the maturity layer.
+            // BDC-adjusted final flows past maturity bucket into the maturity layer.
             let i = tree.step_at_time(cf_t).unwrap_or(n).min(n);
             step_amount[i] += cf.amount.to_f64().unwrap_or(0.0);
         }

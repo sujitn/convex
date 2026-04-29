@@ -117,7 +117,6 @@ impl ForwardCurve {
     }
 
     /// Simple forward over [t_start, t_end]: `(DF(t1)/DF(t2) - 1) / (t2 - t1)`.
-    /// What an FRN coupon actually accrues at — not the instantaneous forward.
     pub fn simple_forward_period(&self, t_start: f64, t_end: f64) -> CurveResult<f64> {
         let span = t_end - t_start;
         if span <= 0.0 {
