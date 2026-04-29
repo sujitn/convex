@@ -6,6 +6,7 @@
 //! that supply a flat reset rate; the ARRC compound-in-arrears path lives in
 //! `crate::arrc` and consumes daily fixings + a projection curve.
 
+use once_cell::sync::OnceCell;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +49,8 @@ pub struct FloatingRateNote {
     currency: Currency,
     face_value: Decimal,
     current_rate: Option<Decimal>,
+    /// Cached schedule (configuration is immutable after build).
+    schedule: OnceCell<Schedule>,
 }
 
 impl FloatingRateNote {
@@ -170,9 +173,9 @@ impl FloatingRateNote {
         index_rate: Decimal,
     ) -> Decimal {
         let dc = self.day_count.to_day_count();
-        let year_frac = dc.year_fraction(period_start, period_end);
+        let year_frac = dc.period_year_fraction(period_start, period_end, period_start, period_end);
         let effective_rate = self.effective_rate(index_rate);
-        self.face_value * effective_rate * Decimal::try_from(year_frac).unwrap_or(Decimal::ZERO)
+        self.face_value * effective_rate * year_frac
     }
 
     /// ISMA-style period-prorata accrual (accrued_days / period_days × period coupon),
@@ -211,10 +214,12 @@ impl FloatingRateNote {
         period_coupon * Decimal::from(accrued_days) / Decimal::from(period_days)
     }
 
-    fn schedule(&self) -> BondResult<Schedule> {
-        let config = ScheduleConfig::new(self.issue_date, self.maturity, self.frequency)
-            .with_calendar(self.calendar.clone());
-        Schedule::generate(config)
+    fn schedule(&self) -> BondResult<&Schedule> {
+        self.schedule.get_or_try_init(|| {
+            let config = ScheduleConfig::new(self.issue_date, self.maturity, self.frequency)
+                .with_calendar(self.calendar.clone());
+            Schedule::generate(config)
+        })
     }
 }
 
@@ -666,6 +671,7 @@ impl FloatingRateNoteBuilder {
             currency: self.currency.unwrap_or(Currency::USD),
             face_value: self.face_value.unwrap_or(Decimal::ONE_HUNDRED),
             current_rate: None,
+            schedule: OnceCell::new(),
         })
     }
 }
@@ -782,6 +788,7 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
             currency: data.currency,
             face_value: data.face_value,
             current_rate: None,
+            schedule: OnceCell::new(),
         })
     }
 }

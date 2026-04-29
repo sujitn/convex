@@ -13,6 +13,43 @@ use convex_math::solvers::{brent, SolverConfig};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
+/// (years_from_settle, fwd_df_from_settle, amount) — Z-spread anchored at settle.
+fn forward_cashflows(
+    curve: &dyn RateCurveDyn,
+    cash_flows: &[convex_bonds::traits::BondCashFlow],
+    settlement: Date,
+) -> AnalyticsResult<Vec<(f64, f64, f64)>> {
+    let ref_date = curve.reference_date();
+    let t_settle = ref_date.days_between(&settlement) as f64 / 365.0;
+    let df_settle = curve
+        .discount_factor(t_settle.max(0.0))
+        .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at settle: {e}")))?;
+    if df_settle <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(
+            "curve DF at settle is non-positive".to_string(),
+        ));
+    }
+
+    let mut out = Vec::with_capacity(cash_flows.len());
+    for cf in cash_flows {
+        if cf.date <= settlement {
+            continue;
+        }
+        let t_cf = ref_date.days_between(&cf.date) as f64 / 365.0;
+        let dt = settlement.days_between(&cf.date) as f64 / 365.0;
+        let df_cf = curve
+            .discount_factor(t_cf)
+            .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at cf: {e}")))?;
+        if df_cf <= 0.0 {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "curve DF at cashflow date is non-positive (t={t_cf})"
+            )));
+        }
+        out.push((dt, df_cf / df_settle, cf.amount.to_f64().unwrap_or(0.0)));
+    }
+    Ok(out)
+}
+
 /// Z-spread calculator for fixed rate bonds.
 ///
 /// The Z-spread is found by solving:
@@ -106,7 +143,6 @@ impl<'a> ZSpreadCalculator<'a> {
 
         let target_price = dirty_price.to_f64().unwrap_or(100.0);
 
-        // Get cash flows after settlement
         let cash_flows = bond.cash_flows(settlement);
         if cash_flows.is_empty() {
             return Err(AnalyticsError::InvalidInput(
@@ -114,27 +150,20 @@ impl<'a> ZSpreadCalculator<'a> {
             ));
         }
 
-        let ref_date = self.curve.reference_date();
+        let face = bond.face_value().to_f64().unwrap_or(100.0);
+        // Z-spread is anchored at SETTLEMENT, not the curve reference date —
+        // forward DF from settle = DF(cf) / DF(settle).
+        let cf_data = forward_cashflows(self.curve, &cash_flows, settlement)?;
 
-        // Objective function: price(z) - target = 0
         let objective = |z: f64| {
             let mut pv = 0.0;
-            for cf in &cash_flows {
-                if cf.date <= settlement {
-                    continue;
-                }
-                let t = ref_date.days_between(&cf.date) as f64 / 365.0;
-                let df = self.curve.discount_factor(t).unwrap_or(1.0);
-                let cf_amount = cf.amount.to_f64().unwrap_or(0.0);
-                // Adjust DF by Z-spread: DF_adj = DF × exp(-z × t)
-                pv += cf_amount * df * (-z * t).exp();
+            for (dt, fwd_df, amount) in &cf_data {
+                pv += amount * fwd_df * (-z * dt).exp();
             }
-            // Normalize to percentage of face value
-            let face = bond.face_value().to_f64().unwrap_or(100.0);
             pv / face * 100.0 - target_price
         };
 
-        // Search for Z-spread between -5% and +20%
+        // Search for Z-spread between -5% and +20%.
         let result = brent(objective, -0.05, 0.20, &self.config).map_err(|_| {
             AnalyticsError::SolverConvergenceFailed {
                 solver: "Z-spread Brent".to_string(),
@@ -171,26 +200,19 @@ impl<'a> ZSpreadCalculator<'a> {
         let Some(maturity) = bond.maturity() else {
             return 0.0;
         };
-
         if settlement >= maturity {
             return 0.0;
         }
 
         let cash_flows = bond.cash_flows(settlement);
-        let ref_date = self.curve.reference_date();
-
-        let mut pv = 0.0;
-        for cf in &cash_flows {
-            if cf.date <= settlement {
-                continue;
-            }
-            let t = ref_date.days_between(&cf.date) as f64 / 365.0;
-            let df = self.curve.discount_factor(t).unwrap_or(1.0);
-            let cf_amount = cf.amount.to_f64().unwrap_or(0.0);
-            pv += cf_amount * df * (-z_spread * t).exp();
-        }
-
+        let Ok(cf_data) = forward_cashflows(self.curve, &cash_flows, settlement) else {
+            return 0.0;
+        };
         let face = bond.face_value().to_f64().unwrap_or(100.0);
+        let pv: f64 = cf_data
+            .iter()
+            .map(|(dt, fwd_df, amt)| amt * fwd_df * (-z_spread * dt).exp())
+            .sum();
         pv / face * 100.0
     }
 
@@ -247,37 +269,18 @@ impl<'a> ZSpreadCalculator<'a> {
         settlement: Date,
     ) -> AnalyticsResult<Spread> {
         let target = dirty_price.to_f64().unwrap_or(100.0);
-
-        // Convert cash flows to (time, amount) pairs
-        let cf_data: Vec<(f64, f64)> = cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let t = settlement.days_between(&cf.date) as f64 / 365.0;
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (t, amount)
-            })
-            .collect();
-
+        let cf_data = forward_cashflows(self.curve, cash_flows, settlement)?;
         if cf_data.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "No cash flows after settlement".to_string(),
             ));
         }
 
-        let ref_date = self.curve.reference_date();
-
-        // Objective function: PV(z) - target = 0
         let objective = |z: f64| {
-            let mut pv = 0.0;
-            for (t, amount) in &cf_data {
-                // Get discount factor from curve
-                let curve_t =
-                    ref_date.days_between(&settlement.add_days((*t * 365.0) as i64)) as f64 / 365.0;
-                let df = self.curve.discount_factor(curve_t).unwrap_or(1.0);
-                // Adjust for z-spread
-                pv += amount * df * (-z * t).exp();
-            }
+            let pv: f64 = cf_data
+                .iter()
+                .map(|(dt, fwd_df, amt)| amt * fwd_df * (-z * dt).exp())
+                .sum();
             pv - target
         };
 

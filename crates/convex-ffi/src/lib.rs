@@ -1,314 +1,278 @@
-//! # Convex FFI
+//! # Convex FFI — JSON-RPC boundary
 //!
-//! C-compatible Foreign Function Interface for the Convex fixed income analytics library.
+//! Twelve C functions cover the entire surface. Five are stateful (build,
+//! describe, release, count, clear). Five are stateless analytics RPCs that
+//! consume one JSON request and return one JSON response. Two are utilities
+//! (schema introspection, mark text parser).
 //!
-//! This crate provides C-compatible bindings for use from other languages including:
-//! - C/C++
-//! - Python (via ctypes/cffi)
-//! - Java (via JNI)
-//! - C# (via P/Invoke)
+//! Adding a new bond shape, a new spread family, or a new analytic does not
+//! add a new C symbol. It is a serde enum variant in `convex_analytics::dto`
+//! plus a dispatch arm in `dispatch`.
 //!
-//! ## Safety
+//! ## Memory model
 //!
-//! All public functions in this crate are `unsafe` as they deal with raw pointers
-//! and assume correct usage from the caller. The caller is responsible for:
+//! All functions returning `*const c_char` return a heap-allocated, null-
+//! terminated UTF-8 string owned by Rust. The caller MUST free it with
+//! [`convex_string_free`]. Inputs are borrowed; the FFI never takes ownership
+//! of caller-allocated buffers.
 //!
-//! - Ensuring pointers are valid and non-null
-//! - Properly freeing allocated memory using the provided free functions
-//! - Not using objects after they have been freed
+//! ## Error model
 //!
-//! ## Memory Management
-//!
-//! Objects created by this library must be freed using the corresponding
-//! `convex_*_free` functions. Failure to do so will result in memory leaks.
-//!
-//! ## Error Handling
-//!
-//! Functions return error codes (0 = success, non-zero = error).
-//! Error messages can be retrieved using `convex_last_error_message`.
+//! Stateful constructors return `0` (`INVALID_HANDLE`) on failure; the caller
+//! reads [`convex_last_error`] for diagnostics. Stateless RPCs always return
+//! a JSON envelope `{"ok": "true", "result": …}` or `{"ok": "false", "error":
+//! {"code","message","field?"}}` — there is no out-of-band error path.
 
 #![allow(clippy::missing_safety_doc)]
 
-use std::ffi::CStr;
-
-use libc::{c_char, c_int};
-
-use convex_core::types::Date;
-
-mod bonds;
-mod curves;
+mod build;
+mod dispatch;
 mod error;
-mod pricing;
 mod registry;
-mod spreads;
+mod schemas;
 
-use error::set_last_error;
+use std::ffi::{CStr, CString};
 
-// Re-export public items from submodules
+use libc::c_char;
+
 pub use registry::{Handle, INVALID_HANDLE};
 
-/// Result code for successful operations.
-pub const CONVEX_OK: c_int = 0;
-
-/// Result code for general errors.
-pub const CONVEX_ERROR: c_int = -1;
-
-/// Result code for invalid arguments.
-pub const CONVEX_ERROR_INVALID_ARG: c_int = -2;
-
-/// Result code for null pointer errors.
-pub const CONVEX_ERROR_NULL_PTR: c_int = -3;
-
-/// Result code for object not found errors.
-pub const CONVEX_ERROR_NOT_FOUND: c_int = -4;
-
 // ============================================================================
-// Date Functions
+// Boundary helpers
 // ============================================================================
 
-/// Opaque handle to a Date object.
-pub struct ConvexDate {
-    inner: Date,
-}
-
-/// Creates a new date from year, month, day.
-///
-/// # Safety
-///
-/// The `out` pointer must be valid and writable.
+/// Free a string returned by any FFI function in this crate.
 #[no_mangle]
-pub unsafe extern "C" fn convex_date_new(
-    year: c_int,
-    month: c_int,
-    day: c_int,
-    out: *mut *mut ConvexDate,
-) -> c_int {
-    if out.is_null() {
-        set_last_error("Output pointer is null");
-        return CONVEX_ERROR_NULL_PTR;
-    }
-
-    match Date::from_ymd(year, month as u32, day as u32) {
-        Ok(date) => {
-            let boxed = Box::new(ConvexDate { inner: date });
-            *out = Box::into_raw(boxed);
-            CONVEX_OK
-        }
-        Err(e) => {
-            set_last_error(format!("Invalid date: {}", e));
-            CONVEX_ERROR_INVALID_ARG
-        }
+pub unsafe extern "C" fn convex_string_free(s: *mut c_char) {
+    if !s.is_null() {
+        let _ = CString::from_raw(s);
     }
 }
 
-/// Parses a date from an ISO 8601 string (YYYY-MM-DD).
+/// Get the last error message set by a stateful constructor.
 ///
-/// # Safety
-///
-/// - `date_str` must be a valid null-terminated C string.
-/// - `out` pointer must be valid and writable.
+/// The returned pointer is valid until the next call into this library on
+/// the same thread; do not free it.
 #[no_mangle]
-pub unsafe extern "C" fn convex_date_parse(
-    date_str: *const c_char,
-    out: *mut *mut ConvexDate,
-) -> c_int {
-    if date_str.is_null() || out.is_null() {
-        set_last_error("Null pointer argument");
-        return CONVEX_ERROR_NULL_PTR;
-    }
-
-    let c_str = CStr::from_ptr(date_str);
-    let str_slice = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => {
-            set_last_error("Invalid UTF-8 string");
-            return CONVEX_ERROR_INVALID_ARG;
-        }
-    };
-
-    match Date::parse(str_slice) {
-        Ok(date) => {
-            let boxed = Box::new(ConvexDate { inner: date });
-            *out = Box::into_raw(boxed);
-            CONVEX_OK
-        }
-        Err(e) => {
-            set_last_error(format!("Failed to parse date: {}", e));
-            CONVEX_ERROR_INVALID_ARG
-        }
-    }
-}
-
-/// Gets the year component of a date.
-///
-/// # Safety
-///
-/// `date` must be a valid pointer created by `convex_date_new` or `convex_date_parse`.
-#[no_mangle]
-pub unsafe extern "C" fn convex_date_year(date: *const ConvexDate) -> c_int {
-    if date.is_null() {
-        return 0;
-    }
-    (*date).inner.year()
-}
-
-/// Gets the month component of a date (1-12).
-///
-/// # Safety
-///
-/// `date` must be a valid pointer created by `convex_date_new` or `convex_date_parse`.
-#[no_mangle]
-pub unsafe extern "C" fn convex_date_month(date: *const ConvexDate) -> c_int {
-    if date.is_null() {
-        return 0;
-    }
-    (*date).inner.month() as c_int
-}
-
-/// Gets the day component of a date (1-31).
-///
-/// # Safety
-///
-/// `date` must be a valid pointer created by `convex_date_new` or `convex_date_parse`.
-#[no_mangle]
-pub unsafe extern "C" fn convex_date_day(date: *const ConvexDate) -> c_int {
-    if date.is_null() {
-        return 0;
-    }
-    (*date).inner.day() as c_int
-}
-
-/// Frees a date object.
-///
-/// # Safety
-///
-/// `date` must be a valid pointer created by `convex_date_new` or `convex_date_parse`,
-/// or null (in which case this is a no-op).
-#[no_mangle]
-pub unsafe extern "C" fn convex_date_free(date: *mut ConvexDate) {
-    if !date.is_null() {
-        drop(Box::from_raw(date));
-    }
-}
-
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/// Gets the last error message.
-///
-/// # Safety
-///
-/// The returned string is valid until the next call to any convex function.
-/// The caller must not free the returned string.
-#[no_mangle]
-pub unsafe extern "C" fn convex_last_error_message() -> *const c_char {
+pub extern "C" fn convex_last_error() -> *const c_char {
     error::last_error_message()
 }
 
-/// Clears the last error message.
+/// Clear the thread-local last-error slot.
 #[no_mangle]
 pub extern "C" fn convex_clear_error() {
-    error::clear_error();
+    error::clear_error()
 }
 
-// ============================================================================
-// Version Information
-// ============================================================================
-
-/// Returns the library version string.
-///
-/// # Safety
-///
-/// The returned string is statically allocated and valid for the lifetime of the program.
+/// Library version (`CARGO_PKG_VERSION`). Static; do not free.
 #[no_mangle]
 pub extern "C" fn convex_version() -> *const c_char {
-    static VERSION: &[u8] = b"0.1.0\0";
-    VERSION.as_ptr() as *const c_char
+    static VERSION: once_cell::sync::Lazy<CString> =
+        once_cell::sync::Lazy::new(|| CString::new(env!("CARGO_PKG_VERSION")).unwrap());
+    VERSION.as_ptr()
 }
 
 // ============================================================================
-// Day Count Utilities
+// Construction (handles)
 // ============================================================================
 
-/// Calculates the day count fraction between two dates.
-///
-/// # Arguments
-///
-/// * `start_year`, `start_month`, `start_day` - Start date
-/// * `end_year`, `end_month`, `end_day` - End date
-/// * `convention` - Day count convention (0=Act360, 1=Act365, 2=30/360, etc.)
-///
-/// # Returns
-///
-/// The year fraction, or NaN on error.
+/// Build a bond from a `BondSpec` JSON. Returns `0` on failure.
 #[no_mangle]
-pub unsafe extern "C" fn convex_day_count_fraction(
-    start_year: c_int,
-    start_month: c_int,
-    start_day: c_int,
-    end_year: c_int,
-    end_month: c_int,
-    end_day: c_int,
-    convention: c_int,
-) -> f64 {
-    use convex_core::daycounts::DayCountConvention;
-
-    let start = match Date::from_ymd(start_year, start_month as u32, start_day as u32) {
-        Ok(d) => d,
-        Err(_) => return f64::NAN,
-    };
-
-    let end = match Date::from_ymd(end_year, end_month as u32, end_day as u32) {
-        Ok(d) => d,
-        Err(_) => return f64::NAN,
-    };
-
-    let dc = match convention {
-        0 => DayCountConvention::Act360,
-        1 => DayCountConvention::Act365Fixed,
-        2 => DayCountConvention::Thirty360US,
-        3 => DayCountConvention::ActActIsda,
-        4 => DayCountConvention::ActActIcma,
-        _ => return f64::NAN,
-    };
-
-    use rust_decimal::prelude::ToPrimitive;
-    dc.to_day_count()
-        .year_fraction(start, end)
-        .to_f64()
-        .unwrap_or(f64::NAN)
+pub unsafe extern "C" fn convex_bond_from_json(spec_json: *const c_char) -> Handle {
+    with_str(spec_json, build::bond_from_json)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::ptr;
+/// Build a curve from a `CurveSpec` JSON. Returns `0` on failure.
+#[no_mangle]
+pub unsafe extern "C" fn convex_curve_from_json(spec_json: *const c_char) -> Handle {
+    with_str(spec_json, build::curve_from_json)
+}
 
-    #[test]
-    fn test_date_creation() {
-        unsafe {
-            let mut date_ptr: *mut ConvexDate = ptr::null_mut();
-            let result = convex_date_new(2025, 6, 15, &mut date_ptr);
+/// Returns a JSON description of the registered object.
+///
+/// Free the returned pointer with [`convex_string_free`].
+#[no_mangle]
+pub extern "C" fn convex_describe(handle: Handle) -> *mut c_char {
+    to_owned_c(dispatch::describe(handle))
+}
 
-            assert_eq!(result, CONVEX_OK);
-            assert!(!date_ptr.is_null());
-            assert_eq!(convex_date_year(date_ptr), 2025);
-            assert_eq!(convex_date_month(date_ptr), 6);
-            assert_eq!(convex_date_day(date_ptr), 15);
+/// Releases an object by handle. No-op on invalid handle.
+#[no_mangle]
+pub extern "C" fn convex_release(handle: Handle) {
+    registry::release(handle);
+}
 
-            convex_date_free(date_ptr);
+/// Number of registered objects.
+#[no_mangle]
+pub extern "C" fn convex_object_count() -> i32 {
+    registry::object_count() as i32
+}
+
+/// Returns a JSON array of `{handle,kind,name?}` entries for every registered
+/// object. Caller frees with [`convex_string_free`].
+#[no_mangle]
+pub extern "C" fn convex_list_objects() -> *mut c_char {
+    let entries: Vec<_> = registry::list(None)
+        .into_iter()
+        .map(|(h, kind, name)| {
+            serde_json::json!({
+                "handle": h,
+                "kind": kind.tag(),
+                "name": name,
+            })
+        })
+        .collect();
+    let body = serde_json::json!({"ok": "true", "result": entries});
+    to_owned_c(body.to_string())
+}
+
+/// Clears all registered objects.
+#[no_mangle]
+pub extern "C" fn convex_clear_all() {
+    registry::clear_all()
+}
+
+// ============================================================================
+// Stateless analytics RPCs (JSON in, JSON out)
+// ============================================================================
+
+/// Price a bond. Request: `PricingRequest`. Response: `PricingResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_price(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::price)
+}
+
+/// Risk metrics. Request: `RiskRequest`. Response: `RiskResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_risk(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::risk)
+}
+
+/// Spread (Z/G/I/ASW/OAS/DM dispatch). Request: `SpreadRequest`. Response:
+/// `SpreadResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_spread(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::spread)
+}
+
+/// Bond cashflow schedule. Request: `CashflowRequest`. Response: `CashflowResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_cashflows(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::cashflows)
+}
+
+/// Curve point query. Request: `CurveQueryRequest`. Response: `CurveQueryResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::curve_query)
+}
+
+// ============================================================================
+// Introspection
+// ============================================================================
+
+/// Returns the JSON schema for a named DTO type, or an error envelope.
+///
+/// Type names: `Mark`, `BondSpec`, `CurveSpec`, `PricingRequest`,
+/// `PricingResponse`, `RiskRequest`, `RiskResponse`, `SpreadRequest`,
+/// `SpreadResponse`, `CashflowRequest`, `CashflowResponse`,
+/// `CurveQueryRequest`, `CurveQueryResponse`.
+#[no_mangle]
+pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char {
+    let result = with_str_owned(type_name, schemas::lookup);
+    to_owned_c(match result {
+        Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
+        Err(msg) => err_envelope("schema", &msg),
+    })
+}
+
+/// Parse a textual mark (e.g. `"99.5C"`, `"4.65%"`, `"+125bps@USD.SOFR"`).
+///
+/// Returns a JSON envelope; on success, `result` is the canonical `Mark` JSON.
+#[no_mangle]
+pub unsafe extern "C" fn convex_mark_parse(text: *const c_char) -> *mut c_char {
+    let payload = with_str_owned(text, |s| {
+        s.parse::<convex_core::types::Mark>()
+            .map_err(|e| e.to_string())
+    });
+    to_owned_c(match payload {
+        Ok(mark) => match serde_json::to_string(&mark) {
+            Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
+            Err(e) => err_envelope("serialize", &e.to_string()),
+        },
+        Err(e) => err_envelope("invalid_input", &e),
+    })
+}
+
+// ============================================================================
+// Internal helpers
+// ============================================================================
+
+unsafe fn with_str<F, R>(ptr: *const c_char, f: F) -> R
+where
+    F: FnOnce(&str) -> R,
+    R: Default,
+{
+    if ptr.is_null() {
+        error::set_last_error("null pointer");
+        return R::default();
+    }
+    match CStr::from_ptr(ptr).to_str() {
+        Ok(s) => f(s),
+        Err(e) => {
+            error::set_last_error(format!("invalid UTF-8: {e}"));
+            R::default()
         }
     }
+}
 
-    #[test]
-    fn test_invalid_date() {
-        unsafe {
-            let mut date_ptr: *mut ConvexDate = ptr::null_mut();
-            let result = convex_date_new(2025, 2, 30, &mut date_ptr);
+unsafe fn with_str_owned<F, T>(ptr: *const c_char, f: F) -> Result<T, String>
+where
+    F: FnOnce(&str) -> Result<T, String>,
+{
+    if ptr.is_null() {
+        return Err("null pointer".to_string());
+    }
+    let s = CStr::from_ptr(ptr)
+        .to_str()
+        .map_err(|e| format!("invalid UTF-8: {e}"))?;
+    f(s)
+}
 
-            assert_eq!(result, CONVEX_ERROR_INVALID_ARG);
-            assert!(date_ptr.is_null());
-        }
+unsafe fn rpc(request_json: *const c_char, handler: fn(&str) -> String) -> *mut c_char {
+    let response = match with_str_owned(request_json, |s| Ok::<String, String>(handler(s))) {
+        Ok(r) => r,
+        Err(e) => err_envelope("invalid_input", &e),
+    };
+    to_owned_c(response)
+}
+
+fn to_owned_c(s: String) -> *mut c_char {
+    match CString::new(s) {
+        Ok(cs) => cs.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+pub(crate) fn err_envelope(code: &str, message: &str) -> String {
+    let body = serde_json::json!({
+        "ok": "false",
+        "error": { "code": code, "message": message }
+    });
+    body.to_string()
+}
+
+pub(crate) fn err_envelope_field(code: &str, message: &str, field: &str) -> String {
+    let body = serde_json::json!({
+        "ok": "false",
+        "error": { "code": code, "message": message, "field": field }
+    });
+    body.to_string()
+}
+
+pub(crate) fn ok_envelope<T: serde::Serialize>(result: &T) -> String {
+    match serde_json::to_value(result) {
+        Ok(v) => serde_json::json!({"ok":"true","result": v}).to_string(),
+        Err(e) => err_envelope("serialize", &e.to_string()),
     }
 }

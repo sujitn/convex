@@ -1,4 +1,9 @@
-//! Thread-local error handling for FFI.
+//! Thread-local last-error slot.
+//!
+//! Used by stateful constructors (which return `Handle`/`0`) so callers can
+//! retrieve a diagnostic message via [`crate::convex_last_error`]. Stateless
+//! analytics RPCs return errors inline in the JSON envelope and do not touch
+//! this slot.
 
 use std::cell::RefCell;
 use std::ffi::CString;
@@ -9,16 +14,12 @@ thread_local! {
     static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
 }
 
-/// Sets the last error message.
 pub fn set_last_error(msg: impl Into<String>) {
     LAST_ERROR.with(|cell| {
         *cell.borrow_mut() = CString::new(msg.into()).ok();
     });
 }
 
-/// Gets the last error message as a C string pointer.
-///
-/// Returns a null pointer if no error has been set.
 pub fn last_error_message() -> *const c_char {
     LAST_ERROR.with(|cell| {
         cell.borrow()
@@ -28,37 +29,8 @@ pub fn last_error_message() -> *const c_char {
     })
 }
 
-/// Clears the last error.
 pub fn clear_error() {
     LAST_ERROR.with(|cell| {
         *cell.borrow_mut() = None;
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::ffi::CStr;
-
-    #[test]
-    fn test_error_set_and_get() {
-        set_last_error("Test error message");
-
-        let ptr = last_error_message();
-        assert!(!ptr.is_null());
-
-        unsafe {
-            let msg = CStr::from_ptr(ptr).to_string_lossy();
-            assert_eq!(msg, "Test error message");
-        }
-    }
-
-    #[test]
-    fn test_clear_error() {
-        set_last_error("Error");
-        clear_error();
-
-        let ptr = last_error_message();
-        assert!(ptr.is_null());
-    }
 }

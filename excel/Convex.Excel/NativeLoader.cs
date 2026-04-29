@@ -19,7 +19,7 @@ namespace Convex.Excel
         private static extern bool SetDllDirectory(string lpPathName);
 
         private static bool _initialized = false;
-        private static string _loadError = null;
+        private static string? _loadError = null;
 
         public void AutoOpen()
         {

@@ -2,11 +2,11 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>11.0</LangVersion>
+    <Nullable>enable</Nullable>
     <AssemblyName>Convex.Excel</AssemblyName>
     <RootNamespace>Convex.Excel</RootNamespace>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -17,12 +17,14 @@
   <ItemGroup>
     <PackageReference Include="ExcelDna.AddIn" Version="1.7.0" />
     <PackageReference Include="ExcelDna.Integration" Version="1.7.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>
