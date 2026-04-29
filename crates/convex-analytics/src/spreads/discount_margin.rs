@@ -134,7 +134,12 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let adjusted_df = (df_cf / df_settle) * (-dm * dt).exp();
 
             let coupon = match (cf.accrual_start, cf.accrual_end) {
-                (Some(start), Some(end)) if start > settlement => {
+                // start >= settlement: period hasn't accrued — project via the
+                // forward curve. A period starting *exactly* on settlement is a
+                // reset-day boundary; trusting cf.amount there assumes the caller
+                // updated frn.current_rate to the freshly-set rate, which we don't
+                // require.
+                (Some(start), Some(end)) if start >= settlement => {
                     let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
                     let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
                     let Ok(simple_fwd) = self.forward_curve.simple_forward_period(t_start, t_end)
