@@ -200,9 +200,12 @@ import ctypes, json
 lib = ctypes.CDLL("./libconvex_ffi.so")
 lib.convex_bond_from_json.argtypes = [ctypes.c_char_p]
 lib.convex_bond_from_json.restype  = ctypes.c_uint64
+# IMPORTANT: functions that return Rust-owned strings must use c_void_p, not
+# c_char_p. ctypes auto-copies c_char_p into a Python bytes and discards the
+# original pointer, leaving nothing to pass back to convex_string_free.
 lib.convex_price.argtypes          = [ctypes.c_char_p]
-lib.convex_price.restype           = ctypes.c_char_p
-lib.convex_string_free.argtypes    = [ctypes.c_char_p]
+lib.convex_price.restype           = ctypes.c_void_p
+lib.convex_string_free.argtypes    = [ctypes.c_void_p]
 
 bond = lib.convex_bond_from_json(json.dumps({
     "type": "fixed_rate", "cusip": "TEST10Y5",
@@ -211,15 +214,15 @@ bond = lib.convex_bond_from_json(json.dumps({
     "day_count": "Thirty360US", "currency": "USD", "face_value": 100,
 }).encode())
 
-raw = lib.convex_price(json.dumps({
+ptr = lib.convex_price(json.dumps({
     "bond": bond, "settlement": "2025-04-15",
     "mark": "99.5C", "quote_frequency": "SemiAnnual",
 }).encode())
-print(json.loads(raw.decode()))
-
-# Free the response string returned by convex_price.
-# (raw was a c_char_p alias of the pointer; pass it back unchanged.)
-lib.convex_string_free(raw)
+try:
+    response = ctypes.string_at(ptr).decode()
+    print(json.loads(response))
+finally:
+    lib.convex_string_free(ptr)
 
 lib.convex_release(bond)
 ```

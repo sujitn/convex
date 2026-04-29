@@ -250,22 +250,44 @@ fn build_floating_rate(spec: FloatingRateSpec) -> Handle {
 }
 
 fn build_zero_coupon(spec: ZeroCouponSpec) -> Handle {
-    let id = spec
-        .id
-        .cusip
-        .clone()
-        .or_else(|| spec.id.isin.clone())
-        .or_else(|| spec.id.name.clone())
-        .unwrap_or_default();
+    use convex_bonds::instruments::Compounding as ZcbComp;
+    use convex_core::types::Compounding as CoreComp;
+    let comp = match spec.compounding {
+        CoreComp::Annual => ZcbComp::Annual,
+        CoreComp::SemiAnnual => ZcbComp::SemiAnnual,
+        CoreComp::Quarterly => ZcbComp::Quarterly,
+        CoreComp::Monthly => ZcbComp::Monthly,
+        CoreComp::Continuous => ZcbComp::Continuous,
+        // Simple/Daily aren't first-class on the bond builder; closest sane
+        // discrete fallback is annual / continuous respectively.
+        CoreComp::Simple => ZcbComp::Annual,
+        CoreComp::Daily => ZcbComp::Continuous,
+    };
 
-    let bond = ZeroCouponBond::new(id, spec.maturity, spec.currency)
-        .with_face_value(spec.face_value)
-        .with_issue_date(spec.issue);
-    registry::register(
-        bond,
-        ObjectKind::Bond(BondKind::ZeroCoupon),
-        name_from_id(&spec.id),
-    )
+    let mut builder = ZeroCouponBond::builder()
+        .maturity(spec.maturity)
+        .issue_date(spec.issue)
+        .currency(spec.currency)
+        .face_value(spec.face_value)
+        .day_count(spec.day_count)
+        .compounding(comp);
+    if let Some(c) = &spec.id.cusip {
+        builder = builder.cusip_unchecked(c);
+    } else if let Some(i) = &spec.id.isin {
+        builder = builder.isin_unchecked(i);
+    }
+
+    match builder.build() {
+        Ok(bond) => registry::register(
+            bond,
+            ObjectKind::Bond(BondKind::ZeroCoupon),
+            name_from_id(&spec.id),
+        ),
+        Err(e) => {
+            set_last_error(format!("ZeroCouponBond build failed: {e}"));
+            INVALID_HANDLE
+        }
+    }
 }
 
 fn build_sinking_fund(spec: SinkingFundSpec) -> Handle {

@@ -121,12 +121,18 @@ impl ForwardCurve {
     pub fn simple_forward_period(&self, t_start: f64, t_end: f64) -> CurveResult<f64> {
         let span = t_end - t_start;
         if span <= 0.0 {
-            return Ok(0.0);
+            return Err(crate::error::CurveError::InvalidValue {
+                reason: format!("simple_forward_period: span must be positive (t_start={t_start}, t_end={t_end})"),
+            });
         }
         let df_start = self.discount_curve.discount_factor(t_start.max(0.0))?;
         let df_end = self.discount_curve.discount_factor(t_end)?;
         if df_end <= 0.0 {
-            return Ok(0.0);
+            return Err(crate::error::CurveError::InvalidValue {
+                reason: format!(
+                    "simple_forward_period: DF(t_end={t_end}) is non-positive ({df_end})"
+                ),
+            });
         }
         Ok((df_start / df_end - 1.0) / span)
     }

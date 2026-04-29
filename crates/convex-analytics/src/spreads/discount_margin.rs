@@ -102,7 +102,12 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
 
         let face_value = frn.face_value().to_f64().unwrap_or(100.0);
         let quoted_spread = frn.spread_decimal().to_f64().unwrap_or(0.0);
-        let ref_date = self.forward_curve.reference_date();
+        // Tenors must be measured against the right curve's own reference date —
+        // discount-curve queries use the discount-curve's ref date, projection
+        // queries use the forward-curve's. Mixing them silently miscomputes DFs
+        // when the two curves were built on different dates.
+        let disc_ref = self.discount_curve.reference_date();
+        let fwd_ref = self.forward_curve.reference_date();
         let day_count = frn.day_count().to_day_count();
         let cash_flows = frn.cash_flows(settlement);
 
@@ -110,7 +115,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             return 0.0;
         }
 
-        let t_settle = ref_date.days_between(&settlement) as f64 / 365.0;
+        let t_settle = disc_ref.days_between(&settlement) as f64 / 365.0;
         let df_settle = match self.discount_curve.discount_factor(t_settle.max(0.0)) {
             Ok(v) if v > 0.0 => v,
             _ => return 0.0,
@@ -121,7 +126,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             if cf.date <= settlement {
                 continue;
             }
-            let t_cf = ref_date.days_between(&cf.date) as f64 / 365.0;
+            let t_cf = disc_ref.days_between(&cf.date) as f64 / 365.0;
             let dt = settlement.days_between(&cf.date) as f64 / 365.0;
             let Ok(df_cf) = self.discount_curve.discount_factor(t_cf) else {
                 return 0.0;
@@ -130,8 +135,8 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
 
             let coupon = match (cf.accrual_start, cf.accrual_end) {
                 (Some(start), Some(end)) if start > settlement => {
-                    let t_start = ref_date.days_between(&start) as f64 / 365.0;
-                    let t_end = ref_date.days_between(&end) as f64 / 365.0;
+                    let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
+                    let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
                     let Ok(simple_fwd) = self.forward_curve.simple_forward_period(t_start, t_end)
                     else {
                         return 0.0;

@@ -26,6 +26,9 @@ namespace Convex.Excel
                 case ExcelEmpty:
                     throw new ConvexException($"{fieldName} is missing");
                 case double d:
+                    // Math.Floor(d) != d also rules out NaN/Inf (NaN != NaN).
+                    if (d < 0 || d > ulong.MaxValue || Math.Floor(d) != d)
+                        throw new ConvexException($"{fieldName} {d}: not a non-negative integer handle");
                     return (ulong)d;
                 case string s:
                     var trimmed = s.Trim();

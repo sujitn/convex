@@ -604,20 +604,6 @@ fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, Dispat
         Ok::<f64, DispatchError>(p.dirty_price_per_100)
     })??;
 
-    // Bullet PV at the implied Z-spread of the underlying — used for option_value.
-    let bullet_dirty = with_callable(req.bond, |cb| {
-        let bb = cb.base_bond();
-        let dirty_dec = Decimal::from_f64_retain(dirty)
-            .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
-        let calc = ZSpreadCalculator::new(&typed_curve);
-        let z = calc.calculate(bb, dirty_dec, req.settlement)?;
-        Ok::<f64, DispatchError>(calc.price_with_spread(
-            bb,
-            dec_to_f64(z.as_decimal()),
-            req.settlement,
-        ))
-    })??;
-
     with_callable(req.bond, |cb| {
         let calc = OASCalculator::default_hull_white(vol);
         let dirty_dec = Decimal::from_f64_retain(dirty)
@@ -636,11 +622,17 @@ fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, Dispat
         let eff_dur = (p_dn - p_up) / (2.0 * p0 * dy);
         let eff_cvx = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
 
+        // Option value = bullet PV at the same OAS minus callable model price.
+        // OASCalculator::option_value rebuilds bullet PV against the same curve
+        // and OAS, so it isolates the optionality cost cleanly (the previous
+        // bullet-at-Z minus callable-at-OAS path collapsed by construction).
+        let opt_val = calc.option_value(cb, &typed_curve, oas_decimal, req.settlement)?;
+
         Ok::<SpreadResponse, DispatchError>(SpreadResponse {
             spread_bps: dec_to_f64(oas.as_bps()),
             spread_dv01: None,
             spread_duration: None,
-            option_value: Some(bullet_dirty - p0),
+            option_value: Some(opt_val),
             effective_duration: Some(eff_dur),
             effective_convexity: Some(eff_cvx),
         })
@@ -713,18 +705,25 @@ fn cashflows_inner(request_json: &str) -> Result<CashflowResponse, DispatchError
     let req: CashflowRequest = serde_json::from_str(request_json)
         .map_err(|e| DispatchError::input(format!("CashflowRequest: {e}")))?;
 
-    with_fixed_bond!(req.bond, bond, {
-        let flows = bond
-            .cash_flows(req.settlement)
-            .into_iter()
-            .map(|cf| CashflowEntry {
-                date: cf.date,
-                amount: cf.amount.try_into().unwrap_or(0.0),
-                kind: cashflow_kind_tag(cf.flow_type).to_string(),
-            })
-            .collect();
-        Ok(CashflowResponse { flows })
-    })
+    let to_entries = |bond: &dyn Bond| -> CashflowResponse {
+        CashflowResponse {
+            flows: bond
+                .cash_flows(req.settlement)
+                .into_iter()
+                .map(|cf| CashflowEntry {
+                    date: cf.date,
+                    amount: cf.amount.try_into().unwrap_or(0.0),
+                    kind: cashflow_kind_tag(cf.flow_type).to_string(),
+                })
+                .collect(),
+        }
+    };
+
+    match registry::kind_of(req.bond) {
+        Some(ObjectKind::Bond(BondKind::FloatingRate)) => with_frn(req.bond, |f| to_entries(f)),
+        Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => with_zero(req.bond, |z| to_entries(z)),
+        _ => with_fixed_bond!(req.bond, bond, Ok(to_entries(bond))),
+    }
 }
 
 // ---- curve_query --------------------------------------------------------
@@ -737,23 +736,27 @@ fn curve_query_inner(request_json: &str) -> Result<CurveQueryResponse, DispatchE
     let req: CurveQueryRequest = serde_json::from_str(request_json)
         .map_err(|e| DispatchError::input(format!("CurveQueryRequest: {e}")))?;
 
-    let value =
-        registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| match req.query {
-            CurveQueryKind::Zero => c
-                .zero_rate_at_tenor(req.tenor, Compounding::Continuous)
-                .ok(),
-            CurveQueryKind::Df => c.discount_factor_at_tenor(req.tenor).ok(),
-            CurveQueryKind::Forward => {
-                let end = req.tenor_end.unwrap_or(req.tenor + 0.25);
-                c.forward_rate_at_tenors(req.tenor, end, Compounding::Continuous)
-                    .ok()
-            }
-        });
+    let result = registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| match req
+        .query
+    {
+        CurveQueryKind::Zero => c
+            .zero_rate_at_tenor(req.tenor, Compounding::Continuous)
+            .map_err(|e| DispatchError::analytics(format!("zero_rate query failed: {e}"))),
+        CurveQueryKind::Df => c
+            .discount_factor_at_tenor(req.tenor)
+            .map_err(|e| DispatchError::analytics(format!("discount_factor query failed: {e}"))),
+        CurveQueryKind::Forward => {
+            let end = req.tenor_end.unwrap_or(req.tenor + 0.25);
+            c.forward_rate_at_tenors(req.tenor, end, Compounding::Continuous)
+                .map_err(|e| DispatchError::analytics(format!("forward_rate query failed: {e}")))
+        }
+    });
 
-    match value.flatten() {
-        Some(v) => Ok(CurveQueryResponse { value: v }),
+    match result {
+        Some(Ok(v)) => Ok(CurveQueryResponse { value: v }),
+        Some(Err(e)) => Err(e),
         None => Err(DispatchError::handle(format!(
-            "curve handle {} not found or query failed",
+            "curve handle {} not found",
             req.curve
         ))),
     }

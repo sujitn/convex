@@ -42,6 +42,11 @@ fn forward_cashflows(
         let df_cf = curve
             .discount_factor(t_cf)
             .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at cf: {e}")))?;
+        if df_cf <= 0.0 {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "curve DF at cashflow date is non-positive (t={t_cf})"
+            )));
+        }
         out.push((dt, df_cf / df_settle, cf.amount.to_f64().unwrap_or(0.0)));
     }
     Ok(out)
