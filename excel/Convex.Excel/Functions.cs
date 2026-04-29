@@ -536,7 +536,19 @@ namespace Convex.Excel
             for (int i = 0; i < arr.Count; i++)
             {
                 var item = arr[i] as JObject;
-                g[i + 1, 0] = (string?)item?["date"] ?? "";
+                var dateStr = (string?)item?["date"];
+                // Hand Excel a real DateTime so cells sort/format as dates.
+                // Fall back to "" when missing or unparsable.
+                if (!string.IsNullOrEmpty(dateStr) &&
+                    DateTime.TryParse(dateStr, CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeLocal, out var dt))
+                {
+                    g[i + 1, 0] = dt;
+                }
+                else
+                {
+                    g[i + 1, 0] = "";
+                }
                 g[i + 1, 1] = (double?)item?["amount"] ?? 0.0;
                 g[i + 1, 2] = (string?)item?["kind"] ?? "";
             }
