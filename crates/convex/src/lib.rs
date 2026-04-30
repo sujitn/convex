@@ -23,6 +23,7 @@ pub use convex_bonds::instruments::{
     CallableBond, FixedRateBond, FloatingRateNote, ZeroCouponBond,
 };
 pub use convex_bonds::traits::{Bond, BondCashFlow, FixedCouponBond};
+pub use convex_bonds::types::CallSchedule;
 pub use convex_bonds::{BondError, BondResult};
 
 pub use convex_analytics::error::{AnalyticsError, AnalyticsResult};

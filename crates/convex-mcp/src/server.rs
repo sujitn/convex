@@ -16,8 +16,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    price_from_mark, yield_to_maturity, Bond, CallableBond, Compounding, Currency, Date,
-    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond, Compounding, Currency,
+    Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
     GlobalFitter, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
     RateCurveDyn, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
@@ -140,6 +140,23 @@ fn build_fixed_bond(id: &str, spec: &BondSpec) -> Result<FixedRateBond, McpToolE
         .map_err(|e| McpToolError::InvalidInput(format!("bond build: {e}")))
 }
 
+/// Resolve a `BondSpec` to a `StoredBond`. Plain bullets land as
+/// `Fixed`; specs carrying a make-whole spread land as `Callable` so
+/// `make_whole_call_price` can find them.
+fn build_bond(id: &str, spec: &BondSpec) -> Result<StoredBond, McpToolError> {
+    let base = build_fixed_bond(id, spec)?;
+    match spec.make_whole_spread_bps {
+        Some(bps) if bps.is_finite() => Ok(StoredBond::Callable(CallableBond::new(
+            base,
+            CallSchedule::make_whole(bps),
+        ))),
+        Some(_) => Err(McpToolError::InvalidInput(
+            "make_whole_spread_bps must be finite".into(),
+        )),
+        None => Ok(StoredBond::Fixed(base)),
+    }
+}
+
 fn build_curve(spec: &CurveSpec) -> Result<StoredCurve, McpToolError> {
     if spec.tenors_years.len() != spec.zero_rates_pct.len() {
         return Err(McpToolError::InvalidInput(
@@ -172,10 +189,7 @@ impl ConvexMcpServer {
                     .ok_or_else(|| McpToolError::InvalidInput(format!("bond '{id}' not found")))?;
                 Ok((bond, Some(id.clone())))
             }
-            BondRef::Spec(spec) => {
-                let bond = build_fixed_bond("INLINE", spec)?;
-                Ok((StoredBond::Fixed(bond), None))
-            }
+            BondRef::Spec(spec) => Ok((build_bond("INLINE", spec)?, None)),
         }
     }
 
@@ -217,6 +231,9 @@ impl DateInput {
 
 /// Inline bond specification. Defaults match a US corporate
 /// (semi-annual, 30/360 US, USD, face 100). Override for non-US bonds.
+/// Set `make_whole_spread_bps` to get a make-whole callable bond
+/// (resolves to `StoredBond::Callable`); leave it `None` for a plain
+/// bullet (resolves to `StoredBond::Fixed`).
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct BondSpec {
     /// Annual coupon rate as percentage (5.0 means 5%).
@@ -237,6 +254,11 @@ pub struct BondSpec {
     /// Face value (typically 100).
     #[serde(default = "default_face_value")]
     pub face_value: f64,
+    /// Make-whole spread in basis points. When set, the spec resolves to
+    /// a `Callable` carrying a `MakeWhole` schedule, and
+    /// `make_whole_call_price` becomes valid.
+    #[serde(default)]
+    pub make_whole_spread_bps: Option<f64>,
 }
 
 fn default_frequency() -> Frequency {
@@ -570,8 +592,8 @@ impl ConvexMcpServer {
         &self,
         Parameters(params): Parameters<CreateBondParams>,
     ) -> Result<CallToolResult, McpError> {
-        let bond = build_fixed_bond(&params.id, &params.spec)?;
-        self.store_bond(params.id.clone(), StoredBond::Fixed(bond));
+        let bond = build_bond(&params.id, &params.spec)?;
+        self.store_bond(params.id.clone(), bond);
         Self::json_result(&CreatedOutput {
             status: "success",
             id: params.id,
@@ -957,6 +979,7 @@ mod tests {
             day_count: DayCountConvention::ActActIcma,
             currency: Currency::USD,
             face_value: 100.0,
+            make_whole_spread_bps: None,
         }
     }
 
@@ -978,6 +1001,17 @@ mod tests {
             .resolve_bond(&BondRef::Id("AAPL.10Y".into()))
             .unwrap();
         assert_eq!(id.as_deref(), Some("AAPL.10Y"));
+    }
+
+    #[test]
+    fn build_bond_dispatches_make_whole_to_callable() {
+        let mut spec = ust_10y_spec();
+        spec.make_whole_spread_bps = Some(35.0);
+        let stored = build_bond("F.MW", &spec).unwrap();
+        assert!(matches!(stored, StoredBond::Callable(_)));
+        if let StoredBond::Callable(cb) = stored {
+            assert_eq!(cb.make_whole_spread(), Some(35.0));
+        }
     }
 
     #[test]

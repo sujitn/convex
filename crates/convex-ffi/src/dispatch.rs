@@ -751,9 +751,15 @@ fn make_whole_inner(request_json: &str) -> Result<MakeWholeResponse, DispatchErr
             .make_whole_call_price(req.call_date, req.treasury_rate)
             .map_err(|e| DispatchError::analytics(e.to_string()))?;
         let price_f64 = dec_to_f64(price);
+        let discount_rate = req.treasury_rate + spread_bps / 10_000.0;
+        if !spread_bps.is_finite() || !discount_rate.is_finite() || !price_f64.is_finite() {
+            return Err(DispatchError::analytics(
+                "non-finite make-whole result (spread_bps / discount_rate / price)",
+            ));
+        }
         Ok::<MakeWholeResponse, DispatchError>(MakeWholeResponse {
             price: price_f64,
-            discount_rate: req.treasury_rate + spread_bps / 10_000.0,
+            discount_rate,
             spread_bps,
         })
     })?

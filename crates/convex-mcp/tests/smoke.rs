@@ -24,6 +24,7 @@ fn ust_10y_spec() -> BondSpec {
         day_count: DayCountConvention::ActActIcma,
         currency: Currency::USD,
         face_value: 100.0,
+        make_whole_spread_bps: None,
     }
 }
 

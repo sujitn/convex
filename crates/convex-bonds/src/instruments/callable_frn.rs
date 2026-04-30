@@ -47,7 +47,7 @@ impl CallableFloatingRateNote {
             }
             let start = entry.start_date.max(settlement);
             let end = entry.end_date.unwrap_or(maturity).min(maturity);
-            if start >= end || entry.start_date <= settlement {
+            if start >= end {
                 continue;
             }
             match self.call_schedule.call_type {
@@ -66,6 +66,7 @@ impl CallableFloatingRateNote {
                     }
                 }
                 CallType::European | CallType::Bermudan | CallType::Mandatory => {
+                    // Discrete exercise date — emit only if still in the future.
                     if entry.start_date > settlement {
                         dates.push(entry.start_date);
                     }
@@ -119,6 +120,22 @@ mod tests {
 
         let dates = cb.all_workout_dates(date(2027, 7, 15));
         assert_eq!(dates, vec![date(2028, 1, 15)]);
+    }
+
+    #[test]
+    fn workout_dates_american_window_open_at_settlement() {
+        // Window opens 2026-01-15, runs through 2030-01-15 maturity.
+        // Settlement 2027-04-01 sits inside the open window — every coupon
+        // date strictly after settlement should be emitted.
+        let frn = build_frn();
+        let entry = CallEntry::new(date(2026, 1, 15), 100.0).with_end_date(date(2030, 1, 15));
+        let schedule = CallSchedule::new(CallType::American).with_entry(entry);
+        let cb = CallableFloatingRateNote::new(frn, schedule);
+
+        let dates = cb.all_workout_dates(date(2027, 4, 1));
+        assert_eq!(dates.first().copied(), Some(date(2027, 4, 15)));
+        assert!(dates.contains(&date(2030, 1, 15)));
+        assert!(dates.iter().all(|d| *d > date(2027, 4, 1)));
     }
 
     #[test]

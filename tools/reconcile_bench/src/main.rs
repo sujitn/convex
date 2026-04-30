@@ -1191,7 +1191,13 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             let calc = DiscountMarginCalculator::new(&forward, curve)
                 .with_in_progress_coupon(arrc_coupon);
 
-            let mut worst_bps = m.discount_margin_bps;
+            // Seed worst with DM-to-maturity solved against the same scenario
+            // dirty=100 the per-call branches use; m.discount_margin_bps targets
+            // dirty=100+accrued and would mix scenarios in the comparison.
+            let dm_mat = calc
+                .calculate_to_workout(&frn, dec!(100.0), valuation, maturity, 100.0)
+                .with_context(|| format!("DM-to-maturity {}", inst.id))?;
+            let mut worst_bps = dm_mat.as_bps().to_f64().unwrap_or(0.0);
             let mut worst_date = maturity;
             for call_date in cfrn.all_workout_dates(valuation) {
                 let call_price = cfrn

@@ -303,11 +303,12 @@ def dm_to_workout_qq(
             total += (coupon + principal) * df(end) * math.exp(-dm * dt)
         return total
 
-    from scipy.optimize import brentq
     lo, hi = -0.05, 0.20
     if (pv(lo) - target_dirty) * (pv(hi) - target_dirty) > 0:
         lo, hi = -0.50, 1.00
-    return brentq(lambda dm: pv(dm) - target_dirty, lo, hi, xtol=1e-10)
+    solver = ql.Brent()
+    solver.setMaxEvaluations(100)
+    return solver.solve(lambda dm: pv(dm) - target_dirty, 1e-10, 0.0, lo, hi)
 
 
 def date_to_yyyymmdd(d: ql.Date) -> float:
@@ -1038,7 +1039,13 @@ def _run_snapshot(snap: dict) -> int:
 
             maturity = to_ql_date(inst["maturity_date"])
             scenario_dirty = 100.0
-            worst_bps = m["discount_margin_bps"]
+            # Seed worst with DM-to-maturity at the same dirty=100 scenario
+            # the per-call branches use. m["discount_margin_bps"] targets
+            # dirty=100+accrued and would mix scenarios in the comparison.
+            dm_mat = dm_to_workout_qq(
+                inst, valuation, sofr_curve, scenario_dirty, maturity, 100.0,
+            )
+            worst_bps = dm_mat * 10_000.0
             worst_date = maturity
             for entry in inst.get("call_schedule") or []:
                 call_date = to_ql_date(entry["call_date"])

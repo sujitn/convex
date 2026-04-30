@@ -272,6 +272,15 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
                 "workout_date must be after settlement".into(),
             ));
         }
+        // Past-maturity workout would append a second principal flow on top
+        // of the bond's own maturity principal — silently double-paid.
+        if let Some(maturity) = frn.maturity() {
+            if workout_date > maturity {
+                return Err(AnalyticsError::InvalidInput(
+                    "workout_date must be on or before maturity".into(),
+                ));
+            }
+        }
         let face_value = frn.face_value().to_f64().unwrap_or(100.0);
         let workout_redemption = call_price / 100.0 * face_value;
         let workout_flows = workout_cash_flows(frn, settlement, workout_date, workout_redemption);
