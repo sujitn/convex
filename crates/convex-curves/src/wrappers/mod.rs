@@ -1,14 +1,6 @@
-//! Domain-specific curve wrappers.
-//!
-//! These wrappers provide semantic operations on top of any `TermStructure`:
-//!
-//! - [`RateCurve`]: Interest rate operations (discount, zero, forward)
-//! - [`CreditCurve`]: Credit operations (survival, hazard, spread)
-//!
-//! # Dynamic Dispatch
-//!
-//! For scenarios requiring trait objects (e.g., heterogeneous curve collections),
-//! use [`RateCurveDyn`] which provides an object-safe interface.
+//! Domain-specific wrappers over [`TermStructure`]: [`RateCurve`] for rate
+//! semantics, [`CreditCurve`] for credit. [`RateCurveDyn`] is the object-safe
+//! flavour for trait-object dispatch.
 
 mod credit_curve;
 mod rate_curve;
@@ -21,47 +13,41 @@ use convex_core::types::{Compounding, Date};
 use crate::error::CurveResult;
 use crate::term_structure::TermStructure;
 
-// ============================================================================
-// Object-Safe Rate Curve Trait
-// ============================================================================
-
-/// Object-safe trait for rate curves.
-///
-/// This trait enables dynamic dispatch for rate curves, useful when you need
-/// to store heterogeneous curves in collections or pass curves across API
-/// boundaries without generics.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use convex_curves::{RateCurve, RateCurveDyn, DiscreteCurve};
-/// use std::sync::Arc;
-///
-/// fn price_bond(curve: &dyn RateCurveDyn, ...) -> f64 {
-///     let df = curve.discount_factor(1.0)?;
-///     // ...
-/// }
-///
-/// let curve: Arc<dyn RateCurveDyn> = Arc::new(RateCurve::new(discrete_curve));
-/// ```
+/// Object-safe rate curve.
 pub trait RateCurveDyn: Send + Sync {
-    /// Returns the discount factor for a given tenor in years.
     fn discount_factor(&self, t: f64) -> CurveResult<f64>;
-
-    /// Returns the zero rate for a given tenor with specified compounding.
     fn zero_rate(&self, t: f64, compounding: Compounding) -> CurveResult<f64>;
-
-    /// Returns the forward rate between two tenors (continuously compounded).
     fn forward_rate(&self, t1: f64, t2: f64) -> CurveResult<f64>;
-
-    /// Returns the instantaneous forward rate at a tenor.
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64>;
-
-    /// Returns the reference date of the curve.
     fn reference_date(&self) -> Date;
-
-    /// Returns the maximum date for which the curve is defined.
     fn max_date(&self) -> Date;
+
+    /// Par swap rate `c = (1 − DF(T)) / Σ τ · DF(i·τ)` on a regular schedule,
+    /// `τ = 1/frequency`. Stubs and explicit fixed-leg day counts go through
+    /// [`RateCurve::par_swap_rate`] on the concrete wrapper instead.
+    fn par_swap_rate(&self, t_maturity: f64, frequency: u32) -> CurveResult<f64> {
+        if t_maturity <= 0.0 || frequency == 0 {
+            return Err(crate::error::CurveError::invalid_value(
+                "par_swap_rate: t_maturity and frequency must be positive",
+            ));
+        }
+        let tau = 1.0 / frequency as f64;
+        let n = (t_maturity * frequency as f64).round() as usize;
+        if n == 0 {
+            return Err(crate::error::CurveError::invalid_value(
+                "par_swap_rate: maturity too short for given frequency",
+            ));
+        }
+        let annuity: f64 = (1..=n)
+            .map(|i| self.discount_factor(i as f64 * tau).map(|df| tau * df))
+            .sum::<CurveResult<f64>>()?;
+        if annuity.abs() < 1e-12 {
+            return Err(crate::error::CurveError::math_error(
+                "par_swap_rate: annuity is zero",
+            ));
+        }
+        Ok((1.0 - self.discount_factor(t_maturity)?) / annuity)
+    }
 }
 
 // Implement RateCurveDyn for RateCurve<T>

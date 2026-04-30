@@ -114,6 +114,21 @@ impl Compounding {
     pub fn is_simple(&self) -> bool {
         matches!(self, Compounding::Simple)
     }
+
+    /// Periodic compounding for the given periods-per-year. Panics on
+    /// frequencies outside the supported set; callers always pass values from
+    /// `Frequency::periods_per_year`, which is closed.
+    #[must_use]
+    pub fn from_periods_per_year(periods: u32) -> Compounding {
+        match periods {
+            1 => Compounding::Annual,
+            2 => Compounding::SemiAnnual,
+            4 => Compounding::Quarterly,
+            12 => Compounding::Monthly,
+            365 => Compounding::Daily,
+            other => panic!("unsupported compounding period count: {other}"),
+        }
+    }
 }
 
 impl fmt::Display for Compounding {

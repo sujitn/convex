@@ -192,9 +192,14 @@ impl DayCount for ActActIcma {
         "ACT/ACT ICMA"
     }
 
-    // ICMA needs period bounds. Without them, fall back to ISDA (matches QL).
-    // Accrual paths must go through `period_year_fraction`.
+    /// ICMA needs period bounds. Without them this falls back to ISDA — which
+    /// matches QuantLib but mis-states accrued on irregular coupons. Accrual
+    /// paths must call [`ActActIcma::period_year_fraction`] instead.
     fn year_fraction(&self, start: Date, end: Date) -> Decimal {
+        log::warn!(
+            "ActActIcma::year_fraction({start}, {end}) called without period bounds; \
+             returning ISDA fallback. Use period_year_fraction for accrual paths."
+        );
         ActActIsda.year_fraction(start, end)
     }
 
@@ -467,6 +472,20 @@ mod tests {
         let yf = dc.year_fraction_with_period(period_start, settlement, period_start, period_end);
         // 90 / (2 * 181) = 90 / 362
         assert_eq!(yf, dec!(90) / dec!(362));
+    }
+
+    #[test]
+    fn test_actact_icma_differs_from_isda_on_same_accrual() {
+        let dc = ActActIcma::semi_annual();
+        let period_start = Date::from_ymd(2024, 11, 15).unwrap();
+        let period_end = Date::from_ymd(2025, 5, 15).unwrap();
+        let settlement = Date::from_ymd(2025, 1, 15).unwrap();
+
+        let icma = dc.year_fraction_with_period(period_start, settlement, period_start, period_end);
+        assert_eq!(icma, dec!(61) / dec!(362));
+
+        let isda = ActActIsda.year_fraction(period_start, settlement);
+        assert!((icma - isda).abs() > dec!(0.0005));
     }
 
     #[test]

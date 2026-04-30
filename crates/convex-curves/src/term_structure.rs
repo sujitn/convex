@@ -18,6 +18,7 @@
 //! All term structures are required to be `Send + Sync`, enabling safe use in
 //! parallel pricing scenarios.
 
+use convex_core::daycounts::DayCountConvention;
 use convex_core::types::Date;
 use std::sync::Arc;
 
@@ -124,19 +125,27 @@ pub trait TermStructure: Send + Sync {
         self.value_at(t)
     }
 
-    /// Converts a date to a year fraction (tenor) from the reference date.
-    ///
-    /// Uses ACT/365 Fixed for simplicity. For precise calculations,
-    /// use the day count convention from the value type.
-    fn date_to_tenor(&self, date: Date) -> f64 {
-        let days = self.reference_date().days_between(&date);
-        days as f64 / 365.0
+    /// Day count for date↔tenor conversions; defaults to the `ValueType`'s
+    /// day count or ACT/365 Fixed.
+    fn tenor_day_count(&self) -> DayCountConvention {
+        match self.value_type() {
+            ValueType::ZeroRate { day_count, .. } | ValueType::ParSwapRate { day_count, .. } => {
+                day_count
+            }
+            _ => DayCountConvention::Act365Fixed,
+        }
     }
 
-    /// Converts a tenor to a date from the reference date.
+    /// Converts a date to a year fraction from the reference date using the
+    /// curve's day-count basis (ACT/360 for USD MM, etc.).
+    fn date_to_tenor(&self, date: Date) -> f64 {
+        let days = self.reference_date().days_between(&date);
+        days as f64 / self.tenor_day_count().nominal_days_per_year() as f64
+    }
+
     fn tenor_to_date(&self, t: f64) -> Date {
-        let days = (t * 365.0).round() as i64;
-        self.reference_date().add_days(days)
+        let dpy = self.tenor_day_count().nominal_days_per_year() as f64;
+        self.reference_date().add_days((t * dpy).round() as i64)
     }
 
     /// Returns true if the curve supports derivative calculation.
@@ -335,6 +344,27 @@ mod tests {
         // Roundtrip
         let tenor = curve.date_to_tenor(one_year);
         assert!((tenor - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_act360_curve_uses_360_basis_for_tenor() {
+        let today = Date::from_ymd(2024, 1, 1).unwrap();
+        let mut curve = FlatCurve::new(today, 0.05, 30.0);
+        curve.value_type = ValueType::ZeroRate {
+            compounding: Compounding::Continuous,
+            day_count: DayCountConvention::Act360,
+        };
+
+        // 360 days under ACT/360 = exactly 1.0 (would be ≈0.9863 under ACT/365).
+        let tenor = curve.date_to_tenor(today.add_days(360));
+        assert!((tenor - 1.0).abs() < 1e-12);
+
+        let mut act365 = FlatCurve::new(today, 0.05, 30.0);
+        act365.value_type = ValueType::ZeroRate {
+            compounding: Compounding::Continuous,
+            day_count: DayCountConvention::Act365Fixed,
+        };
+        assert!((tenor - act365.date_to_tenor(today.add_days(360))).abs() > 0.01);
     }
 
     #[test]
