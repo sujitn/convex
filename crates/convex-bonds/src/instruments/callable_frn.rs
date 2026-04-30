@@ -39,13 +39,15 @@ impl CallableFloatingRateNote {
             return Vec::new();
         };
         let mut dates = Vec::new();
+        let protection_end = self.call_schedule.protection_end;
         for entry in &self.call_schedule.entries {
-            if let Some(protection_end) = self.call_schedule.protection_end {
-                if entry.start_date < protection_end {
-                    continue;
-                }
+            // Clamp the window's start to settlement and (if any) to
+            // protection_end, so windows that opened earlier but extend past
+            // the protection period still contribute future workout dates.
+            let mut start = entry.start_date.max(settlement);
+            if let Some(pe) = protection_end {
+                start = start.max(pe);
             }
-            let start = entry.start_date.max(settlement);
             let end = entry.end_date.unwrap_or(maturity).min(maturity);
             if start >= end {
                 continue;
@@ -66,8 +68,13 @@ impl CallableFloatingRateNote {
                     }
                 }
                 CallType::European | CallType::Bermudan | CallType::Mandatory => {
-                    // Discrete exercise date — emit only if still in the future.
-                    if entry.start_date > settlement {
+                    // Discrete exercise date — emit only if it's after both
+                    // settlement and the end of any protection window.
+                    let after_protection = match protection_end {
+                        Some(pe) => entry.start_date >= pe,
+                        None => true,
+                    };
+                    if entry.start_date > settlement && after_protection {
                         dates.push(entry.start_date);
                     }
                 }
@@ -136,6 +143,36 @@ mod tests {
         assert_eq!(dates.first().copied(), Some(date(2027, 4, 15)));
         assert!(dates.contains(&date(2030, 1, 15)));
         assert!(dates.iter().all(|d| *d > date(2027, 4, 1)));
+    }
+
+    #[test]
+    fn american_window_starting_inside_protection_clamps_to_protection_end() {
+        // Window opens 2026-01-15 but protection runs through 2027-01-15.
+        // The first emitted workout should be the first coupon strictly
+        // after protection_end, not after entry.start_date.
+        let frn = build_frn();
+        let entry = CallEntry::new(date(2026, 1, 15), 100.0).with_end_date(date(2030, 1, 15));
+        let schedule = CallSchedule::new(CallType::American)
+            .with_entry(entry)
+            .with_protection(date(2027, 1, 15));
+        let cb = CallableFloatingRateNote::new(frn, schedule);
+
+        let dates = cb.all_workout_dates(date(2025, 6, 15));
+        assert_eq!(dates.first().copied(), Some(date(2027, 4, 15)));
+        assert!(dates.iter().all(|d| *d >= date(2027, 1, 15)));
+    }
+
+    #[test]
+    fn bermudan_entry_inside_protection_is_suppressed() {
+        let frn = build_frn();
+        let schedule = CallSchedule::new(CallType::Bermudan)
+            .with_entry(CallEntry::new(date(2026, 6, 15), 100.0))
+            .with_entry(CallEntry::new(date(2027, 6, 15), 100.0))
+            .with_protection(date(2027, 1, 15));
+        let cb = CallableFloatingRateNote::new(frn, schedule);
+
+        let dates = cb.all_workout_dates(date(2025, 6, 15));
+        assert_eq!(dates, vec![date(2027, 6, 15)]);
     }
 
     #[test]

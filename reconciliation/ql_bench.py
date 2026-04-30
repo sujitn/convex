@@ -653,6 +653,18 @@ COMPOUNDING_FROM_NAME = {
 }
 
 
+def zero_yield_conventions(inst: dict) -> tuple[int, int]:
+    """`(compounding, frequency)` for QL `BondFunctions` yield quotes on a
+    zero-coupon bond. Reads `inst["compounding"]` (the authoritative field
+    for ZCB yield convention) with a fallback to `inst["frequency"]`.
+    Continuous mode uses `ql.NoFrequency` since the frequency arg is ignored.
+    """
+    name = (inst.get("compounding") or inst.get("frequency", "semi_annual")).lower()
+    if name == "continuous":
+        return ql.Continuous, ql.NoFrequency
+    return ql.Compounded, COMPOUNDING_FROM_NAME[name]
+
+
 def make_whole_redemption_qq(
     inst: dict,
     call_date: ql.Date,
@@ -774,7 +786,7 @@ def price_zero_coupon(inst: dict, valuation: ql.Date, ref_yield: float) -> dict[
     issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     maturity = to_ql_date(inst["maturity_date"])
     dcc = day_count(inst["day_count"])
-    cmp_freq = COMPOUNDING_FROM_NAME[inst["frequency"].lower()]
+    comp, cmp_freq = zero_yield_conventions(inst)
 
     bond = ql.ZeroCouponBond(
         0,                       # settlementDays — T+0, valuation is the analysis date
@@ -786,7 +798,6 @@ def price_zero_coupon(inst: dict, valuation: ql.Date, ref_yield: float) -> dict[
         issue,                   # issueDate
     )
 
-    comp = ql.Compounded
     clean = ql.BondFunctions.cleanPrice(bond, ref_yield, dcc, comp, cmp_freq, valuation)
     accrued = ql.BondFunctions.accruedAmount(bond, valuation)  # always 0 for zero
     dirty = clean + accrued
