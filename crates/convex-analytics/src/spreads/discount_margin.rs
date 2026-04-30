@@ -25,6 +25,7 @@ pub struct DiscountMarginCalculator<'a, C: RateCurveDyn + ?Sized> {
 }
 
 impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
+    /// Build a calculator over the given forward and discount curves.
     #[must_use]
     pub fn new(forward_curve: &'a ForwardCurve, discount_curve: &'a C) -> Self {
         Self {
@@ -35,12 +36,14 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         }
     }
 
+    /// Set the solver tolerance.
     #[must_use]
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.config = SolverConfig::new(tolerance, self.config.max_iterations);
         self
     }
 
+    /// Set the solver max iterations.
     #[must_use]
     pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
         self.config = SolverConfig::new(self.config.tolerance, max_iterations);
@@ -61,6 +64,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         self
     }
 
+    /// Discount margin solving the FRN to `dirty_price`.
     pub fn calculate(
         &self,
         frn: &FloatingRateNote,
@@ -97,6 +101,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         ))
     }
 
+    /// Clean price per 100 face at the given DM.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
         let cash_flows = frn.cash_flows(settlement);
         self.price_with_dm_for_flows(frn, &cash_flows, dm, settlement, None)
@@ -307,6 +312,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         ))
     }
 
+    /// Price drop per 1bp parallel DM bump.
     pub fn spread_dv01(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
 
@@ -316,6 +322,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         Decimal::from_f64_retain(base_price - bumped_price).unwrap_or(Decimal::ZERO)
     }
 
+    /// Spread duration: spread DV01 normalised by current price.
     pub fn spread_duration(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
         let base_price = self.price_with_dm(frn, base_dm, settlement);
@@ -328,6 +335,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         dv01 / Decimal::from_f64_retain(base_price).unwrap_or(Decimal::ONE) * Decimal::from(10_000)
     }
 
+    /// Effective duration via ±`rate_shift` parallel DM bumps.
     pub fn effective_duration(
         &self,
         frn: &FloatingRateNote,
