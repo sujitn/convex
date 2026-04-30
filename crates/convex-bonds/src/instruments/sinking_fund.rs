@@ -513,8 +513,7 @@ impl SinkingFundBond {
             }
 
             if cf.is_coupon() || cf.is_principal() {
-                let coupon_factor =
-                    Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE);
+                let coupon_factor = Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE);
                 let coupon_amount = if freq > 0 {
                     self.original_face * coupon_rate * coupon_factor / Decimal::from(freq)
                 } else {

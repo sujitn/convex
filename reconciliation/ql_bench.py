@@ -247,24 +247,20 @@ def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
     }
 
 
-def dm_to_first_call_qq(
+def dm_to_workout_qq(
     inst: dict,
     valuation: ql.Date,
     sofr: dict,
     target_dirty: float,
-) -> tuple[float, float]:
-    """Workout-bullet DM-to-first-call mirror of
-    `DiscountMarginCalculator::calculate_to_workout` for SOFR-indexed FRNs.
+    workout_date: ql.Date,
+    call_price: float,
+) -> float:
+    """Solve for the DM that prices a workout-bullet to `target_dirty`.
 
-    Truncates the FRN's cash flows at the first call date strictly after
-    valuation, replaces the terminal principal with the call price, and
-    solves (Brent) for the discount margin that prices these flows to the
-    target dirty price. Future-period coupons are projected off the SOFR
-    OIS curve; settlement is assumed to fall on a coupon date (no
-    in-progress ARRC compounding required) — matches the synthetic book
-    construction that aligns issue/maturity to the valuation date.
-
-    Returns `(dm_decimal, workout_yyyymmdd_as_float)`.
+    Cash flows truncate at `workout_date` with redemption = `call_price`.
+    In-progress periods use `OvernightIndexedCoupon` (matching
+    `price_corporate_frn`); future periods use the curve-implied forward.
+    Caller guarantees `workout_date` lands on a coupon date.
     """
     dated = to_ql_date(inst.get("dated_date") or inst["issue_date"])
     maturity = to_ql_date(inst["maturity_date"])
@@ -272,6 +268,8 @@ def dm_to_first_call_qq(
     face = 100.0
     dc360 = ql.Actual360()
     handle = build_sofr_curve(sofr, valuation)
+    sofr_index = ql.Sofr(handle)
+    _load_sofr_fixings(sofr_index)
 
     cal = ql.UnitedStates(ql.UnitedStates.GovernmentBond)
     schedule = ql.Schedule(
@@ -279,64 +277,41 @@ def dm_to_first_call_qq(
         ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
     )
 
-    # First call date strictly after valuation.
-    call_entries = inst.get("call_schedule") or []
-    first_call = None
-    call_price = None
-    for e in call_entries:
-        d = to_ql_date(e["call_date"])
-        if d > valuation:
-            first_call = d
-            call_price = e["price"]
-            break
-    if first_call is None:
-        raise RuntimeError(f"{inst['id']}: no future call dates")
-
     def df(d: ql.Date) -> float:
         return 1.0 if d <= valuation else handle.discount(d)
 
-    # Build the workout-bullet PV(dm) function. Each coupon is the projected
-    # forward * accrual_yf, plus a redemption at first_call equal to call_price.
     def pv(dm: float) -> float:
         total = 0.0
         for start, end in zip(schedule, list(schedule)[1:]):
             if end <= valuation:
                 continue
-            if end > first_call:
+            if end > workout_date:
                 break
             yf = dc360.yearFraction(start, end)
-            # Future period — curve-implied forward.
-            fwd_simple = (df(start) / df(end) - 1.0) / yf if yf > 0 else 0.0
-            coupon = face * (fwd_simple + spread) * yf
-            principal = call_price if end == first_call else 0.0
+            if start < valuation:
+                coupon_obj = ql.OvernightIndexedCoupon(
+                    cal.adjust(end, ql.Following), face, start, end,
+                    sofr_index, 1.0, 0.0, ql.Date(), ql.Date(), dc360,
+                    False, ql.RateAveraging.Compound, 2, 0, True,
+                )
+                coupon = face * (coupon_obj.rate() * yf + spread * yf)
+            else:
+                fwd_simple = (df(start) / df(end) - 1.0) / yf
+                coupon = face * (fwd_simple + spread) * yf
+            principal = call_price if end == workout_date else 0.0
             dt = (end.serialNumber() - valuation.serialNumber()) / 365.0
             total += (coupon + principal) * df(end) * math.exp(-dm * dt)
-        # If first_call is between coupon dates, append a principal-only flow.
-        # The synthetic book aligns calls to coupon dates so this branch
-        # shouldn't fire — guarded for safety.
-        last_cf_end = None
-        for start, end in zip(schedule, list(schedule)[1:]):
-            if end <= valuation:
-                continue
-            if end > first_call:
-                break
-            last_cf_end = end
-        if last_cf_end is None or last_cf_end != first_call:
-            dt = (first_call.serialNumber() - valuation.serialNumber()) / 365.0
-            total += call_price * df(first_call) * math.exp(-dm * dt)
         return total
 
-    # Brent on [-5%, +20%], matching Convex's DiscountMarginCalculator config.
-    lo, hi = -0.05, 0.20
-    f_lo, f_hi = pv(lo) - target_dirty, pv(hi) - target_dirty
-    # If both endpoints have the same sign, widen the bracket once.
-    if f_lo * f_hi > 0:
-        lo, hi = -0.50, 1.00
     from scipy.optimize import brentq
-    dm = brentq(lambda dm: pv(dm) - target_dirty, lo, hi, xtol=1e-10)
+    lo, hi = -0.05, 0.20
+    if (pv(lo) - target_dirty) * (pv(hi) - target_dirty) > 0:
+        lo, hi = -0.50, 1.00
+    return brentq(lambda dm: pv(dm) - target_dirty, lo, hi, xtol=1e-10)
 
-    workout_serial = float(first_call.year() * 10_000 + first_call.month() * 100 + first_call.dayOfMonth())
-    return dm, workout_serial
+
+def date_to_yyyymmdd(d: ql.Date) -> float:
+    return float(d.year() * 10_000 + d.month() * 100 + d.dayOfMonth())
 
 
 def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
@@ -1048,11 +1023,10 @@ def _run_snapshot(snap: dict) -> int:
                 )
             continue
 
-        # Synthetic callable SOFR FRN — bullet metrics + DM-to-first-call.
-        # Bullet metrics share the corporate_frn pricer (same FRN, calls
-        # ignored). DM-to-first-call solves for the spread that prices a
-        # workout-bullet (cash flows truncated at first call, redemption =
-        # call price) to a fixed scenario dirty (par by default).
+        # Synthetic callable SOFR FRN — bullet rows + per-call DM-to-workout
+        # at scenario_dirty=100 + DM-to-worst (mirror of YTW). Call dates
+        # equal to maturity are skipped: DM-to-call-at-maturity collapses
+        # to discount_margin_bps already emitted by the bullet pricer.
         if cat == "synthetic_callable_frn":
             if sofr_curve is None:
                 raise RuntimeError(
@@ -1062,12 +1036,26 @@ def _run_snapshot(snap: dict) -> int:
             spread_dec = inst["spread_bps"] / 10_000.0
             bullet_rows = list(m.items())
 
+            maturity = to_ql_date(inst["maturity_date"])
             scenario_dirty = 100.0
-            dm_call, workout_serial = dm_to_first_call_qq(
-                inst, valuation, sofr_curve, scenario_dirty
-            )
-            bullet_rows.append(("dm_to_first_call_bps", dm_call * 10_000.0))
-            bullet_rows.append(("dm_to_first_call_workout_yyyymmdd", workout_serial))
+            worst_bps = m["discount_margin_bps"]
+            worst_date = maturity
+            for entry in inst.get("call_schedule") or []:
+                call_date = to_ql_date(entry["call_date"])
+                if call_date <= valuation or call_date >= maturity:
+                    continue
+                dm = dm_to_workout_qq(
+                    inst, valuation, sofr_curve, scenario_dirty,
+                    call_date, entry["price"],
+                )
+                dm_bps = dm * 10_000.0
+                key = f"dm_to_call_{entry['call_date'].replace('-', '')}_bps"
+                bullet_rows.append((key, dm_bps))
+                if dm_bps < worst_bps:
+                    worst_bps = dm_bps
+                    worst_date = call_date
+            bullet_rows.append(("dm_to_worst_bps", worst_bps))
+            bullet_rows.append(("dm_to_worst_workout_yyyymmdd", date_to_yyyymmdd(worst_date)))
 
             for metric, value in bullet_rows:
                 rows.append(

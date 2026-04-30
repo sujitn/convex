@@ -20,8 +20,9 @@ instruments and 4–14 metrics each.
 | A4 cleanup | 172 / 172 | trimmed 4→2 MW scenarios; refactored 8-metric duplication |
 | A polish | 172 / 172 | A1.1, A3.1, A3.2, A4.1 — no new bond shapes, removes Excel-side gaps |
 | B1 | 178 / 178 | + callable SOFR FRN (synthetic); workout-bullet DM-to-first-call |
+| B1 polish | 188 / 188 | re-anchor to 2024-11-15, ARRC × workout-bullet on both snapshots, per-call DM + DM-to-worst |
 
-Workspace lib tests: 1738 pass, 0 fail. Clippy clean.
+Workspace lib + integration tests pass, 0 fail. Clippy clean.
 
 ## M2 — ICMA year-fraction in Convex
 
@@ -234,12 +235,19 @@ surfaced and were fixed:
    (`(root * 1e4).round()`). Removed; callers can round if they want.
 
 Reconciled instrument: `SYNTH_CALLABLE_SOFR_FRN` — a synthetic 5Y
-quarterly SOFR + 125bps callable on each anniversary 2027-12-31 →
-2029-12-31. Reconciles 6 metrics (clean, dirty, accrued, DM-to-maturity,
-DM-to-first-call, workout date) bit-for-bit against a hand-rolled QL
-workout-bullet PV solver in `dm_to_first_call_qq`. Settlement aligns to
-year-end so no in-progress ARRC compounding is exercised — that path is
-covered by `CORP_SOFR_FRN`'s 2025-06-30 mid-period snapshot.
+quarterly SOFR + 125bps callable on annual anniversaries. The QL side
+runs a hand-rolled workout-bullet PV solver (`dm_to_workout_qq`); the
+Rust side drives `DiscountMarginCalculator::calculate_to_workout`.
+See "B1 polish" for the in-progress ARRC mechanics.
+
+## B1 polish
+
+Re-anchored `SYNTH_CALLABLE_SOFR_FRN` to mid-month (2024-11-15 → 2029-11-15)
+so both snapshots sit mid-period; added per-call DM rows and DM-to-worst
+mirroring the puttable's YTW pattern. `DiscountMarginCalculator` grew an
+optional in-progress coupon override so the bench supplies an ARRC
+`compound_in_arrears` closure and reuses the library's workout-bullet PV
+instead of duplicating it. +10 rows; 178 → 188.
 
 ## Deferred
 

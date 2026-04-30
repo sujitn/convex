@@ -656,11 +656,13 @@ impl ConvexMcpServer {
         })
     }
 
-    #[tool(description = "Compute the make-whole call price for a callable bond carrying a \
+    #[tool(
+        description = "Compute the make-whole call price for a callable bond carrying a \
             make-whole spread. Discount uses the bond's own day count and frequency (matches \
             US-corp 424B2 convention, e.g. 30/360 US for AAPL/MSFT/Verizon/Ford). \
             `bond` accepts either a stored id (string) or an inline spec (object). \
-            Returns price floored at the first call entry's price (typically par).")]
+            Returns price floored at the first call entry's price (typically par)."
+    )]
     pub async fn make_whole_call_price(
         &self,
         Parameters(params): Parameters<MakeWholeParams>,
@@ -669,10 +671,9 @@ impl ConvexMcpServer {
         let call_date = params.call_date.to_date()?;
 
         if !params.treasury_rate.is_finite() {
-            return Err(McpToolError::InvalidInput(
-                "treasury_rate must be finite".to_string(),
-            )
-            .into());
+            return Err(
+                McpToolError::InvalidInput("treasury_rate must be finite".to_string()).into(),
+            );
         }
 
         let callable = match &bond {

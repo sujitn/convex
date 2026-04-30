@@ -85,7 +85,8 @@
       "WebFetch(domain:efts.sec.gov)",
       "WebFetch(domain:www.fhlb-of.com)",
       "Bash(CONVEX_DEBUG_DM=1 cargo run --release --manifest-path tools/reconcile_bench/Cargo.toml)",
-      "Bash(awk '{s+=$4} END{print s, \"passed\"}')"
+      "Bash(awk '{s+=$4} END{print s, \"passed\"}')",
+      "Bash(awk '{s+=$4} END{print s, \"passed total\"}')"
     ],
     "deny": [],
     "ask": []

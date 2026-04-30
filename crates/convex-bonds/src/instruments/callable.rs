@@ -292,7 +292,10 @@ impl CallableBond {
         let dc = self.base.day_count().to_day_count();
 
         for flow in flows {
-            let t = dc.year_fraction(call_date, flow.date).to_f64().unwrap_or(0.0);
+            let t = dc
+                .year_fraction(call_date, flow.date)
+                .to_f64()
+                .unwrap_or(0.0);
             let df = 1.0 / (1.0 + discount_rate / freq).powf(freq * t);
             let amount = flow.amount.to_string().parse::<f64>().unwrap_or(0.0);
             pv += amount * df;

@@ -1,6 +1,6 @@
 {
   "valuation_date": "2025-06-30",
-  "comment": "FRN-focused mini-book for Tier 2.3.2 mid-period reconciliation. CORP_SOFR_FRN sits inside its 2025-05-08 → 2025-08-08 coupon period, with two prior coupons already paid (2025-02-10, 2025-05-08). Exercises the multi-coupon ARRC compounding path — the same FRN at 2025-12-31 only had one in-progress period.",
+  "comment": "FRN-focused mini-book for Tier 2.3.2 mid-period reconciliation. CORP_SOFR_FRN sits inside its 2025-05-08 → 2025-08-08 coupon period, with two prior coupons already paid (2025-02-10, 2025-05-08). Exercises the multi-coupon ARRC compounding path — the same FRN at 2025-12-31 only had one in-progress period. SYNTH_CALLABLE_SOFR_FRN exercises the ARRC compound-in-arrears × workout-bullet truncation intersection: settlement 2025-06-30 sits inside its 2025-05-15 → 2025-08-15 coupon period and the bond is callable starting 2027-11-15.",
   "instruments": [
     {
       "id": "CORP_SOFR_FRN",
@@ -22,6 +22,32 @@
       "currency": "USD",
       "source": "https://www.sec.gov/Archives/edgar/data/62709/000119312524247022/d898547d424b2.htm",
       "current_reset_rate_pct_note": "Same bond as in book.json; current_reset_rate_pct is informational only — the ARRC pricer uses sofr_fixings.csv directly."
+    },
+    {
+      "id": "SYNTH_CALLABLE_SOFR_FRN",
+      "category": "synthetic_callable_frn",
+      "issuer": "SYNTHETIC_BANK_CALLABLE_FRN",
+      "identifier": { "type": "SYNTHETIC", "value": "SYNTH-CALLABLE-SOFR-FRN" },
+      "description": "Same synthetic 5Y callable SOFR FRN as in book.json, viewed mid-period on 2025-06-30 (inside its 2025-05-15 → 2025-08-15 coupon window). Exercises ARRC compound-in-arrears × workout-bullet DM-to-worst on both libraries.",
+      "synthetic": true,
+      "coupon_type": "floating",
+      "index": "SOFR",
+      "spread_bps": 125,
+      "current_reset_rate_pct": 4.366,
+      "frequency": "quarterly",
+      "issue_date": "2024-11-15",
+      "dated_date": "2024-11-15",
+      "maturity_date": "2029-11-15",
+      "day_count": "ACT/360",
+      "face_value": 100.0,
+      "currency": "USD",
+      "call_schedule": [
+        { "call_date": "2027-11-15", "price": 100.0 },
+        { "call_date": "2028-11-15", "price": 100.0 },
+        { "call_date": "2029-11-15", "price": 100.0 }
+      ],
+      "source": "Synthetic — see book.json for the rationale.",
+      "current_reset_rate_pct_note": "Informational only; ARRC pricer uses sofr_fixings.csv directly."
     }
   ]
 }

@@ -17,11 +17,11 @@ use convex_math::solvers::{brent, SolverConfig};
 use crate::error::{AnalyticsError, AnalyticsResult};
 
 /// Discount Margin calculator for floating rate notes.
-#[derive(Debug)]
 pub struct DiscountMarginCalculator<'a, C: RateCurveDyn + ?Sized> {
     forward_curve: &'a ForwardCurve,
     discount_curve: &'a C,
     config: SolverConfig,
+    in_progress_coupon: Option<Box<dyn Fn(Date, Date) -> f64 + 'a>>,
 }
 
 impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
@@ -32,6 +32,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             forward_curve,
             discount_curve,
             config: SolverConfig::new(1e-10, 100),
+            in_progress_coupon: None,
         }
     }
 
@@ -46,6 +47,20 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
     #[must_use]
     pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
         self.config = SolverConfig::new(self.config.tolerance, max_iterations);
+        self
+    }
+
+    /// Override the in-progress coupon amount for periods straddling
+    /// settlement. The default uses the FRN's `current_rate`, which only
+    /// reflects the last reset; pass an ARRC compound-in-arrears closure
+    /// here to drive in-progress coupons off real fixings + a projection
+    /// curve.
+    #[must_use]
+    pub fn with_in_progress_coupon<F>(mut self, f: F) -> Self
+    where
+        F: Fn(Date, Date) -> f64 + 'a,
+    {
+        self.in_progress_coupon = Some(Box::new(f));
         self
     }
 
@@ -92,12 +107,10 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         self.price_with_dm_for_flows(frn, &cash_flows, dm, settlement, None)
     }
 
-    /// Prices an FRN at a given discount margin against an arbitrary cash-flow
-    /// slice. Used for workout-bullet pricing of callable FRNs: pass the
-    /// truncated flows plus an explicit `redemption` to override the terminal
-    /// principal value (for vanilla pricing this is `None`, meaning the
-    /// cash-flow's own principal stands).
-    pub fn price_with_dm_for_flows(
+    /// PV of an arbitrary cash-flow slice at `dm`. Pass `redemption` to
+    /// override the terminal principal (workout-bullet); `None` means use
+    /// each cash flow's own principal.
+    fn price_with_dm_for_flows(
         &self,
         frn: &FloatingRateNote,
         cash_flows: &[convex_bonds::traits::BondCashFlow],
@@ -141,7 +154,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let adjusted_df = (df_cf / df_settle) * (-dm * dt).exp();
 
             let coupon = match (cf.accrual_start, cf.accrual_end) {
-                // Period hasn't accrued — project via the forward curve.
+                // Future period — project via the forward curve.
                 (Some(start), Some(end)) if start >= settlement => {
                     let yf = day_count
                         .period_year_fraction(start, end, start, end)
@@ -151,18 +164,15 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
                         return 0.0;
                     }
                     // Forward simple rate consistent with the bond's own day
-                    // count: (DF(start)/DF(end) - 1) / yf_bond. Using a
-                    // different span (e.g. ACT/365) here would silently
-                    // inflate the projected coupon by yf_bond/span_other.
+                    // count: (DF(start)/DF(end) - 1) / yf_bond. A different
+                    // span here silently scales the projected coupon.
                     let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
                     let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
                     let (Ok(df_s), Ok(df_e)) = (
                         self.forward_curve
                             .discount_curve()
                             .discount_factor(t_start.max(0.0)),
-                        self.forward_curve
-                            .discount_curve()
-                            .discount_factor(t_end),
+                        self.forward_curve.discount_curve().discount_factor(t_end),
                     ) else {
                         return 0.0;
                     };
@@ -170,16 +180,25 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
                         return 0.0;
                     }
                     let simple_fwd = (df_s / df_e - 1.0) / yf;
-                    // effective_rate(index) adds spread_decimal() internally
-                    // and applies any cap/floor, so pass just the projected
-                    // forward index rate.
-                    let rate = frn.effective_rate(
-                        Decimal::from_f64_retain(simple_fwd).unwrap_or_default(),
-                    );
+                    // effective_rate adds the bond's spread internally and
+                    // applies any cap/floor.
+                    let rate = frn
+                        .effective_rate(Decimal::from_f64_retain(simple_fwd).unwrap_or_default());
                     face_value * rate.to_f64().unwrap_or(0.0) * yf
                 }
+                (Some(start), Some(end)) => {
+                    if let Some(f) = self.in_progress_coupon.as_deref() {
+                        f(start, end)
+                    } else {
+                        let raw = cf.amount.to_f64().unwrap_or(0.0);
+                        if cf.is_principal() {
+                            raw - face_value
+                        } else {
+                            raw
+                        }
+                    }
+                }
                 _ => {
-                    // In-progress period: trust the bond's amount (driven by current_rate).
                     let raw = cf.amount.to_f64().unwrap_or(0.0);
                     if cf.is_principal() {
                         raw - face_value
@@ -200,10 +219,8 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         price / face_value * 100.0
     }
 
-    /// Discount-margin-to-worst: minimum DM across (a) DM-to-each-call-date
-    /// using each entry's call price, and (b) plain DM-to-maturity. Returns
-    /// `(dm, workout_date)`. The "worst" is from the issuer's call optimality
-    /// — investor's lowest realised spread.
+    /// Minimum DM across DM-to-each-call (using each entry's call price)
+    /// and plain DM-to-maturity. Returns `(dm, workout_date)`.
     pub fn discount_margin_to_worst(
         &self,
         cfrn: &CallableFloatingRateNote,
@@ -224,14 +241,18 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let Some(call_price) = cfrn.call_price_on(call_date) else {
                 continue;
             };
-            let dm = self.calculate_to_workout(frn, dirty_price, settlement, call_date, call_price)?;
+            let dm =
+                self.calculate_to_workout(frn, dirty_price, settlement, call_date, call_price)?;
             if dm.as_bps() < worst_bps {
                 worst_bps = dm.as_bps();
                 worst_date = call_date;
             }
         }
 
-        Ok((Spread::new(worst_bps, SpreadType::DiscountMargin), worst_date))
+        Ok((
+            Spread::new(worst_bps, SpreadType::DiscountMargin),
+            worst_date,
+        ))
     }
 
     /// Solves for the DM that prices the bond to `dirty_price` using a
@@ -469,6 +490,37 @@ mod tests {
         let _calc = DiscountMarginCalculator::new(&forward, discount_arc.as_ref())
             .with_tolerance(1e-8)
             .with_max_iterations(50);
+    }
+
+    #[test]
+    fn test_in_progress_coupon_override_is_applied() {
+        // Settlement mid-period (between 2025-06-15 and 2025-09-15) so
+        // there's exactly one in-progress flow. A constant override moves
+        // the in-progress coupon to a known number; pricing at dm=0 should
+        // reflect the change relative to the default.
+        use std::cell::Cell;
+        let discount = create_sample_discount_curve();
+        let discount_arc: Arc<dyn RateCurveDyn> = Arc::new(discount);
+        let forward = create_sample_forward_curve(discount_arc.clone());
+        let frn = create_sample_frn();
+        let settlement = date(2025, 8, 1);
+
+        let baseline = DiscountMarginCalculator::new(&forward, discount_arc.as_ref())
+            .price_with_dm(&frn, 0.0, settlement);
+
+        let calls = Cell::new(0u32);
+        let bumped = DiscountMarginCalculator::new(&forward, discount_arc.as_ref())
+            .with_in_progress_coupon(|_start, _end| {
+                calls.set(calls.get() + 1);
+                5.0
+            })
+            .price_with_dm(&frn, 0.0, settlement);
+
+        assert!(calls.get() >= 1, "override never invoked");
+        assert!(
+            (bumped - baseline).abs() > 1e-6,
+            "override had no effect: baseline={baseline} bumped={bumped}"
+        );
     }
 
     #[test]

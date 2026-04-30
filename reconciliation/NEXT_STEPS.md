@@ -4,13 +4,15 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Reconciliation **178 / 178** across 2025-12-31 and 2025-06-30 snapshots
+Reconciliation **188 / 188** across 2025-12-31 and 2025-06-30 snapshots
 (`cargo test --workspace --lib`, `cargo clippy --workspace --tests --examples
 -- -D warnings`, and `python reconciliation/reconcile.py` all clean). 16 of
 those are HW1F trinomial-tree OAS or calibration metrics on the two
 callables; σ is calibrated independently on each side against the same ATM
-SOFR co-terminal strip with `a=0.03` fixed. Excel add-in builds; CI's
-`.github/workflows/reconcile.yml` runs both snapshots.
+SOFR co-terminal strip with `a=0.03` fixed. `SYNTH_CALLABLE_SOFR_FRN` now
+exercises ARRC compound-in-arrears × workout-bullet truncation on both
+snapshots (re-anchored to 11-15 mid-month, 16 rows total). Excel add-in
+builds; CI's `.github/workflows/reconcile.yml` runs both snapshots.
 
 Smoke test:
 
@@ -70,19 +72,8 @@ placeholder for a real bond whose schedule sits behind a feed gate
 a primary-source schedule is digitized, swap the entry — reconciliation
 tolerances stay unchanged.
 
-### B1.x Callable FRN polish
+### B1.x Callable FRN — FFI / Excel surface
 
-Three follow-ons after the B1 minimum slice landed:
-
-1. **In-progress ARRC reconciliation.** `dm_to_first_call_qq` skips the
-   in-progress period since the snapshot's settlement aligns to a coupon
-   date. A 2025-06-30 mid-period snapshot of `SYNTH_CALLABLE_SOFR_FRN`
-   would exercise the same ARRC compound-in-arrears path that
-   `CORP_SOFR_FRN` already covers, just with a workout-bullet truncation.
-2. **DM-to-each-call rows.** Currently only DM-to-first-call is reconciled.
-   Per-call DM rows would mirror the puttable's `ytp_<date>_decimal`
-   pattern and validate the workout-bullet at every entry.
-3. **FFI / Excel surface.** `CallableFloatingRateNote` is library-only;
-   no `BondSpec::CallableFrn` variant, no `convex_make_whole`-style RPC,
-   no Excel UDF. Wire after a real CUSIP lands so the surface area can
-   be designed against a concrete consumer.
+`CallableFloatingRateNote` is library-only; no `BondSpec::CallableFrn`
+variant, no dedicated RPC, no Excel UDF. Wire after a real CUSIP lands
+so the surface area can be designed against a concrete consumer.

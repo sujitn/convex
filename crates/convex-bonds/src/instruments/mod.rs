@@ -8,7 +8,7 @@ mod sinking_fund;
 mod zero_coupon;
 
 pub use callable::{CallableBond, CallableBondBuilder};
-pub use callable_frn::{CallableFloatingRateNote, CallableFloatingRateNoteBuilder};
+pub use callable_frn::CallableFloatingRateNote;
 pub use fixed_rate::{FixedRateBond, FixedRateBondBuilder};
 pub use floating_rate::{FloatingRateNote, FloatingRateNoteBuilder};
 pub use sinking_fund::{

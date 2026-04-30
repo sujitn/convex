@@ -1050,7 +1050,11 @@ mod tests {
 
         assert_eq!(projected.len(), 3);
         // First coupon: full first period elapsed → 0.5y.
-        assert!((projected[0].0 - 0.5).abs() < 1e-9, "year[0]={}", projected[0].0);
+        assert!(
+            (projected[0].0 - 0.5).abs() < 1e-9,
+            "year[0]={}",
+            projected[0].0
+        );
         // Off-cycle sink: 0.5y (full first period) + frac*(1/2) of second period.
         // frac = days(7/1, 10/1) / days(7/1, 1/1) under ICMA day count.
         // Both periods nominal-length → frac ≈ 92/184 ≈ 0.5, so years ≈ 0.5 + 0.25 = 0.75.
@@ -1060,7 +1064,11 @@ mod tests {
             projected[1].0
         );
         // Final coupon+principal: end of second period → 1.0y.
-        assert!((projected[2].0 - 1.0).abs() < 1e-9, "year[2]={}", projected[2].0);
+        assert!(
+            (projected[2].0 - 1.0).abs() < 1e-9,
+            "year[2]={}",
+            projected[2].0
+        );
 
         // Sanity: the off-cycle sink and the final coupon must NOT share an index
         // (regression for the old date-change-detection bug).
