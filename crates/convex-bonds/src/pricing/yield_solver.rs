@@ -98,19 +98,40 @@ pub(crate) fn project_discount_fractions(
             } else {
                 0.0
             };
-            // Period index advances on each unique CF date so two CFs on the
-            // same date (sinker SF + coupon) share a period.
-            // TODO: off-cycle sink dates between coupon dates aren't handled.
+            // Period index is driven by each CF's accrual_end so two CFs in
+            // the same period (sinker SF + coupon, or coincident dates) share
+            // an index. CFs that fall strictly inside their accrual period
+            // (off-cycle sinks) get a fractional offset within the period
+            // instead of being treated as if they were at period_end.
+            //
+            // ICMA period-aware time-to-CF, generalised:
+            //   t_periods = (period_idx - 1 - v) + frac_in_period
+            // where frac_in_period = 1 for on-cycle CFs (cf.date == accrual_end)
+            // and (cf.date - accrual_start) / accrual_period_days otherwise.
+            // For on-cycle CFs this collapses to the canonical (i+1 - v)/freq.
             let mut period_idx: usize = 0;
-            let mut last_date: Option<Date> = None;
+            let mut last_period_end: Option<Date> = None;
             return future
                 .iter()
                 .map(|cf| {
-                    if last_date != Some(cf.date) {
+                    let cf_aend = cf.accrual_end.unwrap_or(cf.date);
+                    if last_period_end != Some(cf_aend) {
                         period_idx += 1;
-                        last_date = Some(cf.date);
+                        last_period_end = Some(cf_aend);
                     }
-                    let years = (period_idx as f64 - v) / periods_per_year;
+                    let frac_in_period = match (cf.accrual_start, cf.accrual_end) {
+                        (Some(astart), Some(aend)) if cf.date < aend => {
+                            let pd = dc.day_count(astart, aend).abs() as f64;
+                            if pd > 0.0 {
+                                (dc.day_count(astart, cf.date).abs() as f64 / pd).clamp(0.0, 1.0)
+                            } else {
+                                1.0
+                            }
+                        }
+                        _ => 1.0,
+                    };
+                    let t_periods = (period_idx as f64 - 1.0 - v) + frac_in_period;
+                    let years = t_periods / periods_per_year;
                     let amount = cf.amount.to_f64().unwrap_or(0.0);
                     (years, amount)
                 })
@@ -1001,6 +1022,52 @@ mod tests {
 
         // At par, YTM = coupon rate
         assert!((result.yield_value - 0.04).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_off_cycle_sink_uses_fractional_period() {
+        // Semi-annual ACT/ACT ICMA bond with periods 1/1 → 7/1 → 1/1.
+        // Settlement at start of first period (v=0), three CFs:
+        //  - on-cycle coupon on 7/1 (period 1, frac=1)
+        //  - off-cycle sink on 10/1 (period 2, mid-period)
+        //  - on-cycle coupon+principal on 1/1 (period 2, frac=1)
+        // Expected years: 0.5, ~0.75, 1.0 (semi-annual = 2 periods/year).
+        let settlement = date(2025, 1, 1);
+        let p1_start = date(2025, 1, 1);
+        let p1_end = date(2025, 7, 1);
+        let p2_end = date(2026, 1, 1);
+        let off_cycle = date(2025, 10, 1); // ~half-way through period 2
+
+        let cfs = vec![
+            BondCashFlow::coupon(p1_end, dec!(2.5)).with_accrual(p1_start, p1_end),
+            BondCashFlow::principal(off_cycle, dec!(20.0)).with_accrual(p1_end, p2_end),
+            BondCashFlow::coupon_and_principal(p2_end, dec!(2.5), dec!(80.0))
+                .with_accrual(p1_end, p2_end),
+        ];
+
+        let projected =
+            project_discount_fractions(&cfs, settlement, DayCountConvention::ActActIcma, 2.0);
+
+        assert_eq!(projected.len(), 3);
+        // First coupon: full first period elapsed → 0.5y.
+        assert!((projected[0].0 - 0.5).abs() < 1e-9, "year[0]={}", projected[0].0);
+        // Off-cycle sink: 0.5y (full first period) + frac*(1/2) of second period.
+        // frac = days(7/1, 10/1) / days(7/1, 1/1) under ICMA day count.
+        // Both periods nominal-length → frac ≈ 92/184 ≈ 0.5, so years ≈ 0.5 + 0.25 = 0.75.
+        assert!(
+            (projected[1].0 - 0.75).abs() < 0.01,
+            "year[1]={}",
+            projected[1].0
+        );
+        // Final coupon+principal: end of second period → 1.0y.
+        assert!((projected[2].0 - 1.0).abs() < 1e-9, "year[2]={}", projected[2].0);
+
+        // Sanity: the off-cycle sink and the final coupon must NOT share an index
+        // (regression for the old date-change-detection bug).
+        assert!(projected[2].0 > projected[1].0);
+        // And the off-cycle sink must sit strictly between the two coupon dates.
+        assert!(projected[1].0 > projected[0].0);
+        assert!(projected[1].0 < projected[2].0);
     }
 
     #[test]

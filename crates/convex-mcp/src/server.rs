@@ -331,6 +331,30 @@ pub struct CalculateYieldParams {
     pub clean_price_per_100: f64,
 }
 
+/// `make_whole_call_price` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MakeWholeParams {
+    /// Bond reference — id or inline spec. Must resolve to a callable bond
+    /// carrying a make-whole spread on its call schedule.
+    pub bond: BondRef,
+    /// Hypothetical call exercise date.
+    pub call_date: DateInput,
+    /// Treasury par yield at the relevant tenor, decimal (0.05 = 5%).
+    pub treasury_rate: f64,
+}
+
+/// Output of `make_whole_call_price`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct MakeWholeOutput {
+    pub bond_id: Option<String>,
+    pub call_date: Date,
+    pub treasury_rate: f64,
+    pub make_whole_spread_bps: f64,
+    pub discount_rate: f64,
+    pub make_whole_price_per_100: f64,
+}
+
 /// Get-zero-rate parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct GetRateParams {
@@ -629,6 +653,55 @@ impl ConvexMcpServer {
             clean_price_per_100: params.clean_price_per_100,
             ytm_pct: ytm.yield_value * 100.0,
             ytm_frequency: freq,
+        })
+    }
+
+    #[tool(description = "Compute the make-whole call price for a callable bond carrying a \
+            make-whole spread. Discount uses the bond's own day count and frequency (matches \
+            US-corp 424B2 convention, e.g. 30/360 US for AAPL/MSFT/Verizon/Ford). \
+            `bond` accepts either a stored id (string) or an inline spec (object). \
+            Returns price floored at the first call entry's price (typically par).")]
+    pub async fn make_whole_call_price(
+        &self,
+        Parameters(params): Parameters<MakeWholeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let (bond, bond_id) = self.resolve_bond(&params.bond)?;
+        let call_date = params.call_date.to_date()?;
+
+        if !params.treasury_rate.is_finite() {
+            return Err(McpToolError::InvalidInput(
+                "treasury_rate must be finite".to_string(),
+            )
+            .into());
+        }
+
+        let callable = match &bond {
+            StoredBond::Callable(c) => c,
+            _ => {
+                return Err(McpToolError::InvalidInput(format!(
+                    "make_whole_call_price requires a Callable bond, got {}",
+                    bond.type_name()
+                ))
+                .into())
+            }
+        };
+        let spread_bps = callable.make_whole_spread().ok_or_else(|| {
+            McpToolError::InvalidInput(
+                "callable bond has no make-whole spread on its call schedule".to_string(),
+            )
+        })?;
+        let price = callable
+            .make_whole_call_price(call_date, params.treasury_rate)
+            .map_err(|e| McpToolError::CalculationFailed(e.to_string()))?;
+        let price_f64 = price.to_string().parse::<f64>().unwrap_or(f64::NAN);
+
+        Self::json_result(&MakeWholeOutput {
+            bond_id,
+            call_date,
+            treasury_rate: params.treasury_rate,
+            make_whole_spread_bps: spread_bps,
+            discount_rate: params.treasury_rate + spread_bps / 10_000.0,
+            make_whole_price_per_100: price_f64,
         })
     }
 

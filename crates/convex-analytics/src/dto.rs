@@ -93,6 +93,7 @@ pub enum CallStyle {
     American,
     European,
     Bermudan,
+    MakeWhole,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +105,11 @@ pub struct CallableSpec {
     pub call_schedule: Vec<CallEntrySpec>,
     #[serde(default)]
     pub call_style: CallStyle,
+    /// Make-whole spread in basis points. Only meaningful when
+    /// `call_style == MakeWhole`. Read by `convex_make_whole` to compute the
+    /// MW redemption price = treasury_rate + spread/10000.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub make_whole_spread_bps: Option<f64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub put_schedule: Vec<CallEntrySpec>,
 }
@@ -428,6 +434,31 @@ pub struct SpreadResponse {
     /// OAS only: effective convexity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_convexity: Option<f64>,
+}
+
+// ---- Make-whole call ------------------------------------------------------
+
+/// Computes the make-whole call price at a future call date given a
+/// reference treasury rate. The make-whole spread is read from the bond's
+/// own call schedule. Discount uses the bond's day count and frequency.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MakeWholeRequest {
+    pub bond: Handle,
+    /// Date of the hypothetical call exercise.
+    pub call_date: Date,
+    /// Treasury par yield at the relevant tenor (decimal, 0.05 = 5%).
+    pub treasury_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MakeWholeResponse {
+    /// Make-whole price per 100 face, floored at the first call entry's price
+    /// (typically par).
+    pub price: f64,
+    /// Discount rate actually applied = treasury_rate + spread/10000.
+    pub discount_rate: f64,
+    /// Make-whole spread in basis points read from the call schedule.
+    pub spread_bps: f64,
 }
 
 // ---- Cashflows ------------------------------------------------------------

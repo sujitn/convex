@@ -514,6 +514,111 @@ fn cashflow_kinds_are_stable_strings() {
 }
 
 #[test]
+fn make_whole_round_trip() {
+    // MW callable bond mirroring Ford 6.798% '28: T+35bps MW spread, par
+    // call 1 month before maturity, semi-annual 30/360 US.
+    unsafe {
+        let spec = json!({
+            "type": "callable",
+            "name": "MWBOND01",
+            "coupon_rate": 0.06798,
+            "frequency": "SemiAnnual",
+            "maturity": "2028-11-07",
+            "issue":    "2018-11-07",
+            "day_count": "Thirty360US",
+            "currency": "USD",
+            "face_value": 100,
+            "call_style": "make_whole",
+            "make_whole_spread_bps": 35.0,
+            "call_schedule": [
+                {"date": "2028-10-07", "price": 100.0}
+            ]
+        });
+        let bond = build_handle(spec);
+
+        // ATM scenario: UST = 5% ≈ coupon → MW close to par.
+        let req_atm = json!({
+            "bond": bond,
+            "call_date": "2026-04-15",
+            "treasury_rate": 0.05
+        });
+        let resp = rpc(convex_ffi::convex_make_whole, &req_atm.to_string());
+        assert_eq!(resp["ok"], "true", "response: {resp}");
+        let r = &resp["result"];
+        let price_atm = r["price"].as_f64().unwrap();
+        assert!((r["spread_bps"].as_f64().unwrap() - 35.0).abs() < 1e-9);
+        assert!((r["discount_rate"].as_f64().unwrap() - 0.0535).abs() < 1e-9);
+        // Floored at the call entry's price; shouldn't drop below par.
+        assert!(price_atm >= 100.0, "ATM price {price_atm} below floor");
+        assert!(
+            price_atm < 110.0,
+            "ATM price {price_atm} unexpectedly far above par"
+        );
+
+        // ITM scenario: UST = 3% (well below coupon) → MW well above par.
+        let req_itm = json!({
+            "bond": bond,
+            "call_date": "2026-04-15",
+            "treasury_rate": 0.03
+        });
+        let resp = rpc(convex_ffi::convex_make_whole, &req_itm.to_string());
+        assert_eq!(resp["ok"], "true");
+        let price_itm = resp["result"]["price"].as_f64().unwrap();
+        assert!(
+            price_itm > price_atm + 1.0,
+            "ITM ({price_itm}) should exceed ATM ({price_atm}) by >1pt"
+        );
+    }
+}
+
+#[test]
+fn make_whole_rejects_non_make_whole_bond() {
+    // A callable with no MW spread should error cleanly, not silently return 100.
+    unsafe {
+        let spec = json!({
+            "type": "callable",
+            "name": "PARCALL01",
+            "coupon_rate": 0.05,
+            "frequency": "SemiAnnual",
+            "maturity": "2030-01-15",
+            "issue":    "2025-01-15",
+            "day_count": "Thirty360US",
+            "currency": "USD",
+            "face_value": 100,
+            "call_style": "american",
+            "call_schedule": [
+                {"date": "2027-01-15", "price": 102.0}
+            ]
+        });
+        let bond = build_handle(spec);
+        let req = json!({
+            "bond": bond,
+            "call_date": "2027-01-15",
+            "treasury_rate": 0.04
+        });
+        let resp = rpc(convex_ffi::convex_make_whole, &req.to_string());
+        assert_eq!(resp["ok"], "false", "expected error envelope: {resp}");
+        assert_eq!(resp["error"]["code"], "invalid_input");
+    }
+}
+
+#[test]
+fn make_whole_schema_lookup() {
+    unsafe {
+        for name in ["MakeWholeRequest", "MakeWholeResponse"] {
+            let c = CString::new(name).unwrap();
+            let ptr = convex_ffi::convex_schema(c.as_ptr());
+            assert!(!ptr.is_null());
+            let resp = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+            convex_ffi::convex_string_free(ptr);
+            let v: Value = serde_json::from_str(&resp).unwrap();
+            assert_eq!(v["ok"], "true", "{name}: {v}");
+            assert_eq!(v["result"]["title"], name);
+        }
+    }
+}
+
+#[test]
 fn mark_parse_round_trip() {
     unsafe {
         let text = CString::new("+125bps@USD.SOFR").unwrap();

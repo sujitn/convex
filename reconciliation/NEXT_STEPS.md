@@ -4,12 +4,12 @@ Work queue for picking up this branch in a fresh session.
 
 ## Status
 
-Reconciliation **141 / 141** across 2025-12-31 and 2025-06-30 snapshots
+Reconciliation **178 / 178** across 2025-12-31 and 2025-06-30 snapshots
 (`cargo test --workspace --lib`, `cargo clippy --workspace --tests --examples
 -- -D warnings`, and `python reconciliation/reconcile.py` all clean). 16 of
-141 are HW1F trinomial-tree OAS or calibration metrics on the two callables;
-σ is calibrated independently on each side against the same ATM SOFR
-co-terminal strip with `a=0.03` fixed. Excel add-in builds; CI's
+those are HW1F trinomial-tree OAS or calibration metrics on the two
+callables; σ is calibrated independently on each side against the same ATM
+SOFR co-terminal strip with `a=0.03` fixed. Excel add-in builds; CI's
 `.github/workflows/reconcile.yml` runs both snapshots.
 
 Smoke test:
@@ -60,55 +60,29 @@ Extend HW1F to piecewise-σ on call dates (matches QL's `Gsr`). Only worth
 doing once a long-dated callable (NC10 30y) is in the book — current 5y/4y
 residuals don't move under term structure of vol.
 
-### A1.1 Off-cycle sinker dates
-
-`project_discount_fractions` advances the ICMA period index on each unique
-CF date. That works when sink dates align with coupon dates (current
-synthetic). For real FHLB / agency sinkers where the paydown date sits
-between two coupon dates, the period index will be wrong. Fix: derive the
-period index from `cf.date` directly via month arithmetic, not from
-date-change detection. Pin with a regression test.
-
-### A3.1 Wire make-whole through the FFI surface
-
-`CallableBond::make_whole_call_price` exists and is reconciled to QL,
-but the function isn't exposed through the JSON-RPC FFI. So `convex_price`
-on a make-whole-callable returns bullet pricing — Excel sheets pricing
-AAPL or Ford Credit silently ignore the MW provision. Wiring needs:
-
-1. `MakeWholeRequest { bond, call_date, treasury_rate }` and response DTO
-   in `convex_analytics::dto`.
-2. New `convex_make_whole` C symbol in `convex_ffi::ffi`.
-3. Dispatch arm in `convex_ffi::dispatch` with a `with_callable_bond!` macro.
-4. MCP tool registration.
-5. Excel UDF `CX.MW(bond, call_date, ust_rate)`.
-
-### A3.2 MW convention is ACT/365F, not bond day-count
-
-`CallableBond::make_whole_call_price` discounts at ACT/365F time × bond
-frequency. Real US-corp 424B2 prospectuses typically specify the bond's
-own day-count (30/360 US for Apple, MSFT, Verizon, Ford). The two
-conventions disagree by basis points on long-dated MW. Fix: read the
-day-count from the underlying bond and use it for MW discount time.
-
-### A4.1 Put-only `CallableBond` is fragile
-
-The bench builds a put-only bond by passing an empty `American` call
-schedule to `CallableBond::new(...)` then attaching a put schedule. This
-relies on `CallSchedule::is_callable_on(date) → false` for empty
-entries — an invariant a future contributor could break with a
-"no entries means perpetual call" optimization. Two clean fixes:
-
-(a) Extract `PutableBond` as a sibling of `CallableBond`.
-(b) Make `call_schedule: Option<CallSchedule>` on `CallableBond`.
-
-(b) is less code and reuses the existing tree pricer.
-
 ### A.x Replace synthetics with real CUSIPs
 
-Three reconciled instruments are clearly-labelled synthetics
+Four reconciled instruments are clearly-labelled synthetics
 (`SYNTH_HY_STEPDOWN_01`, `SYNTH_PLAIN_SINKER_10Y`,
-`SYNTH_PUTTABLE_5Y_BERMUDAN`). Each is a placeholder for a real bond
-whose schedule sits behind a feed gate (FHLB search form, HY indenture
-403s). When a primary-source schedule is digitized, swap the entry —
-reconciliation tolerances stay unchanged.
+`SYNTH_PUTTABLE_5Y_BERMUDAN`, `SYNTH_CALLABLE_SOFR_FRN`). Each is a
+placeholder for a real bond whose schedule sits behind a feed gate
+(FHLB search form, HY indenture 403s, bank Tier-2 144A indentures). When
+a primary-source schedule is digitized, swap the entry — reconciliation
+tolerances stay unchanged.
+
+### B1.x Callable FRN polish
+
+Three follow-ons after the B1 minimum slice landed:
+
+1. **In-progress ARRC reconciliation.** `dm_to_first_call_qq` skips the
+   in-progress period since the snapshot's settlement aligns to a coupon
+   date. A 2025-06-30 mid-period snapshot of `SYNTH_CALLABLE_SOFR_FRN`
+   would exercise the same ARRC compound-in-arrears path that
+   `CORP_SOFR_FRN` already covers, just with a workout-bullet truncation.
+2. **DM-to-each-call rows.** Currently only DM-to-first-call is reconciled.
+   Per-call DM rows would mirror the puttable's `ytp_<date>_decimal`
+   pattern and validate the workout-bullet at every entry.
+3. **FFI / Excel surface.** `CallableFloatingRateNote` is library-only;
+   no `BondSpec::CallableFrn` variant, no `convex_make_whole`-style RPC,
+   no Excel UDF. Wire after a real CUSIP lands so the surface area can
+   be designed against a concrete consumer.

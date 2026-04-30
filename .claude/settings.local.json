@@ -74,7 +74,18 @@
       "Bash(xxd:*)",
       "Bash(git fetch:*)",
       "Bash(rustfmt:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh pr create --title 'FFI redesign: mark-driven JSON RPC + slimmer Excel wrapper' --body ' *)",
+      "Bash(gh pr *)",
+      "Bash(cargo update *)",
+      "WebFetch(domain:www.treasurydirect.gov)",
+      "WebFetch(domain:fiscaldata.treasury.gov)",
+      "WebFetch(domain:www.savingsbond.gov)",
+      "WebFetch(domain:www.sec.gov)",
+      "WebFetch(domain:efts.sec.gov)",
+      "WebFetch(domain:www.fhlb-of.com)",
+      "Bash(CONVEX_DEBUG_DM=1 cargo run --release --manifest-path tools/reconcile_bench/Cargo.toml)",
+      "Bash(awk '{s+=$4} END{print s, \"passed\"}')"
     ],
     "deny": [],
     "ask": []

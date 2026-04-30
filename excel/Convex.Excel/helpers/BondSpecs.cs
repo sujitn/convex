@@ -32,7 +32,8 @@ namespace Convex.Excel.Helpers
         public static JObject Callable(
             string id, double couponDecimal, string frequency,
             DateTime maturity, DateTime issue,
-            JArray callSchedule, string callStyle, string dayCount)
+            JArray callSchedule, string callStyle, string dayCount,
+            double? makeWholeSpreadBps = null)
         {
             var spec = new JObject
             {
@@ -45,6 +46,8 @@ namespace Convex.Excel.Helpers
                 ["call_schedule"] = callSchedule,
                 ["call_style"] = callStyle,
             };
+            if (makeWholeSpreadBps.HasValue)
+                spec["make_whole_spread_bps"] = makeWholeSpreadBps.Value;
             AttachId(spec, id);
             return spec;
         }

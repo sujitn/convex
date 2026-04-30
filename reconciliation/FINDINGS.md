@@ -18,6 +18,8 @@ instruments and 4–14 metrics each.
 | A3 | 161 / 161 | + Ford Credit make-whole redemption (verified +35bp spread) |
 | A4 | 174 / 174 | + Bermudan puttable; YTP/YTB workout-bullet path |
 | A4 cleanup | 172 / 172 | trimmed 4→2 MW scenarios; refactored 8-metric duplication |
+| A polish | 172 / 172 | A1.1, A3.1, A3.2, A4.1 — no new bond shapes, removes Excel-side gaps |
+| B1 | 178 / 178 | + callable SOFR FRN (synthetic); workout-bullet DM-to-first-call |
 
 Workspace lib tests: 1738 pass, 0 fail. Clippy clean.
 
@@ -177,6 +179,67 @@ put date with redemption = put price; YTM on that bullet = YTP. YTB
 trades at premium so puts are OTM (YTB = YTM); the negative YTP at the
 14-day-out put still surfaces — both sides reach the same number,
 exercising the workout-bullet solver in the negative-yield regime.
+
+## A polish — close out the Tier A items
+
+Four items called out in NEXT_STEPS were closed without new bench scope:
+
+* **A1.1 Off-cycle sinker dates.** `project_discount_fractions` now derives
+  the period index from each cf's `accrual_end` and adds a fractional
+  in-period offset for CFs strictly inside their accrual window. On-cycle
+  bonds collapse to the canonical `(i+1-v)/freq`, so existing
+  reconciliation is unchanged. Regression test in `yield_solver.rs`.
+* **A3.1 Wire MW through FFI + Excel.** New `convex_make_whole` C symbol,
+  `MakeWholeRequest`/`MakeWholeResponse` DTOs, dispatcher, schema entries,
+  MCP `make_whole_call_price` tool, Excel `CX.MW(bond, call_date,
+  treasury_rate, [field])` UDF + `make_whole_spread_bps` field on
+  `CallableSpec`. Three FFI smoke tests pin the round trip.
+* **A3.2 MW discount uses bond day-count.** `CallableBond::make_whole_call_price`
+  now reads the bond's own day count for the discount-time year fraction
+  (matches US-corp 424B2 — 30/360 US for AAPL/MSFT/Verizon/Ford). The QL
+  mirror in `make_whole_redemption_qq` was switched in lockstep, so the
+  Ford MW reconciliation continues to match bit-for-bit.
+* **A4.1 Optional<CallSchedule> on CallableBond.** `call_schedule` is now
+  `Option<CallSchedule>`; new `CallableBond::new_putable` constructor for
+  put-only bonds. The bench's puttable build no longer relies on the
+  empty-call-schedule "no entries → not callable" invariant. `call_type()`
+  becomes `Option<CallType>`.
+
+## B1 — Callable FRN (workout-bullet DM)
+
+New `CallableFloatingRateNote` (composition of FRN + CallSchedule) with
+two analytic surfaces on `DiscountMarginCalculator`:
+
+* `calculate_to_workout(frn, dirty, settlement, workout_date, call_price)`
+  — solve for DM such that the truncated-cash-flow PV at curve+DM equals
+  the target dirty price.
+* `discount_margin_to_worst(cfrn, dirty, settlement)` — minimum DM across
+  DM-to-each-call-date and DM-to-maturity; mirror of M4's YTC/YTW workout
+  bullet adapted for FRNs.
+
+Two pre-existing bugs in `DiscountMarginCalculator::price_with_dm`
+surfaced and were fixed:
+
+1. **Spread double-count.** The calculator passed `simple_fwd +
+   quoted_spread` to `frn.effective_rate(...)`, which already adds the
+   bond's `spread_decimal()`. Fix: pass just the projected forward index
+   rate; let `effective_rate` add the spread (and apply any cap/floor).
+2. **Day-count mismatch in forward projection.** `simple_forward_period`
+   was called with ACT/365 spans (`days/365`) while the coupon was applied
+   with the bond's own ACT/360 yf, silently inflating each projected
+   coupon by `yf_360 / span_365 ≈ 1.0139`. Fix: compute the forward
+   directly as `(DF(start)/DF(end) - 1) / yf_bond_dc` so the discount span
+   matches the day count the rate is being applied with.
+3. **Solver rounding.** DM was rounded to whole bps inside the solver
+   (`(root * 1e4).round()`). Removed; callers can round if they want.
+
+Reconciled instrument: `SYNTH_CALLABLE_SOFR_FRN` — a synthetic 5Y
+quarterly SOFR + 125bps callable on each anniversary 2027-12-31 →
+2029-12-31. Reconciles 6 metrics (clean, dirty, accrued, DM-to-maturity,
+DM-to-first-call, workout date) bit-for-bit against a hand-rolled QL
+workout-bullet PV solver in `dm_to_first_call_qq`. Settlement aligns to
+year-end so no in-progress ARRC compounding is exercised — that path is
+covered by `CORP_SOFR_FRN`'s 2025-06-30 mid-period snapshot.
 
 ## Deferred
 

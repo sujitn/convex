@@ -32,12 +32,12 @@ use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, parse_day_count, yield_to_maturity,
 };
-use convex_analytics::spreads::OASCalculator;
+use convex_analytics::spreads::{DiscountMarginCalculator, OASCalculator};
 use convex_bonds::arrc::{compound_in_arrears, ArrcConfig};
 use convex_bonds::fixings::OvernightFixings;
 use convex_bonds::instruments::{
-    CallableBond, Compounding as ZcbCompounding, FixedRateBond, FloatingRateNote,
-    SinkingFundBond, SinkingFundPayment, SinkingFundSchedule, ZeroCouponBond,
+    CallableBond, CallableFloatingRateNote, Compounding as ZcbCompounding, FixedRateBond,
+    FloatingRateNote, SinkingFundBond, SinkingFundPayment, SinkingFundSchedule, ZeroCouponBond,
 };
 use convex_bonds::options::HullWhite;
 use convex_bonds::traits::Bond;
@@ -539,7 +539,7 @@ fn price_corporate_frn(
         let df_e = df(sofr_curve, valuation, end);
         let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
 
-        let coupon = if start <= valuation {
+        let coupon = if start < valuation {
             // In-progress period: real ARRC compounding (fixings ⨁ curve).
             let comp = compound_in_arrears(
                 start,
@@ -603,6 +603,47 @@ fn price_corporate_frn(
         accrued,
         discount_margin_bps: dm * 10_000.0,
     })
+}
+
+/// Build a base FRN for a synthetic_callable_frn book entry. Same shape as
+/// `price_corporate_frn`'s internal builder (corporate_sofr ARRC defaults).
+fn build_callable_frn_base(inst: &Instrument) -> Result<FloatingRateNote> {
+    let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+    let dated = parse_date(
+        inst.dated_date
+            .as_deref()
+            .or(inst.issue_date.as_deref())
+            .ok_or_else(|| anyhow!("{}: missing dated/issue date", inst.id))?,
+    )?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    FloatingRateNote::builder()
+        .cusip_unchecked(&inst.id)
+        .spread_decimal(Decimal::try_from(spread).unwrap_or(Decimal::ZERO))
+        .issue_date(dated)
+        .maturity(maturity)
+        .corporate_sofr()
+        .face_value(dec!(100))
+        .build()
+        .with_context(|| format!("building callable FRN base {}", inst.id))
+}
+
+/// Translate a callable FRN book entry's call_schedule into a Convex
+/// CallSchedule. Bermudan single-date entries (post-lockout NC2-annual style).
+fn build_callable_frn_schedule(inst: &Instrument) -> Result<BondCallSchedule> {
+    let entries = inst
+        .call_schedule
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing call_schedule", inst.id))?;
+    let mut sched = BondCallSchedule::new(CallType::Bermudan);
+    for e in entries {
+        let d = parse_date(&e.call_date)?;
+        sched = sched.with_entry(BondCallEntry::new(d, e.price));
+    }
+    Ok(sched)
 }
 
 fn parse_compounding(s: &str) -> Result<ZcbCompounding> {
@@ -704,8 +745,7 @@ fn build_puttable(inst: &Instrument) -> Result<CallableBond> {
         let d = parse_date(&e.put_date)?;
         put_sched = put_sched.with_entry(BondPutEntry::new(d, e.price));
     }
-    let empty_call = BondCallSchedule::new(CallType::American);
-    Ok(CallableBond::new(base, empty_call).with_put_schedule(put_sched))
+    Ok(CallableBond::new_putable(base).with_put_schedule(put_sched))
 }
 
 /// Bullet bond + a MakeWhole call schedule carrying the MW spread.
@@ -933,6 +973,7 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             "sovereign_linker" => None, // TIPS priced on real yield
             "sovereign_frn" => None,    // FRN: flat-forward projection
             "corporate_frn" => None,    // SOFR FRN: curve-projected, handled below
+            "synthetic_callable_frn" => None, // CallableFloatingRateNote: workout-bullet DM
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {
@@ -1073,6 +1114,88 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
                     spread_dec,
                 )?;
             }
+            ok_count += 1;
+            continue;
+        }
+
+        // Synthetic callable SOFR FRN: bullet metrics + DM-to-first-call.
+        // Bullet metrics share the corporate_frn path (same FRN, ignoring the
+        // call). The DM-to-call is the workout-bullet metric: solve for DM
+        // such that the truncated-cash-flow PV at curve+DM equals a fixed
+        // scenario dirty price (par by default).
+        if inst.category == "synthetic_callable_frn" {
+            let curve = sofr_curve.as_ref().ok_or_else(|| {
+                anyhow!(
+                    "{}: SOFR_OIS_CURVE required for synthetic_callable_frn pricing",
+                    inst.id
+                )
+            })?;
+            let m = price_corporate_frn(inst, valuation, curve, &sofr_fixings)
+                .with_context(|| format!("price_corporate_frn {}", inst.id))?;
+            let spread_dec = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+
+            // Reconciled bullet rows (same shape as corporate_frn).
+            let bullet_rows: [(&str, f64); 4] = [
+                ("clean_price_pct", m.clean_price_pct),
+                ("dirty_price_pct", m.dirty_price_pct),
+                ("accrued", m.accrued),
+                ("discount_margin_bps", m.discount_margin_bps),
+            ];
+            for (metric, value) in bullet_rows {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},SOFR_OIS_CURVE,",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    spread_dec,
+                )?;
+            }
+
+            // DM-to-first-call, computed via the workout-bullet calculator.
+            // Settle on a fixed scenario_price (par) so both libraries solve
+            // for the same target. Using the calculated dirty as input would
+            // collapse to ~the bullet DM and lose the workout-bullet signal.
+            let scenario_dirty = dec!(100.0);
+            let frn = build_callable_frn_base(inst)?;
+            let cfrn_schedule = build_callable_frn_schedule(inst)?;
+            let cfrn = CallableFloatingRateNote::new(frn.clone(), cfrn_schedule);
+
+            let workouts = cfrn.all_workout_dates(valuation);
+            let first_call = workouts
+                .first()
+                .copied()
+                .ok_or_else(|| anyhow!("{}: no future call dates", inst.id))?;
+            let call_price = cfrn
+                .call_price_on(first_call)
+                .ok_or_else(|| anyhow!("{}: no call price for {}", inst.id, first_call))?;
+
+            let forward = convex_curves::curves::ForwardCurve::from_months(
+                std::sync::Arc::new(curve.clone()) as std::sync::Arc<dyn convex_curves::RateCurveDyn>,
+                3,
+            );
+            let dm_calc = DiscountMarginCalculator::new(&forward, curve);
+            let dm_to_call = dm_calc
+                .calculate_to_workout(&frn, scenario_dirty, valuation, first_call, call_price)
+                .with_context(|| format!("DM-to-first-call {}", inst.id))?;
+            writeln!(
+                out,
+                "{},{},dm_to_first_call_bps,{:.10},{:.10},SOFR_OIS_CURVE,",
+                inst.id,
+                inst.currency.as_deref().unwrap_or("?"),
+                dm_to_call.as_bps().to_string().parse::<f64>().unwrap_or(0.0),
+                spread_dec,
+            )?;
+            writeln!(
+                out,
+                "{},{},dm_to_first_call_workout_yyyymmdd,{:.10},{:.10},SOFR_OIS_CURVE,",
+                inst.id,
+                inst.currency.as_deref().unwrap_or("?"),
+                workout_date_to_f64(first_call),
+                spread_dec,
+            )?;
+
             ok_count += 1;
             continue;
         }

@@ -180,9 +180,14 @@ fn build_callable(spec: CallableSpec) -> Handle {
         CallStyle::American => CallType::American,
         CallStyle::European => CallType::European,
         CallStyle::Bermudan => CallType::Bermudan,
+        CallStyle::MakeWhole => CallType::MakeWhole,
     };
 
-    let mut schedule = CallSchedule::new(call_type);
+    let mut schedule = if matches!(spec.call_style, CallStyle::MakeWhole) {
+        CallSchedule::make_whole(spec.make_whole_spread_bps.unwrap_or(0.0))
+    } else {
+        CallSchedule::new(call_type)
+    };
     for entry in &spec.call_schedule {
         let mut e = CallEntry::new(entry.date, entry.price);
         if let Some(end) = entry.end_date {

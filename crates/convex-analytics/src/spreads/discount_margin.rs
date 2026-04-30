@@ -7,7 +7,7 @@
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
-use convex_bonds::instruments::FloatingRateNote;
+use convex_bonds::instruments::{CallableFloatingRateNote, FloatingRateNote};
 use convex_bonds::traits::Bond;
 use convex_core::types::{Date, Spread, SpreadType};
 use convex_curves::curves::ForwardCurve;
@@ -79,7 +79,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             }
         })?;
 
-        let dm_bps = (result.root * 10_000.0).round();
+        let dm_bps = result.root * 10_000.0;
         Ok(Spread::new(
             Decimal::from_f64_retain(dm_bps).unwrap_or_default(),
             SpreadType::DiscountMargin,
@@ -88,6 +88,23 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
 
     /// Prices an FRN at a given discount margin.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
+        let cash_flows = frn.cash_flows(settlement);
+        self.price_with_dm_for_flows(frn, &cash_flows, dm, settlement, None)
+    }
+
+    /// Prices an FRN at a given discount margin against an arbitrary cash-flow
+    /// slice. Used for workout-bullet pricing of callable FRNs: pass the
+    /// truncated flows plus an explicit `redemption` to override the terminal
+    /// principal value (for vanilla pricing this is `None`, meaning the
+    /// cash-flow's own principal stands).
+    pub fn price_with_dm_for_flows(
+        &self,
+        frn: &FloatingRateNote,
+        cash_flows: &[convex_bonds::traits::BondCashFlow],
+        dm: f64,
+        settlement: Date,
+        redemption: Option<f64>,
+    ) -> f64 {
         let Some(maturity) = frn.maturity() else {
             return 0.0;
         };
@@ -96,12 +113,10 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         }
 
         let face_value = frn.face_value().to_f64().unwrap_or(100.0);
-        let quoted_spread = frn.spread_decimal().to_f64().unwrap_or(0.0);
         // Each curve's tenors anchor to its own reference date.
         let disc_ref = self.discount_curve.reference_date();
         let fwd_ref = self.forward_curve.reference_date();
         let day_count = frn.day_count().to_day_count();
-        let cash_flows = frn.cash_flows(settlement);
 
         if cash_flows.is_empty() {
             return 0.0;
@@ -114,7 +129,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         };
 
         let mut price = 0.0;
-        for cf in &cash_flows {
+        for cf in cash_flows {
             if cf.date <= settlement {
                 continue;
             }
@@ -128,19 +143,39 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let coupon = match (cf.accrual_start, cf.accrual_end) {
                 // Period hasn't accrued — project via the forward curve.
                 (Some(start), Some(end)) if start >= settlement => {
-                    let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
-                    let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
-                    let Ok(simple_fwd) = self.forward_curve.simple_forward_period(t_start, t_end)
-                    else {
-                        return 0.0;
-                    };
-                    let rate = frn.effective_rate(
-                        Decimal::from_f64_retain(simple_fwd + quoted_spread).unwrap_or_default(),
-                    );
                     let yf = day_count
                         .period_year_fraction(start, end, start, end)
                         .to_f64()
                         .unwrap_or(0.0);
+                    if yf <= 0.0 {
+                        return 0.0;
+                    }
+                    // Forward simple rate consistent with the bond's own day
+                    // count: (DF(start)/DF(end) - 1) / yf_bond. Using a
+                    // different span (e.g. ACT/365) here would silently
+                    // inflate the projected coupon by yf_bond/span_other.
+                    let t_start = fwd_ref.days_between(&start) as f64 / 365.0;
+                    let t_end = fwd_ref.days_between(&end) as f64 / 365.0;
+                    let (Ok(df_s), Ok(df_e)) = (
+                        self.forward_curve
+                            .discount_curve()
+                            .discount_factor(t_start.max(0.0)),
+                        self.forward_curve
+                            .discount_curve()
+                            .discount_factor(t_end),
+                    ) else {
+                        return 0.0;
+                    };
+                    if df_e <= 0.0 {
+                        return 0.0;
+                    }
+                    let simple_fwd = (df_s / df_e - 1.0) / yf;
+                    // effective_rate(index) adds spread_decimal() internally
+                    // and applies any cap/floor, so pass just the projected
+                    // forward index rate.
+                    let rate = frn.effective_rate(
+                        Decimal::from_f64_retain(simple_fwd).unwrap_or_default(),
+                    );
                     face_value * rate.to_f64().unwrap_or(0.0) * yf
                 }
                 _ => {
@@ -154,15 +189,98 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
                 }
             };
 
-            let total = if cf.is_principal() {
-                coupon + face_value
+            let principal = if cf.is_principal() {
+                redemption.unwrap_or(face_value)
             } else {
-                coupon
+                0.0
             };
-            price += total * adjusted_df;
+            price += (coupon + principal) * adjusted_df;
         }
 
         price / face_value * 100.0
+    }
+
+    /// Discount-margin-to-worst: minimum DM across (a) DM-to-each-call-date
+    /// using each entry's call price, and (b) plain DM-to-maturity. Returns
+    /// `(dm, workout_date)`. The "worst" is from the issuer's call optimality
+    /// — investor's lowest realised spread.
+    pub fn discount_margin_to_worst(
+        &self,
+        cfrn: &CallableFloatingRateNote,
+        dirty_price: Decimal,
+        settlement: Date,
+    ) -> AnalyticsResult<(Spread, Date)> {
+        let frn = cfrn.base_frn();
+        let maturity = frn
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("FRN has no maturity date".to_string()))?;
+
+        // DM-to-maturity (always a candidate workout).
+        let dm_mat = self.calculate(frn, dirty_price, settlement)?;
+        let mut worst_bps = dm_mat.as_bps();
+        let mut worst_date = maturity;
+
+        for call_date in cfrn.all_workout_dates(settlement) {
+            let Some(call_price) = cfrn.call_price_on(call_date) else {
+                continue;
+            };
+            let dm = self.calculate_to_workout(frn, dirty_price, settlement, call_date, call_price)?;
+            if dm.as_bps() < worst_bps {
+                worst_bps = dm.as_bps();
+                worst_date = call_date;
+            }
+        }
+
+        Ok((Spread::new(worst_bps, SpreadType::DiscountMargin), worst_date))
+    }
+
+    /// Solves for the DM that prices the bond to `dirty_price` using a
+    /// truncated, workout-bullet cash flow set: cash flows up to
+    /// `workout_date` plus a redemption of `call_price` (per 100 face) at
+    /// `workout_date`. Mirrors `CallableBond::yield_to_call_date` for FRNs.
+    pub fn calculate_to_workout(
+        &self,
+        frn: &FloatingRateNote,
+        dirty_price: Decimal,
+        settlement: Date,
+        workout_date: Date,
+        call_price: f64,
+    ) -> AnalyticsResult<Spread> {
+        if workout_date <= settlement {
+            return Err(AnalyticsError::InvalidInput(
+                "workout_date must be after settlement".into(),
+            ));
+        }
+        let face_value = frn.face_value().to_f64().unwrap_or(100.0);
+        let workout_redemption = call_price / 100.0 * face_value;
+        let workout_flows = workout_cash_flows(frn, settlement, workout_date, workout_redemption);
+        if workout_flows.is_empty() {
+            return Err(AnalyticsError::InvalidInput(
+                "no cash flows up to workout date".into(),
+            ));
+        }
+        let target_price = dirty_price.to_f64().unwrap_or(100.0);
+        let objective = |dm: f64| {
+            self.price_with_dm_for_flows(
+                frn,
+                &workout_flows,
+                dm,
+                settlement,
+                Some(workout_redemption),
+            ) - target_price
+        };
+        let result = brent(objective, -0.05, 0.20, &self.config).map_err(|_| {
+            AnalyticsError::SolverConvergenceFailed {
+                solver: "DM-to-workout Brent".to_string(),
+                iterations: self.config.max_iterations,
+                residual: 0.0,
+            }
+        })?;
+        let dm_bps = result.root * 10_000.0;
+        Ok(Spread::new(
+            Decimal::from_f64_retain(dm_bps).unwrap_or_default(),
+            SpreadType::DiscountMargin,
+        ))
     }
 
     /// Calculates the spread DV01.
@@ -245,6 +363,43 @@ pub fn simple_margin(
     let margin_bps = (simple_margin * Decimal::from(10_000)).round();
 
     Spread::new(margin_bps, SpreadType::DiscountMargin)
+}
+
+/// Build a workout-bullet cash flow vector for an FRN: future flows up to
+/// `workout_date`, with the principal at the terminal flow set to
+/// `redemption_amount` (in face-value units, not per-100). If the workout
+/// date doesn't coincide with a coupon date, an extra principal-only flow is
+/// appended; otherwise the existing terminal flow's `flow_type` and amount are
+/// adjusted so it carries the call redemption alongside its coupon.
+fn workout_cash_flows(
+    frn: &FloatingRateNote,
+    settlement: Date,
+    workout_date: Date,
+    redemption_amount: f64,
+) -> Vec<convex_bonds::traits::BondCashFlow> {
+    use convex_bonds::traits::{BondCashFlow, CashFlowType};
+    let mut flows = frn.cash_flows(settlement);
+    flows.retain(|cf| cf.date <= workout_date);
+    let face = frn.face_value();
+    let redemption_dec = Decimal::from_f64_retain(redemption_amount).unwrap_or(face);
+
+    if let Some(last) = flows.last_mut() {
+        if last.date == workout_date {
+            // Replace any embedded principal in the terminal flow with the
+            // call redemption, and force the type to coupon+principal.
+            let coupon = if last.is_principal() {
+                last.amount.saturating_sub(face)
+            } else {
+                last.amount
+            };
+            last.amount = coupon + redemption_dec;
+            last.flow_type = CashFlowType::CouponAndPrincipal;
+            return flows;
+        }
+    }
+    // No flow at the workout date — append a redemption-only flow.
+    flows.push(BondCashFlow::principal(workout_date, redemption_dec));
+    flows
 }
 
 /// Calculates the Z-DM (zero discount margin) for an FRN.
@@ -335,6 +490,103 @@ mod tests {
 
         let price_50bps = calc.price_with_dm(&frn, 0.0050, settlement);
         assert!(price_50bps < price_zero_dm, "Price with DM should be lower");
+    }
+
+    #[test]
+    fn test_callable_frn_dm_to_worst_premium_bond() {
+        // Premium-priced callable FRN: investor's worst case is being called
+        // at par on the first call date — DM-to-call should be lower than
+        // DM-to-maturity, and the chosen workout should be the first call.
+        use convex_bonds::instruments::{CallableFloatingRateNote, FloatingRateNote};
+        use convex_bonds::types::{CallEntry, CallSchedule, CallType, RateIndex};
+        let discount = create_sample_discount_curve();
+        let discount_arc: Arc<dyn RateCurveDyn> = Arc::new(discount);
+        let forward = create_sample_forward_curve(discount_arc.clone());
+
+        let frn = FloatingRateNote::builder()
+            .cusip_unchecked("CFRNTEST1")
+            .index(RateIndex::Sofr)
+            .spread_bps(125)
+            .face_value(dec!(100))
+            .maturity(date(2030, 6, 15))
+            .issue_date(date(2025, 6, 15))
+            .corporate_sofr()
+            .build()
+            .unwrap();
+
+        let schedule = CallSchedule::new(CallType::Bermudan)
+            .with_entry(CallEntry::new(date(2027, 6, 15), 100.0))
+            .with_entry(CallEntry::new(date(2028, 6, 15), 100.0));
+        let cfrn = CallableFloatingRateNote::new(frn.clone(), schedule);
+
+        let calc = DiscountMarginCalculator::new(&forward, discount_arc.as_ref());
+        let settlement = date(2026, 6, 15);
+        let dirty_price = dec!(101.0); // premium
+
+        let dm_to_mat = calc.calculate(&frn, dirty_price, settlement).unwrap();
+        let (dm_worst, worst_date) = calc
+            .discount_margin_to_worst(&cfrn, dirty_price, settlement)
+            .unwrap();
+
+        // Premium bond → call shortens duration, DM-to-call < DM-to-maturity.
+        assert!(
+            dm_worst.as_bps() <= dm_to_mat.as_bps(),
+            "DM-to-worst {} should be <= DM-to-maturity {}",
+            dm_worst.as_bps(),
+            dm_to_mat.as_bps()
+        );
+        // First call dates exist between 2027-06 and 2028-06; worst should be one of them.
+        assert!(
+            worst_date == date(2027, 6, 15) || worst_date == date(2028, 6, 15),
+            "expected a call workout, got {worst_date}"
+        );
+    }
+
+    #[test]
+    fn test_callable_frn_dm_to_worst_discount_bond() {
+        // Discount-priced callable FRN: investor expects to hold to maturity
+        // (call is OTM for issuer), so DM-to-worst should equal DM-to-maturity
+        // and the workout date should be the maturity itself.
+        use convex_bonds::instruments::{CallableFloatingRateNote, FloatingRateNote};
+        use convex_bonds::types::{CallEntry, CallSchedule, CallType, RateIndex};
+        let discount = create_sample_discount_curve();
+        let discount_arc: Arc<dyn RateCurveDyn> = Arc::new(discount);
+        let forward = create_sample_forward_curve(discount_arc.clone());
+
+        let frn = FloatingRateNote::builder()
+            .cusip_unchecked("CFRNTEST2")
+            .index(RateIndex::Sofr)
+            .spread_bps(50)
+            .face_value(dec!(100))
+            .maturity(date(2030, 6, 15))
+            .issue_date(date(2025, 6, 15))
+            .corporate_sofr()
+            .build()
+            .unwrap();
+
+        let maturity = frn.maturity().unwrap();
+        let schedule = CallSchedule::new(CallType::Bermudan)
+            .with_entry(CallEntry::new(date(2028, 6, 15), 100.0));
+        let cfrn = CallableFloatingRateNote::new(frn.clone(), schedule);
+
+        let calc = DiscountMarginCalculator::new(&forward, discount_arc.as_ref());
+        let settlement = date(2026, 6, 15);
+        let dirty_price = dec!(98.5);
+
+        let dm_to_mat = calc.calculate(&frn, dirty_price, settlement).unwrap();
+        let (dm_worst, worst_date) = calc
+            .discount_margin_to_worst(&cfrn, dirty_price, settlement)
+            .unwrap();
+
+        // Discount bond → calling at par makes DM-to-call higher; min stays
+        // on the maturity branch.
+        assert_eq!(worst_date, maturity);
+        assert!(
+            (dm_worst.as_bps() - dm_to_mat.as_bps()).abs() <= Decimal::from(1),
+            "expected DM-to-worst ≈ DM-to-maturity, got {} vs {}",
+            dm_worst.as_bps(),
+            dm_to_mat.as_bps()
+        );
     }
 
     #[test]

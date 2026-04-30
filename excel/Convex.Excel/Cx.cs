@@ -52,6 +52,9 @@ namespace Convex.Excel
         private static extern IntPtr convex_curve_query([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
 
         [DllImport(Dll)]
+        private static extern IntPtr convex_make_whole([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        [DllImport(Dll)]
         private static extern IntPtr convex_schema([MarshalAs(UnmanagedType.LPUTF8Str)] string typeName);
 
         [DllImport(Dll)]
@@ -122,6 +125,7 @@ namespace Convex.Excel
         public static JToken Spread(JObject request) => Rpc(convex_spread, request);
         public static JToken Cashflows(JObject request) => Rpc(convex_cashflows, request);
         public static JToken CurveQuery(JObject request) => Rpc(convex_curve_query, request);
+        public static JToken MakeWhole(JObject request) => Rpc(convex_make_whole, request);
 
         // ---- Introspection -------------------------------------------------
 

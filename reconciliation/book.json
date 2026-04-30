@@ -334,6 +334,32 @@
       "rationale": "IBRD/IADB don't issue public USD plain sinkers (bullets only). Real corporate/agency sinkers (FHLB, AT&T, utility) require manual prospectus extraction; the schedule here mirrors industry-standard templates. Replace with a real CUSIP once a primary-source schedule is digitized."
     },
     {
+      "id": "SYNTH_CALLABLE_SOFR_FRN",
+      "category": "synthetic_callable_frn",
+      "issuer": "SYNTHETIC_BANK_CALLABLE_FRN",
+      "identifier": { "type": "SYNTHETIC", "value": "SYNTH-CALLABLE-SOFR-FRN" },
+      "description": "Clearly-labeled synthetic 5Y callable SOFR FRN. Coupon = compounded SOFR + 125bps, quarterly ACT/360. Issuer may call at par on each anniversary 2027-12-31 through 2029-12-31. Exercises CallableFloatingRateNote + workout-bullet DM-to-worst path on both libraries.",
+      "synthetic": true,
+      "coupon_type": "floating",
+      "index": "SOFR",
+      "spread_bps": 125,
+      "current_reset_rate_pct": 4.366,
+      "frequency": "quarterly",
+      "issue_date": "2024-12-31",
+      "dated_date": "2024-12-31",
+      "maturity_date": "2029-12-31",
+      "day_count": "ACT/360",
+      "face_value": 100.0,
+      "currency": "USD",
+      "call_schedule": [
+        { "call_date": "2027-12-31", "price": 100.0 },
+        { "call_date": "2028-12-31", "price": 100.0 },
+        { "call_date": "2029-12-31", "price": 100.0 }
+      ],
+      "source": "Synthetic — standard bank-capital callable SOFR FRN template (NC2 + annual Bermudan). Not a real CUSIP.",
+      "rationale": "Most real callable SOFR FRNs (FHLB callable advances, bank Tier-2 sub-debt) sit behind FHLB search forms or 144A indentures. The schedule here mirrors the typical NC2-annual structure. Replace with a real CUSIP once a primary-source schedule is digitized."
+    },
+    {
       "id": "UST_BILL_52W",
       "category": "sovereign_strip",
       "issuer": "U.S. Treasury",

@@ -55,8 +55,9 @@ namespace Convex.Excel
             [ExcelArgument("Call dates (range)")] object callDates,
             [ExcelArgument("Call prices % of par, parallel to dates")] object callPrices,
             [ExcelArgument("Frequency, default SA")] object frequency,
-            [ExcelArgument("Style: american (default) | european | bermudan")] object callStyle,
-            [ExcelArgument("Day count, default Thirty360US")] object dayCount) =>
+            [ExcelArgument("Style: american (default) | european | bermudan | make_whole")] object callStyle,
+            [ExcelArgument("Day count, default Thirty360US")] object dayCount,
+            [ExcelArgument("Make-whole spread, basis points (only for make_whole)")] object makeWholeSpreadBps) =>
             Safe(() =>
             {
                 var dates = ExtractDates(callDates);
@@ -70,13 +71,15 @@ namespace Convex.Excel
                         ["date"] = CxParse.AsIsoDate(dates[i]),
                         ["price"] = prices[i],
                     });
+                double? mwSpread = IsBlank(makeWholeSpreadBps) ? (double?)null : AsDouble(makeWholeSpreadBps, 0.0);
                 return CxParse.FormatHandle(Cx.BuildBond(BondSpecs.Callable(
                     AsString(id, ""), couponDecimal,
                     CxParse.AsFrequency(frequency),
                     maturity, issue,
                     schedule,
                     AsString(callStyle, "american").ToLowerInvariant(),
-                    CxParse.AsDayCount(dayCount))));
+                    CxParse.AsDayCount(dayCount),
+                    mwSpread)));
             });
 
         [ExcelFunction(Name = "CX.BOND.FRN",
@@ -286,6 +289,34 @@ namespace Convex.Excel
                 };
                 var result = Cx.Cashflows(req);
                 return CashflowsToGrid(result);
+            });
+
+        [ExcelFunction(Name = "CX.MW",
+            Description = "Make-whole call price for a callable bond carrying a make-whole spread. " +
+                          "Returns price (default), discount_rate, or spread_bps.",
+            Category = "Convex Bonds")]
+        public static object CxMakeWhole(
+            object bondRef,
+            [ExcelArgument("Hypothetical call date")] DateTime callDate,
+            [ExcelArgument("Treasury par yield, decimal (0.05 = 5%)")] double treasuryRate,
+            [ExcelArgument("Field: price (default) | discount_rate | spread_bps")] object field) =>
+            Safe(() =>
+            {
+                var req = new JObject
+                {
+                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
+                    ["call_date"] = CxParse.AsIsoDate(callDate),
+                    ["treasury_rate"] = treasuryRate,
+                };
+                var result = Cx.MakeWhole(req);
+                var f = AsString(field, "price").ToLowerInvariant();
+                return f switch
+                {
+                    "price" => (double?)result["price"] ?? throw new ConvexException("missing price"),
+                    "discount_rate" => (double?)result["discount_rate"] ?? throw new ConvexException("missing discount_rate"),
+                    "spread_bps" => (double?)result["spread_bps"] ?? throw new ConvexException("missing spread_bps"),
+                    _ => throw new ConvexException($"unknown MW field: {f}"),
+                };
             });
 
         [ExcelFunction(Name = "CX.CURVE.QUERY",
