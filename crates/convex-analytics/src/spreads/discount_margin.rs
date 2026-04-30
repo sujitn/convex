@@ -25,7 +25,6 @@ pub struct DiscountMarginCalculator<'a, C: RateCurveDyn + ?Sized> {
 }
 
 impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
-    /// Creates a new Discount Margin calculator.
     #[must_use]
     pub fn new(forward_curve: &'a ForwardCurve, discount_curve: &'a C) -> Self {
         Self {
@@ -36,14 +35,12 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         }
     }
 
-    /// Sets the solver tolerance.
     #[must_use]
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.config = SolverConfig::new(tolerance, self.config.max_iterations);
         self
     }
 
-    /// Sets the maximum iterations for the solver.
     #[must_use]
     pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
         self.config = SolverConfig::new(self.config.tolerance, max_iterations);
@@ -64,7 +61,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         self
     }
 
-    /// Calculates the discount margin for an FRN.
     pub fn calculate(
         &self,
         frn: &FloatingRateNote,
@@ -101,7 +97,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         ))
     }
 
-    /// Prices an FRN at a given discount margin.
     pub fn price_with_dm(&self, frn: &FloatingRateNote, dm: f64, settlement: Date) -> f64 {
         let cash_flows = frn.cash_flows(settlement);
         self.price_with_dm_for_flows(frn, &cash_flows, dm, settlement, None)
@@ -232,7 +227,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             .maturity()
             .ok_or_else(|| AnalyticsError::InvalidInput("FRN has no maturity date".to_string()))?;
 
-        // DM-to-maturity (always a candidate workout).
         let dm_mat = self.calculate(frn, dirty_price, settlement)?;
         let mut worst_bps = dm_mat.as_bps();
         let mut worst_date = maturity;
@@ -313,7 +307,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         ))
     }
 
-    /// Calculates the spread DV01.
     pub fn spread_dv01(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
 
@@ -323,7 +316,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         Decimal::from_f64_retain(base_price - bumped_price).unwrap_or(Decimal::ZERO)
     }
 
-    /// Calculates spread duration.
     pub fn spread_duration(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
         let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
         let base_price = self.price_with_dm(frn, base_dm, settlement);
@@ -336,7 +328,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
         dv01 / Decimal::from_f64_retain(base_price).unwrap_or(Decimal::ONE) * Decimal::from(10_000)
     }
 
-    /// Calculates effective spread duration.
     pub fn effective_duration(
         &self,
         frn: &FloatingRateNote,

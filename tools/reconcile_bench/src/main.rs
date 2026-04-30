@@ -605,8 +605,6 @@ fn price_corporate_frn(
     })
 }
 
-/// Build a base FRN for a synthetic_callable_frn book entry. Same shape as
-/// `price_corporate_frn`'s internal builder (corporate_sofr ARRC defaults).
 fn build_callable_frn_base(inst: &Instrument) -> Result<FloatingRateNote> {
     let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
     let dated = parse_date(
@@ -631,8 +629,6 @@ fn build_callable_frn_base(inst: &Instrument) -> Result<FloatingRateNote> {
         .with_context(|| format!("building callable FRN base {}", inst.id))
 }
 
-/// Translate a callable FRN book entry's call_schedule into a Convex
-/// CallSchedule. Bermudan single-date entries (post-lockout NC2-annual style).
 fn build_callable_frn_schedule(inst: &Instrument) -> Result<BondCallSchedule> {
     let entries = inst
         .call_schedule
@@ -646,10 +642,8 @@ fn build_callable_frn_schedule(inst: &Instrument) -> Result<BondCallSchedule> {
     Ok(sched)
 }
 
-/// ARRC compound-in-arrears closure for an in-progress SOFR FRN coupon.
-/// Returns the coupon amount per face for `[start, end)`, including
-/// the bond's quoted spread. Bound to the snapshot's curve, fixings, and
-/// USD-corporate ARRC parameters.
+/// ARRC compound-in-arrears coupon for [start, end) in face units, with the
+/// bond's quoted spread folded in.
 fn arrc_in_progress_coupon<'a>(
     sofr_curve: &'a DiscountCurve,
     fixings: &'a OvernightFixings,
@@ -1160,10 +1154,8 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             continue;
         }
 
-        // Synthetic callable SOFR FRN: bullet metrics + per-call DM +
-        // DM-to-worst. Per-call DM uses scenario_dirty=100 so both libraries
-        // target the same equation; using the calculated dirty would
-        // collapse all branches to ~0bps and lose the workout-bullet signal.
+        // Per-call DM uses scenario_dirty=100; using the calculated dirty
+        // would collapse all branches to ~0bps and lose the workout signal.
         if inst.category == "synthetic_callable_frn" {
             let curve = sofr_curve.as_ref().ok_or_else(|| {
                 anyhow!("{}: SOFR_OIS_CURVE required", inst.id)
@@ -1191,9 +1183,8 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
             let calc = DiscountMarginCalculator::new(&forward, curve)
                 .with_in_progress_coupon(arrc_coupon);
 
-            // Seed worst with DM-to-maturity solved against the same scenario
-            // dirty=100 the per-call branches use; m.discount_margin_bps targets
-            // dirty=100+accrued and would mix scenarios in the comparison.
+            // Seed at dirty=100 (same as per-call branches); m.discount_margin_bps
+            // targets dirty=100+accrued, which would mix scenarios.
             let dm_mat = calc
                 .calculate_to_workout(&frn, dec!(100.0), valuation, maturity, 100.0)
                 .with_context(|| format!("DM-to-maturity {}", inst.id))?;

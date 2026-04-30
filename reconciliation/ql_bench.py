@@ -1024,10 +1024,8 @@ def _run_snapshot(snap: dict) -> int:
                 )
             continue
 
-        # Synthetic callable SOFR FRN — bullet rows + per-call DM-to-workout
-        # at scenario_dirty=100 + DM-to-worst (mirror of YTW). Call dates
-        # equal to maturity are skipped: DM-to-call-at-maturity collapses
-        # to discount_margin_bps already emitted by the bullet pricer.
+        # Per-call DM uses scenario_dirty=100; call dates == maturity are
+        # skipped (DM-to-call-at-maturity ≡ discount_margin_bps already emitted).
         if cat == "synthetic_callable_frn":
             if sofr_curve is None:
                 raise RuntimeError(
@@ -1039,9 +1037,8 @@ def _run_snapshot(snap: dict) -> int:
 
             maturity = to_ql_date(inst["maturity_date"])
             scenario_dirty = 100.0
-            # Seed worst with DM-to-maturity at the same dirty=100 scenario
-            # the per-call branches use. m["discount_margin_bps"] targets
-            # dirty=100+accrued and would mix scenarios in the comparison.
+            # Seed at dirty=100 (same as per-call branches); m["discount_margin_bps"]
+            # targets dirty=100+accrued, which would mix scenarios.
             dm_mat = dm_to_workout_qq(
                 inst, valuation, sofr_curve, scenario_dirty, maturity, 100.0,
             )
