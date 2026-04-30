@@ -475,17 +475,15 @@ impl SinkingFundBond {
         self.solve_yield(&flows, clean_price, settlement)
     }
 
-    /// Generates factor-adjusted cash flows to a specific date.
+    /// Factor-adjusted cash flows. Coupon at sink date D accrues on the
+    /// pre-paydown factor; see test_coupon_at_sink_date_uses_pre_paydown_factor.
     fn cash_flows_to_date(&self, settlement: Date, end_date: Date) -> Vec<BondCashFlow> {
         let mut flows = Vec::new();
         let maturity = self.base.maturity().unwrap();
         let coupon_rate = self.base.coupon_rate();
         let freq = self.base.coupon_frequency();
 
-        // Get all base cash flow dates
         let base_flows = self.base.cash_flows(settlement);
-
-        // Track remaining principal
         let mut remaining_factor = self.current_factor(settlement);
 
         for cf in base_flows {
@@ -493,31 +491,29 @@ impl SinkingFundBond {
                 break;
             }
 
-            // Check for sinking fund payment on this date
+            let pre_paydown_factor = remaining_factor;
+
             if let Some(sf_payment) = self.sinking_schedule.payment_on(cf.date) {
                 let sf_amount = self.original_face
                     * Decimal::try_from(sf_payment.amount_pct / 100.0).unwrap_or(Decimal::ZERO)
                     * Decimal::try_from(sf_payment.price / 100.0).unwrap_or(Decimal::ONE);
 
-                // Add sinking fund redemption
                 flows.push(BondCashFlow {
                     date: cf.date,
                     amount: sf_amount,
                     flow_type: CashFlowType::Principal,
                     accrual_start: cf.accrual_start,
                     accrual_end: cf.accrual_end,
-                    factor: Decimal::try_from(remaining_factor).unwrap_or(Decimal::ONE),
+                    factor: Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE),
                     reference_rate: None,
                 });
 
-                // Update remaining factor
                 remaining_factor -= sf_payment.amount_pct / 100.0;
                 remaining_factor = remaining_factor.max(0.0);
             }
 
-            // Add factor-adjusted coupon
             if cf.is_coupon() || cf.is_principal() {
-                let coupon_factor = Decimal::try_from(remaining_factor).unwrap_or(Decimal::ONE);
+                let coupon_factor = Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE);
                 let coupon_amount = if freq > 0 {
                     self.original_face * coupon_rate * coupon_factor / Decimal::from(freq)
                 } else {
@@ -537,7 +533,7 @@ impl SinkingFundBond {
             }
         }
 
-        // Add final redemption at end_date if there's remaining principal
+        // YTAL workouts that don't extend to maturity leave residual principal.
         if remaining_factor > 0.0 && end_date <= maturity {
             let final_amount =
                 self.original_face * Decimal::try_from(remaining_factor).unwrap_or(Decimal::ZERO);
@@ -1021,5 +1017,53 @@ mod tests {
             .with_payment(SinkingFundPayment::new(date(2025, 6, 15), 50.0))
             .with_payment(SinkingFundPayment::new(date(2026, 6, 15), 50.0));
         assert!((full.total_sinking_pct() - 100.0).abs() < 0.001);
+    }
+
+    /// Regression: sink-date coupon uses pre-paydown factor.
+    #[test]
+    fn test_sinker_coupon_uses_pre_paydown_factor() {
+        use convex_core::calendars::BusinessDayConvention;
+        use convex_core::daycounts::DayCountConvention;
+        use convex_core::{Currency, Date};
+        use rust_decimal::Decimal;
+        use rust_decimal_macros::dec;
+
+        let issue = Date::from_ymd(2020, 12, 15).unwrap();
+        let maturity = Date::from_ymd(2030, 12, 15).unwrap();
+        let base = FixedRateBond::builder()
+            .cusip_unchecked("SINK_TEST")
+            .coupon_rate(dec!(0.05))
+            .issue_date(issue)
+            .maturity(maturity)
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .currency(Currency::USD)
+            .face_value(dec!(100))
+            .calendar(crate::types::CalendarId::new(""))
+            .business_day_convention(BusinessDayConvention::Unadjusted)
+            .build()
+            .unwrap();
+        let schedule = SinkingFundSchedule::new()
+            .with_payment(SinkingFundPayment::new(date(2026, 12, 15), 20.0))
+            .with_payment(SinkingFundPayment::new(date(2027, 12, 15), 20.0))
+            .with_payment(SinkingFundPayment::new(date(2028, 12, 15), 20.0))
+            .with_payment(SinkingFundPayment::new(date(2029, 12, 15), 20.0))
+            .with_payment(SinkingFundPayment::new(date(2030, 12, 15), 20.0));
+        let bond = SinkingFundBond::new(base, schedule);
+
+        let flows = bond.cash_flows(date(2025, 12, 31));
+
+        let mat_coupon = flows
+            .iter()
+            .find(|cf| cf.date == maturity && cf.is_coupon())
+            .expect("maturity coupon missing");
+        assert!((mat_coupon.amount - dec!(0.5)).abs() < dec!(0.0001));
+
+        let coupon_total: Decimal = flows
+            .iter()
+            .filter(|cf| cf.is_coupon())
+            .map(|cf| cf.amount)
+            .sum();
+        assert!((coupon_total - dec!(15.0)).abs() < dec!(0.001));
     }
 }

@@ -19,6 +19,8 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "CashflowResponse" => CASHFLOW_RESPONSE,
         "CurveQueryRequest" => CURVE_QUERY_REQUEST,
         "CurveQueryResponse" => CURVE_QUERY_RESPONSE,
+        "MakeWholeRequest" => MAKE_WHOLE_REQUEST,
+        "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
         other => return Err(format!("unknown schema name {other:?}")),
     };
     Ok(body.to_string())
@@ -195,4 +197,26 @@ const CURVE_QUERY_RESPONSE: &str = r##"{
   "type": "object",
   "required": ["value"],
   "properties": { "value": {"type": "number"} }
+}"##;
+
+const MAKE_WHOLE_REQUEST: &str = r##"{
+  "title": "MakeWholeRequest",
+  "type": "object",
+  "required": ["bond","call_date","treasury_rate"],
+  "properties": {
+    "bond": {"type": "integer", "description": "Callable bond handle"},
+    "call_date": {"type": "string", "format": "date"},
+    "treasury_rate": {"type": "number", "description": "Decimal, 0.05 = 5%"}
+  }
+}"##;
+
+const MAKE_WHOLE_RESPONSE: &str = r##"{
+  "title": "MakeWholeResponse",
+  "type": "object",
+  "required": ["price","discount_rate","spread_bps"],
+  "properties": {
+    "price": {"type": "number", "description": "Per 100 face, floored at first call entry's price"},
+    "discount_rate": {"type": "number", "description": "treasury_rate + spread/10000"},
+    "spread_bps": {"type": "number"}
+  }
 }"##;

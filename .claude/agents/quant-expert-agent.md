@@ -44,28 +44,6 @@ DF(t) = 1/(1 + y/f)^(f×t)  (periodic compounding)
 | Monthly | 12 | MBS, Consumer ABS | `1/(1+y/12)^(12t)` |
 | Zero coupon | 0 | T-Bills, strips, CDs | Simple or annual |
 
-```rust
-pub enum Frequency {
-    Annual = 1,
-    SemiAnnual = 2,
-    Quarterly = 4,
-    Monthly = 12,
-    Zero = 0,
-}
-
-impl Frequency {
-    pub fn discount_factor(&self, rate: Decimal, time: Decimal) -> Decimal {
-        match self {
-            Frequency::Zero => Decimal::ONE / (Decimal::ONE + rate).powd(time),
-            _ => {
-                let f = Decimal::from(*self as u32);
-                Decimal::ONE / (Decimal::ONE + rate / f).powd(f * time)
-            }
-        }
-    }
-}
-```
-
 ## 1.3 Zero Coupon Bonds
 
 ```
@@ -142,118 +120,17 @@ Duration = 1/y
 
 ## 2.2 Compounding Methods
 
-```rust
-pub enum Compounding {
-    Periodic(Frequency),  // 1/(1+y/f)^(f×t)
-    Continuous,           // e^(-y×t)
-    Simple,               // 1/(1+y×t)
-    None,                 // Japanese simple yield
-}
-
-impl Compounding {
-    pub fn discount_factor(&self, rate: Decimal, time: Decimal) -> Decimal {
-        match self {
-            Compounding::Periodic(f) => {
-                let freq = Decimal::from(*f as u32);
-                Decimal::ONE / (Decimal::ONE + rate / freq).powd(freq * time)
-            }
-            Compounding::Continuous => (-rate * time).exp(),
-            Compounding::Simple => Decimal::ONE / (Decimal::ONE + rate * time),
-            Compounding::None => Decimal::ONE, // Handled separately
-        }
-    }
-}
-```
 
 ## 2.3 Convention Implementations
 
 ### US Street Convention (SIFMA)
 
-```rust
-pub struct UsStreet {
-    bond_type: UsBondType,  // Treasury (ACT/ACT) or Corporate (30/360)
-}
-
-impl YieldConvention for UsStreet {
-    fn compounding(&self) -> Compounding { Compounding::Periodic(Frequency::SemiAnnual) }
-    fn day_count(&self) -> DayCount {
-        match self.bond_type {
-            UsBondType::Treasury => DayCount::ActActIcma,
-            UsBondType::Corporate => DayCount::Thirty360Us,
-        }
-    }
-    fn short_dated_threshold(&self) -> Option<i64> { Some(182) }
-    fn ex_dividend_days(&self) -> Option<u32> { None }
-    fn money_market_basis(&self) -> u32 { 360 }
-}
-```
-
 ### UK DMO Convention (Gilts)
-
-```rust
-pub struct UkDmo;
-
-impl YieldConvention for UkDmo {
-    fn compounding(&self) -> Compounding { Compounding::Periodic(Frequency::SemiAnnual) }
-    fn day_count(&self) -> DayCount { DayCount::ActActIcma }
-    fn short_dated_threshold(&self) -> Option<i64> { Some(365) }
-    fn ex_dividend_days(&self) -> Option<u32> { Some(7) }  // Business days
-    fn money_market_basis(&self) -> u32 { 365 }
-    
-    fn price_from_yield(&self, bond: &Bond, yield_: Rate, settlement: Date) -> Price {
-        let is_ex_div = self.is_ex_dividend(settlement, bond.next_coupon(settlement));
-        let cash_flows = if is_ex_div {
-            bond.cash_flows_excluding_next(settlement)
-        } else {
-            bond.remaining_cash_flows(settlement)
-        };
-        self.discount_cash_flows(&cash_flows, yield_, settlement)
-    }
-}
-```
 
 ### ICMA/ISMA Convention (European)
 
-```rust
-pub struct Icma { frequency: Frequency }
-
-impl YieldConvention for Icma {
-    fn compounding(&self) -> Compounding { Compounding::Periodic(self.frequency) }
-    fn day_count(&self) -> DayCount { DayCount::ActActIcma }
-    fn short_dated_threshold(&self) -> Option<i64> { Some(365) }
-    fn ex_dividend_days(&self) -> Option<u32> { None }
-    fn money_market_basis(&self) -> u32 { 360 }
-}
-```
-
 ### Japanese Simple Yield (MOF)
 
-```rust
-pub struct JapaneseSimple;
-
-impl YieldConvention for JapaneseSimple {
-    fn compounding(&self) -> Compounding { Compounding::None }
-    fn day_count(&self) -> DayCount { DayCount::Act365Fixed }
-    
-    fn yield_from_price(&self, bond: &Bond, price: Price, settlement: Date) -> Rate {
-        let years = self.day_count().year_fraction(settlement, bond.maturity);
-        let annual_coupon = bond.coupon_rate * dec!(100);
-        let capital_gain = dec!(100) - price.clean();
-        
-        // Y = (C + (M - P) / n) / P
-        Rate::new((annual_coupon + capital_gain / years) / price.clean())
-    }
-    
-    fn price_from_yield(&self, bond: &Bond, yield_: Rate, settlement: Date) -> Price {
-        let years = self.day_count().year_fraction(settlement, bond.maturity);
-        let annual_coupon = bond.coupon_rate * dec!(100);
-        
-        // P = (C × n + 100) / (Y × n + 1)
-        let clean = (annual_coupon * years + dec!(100)) / (yield_.value() * years + dec!(1));
-        Price::new(clean, self.accrued_interest(bond, settlement))
-    }
-}
-```
 
 ---
 
@@ -263,17 +140,6 @@ impl YieldConvention for JapaneseSimple {
 
 ```
 DCF = Days_in_period / (f × Days_in_full_period)
-```
-
-```rust
-impl DayCount for ActActIcma {
-    fn year_fraction(&self, start: Date, end: Date, ref_period: Option<(Date, Date)>) -> Decimal {
-        let days = (end - start).num_days();
-        let (ref_start, ref_end) = ref_period.unwrap_or((start, end));
-        let ref_days = (ref_end - ref_start).num_days();
-        Decimal::from(days) / Decimal::from(ref_days)
-    }
-}
 ```
 
 ## 3.2 ACT/ACT ISDA
@@ -290,22 +156,6 @@ D2 = if D1 ≥ 30 then min(D2, 30) else D2
 DCF = (360×(Y2-Y1) + 30×(M2-M1) + (D2-D1)) / 360
 ```
 
-```rust
-impl DayCount for Thirty360Us {
-    fn year_fraction(&self, start: Date, end: Date, _: Option<(Date, Date)>) -> Decimal {
-        let (mut d1, mut d2) = (start.day() as i32, end.day() as i32);
-        let (m1, m2) = (start.month() as i32, end.month() as i32);
-        let (y1, y2) = (start.year(), end.year());
-        
-        d1 = d1.min(30);
-        if d1 >= 30 { d2 = d2.min(30); }
-        
-        let days = 360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1);
-        Decimal::from(days) / dec!(360)
-    }
-}
-```
-
 ## 3.4 30E/360 (Eurobond Basis)
 
 ```
@@ -316,158 +166,17 @@ DCF = (360×(Y2-Y1) + 30×(M2-M1) + (D2-D1)) / 360
 
 ## 3.5 ACT/360 and ACT/365 Fixed
 
-```rust
-impl DayCount for Act360 {
-    fn year_fraction(&self, start: Date, end: Date, _: Option<(Date, Date)>) -> Decimal {
-        Decimal::from((end - start).num_days()) / dec!(360)
-    }
-}
-
-impl DayCount for Act365Fixed {
-    fn year_fraction(&self, start: Date, end: Date, _: Option<(Date, Date)>) -> Decimal {
-        Decimal::from((end - start).num_days()) / dec!(365)
-    }
-}
-```
-
 ---
 
 # SECTION 4: IRREGULAR COUPONS
 
 ## 4.1 Stub Detection
 
-```rust
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum StubType {
-    None,
-    ShortFirst,
-    LongFirst,
-    ShortLast,
-    LongLast,
-    ShortFirstShortLast,
-}
-
-impl Bond {
-    pub fn detect_stub_type(&self) -> StubType {
-        let standard_days = 365 / self.frequency as i64;
-        let tolerance = standard_days / 10;  // 10% tolerance
-        
-        let first_period = (self.first_coupon - self.issue_date).num_days();
-        let last_period = (self.maturity - self.penultimate_coupon()).num_days();
-        
-        let short_first = first_period < standard_days - tolerance;
-        let long_first = first_period > standard_days + tolerance;
-        let short_last = last_period < standard_days - tolerance;
-        let long_last = last_period > standard_days + tolerance;
-        
-        match (short_first, long_first, short_last, long_last) {
-            (true, false, false, false) => StubType::ShortFirst,
-            (false, true, false, false) => StubType::LongFirst,
-            (false, false, true, false) => StubType::ShortLast,
-            (false, false, false, true) => StubType::LongLast,
-            (true, false, true, false) => StubType::ShortFirstShortLast,
-            _ => StubType::None,
-        }
-    }
-}
-```
-
 ## 4.2 Quasi-Coupon Dates (ICMA Rule 251)
-
-```rust
-/// Theoretical regular coupon date for stub period calculations
-fn quasi_coupon_date(reference: Date, frequency: Frequency, direction: Direction) -> Date {
-    let months = 12 / frequency as i64;
-    match direction {
-        Direction::Backward => reference - Months(months),
-        Direction::Forward => reference + Months(months),
-    }
-}
-
-impl Bond {
-    pub fn quasi_first_coupon(&self) -> Date {
-        quasi_coupon_date(self.first_coupon, self.frequency, Direction::Backward)
-    }
-    
-    pub fn quasi_last_coupon(&self) -> Date {
-        quasi_coupon_date(self.penultimate_coupon(), self.frequency, Direction::Forward)
-    }
-}
-```
 
 ## 4.3 Irregular Coupon Amount Calculation
 
-```rust
-/// Calculate coupon amount for irregular period using ICMA methodology
-pub fn irregular_coupon_amount(
-    coupon_rate: Decimal,
-    frequency: Frequency,
-    actual_start: Date,
-    actual_end: Date,
-    quasi_start: Date,
-    quasi_end: Date,
-    day_count: &dyn DayCount,
-) -> Decimal {
-    let regular_coupon = coupon_rate / Decimal::from(frequency as u32);
-    
-    // ICMA: ratio of actual to notional period
-    let actual_dcf = day_count.year_fraction(actual_start, actual_end, None);
-    let notional_dcf = day_count.year_fraction(quasi_start, quasi_end, None);
-    
-    regular_coupon * (actual_dcf / notional_dcf)
-}
-```
-
 ## 4.4 Cash Flow Generation with Stubs
-
-```rust
-impl Bond {
-    pub fn generate_cash_flows(&self) -> Vec<CashFlow> {
-        let mut flows = Vec::new();
-        let stub = self.detect_stub_type();
-        
-        // First coupon (potentially irregular)
-        let first_amount = match stub {
-            StubType::ShortFirst | StubType::LongFirst | StubType::ShortFirstShortLast => {
-                irregular_coupon_amount(
-                    self.coupon_rate, self.frequency,
-                    self.issue_date, self.first_coupon,
-                    self.quasi_first_coupon(), self.first_coupon,
-                    &self.day_count,
-                )
-            }
-            _ => self.coupon_rate / Decimal::from(self.frequency as u32),
-        };
-        flows.push(CashFlow::coupon(self.first_coupon, first_amount * dec!(100)));
-        
-        // Regular coupons
-        let mut date = self.first_coupon;
-        let penultimate = self.penultimate_coupon();
-        while date < penultimate {
-            date = self.next_coupon_date(date);
-            if date <= penultimate {
-                flows.push(CashFlow::coupon(date, self.regular_coupon_amount()));
-            }
-        }
-        
-        // Last coupon + redemption (potentially irregular)
-        let last_coupon = match stub {
-            StubType::ShortLast | StubType::LongLast | StubType::ShortFirstShortLast => {
-                irregular_coupon_amount(
-                    self.coupon_rate, self.frequency,
-                    penultimate, self.maturity,
-                    penultimate, self.quasi_last_coupon(),
-                    &self.day_count,
-                )
-            }
-            _ => self.coupon_rate / Decimal::from(self.frequency as u32),
-        };
-        flows.push(CashFlow::redemption(self.maturity, last_coupon * dec!(100) + self.redemption));
-        
-        flows
-    }
-}
-```
 
 ---
 
@@ -486,28 +195,6 @@ impl Bond {
 - US: 182 days (~6 months)
 - UK/EUR: 365 days (1 year)
 
-```rust
-pub enum ShortDatedMethod {
-    StandardCompound,
-    SimpleDiscount,
-    SingleCouponSimple,
-    SequentialRollForward,
-}
-
-pub fn select_method(bond: &Bond, settlement: Date, convention: &dyn YieldConvention) -> ShortDatedMethod {
-    let days_to_mat = (bond.maturity - settlement).num_days();
-    let threshold = convention.short_dated_threshold();
-    
-    let is_short = threshold.map(|t| days_to_mat <= t).unwrap_or(false);
-    if !is_short { return ShortDatedMethod::StandardCompound; }
-    
-    match bond.remaining_coupons(settlement) {
-        0 => ShortDatedMethod::SimpleDiscount,
-        1 => ShortDatedMethod::SingleCouponSimple,
-        _ => ShortDatedMethod::SequentialRollForward,
-    }
-}
-```
 
 ## 5.2 Money Market Day Count by Currency
 
@@ -523,37 +210,7 @@ pub fn select_method(bond: &Bond, settlement: Date, convention: &dyn YieldConven
 
 ## 5.3 Simple Discount (Zero Remaining Coupons)
 
-```rust
-pub fn simple_discount_yield(
-    price: Decimal, face: Decimal, settlement: Date, maturity: Date, basis: u32
-) -> Decimal {
-    let days = (maturity - settlement).num_days();
-    if days <= 0 { return Decimal::ZERO; }
-    ((face / price) - Decimal::ONE) * Decimal::from(basis) / Decimal::from(days)
-}
-
-pub fn simple_discount_price(
-    yield_: Decimal, face: Decimal, settlement: Date, maturity: Date, basis: u32
-) -> Decimal {
-    let days = (maturity - settlement).num_days();
-    if days <= 0 { return face; }
-    face / (Decimal::ONE + yield_ * Decimal::from(days) / Decimal::from(basis))
-}
-```
-
 ## 5.4 Single Coupon Simple Interest
-
-```rust
-pub fn single_coupon_yield(
-    dirty_price: Decimal, face: Decimal, final_coupon: Decimal,
-    settlement: Date, maturity: Date, basis: u32
-) -> Decimal {
-    let days = (maturity - settlement).num_days();
-    if days <= 0 { return Decimal::ZERO; }
-    let fv = face + final_coupon;
-    ((fv / dirty_price) - Decimal::ONE) * Decimal::from(basis) / Decimal::from(days)
-}
-```
 
 ## 5.5 Sequential Roll-Forward (Multiple Coupons)
 
@@ -565,80 +222,6 @@ Step 2: Roll backward: FV_{n-1} = (FV_n + Coupon_n) / (1 + y × τ_n)
 Step 3: Continue to settlement
 Step 4: Solve for y using Newton-Raphson
 ```
-
-```rust
-pub struct SequentialRollForward {
-    basis: u32,
-    max_iterations: usize,
-    tolerance: Decimal,
-}
-
-impl SequentialRollForward {
-    pub fn new(basis: u32) -> Self {
-        Self { basis, max_iterations: 100, tolerance: dec!(1e-12) }
-    }
-    
-    pub fn yield_from_price(
-        &self, cash_flows: &[CashFlow], settlement: Date, dirty_price: Decimal
-    ) -> Result<Decimal, SolverError> {
-        // Initial guess
-        let total_cf: Decimal = cash_flows.iter().map(|cf| cf.amount).sum();
-        let days = (cash_flows.last().unwrap().date - settlement).num_days();
-        let mut y = ((total_cf / dirty_price) - Decimal::ONE) 
-                    * Decimal::from(self.basis) / Decimal::from(days);
-        
-        for _ in 0..self.max_iterations {
-            let (pv, dpv_dy) = self.pv_with_derivative(cash_flows, settlement, y);
-            let error = pv - dirty_price;
-            
-            if error.abs() < self.tolerance { return Ok(y); }
-            if dpv_dy.abs() < dec!(1e-15) { return Err(SolverError::ZeroDerivative); }
-            
-            y -= error / dpv_dy;
-            y = y.clamp(dec!(-0.99), dec!(5.0));  // Bounds
-        }
-        Err(SolverError::MaxIterations)
-    }
-    
-    fn pv_with_derivative(
-        &self, cash_flows: &[CashFlow], settlement: Date, y: Decimal
-    ) -> (Decimal, Decimal) {
-        let mut fv = Decimal::ZERO;
-        let mut dfv_dy = Decimal::ZERO;
-        let mut prev_date = cash_flows.last().unwrap().date;
-        
-        // Work backwards from maturity
-        for cf in cash_flows.iter().rev() {
-            if cf.date == prev_date {
-                fv += cf.amount;
-            } else {
-                let days = (prev_date - cf.date).num_days();
-                let tau = Decimal::from(days) / Decimal::from(self.basis);
-                let denom = Decimal::ONE + y * tau;
-                
-                let numerator = fv + cf.amount;
-                let new_fv = numerator / denom;
-                let new_dfv = (dfv_dy * denom - numerator * tau) / (denom * denom);
-                
-                fv = new_fv;
-                dfv_dy = new_dfv;
-            }
-            prev_date = cf.date;
-        }
-        
-        // Final discount to settlement
-        let days_to_first = (cash_flows[0].date - settlement).num_days();
-        if days_to_first > 0 {
-            let tau = Decimal::from(days_to_first) / Decimal::from(self.basis);
-            let denom = Decimal::ONE + y * tau;
-            (fv / denom, (dfv_dy * denom - fv * tau) / (denom * denom))
-        } else {
-            (fv, dfv_dy)
-        }
-    }
-}
-```
-
 ---
 
 # SECTION 6: EX-DIVIDEND HANDLING
@@ -659,29 +242,6 @@ During ex-div period (N business days before record date):
 | US | None (typically) | - |
 
 ## 6.2 Accrued Interest with Ex-Dividend
-
-```rust
-pub fn accrued_interest(
-    bond: &Bond, settlement: Date, convention: &dyn YieldConvention
-) -> Decimal {
-    let (last_coupon, next_coupon) = bond.coupon_dates_around(settlement);
-    let coupon_amount = bond.coupon_per_period();
-    
-    let dcf = convention.day_count().accrual_fraction(
-        last_coupon, settlement, next_coupon, bond.frequency
-    );
-    let base_accrued = coupon_amount * dcf;
-    
-    // Check ex-dividend
-    if let Some(ex_div_days) = convention.ex_dividend_days() {
-        let ex_div_date = business_days_before(next_coupon, ex_div_days, &bond.calendar);
-        if settlement >= ex_div_date {
-            return base_accrued - coupon_amount;  // Negative adjustment
-        }
-    }
-    base_accrued
-}
-```
 
 ---
 
@@ -707,17 +267,6 @@ pub fn accrued_interest(
 1. **Short end (O/N to 3M):** Deposits, OIS swaps
 2. **Intermediate (3M to 2Y):** Futures (convexity-adjusted), short swaps
 3. **Long end (2Y+):** IRS, basis swaps
-
-```rust
-fn bootstrap_curve(instruments: &[Instrument]) -> Curve {
-    let mut curve = Curve::new();
-    for inst in instruments.sorted_by_maturity() {
-        let df = solve_for_df(&curve, inst);
-        curve.add_point(inst.maturity, df);
-    }
-    curve
-}
-```
 
 ## 7.3 Interpolation Methods
 
@@ -754,24 +303,6 @@ Reference: IRS curve (matching currency)
 Price = Σ[CF_i / (1 + (z_i + Z)/f)^(f×t_i)]
 
 Solve iteratively for constant spread Z over zero curve.
-```
-
-```rust
-fn z_spread(bond: &Bond, dirty_price: Decimal, curve: &Curve) -> Result<Rate> {
-    let mut z = dec!(0.01);  // 100bp guess
-    
-    for _ in 0..100 {
-        let pv = price_with_spread(bond, curve, z);
-        let pv_up = price_with_spread(bond, curve, z + dec!(0.0001));
-        let error = pv - dirty_price;
-        
-        if error.abs() < dec!(1e-10) { return Ok(Rate::new(z)); }
-        
-        let sensitivity = (pv_up - pv) / dec!(0.0001);
-        z -= error / sensitivity;
-    }
-    Err(ConvergenceError::MaxIterations)
-}
 ```
 
 ## 8.4 Asset Swap Spread (Par/Par)
@@ -856,37 +387,7 @@ Tracking Difference = Σ(R_etf) - Σ(R_index)
 
 ## 11.1 Newton-Raphson with Brent Fallback
 
-```rust
-pub fn robust_yield_solver(
-    bond: &Bond, target_price: Decimal, settlement: Date, convention: &dyn YieldConvention
-) -> Result<Decimal, SolverError> {
-    match newton_raphson_yield(bond, target_price, settlement, convention) {
-        Ok(y) => Ok(y),
-        Err(SolverError::MaxIterations) | Err(SolverError::Oscillating) => {
-            brent_yield(bond, target_price, settlement, convention, dec!(-0.5), dec!(2.0))
-        }
-        Err(e) => Err(e),
-    }
-}
-```
-
 ## 11.2 Negative Yield Handling
-
-```rust
-pub fn validate_yield(yield_: Decimal, compounding: Compounding) -> Result<(), ValidationError> {
-    match compounding {
-        Compounding::Periodic(f) => {
-            // 1 + y/f must be positive
-            let threshold = -Decimal::from(f as u32);
-            if yield_ <= threshold {
-                return Err(ValidationError::YieldTooNegative);
-            }
-        }
-        _ => {}  // Continuous/Simple always valid for finite y
-    }
-    Ok(())
-}
-```
 
 ---
 

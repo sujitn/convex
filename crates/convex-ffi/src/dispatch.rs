@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use convex_analytics::dto::{
     CashflowEntry, CashflowRequest, CashflowResponse, CurveQueryKind, CurveQueryRequest,
-    CurveQueryResponse, KeyRate, MarkInput, PricingRequest, PricingResponse, RiskRequest,
-    RiskResponse, SpreadRequest, SpreadResponse,
+    CurveQueryResponse, KeyRate, MakeWholeRequest, MakeWholeResponse, MarkInput, PricingRequest,
+    PricingResponse, RiskRequest, RiskResponse, SpreadRequest, SpreadResponse,
 };
 use convex_analytics::pricing::price_from_mark;
 use convex_analytics::spreads::{
@@ -122,7 +122,9 @@ pub fn describe(handle: Handle) -> String {
         ObjectKind::Bond(BondKind::Callable) => {
             registry::with_object::<CallableBond, _, _>(handle, |cb| {
                 extend_fixed(&mut payload, cb.base_bond());
-                payload["call_type"] = serde_json::json!(format!("{:?}", cb.call_type()));
+                if let Some(ct) = cb.call_type() {
+                    payload["call_type"] = serde_json::json!(format!("{:?}", ct));
+                }
             });
         }
         ObjectKind::Bond(BondKind::FloatingRate) => {
@@ -719,6 +721,48 @@ fn cashflows_inner(request_json: &str) -> Result<CashflowResponse, DispatchError
         Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => with_zero(req.bond, |z| to_entries(z)),
         _ => with_fixed_bond!(req.bond, bond, Ok(to_entries(bond))),
     }
+}
+
+// ---- make_whole ---------------------------------------------------------
+
+pub fn make_whole(request_json: &str) -> String {
+    to_envelope(make_whole_inner(request_json))
+}
+
+fn make_whole_inner(request_json: &str) -> Result<MakeWholeResponse, DispatchError> {
+    let req: MakeWholeRequest = serde_json::from_str(request_json)
+        .map_err(|e| DispatchError::input(format!("MakeWholeRequest: {e}")))?;
+
+    if !req.treasury_rate.is_finite() {
+        return Err(DispatchError::input_field(
+            "treasury_rate",
+            "must be finite",
+        ));
+    }
+
+    with_callable(req.bond, |cb| {
+        let spread_bps = cb.make_whole_spread().ok_or_else(|| {
+            DispatchError::input_field(
+                "bond",
+                "callable bond has no make-whole spread on its call schedule",
+            )
+        })?;
+        let price = cb
+            .make_whole_call_price(req.call_date, req.treasury_rate)
+            .map_err(|e| DispatchError::analytics(e.to_string()))?;
+        let price_f64 = dec_to_f64(price);
+        let discount_rate = req.treasury_rate + spread_bps / 10_000.0;
+        if !spread_bps.is_finite() || !discount_rate.is_finite() || !price_f64.is_finite() {
+            return Err(DispatchError::analytics(
+                "non-finite make-whole result (spread_bps / discount_rate / price)",
+            ));
+        }
+        Ok::<MakeWholeResponse, DispatchError>(MakeWholeResponse {
+            price: price_f64,
+            discount_rate,
+            spread_bps,
+        })
+    })?
 }
 
 // ---- curve_query --------------------------------------------------------

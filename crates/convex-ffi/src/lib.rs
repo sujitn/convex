@@ -167,6 +167,16 @@ pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut
     rpc(request_json, dispatch::curve_query)
 }
 
+/// Make-whole call price. Request: `MakeWholeRequest`. Response: `MakeWholeResponse`.
+///
+/// Computes the make-whole call redemption price at a future call date for
+/// a callable bond carrying a make-whole spread. Discount uses the bond's
+/// own day count and frequency; treasury rate is supplied by the caller.
+#[no_mangle]
+pub unsafe extern "C" fn convex_make_whole(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::make_whole)
+}
+
 // ============================================================================
 // Introspection
 // ============================================================================

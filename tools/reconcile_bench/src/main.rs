@@ -32,14 +32,18 @@ use convex_analytics::functions::{
     clean_price_from_yield, convexity, dirty_price_from_yield, dv01, macaulay_duration,
     modified_duration, parse_day_count, yield_to_maturity,
 };
-use convex_analytics::spreads::OASCalculator;
+use convex_analytics::spreads::{DiscountMarginCalculator, OASCalculator};
 use convex_bonds::arrc::{compound_in_arrears, ArrcConfig};
 use convex_bonds::fixings::OvernightFixings;
-use convex_bonds::instruments::{CallableBond, FixedRateBond, FloatingRateNote};
+use convex_bonds::instruments::{
+    CallableBond, CallableFloatingRateNote, Compounding as ZcbCompounding, FixedRateBond,
+    FloatingRateNote, SinkingFundBond, SinkingFundPayment, SinkingFundSchedule, ZeroCouponBond,
+};
 use convex_bonds::options::HullWhite;
 use convex_bonds::traits::Bond;
 use convex_bonds::types::{
     CalendarId, CallEntry as BondCallEntry, CallSchedule as BondCallSchedule, CallType,
+    PutEntry as BondPutEntry, PutSchedule as BondPutSchedule, PutType,
 };
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
@@ -84,6 +88,23 @@ struct Instrument {
     index_rate_pct: Option<f64>,
     #[serde(default)]
     spread_bps: Option<f64>,
+    // Zero-coupon-specific: yield-quotation compounding (e.g. "semi_annual",
+    // "annual", "continuous"). Ignored for other categories.
+    #[serde(default)]
+    compounding: Option<String>,
+    // Sinker-specific: per-paydown schedule (date, amount_pct of original
+    // face, price as % of par). Ignored for other categories.
+    #[serde(default)]
+    sinking_schedule: Option<Vec<SinkEntry>>,
+    // Make-whole-specific: spread + active-until window. Bonds with
+    // `make_whole.spread_bps != null` have their MW redemption price
+    // reconciled against QL at fixed (call_date, treasury_rate) scenarios.
+    #[serde(default)]
+    make_whole: Option<MakeWholeBlock>,
+    // Puttable-specific: Bermudan put schedule. Holder's YTB / workout-bullet
+    // metrics are computed when present.
+    #[serde(default)]
+    put_schedule: Option<Vec<PutEntryRaw>>,
     // Corporate-SOFR-FRN-specific: last reset rate used for in-progress accrual.
     // Retained as a fallback / sanity field; the ARRC path prefers
     // sofr_fixings.csv.
@@ -134,6 +155,30 @@ struct Hw1fHelper {
 struct CallEntry {
     call_date: String,
     price: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct PutEntryRaw {
+    put_date: String,
+    price: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct MakeWholeBlock {
+    #[serde(default)]
+    spread_bps: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SinkEntry {
+    date: String,
+    amount_pct: f64,
+    #[serde(default = "default_par_price")]
+    price: f64,
+}
+
+fn default_par_price() -> f64 {
+    100.0
 }
 
 #[derive(Debug, Deserialize)]
@@ -494,7 +539,7 @@ fn price_corporate_frn(
         let df_e = df(sofr_curve, valuation, end);
         let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
 
-        let coupon = if start <= valuation {
+        let coupon = if start < valuation {
             // In-progress period: real ARRC compounding (fixings ⨁ curve).
             let comp = compound_in_arrears(
                 start,
@@ -558,6 +603,212 @@ fn price_corporate_frn(
         accrued,
         discount_margin_bps: dm * 10_000.0,
     })
+}
+
+fn build_callable_frn_base(inst: &Instrument) -> Result<FloatingRateNote> {
+    let spread = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+    let dated = parse_date(
+        inst.dated_date
+            .as_deref()
+            .or(inst.issue_date.as_deref())
+            .ok_or_else(|| anyhow!("{}: missing dated/issue date", inst.id))?,
+    )?;
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    FloatingRateNote::builder()
+        .cusip_unchecked(&inst.id)
+        .spread_decimal(Decimal::try_from(spread).unwrap_or(Decimal::ZERO))
+        .issue_date(dated)
+        .maturity(maturity)
+        .corporate_sofr()
+        .face_value(dec!(100))
+        .build()
+        .with_context(|| format!("building callable FRN base {}", inst.id))
+}
+
+fn build_callable_frn_schedule(inst: &Instrument) -> Result<BondCallSchedule> {
+    let entries = inst
+        .call_schedule
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing call_schedule", inst.id))?;
+    let mut sched = BondCallSchedule::new(CallType::Bermudan);
+    for e in entries {
+        let d = parse_date(&e.call_date)?;
+        sched = sched.with_entry(BondCallEntry::new(d, e.price));
+    }
+    Ok(sched)
+}
+
+/// ARRC compound-in-arrears coupon for [start, end) in face units, with the
+/// bond's quoted spread folded in.
+fn arrc_in_progress_coupon<'a>(
+    sofr_curve: &'a DiscountCurve,
+    fixings: &'a OvernightFixings,
+    valuation: Date,
+    spread_decimal: f64,
+    face: f64,
+) -> impl Fn(Date, Date) -> f64 + 'a {
+    let arrc = ArrcConfig::usd_corporate_sofr();
+    let calendar = CalendarId::us_government().to_calendar();
+    let dc360 = DayCountConvention::Act360.to_day_count();
+
+    move |start, end| {
+        let cal = calendar.as_ref();
+        let curve_daily_forward = |d: Date| -> Decimal {
+            let next_bd = cal.add_business_days(d, 1);
+            let df_d = df(sofr_curve, valuation, d);
+            let df_n = df(sofr_curve, valuation, next_bd);
+            let yf = dc360.year_fraction(d, next_bd).to_f64().unwrap_or(0.0);
+            if yf <= 0.0 {
+                return Decimal::ZERO;
+            }
+            Decimal::try_from((df_d / df_n - 1.0) / yf).unwrap_or(Decimal::ZERO)
+        };
+        let comp = compound_in_arrears(
+            start,
+            end,
+            DayCountConvention::Act360,
+            cal,
+            arrc,
+            fixings,
+            &curve_daily_forward,
+        );
+        let r_minus_1: f64 = comp.compounded_rate_minus_one().try_into().unwrap_or(0.0);
+        let yf = dc360.year_fraction(start, end).to_f64().unwrap_or(0.0);
+        face * (r_minus_1 + spread_decimal * yf)
+    }
+}
+
+fn parse_compounding(s: &str) -> Result<ZcbCompounding> {
+    match s.to_ascii_lowercase().replace('-', "_").as_str() {
+        "annual" => Ok(ZcbCompounding::Annual),
+        "semi_annual" | "semi" | "semiannual" => Ok(ZcbCompounding::SemiAnnual),
+        "quarterly" => Ok(ZcbCompounding::Quarterly),
+        "monthly" => Ok(ZcbCompounding::Monthly),
+        "continuous" => Ok(ZcbCompounding::Continuous),
+        other => Err(anyhow!("unsupported compounding {other}")),
+    }
+}
+
+/// Builds a ZeroCouponBond from a sovereign_strip book entry.
+fn build_zero(inst: &Instrument) -> Result<ZeroCouponBond> {
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let issue = parse_date(
+        inst.dated_date
+            .as_deref()
+            .or(inst.issue_date.as_deref())
+            .ok_or_else(|| anyhow!("{}: missing dated_date / issue_date", inst.id))?,
+    )?;
+    let dcc_str = inst
+        .day_count
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: missing day_count", inst.id))?;
+    let dcc: DayCountConvention = parse_day_count(dcc_str)
+        .map_err(|e| anyhow!("{}: bad day_count {dcc_str}: {e}", inst.id))?;
+    let ccy = parse_currency(
+        inst.currency
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing currency", inst.id))?,
+    )?;
+    let cmp = match inst.compounding.as_deref() {
+        Some(s) => parse_compounding(s)?,
+        None => ZcbCompounding::SemiAnnual,
+    };
+
+    ZeroCouponBond::builder()
+        .cusip_unchecked(&inst.id)
+        .maturity(maturity)
+        .issue_date(issue)
+        .day_count(dcc)
+        .compounding(cmp)
+        .currency(ccy)
+        .face_value(dec!(100))
+        .build()
+        .with_context(|| format!("building zero {}", inst.id))
+}
+
+/// Build a put-only CallableBond. `CallableBond` requires a call schedule,
+/// so an empty `American` one is passed — fragile. See NEXT_STEPS.md.
+/// Standard 8 metrics from yield: clean/dirty/accrued, YTM, mac/mod dur,
+/// convexity, DV01. Used by every shape that prices off `&dyn Bond`.
+fn standard_metrics(
+    bond: &dyn Bond,
+    valuation: Date,
+    ref_yield: f64,
+    freq: Frequency,
+) -> Result<Vec<(String, f64)>> {
+    let clean = clean_price_from_yield(bond, valuation, ref_yield, freq)?;
+    let dirty = dirty_price_from_yield(bond, valuation, ref_yield, freq)?;
+    let accrued = dirty - clean;
+    let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+    let ytm = yield_to_maturity(bond, valuation, clean_dec, freq)?.yield_value;
+    let mac = macaulay_duration(bond, valuation, ref_yield, freq)?;
+    let modd = modified_duration(bond, valuation, ref_yield, freq)?;
+    let cvx = convexity(bond, valuation, ref_yield, freq)?;
+    let dv01_v = dv01(bond, valuation, ref_yield, dirty, freq)?;
+    Ok(vec![
+        ("clean_price_pct".to_string(), clean),
+        ("dirty_price_pct".to_string(), dirty),
+        ("accrued".to_string(), accrued),
+        ("ytm_decimal".to_string(), ytm),
+        ("macaulay_duration".to_string(), mac),
+        ("modified_duration".to_string(), modd),
+        ("convexity".to_string(), cvx),
+        ("dv01_per_100".to_string(), dv01_v),
+    ])
+}
+
+fn build_puttable(inst: &Instrument) -> Result<CallableBond> {
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let base = build_workout_bullet(inst, maturity, 100.0)?;
+    let entries = inst
+        .put_schedule
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: puttable missing put_schedule", inst.id))?;
+    let mut put_sched = BondPutSchedule::new(PutType::Bermudan);
+    for e in entries {
+        let d = parse_date(&e.put_date)?;
+        put_sched = put_sched.with_entry(BondPutEntry::new(d, e.price));
+    }
+    Ok(CallableBond::new_putable(base).with_put_schedule(put_sched))
+}
+
+/// Bullet bond + a MakeWhole call schedule carrying the MW spread.
+fn build_mw_callable(inst: &Instrument, spread_bps: f64) -> Result<CallableBond> {
+    let maturity = parse_date(
+        inst.maturity_date
+            .as_deref()
+            .ok_or_else(|| anyhow!("{}: missing maturity_date", inst.id))?,
+    )?;
+    let base = build_workout_bullet(inst, maturity, 100.0)?;
+    let schedule = BondCallSchedule::make_whole(spread_bps);
+    Ok(CallableBond::new(base, schedule))
+}
+
+/// Builds a SinkingFundBond from a synthetic_sinker book entry.
+fn build_sinker(inst: &Instrument) -> Result<SinkingFundBond> {
+    let base = build_bond(inst)?;
+    let mut schedule = SinkingFundSchedule::new();
+    let entries = inst
+        .sinking_schedule
+        .as_deref()
+        .ok_or_else(|| anyhow!("{}: sinker missing sinking_schedule", inst.id))?;
+    for e in entries {
+        let d = parse_date(&e.date)?;
+        schedule = schedule.with_payment(SinkingFundPayment::with_price(d, e.amount_pct, e.price));
+    }
+    Ok(SinkingFundBond::new(base, schedule))
 }
 
 fn build_bond(inst: &Instrument) -> Result<FixedRateBond> {
@@ -749,16 +1000,125 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
         );
         let skip_reason = match inst.category.as_str() {
             "sovereign" => None,
+            "sovereign_strip" => None, // Pure zero-coupon, ZeroCouponBond path
+            "synthetic_sinker" => None, // SinkingFundBond / ql.AmortizingFixedRateBond
+            "synthetic_puttable" => None, // CallableBond + put schedule, YTB workout-bullet
             "corporate_bullet_mw" => None,
             "corporate_callable" => None,
             "synthetic_callable" => None,
             "sovereign_linker" => None, // TIPS priced on real yield
             "sovereign_frn" => None,    // FRN: flat-forward projection
             "corporate_frn" => None,    // SOFR FRN: curve-projected, handled below
+            "synthetic_callable_frn" => None, // CallableFloatingRateNote: workout-bullet DM
             _other => Some("unknown category"),
         };
         if let Some(reason) = skip_reason {
             skipped.push(format!("{} ({}) — {}", inst.id, inst.category, reason));
+            continue;
+        }
+
+        if inst.category == "sovereign_strip" {
+            let bond = build_zero(inst)?;
+            let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+            let (ref_yield, curve_used) =
+                reference_yield(inst, maturity, valuation, &curves.curves);
+            let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
+            for (metric, value) in standard_metrics(&bond, valuation, ref_yield, freq)
+                .with_context(|| format!("standard_metrics {}", inst.id))?
+            {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},{},",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    ref_yield,
+                    curve_used,
+                )?;
+            }
+            ok_count += 1;
+            continue;
+        }
+
+        if inst.category == "synthetic_puttable" {
+            let bond = build_puttable(inst)?;
+            let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+            let (ref_yield, curve_used) =
+                reference_yield(inst, maturity, valuation, &curves.curves);
+            let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
+
+            let base = bond.base_bond();
+            let mut put_rows = standard_metrics(base, valuation, ref_yield, freq)
+                .with_context(|| format!("standard_metrics {}", inst.id))?;
+
+            let clean = put_rows[0].1; // clean_price_pct
+            let ytm = put_rows[3].1;   // ytm_decimal
+            let clean_dec = Decimal::from_f64_retain(clean).unwrap_or(Decimal::ONE_HUNDRED);
+
+            // YTB = best for holder = max yield over YTM and all YTPs.
+            let mut best_yield = ytm;
+            let mut best_date = maturity;
+            if let Some(entries) = inst.put_schedule.as_deref() {
+                for e in entries {
+                    let put_date = parse_date(&e.put_date)?;
+                    if put_date <= valuation {
+                        continue;
+                    }
+                    let workout_bullet = build_workout_bullet(inst, put_date, e.price)?;
+                    let ytp = yield_to_maturity(&workout_bullet, valuation, clean_dec, freq)
+                        .with_context(|| format!("YTP {} @ {}", inst.id, e.put_date))?
+                        .yield_value;
+                    put_rows.push((format!("ytp_{}_decimal", e.put_date.replace('-', "")), ytp));
+                    if ytp > best_yield {
+                        best_yield = ytp;
+                        best_date = put_date;
+                    }
+                }
+            }
+            put_rows.push(("ytb_decimal".to_string(), best_yield));
+            put_rows.push((
+                "ytb_workout_date_yyyymmdd".to_string(),
+                workout_date_to_f64(best_date),
+            ));
+
+            for (metric, value) in put_rows {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},{},",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    ref_yield,
+                    curve_used,
+                )?;
+            }
+            ok_count += 1;
+            continue;
+        }
+
+        if inst.category == "synthetic_sinker" {
+            let bond = build_sinker(inst)?;
+            let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+            let (ref_yield, curve_used) =
+                reference_yield(inst, maturity, valuation, &curves.curves);
+            let freq = parse_frequency(inst.frequency.as_deref().unwrap())?;
+            for (metric, value) in standard_metrics(&bond, valuation, ref_yield, freq)
+                .with_context(|| format!("standard_metrics {}", inst.id))?
+            {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},{},",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    ref_yield,
+                    curve_used,
+                )?;
+            }
+            ok_count += 1;
             continue;
         }
 
@@ -790,6 +1150,84 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
                     spread_dec,
                 )?;
             }
+            ok_count += 1;
+            continue;
+        }
+
+        // Per-call DM uses scenario_dirty=100; using the calculated dirty
+        // would collapse all branches to ~0bps and lose the workout signal.
+        if inst.category == "synthetic_callable_frn" {
+            let curve = sofr_curve.as_ref().ok_or_else(|| {
+                anyhow!("{}: SOFR_OIS_CURVE required", inst.id)
+            })?;
+            let m = price_corporate_frn(inst, valuation, curve, &sofr_fixings)
+                .with_context(|| format!("price_corporate_frn {}", inst.id))?;
+            let spread_dec = inst.spread_bps.unwrap_or(0.0) / 10_000.0;
+            let maturity = parse_date(inst.maturity_date.as_deref().unwrap())?;
+
+            let mut rows: Vec<(String, f64)> = vec![
+                ("clean_price_pct".to_string(), m.clean_price_pct),
+                ("dirty_price_pct".to_string(), m.dirty_price_pct),
+                ("accrued".to_string(), m.accrued),
+                ("discount_margin_bps".to_string(), m.discount_margin_bps),
+            ];
+
+            let frn = build_callable_frn_base(inst)?;
+            let cfrn = CallableFloatingRateNote::new(frn.clone(), build_callable_frn_schedule(inst)?);
+
+            let forward = convex_curves::curves::ForwardCurve::from_months(
+                std::sync::Arc::new(curve.clone()) as std::sync::Arc<dyn convex_curves::RateCurveDyn>,
+                3,
+            );
+            let arrc_coupon = arrc_in_progress_coupon(curve, &sofr_fixings, valuation, spread_dec, 100.0);
+            let calc = DiscountMarginCalculator::new(&forward, curve)
+                .with_in_progress_coupon(arrc_coupon);
+
+            // Seed at dirty=100 (same as per-call branches); m.discount_margin_bps
+            // targets dirty=100+accrued, which would mix scenarios.
+            let dm_mat = calc
+                .calculate_to_workout(&frn, dec!(100.0), valuation, maturity, 100.0)
+                .with_context(|| format!("DM-to-maturity {}", inst.id))?;
+            let mut worst_bps = dm_mat.as_bps().to_f64().unwrap_or(0.0);
+            let mut worst_date = maturity;
+            for call_date in cfrn.all_workout_dates(valuation) {
+                let call_price = cfrn
+                    .call_price_on(call_date)
+                    .ok_or_else(|| anyhow!("{}: no call price for {}", inst.id, call_date))?;
+                let dm = calc
+                    .calculate_to_workout(&frn, dec!(100.0), valuation, call_date, call_price)
+                    .with_context(|| format!("DM-to-call {} @ {}", inst.id, call_date))?;
+                let dm_bps = dm.as_bps().to_f64().unwrap_or(0.0);
+                let key = format!(
+                    "dm_to_call_{:04}{:02}{:02}_bps",
+                    call_date.year(),
+                    call_date.month(),
+                    call_date.day(),
+                );
+                rows.push((key, dm_bps));
+                if dm_bps < worst_bps {
+                    worst_bps = dm_bps;
+                    worst_date = call_date;
+                }
+            }
+            rows.push(("dm_to_worst_bps".to_string(), worst_bps));
+            rows.push((
+                "dm_to_worst_workout_yyyymmdd".to_string(),
+                workout_date_to_f64(worst_date),
+            ));
+
+            for (metric, value) in rows {
+                writeln!(
+                    out,
+                    "{},{},{},{:.10},{:.10},SOFR_OIS_CURVE,",
+                    inst.id,
+                    inst.currency.as_deref().unwrap_or("?"),
+                    metric,
+                    value,
+                    spread_dec,
+                )?;
+            }
+
             ok_count += 1;
             continue;
         }
@@ -899,6 +1337,24 @@ fn run_snapshot(root: &Path, snap: &Snapshot<'_>) -> Result<()> {
                     .with_context(|| format!("calibrate_hw1f_sigma {}", inst.id))?;
                 rows.push(("hw1f_a_calibrated".to_string(), cal.a));
                 rows.push(("hw1f_sigma_calibrated".to_string(), cal.sigma));
+            }
+        }
+
+        // Make-whole redemption: one ITM scenario (UST 3% → MW well above par)
+        // and one near-ATM (UST 5% ≈ coupon → MW close to par).
+        if let Some(spread_bps) = inst.make_whole.as_ref().and_then(|mw| mw.spread_bps) {
+            let mw_bond = build_mw_callable(inst, spread_bps)?;
+            for (metric, call_date_str, treasury_rate) in [
+                ("mw_redemption_call_2026_06_15_ust_300bps", "2026-06-15", 0.030),
+                ("mw_redemption_call_2026_06_15_ust_500bps", "2026-06-15", 0.050),
+            ] {
+                let call_date = parse_date(call_date_str)?;
+                let mw = mw_bond
+                    .make_whole_call_price(call_date, treasury_rate)
+                    .with_context(|| format!("MW price {} @ {}", inst.id, call_date_str))?
+                    .to_f64()
+                    .unwrap_or(0.0);
+                rows.push((metric.to_string(), mw));
             }
         }
 

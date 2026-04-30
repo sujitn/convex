@@ -192,7 +192,7 @@ def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
 
         yf = dc360.yearFraction(start, end)
 
-        if start <= valuation:
+        if start < valuation:
             # In-progress period: real ARRC compounded coupon.
             coupon_obj = ql.OvernightIndexedCoupon(
                 cal.adjust(end, ql.Following),  # paymentDate
@@ -245,6 +245,74 @@ def price_corporate_frn(inst: dict, valuation: ql.Date, sofr: dict) -> dict:
         "accrued": accrued,
         "discount_margin_bps": dm * 10_000.0,
     }
+
+
+def dm_to_workout_qq(
+    inst: dict,
+    valuation: ql.Date,
+    sofr: dict,
+    target_dirty: float,
+    workout_date: ql.Date,
+    call_price: float,
+) -> float:
+    """Solve for the DM that prices a workout-bullet to `target_dirty`.
+
+    Cash flows truncate at `workout_date` with redemption = `call_price`.
+    In-progress periods use `OvernightIndexedCoupon` (matching
+    `price_corporate_frn`); future periods use the curve-implied forward.
+    Caller guarantees `workout_date` lands on a coupon date.
+    """
+    dated = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    spread = inst["spread_bps"] / 10_000.0
+    face = 100.0
+    dc360 = ql.Actual360()
+    handle = build_sofr_curve(sofr, valuation)
+    sofr_index = ql.Sofr(handle)
+    _load_sofr_fixings(sofr_index)
+
+    cal = ql.UnitedStates(ql.UnitedStates.GovernmentBond)
+    schedule = ql.Schedule(
+        dated, maturity, ql.Period(ql.Quarterly), cal,
+        ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
+    )
+
+    def df(d: ql.Date) -> float:
+        return 1.0 if d <= valuation else handle.discount(d)
+
+    def pv(dm: float) -> float:
+        total = 0.0
+        for start, end in zip(schedule, list(schedule)[1:]):
+            if end <= valuation:
+                continue
+            if end > workout_date:
+                break
+            yf = dc360.yearFraction(start, end)
+            if start < valuation:
+                coupon_obj = ql.OvernightIndexedCoupon(
+                    cal.adjust(end, ql.Following), face, start, end,
+                    sofr_index, 1.0, 0.0, ql.Date(), ql.Date(), dc360,
+                    False, ql.RateAveraging.Compound, 2, 0, True,
+                )
+                coupon = face * (coupon_obj.rate() * yf + spread * yf)
+            else:
+                fwd_simple = (df(start) / df(end) - 1.0) / yf
+                coupon = face * (fwd_simple + spread) * yf
+            principal = call_price if end == workout_date else 0.0
+            dt = (end.serialNumber() - valuation.serialNumber()) / 365.0
+            total += (coupon + principal) * df(end) * math.exp(-dm * dt)
+        return total
+
+    lo, hi = -0.05, 0.20
+    if (pv(lo) - target_dirty) * (pv(hi) - target_dirty) > 0:
+        lo, hi = -0.50, 1.00
+    solver = ql.Brent()
+    solver.setMaxEvaluations(100)
+    return solver.solve(lambda dm: pv(dm) - target_dirty, 1e-10, 0.0, lo, hi)
+
+
+def date_to_yyyymmdd(d: ql.Date) -> float:
+    return float(d.year() * 10_000 + d.month() * 100 + d.dayOfMonth())
 
 
 def years_to_maturity(valuation: ql.Date, maturity: ql.Date) -> float:
@@ -571,6 +639,190 @@ SKIP_CATEGORIES: dict[str, str] = {}  # all categories now handled
 CALLABLE_CATEGORIES = {"corporate_callable", "synthetic_callable"}
 
 
+# QuantLib's BondFunctions don't define a frequency-typed yield quote on a
+# strict zero-coupon bond (Frequency::Zero confuses Compounded yields). The
+# convention here is the same as Convex's bench: reconcile a STRIP / T-Bill
+# under the user-chosen yield-quotation compounding (typically Semiannual
+# for US conventions).
+COMPOUNDING_FROM_NAME = {
+    "annual": ql.Annual,
+    "semi_annual": ql.Semiannual,
+    "semi-annual": ql.Semiannual,
+    "quarterly": ql.Quarterly,
+    "monthly": ql.Monthly,
+}
+
+
+def zero_yield_conventions(inst: dict) -> tuple[int, int]:
+    """`(compounding, frequency)` for QL `BondFunctions` yield quotes on a
+    zero-coupon bond. Reads `inst["compounding"]` (the authoritative field
+    for ZCB yield convention) with a fallback to `inst["frequency"]`.
+    Continuous mode uses `ql.NoFrequency` since the frequency arg is ignored.
+    """
+    name = (inst.get("compounding") or inst.get("frequency", "semi_annual")).lower()
+    if name == "continuous":
+        return ql.Continuous, ql.NoFrequency
+    return ql.Compounded, COMPOUNDING_FROM_NAME[name]
+
+
+def make_whole_redemption_qq(
+    inst: dict,
+    call_date: ql.Date,
+    treasury_rate: float,
+) -> float:
+    """Mirror of CallableBond::make_whole_call_price.
+
+    Discount time uses the bond's own day count (matches US-corp 424B2:
+    30/360 US for AAPL/MSFT/Verizon/Ford). Frequency matches the bond.
+    """
+    spread_bps = (inst.get("make_whole") or {}).get("spread_bps") or 0.0
+    discount_rate = treasury_rate + spread_bps / 10_000.0
+    coupon = inst["coupon_rate"] / 100.0
+    freq = FREQUENCY_MAP[inst["frequency"].lower()]
+    periods_per_year = {ql.Annual: 1, ql.Semiannual: 2, ql.Quarterly: 4, ql.Monthly: 12}[freq]
+    issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    dcc = day_count(inst["day_count"])
+
+    schedule = ql.Schedule(
+        issue, maturity, ql.Period(freq), ql.NullCalendar(),
+        ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
+    )
+
+    pv = 0.0
+    period_coupon = coupon * 100.0 / periods_per_year
+    schedule_dates = list(schedule)
+    for i in range(1, len(schedule_dates)):
+        pay_date = schedule_dates[i]
+        if pay_date <= call_date:
+            continue
+        amount = period_coupon
+        if pay_date == maturity:
+            amount += 100.0
+        t_years = dcc.yearFraction(call_date, pay_date)
+        df = 1.0 / (1.0 + discount_rate / periods_per_year) ** (periods_per_year * t_years)
+        pv += amount * df
+
+    # Floor at first call entry's price (typically par), matching Convex semantics.
+    floor = 100.0
+    call_schedule = inst.get("call_schedule") or []
+    if call_schedule:
+        floor = call_schedule[0].get("price", 100.0)
+    return max(pv, floor)
+
+
+def price_sinker(inst: dict, valuation: ql.Date, ref_yield: float) -> dict[str, float]:
+    """ql.AmortizingFixedRateBond pricing. Coupon at sink date accrues on
+    pre-paydown notional."""
+    issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    freq = FREQUENCY_MAP[inst["frequency"].lower()]
+    dcc = day_count(inst["day_count"])
+    coupon = inst["coupon_rate"] / 100.0
+
+    schedule = ql.Schedule(
+        issue, maturity, ql.Period(freq), ql.NullCalendar(),
+        ql.Unadjusted, ql.Unadjusted, ql.DateGeneration.Backward, False,
+    )
+
+    # Build the per-period notional vector. `outstanding` tracks the original-face
+    # fraction outstanding during each interval `[schedule[i], schedule[i+1])`.
+    sink_by_date: dict[int, float] = {}  # serialNumber -> amount_pct paid AT that date
+    for entry in inst.get("sinking_schedule") or []:
+        sink_by_date[to_ql_date(entry["date"]).serialNumber()] = entry["amount_pct"]
+
+    notionals: list[float] = []
+    outstanding_pct = 100.0
+    schedule_dates = list(schedule)
+    for i in range(len(schedule_dates) - 1):
+        notionals.append(outstanding_pct)  # outstanding during this period
+        # Paydown that happens AT schedule_dates[i+1] reduces the next period's
+        # notional. The principal payment AT schedule_dates[i+1] is
+        # `notionals[i] - notionals[i+1]` per QL semantics.
+        next_date_serial = schedule_dates[i + 1].serialNumber()
+        if next_date_serial in sink_by_date:
+            outstanding_pct -= sink_by_date[next_date_serial]
+            outstanding_pct = max(0.0, outstanding_pct)
+
+    bond = ql.AmortizingFixedRateBond(
+        0,                # settlementDays
+        notionals,
+        schedule,
+        [coupon],
+        dcc,
+        ql.Following,
+        issue,
+    )
+
+    comp = ql.Compounded
+    cmp_freq = COMPOUNDING_FREQUENCY[freq]
+    clean = ql.BondFunctions.cleanPrice(bond, ref_yield, dcc, comp, cmp_freq, valuation)
+    accrued = ql.BondFunctions.accruedAmount(bond, valuation)
+    dirty = clean + accrued
+
+    bond_price = ql.BondPrice(clean, ql.BondPrice.Clean)
+    ytm = ql.BondFunctions.bondYield(bond, bond_price, dcc, comp, cmp_freq, valuation)
+
+    interest_rate = ql.InterestRate(ref_yield, dcc, comp, cmp_freq)
+    mac_dur = ql.BondFunctions.duration(bond, interest_rate, ql.Duration.Macaulay, valuation)
+    mod_dur = ql.BondFunctions.duration(bond, interest_rate, ql.Duration.Modified, valuation)
+    cvx = ql.BondFunctions.convexity(bond, interest_rate, valuation)
+    dv01 = mod_dur * dirty * 1e-4
+
+    return {
+        "clean_price_pct": clean,
+        "dirty_price_pct": dirty,
+        "accrued": accrued,
+        "ytm_decimal": ytm,
+        "macaulay_duration": mac_dur,
+        "modified_duration": mod_dur,
+        "convexity": cvx,
+        "dv01_per_100": dv01,
+    }
+
+
+def price_zero_coupon(inst: dict, valuation: ql.Date, ref_yield: float) -> dict[str, float]:
+    """ql.ZeroCouponBond pricing for sovereign_strip entries (T+0 settle)."""
+    issue = to_ql_date(inst.get("dated_date") or inst["issue_date"])
+    maturity = to_ql_date(inst["maturity_date"])
+    dcc = day_count(inst["day_count"])
+    comp, cmp_freq = zero_yield_conventions(inst)
+
+    bond = ql.ZeroCouponBond(
+        0,                       # settlementDays — T+0, valuation is the analysis date
+        ql.NullCalendar(),
+        100.0,                   # face value
+        maturity,
+        ql.Following,            # paymentConvention (no coupons; only redemption)
+        100.0,                   # redemption
+        issue,                   # issueDate
+    )
+
+    clean = ql.BondFunctions.cleanPrice(bond, ref_yield, dcc, comp, cmp_freq, valuation)
+    accrued = ql.BondFunctions.accruedAmount(bond, valuation)  # always 0 for zero
+    dirty = clean + accrued
+
+    bond_price = ql.BondPrice(clean, ql.BondPrice.Clean)
+    ytm = ql.BondFunctions.bondYield(bond, bond_price, dcc, comp, cmp_freq, valuation)
+
+    interest_rate = ql.InterestRate(ref_yield, dcc, comp, cmp_freq)
+    mac_dur = ql.BondFunctions.duration(bond, interest_rate, ql.Duration.Macaulay, valuation)
+    mod_dur = ql.BondFunctions.duration(bond, interest_rate, ql.Duration.Modified, valuation)
+    cvx = ql.BondFunctions.convexity(bond, interest_rate, valuation)
+    dv01 = mod_dur * dirty * 1e-4
+
+    return {
+        "clean_price_pct": clean,
+        "dirty_price_pct": dirty,
+        "accrued": accrued,
+        "ytm_decimal": ytm,
+        "macaulay_duration": mac_dur,
+        "modified_duration": mod_dur,
+        "convexity": cvx,
+        "dv01_per_100": dv01,
+    }
+
+
 def effective_coupon_pct(inst: dict) -> float:
     """For an FRN, project future coupons at a flat (index + spread)."""
     if inst["category"] == "sovereign_frn":
@@ -652,6 +904,115 @@ def _run_snapshot(snap: dict) -> int:
             skipped.append(f"{inst['id']} ({cat}) — {SKIP_CATEGORIES[cat]}")
             continue
 
+        if cat == "synthetic_puttable":
+            ccy = inst.get("currency", "USD")
+            maturity = to_ql_date(inst["maturity_date"])
+            yrs = years_to_maturity(valuation, maturity)
+            curve_id = CCY_TO_CURVE_ID.get(ccy, "UST_CMT")
+            curve = curve_by_id.get(curve_id)
+            y = interpolate_curve(curve, yrs) if curve is not None else None
+            if y is None:
+                y = inst["coupon_rate"] / 100.0
+                curve_used = "placeholder"
+            else:
+                curve_used = curve_id
+
+            metrics = price_bond(inst, valuation, y)
+            emitted: list[tuple[str, float]] = list(metrics.items())
+
+            # YTP at each put date + YTB (best for holder = max yield).
+            clean = metrics["clean_price_pct"]
+            ytm = metrics["ytm_decimal"]
+            bond_price = ql.BondPrice(clean, ql.BondPrice.Clean)
+            best_yield = ytm
+            best_date = maturity
+            for entry in inst.get("put_schedule") or []:
+                put_date = to_ql_date(entry["put_date"])
+                if put_date <= valuation:
+                    continue
+                wb, wb_dcc, wb_freq = build_bullet(inst, put_date, entry["price"])
+                comp = ql.Compounded
+                cmp_freq = COMPOUNDING_FREQUENCY[wb_freq]
+                ytp = ql.BondFunctions.bondYield(
+                    wb, bond_price, wb_dcc, comp, cmp_freq, valuation
+                )
+                key = f"ytp_{entry['put_date'].replace('-', '')}_decimal"
+                emitted.append((key, ytp))
+                if ytp > best_yield:
+                    best_yield = ytp
+                    best_date = put_date
+            emitted.append(("ytb_decimal", best_yield))
+            yyyymmdd = best_date.year() * 10000 + best_date.month() * 100 + best_date.dayOfMonth()
+            emitted.append(("ytb_workout_date_yyyymmdd", float(yyyymmdd)))
+
+            for metric, value in emitted:
+                rows.append(
+                    {
+                        "bond_id": inst["id"],
+                        "currency": ccy,
+                        "metric": metric,
+                        "value": f"{value:.10f}",
+                        "reference_yield": f"{y:.10f}",
+                        "curve_used": curve_used,
+                        "notes": "",
+                    }
+                )
+            continue
+
+        if cat == "synthetic_sinker":
+            ccy = inst.get("currency", "USD")
+            maturity = to_ql_date(inst["maturity_date"])
+            yrs = years_to_maturity(valuation, maturity)
+            curve_id = CCY_TO_CURVE_ID.get(ccy, "UST_CMT")
+            curve = curve_by_id.get(curve_id)
+            y = interpolate_curve(curve, yrs) if curve is not None else None
+            if y is None:
+                y = inst.get("coupon_rate", 0.0) / 100.0
+                curve_used = "placeholder"
+            else:
+                curve_used = curve_id
+            metrics = price_sinker(inst, valuation, y)
+            for metric, value in metrics.items():
+                rows.append(
+                    {
+                        "bond_id": inst["id"],
+                        "currency": ccy,
+                        "metric": metric,
+                        "value": f"{value:.10f}",
+                        "reference_yield": f"{y:.10f}",
+                        "curve_used": curve_used,
+                        "notes": "",
+                    }
+                )
+            continue
+
+        if cat == "sovereign_strip":
+            ccy = inst.get("currency", "USD")
+            maturity = to_ql_date(inst["maturity_date"])
+            yrs = years_to_maturity(valuation, maturity)
+            curve_id = CCY_TO_CURVE_ID.get(ccy, "UST_CMT")
+            curve = curve_by_id.get(curve_id)
+            y = interpolate_curve(curve, yrs) if curve is not None else None
+            if y is None:
+                y = inst.get("coupon_rate", 0.0) / 100.0
+                curve_used = "placeholder"
+            else:
+                curve_used = curve_id
+            metrics = price_zero_coupon(inst, valuation, y)
+            for metric, value in metrics.items():
+                rows.append(
+                    {
+                        "bond_id": inst["id"],
+                        "currency": ccy,
+                        "metric": metric,
+                        "value": f"{value:.10f}",
+                        "reference_yield": f"{y:.10f}",
+                        "curve_used": curve_used,
+                        "notes": "",
+                    }
+                )
+            continue
+
         # Corporate SOFR FRN — dedicated pricing path off the SOFR OIS zero curve.
         if cat == "corporate_frn":
             if sofr_curve is None:
@@ -661,6 +1022,57 @@ def _run_snapshot(snap: dict) -> int:
             m = price_corporate_frn(inst, valuation, sofr_curve)
             spread_dec = inst["spread_bps"] / 10_000.0
             for metric, value in m.items():
+                rows.append(
+                    {
+                        "bond_id": inst["id"],
+                        "currency": inst.get("currency", "USD"),
+                        "metric": metric,
+                        "value": f"{value:.10f}",
+                        "reference_yield": f"{spread_dec:.10f}",
+                        "curve_used": "SOFR_OIS_CURVE",
+                        "notes": "",
+                    }
+                )
+            continue
+
+        # Per-call DM uses scenario_dirty=100; call dates == maturity are
+        # skipped (DM-to-call-at-maturity ≡ discount_margin_bps already emitted).
+        if cat == "synthetic_callable_frn":
+            if sofr_curve is None:
+                raise RuntimeError(
+                    f"{inst['id']}: SOFR_OIS_CURVE required for synthetic_callable_frn pricing"
+                )
+            m = price_corporate_frn(inst, valuation, sofr_curve)
+            spread_dec = inst["spread_bps"] / 10_000.0
+            bullet_rows = list(m.items())
+
+            maturity = to_ql_date(inst["maturity_date"])
+            scenario_dirty = 100.0
+            # Seed at dirty=100 (same as per-call branches); m["discount_margin_bps"]
+            # targets dirty=100+accrued, which would mix scenarios.
+            dm_mat = dm_to_workout_qq(
+                inst, valuation, sofr_curve, scenario_dirty, maturity, 100.0,
+            )
+            worst_bps = dm_mat * 10_000.0
+            worst_date = maturity
+            for entry in inst.get("call_schedule") or []:
+                call_date = to_ql_date(entry["call_date"])
+                if call_date <= valuation or call_date >= maturity:
+                    continue
+                dm = dm_to_workout_qq(
+                    inst, valuation, sofr_curve, scenario_dirty,
+                    call_date, entry["price"],
+                )
+                dm_bps = dm * 10_000.0
+                key = f"dm_to_call_{entry['call_date'].replace('-', '')}_bps"
+                bullet_rows.append((key, dm_bps))
+                if dm_bps < worst_bps:
+                    worst_bps = dm_bps
+                    worst_date = call_date
+            bullet_rows.append(("dm_to_worst_bps", worst_bps))
+            bullet_rows.append(("dm_to_worst_workout_yyyymmdd", date_to_yyyymmdd(worst_date)))
+
+            for metric, value in bullet_rows:
                 rows.append(
                     {
                         "bond_id": inst["id"],
@@ -805,6 +1217,15 @@ def _run_snapshot(snap: dict) -> int:
                 eff_cnv = (px_dn + px_up - 2.0 * px0) / (px0 * shift * shift)
                 emitted.append(("effective_duration_at_oas", eff_dur))
                 emitted.append(("effective_convexity_at_oas", eff_cnv))
+
+        mw_block = inst.get("make_whole") or {}
+        if mw_block.get("spread_bps") is not None:
+            for metric, call_date_str, treasury_rate in [
+                ("mw_redemption_call_2026_06_15_ust_300bps", "2026-06-15", 0.030),
+                ("mw_redemption_call_2026_06_15_ust_500bps", "2026-06-15", 0.050),
+            ]:
+                mw = make_whole_redemption_qq(inst, to_ql_date(call_date_str), treasury_rate)
+                emitted.append((metric, mw))
 
         for metric, value in emitted:
             rows.append(

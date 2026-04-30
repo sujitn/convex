@@ -8,7 +8,22 @@ Convex is a Rust fixed-income library with Bloomberg-YAS ambitions. A side-by-si
 
 ## What's in the book
 
-13 instruments spanning the convention space. Every identifier is a real, traceable CUSIP/ISIN except the one clearly-labelled synthetic. Full source citations in `book.json`.
+16 instruments spanning the convention space. 11 real, 5 synthetic — every
+synthetic is clearly flagged in `book.json` with a rationale and a path to a
+real CUSIP. Full source citations in `book.json`.
+
+| Real | Synthetic |
+|---|---|
+| `UST_10Y` `UST_30Y` `UST_5Y_short` `UST_FRN_2Y` `UST_TIPS_10Y` `UST_BILL_52W` `UK_GILT_10Y` `DE_BUND_10Y` `JP_JGB_10Y` `AAPL_4_65_2046` `MSFT_3_5_2035` `VZ_4_329_2028` `F_6_798_2028` `CORP_SOFR_FRN` | `SYNTH_HY_STEPDOWN_01` `SYNTH_PLAIN_SINKER_10Y` `SYNTH_PUTTABLE_5Y_BERMUDAN` |
+
+Synthetic gaps (real CUSIP swap blocked by free-tier feed access):
+- HY callable: indenture PDFs return 403; T-Mobile / Oxy / Bausch are candidates.
+- Plain sinker: IBRD/IADB issue bullets (no public USD plain sinker); FHLB sinkers exist but schedule access is gated.
+- Bermudan puttable: FHLB putables exist but pricing supplements sit behind a search-form gate.
+
+AAPL/MSFT/VZ are reconciled as bullets — make-whole spreads in their 424B2
+filings were not fetchable in this session.
+
 
 | ID | Issuer | Coupon | Maturity | Conv | Purpose |
 |---|---|---|---|---|---|

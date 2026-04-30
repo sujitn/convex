@@ -9,6 +9,7 @@
 
 use convex_core::types::{Currency, Date, Frequency};
 use convex_math::solvers::{newton_raphson, SolverConfig};
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::error::{BondError, BondResult};
@@ -63,8 +64,10 @@ use crate::types::{BondIdentifiers, BondType, CalendarId, CallSchedule, CallType
 pub struct CallableBond {
     /// Underlying fixed-rate bond
     base: FixedRateBond,
-    /// Call schedule
-    call_schedule: CallSchedule,
+    /// Optional call schedule. `None` means the bond carries only a put
+    /// schedule (put-only); a call_schedule of `Some(_)` may still be a
+    /// callable+puttable when `put_schedule` is also `Some(_)`.
+    call_schedule: Option<CallSchedule>,
     /// Optional put schedule
     put_schedule: Option<PutSchedule>,
 }
@@ -75,7 +78,19 @@ impl CallableBond {
     pub fn new(base: FixedRateBond, call_schedule: CallSchedule) -> Self {
         Self {
             base,
-            call_schedule,
+            call_schedule: Some(call_schedule),
+            put_schedule: None,
+        }
+    }
+
+    /// Creates a put-only bond (no call schedule). Use [`Self::with_put_schedule`]
+    /// to attach the put schedule. Avoids having to fabricate an empty
+    /// `CallSchedule` and rely on its "no entries → not callable" invariant.
+    #[must_use]
+    pub fn new_putable(base: FixedRateBond) -> Self {
+        Self {
+            base,
+            call_schedule: None,
             put_schedule: None,
         }
     }
@@ -99,22 +114,25 @@ impl CallableBond {
         &self.base
     }
 
-    /// Returns the call type.
+    /// Returns the call type, or `None` for put-only bonds.
     #[must_use]
-    pub fn call_type(&self) -> CallType {
-        self.call_schedule.call_type
+    pub fn call_type(&self) -> Option<CallType> {
+        self.call_schedule.as_ref().map(|s| s.call_type)
     }
 
     /// Returns true if this is a make-whole call bond.
     #[must_use]
     pub fn is_make_whole(&self) -> bool {
-        matches!(self.call_schedule.call_type, CallType::MakeWhole)
+        matches!(
+            self.call_schedule.as_ref().map(|s| s.call_type),
+            Some(CallType::MakeWhole)
+        )
     }
 
     /// Returns the make-whole spread in basis points.
     #[must_use]
     pub fn make_whole_spread(&self) -> Option<f64> {
-        self.call_schedule.make_whole_spread
+        self.call_schedule.as_ref()?.make_whole_spread
     }
 
     /// Calculates yield to a specific call date.
@@ -145,7 +163,8 @@ impl CallableBond {
 
         let call_price = self
             .call_schedule
-            .call_price_on(call_date)
+            .as_ref()
+            .and_then(|s| s.call_price_on(call_date))
             .ok_or_else(|| BondError::invalid_spec("bond is not callable on the specified date"))?;
 
         // Generate cash flows to call date
@@ -239,6 +258,9 @@ impl CallableBond {
     /// Calculates the make-whole call price.
     ///
     /// Make-whole price = PV of remaining cash flows at Treasury + spread.
+    /// Discount time uses the bond's own day count, matching US-corp 424B2
+    /// convention (e.g. 30/360 US for AAPL/MSFT/Verizon/Ford). Frequency
+    /// matches the bond's coupon frequency.
     ///
     /// # Arguments
     ///
@@ -249,7 +271,11 @@ impl CallableBond {
         call_date: Date,
         treasury_rate: f64,
     ) -> BondResult<Decimal> {
-        let spread_bps = self.call_schedule.make_whole_spread.unwrap_or(0.0);
+        let call_schedule = self
+            .call_schedule
+            .as_ref()
+            .ok_or_else(|| BondError::invalid_spec("bond has no call schedule"))?;
+        let spread_bps = call_schedule.make_whole_spread.unwrap_or(0.0);
         let discount_rate = treasury_rate + spread_bps / 10000.0;
 
         let maturity = self.base.maturity().unwrap();
@@ -263,17 +289,20 @@ impl CallableBond {
 
         let mut pv = 0.0;
         let freq = f64::from(self.base.frequency().periods_per_year());
+        let dc = self.base.day_count().to_day_count();
 
         for flow in flows {
-            let t = call_date.days_between(&flow.date) as f64 / 365.0;
+            let t = dc
+                .year_fraction(call_date, flow.date)
+                .to_f64()
+                .unwrap_or(0.0);
             let df = 1.0 / (1.0 + discount_rate / freq).powf(freq * t);
             let amount = flow.amount.to_string().parse::<f64>().unwrap_or(0.0);
             pv += amount * df;
         }
 
         // Apply floor if specified
-        let floor = self
-            .call_schedule
+        let floor = call_schedule
             .entries
             .first()
             .map_or(100.0, |e| e.call_price);
@@ -289,9 +318,13 @@ impl CallableBond {
     pub fn all_workout_dates(&self, settlement: Date, maturity: Date) -> Vec<Date> {
         let mut dates = Vec::new();
 
-        for entry in &self.call_schedule.entries {
+        let Some(call_schedule) = self.call_schedule.as_ref() else {
+            return dates;
+        };
+
+        for entry in &call_schedule.entries {
             // Check protection period
-            if let Some(protection_end) = self.call_schedule.protection_end {
+            if let Some(protection_end) = call_schedule.protection_end {
                 if entry.start_date < protection_end {
                     continue;
                 }
@@ -305,7 +338,7 @@ impl CallableBond {
                 continue;
             }
 
-            match self.call_schedule.call_type {
+            match call_schedule.call_type {
                 CallType::American | CallType::MakeWhole | CallType::ParCall => {
                     // For continuous exercise, use coupon dates as workout points
                     if let Some(coupon_date) = self.base.next_coupon_date(start) {
@@ -452,10 +485,17 @@ impl Bond for CallableBond {
     }
 
     fn bond_type(&self) -> BondType {
-        match (&self.put_schedule, self.call_schedule.call_type) {
-            (Some(_), _) => BondType::CallableAndPuttable,
-            (None, CallType::MakeWhole) => BondType::MakeWholeCallable,
-            _ => BondType::Callable,
+        match (
+            self.call_schedule.as_ref().map(|s| s.call_type),
+            self.put_schedule.is_some(),
+        ) {
+            (Some(_), true) => BondType::CallableAndPuttable,
+            (Some(CallType::MakeWhole), false) => BondType::MakeWholeCallable,
+            (Some(_), false) => BondType::Callable,
+            (None, true) => BondType::Puttable,
+            // Pure base bond — shouldn't happen via the public constructors but
+            // fall back to the underlying type rather than misclassify.
+            (None, false) => self.base.bond_type(),
         }
     }
 
@@ -542,7 +582,7 @@ impl FixedCouponBond for CallableBond {
 // Implement EmbeddedOptionBond trait
 impl EmbeddedOptionBond for CallableBond {
     fn call_schedule(&self) -> Option<&CallSchedule> {
-        Some(&self.call_schedule)
+        self.call_schedule.as_ref()
     }
 
     fn put_schedule(&self) -> Option<&PutSchedule> {
@@ -659,7 +699,7 @@ mod tests {
 
         assert!(callable.has_optionality()); // From EmbeddedOptionBond trait
         assert_eq!(callable.bond_type(), BondType::Callable);
-        assert_eq!(callable.call_type(), CallType::American);
+        assert_eq!(callable.call_type(), Some(CallType::American));
     }
 
     #[test]
@@ -831,6 +871,43 @@ mod tests {
         let base_flows = callable.base_bond().cash_flows(settlement);
 
         assert_eq!(flows.len(), base_flows.len());
+    }
+
+    #[test]
+    fn test_putable_only_bond() {
+        // Bond with a put schedule but no call schedule. Constructed via
+        // new_putable so we don't rely on the empty-CallSchedule "no entries
+        // → not callable" invariant.
+        use crate::types::{PutEntry, PutType};
+        let base = create_base_bond();
+        let put_schedule = PutSchedule::new(PutType::Bermudan)
+            .with_entry(PutEntry::new(date(2025, 6, 15), 100.0))
+            .with_entry(PutEntry::new(date(2026, 6, 15), 100.0));
+        let bond = CallableBond::new_putable(base).with_put_schedule(put_schedule);
+
+        assert_eq!(bond.bond_type(), BondType::Puttable);
+        assert_eq!(bond.call_type(), None);
+        assert!(!bond.is_make_whole());
+        assert_eq!(bond.make_whole_spread(), None);
+
+        // Workout dates should be empty (no calls).
+        let dates = bond.all_workout_dates(date(2024, 1, 1), date(2030, 6, 15));
+        assert!(dates.is_empty());
+
+        // Calling YTC paths must fail cleanly rather than silently returning
+        // wrong numbers.
+        let ytc = bond.yield_to_first_call(dec!(100.0), date(2024, 1, 1));
+        assert!(ytc.is_err());
+
+        // EmbeddedOptionBond surface: call_schedule is None, put_schedule is Some.
+        assert!(bond.call_schedule().is_none());
+        assert!(bond.put_schedule().is_some());
+
+        // YTP and YTW still work via the put schedule.
+        let ytp = bond.yield_to_put(dec!(101.0), date(2024, 1, 1));
+        assert!(ytp.is_some(), "YTP must solve for a put-only bond");
+        let ytw = bond.yield_to_worst(dec!(101.0), date(2024, 1, 1));
+        assert!(ytw.is_some(), "YTW must solve for a put-only bond");
     }
 
     #[test]

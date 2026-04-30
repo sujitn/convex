@@ -16,8 +16,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    price_from_mark, yield_to_maturity, Bond, CallableBond, Compounding, Currency, Date,
-    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond, Compounding, Currency,
+    Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
     GlobalFitter, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
     RateCurveDyn, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
@@ -140,6 +140,23 @@ fn build_fixed_bond(id: &str, spec: &BondSpec) -> Result<FixedRateBond, McpToolE
         .map_err(|e| McpToolError::InvalidInput(format!("bond build: {e}")))
 }
 
+/// Resolve a `BondSpec` to a `StoredBond`. Plain bullets land as
+/// `Fixed`; specs carrying a make-whole spread land as `Callable` so
+/// `make_whole_call_price` can find them.
+fn build_bond(id: &str, spec: &BondSpec) -> Result<StoredBond, McpToolError> {
+    let base = build_fixed_bond(id, spec)?;
+    match spec.make_whole_spread_bps {
+        Some(bps) if bps.is_finite() => Ok(StoredBond::Callable(CallableBond::new(
+            base,
+            CallSchedule::make_whole(bps),
+        ))),
+        Some(_) => Err(McpToolError::InvalidInput(
+            "make_whole_spread_bps must be finite".into(),
+        )),
+        None => Ok(StoredBond::Fixed(base)),
+    }
+}
+
 fn build_curve(spec: &CurveSpec) -> Result<StoredCurve, McpToolError> {
     if spec.tenors_years.len() != spec.zero_rates_pct.len() {
         return Err(McpToolError::InvalidInput(
@@ -172,10 +189,7 @@ impl ConvexMcpServer {
                     .ok_or_else(|| McpToolError::InvalidInput(format!("bond '{id}' not found")))?;
                 Ok((bond, Some(id.clone())))
             }
-            BondRef::Spec(spec) => {
-                let bond = build_fixed_bond("INLINE", spec)?;
-                Ok((StoredBond::Fixed(bond), None))
-            }
+            BondRef::Spec(spec) => Ok((build_bond("INLINE", spec)?, None)),
         }
     }
 
@@ -217,6 +231,9 @@ impl DateInput {
 
 /// Inline bond specification. Defaults match a US corporate
 /// (semi-annual, 30/360 US, USD, face 100). Override for non-US bonds.
+/// Set `make_whole_spread_bps` to get a make-whole callable bond
+/// (resolves to `StoredBond::Callable`); leave it `None` for a plain
+/// bullet (resolves to `StoredBond::Fixed`).
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct BondSpec {
     /// Annual coupon rate as percentage (5.0 means 5%).
@@ -237,6 +254,11 @@ pub struct BondSpec {
     /// Face value (typically 100).
     #[serde(default = "default_face_value")]
     pub face_value: f64,
+    /// Make-whole spread in basis points. When set, the spec resolves to
+    /// a `Callable` carrying a `MakeWhole` schedule, and
+    /// `make_whole_call_price` becomes valid.
+    #[serde(default)]
+    pub make_whole_spread_bps: Option<f64>,
 }
 
 fn default_frequency() -> Frequency {
@@ -329,6 +351,30 @@ pub struct CalculateYieldParams {
     pub settlement: DateInput,
     /// Clean price per 100 face.
     pub clean_price_per_100: f64,
+}
+
+/// `make_whole_call_price` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MakeWholeParams {
+    /// Bond reference — id or inline spec. Must resolve to a callable bond
+    /// carrying a make-whole spread on its call schedule.
+    pub bond: BondRef,
+    /// Hypothetical call exercise date.
+    pub call_date: DateInput,
+    /// Treasury par yield at the relevant tenor, decimal (0.05 = 5%).
+    pub treasury_rate: f64,
+}
+
+/// Output of `make_whole_call_price`.
+#[derive(Debug, Serialize)]
+#[allow(missing_docs)]
+pub struct MakeWholeOutput {
+    pub bond_id: Option<String>,
+    pub call_date: Date,
+    pub treasury_rate: f64,
+    pub make_whole_spread_bps: f64,
+    pub discount_rate: f64,
+    pub make_whole_price_per_100: f64,
 }
 
 /// Get-zero-rate parameters.
@@ -546,8 +592,8 @@ impl ConvexMcpServer {
         &self,
         Parameters(params): Parameters<CreateBondParams>,
     ) -> Result<CallToolResult, McpError> {
-        let bond = build_fixed_bond(&params.id, &params.spec)?;
-        self.store_bond(params.id.clone(), StoredBond::Fixed(bond));
+        let bond = build_bond(&params.id, &params.spec)?;
+        self.store_bond(params.id.clone(), bond);
         Self::json_result(&CreatedOutput {
             status: "success",
             id: params.id,
@@ -629,6 +675,56 @@ impl ConvexMcpServer {
             clean_price_per_100: params.clean_price_per_100,
             ytm_pct: ytm.yield_value * 100.0,
             ytm_frequency: freq,
+        })
+    }
+
+    #[tool(
+        description = "Compute the make-whole call price for a callable bond carrying a \
+            make-whole spread. Discount uses the bond's own day count and frequency (matches \
+            US-corp 424B2 convention, e.g. 30/360 US for AAPL/MSFT/Verizon/Ford). \
+            `bond` accepts either a stored id (string) or an inline spec (object). \
+            Returns price floored at the first call entry's price (typically par)."
+    )]
+    pub async fn make_whole_call_price(
+        &self,
+        Parameters(params): Parameters<MakeWholeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let (bond, bond_id) = self.resolve_bond(&params.bond)?;
+        let call_date = params.call_date.to_date()?;
+
+        if !params.treasury_rate.is_finite() {
+            return Err(
+                McpToolError::InvalidInput("treasury_rate must be finite".to_string()).into(),
+            );
+        }
+
+        let callable = match &bond {
+            StoredBond::Callable(c) => c,
+            _ => {
+                return Err(McpToolError::InvalidInput(format!(
+                    "make_whole_call_price requires a Callable bond, got {}",
+                    bond.type_name()
+                ))
+                .into())
+            }
+        };
+        let spread_bps = callable.make_whole_spread().ok_or_else(|| {
+            McpToolError::InvalidInput(
+                "callable bond has no make-whole spread on its call schedule".to_string(),
+            )
+        })?;
+        let price = callable
+            .make_whole_call_price(call_date, params.treasury_rate)
+            .map_err(|e| McpToolError::CalculationFailed(e.to_string()))?;
+        let price_f64 = price.to_string().parse::<f64>().unwrap_or(f64::NAN);
+
+        Self::json_result(&MakeWholeOutput {
+            bond_id,
+            call_date,
+            treasury_rate: params.treasury_rate,
+            make_whole_spread_bps: spread_bps,
+            discount_rate: params.treasury_rate + spread_bps / 10_000.0,
+            make_whole_price_per_100: price_f64,
         })
     }
 
@@ -883,6 +979,7 @@ mod tests {
             day_count: DayCountConvention::ActActIcma,
             currency: Currency::USD,
             face_value: 100.0,
+            make_whole_spread_bps: None,
         }
     }
 
@@ -904,6 +1001,17 @@ mod tests {
             .resolve_bond(&BondRef::Id("AAPL.10Y".into()))
             .unwrap();
         assert_eq!(id.as_deref(), Some("AAPL.10Y"));
+    }
+
+    #[test]
+    fn build_bond_dispatches_make_whole_to_callable() {
+        let mut spec = ust_10y_spec();
+        spec.make_whole_spread_bps = Some(35.0);
+        let stored = build_bond("F.MW", &spec).unwrap();
+        assert!(matches!(stored, StoredBond::Callable(_)));
+        if let StoredBond::Callable(cb) = stored {
+            assert_eq!(cb.make_whole_spread(), Some(35.0));
+        }
     }
 
     #[test]
