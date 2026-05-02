@@ -115,12 +115,14 @@ impl Compounding {
         matches!(self, Compounding::Simple)
     }
 
-    /// Periodic compounding for the given periods-per-year. Panics on
-    /// frequencies outside the supported set; callers always pass values from
-    /// `Frequency::periods_per_year`, which is closed.
+    /// Periodic compounding for the given periods-per-year. Maps `0` to
+    /// `Continuous` to match `From<Frequency>` (zero-coupon bonds carry
+    /// `Frequency::Zero` whose `periods_per_year()` is 0). Panics on
+    /// frequencies outside the supported set.
     #[must_use]
     pub fn from_periods_per_year(periods: u32) -> Compounding {
         match periods {
+            0 => Compounding::Continuous,
             1 => Compounding::Annual,
             2 => Compounding::SemiAnnual,
             4 => Compounding::Quarterly,

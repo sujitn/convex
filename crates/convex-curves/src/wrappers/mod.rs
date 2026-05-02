@@ -15,11 +15,17 @@ use crate::term_structure::TermStructure;
 
 /// Object-safe rate curve.
 pub trait RateCurveDyn: Send + Sync {
+    /// Discount factor at tenor `t` (years).
     fn discount_factor(&self, t: f64) -> CurveResult<f64>;
+    /// Zero rate at tenor `t` (years) under the given compounding.
     fn zero_rate(&self, t: f64, compounding: Compounding) -> CurveResult<f64>;
+    /// Continuously-compounded forward rate over `[t1, t2]`.
     fn forward_rate(&self, t1: f64, t2: f64) -> CurveResult<f64>;
+    /// Instantaneous forward rate at tenor `t`.
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64>;
+    /// Reference (valuation) date of the curve.
     fn reference_date(&self) -> Date;
+    /// Latest date for which the curve is defined.
     fn max_date(&self) -> Date;
 
     /// Par swap rate `c = (1 − DF(T)) / Σ τ · DF(i·τ)` on a regular schedule,

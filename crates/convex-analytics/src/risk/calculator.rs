@@ -140,21 +140,8 @@ impl BondRiskCalculator {
         })
     }
 
-    fn macaulay_frequency(&self) -> u32 {
-        if matches!(self.compounding, Compounding::Continuous) {
-            1
-        } else {
-            self.compounding.periods_per_year()
-        }
-    }
-
     pub fn macaulay_duration(&self) -> AnalyticsResult<Duration> {
-        macaulay_duration(
-            &self.times,
-            &self.cash_flows,
-            self.ytm,
-            self.macaulay_frequency(),
-        )
+        macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
     pub fn modified_duration(&self) -> AnalyticsResult<Duration> {
@@ -162,12 +149,7 @@ impl BondRiskCalculator {
     }
 
     pub fn convexity(&self) -> AnalyticsResult<Convexity> {
-        analytical_convexity(
-            &self.times,
-            &self.cash_flows,
-            self.ytm,
-            self.macaulay_frequency(),
-        )
+        analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
     pub fn dv01_per_100(&self) -> AnalyticsResult<DV01> {

@@ -20,12 +20,7 @@ pub fn modified_duration(
     ytm: f64,
     compounding: Compounding,
 ) -> AnalyticsResult<Duration> {
-    let freq_for_mac = if matches!(compounding, Compounding::Continuous) {
-        1
-    } else {
-        compounding.periods_per_year()
-    };
-    let mac = macaulay_duration(times, cash_flows, ytm, freq_for_mac)?;
+    let mac = macaulay_duration(times, cash_flows, ytm, compounding)?;
     Ok(modified_from_macaulay(mac, ytm, compounding))
 }
 
@@ -62,7 +57,7 @@ mod tests {
     fn test_continuous_skips_periodic_divisor() {
         let times = vec![10.0];
         let cfs = vec![100.0];
-        let mac = macaulay_duration(&times, &cfs, 0.05, 1).unwrap();
+        let mac = macaulay_duration(&times, &cfs, 0.05, Compounding::Continuous).unwrap();
         let m = modified_duration(&times, &cfs, 0.05, Compounding::Continuous).unwrap();
         assert_relative_eq!(m.as_f64(), mac.as_f64(), epsilon = 1e-12);
     }

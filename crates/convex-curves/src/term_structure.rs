@@ -143,6 +143,7 @@ pub trait TermStructure: Send + Sync {
         days as f64 / self.tenor_day_count().nominal_days_per_year() as f64
     }
 
+    /// Inverse of [`Self::date_to_tenor`] using the curve's day-count basis.
     fn tenor_to_date(&self, t: f64) -> Date {
         let dpy = self.tenor_day_count().nominal_days_per_year() as f64;
         self.reference_date().add_days((t * dpy).round() as i64)
