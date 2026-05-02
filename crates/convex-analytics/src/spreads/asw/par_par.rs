@@ -253,21 +253,23 @@ impl<'a> ParParAssetSwap<'a> {
             });
         }
 
+        // Inverse of `calculate`. Forward solves
+        //   spread_bps = ((100 − dirty) + mismatch_pct) / annuity · 100
+        // (the `× 100` converts %-per-year to bps), so the inverse is
+        //   dirty = 100 + mismatch_pct − (spread_bps / 100) · annuity.
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
             settlement,
             maturity,
             months_between,
             bond.coupon_frequency(),
+            bond.coupon_rate(),
         )?;
 
-        let spread_decimal = asw_spread.as_bps() / Decimal::from(10_000);
+        let spread_pct = asw_spread.as_bps() / Decimal::from(100);
+        let dirty_price = Decimal::ONE_HUNDRED + mismatch_pct - spread_pct * annuity;
 
-        let dirty_price = Decimal::ONE_HUNDRED - spread_decimal * annuity;
-
-        let accrued = bond.accrued_interest(settlement);
-        let clean_price = dirty_price - accrued;
-
+        let clean_price = dirty_price - bond.accrued_interest(settlement);
         Ok(Price::new(clean_price, bond.currency()))
     }
 }
@@ -444,6 +446,23 @@ mod tests {
             )
             .unwrap();
         assert!(spread.as_bps() >= dec!(400) && spread.as_bps() <= dec!(600));
+    }
+
+    #[test]
+    fn test_calculate_implied_price_round_trip() {
+        // implied_price must invert calculate. Was broken when calculate
+        // started embedding the coupon-floating mismatch term.
+        let curve = create_flat_curve(dec!(0.04));
+        let calc = ParParAssetSwap::new(&curve);
+        let bond = MockBond::new(date(2029, 1, 15), dec!(0.06), 2);
+        let settlement = date(2024, 1, 17);
+
+        let original = Price::new(dec!(102.0), convex_core::Currency::USD);
+        let spread = calc.calculate(&bond, original, settlement).unwrap();
+        let recovered = calc.implied_price(&bond, spread, settlement).unwrap();
+
+        let diff = (recovered.as_percentage() - original.as_percentage()).abs();
+        assert!(diff < dec!(0.05), "round-trip drift: {diff}");
     }
 
     #[test]

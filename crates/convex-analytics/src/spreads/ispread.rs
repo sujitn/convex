@@ -78,16 +78,21 @@ impl<'a> ISpreadCalculator<'a> {
             });
         }
 
-        let years_to_maturity =
-            self.swap_curve.reference_date().days_between(&maturity) as f64 / 365.0;
+        let years_to_maturity = self.swap_curve.date_to_tenor(maturity);
         let frequency = bond.coupon_frequency().max(1);
         let swap_rate = self
             .swap_curve
             .par_swap_rate(years_to_maturity, frequency)
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-        // Par rate is periodic at `frequency`; align bond yield to match.
-        let target = convex_core::types::Compounding::from_periods_per_year(frequency);
+        // Align bond yield to the par rate's compounding. Reject exotic
+        // coupon frequencies rather than panicking inside `from_periods_per_year`.
+        let target = convex_core::types::Compounding::try_from_periods_per_year(frequency)
+            .ok_or_else(|| {
+                AnalyticsError::InvalidInput(format!(
+                    "unsupported coupon frequency for I-spread: {frequency}"
+                ))
+            })?;
         let bond_yield_f64 = bond_yield
             .convert_to(target)
             .value()
@@ -105,11 +110,8 @@ impl<'a> ISpreadCalculator<'a> {
     ///
     /// Useful for debugging or displaying the benchmark rate.
     pub fn swap_rate_at_maturity(&self, maturity: Date) -> AnalyticsResult<f64> {
-        let ref_date = self.swap_curve.reference_date();
-        let years_to_maturity = ref_date.days_between(&maturity) as f64 / 365.0;
-
         self.swap_curve
-            .par_swap_rate(years_to_maturity, 2)
+            .par_swap_rate(self.swap_curve.date_to_tenor(maturity), 2)
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))
     }
 

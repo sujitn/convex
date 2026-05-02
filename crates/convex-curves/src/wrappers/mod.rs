@@ -28,8 +28,17 @@ pub trait RateCurveDyn: Send + Sync {
     /// Latest date for which the curve is defined.
     fn max_date(&self) -> Date;
 
-    /// Par swap rate `c = (1 − DF(T)) / Σ τ · DF(i·τ)` on a regular schedule,
-    /// `τ = 1/frequency`. Stubs and explicit fixed-leg day counts go through
+    /// Date → tenor (years) using the curve's day-count basis. Default
+    /// returns `days/365`; concrete impls override to honour ACT/360 etc.
+    fn date_to_tenor(&self, date: Date) -> f64 {
+        self.reference_date().days_between(&date) as f64 / 365.0
+    }
+
+    /// Par swap rate on a regular schedule with `τ = 1/frequency`. The
+    /// effective swap maturity is rounded to `n · τ` so the principal and
+    /// the last coupon discount at the same tenor (off-grid maturities
+    /// otherwise yield an inconsistent annuity / final cashflow split).
+    /// Stubs and explicit fixed-leg day counts go through
     /// [`RateCurve::par_swap_rate`] on the concrete wrapper instead.
     fn par_swap_rate(&self, t_maturity: f64, frequency: u32) -> CurveResult<f64> {
         if t_maturity <= 0.0 || frequency == 0 {
@@ -44,6 +53,7 @@ pub trait RateCurveDyn: Send + Sync {
                 "par_swap_rate: maturity too short for given frequency",
             ));
         }
+        let t_n = n as f64 * tau;
         let annuity: f64 = (1..=n)
             .map(|i| self.discount_factor(i as f64 * tau).map(|df| tau * df))
             .sum::<CurveResult<f64>>()?;
@@ -52,7 +62,7 @@ pub trait RateCurveDyn: Send + Sync {
                 "par_swap_rate: annuity is zero",
             ));
         }
-        Ok((1.0 - self.discount_factor(t_maturity)?) / annuity)
+        Ok((1.0 - self.discount_factor(t_n)?) / annuity)
     }
 }
 
@@ -80,5 +90,9 @@ impl<T: TermStructure> RateCurveDyn for RateCurve<T> {
 
     fn max_date(&self) -> Date {
         self.inner().max_date()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> f64 {
+        self.inner().date_to_tenor(date)
     }
 }
