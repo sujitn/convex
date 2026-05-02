@@ -72,7 +72,8 @@ mod tests {
     fn test_analytical_convexity_par_bond() {
         let times = vec![0.5, 1.0, 1.5, 2.0];
         let cash_flows = vec![2.5, 2.5, 2.5, 102.5];
-        let conv = analytical_convexity(&times, &cash_flows, 0.05, Compounding::SemiAnnual).unwrap();
+        let conv =
+            analytical_convexity(&times, &cash_flows, 0.05, Compounding::SemiAnnual).unwrap();
         assert!(conv.as_f64() > 0.0 && conv.as_f64() < 10.0);
     }
 

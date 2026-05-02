@@ -387,7 +387,11 @@ mod tests {
         let bond_semi = Yield::new(dec!(0.05), Compounding::SemiAnnual);
         let semi_spread = calc.calculate(&bond, bond_semi, settlement).unwrap();
         let cont_spread = calc
-            .calculate(&bond, bond_semi.convert_to(Compounding::Continuous), settlement)
+            .calculate(
+                &bond,
+                bond_semi.convert_to(Compounding::Continuous),
+                settlement,
+            )
             .unwrap();
 
         assert!((semi_spread.as_bps() - cont_spread.as_bps()).abs() <= dec!(1));

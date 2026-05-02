@@ -578,7 +578,10 @@ mod tests {
         let df_first_coupon = curve.discount_factor(0.5).unwrap();
         let ceiling = df_first_coupon * 2.5 + df_call * 80.0 + 1.0;
         let floor = df_call * 80.0 - 0.5;
-        assert!(price >= floor && price <= ceiling, "PV {price} out of [{floor}, {ceiling}]");
+        assert!(
+            price >= floor && price <= ceiling,
+            "PV {price} out of [{floor}, {ceiling}]"
+        );
     }
 
     #[test]
