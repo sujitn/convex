@@ -14,6 +14,8 @@ fn modified_denominator(ytm: f64, compounding: Compounding, mac_dur: f64) -> f64
     }
 }
 
+/// Modified duration from cash flows and yield. See module docs for the
+/// per-compounding formula.
 pub fn modified_duration(
     times: &[f64],
     cash_flows: &[f64],
@@ -24,11 +26,13 @@ pub fn modified_duration(
     Ok(modified_from_macaulay(mac, ytm, compounding))
 }
 
+/// Convert a Macaulay duration to modified, given yield and compounding.
 pub fn modified_from_macaulay(macaulay: Duration, ytm: f64, compounding: Compounding) -> Duration {
     let denom = modified_denominator(ytm, compounding, macaulay.as_f64());
     Duration::from(macaulay.as_f64() / denom)
 }
 
+/// First-order price change: `ΔP ≈ −D_mod · P · Δy`.
 pub fn price_change_from_duration(mod_duration: Duration, price: f64, yield_change: f64) -> f64 {
     -mod_duration.as_f64() * price * yield_change
 }

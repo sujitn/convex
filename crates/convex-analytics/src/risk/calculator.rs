@@ -66,7 +66,7 @@ impl BondRiskCalculator {
     /// * `settlement` - Settlement date
     /// * `dirty_price` - Dirty price as percentage of par (e.g., 105.5)
     /// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-    /// * `frequency` - Compounding frequency per year (typically 2 for semi-annual)
+    /// * `compounding` - Compounding convention attached to `ytm`
     ///
     /// # Errors
     ///
@@ -112,6 +112,7 @@ impl BondRiskCalculator {
         })
     }
 
+    /// Build directly from `(times, cash_flows)`, bypassing a `Bond`.
     pub fn from_cash_flows(
         times: Vec<f64>,
         cash_flows: Vec<f64>,
@@ -140,18 +141,22 @@ impl BondRiskCalculator {
         })
     }
 
+    /// Macaulay duration: PV-weighted average time to cash flows.
     pub fn macaulay_duration(&self) -> AnalyticsResult<Duration> {
         macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
+    /// Modified duration. Continuous compounding equals Macaulay (no divisor).
     pub fn modified_duration(&self) -> AnalyticsResult<Duration> {
         modified_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
+    /// Analytical convexity in years².
     pub fn convexity(&self) -> AnalyticsResult<Convexity> {
         analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
+    /// DV01 per 100 face: `D_mod · dirty_price/100 · 0.0001 · 100`.
     pub fn dv01_per_100(&self) -> AnalyticsResult<DV01> {
         Ok(dv01_from_duration(
             self.modified_duration()?,
@@ -160,6 +165,7 @@ impl BondRiskCalculator {
         ))
     }
 
+    /// DV01 for the full position (scaled by `face_value`).
     pub fn dv01(&self) -> AnalyticsResult<DV01> {
         Ok(dv01_from_duration(
             self.modified_duration()?,
@@ -168,6 +174,7 @@ impl BondRiskCalculator {
         ))
     }
 
+    /// Compute Macaulay, modified, convexity, and both DV01 flavours in one pass.
     pub fn all_metrics(&self) -> AnalyticsResult<BondRiskMetrics> {
         let macaulay = self.macaulay_duration()?;
         let modified = modified_from_macaulay(macaulay, self.ytm, self.compounding);
