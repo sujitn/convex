@@ -639,7 +639,7 @@ impl<'a> YASCalculator<'a> {
             settlement_date,
             dirty_price_f64,
             ytm_f64,
-            bond_frequency,
+            convex_core::types::Compounding::from_periods_per_year(bond_frequency),
         )
         .map_err(|e| AnalyticsError::InvalidInput(format!("risk calculator: {e}")))?
         .all_metrics()

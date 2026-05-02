@@ -187,6 +187,24 @@ impl DayCountConvention {
         }
     }
 
+    /// Nominal year basis used for date↔tenor conversions. ACT/360 → 360,
+    /// ACT/365* → 365, ACT/ACT* → 365, 30/360 family → 360.
+    #[must_use]
+    pub fn nominal_days_per_year(&self) -> u32 {
+        match self {
+            DayCountConvention::Act360 => 360,
+            DayCountConvention::Act365Fixed
+            | DayCountConvention::Act365Leap
+            | DayCountConvention::ActActIsda
+            | DayCountConvention::ActActIcma
+            | DayCountConvention::ActActAfb => 365,
+            DayCountConvention::Thirty360US
+            | DayCountConvention::Thirty360E
+            | DayCountConvention::Thirty360EIsda
+            | DayCountConvention::Thirty360German => 360,
+        }
+    }
+
     /// Returns the name of the convention as used by Bloomberg.
     #[must_use]
     pub fn name(&self) -> &'static str {

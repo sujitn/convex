@@ -243,24 +243,27 @@ impl OASCalculator {
         let mandatory_times: Vec<f64> = mandatory_pairs.iter().map(|p| p.0).collect();
         let times = build_event_grid(maturity_years, &mandatory_times, self.tree_steps);
 
-        // Pre-evaluate so curve extrapolation errors surface here, not silently inside the tree.
+        // Pre-evaluate at every grid point so curve errors surface here, not
+        // silently inside the tree. The HW1F builder only queries `times[i]`
+        // values from this same slice, so an exact-match lookup is enough.
         let mut zero_at_times: Vec<f64> = Vec::with_capacity(times.len());
         for &t in &times {
-            if t <= 0.0 {
-                zero_at_times.push(0.0);
+            let r = if t <= 0.0 {
+                0.0
             } else {
-                zero_at_times.push(curve.zero_rate(t, Compounding::Continuous).map_err(|e| {
+                curve.zero_rate(t, Compounding::Continuous).map_err(|e| {
                     AnalyticsError::InvalidInput(format!("curve zero_rate at t={t}: {e}"))
-                })?);
-            }
+                })?
+            };
+            zero_at_times.push(r);
         }
         let zero_lookup = |t: f64| -> f64 {
             let i = times.partition_point(|&x| x < t - 1e-12);
-            if i < times.len() && (times[i] - t).abs() < 1e-9 {
-                zero_at_times[i]
-            } else {
-                0.0
-            }
+            assert!(
+                i < times.len() && (times[i] - t).abs() < 1e-9,
+                "HW1F tree queried zero rate at t={t}, not on grid"
+            );
+            zero_at_times[i]
         };
 
         let a = self.model.mean_reversion();
@@ -291,7 +294,9 @@ impl OASCalculator {
             step_amount[n] += face_value;
         }
 
-        let first_callable_date = call_schedule.first_call_date();
+        // `cap_at_i = dirty_cap − step_amount[i]` so `min(cont, cap) + cf`
+        // equals `min(cont + cf, dirty_cap)` whether or not the call date
+        // carries a coupon.
         for (t, date) in &mandatory_pairs {
             if !call_schedule.is_callable_on(*date) {
                 continue;
@@ -305,12 +310,7 @@ impl OASCalculator {
             let clean_cap = call_schedule.call_price_on(*date).unwrap_or(100.0);
             let accrued = base_bond.accrued_interest(*date).to_f64().unwrap_or(0.0);
             let dirty_cap = clean_cap + accrued;
-            let receive = first_callable_date.is_some_and(|d| *date == d);
-            step_call[i] = Some(if receive {
-                dirty_cap
-            } else {
-                dirty_cap - step_amount[i]
-            });
+            step_call[i] = Some(dirty_cap - step_amount[i]);
         }
 
         Ok(TreeContext {
@@ -549,6 +549,39 @@ mod tests {
 
         let dur = duration.unwrap();
         assert!(dur > 0.0 && dur < 15.0, "Duration {} is out of range", dur);
+    }
+
+    #[test]
+    fn test_first_call_on_coupon_date_does_not_double_pay() {
+        // Deeply ITM call on a coupon date forces exercise; PV must collapse
+        // to ~DF·dirty_cap, never DF·(dirty_cap + coupon).
+        let calc = OASCalculator::new(HullWhite::new(0.03, 0.005), 80);
+
+        let base = FixedRateBond::builder()
+            .cusip_unchecked("CALLBUG01")
+            .coupon_percent(5.0)
+            .maturity(date(2029, 1, 15))
+            .issue_date(date(2020, 1, 15))
+            .us_corporate()
+            .build()
+            .unwrap();
+
+        let call_schedule = CallSchedule::new(CallType::American)
+            .with_entry(CallEntry::new(date(2025, 1, 15), 80.0));
+        let bond = CallableBond::new(base, call_schedule);
+
+        let curve = create_flat_curve(0.04);
+        let settlement = date(2024, 1, 17);
+        let price = calc.price_with_oas(&bond, &curve, 0.0, settlement).unwrap();
+
+        let df_call = curve.discount_factor(1.0).unwrap();
+        let df_first_coupon = curve.discount_factor(0.5).unwrap();
+        let ceiling = df_first_coupon * 2.5 + df_call * 80.0 + 1.0;
+        let floor = df_call * 80.0 - 0.5;
+        assert!(
+            price >= floor && price <= ceiling,
+            "PV {price} out of [{floor}, {ceiling}]"
+        );
     }
 
     #[test]

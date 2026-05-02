@@ -1,31 +1,9 @@
-//! Integrated risk calculator for bonds.
-//!
-//! This module provides a high-level `BondRiskCalculator` that computes
-//! all risk metrics (duration, convexity, DV01) for a bond given market data.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use convex_analytics::risk::calculator::BondRiskCalculator;
-//!
-//! let calc = BondRiskCalculator::from_cash_flows(
-//!     times, cash_flows,
-//!     0.05,   // YTM
-//!     2,      // semi-annual
-//!     100.0,  // dirty price
-//!     100.0,  // face value
-//! )?;
-//!
-//! let metrics = calc.all_metrics()?;
-//! println!("Modified Duration: {}", metrics.modified_duration);
-//! println!("Convexity: {}", metrics.convexity);
-//! println!("DV01: {}", metrics.dv01);
-//! ```
+//! `BondRiskCalculator`: duration, convexity, DV01 for a single bond.
 
 use rust_decimal::prelude::*;
 
 use convex_bonds::traits::Bond;
-use convex_core::types::Date;
+use convex_core::types::{Compounding, Date};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::convexity::{analytical_convexity, effective_convexity, Convexity};
@@ -70,20 +48,12 @@ impl BondRiskMetrics {
 }
 
 /// Calculator for bond risk metrics.
-///
-/// Provides all duration, convexity, and DV01 calculations for a bond.
 pub struct BondRiskCalculator {
-    /// Time to each cash flow in years.
     times: Vec<f64>,
-    /// Cash flow amounts.
     cash_flows: Vec<f64>,
-    /// Yield to maturity (as decimal).
     ytm: f64,
-    /// Compounding frequency.
-    frequency: u32,
-    /// Dirty price as percentage of par.
+    compounding: Compounding,
     dirty_price: f64,
-    /// Face value.
     face_value: f64,
 }
 
@@ -96,7 +66,7 @@ impl BondRiskCalculator {
     /// * `settlement` - Settlement date
     /// * `dirty_price` - Dirty price as percentage of par (e.g., 105.5)
     /// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-    /// * `frequency` - Compounding frequency per year (typically 2 for semi-annual)
+    /// * `compounding` - Compounding convention attached to `ytm`
     ///
     /// # Errors
     ///
@@ -106,10 +76,9 @@ impl BondRiskCalculator {
         settlement: Date,
         dirty_price: f64,
         ytm: f64,
-        frequency: u32,
+        compounding: Compounding,
     ) -> AnalyticsResult<Self> {
         let cash_flows = bond.cash_flows(settlement);
-
         if cash_flows.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "no future cash flows".to_string(),
@@ -133,23 +102,22 @@ impl BondRiskCalculator {
         }
 
         let face_value = bond.face_value().to_f64().unwrap_or(100.0);
-
         Ok(Self {
             times,
             cash_flows: amounts,
             ytm,
-            frequency,
+            compounding,
             dirty_price,
             face_value,
         })
     }
 
-    /// Creates a risk calculator from raw cash flow data.
+    /// Build directly from `(times, cash_flows)`, bypassing a `Bond`.
     pub fn from_cash_flows(
         times: Vec<f64>,
         cash_flows: Vec<f64>,
         ytm: f64,
-        frequency: u32,
+        compounding: Compounding,
         dirty_price: f64,
         face_value: f64,
     ) -> AnalyticsResult<Self> {
@@ -158,68 +126,64 @@ impl BondRiskCalculator {
                 "times and cash_flows must have same length".to_string(),
             ));
         }
-
         if times.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "no cash flows provided".to_string(),
             ));
         }
-
         Ok(Self {
             times,
             cash_flows,
             ytm,
-            frequency,
+            compounding,
             dirty_price,
             face_value,
         })
     }
 
-    /// Calculates Macaulay duration.
+    /// Macaulay duration: PV-weighted average time to cash flows.
     pub fn macaulay_duration(&self) -> AnalyticsResult<Duration> {
-        macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.frequency)
+        macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
-    /// Calculates modified duration.
+    /// Modified duration. Continuous compounding equals Macaulay (no divisor).
     pub fn modified_duration(&self) -> AnalyticsResult<Duration> {
-        modified_duration(&self.times, &self.cash_flows, self.ytm, self.frequency)
+        modified_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
-    /// Calculates analytical convexity.
+    /// Analytical convexity in years².
     pub fn convexity(&self) -> AnalyticsResult<Convexity> {
-        analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.frequency)
+        analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.compounding)
     }
 
-    /// Calculates DV01 per $100 face value.
+    /// DV01 per 100 face: `D_mod · dirty_price/100 · 0.0001 · 100`.
     pub fn dv01_per_100(&self) -> AnalyticsResult<DV01> {
-        let mod_dur = self.modified_duration()?;
-        Ok(dv01_from_duration(mod_dur, self.dirty_price, 100.0))
+        Ok(dv01_from_duration(
+            self.modified_duration()?,
+            self.dirty_price,
+            100.0,
+        ))
     }
 
-    /// Calculates DV01 for the full position.
+    /// DV01 for the full position (scaled by `face_value`).
     pub fn dv01(&self) -> AnalyticsResult<DV01> {
-        let mod_dur = self.modified_duration()?;
         Ok(dv01_from_duration(
-            mod_dur,
+            self.modified_duration()?,
             self.dirty_price,
             self.face_value,
         ))
     }
 
-    /// Calculates all risk metrics at once.
+    /// Compute Macaulay, modified, convexity, and both DV01 flavours in one pass.
     pub fn all_metrics(&self) -> AnalyticsResult<BondRiskMetrics> {
         let macaulay = self.macaulay_duration()?;
-        let modified = modified_from_macaulay(macaulay, self.ytm, self.frequency);
-        let convexity = self.convexity()?;
-        let dv01_per_100 = dv01_from_duration(modified, self.dirty_price, 100.0);
-        let dv01 = dv01_from_duration(modified, self.dirty_price, self.face_value);
-
+        let modified = modified_from_macaulay(macaulay, self.ytm, self.compounding);
         Ok(BondRiskMetrics {
             macaulay_duration: macaulay,
             modified_duration: modified,
-            convexity,
-            dv01_per_100,
-            dv01,
+            convexity: self.convexity()?,
+            dv01_per_100: dv01_from_duration(modified, self.dirty_price, 100.0),
+            dv01: dv01_from_duration(modified, self.dirty_price, self.face_value),
         })
     }
 
@@ -383,55 +347,72 @@ mod tests {
 
     #[test]
     fn test_bond_risk_calculator_from_cash_flows() {
-        // 2-year bond, 5% coupon, semi-annual
         let times = vec![0.5, 1.0, 1.5, 2.0];
         let cash_flows = vec![2.5, 2.5, 2.5, 102.5];
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times, cash_flows, 0.05,  // 5% YTM
-            2,     // semi-annual
-            100.0, // at par
-            100.0, // $100 face
-        )
-        .unwrap();
-
-        let metrics = calc.all_metrics().unwrap();
-
-        // Macaulay duration should be ~1.93 years for this bond
-        assert_relative_eq!(metrics.macaulay_duration.as_f64(), 1.93, epsilon = 0.01);
-
-        // Modified duration = Macaulay / (1 + y/f) ≈ 1.93 / 1.025 ≈ 1.88
-        assert_relative_eq!(metrics.modified_duration.as_f64(), 1.88, epsilon = 0.01);
-
-        // Convexity should be positive and small for short-dated bond
-        assert!(metrics.convexity.as_f64() > 0.0);
-        assert!(metrics.convexity.as_f64() < 10.0);
-
-        // DV01 per $100 = ModDur × 1.0 × 100 × 0.0001 ≈ 0.0188
-        assert_relative_eq!(metrics.dv01_per_100.as_f64(), 0.0188, epsilon = 0.001);
-    }
-
-    #[test]
-    fn test_bond_risk_calculator_zero_coupon() {
-        // 5-year zero coupon bond
-        let times = vec![5.0];
-        let cash_flows = vec![100.0];
-
-        let calc = BondRiskCalculator::from_cash_flows(
-            times, cash_flows, 0.05,  // 5% YTM
-            1,     // annual
-            100.0, // at par (for simplicity)
+            times,
+            cash_flows,
+            0.05,
+            Compounding::SemiAnnual,
+            100.0,
             100.0,
         )
         .unwrap();
 
         let metrics = calc.all_metrics().unwrap();
+        assert_relative_eq!(metrics.macaulay_duration.as_f64(), 1.93, epsilon = 0.01);
+        assert_relative_eq!(metrics.modified_duration.as_f64(), 1.88, epsilon = 0.01);
+        assert!(metrics.convexity.as_f64() > 0.0 && metrics.convexity.as_f64() < 10.0);
+        assert_relative_eq!(metrics.dv01_per_100.as_f64(), 0.0188, epsilon = 0.001);
+    }
 
-        // Macaulay duration = maturity for zero coupon
+    #[test]
+    fn test_bond_risk_calculator_zero_coupon() {
+        let calc = BondRiskCalculator::from_cash_flows(
+            vec![5.0],
+            vec![100.0],
+            0.05,
+            Compounding::Annual,
+            100.0,
+            100.0,
+        )
+        .unwrap();
+
+        let metrics = calc.all_metrics().unwrap();
         assert_relative_eq!(metrics.macaulay_duration.as_f64(), 5.0, epsilon = 0.001);
-
-        // Modified duration = 5.0 / 1.05 ≈ 4.76
         assert_relative_eq!(metrics.modified_duration.as_f64(), 4.76, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_continuous_compounding_skips_periodic_divisor() {
+        let times = vec![10.0];
+        let cfs = vec![100.0];
+        let periodic = BondRiskCalculator::from_cash_flows(
+            times.clone(),
+            cfs.clone(),
+            0.05,
+            Compounding::SemiAnnual,
+            100.0,
+            100.0,
+        )
+        .unwrap();
+        let continuous = BondRiskCalculator::from_cash_flows(
+            times,
+            cfs,
+            0.05,
+            Compounding::Continuous,
+            100.0,
+            100.0,
+        )
+        .unwrap();
+
+        let m_periodic = periodic.modified_duration().unwrap().as_f64();
+        let m_continuous = continuous.modified_duration().unwrap().as_f64();
+        let mac = continuous.macaulay_duration().unwrap().as_f64();
+
+        assert_relative_eq!(m_continuous, mac, epsilon = 1e-10);
+        assert!(m_periodic < m_continuous - 0.1);
     }
 
     #[test]
@@ -487,8 +468,12 @@ mod tests {
             .collect();
 
         let calc = BondRiskCalculator::from_cash_flows(
-            times, cash_flows, 0.075, // 7.5% YTM
-            2, 100.0, 100.0,
+            times,
+            cash_flows,
+            0.075,
+            Compounding::SemiAnnual,
+            100.0,
+            100.0,
         )
         .unwrap();
 
@@ -506,22 +491,27 @@ mod tests {
 
     #[test]
     fn test_empty_cash_flows_error() {
-        let result = BondRiskCalculator::from_cash_flows(vec![], vec![], 0.05, 2, 100.0, 100.0);
-
-        assert!(result.is_err());
+        assert!(BondRiskCalculator::from_cash_flows(
+            vec![],
+            vec![],
+            0.05,
+            Compounding::SemiAnnual,
+            100.0,
+            100.0,
+        )
+        .is_err());
     }
 
     #[test]
     fn test_mismatched_arrays_error() {
-        let result = BondRiskCalculator::from_cash_flows(
+        assert!(BondRiskCalculator::from_cash_flows(
             vec![0.5, 1.0],
-            vec![2.5], // mismatched length
+            vec![2.5],
             0.05,
-            2,
+            Compounding::SemiAnnual,
             100.0,
             100.0,
-        );
-
-        assert!(result.is_err());
+        )
+        .is_err());
     }
 }

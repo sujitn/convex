@@ -14,70 +14,54 @@
 //! - PV(CF_i) = present value of cash flow i
 //! - P = bond price (sum of all PVs)
 
+use convex_core::types::Compounding;
+
 use super::Duration;
 use crate::error::{AnalyticsError, AnalyticsResult};
 
-/// Calculate Macaulay duration from cash flows and yield.
-///
-/// # Arguments
-///
-/// * `times` - Time to each cash flow in years
-/// * `cash_flows` - Amount of each cash flow
-/// * `ytm` - Yield to maturity (as decimal, e.g., 0.05 for 5%)
-/// * `frequency` - Compounding frequency per year
-///
-/// # Returns
-///
-/// Macaulay duration in years
-///
-/// # Example
-///
-/// ```ignore
-/// let times = vec![0.5, 1.0, 1.5, 2.0];
-/// let cash_flows = vec![25.0, 25.0, 25.0, 1025.0];
-/// let duration = macaulay_duration(&times, &cash_flows, 0.05, 2)?;
-/// ```
+/// Discount factor for time `t` at yield `ytm` under `compounding`.
+fn discount_factor(ytm: f64, compounding: Compounding, t: f64) -> f64 {
+    match compounding {
+        Compounding::Continuous => (-ytm * t).exp(),
+        Compounding::Simple => 1.0 / (1.0 + ytm * t),
+        _ => {
+            let f = compounding.periods_per_year() as f64;
+            (1.0 + ytm / f).powf(-t * f)
+        }
+    }
+}
+
+/// Macaulay duration: PV-weighted average time to cash flows.
 pub fn macaulay_duration(
     times: &[f64],
     cash_flows: &[f64],
     ytm: f64,
-    frequency: u32,
+    compounding: Compounding,
 ) -> AnalyticsResult<Duration> {
     if times.len() != cash_flows.len() {
         return Err(AnalyticsError::InvalidInput(
             "times and cash_flows must have same length".to_string(),
         ));
     }
-
     if times.is_empty() {
         return Err(AnalyticsError::InvalidInput(
             "no cash flows provided".to_string(),
         ));
     }
 
-    let freq = frequency as f64;
-    let periodic_rate = ytm / freq;
-
     let mut weighted_sum = 0.0;
     let mut price = 0.0;
-
-    for (t, cf) in times.iter().zip(cash_flows.iter()) {
-        let periods = t * freq;
-        let df = (1.0 + periodic_rate).powf(-periods);
-        let pv = cf * df;
-
+    for (&t, &cf) in times.iter().zip(cash_flows.iter()) {
+        let pv = cf * discount_factor(ytm, compounding, t);
         weighted_sum += t * pv;
         price += pv;
     }
-
     if price.abs() < 1e-10 {
         return Err(AnalyticsError::CalculationFailed(
             "price is zero in macaulay duration".to_string(),
         ));
     }
-
-    let mac_dur = weighted_sum / price;
-    Ok(Duration::from(mac_dur))
+    Ok(Duration::from(weighted_sum / price))
 }
 
 #[cfg(test)]
@@ -87,43 +71,25 @@ mod tests {
 
     #[test]
     fn test_macaulay_duration_par_bond() {
-        // 2-year bond, 5% coupon, semi-annual, priced at par
         let times = vec![0.5, 1.0, 1.5, 2.0];
-        let cash_flows = vec![2.5, 2.5, 2.5, 102.5]; // per $100 face
-
-        let dur = macaulay_duration(&times, &cash_flows, 0.05, 2).unwrap();
-
-        // For a 2-year 5% bond at par, Macaulay duration should be ~1.93 years
+        let cash_flows = vec![2.5, 2.5, 2.5, 102.5];
+        let dur = macaulay_duration(&times, &cash_flows, 0.05, Compounding::SemiAnnual).unwrap();
         assert_relative_eq!(dur.as_f64(), 1.93, epsilon = 0.01);
     }
 
     #[test]
     fn test_macaulay_duration_zero_coupon() {
-        // Zero coupon bond maturing in 5 years
-        let times = vec![5.0];
-        let cash_flows = vec![100.0];
-
-        let dur = macaulay_duration(&times, &cash_flows, 0.05, 1).unwrap();
-
-        // Zero coupon bond duration equals maturity
+        let dur = macaulay_duration(&[5.0], &[100.0], 0.05, Compounding::Annual).unwrap();
         assert_relative_eq!(dur.as_f64(), 5.0, epsilon = 0.0001);
     }
 
     #[test]
     fn test_macaulay_duration_mismatched_lengths() {
-        let times = vec![0.5, 1.0];
-        let cash_flows = vec![2.5];
-
-        let result = macaulay_duration(&times, &cash_flows, 0.05, 2);
-        assert!(result.is_err());
+        assert!(macaulay_duration(&[0.5, 1.0], &[2.5], 0.05, Compounding::SemiAnnual).is_err());
     }
 
     #[test]
     fn test_macaulay_duration_empty() {
-        let times: Vec<f64> = vec![];
-        let cash_flows: Vec<f64> = vec![];
-
-        let result = macaulay_duration(&times, &cash_flows, 0.05, 2);
-        assert!(result.is_err());
+        assert!(macaulay_duration(&[], &[], 0.05, Compounding::SemiAnnual).is_err());
     }
 }

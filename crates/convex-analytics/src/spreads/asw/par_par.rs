@@ -1,5 +1,6 @@
 //! Par-par asset swap spread calculator.
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
@@ -37,7 +38,8 @@ impl<'a> ParParAssetSwap<'a> {
         self.swap_curve.reference_date()
     }
 
-    /// Calculates the par-par asset swap spread.
+    /// Par-par ASW: `ASW · A = (100 − dirty) + Σ DFᵢ · τᵢ · (c − Lᵢ)`, with
+    /// `Lᵢ` the simple-compounded forward over period i.
     pub fn calculate<B: Bond + FixedCouponBond>(
         &self,
         bond: &B,
@@ -61,11 +63,13 @@ impl<'a> ParParAssetSwap<'a> {
         let upfront = Decimal::ONE_HUNDRED - dirty_price;
 
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(
+
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
             settlement,
             maturity,
             months_between,
             bond.coupon_frequency(),
+            bond.coupon_rate(),
         )?;
 
         if annuity.is_zero() {
@@ -74,9 +78,7 @@ impl<'a> ParParAssetSwap<'a> {
             ));
         }
 
-        let spread_pct = upfront / annuity;
-        let spread_bps = (spread_pct * Decimal::from(100)).round();
-
+        let spread_bps = ((upfront + mismatch_pct) / annuity * Decimal::from(100)).round();
         Ok(Spread::new(spread_bps, SpreadType::AssetSwapPar))
     }
 
@@ -109,6 +111,65 @@ impl<'a> ParParAssetSwap<'a> {
 
         let net_bps = gross.as_bps() - funding_bps;
         Ok(Spread::new(net_bps, SpreadType::AssetSwapPar))
+    }
+
+    /// Walks the schedule and returns `(annuity, coupon_mismatch_pct)` where
+    /// `coupon_mismatch_pct = Σ DFᵢ · τᵢ · (c − Lᵢ) · 100` in price units.
+    /// `Lᵢ` is the simple-compounded forward over [tᵢ₋₁, tᵢ].
+    fn annuity_and_mismatch_pct(
+        &self,
+        settlement: Date,
+        maturity: Date,
+        months_between: i32,
+        payments_per_year: u32,
+        coupon_rate: Decimal,
+    ) -> AnalyticsResult<(Decimal, Decimal)> {
+        if payments_per_year == 0 {
+            return Err(AnalyticsError::InvalidInput(
+                "Invalid payment frequency".to_string(),
+            ));
+        }
+
+        let mut payment_dates: Vec<Date> = Vec::new();
+        let mut current_date = maturity;
+        while current_date > settlement {
+            payment_dates.push(current_date);
+            current_date = current_date
+                .add_months(-months_between)
+                .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
+        }
+        if payment_dates.is_empty() {
+            return Err(AnalyticsError::InvalidInput(
+                "No payment dates after settlement".to_string(),
+            ));
+        }
+        payment_dates.reverse();
+
+        let tau = 1.0 / payments_per_year as f64;
+        let coupon = coupon_rate.to_f64().unwrap();
+
+        let mut annuity = 0.0;
+        let mut mismatch = 0.0;
+        let mut prev_df = self
+            .swap_curve
+            .discount_factor(settlement)
+            .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+
+        for date in &payment_dates {
+            let df = self
+                .swap_curve
+                .discount_factor(*date)
+                .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+            let fwd = (prev_df / df - 1.0) / tau;
+            annuity += tau * df;
+            mismatch += df * tau * (coupon - fwd) * 100.0;
+            prev_df = df;
+        }
+
+        Ok((
+            Decimal::from_f64_retain(annuity).unwrap_or_default(),
+            Decimal::from_f64_retain(mismatch).unwrap_or_default(),
+        ))
     }
 
     fn calculate_annuity(
@@ -192,21 +253,23 @@ impl<'a> ParParAssetSwap<'a> {
             });
         }
 
+        // Inverse of `calculate`. Forward solves
+        //   spread_bps = ((100 − dirty) + mismatch_pct) / annuity · 100
+        // (the `× 100` converts %-per-year to bps), so the inverse is
+        //   dirty = 100 + mismatch_pct − (spread_bps / 100) · annuity.
         let months_between = frequency_to_months(bond.coupon_frequency());
-        let annuity = self.calculate_annuity(
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
             settlement,
             maturity,
             months_between,
             bond.coupon_frequency(),
+            bond.coupon_rate(),
         )?;
 
-        let spread_decimal = asw_spread.as_bps() / Decimal::from(10_000);
+        let spread_pct = asw_spread.as_bps() / Decimal::from(100);
+        let dirty_price = Decimal::ONE_HUNDRED + mismatch_pct - spread_pct * annuity;
 
-        let dirty_price = Decimal::ONE_HUNDRED - spread_decimal * annuity;
-
-        let accrued = bond.accrued_interest(settlement);
-        let clean_price = dirty_price - accrued;
-
+        let clean_price = dirty_price - bond.accrued_interest(settlement);
         Ok(Price::new(clean_price, bond.currency()))
     }
 }
@@ -348,12 +411,8 @@ mod tests {
         let settlement = date(2024, 1, 17);
 
         let spread = calc.calculate(&bond, clean_price, settlement).unwrap();
-
-        assert!(
-            spread.as_bps().abs() < dec!(5),
-            "Expected near-zero spread at par, got {}",
-            spread.as_bps()
-        );
+        // Small residual (~7 bp) from semi-annual coupon vs continuous curve.
+        assert!(spread.as_bps().abs() < dec!(15));
     }
 
     #[test]
@@ -371,6 +430,39 @@ mod tests {
             spread.as_bps() > Decimal::ZERO,
             "Expected positive spread for discount bond"
         );
+    }
+
+    #[test]
+    fn test_par_par_captures_coupon_minus_floating() {
+        // 8% bond on a 3% flat curve at par: ASW must reflect the ~500 bp
+        // coupon excess. Upfront-only formula returned ~0.
+        let curve = create_flat_curve(dec!(0.03));
+        let bond = MockBond::new(date(2029, 1, 15), dec!(0.08), 2);
+        let spread = ParParAssetSwap::new(&curve)
+            .calculate(
+                &bond,
+                Price::new(dec!(100.0), convex_core::Currency::USD),
+                date(2024, 1, 17),
+            )
+            .unwrap();
+        assert!(spread.as_bps() >= dec!(400) && spread.as_bps() <= dec!(600));
+    }
+
+    #[test]
+    fn test_calculate_implied_price_round_trip() {
+        // implied_price must invert calculate. Was broken when calculate
+        // started embedding the coupon-floating mismatch term.
+        let curve = create_flat_curve(dec!(0.04));
+        let calc = ParParAssetSwap::new(&curve);
+        let bond = MockBond::new(date(2029, 1, 15), dec!(0.06), 2);
+        let settlement = date(2024, 1, 17);
+
+        let original = Price::new(dec!(102.0), convex_core::Currency::USD);
+        let spread = calc.calculate(&bond, original, settlement).unwrap();
+        let recovered = calc.implied_price(&bond, spread, settlement).unwrap();
+
+        let diff = (recovered.as_percentage() - original.as_percentage()).abs();
+        assert!(diff < dec!(0.05), "round-trip drift: {diff}");
     }
 
     #[test]

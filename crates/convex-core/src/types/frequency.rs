@@ -114,6 +114,32 @@ impl Compounding {
     pub fn is_simple(&self) -> bool {
         matches!(self, Compounding::Simple)
     }
+
+    /// Periodic compounding for a periods-per-year count. Returns `None` for
+    /// values outside the supported set; callers that have already validated
+    /// the input can use [`Self::from_periods_per_year`] for the panicking
+    /// flavour.
+    #[must_use]
+    pub fn try_from_periods_per_year(periods: u32) -> Option<Compounding> {
+        Some(match periods {
+            0 => Compounding::Continuous,
+            1 => Compounding::Annual,
+            2 => Compounding::SemiAnnual,
+            4 => Compounding::Quarterly,
+            12 => Compounding::Monthly,
+            365 => Compounding::Daily,
+            _ => return None,
+        })
+    }
+
+    /// Like [`Self::try_from_periods_per_year`] but panics on unsupported
+    /// counts. Use only when `periods` came from a closed source like
+    /// `Frequency::periods_per_year`.
+    #[must_use]
+    pub fn from_periods_per_year(periods: u32) -> Compounding {
+        Self::try_from_periods_per_year(periods)
+            .unwrap_or_else(|| panic!("unsupported compounding period count: {periods}"))
+    }
 }
 
 impl fmt::Display for Compounding {

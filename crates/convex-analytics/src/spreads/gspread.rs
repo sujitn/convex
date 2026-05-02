@@ -79,16 +79,13 @@ impl<'a> GSpreadCalculator<'a> {
             });
         }
 
-        // Get benchmark yield based on specification
         let benchmark_yield = self.get_benchmark_yield(settlement, maturity)?;
+        // Align compounding before subtracting; mismatched conventions leak
+        // ~5 bp on a 10Y bond.
+        let bond_yield = bond_yield.convert_to(benchmark_yield.compounding());
 
-        // G-spread = Bond yield - Benchmark yield
-        let bond_yield_val = bond_yield.value();
-        let benchmark_yield_val = benchmark_yield.value();
-
-        let spread = bond_yield_val - benchmark_yield_val;
-        let spread_bps = (spread * Decimal::from(10_000)).round();
-
+        let spread_bps =
+            ((bond_yield.value() - benchmark_yield.value()) * Decimal::from(10_000)).round();
         Ok(Spread::new(spread_bps, SpreadType::GSpread))
     }
 
@@ -378,6 +375,26 @@ mod tests {
 
         let result = calc.calculate(&bond, bond_yield, settlement);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_g_spread_normalises_yield_compounding() {
+        let gov_curve = create_test_curve();
+        let calc = GSpreadCalculator::new(&gov_curve).with_benchmark(BenchmarkSpec::ten_year());
+        let bond = MockBond::new(date(2034, 1, 15));
+        let settlement = date(2024, 1, 17);
+
+        let bond_semi = Yield::new(dec!(0.05), Compounding::SemiAnnual);
+        let semi_spread = calc.calculate(&bond, bond_semi, settlement).unwrap();
+        let cont_spread = calc
+            .calculate(
+                &bond,
+                bond_semi.convert_to(Compounding::Continuous),
+                settlement,
+            )
+            .unwrap();
+
+        assert!((semi_spread.as_bps() - cont_spread.as_bps()).abs() <= dec!(1));
     }
 
     #[test]

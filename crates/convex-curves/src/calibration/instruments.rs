@@ -746,8 +746,9 @@ impl CalibrationInstrument for Swap {
 
 /// Overnight Index Swap (OIS).
 ///
-/// An OIS is a swap where the floating leg pays the compounded overnight rate.
-/// Used for building the discount curve in post-LIBOR world.
+/// Floating-leg PV uses the single-curve identity `DF(eff) − DF(mat)`, which
+/// is exact for daily-compounded OIS when discount equals projection. Multi-
+/// curve OIS would need an explicit compounded leg.
 #[derive(Debug, Clone)]
 pub struct Ois {
     /// Reference date.
@@ -788,7 +789,8 @@ impl Ois {
         }
     }
 
-    /// Creates an OIS from tenor.
+    /// Annual fixed leg (SOFR/€STR convention). Pass `Frequency` explicitly
+    /// via [`Ois::new`] for SONIA-quarterly or other markets.
     #[must_use]
     pub fn from_tenor(
         reference_date: Date,
@@ -798,17 +800,12 @@ impl Ois {
     ) -> Self {
         let effective_date = reference_date.add_days(2);
         let maturity = add_years_fraction(effective_date, tenor_years);
-
-        // OIS typically has annual fixed payments, use Annual for all tenors
-        // For short tenors (<= 1Y), there's only one payment anyway
-        let frequency = Frequency::Annual;
-
         Self::new(
             reference_date,
             effective_date,
             maturity,
             fixed_rate,
-            frequency,
+            Frequency::Annual,
             day_count,
         )
     }

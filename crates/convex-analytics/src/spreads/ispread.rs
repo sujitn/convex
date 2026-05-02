@@ -78,36 +78,40 @@ impl<'a> ISpreadCalculator<'a> {
             });
         }
 
-        // Calculate years to maturity from curve reference date
-        let ref_date = self.swap_curve.reference_date();
-        let years_to_maturity = ref_date.days_between(&maturity) as f64 / 365.0;
-
-        // Get swap rate at maturity
+        let years_to_maturity = self.swap_curve.date_to_tenor(maturity);
+        let frequency = bond.coupon_frequency().max(1);
         let swap_rate = self
             .swap_curve
-            .zero_rate(years_to_maturity, convex_curves::Compounding::SemiAnnual)
+            .par_swap_rate(years_to_maturity, frequency)
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-        // I-spread = Bond yield - Swap rate
-        let bond_yield_f64 = bond_yield.value().to_f64().unwrap_or(0.0);
-        let spread = bond_yield_f64 - swap_rate;
-        let spread_bps = (spread * 10_000.0).round();
+        // Align bond yield to the par rate's compounding. Reject exotic
+        // coupon frequencies rather than panicking inside `from_periods_per_year`.
+        let target = convex_core::types::Compounding::try_from_periods_per_year(frequency)
+            .ok_or_else(|| {
+                AnalyticsError::InvalidInput(format!(
+                    "unsupported coupon frequency for I-spread: {frequency}"
+                ))
+            })?;
+        let bond_yield_f64 = bond_yield
+            .convert_to(target)
+            .value()
+            .to_f64()
+            .unwrap_or(0.0);
 
+        let spread_bps = ((bond_yield_f64 - swap_rate) * 10_000.0).round();
         Ok(Spread::new(
             Decimal::from_f64_retain(spread_bps).unwrap_or_default(),
             SpreadType::ISpread,
         ))
     }
 
-    /// Returns the swap rate at the bond's maturity.
+    /// Returns the par swap rate at the bond's maturity (semi-annual default).
     ///
     /// Useful for debugging or displaying the benchmark rate.
     pub fn swap_rate_at_maturity(&self, maturity: Date) -> AnalyticsResult<f64> {
-        let ref_date = self.swap_curve.reference_date();
-        let years_to_maturity = ref_date.days_between(&maturity) as f64 / 365.0;
-
         self.swap_curve
-            .zero_rate(years_to_maturity, convex_curves::Compounding::SemiAnnual)
+            .par_swap_rate(self.swap_curve.date_to_tenor(maturity), 2)
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))
     }
 
@@ -369,6 +373,44 @@ mod tests {
             "Expected ~5%, got {:.4}%",
             implied_f64 * 100.0
         );
+    }
+
+    #[test]
+    fn test_i_spread_tracks_par_rate_on_rising_curve() {
+        use convex_curves::curves::DiscountCurveBuilder;
+        use convex_curves::RateCurveDyn;
+
+        let ref_date = date(2024, 1, 15);
+        let curve = DiscountCurveBuilder::new(ref_date)
+            .add_pillar(0.5, (-0.02f64 * 0.5).exp())
+            .add_pillar(1.0, (-0.02f64 * 1.0).exp())
+            .add_pillar(2.0, (-0.03f64 * 2.0).exp())
+            .add_pillar(5.0, (-0.05f64 * 5.0).exp())
+            .add_pillar(10.0, (-0.06f64 * 10.0).exp())
+            .add_pillar(30.0, (-0.06f64 * 30.0).exp())
+            .with_extrapolation()
+            .build()
+            .unwrap();
+
+        let bond = MockBond::new(date(2034, 1, 15));
+        let settlement = date(2024, 1, 17);
+        let bond_yield = Yield::new(dec!(0.07), Compounding::SemiAnnual);
+
+        let par_spread = ISpreadCalculator::new(&curve)
+            .calculate(&bond, bond_yield, settlement)
+            .unwrap();
+
+        let curve_dyn: &dyn RateCurveDyn = &curve;
+        let par_rate = curve_dyn.par_swap_rate(10.0, 2).unwrap();
+        let zero_rate_10y = curve_dyn
+            .zero_rate(10.0, convex_curves::Compounding::SemiAnnual)
+            .unwrap();
+
+        assert!(par_rate < zero_rate_10y);
+        let expected_bps = ((0.07_f64 - par_rate) * 10_000.0).round();
+        assert!((par_spread.as_bps().to_f64().unwrap() - expected_bps).abs() <= 1.0);
+        let zero_based_bps = ((0.07_f64 - zero_rate_10y) * 10_000.0).round();
+        assert!((expected_bps - zero_based_bps).abs() >= 5.0);
     }
 
     #[test]
