@@ -30,7 +30,7 @@ uuid = { workspace = true }
 log = { workspace = true }
 
 # Optional: JSON Schema derives for adapters that publish schemas (MCP, OpenAPI, …).
-schemars = { version = "1.2", optional = true }
+schemars = { version = "1.2", optional = true, features = ["chrono04"] }
 
 [dev-dependencies]
 approx = { workspace = true }

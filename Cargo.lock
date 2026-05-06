@@ -584,6 +584,7 @@ dependencies = [
  "rayon",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.17",

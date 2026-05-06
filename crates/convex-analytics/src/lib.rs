@@ -100,6 +100,8 @@ pub mod prelude {
     // Risk
     pub use crate::risk::{
         aggregate_portfolio_risk,
+        // Hedge advisor (entry point)
+        compute_position_risk,
         analytical_convexity,
         duration_hedge_ratio,
         dv01_from_duration,
@@ -115,22 +117,46 @@ pub mod prelude {
         parametric_var_from_dv01,
         price_change_from_duration,
         price_change_with_convexity,
+        // Hedge advisor (residual computation)
+        residual_from,
         spread_duration,
+        // Hedge advisor (instrument value types)
+        BondFuture,
         // Calculator
         BondRiskCalculator,
         BondRiskMetrics,
+        // Hedge advisor (comparison)
+        ComparisonReport,
+        ComparisonRow,
+        // Hedge advisor (constraints)
+        Constraints,
         // Convexity types (low-level functions available via crate::risk::)
         Convexity,
         // Duration types (low-level functions available via crate::risk::)
         Duration,
         EffectiveDurationCalculator,
         HedgeDirection,
+        // Hedge advisor (proposals)
+        HedgeInstrument,
+        HedgeProposal,
         HedgeRecommendation,
+        HedgeTrade,
+        InterestRateSwap,
+        // Hedge advisor (per-tenor bucket on the key-rate ladder)
+        KeyRateBucket,
         KeyRateDuration,
         KeyRateDurationCalculator,
         KeyRateDurations,
         PortfolioRisk,
         Position,
+        Provenance,
+        Recommendation,
+        RecommendationReason,
+        ResidualRisk,
+        // Hedge advisor (risk profile)
+        RiskProfile,
+        SwapSide,
+        TradeoffNotes,
         VaRMethod,
         // VaR
         VaRResult,

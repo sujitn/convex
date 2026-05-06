@@ -12,7 +12,7 @@ keywords = ["finance", "fixed-income", "bonds", "pricing", "quantitative"]
 categories = ["finance"]
 
 [features]
-schemars = ["convex-core/schemars"]
+schemars = ["convex-core/schemars", "convex-analytics/schemars"]
 
 [dependencies]
 convex-core = { workspace = true }

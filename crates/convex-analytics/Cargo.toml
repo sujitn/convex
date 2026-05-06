@@ -37,6 +37,9 @@ log = { workspace = true }
 # Parallel processing (optional)
 rayon = { workspace = true, optional = true }
 
+# Optional: JSON Schema derives for adapters that publish schemas (MCP, OpenAPI, …).
+schemars = { version = "1.2", optional = true }
+
 [dev-dependencies]
 approx = { workspace = true }
 proptest = { workspace = true }
@@ -45,8 +48,13 @@ criterion = { workspace = true }
 [features]
 default = []
 parallel = ["rayon"]
+schemars = ["dep:schemars", "convex-core/schemars"]
 
 [[bench]]
 name = "spread_pv_kernel"
+harness = false
+
+[[bench]]
+name = "hedge_advisor"
 harness = false
 

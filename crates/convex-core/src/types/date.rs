@@ -23,6 +23,7 @@ use crate::error::{ConvexError, ConvexResult};
 /// assert_eq!(future.month(), 12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(transparent)]
 pub struct Date(NaiveDate);
 
