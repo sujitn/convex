@@ -223,23 +223,38 @@ pub struct Recommendation {
     pub reasons: Vec<RecommendationReason>,
 }
 
-/// Subtract trade DV01s from position DV01 bucket-by-bucket.
+/// Sum position DV01 with all trade DV01s, bucket-by-bucket.
+///
+/// Unions the tenor sets from `position.key_rate_buckets` and every trade's
+/// `key_rate_buckets` so trades with off-position tenors contribute rather
+/// than being silently dropped. Buckets are matched by `tenor_years` within
+/// 1e-9 tolerance.
 #[must_use]
 pub fn residual_from(position: &RiskProfile, trades: &[HedgeTrade]) -> ResidualRisk {
     let trade_dv01: f64 = trades.iter().map(|t| t.dv01).sum();
     let residual_dv01 = position.dv01 + trade_dv01;
 
     let mut buckets: Vec<KeyRateBucket> = position.key_rate_buckets.clone();
+    let mut add_to_bucket = |row: &KeyRateBucket| {
+        if let Some(existing) = buckets
+            .iter_mut()
+            .find(|b| (b.tenor_years - row.tenor_years).abs() < 1e-9)
+        {
+            existing.partial_dv01 += row.partial_dv01;
+        } else {
+            buckets.push(*row);
+        }
+    };
     for trade in trades {
         for tb in &trade.key_rate_buckets {
-            if let Some(b) = buckets
-                .iter_mut()
-                .find(|b| (b.tenor_years - tb.tenor_years).abs() < 1e-9)
-            {
-                b.partial_dv01 += tb.partial_dv01;
-            }
+            add_to_bucket(tb);
         }
     }
+    buckets.sort_by(|a, b| {
+        a.tenor_years
+            .partial_cmp(&b.tenor_years)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let residual_krd_l1_norm = buckets.iter().map(|b| b.partial_dv01.abs()).sum();
     ResidualRisk {
         residual_dv01,
@@ -381,6 +396,50 @@ mod tests {
             .unwrap();
         // Position 10Y = 150; trade 10Y = -500; residual = -350.
         assert!((ten.partial_dv01 - (-350.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn residual_unions_off_position_trade_tenors() {
+        let pos = position(500.0); // position has buckets at 5Y and 10Y only.
+        let trade = HedgeTrade {
+            instrument: HedgeInstrument::BondFuture(BondFuture {
+                contract_code: "TY".into(),
+                underlying_tenor_years: 10.0,
+                conversion_factor: 1.0,
+                contract_size_face: dec!(100_000),
+                currency: Currency::USD,
+            }),
+            quantity: -1.0,
+            dv01: -100.0,
+            // Trade exposes 2Y and 30Y too — neither in position's ladder.
+            key_rate_buckets: vec![
+                KeyRateBucket {
+                    tenor_years: 2.0,
+                    partial_dv01: -25.0,
+                },
+                KeyRateBucket {
+                    tenor_years: 10.0,
+                    partial_dv01: -50.0,
+                },
+                KeyRateBucket {
+                    tenor_years: 30.0,
+                    partial_dv01: -25.0,
+                },
+            ],
+        };
+        let r = residual_from(&pos, &[trade]);
+        let by_tenor: std::collections::HashMap<i64, f64> = r
+            .residual_buckets
+            .iter()
+            .map(|b| ((b.tenor_years * 10.0) as i64, b.partial_dv01))
+            .collect();
+        // Off-position tenors must appear in the residual.
+        assert_eq!(by_tenor[&20], -25.0); // 2Y bucket from trade only.
+        assert_eq!(by_tenor[&300], -25.0); // 30Y bucket from trade only.
+                                           // 10Y: position 150 + trade -50 = 100.
+        assert_eq!(by_tenor[&100], 150.0 - 50.0);
+        // L1 should include the off-position contributions.
+        assert!((r.residual_krd_l1_norm - (25.0 + 350.0 + 100.0 + 25.0)).abs() < 1e-9);
     }
 
     #[cfg(feature = "schemars")]

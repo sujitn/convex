@@ -205,15 +205,21 @@ fn synthetic_fixed_leg(
     fixed_rate: Decimal,
     settlement: Date,
 ) -> AnalyticsResult<FixedRateBond> {
-    let tenor_years = spec.tenor_years.round() as i32;
-    if tenor_years <= 0 {
+    if !(spec.tenor_years > 0.0) {
         return Err(AnalyticsError::InvalidInput(format!(
-            "InterestRateSwap: tenor_years too small ({})",
+            "InterestRateSwap: tenor_years must be > 0 (got {})",
+            spec.tenor_years
+        )));
+    }
+    let tenor_months = (spec.tenor_years * 12.0).round() as i32;
+    if tenor_months <= 0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "InterestRateSwap: tenor_years too small ({}; rounds to 0 months)",
             spec.tenor_years
         )));
     }
     let maturity = settlement
-        .add_years(tenor_years)
+        .add_months(tenor_months)
         .map_err(|e| AnalyticsError::InvalidInput(format!("swap maturity: {e}")))?;
 
     FixedRateBond::builder()

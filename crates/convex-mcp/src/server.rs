@@ -406,10 +406,11 @@ pub enum SpreadKind {
 pub struct ComputePositionRiskParams {
     /// Bond reference — id or inline spec.
     pub bond: BondRef,
-    /// Settlement date.
-    pub settlement: DateInput,
-    /// Trader mark.
-    pub mark: Mark,
+    /// Settlement date as ISO-8601 (`"YYYY-MM-DD"`).
+    pub settlement: String,
+    /// Trader mark as text (e.g. `"99.5C"`, `"4.65%@SA"`, `"+85bps@USD.SOFR"`).
+    /// Parsed via `Mark::from_str`.
+    pub mark: String,
     /// Discount curve reference.
     pub curve: CurveRef,
     /// Position face notional. Positive = long, negative = short.
@@ -1023,7 +1024,13 @@ impl ConvexMcpServer {
         })?;
         let (curve, curve_id) = self.resolve_curve(&params.curve)?;
         let curve_id_str = curve_id.unwrap_or_else(|| "<inline>".into());
-        let settlement = params.settlement.to_date()?;
+        let settlement = Date::parse(&params.settlement).map_err(|e| {
+            McpToolError::InvalidInput(format!("settlement '{}': {e}", params.settlement))
+        })?;
+        let mark: Mark = params
+            .mark
+            .parse()
+            .map_err(|e| McpToolError::InvalidInput(format!("mark '{}': {e}", params.mark)))?;
         let notional = finite_decimal(params.notional_face, "notional_face")?;
         let default_tenors = [2.0_f64, 5.0, 10.0, 30.0];
         let tenors_owned: Vec<f64>;
@@ -1037,7 +1044,7 @@ impl ConvexMcpServer {
         let profile = compute_position_risk(
             fixed,
             settlement,
-            &params.mark,
+            &mark,
             notional,
             &curve,
             &curve_id_str,
@@ -1374,14 +1381,11 @@ mod tests {
             .await
             .unwrap();
 
-        // Tool 1: compute_position_risk
+        // Tool 1: compute_position_risk — strings on the wire.
         let risk_params = ComputePositionRiskParams {
             bond: BondRef::Id("AAPL.10Y".into()),
-            settlement: date(2026, 1, 15),
-            mark: Mark::Yield {
-                value: dec!(0.0535),
-                frequency: Frequency::SemiAnnual,
-            },
+            settlement: "2026-01-15".into(),
+            mark: "5.35%@SA".into(),
             curve: CurveRef::Id("usd_sofr".into()),
             notional_face: 10_000_000.0,
             quote_frequency: None,

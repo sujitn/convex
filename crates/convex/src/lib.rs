@@ -34,8 +34,8 @@ pub use convex_analytics::functions::{
 pub use convex_analytics::pricing::{price_from_mark, PricingResult};
 pub use convex_analytics::risk::{
     compare_hedges, compute_position_risk, duration_futures, interest_rate_swap, narrate,
-    BondFuture, ComparisonReport, Constraints, HedgeInstrument, HedgeProposal, HedgeTrade,
-    InterestRateSwap, KeyRateBucket, Provenance, Recommendation, RecommendationReason,
+    BondFuture, ComparisonReport, ComparisonRow, Constraints, HedgeInstrument, HedgeProposal,
+    HedgeTrade, InterestRateSwap, KeyRateBucket, Provenance, Recommendation, RecommendationReason,
     ResidualRisk, RiskProfile, SwapSide, TradeoffNotes,
 };
 pub use convex_analytics::spreads::{
