@@ -218,6 +218,43 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_proposal_with_dropped_optional_fields() {
+        // Mirrors the LLM-round-trip failure mode where an agent re-emits a
+        // proposal but drops `provenance`, `tradeoffs`, and trade-level
+        // `key_rate_buckets`. Required fields stay; optional ones default.
+        let json = r#"{
+            "strategy": "DurationFutures",
+            "trades": [{
+                "instrument": {
+                    "instrument": "bond_future",
+                    "contract_code": "TY",
+                    "underlying_tenor_years": 10.0,
+                    "conversion_factor": 1.0,
+                    "contract_size_face": 100000.0,
+                    "currency": "USD"
+                },
+                "quantity": -76.5,
+                "dv01": -7000.0
+            }],
+            "residual": {
+                "residual_dv01": 0.0,
+                "residual_krd_l1_norm": 1500.0
+            },
+            "cost_bps": 0.25,
+            "cost_total": 200.0
+        }"#;
+        let parsed: HedgeProposal = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.trades[0].key_rate_buckets.len(), 0);
+        assert_eq!(parsed.residual.residual_buckets.len(), 0);
+        assert_eq!(parsed.tradeoffs, TradeoffNotes::default());
+        assert_eq!(parsed.provenance.cost_model, "");
+
+        // Compare still works against this lean proposal.
+        let r = compare_hedges(&position(), &[parsed], &Constraints::default()).unwrap();
+        assert_eq!(r.recommendation.strategy, "DurationFutures");
+    }
+
+    #[test]
     fn picks_lowest_cost_when_unconstrained() {
         let proposals = [
             proposal_named("DurationFutures", 0.25, 1500.0),

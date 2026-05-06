@@ -36,14 +36,17 @@ pub struct KeyRateBucket {
 
 /// Audit metadata stamped on advisor outputs. Only the non-redundant bits
 /// (the bond and curve are already visible to the caller).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Provenance {
     /// Curve ids used (discount, projection, govt).
+    #[serde(default)]
     pub curves_used: Vec<String>,
     /// Cost-model name (`"heuristic_v1"` for v1).
+    #[serde(default)]
     pub cost_model: String,
     /// `convex-analytics` crate version.
+    #[serde(default)]
     pub advisor_version: String,
 }
 
@@ -81,8 +84,12 @@ pub struct RiskProfile {
     /// Total position DV01 in `currency`.
     pub dv01: f64,
     /// Per-tenor DV01 buckets, ascending.
+    #[serde(default)]
     pub key_rate_buckets: Vec<KeyRateBucket>,
-    /// Audit metadata.
+    /// Audit metadata. Defaulted to empty when omitted by an LLM-driven
+    /// caller round-tripping the struct — the analytics-side computation
+    /// re-stamps it on the way out.
+    #[serde(default)]
     pub provenance: Provenance,
 }
 

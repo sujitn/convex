@@ -93,7 +93,10 @@ pub struct HedgeTrade {
     /// Trade DV01 in instrument currency, signed.
     pub dv01: f64,
     /// Per-tenor DV01 buckets for the trade, on the same ladder as the
-    /// position.
+    /// position. Optional on the wire so an LLM-driven round-trip that
+    /// omits the buckets still parses; downstream just sees an empty
+    /// ladder for that trade.
+    #[serde(default)]
     pub key_rate_buckets: Vec<KeyRateBucket>,
 }
 
@@ -119,7 +122,8 @@ pub struct Constraints {
 pub struct ResidualRisk {
     /// `position.dv01 + Σ trade.dv01`.
     pub residual_dv01: f64,
-    /// Per-tenor residual buckets.
+    /// Per-tenor residual buckets. Optional on the wire — see `HedgeTrade::key_rate_buckets`.
+    #[serde(default)]
     pub residual_buckets: Vec<KeyRateBucket>,
     /// Σ |bucket.partial_dv01| — scalar curvature measure.
     pub residual_krd_l1_norm: f64,
@@ -152,9 +156,12 @@ pub struct HedgeProposal {
     /// Cost in position currency.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub cost_total: Decimal,
-    /// Tradeoff notes.
+    /// Tradeoff notes. Optional on the wire so a round-trip that drops the
+    /// notes still parses.
+    #[serde(default)]
     pub tradeoffs: TradeoffNotes,
-    /// Audit metadata.
+    /// Audit metadata. Optional on the wire — see `RiskProfile::provenance`.
+    #[serde(default)]
     pub provenance: Provenance,
 }
 
