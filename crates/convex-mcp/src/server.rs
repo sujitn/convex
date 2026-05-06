@@ -16,12 +16,12 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    barbell_futures, compare_hedges, compute_position_risk, duration_futures, interest_rate_swap,
-    narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond,
-    ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention, Deposit,
-    DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter, HedgeProposal,
-    ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn,
-    RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
+    interest_rate_swap, narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule,
+    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
+    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
+    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
+    RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
 
 use crate::error::McpToolError;
@@ -336,16 +336,17 @@ pub struct CreateCurveParams {
     pub spec: CurveSpec,
 }
 
-/// Pricing tool input. `mark` is the canonical [`Mark`] enum,
-/// tagged with `mark` for JSON (e.g. `{"mark":"price","value":99.5,"kind":"clean"}`).
+/// Pricing tool input. `mark` is parsed via [`Mark::from_str`] (e.g. `"99.5C"`,
+/// `"4.65%@SA"`, `"+85bps@USD.SOFR"`); `settlement` is ISO-8601.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct PriceBondParams {
-    /// Bond reference — id or inline spec.
+    /// Bond — inline spec is recommended for stateless calls; an id only
+    /// works if the bond was created earlier in this session.
     pub bond: BondRef,
-    /// Settlement date.
-    pub settlement: DateInput,
-    /// Trader mark.
-    pub mark: Mark,
+    /// Settlement date as ISO-8601 (`"YYYY-MM-DD"`).
+    pub settlement: String,
+    /// Trader mark as text (e.g. `"99.5C"`, `"4.65%@SA"`, `"+85bps@USD.SOFR"`).
+    pub mark: String,
     /// Discount curve. Required for spread marks; optional otherwise.
     #[serde(default)]
     pub curve: Option<CurveRef>,
@@ -697,7 +698,13 @@ impl ConvexMcpServer {
         Parameters(params): Parameters<PriceBondParams>,
     ) -> Result<CallToolResult, McpError> {
         let (bond, bond_id) = self.resolve_bond(&params.bond)?;
-        let settlement = params.settlement.to_date()?;
+        let settlement = Date::parse(&params.settlement).map_err(|e| {
+            McpToolError::InvalidInput(format!("settlement '{}': {e}", params.settlement))
+        })?;
+        let mark: Mark = params
+            .mark
+            .parse()
+            .map_err(|e| McpToolError::InvalidInput(format!("mark '{}': {e}", params.mark)))?;
         let (curve, curve_id) = match &params.curve {
             Some(r) => {
                 let (c, id) = self.resolve_curve(r)?;
@@ -715,7 +722,7 @@ impl ConvexMcpServer {
         })?;
         let freq = params.quote_frequency.unwrap_or_else(|| fixed.frequency());
 
-        let result = price_from_mark(fixed, settlement, &params.mark, curve_dyn, freq)
+        let result = price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
             .map_err(McpToolError::from)?;
 
         Self::json_result(&PriceBondOutput {
@@ -1076,7 +1083,8 @@ impl ConvexMcpServer {
     #[tool(
         description = "Propose hedges for a risk profile. Ships DurationFutures (single \
         contract, parallel-DV01 match), BarbellFutures (two contracts, parallel + dominant \
-        KRD match), and InterestRateSwap (tenor-matched, parallel-DV01 match). \
+        KRD match), CashBondPair (short on-the-run sovereign sized to DV01), and \
+        InterestRateSwap (tenor-matched, parallel-DV01 match). \
         `constraints.allowed_strategies` restricts the set (empty = all). Each proposal \
         includes trades, residual KRD, heuristic cost, tradeoff notes, and provenance. Pass \
         `curve` as an inline spec for a stateless call."
@@ -1125,6 +1133,18 @@ impl ConvexMcpServer {
                 }
                 Err(_) => {}
             }
+        }
+        if run("CashBondPair") {
+            proposals.push(
+                cash_bond_pair(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                )
+                .map_err(McpToolError::from)?,
+            );
         }
         if run("InterestRateSwap") {
             proposals.push(
@@ -1475,9 +1495,14 @@ mod tests {
                 .unwrap(),
         );
         let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
-        // v1 ships 3 strategies: DurationFutures, BarbellFutures, InterestRateSwap.
-        assert_eq!(proposed.proposals.len(), 3);
-        for name in ["DurationFutures", "BarbellFutures", "InterestRateSwap"] {
+        // Ships 4 strategies: DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap.
+        assert_eq!(proposed.proposals.len(), 4);
+        for name in [
+            "DurationFutures",
+            "BarbellFutures",
+            "CashBondPair",
+            "InterestRateSwap",
+        ] {
             assert!(
                 proposed.proposals.iter().any(|p| p.strategy == name),
                 "missing strategy {name}"
@@ -1500,7 +1525,7 @@ mod tests {
                 .unwrap(),
         );
         let report: ComparisonReport = serde_json::from_str(&comparison_text).unwrap();
-        assert_eq!(report.rows.len(), 3);
+        assert_eq!(report.rows.len(), 4);
         assert_eq!(report.recommendation.strategy, "DurationFutures");
 
         // Tool 4: narrate_recommendation
@@ -1578,7 +1603,7 @@ mod tests {
                 risk: profile,
                 curve: CurveRef::Spec(curve_spec),
                 constraints: Some(Constraints {
-                    allowed_strategies: vec!["CashBondPair".into()],
+                    allowed_strategies: vec!["NotARealStrategy".into()],
                     ..Default::default()
                 }),
             }))
