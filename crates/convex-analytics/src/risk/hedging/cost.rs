@@ -6,6 +6,7 @@
 //! `provenance.cost_model = "heuristic_v1"` so the source is unambiguous.
 
 use super::types::HedgeInstrument;
+use convex_core::types::Currency;
 
 /// Source of cost numbers, for traceability on outputs.
 pub trait CostModel {
@@ -45,6 +46,15 @@ impl CostModel for HeuristicCostModel {
                     1.0
                 }
             }
+            // On-the-run sovereigns: USTs trade ~1 bp at the front, wider at
+            // the long end; off-the-run / non-USD wider still.
+            HedgeInstrument::CashBond(c) => match (c.currency, c.tenor_years) {
+                (Currency::USD, t) if t <= 5.0 => 1.0,
+                (Currency::USD, t) if t <= 10.0 => 1.5,
+                (Currency::USD, _) => 2.5,
+                (Currency::GBP, _) | (Currency::EUR, _) => 2.0,
+                _ => 3.0,
+            },
         }
     }
 

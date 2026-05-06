@@ -10,8 +10,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rust_decimal_macros::dec;
 
 use convex_analytics::risk::{
-    barbell_futures, compare_hedges, compute_position_risk, duration_futures, interest_rate_swap,
-    narrate, Constraints,
+    barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
+    interest_rate_swap, narrate, Constraints,
 };
 use convex_bonds::instruments::FixedRateBond;
 use convex_core::daycounts::DayCountConvention;
@@ -93,12 +93,13 @@ fn bench_advisor(c: &mut Criterion) {
     .unwrap();
     let cs = Constraints::default();
 
-    c.bench_function("propose_three_strategies", |b| {
+    c.bench_function("propose_four_strategies", |b| {
         b.iter(|| {
             let f = duration_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
             let bb = barbell_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let cb = cash_bond_pair(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
-            black_box((f, bb, s))
+            black_box((f, bb, cb, s))
         })
     });
 
@@ -118,8 +119,9 @@ fn bench_advisor(c: &mut Criterion) {
             .unwrap();
             let f = duration_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
             let bb = barbell_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let cb = cash_bond_pair(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let report = compare_hedges(&p, &[f, bb, s], &cs).unwrap();
+            let report = compare_hedges(&p, &[f, bb, cb, s], &cs).unwrap();
             let text = narrate(&report);
             black_box(text)
         })

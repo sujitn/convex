@@ -18,10 +18,12 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 
 use super::cost::{CostModel, HeuristicCostModel};
-use super::instruments::{bond_future_risk, interest_rate_swap_risk, BondFutureRisk};
+use super::instruments::{
+    bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk,
+};
 use super::types::{
-    residual_from, BondFuture, Constraints, HedgeInstrument, HedgeProposal, HedgeTrade,
-    InterestRateSwap, SwapSide, TradeoffNotes,
+    residual_from, BondFuture, CashBondLeg, Constraints, HedgeInstrument, HedgeProposal,
+    HedgeTrade, InterestRateSwap, SwapSide, TradeoffNotes,
 };
 
 /// Strategy that neutralizes parallel DV01 with a single bond future.
@@ -283,6 +285,118 @@ fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -
     }
 }
 
+/// Strategy that neutralizes DV01 by shorting a duration-matched on-the-run
+/// sovereign bond (UST / Bund / Gilt). Most-asked-for hedge on real desks
+/// when the trader wants to keep curve exposure but neutralize rates risk
+/// without futures roll or bilateral swap docs.
+///
+/// Sizes the cash-bond face to `−position.dv01 / cash_bond_dv01_per_unit_face`
+/// after probing risk on a unit face, then re-pricing with the final face for
+/// the trade record.
+pub fn cash_bond_pair(
+    position: &RiskProfile,
+    constraints: &Constraints,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    discount_curve_id: &str,
+    settlement: Date,
+) -> AnalyticsResult<HedgeProposal> {
+    let tenor_years = pick_swap_tenor(position);
+    let coupon = otr_par_coupon(discount_curve, settlement, tenor_years)?;
+
+    // Probe with a unit face to learn DV01 per unit face; scale linearly.
+    let unit_leg = CashBondLeg {
+        tenor_years,
+        coupon_rate_decimal: coupon,
+        currency: position.currency,
+        face_amount: Decimal::ONE,
+    };
+    let key_rate_tenors: Vec<f64> = position
+        .key_rate_buckets
+        .iter()
+        .map(|b| b.tenor_years)
+        .collect();
+    let unit_risk = cash_bond_risk(
+        &unit_leg,
+        discount_curve,
+        discount_curve_id,
+        settlement,
+        Some(&key_rate_tenors),
+    )?;
+    if unit_risk.dv01.abs() < 1e-12 {
+        return Err(AnalyticsError::CalculationFailed(
+            "cash bond unit DV01 is zero".into(),
+        ));
+    }
+    let face_f64 = -position.dv01 / unit_risk.dv01;
+    let face_amount = Decimal::from_f64_retain(face_f64).ok_or_else(|| {
+        AnalyticsError::CalculationFailed(format!(
+            "cash bond sizing produced non-finite face: {face_f64}"
+        ))
+    })?;
+
+    let final_leg = CashBondLeg {
+        face_amount,
+        ..unit_leg
+    };
+    let trade = HedgeTrade {
+        instrument: HedgeInstrument::CashBond(final_leg),
+        quantity: face_f64.signum(),
+        dv01: unit_risk.dv01 * face_f64,
+        key_rate_buckets: unit_risk
+            .buckets
+            .into_iter()
+            .map(|b| KeyRateBucket {
+                tenor_years: b.tenor_years,
+                partial_dv01: b.partial_dv01 * face_f64,
+            })
+            .collect(),
+    };
+    let residual = residual_from(position, std::slice::from_ref(&trade));
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
+
+    let provenance = strategy_provenance(position, discount_curve_id);
+    let mut tradeoffs = TradeoffNotes {
+        strengths: vec![
+            "Cash bond — no roll, no margin, no CTD basis".into(),
+            "Tenor-matched on-the-run; tracks curve cleanly".into(),
+        ],
+        weaknesses: vec![
+            "Wider bid-ask than a listed future".into(),
+            "Funding cost (repo) on the short leg; not modelled in v1".into(),
+        ],
+    };
+    tag_constraint_violations(
+        constraints,
+        &residual.residual_dv01,
+        cost_bps,
+        &mut tradeoffs,
+    );
+
+    Ok(HedgeProposal {
+        strategy: "CashBondPair".into(),
+        trades: vec![trade],
+        residual,
+        cost_bps,
+        cost_total,
+        tradeoffs,
+        provenance,
+    })
+}
+
+/// Par coupon for a synthetic on-the-run sovereign at `tenor_years`. Reads
+/// the par swap rate against the discount curve as a proxy — fine for
+/// near-flat curves and good enough for the Z-flat pricing the strategy
+/// does next.
+fn otr_par_coupon(
+    discount_curve: &RateCurve<DiscreteCurve>,
+    settlement: Date,
+    tenor_years: f64,
+) -> AnalyticsResult<f64> {
+    let t_maturity = curve_tenor_to(discount_curve, settlement) + tenor_years;
+    RateCurveDyn::par_swap_rate(discount_curve, t_maturity, 2)
+        .map_err(|e| AnalyticsError::CurveError(e.to_string()))
+}
+
 /// Strategy that neutralizes DV01 with a tenor-matched IRS.
 ///
 /// Builds a pay-fixed (long bond → +DV01) or receive-fixed (short bond)
@@ -508,6 +622,7 @@ fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal
                 trade.quantity.abs() * spec.contract_size_face.to_f64().unwrap_or(0.0)
             }
             HedgeInstrument::InterestRateSwap(spec) => spec.notional.to_f64().unwrap_or(0.0).abs(),
+            HedgeInstrument::CashBond(spec) => spec.face_amount.to_f64().unwrap_or(0.0).abs(),
         };
         total += leg_notional * model.cost_bps(&trade.instrument) / 10_000.0;
     }
@@ -795,6 +910,48 @@ mod tests {
         pos.key_rate_buckets.clear();
         let err = barbell_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn cash_bond_pair_neutralizes_dv01() {
+        let (pos, curve) = long_10y_corporate();
+        let p = cash_bond_pair(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
+        assert!(
+            resid_pct < 0.001,
+            "residual DV01 {} should be <0.1% of position DV01 {}; got {resid_pct}",
+            p.residual.residual_dv01,
+            pos.dv01
+        );
+        assert_eq!(p.trades.len(), 1);
+        match &p.trades[0].instrument {
+            HedgeInstrument::CashBond(c) => {
+                assert_eq!(c.currency, Currency::USD);
+                assert_eq!(c.tenor_years, 10.0);
+                // Long bond hedged by SHORT cash bond → negative face_amount.
+                let face = c.face_amount.to_f64().unwrap_or(0.0);
+                assert!(
+                    face < 0.0,
+                    "long bond → short cash bond hedge; got face {face}"
+                );
+            }
+            other => panic!("expected CashBond, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cash_bond_pair_provenance_carries_curve_and_cost_model() {
+        let (pos, curve) = long_10y_corporate();
+        let p = cash_bond_pair(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "usd_sofr",
+            d(2026, 1, 15),
+        )
+        .unwrap();
+        assert_eq!(p.provenance.cost_model, "heuristic_v1");
+        assert!(p.provenance.curves_used.contains(&"usd_sofr".to_string()));
     }
 
     #[test]

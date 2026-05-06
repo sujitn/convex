@@ -49,12 +49,13 @@ pub use duration::{
 };
 pub use dv01::{dv01_from_duration, dv01_from_prices, dv01_per_100_face, notional_from_dv01, DV01};
 pub use hedging::{
-    aggregate_portfolio_risk, barbell_futures, bond_future_risk, compare_hedges, duration_futures,
-    duration_hedge_ratio, dv01_hedge_ratio, interest_rate_swap, interest_rate_swap_risk, narrate,
-    residual_from, BondFuture, BondFutureRisk, ComparisonReport, ComparisonRow, Constraints,
-    CostModel, HedgeDirection, HedgeInstrument, HedgeProposal, HedgeRecommendation, HedgeTrade,
-    HeuristicCostModel, InterestRateSwap, InterestRateSwapRisk, PortfolioRisk, Position,
-    Recommendation, RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes,
+    aggregate_portfolio_risk, barbell_futures, bond_future_risk, cash_bond_pair, cash_bond_risk,
+    compare_hedges, duration_futures, duration_hedge_ratio, dv01_hedge_ratio, interest_rate_swap,
+    interest_rate_swap_risk, narrate, residual_from, BondFuture, BondFutureRisk, CashBondLeg,
+    CashBondRisk, ComparisonReport, ComparisonRow, Constraints, CostModel, HedgeDirection,
+    HedgeInstrument, HedgeProposal, HedgeRecommendation, HedgeTrade, HeuristicCostModel,
+    InterestRateSwap, InterestRateSwapRisk, PortfolioRisk, Position, Recommendation,
+    RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes,
 };
 pub use profile::{compute_position_risk, KeyRateBucket, Provenance, RiskProfile};
 pub use var::{historical_var, parametric_var, parametric_var_from_dv01, VaRMethod, VaRResult};

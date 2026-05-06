@@ -18,7 +18,7 @@ use convex_curves::{DiscreteCurve, RateCurve};
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::{compute_position_risk, KeyRateBucket};
 
-use super::types::{BondFuture, InterestRateSwap, SwapSide};
+use super::types::{BondFuture, CashBondLeg, InterestRateSwap, SwapSide};
 
 /// Risk of one bond-future contract in `spec.currency`.
 #[derive(Debug, Clone, PartialEq)]
@@ -233,6 +233,106 @@ fn synthetic_fixed_leg(
         .day_count(spec.fixed_day_count)
         .build()
         .map_err(|e| AnalyticsError::BondError(format!("swap fixed leg build: {e}")))
+}
+
+/// Risk of a cash on-the-run bond hedge leg, signed by `face_amount`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CashBondRisk {
+    /// Total leg DV01 in `spec.currency`, signed by `face_amount`.
+    pub dv01: f64,
+    /// Per-tenor partial DV01s, signed.
+    pub buckets: Vec<KeyRateBucket>,
+}
+
+/// Compute DV01 + KRD for a [`CashBondLeg`].
+///
+/// Builds a synthetic on-the-run government bond (par-coupon at the spec's
+/// `coupon_rate_decimal`, country-standard sovereign conventions), prices it
+/// Z-flat to the discount curve, scales by `face_amount`. Sign of the result
+/// follows `face_amount`: a short position (`face_amount < 0`) produces
+/// negative DV01 (gains when rates rise).
+pub fn cash_bond_risk(
+    spec: &CashBondLeg,
+    curve: &RateCurve<DiscreteCurve>,
+    curve_id: &str,
+    settlement: Date,
+    key_rate_tenors: Option<&[f64]>,
+) -> AnalyticsResult<CashBondRisk> {
+    if !spec.tenor_years.is_finite() || spec.tenor_years <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "CashBondLeg: tenor_years must be a finite positive number (got {})",
+            spec.tenor_years
+        )));
+    }
+    let coupon = Decimal::from_f64_retain(spec.coupon_rate_decimal).ok_or_else(|| {
+        AnalyticsError::InvalidInput(format!(
+            "CashBondLeg: coupon_rate_decimal not finite ({})",
+            spec.coupon_rate_decimal
+        ))
+    })?;
+    let bond = synthetic_otr_bond(spec.currency, coupon, spec.tenor_years, settlement)?;
+
+    let mark = Mark::Spread {
+        value: Spread::new(Decimal::ZERO, SpreadType::ZSpread),
+        benchmark: curve_id.to_string(),
+    };
+    let profile = compute_position_risk(
+        &bond,
+        settlement,
+        &mark,
+        spec.face_amount,
+        curve,
+        curve_id,
+        None,
+        key_rate_tenors,
+        None,
+    )?;
+    Ok(CashBondRisk {
+        dv01: profile.dv01,
+        buckets: profile.key_rate_buckets,
+    })
+}
+
+/// Build a synthetic on-the-run sovereign bond with `coupon` and tenor
+/// `tenor_years` from `settlement`. Uses the country's standard preset.
+fn synthetic_otr_bond(
+    currency: Currency,
+    coupon: Decimal,
+    tenor_years: f64,
+    settlement: Date,
+) -> AnalyticsResult<FixedRateBond> {
+    let tenor_months = (tenor_years * 12.0).round() as i32;
+    if tenor_months <= 0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "CashBondLeg: tenor_years too small ({}; rounds to 0 months)",
+            tenor_years
+        )));
+    }
+    let maturity = settlement
+        .add_months(tenor_months)
+        .map_err(|e| AnalyticsError::InvalidInput(format!("OTR bond maturity: {e}")))?;
+
+    let mut builder = FixedRateBond::builder()
+        .identifiers(BondIdentifiers::new())
+        .coupon_rate(coupon)
+        .face_value(dec!(100))
+        .maturity(maturity)
+        .issue_date(settlement);
+
+    builder = match currency {
+        Currency::USD => builder.us_treasury(),
+        Currency::GBP => builder.uk_gilt(),
+        Currency::EUR => builder.german_bund(),
+        other => {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "CashBondLeg: no sovereign convention preset for currency {other:?}"
+            )))
+        }
+    };
+
+    builder
+        .build()
+        .map_err(|e| AnalyticsError::BondError(format!("OTR bond build: {e}")))
 }
 
 #[cfg(test)]
@@ -488,6 +588,126 @@ mod tests {
         let mut spec = sofr_swap(SwapSide::PayFixed, 10.0, dec!(1_000_000));
         spec.tenor_years = 0.0;
         let err = interest_rate_swap_risk(&spec, &curve, "c", d(2026, 1, 15), None);
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    // ---- CashBondLeg ----------------------------------------------------
+
+    fn ust(face: Decimal, tenor: f64) -> CashBondLeg {
+        CashBondLeg {
+            tenor_years: tenor,
+            coupon_rate_decimal: 0.045,
+            currency: Currency::USD,
+            face_amount: face,
+        }
+    }
+
+    #[test]
+    fn long_cash_bond_has_positive_dv01() {
+        let curve = flat_curve(0.045);
+        let r = cash_bond_risk(
+            &ust(dec!(10_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
+        assert!(
+            r.dv01 > 0.0,
+            "long UST DV01 should be positive; got {}",
+            r.dv01
+        );
+    }
+
+    #[test]
+    fn short_cash_bond_flips_dv01_sign() {
+        let curve = flat_curve(0.045);
+        let long = cash_bond_risk(
+            &ust(dec!(10_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
+        let short = cash_bond_risk(
+            &ust(dec!(-10_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
+        assert_relative_eq!(long.dv01, -short.dv01, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn cash_bond_dv01_scales_linearly_with_face() {
+        let curve = flat_curve(0.045);
+        let small = cash_bond_risk(
+            &ust(dec!(1_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
+        let big = cash_bond_risk(
+            &ust(dec!(10_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
+        assert_relative_eq!(big.dv01, small.dv01 * 10.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn ten_year_cash_bond_concentrates_krd_at_ten_years() {
+        let curve = flat_curve(0.045);
+        let tenors = [2.0, 5.0, 10.0, 30.0];
+        let r = cash_bond_risk(
+            &ust(dec!(10_000_000), 10.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            Some(&tenors),
+        )
+        .unwrap();
+        let by: std::collections::HashMap<i64, f64> = r
+            .buckets
+            .iter()
+            .map(|b| ((b.tenor_years * 10.0) as i64, b.partial_dv01))
+            .collect();
+        let ten = by[&100].abs();
+        let two = by[&20].abs();
+        assert!(
+            ten > two * 5.0,
+            "10Y bond should concentrate KRD at 10Y (got |10Y|={ten}, |2Y|={two})"
+        );
+    }
+
+    #[test]
+    fn cash_bond_zero_tenor_errors() {
+        let curve = flat_curve(0.045);
+        let err = cash_bond_risk(
+            &ust(dec!(1_000_000), 0.0),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        );
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn cash_bond_unsupported_currency_errors() {
+        let curve = flat_curve(0.045);
+        let mut spec = ust(dec!(1_000_000), 10.0);
+        spec.currency = Currency::JPY;
+        let err = cash_bond_risk(&spec, &curve, "c", d(2026, 1, 15), None);
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 }

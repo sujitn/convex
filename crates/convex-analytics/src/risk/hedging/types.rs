@@ -21,6 +21,9 @@ pub enum HedgeInstrument {
     BondFuture(BondFuture),
     /// Vanilla single-currency interest-rate swap.
     InterestRateSwap(InterestRateSwap),
+    /// Cash on-the-run government bond (UST, Bund, Gilt) used as a hedge.
+    /// Wider bid-ask than futures but no roll, no margin, and no CTD basis.
+    CashBond(CashBondLeg),
 }
 
 /// Side of a swap from the position's perspective.
@@ -55,6 +58,27 @@ pub struct BondFuture {
     pub contract_size_face: Decimal,
     /// Contract currency.
     pub currency: Currency,
+}
+
+/// On-the-run government bond hedge leg. v1 builds a synthetic deliverable
+/// (par coupon at the curve's yield at tenor) using the country's standard
+/// sovereign conventions (US Treasury Note/Bond / UK Gilt / German Bund).
+///
+/// `face_amount` is signed (positive = long, negative = short). The
+/// strategy that builds it sizes face to neutralize the position's DV01.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct CashBondLeg {
+    /// Tenor at issue (e.g. 10.0 for an on-the-run 10Y).
+    pub tenor_years: f64,
+    /// Annual coupon as decimal (`0.045` = 4.5%).
+    pub coupon_rate_decimal: f64,
+    /// Currency — picks the sovereign convention (USD → UST, GBP → Gilt,
+    /// EUR → Bund).
+    pub currency: Currency,
+    /// Signed face amount in `currency`.
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub face_amount: Decimal,
 }
 
 /// Interest-rate swap descriptor (single-currency vanilla).

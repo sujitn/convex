@@ -317,7 +317,7 @@ mod tests {
     fn allowed_strategies_with_no_match_errors() {
         let proposals = [proposal_named("DurationFutures", 0.25, 1500.0)];
         let constraints = Constraints {
-            allowed_strategies: vec!["CashBondPair".into()],
+            allowed_strategies: vec!["NotARealStrategy".into()],
             ..Default::default()
         };
         let err = compare_hedges(&position(), &proposals, &constraints);
