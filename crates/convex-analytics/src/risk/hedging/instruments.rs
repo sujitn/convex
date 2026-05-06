@@ -81,44 +81,15 @@ pub fn bond_future_risk(
     })
 }
 
-/// Build the representative deliverable for a contract code.
-///
-/// v1 uses a synthetic 6%-coupon par-tenor bond (the CBOT reference shape).
-/// Issued on `settlement` (no accrued at t0). Conventions are picked from the
-/// existing builder presets so we don't hand-roll calendars.
+/// Representative CBOT deliverable for a futures contract: a 6%-coupon
+/// sovereign at the contract's underlying tenor.
 fn representative_ctd(spec: &BondFuture, settlement: Date) -> AnalyticsResult<FixedRateBond> {
-    let tenor_years = spec.underlying_tenor_years.round() as i32;
-    if tenor_years <= 0 {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "BondFuture: underlying_tenor_years must be > 0 (got {})",
-            spec.underlying_tenor_years
-        )));
-    }
-    let maturity = settlement
-        .add_years(tenor_years)
-        .map_err(|e| AnalyticsError::InvalidInput(format!("CTD maturity: {e}")))?;
-
-    let mut builder = FixedRateBond::builder()
-        .identifiers(BondIdentifiers::new())
-        .coupon_rate(dec!(0.06))
-        .face_value(dec!(100))
-        .maturity(maturity)
-        .issue_date(settlement);
-
-    builder = match spec.currency {
-        Currency::USD => builder.us_treasury(),
-        Currency::GBP => builder.uk_gilt(),
-        Currency::EUR => builder.german_bund(),
-        other => {
-            return Err(AnalyticsError::InvalidInput(format!(
-                "BondFuture: no representative deliverable preset for currency {other:?}"
-            )))
-        }
-    };
-
-    builder
-        .build()
-        .map_err(|e| AnalyticsError::BondError(format!("CTD build: {e}")))
+    synthetic_sovereign_bond(
+        spec.currency,
+        dec!(0.06),
+        spec.underlying_tenor_years,
+        settlement,
+    )
 }
 
 /// Risk of an interest-rate swap, signed from the position's perspective:
@@ -270,7 +241,7 @@ pub fn cash_bond_risk(
             spec.coupon_rate_decimal
         ))
     })?;
-    let bond = synthetic_otr_bond(spec.currency, coupon, spec.tenor_years, settlement)?;
+    let bond = synthetic_sovereign_bond(spec.currency, coupon, spec.tenor_years, settlement)?;
 
     let mark = Mark::Spread {
         value: Spread::new(Decimal::ZERO, SpreadType::ZSpread),
@@ -293,9 +264,12 @@ pub fn cash_bond_risk(
     })
 }
 
-/// Build a synthetic on-the-run sovereign bond with `coupon` and tenor
-/// `tenor_years` from `settlement`. Uses the country's standard preset.
-fn synthetic_otr_bond(
+/// Build a synthetic sovereign bond at `tenor_years` from `settlement` with
+/// `coupon`, using the country's standard market conventions
+/// (`us_treasury` / `uk_gilt` / `german_bund` from `convex-bonds`). Issued on
+/// `settlement` so accrued is zero at t0. Used by both the CBOT reference
+/// CTD and the on-the-run cash-bond hedge leg.
+fn synthetic_sovereign_bond(
     currency: Currency,
     coupon: Decimal,
     tenor_years: f64,
@@ -304,13 +278,12 @@ fn synthetic_otr_bond(
     let tenor_months = (tenor_years * 12.0).round() as i32;
     if tenor_months <= 0 {
         return Err(AnalyticsError::InvalidInput(format!(
-            "CashBondLeg: tenor_years too small ({}; rounds to 0 months)",
-            tenor_years
+            "synthetic sovereign: tenor_years must round to >0 months (got {tenor_years})"
         )));
     }
     let maturity = settlement
         .add_months(tenor_months)
-        .map_err(|e| AnalyticsError::InvalidInput(format!("OTR bond maturity: {e}")))?;
+        .map_err(|e| AnalyticsError::InvalidInput(format!("sovereign maturity: {e}")))?;
 
     let mut builder = FixedRateBond::builder()
         .identifiers(BondIdentifiers::new())
@@ -325,14 +298,14 @@ fn synthetic_otr_bond(
         Currency::EUR => builder.german_bund(),
         other => {
             return Err(AnalyticsError::InvalidInput(format!(
-                "CashBondLeg: no sovereign convention preset for currency {other:?}"
+                "synthetic sovereign: no preset for currency {other:?}"
             )))
         }
     };
 
     builder
         .build()
-        .map_err(|e| AnalyticsError::BondError(format!("OTR bond build: {e}")))
+        .map_err(|e| AnalyticsError::BondError(format!("sovereign build: {e}")))
 }
 
 #[cfg(test)]

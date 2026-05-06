@@ -291,8 +291,15 @@ fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -
 /// without futures roll or bilateral swap docs.
 ///
 /// Sizes the cash-bond face to `−position.dv01 / cash_bond_dv01_per_unit_face`
-/// after probing risk on a unit face, then re-pricing with the final face for
-/// the trade record.
+/// by probing risk on a unit face, then scaling linearly.
+///
+/// v1 simplification: the synthetic OTR bond's coupon is the discount
+/// curve's par swap rate at the chosen tenor — the bond is thus issued at
+/// par against the discount curve, which gives correct DV01 sizing under
+/// Z-flat pricing. For a SOFR/€STR/SONIA discount this is the swap rate,
+/// not the actual on-the-run UST/Bund/Gilt coupon. The math holds because
+/// the strategy only needs DV01 neutrality, but a real OTR coupon would
+/// require an explicit govt curve — deferred to v2.
 pub fn cash_bond_pair(
     position: &RiskProfile,
     constraints: &Constraints,
