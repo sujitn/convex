@@ -16,6 +16,7 @@ Convex is a production-grade fixed income analytics library providing comprehens
 - **Yield Curves**: Bootstrap from market data with multiple interpolation methods
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
 - **Risk Metrics**: Duration (Macaulay, Modified, Effective, Key Rate), Convexity, DV01
+- **Hedge Advisor**: AI-friendly proposal layer — DV01-neutral hedges via bond futures or IRS, with structured tradeoffs and a deterministic narrator (research tool, not an execution recommender)
 - **Day Count Conventions**: ACT/360, ACT/365, 30/360, ACT/ACT (ICMA, ISDA)
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing
@@ -118,6 +119,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Hedge Advisor
+
+> **Research tool, not an execution recommender.** v1 uses synthetic representative deliverables for futures and a labeled `heuristic_v1` cost model. Every output stamps `provenance.cost_model` so the source is unambiguous.
+
+The advisor proposes DV01-neutral hedges and surfaces structured tradeoffs the trader picks from. Two strategies in v1: `DurationFutures` (single benchmark contract, sized to neutralize parallel DV01) and `InterestRateSwap` (tenor-matched payer or receiver, sized to match DV01). Both echo per-tenor residual KRD, a heuristic cost in bps of position MV, and a deterministic recommendation tag.
+
+### MCP tools
+
+```
+compute_position_risk(bond, settlement, mark, notional_face, curve, [key_rate_tenors])
+  -> RiskProfile { dv01, modified_duration, key_rate_buckets, ... , provenance }
+
+propose_hedges(risk, curve, [constraints])
+  -> [HedgeProposal { strategy, trades, residual, cost_bps, tradeoffs, provenance } × N]
+
+compare_hedges(position, proposals, [constraints])
+  -> ComparisonReport { rows, recommendation }
+
+narrate_recommendation(comparison)
+  -> { text }   # deterministic template; no LLM call in v1
+```
+
+### Demo invocation (Apple 10Y, $10mm long)
+
+```bash
+# 1. Start the MCP server (stdio).
+cargo run -p convex-mcp --bin convex-mcp-server
+
+# 2. Or as a library. End-to-end test that runs all four tools:
+cargo test -p convex-mcp --lib hedge_advisor_e2e
+```
+
+The Apple 10Y scenario produces a `DurationFutures` recommendation (lower
+cost) plus an `InterestRateSwap` alternative (smaller curvature residual),
+narrated as a single trader-brief paragraph. See
+`docs/hedge-advisor-{investigation,gaps,plan}.md` for the design and
+`docs/perf-baselines.md` for benchmarks (~24 µs per-position risk, ~230 µs
+end-to-end).
+
+### What's deferred to v2
+
+CTD optionality with repo financing; ETF proxy and key-rate-futures
+strategies; LLM-based narration; multi-position book hedging; FX delta;
+non-Z spread marks (OAS/I/G); real (non-heuristic) cost feeds; constraint
+enforcement on residual KRD beyond cost.
 
 ## Architecture
 
