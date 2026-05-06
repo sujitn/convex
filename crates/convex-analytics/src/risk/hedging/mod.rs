@@ -17,7 +17,7 @@ pub use instruments::{
 };
 pub use narrate::narrate;
 pub use portfolio::*;
-pub use strategies::{duration_futures, interest_rate_swap};
+pub use strategies::{barbell_futures, duration_futures, interest_rate_swap};
 pub use types::{
     residual_from, BondFuture, ComparisonReport, ComparisonRow, Constraints, HedgeInstrument,
     HedgeProposal, HedgeTrade, InterestRateSwap, Recommendation, RecommendationReason,

@@ -1,9 +1,8 @@
 //! End-to-end hedge advisor benchmarks.
 //!
-//! Three groups: per-position risk, propose-two-strategies, full chain
-//! (compute → propose → compare → narrate). v1 baseline targets
-//! `risk_profile_apple_10y` < 100 µs and `end_to_end` < 200 µs on the bench
-//! machine; numbers tracked in `docs/perf-baselines.md`.
+//! Three groups: per-position risk, propose-three-strategies, and the full
+//! chain (compute → propose → compare → narrate). Baseline numbers tracked
+//! in `docs/perf-baselines.md`.
 
 use std::hint::black_box;
 
@@ -11,8 +10,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rust_decimal_macros::dec;
 
 use convex_analytics::risk::{
-    compare_hedges, compute_position_risk, duration_futures, interest_rate_swap, narrate,
-    Constraints,
+    barbell_futures, compare_hedges, compute_position_risk, duration_futures, interest_rate_swap,
+    narrate, Constraints,
 };
 use convex_bonds::instruments::FixedRateBond;
 use convex_core::daycounts::DayCountConvention;
@@ -94,11 +93,12 @@ fn bench_advisor(c: &mut Criterion) {
     .unwrap();
     let cs = Constraints::default();
 
-    c.bench_function("propose_two_strategies", |b| {
+    c.bench_function("propose_three_strategies", |b| {
         b.iter(|| {
             let f = duration_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let bb = barbell_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
-            black_box((f, s))
+            black_box((f, bb, s))
         })
     });
 
@@ -117,8 +117,9 @@ fn bench_advisor(c: &mut Criterion) {
             )
             .unwrap();
             let f = duration_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let bb = barbell_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let report = compare_hedges(&p, &[f, s], &cs).unwrap();
+            let report = compare_hedges(&p, &[f, bb, s], &cs).unwrap();
             let text = narrate(&report);
             black_box(text)
         })

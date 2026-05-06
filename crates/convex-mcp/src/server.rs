@@ -16,12 +16,12 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    compare_hedges, compute_position_risk, duration_futures, interest_rate_swap, narrate,
-    price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond, ComparisonReport,
-    Compounding, Constraints, Currency, Date, DayCountConvention, Deposit, DiscreteCurve,
-    FixedRateBond, FloatingRateNote, Frequency, GlobalFitter, HedgeProposal, ISpreadCalculator,
-    InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn, RiskProfile, Swap,
-    ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    barbell_futures, compare_hedges, compute_position_risk, duration_futures, interest_rate_swap,
+    narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond,
+    ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention, Deposit,
+    DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter, HedgeProposal,
+    ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn,
+    RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
 };
 
 use crate::error::McpToolError;
@@ -1074,10 +1074,12 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Propose hedges for a risk profile. v1 ships DurationFutures + \
-        InterestRateSwap; `constraints.allowed_strategies` restricts the set (empty = both). \
-        Each proposal includes trades, residual KRD, heuristic cost, tradeoff notes, and \
-        provenance. Pass `curve` as an inline spec for a stateless call."
+        description = "Propose hedges for a risk profile. Ships DurationFutures (single \
+        contract, parallel-DV01 match), BarbellFutures (two contracts, parallel + dominant \
+        KRD match), and InterestRateSwap (tenor-matched, parallel-DV01 match). \
+        `constraints.allowed_strategies` restricts the set (empty = all). Each proposal \
+        includes trades, residual KRD, heuristic cost, tradeoff notes, and provenance. Pass \
+        `curve` as an inline spec for a stateless call."
     )]
     pub async fn propose_hedges(
         &self,
@@ -1105,6 +1107,24 @@ impl ConvexMcpServer {
                 )
                 .map_err(McpToolError::from)?,
             );
+        }
+        if run("BarbellFutures") {
+            // BarbellFutures requires a non-empty key-rate ladder; if the
+            // position lacks one, surface the error only when the trader
+            // explicitly asked for the strategy. Otherwise silently skip.
+            match barbell_futures(
+                &params.risk,
+                &constraints,
+                &curve,
+                &curve_id_str,
+                settlement,
+            ) {
+                Ok(p) => proposals.push(p),
+                Err(e) if !constraints.allowed_strategies.is_empty() => {
+                    return Err(McpToolError::from(e).into())
+                }
+                Err(_) => {}
+            }
         }
         if run("InterestRateSwap") {
             proposals.push(
@@ -1455,15 +1475,14 @@ mod tests {
                 .unwrap(),
         );
         let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
-        assert_eq!(proposed.proposals.len(), 2);
-        assert!(proposed
-            .proposals
-            .iter()
-            .any(|p| p.strategy == "DurationFutures"));
-        assert!(proposed
-            .proposals
-            .iter()
-            .any(|p| p.strategy == "InterestRateSwap"));
+        // v1 ships 3 strategies: DurationFutures, BarbellFutures, InterestRateSwap.
+        assert_eq!(proposed.proposals.len(), 3);
+        for name in ["DurationFutures", "BarbellFutures", "InterestRateSwap"] {
+            assert!(
+                proposed.proposals.iter().any(|p| p.strategy == name),
+                "missing strategy {name}"
+            );
+        }
         for p in &proposed.proposals {
             assert!(p.residual.residual_dv01.abs() / profile.dv01.abs() < 0.001);
             assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1481,7 +1500,7 @@ mod tests {
                 .unwrap(),
         );
         let report: ComparisonReport = serde_json::from_str(&comparison_text).unwrap();
-        assert_eq!(report.rows.len(), 2);
+        assert_eq!(report.rows.len(), 3);
         assert_eq!(report.recommendation.strategy, "DurationFutures");
 
         // Tool 4: narrate_recommendation

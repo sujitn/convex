@@ -12,11 +12,11 @@ Recorded on Windows 11 / convex-analytics 0.12.1, criterion default settings.
 | Bench | Median | Notes |
 | --- | --- | --- |
 | `risk_profile_apple_10y` | ~22 µs | One `price_from_mark` + one `BondRiskCalculator` + 4-tenor KRD profile (4 ZSpreadCalculator reprices). |
-| `propose_two_strategies` | ~123 µs | Two strategies → 2 `compute_position_risk` calls (1 future CTD, 1 unit-notional swap) + linear scaling for the swap leg. |
-| `end_to_end` | ~147 µs | `risk_profile + propose_two + compare + narrate`. |
+| `propose_three_strategies` | ~221 µs | Three strategies → 4 `compute_position_risk` calls (1 single-future CTD, 2 barbell-future CTDs, 1 unit-notional swap leg). |
+| `end_to_end` | ~249 µs | `risk_profile + propose_three + compare + narrate`. |
 
-A v2 optimization could amortize `KeyRateBump` setup across the two strategies
-(build the bumped curves once, share with both legs) — not pursued.
+A v2 optimization could amortize `KeyRateBump` setup across strategies
+(build the bumped curves once, share with all legs) — not pursued.
 
 ## Existing benches — untouched
 

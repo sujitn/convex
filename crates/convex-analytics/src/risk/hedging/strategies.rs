@@ -1,7 +1,10 @@
 //! Concrete hedge strategies. Each function takes a [`RiskProfile`] and
-//! returns a [`HedgeProposal`] sized to neutralize parallel DV01.
+//! returns a [`HedgeProposal`] sized to neutralize at least the position's
+//! parallel DV01.
 //!
-//! v1 ships [`duration_futures`] and [`interest_rate_swap`]. Both reuse
+//! Ships [`duration_futures`] (single contract), [`barbell_futures`] (two
+//! contracts solving for parallel + dominant-bucket KRD), and
+//! [`interest_rate_swap`] (tenor-matched IRS). All three reuse
 //! `bond_future_risk` / `interest_rate_swap_risk` from [`super::instruments`]
 //! — no parallel sizing logic.
 
@@ -15,7 +18,7 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 
 use super::cost::{CostModel, HeuristicCostModel};
-use super::instruments::{bond_future_risk, interest_rate_swap_risk};
+use super::instruments::{bond_future_risk, interest_rate_swap_risk, BondFutureRisk};
 use super::types::{
     residual_from, BondFuture, Constraints, HedgeInstrument, HedgeProposal, HedgeTrade,
     InterestRateSwap, SwapSide, TradeoffNotes,
@@ -66,7 +69,7 @@ pub fn duration_futures(
     };
 
     let residual = residual_from(position, std::slice::from_ref(&trade));
-    let (cost_bps, cost_total) = priced_cost(&trade.instrument, position);
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
 
     let provenance = strategy_provenance(position, discount_curve_id);
     let mut tradeoffs = TradeoffNotes {
@@ -95,6 +98,189 @@ pub fn duration_futures(
         tradeoffs,
         provenance,
     })
+}
+
+/// Strategy that uses two bond futures (a barbell pair) to neutralize
+/// parallel DV01 and the position's dominant key-rate bucket simultaneously.
+///
+/// Useful for positions whose curvature is concentrated at a tenor that no
+/// single benchmark contract matches well — e.g., a 7-year position hedged
+/// with FV+TY rather than TY alone, or a 20-year position with TY+US.
+///
+/// Math: solve a 2x2 system where contract A and contract B's per-contract
+/// (DV01, KRD-at-target) zero out (-position.dv01, -position.krd_at_target)
+/// via Cramer's rule. Singular system (proportional risk profiles) → error.
+pub fn barbell_futures(
+    position: &RiskProfile,
+    constraints: &Constraints,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    discount_curve_id: &str,
+    settlement: Date,
+) -> AnalyticsResult<HedgeProposal> {
+    if position.key_rate_buckets.is_empty() {
+        return Err(AnalyticsError::InvalidInput(
+            "BarbellFutures requires a key-rate ladder on the position".into(),
+        ));
+    }
+
+    // 1. Dominant target bucket — largest |partial_dv01| in the ladder.
+    let target = position
+        .key_rate_buckets
+        .iter()
+        .max_by(|a, b| {
+            a.partial_dv01
+                .abs()
+                .partial_cmp(&b.partial_dv01.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .copied()
+        .expect("non-empty by check above");
+
+    // 2. Pick a bracketing contract pair for the position's currency + duration.
+    let (lo, hi) = pick_barbell_pair(position)?;
+
+    // 3. Per-contract risks on the position's tenor ladder.
+    let key_rate_tenors: Vec<f64> = position
+        .key_rate_buckets
+        .iter()
+        .map(|b| b.tenor_years)
+        .collect();
+    let lo_risk = bond_future_risk(
+        &lo,
+        discount_curve,
+        discount_curve_id,
+        settlement,
+        Some(&key_rate_tenors),
+    )?;
+    let hi_risk = bond_future_risk(
+        &hi,
+        discount_curve,
+        discount_curve_id,
+        settlement,
+        Some(&key_rate_tenors),
+    )?;
+
+    // 4. Per-contract KRD at the target tenor.
+    let lo_k = krd_at(&lo_risk.buckets_per_contract, target.tenor_years);
+    let hi_k = krd_at(&hi_risk.buckets_per_contract, target.tenor_years);
+    let lo_d = lo_risk.dv01_per_contract;
+    let hi_d = hi_risk.dv01_per_contract;
+
+    // 5. Cramer's rule on:
+    //    n_lo * lo_d + n_hi * hi_d = −position.dv01
+    //    n_lo * lo_k + n_hi * hi_k = −target.partial_dv01
+    let det = lo_d * hi_k - hi_d * lo_k;
+    if det.abs() < 1e-9 {
+        return Err(AnalyticsError::CalculationFailed(format!(
+            "BarbellFutures: contract pair {} + {} has near-singular risk matrix at {}Y",
+            lo.contract_code, hi.contract_code, target.tenor_years
+        )));
+    }
+    let d = position.dv01;
+    let k = target.partial_dv01;
+    let n_lo = (hi_d * k - d * hi_k) / det;
+    let n_hi = (d * lo_k - lo_d * k) / det;
+
+    // 6. Build the two trade legs.
+    let trade_lo = scale_future_trade(&lo, &lo_risk, n_lo);
+    let trade_hi = scale_future_trade(&hi, &hi_risk, n_hi);
+    let trades = vec![trade_lo, trade_hi];
+    let residual = residual_from(position, &trades);
+    let (cost_bps, cost_total) = proposal_cost(&trades, position);
+
+    let provenance = strategy_provenance(position, discount_curve_id);
+    let mut tradeoffs = TradeoffNotes {
+        strengths: vec![
+            format!(
+                "Two-leg barbell ({} + {}); neutralizes {}Y key-rate as well as parallel DV01",
+                lo.contract_code, hi.contract_code, target.tenor_years
+            ),
+            "Smaller curvature residual than a single-tenor hedge when KRD is spread".into(),
+        ],
+        weaknesses: vec![
+            "Two contracts → twice the bid-ask, twice the roll".into(),
+            "Picks one target bucket; off-target buckets are not pinned".into(),
+        ],
+    };
+    tag_constraint_violations(
+        constraints,
+        &residual.residual_dv01,
+        cost_bps,
+        &mut tradeoffs,
+    );
+
+    Ok(HedgeProposal {
+        strategy: "BarbellFutures".into(),
+        trades,
+        residual,
+        cost_bps,
+        cost_total,
+        tradeoffs,
+        provenance,
+    })
+}
+
+/// Pick a contract pair that brackets the position's effective duration.
+/// Returns `(short-tenor contract, long-tenor contract)`.
+fn pick_barbell_pair(position: &RiskProfile) -> AnalyticsResult<(BondFuture, BondFuture)> {
+    // Bracket the position's modified duration with the two adjacent
+    // benchmark contracts. Tenors line up at 2 / 5 / 10 / 30; the breakpoints
+    // (5 and 10) put each duration into the pair whose underlying tenors
+    // span it.
+    let pair = match (position.currency, position.modified_duration_years) {
+        (Currency::USD, d) if d <= 5.0 => (("TU", 2.0), ("FV", 5.0)),
+        (Currency::USD, d) if d <= 10.0 => (("FV", 5.0), ("TY", 10.0)),
+        (Currency::USD, _) => (("TY", 10.0), ("US", 30.0)),
+        (Currency::EUR, _) => (("OE", 5.0), ("RX", 10.0)),
+        other => {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "BarbellFutures: no contract pair for {:?}",
+                other.0
+            )))
+        }
+    };
+    Ok((
+        BondFuture {
+            contract_code: pair.0 .0.into(),
+            underlying_tenor_years: pair.0 .1,
+            conversion_factor: 1.0,
+            contract_size_face: contract_size_for(position.currency, pair.0 .0),
+            currency: position.currency,
+        },
+        BondFuture {
+            contract_code: pair.1 .0.into(),
+            underlying_tenor_years: pair.1 .1,
+            conversion_factor: 1.0,
+            contract_size_face: contract_size_for(position.currency, pair.1 .0),
+            currency: position.currency,
+        },
+    ))
+}
+
+/// Per-bucket DV01 lookup at a tenor (within 1e-9 tolerance). Zero if absent.
+fn krd_at(buckets: &[KeyRateBucket], tenor_years: f64) -> f64 {
+    buckets
+        .iter()
+        .find(|b| (b.tenor_years - tenor_years).abs() < 1e-9)
+        .map(|b| b.partial_dv01)
+        .unwrap_or(0.0)
+}
+
+/// Build a `HedgeTrade` for a futures contract scaled by `quantity`.
+fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -> HedgeTrade {
+    HedgeTrade {
+        instrument: HedgeInstrument::BondFuture(spec.clone()),
+        quantity,
+        dv01: risk.dv01_per_contract * quantity,
+        key_rate_buckets: risk
+            .buckets_per_contract
+            .iter()
+            .map(|b| KeyRateBucket {
+                tenor_years: b.tenor_years,
+                partial_dv01: b.partial_dv01 * quantity,
+            })
+            .collect(),
+    }
 }
 
 /// Strategy that neutralizes DV01 with a tenor-matched IRS.
@@ -178,7 +364,7 @@ pub fn interest_rate_swap(
             .collect(),
     };
     let residual = residual_from(position, std::slice::from_ref(&trade));
-    let (cost_bps, cost_total) = priced_cost(&trade.instrument, position);
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
 
     let provenance = strategy_provenance(position, discount_curve_id);
     let mut tradeoffs = TradeoffNotes {
@@ -304,13 +490,36 @@ fn side_sign(side: SwapSide) -> f64 {
     }
 }
 
-fn priced_cost(instrument: &HedgeInstrument, position: &RiskProfile) -> (f64, Decimal) {
+/// Unified cost calculation across single-leg and multi-leg proposals.
+///
+/// Cost in currency = Σ over legs of (leg notional × `HeuristicCostModel`
+/// bps / 10_000). For futures, leg notional = `|quantity| × contract size`;
+/// for swaps, the notional comes from the spec. The reported `cost_bps` is
+/// the total dollar cost expressed as bps of position market value, so
+/// proposals are comparable on a per-position basis even when their hedge
+/// notionals differ.
+fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal) {
     let model = HeuristicCostModel;
-    let cost_bps = model.cost_bps(instrument);
-    let mv_f64 = position.market_value.to_f64().unwrap_or(0.0).abs();
-    let cost_total =
-        Decimal::from_f64_retain(mv_f64 * cost_bps / 10_000.0).unwrap_or(Decimal::ZERO);
-    (cost_bps, cost_total)
+    let mv = position.market_value.to_f64().unwrap_or(0.0).abs();
+    let mut total = 0.0_f64;
+    for trade in trades {
+        let leg_notional = match &trade.instrument {
+            HedgeInstrument::BondFuture(spec) => {
+                trade.quantity.abs() * spec.contract_size_face.to_f64().unwrap_or(0.0)
+            }
+            HedgeInstrument::InterestRateSwap(spec) => spec.notional.to_f64().unwrap_or(0.0).abs(),
+        };
+        total += leg_notional * model.cost_bps(&trade.instrument) / 10_000.0;
+    }
+    let cost_bps = if mv > 1e-9 {
+        total / mv * 10_000.0
+    } else {
+        0.0
+    };
+    (
+        cost_bps,
+        Decimal::from_f64_retain(total).unwrap_or(Decimal::ZERO),
+    )
 }
 
 /// Build a fresh `Provenance` for a strategy's output. Carries forward the
@@ -533,6 +742,59 @@ mod tests {
             .weaknesses
             .iter()
             .any(|w| w.contains("max_cost_bps")));
+    }
+
+    #[test]
+    fn barbell_futures_neutralizes_dv01_and_target_bucket() {
+        let (pos, curve) = long_10y_corporate();
+        let p =
+            barbell_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        // Parallel DV01 neutralised within 0.1%.
+        let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
+        assert!(
+            resid_pct < 0.001,
+            "barbell residual DV01 = {} on position DV01 {} ({:.3} %)",
+            p.residual.residual_dv01,
+            pos.dv01,
+            resid_pct * 100.0
+        );
+        // Two legs.
+        assert_eq!(p.trades.len(), 2);
+        // Both legs are bond futures.
+        for trade in &p.trades {
+            assert!(matches!(trade.instrument, HedgeInstrument::BondFuture(_)));
+        }
+        // 10Y bullet → bracket pair is FV (5Y) + TY (10Y).
+        let codes: Vec<&str> = p
+            .trades
+            .iter()
+            .filter_map(|t| match &t.instrument {
+                HedgeInstrument::BondFuture(f) => Some(f.contract_code.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(codes.contains(&"FV"));
+        assert!(codes.contains(&"TY"));
+        // Dominant 10Y bucket is targeted → its residual is near zero.
+        let ten_y = p
+            .residual
+            .residual_buckets
+            .iter()
+            .find(|b| (b.tenor_years - 10.0).abs() < 1e-9)
+            .unwrap();
+        assert!(
+            ten_y.partial_dv01.abs() < 1.0,
+            "10Y residual should be ~0 (target bucket); got {}",
+            ten_y.partial_dv01
+        );
+    }
+
+    #[test]
+    fn barbell_futures_errors_on_empty_ladder() {
+        let (mut pos, curve) = long_10y_corporate();
+        pos.key_rate_buckets.clear();
+        let err = barbell_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 
     #[test]
