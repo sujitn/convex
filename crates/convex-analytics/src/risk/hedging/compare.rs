@@ -14,12 +14,15 @@ use super::types::{
 /// Build a [`ComparisonReport`] from one position and a slice of proposals.
 ///
 /// Recommendation rule (deterministic):
-///   1. Prefer rows that meet `Constraints::max_residual_dv01` and
+///   1. If `Constraints::allowed_strategies` is non-empty, restrict
+///      candidates to rows whose `strategy` name is in the allow-list.
+///      Errors if no row's strategy is allowed.
+///   2. Prefer rows that also meet `Constraints::max_residual_dv01` and
 ///      `Constraints::max_cost_bps` if any are supplied.
-///   2. Among the remaining (or all rows if no row meets the constraints),
-///      pick lowest `cost_bps`.
-///   3. Tie-break by smallest `residual_krd_l1_norm`.
-///   4. Final tie-break by input order.
+///   3. Among the remaining (or all allowed rows if no row meets the soft
+///      constraints), pick lowest `cost_bps`.
+///   4. Tie-break by smallest `residual_krd_l1_norm`.
+///   5. Final tie-break by input order.
 pub fn compare_hedges(
     position: &RiskProfile,
     proposals: &[HedgeProposal],
@@ -31,7 +34,7 @@ pub fn compare_hedges(
         ));
     }
     let rows: Vec<ComparisonRow> = proposals.iter().map(row_for).collect();
-    let recommendation = recommend(&rows, constraints);
+    let recommendation = recommend(&rows, constraints)?;
     Ok(ComparisonReport {
         currency: position.currency,
         position_market_value: position.market_value,
@@ -53,8 +56,24 @@ fn row_for(p: &HedgeProposal) -> ComparisonRow {
     }
 }
 
-fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> Recommendation {
-    let meets = |row: &ComparisonRow| -> bool {
+fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResult<Recommendation> {
+    // Hard filter: allowed_strategies (empty list = all allowed).
+    let allow_all = constraints.allowed_strategies.is_empty();
+    let allowed_indices: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| allow_all || constraints.allowed_strategies.contains(&r.strategy))
+        .map(|(i, _)| i)
+        .collect();
+    if allowed_indices.is_empty() {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "compare_hedges: no proposed strategy matches allowed_strategies = {:?}",
+            constraints.allowed_strategies
+        )));
+    }
+
+    // Soft filter: max_residual_dv01 / max_cost_bps over the allowed set.
+    let meets_soft = |row: &ComparisonRow| -> bool {
         if let Some(max) = constraints.max_residual_dv01 {
             if row.residual_dv01.abs() > max {
                 return false;
@@ -68,16 +87,16 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> Recommendatio
         true
     };
 
-    let candidate_indices: Vec<usize> = rows
+    let soft_indices: Vec<usize> = allowed_indices
         .iter()
-        .enumerate()
-        .filter_map(|(i, r)| if meets(r) { Some(i) } else { None })
+        .copied()
+        .filter(|&i| meets_soft(&rows[i]))
         .collect();
-    let any_met = !candidate_indices.is_empty();
-    let pool: Vec<usize> = if any_met {
-        candidate_indices
+    let any_met_soft = !soft_indices.is_empty();
+    let pool: Vec<usize> = if any_met_soft {
+        soft_indices
     } else {
-        (0..rows.len()).collect()
+        allowed_indices
     };
 
     // Lowest cost; tie-break smallest residual KRD L1; final tie-break by index.
@@ -110,17 +129,17 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> Recommendatio
     {
         reasons.push(RecommendationReason::SmallestCurvature);
     }
-    if any_met {
+    if any_met_soft {
         reasons.push(RecommendationReason::MeetsConstraints);
     } else if constraints.max_residual_dv01.is_some() || constraints.max_cost_bps.is_some() {
         reasons.push(RecommendationReason::NoRowMetConstraints);
     }
 
-    Recommendation {
+    Ok(Recommendation {
         strategy: row.strategy.clone(),
         row_index: best,
         reasons,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -240,6 +259,32 @@ mod tests {
             .recommendation
             .reasons
             .contains(&RecommendationReason::MeetsConstraints));
+    }
+
+    #[test]
+    fn allowed_strategies_restricts_recommendation() {
+        let proposals = [
+            proposal_named("DurationFutures", 0.25, 1500.0),
+            proposal_named("InterestRateSwap", 0.6, 200.0),
+        ];
+        let constraints = Constraints {
+            allowed_strategies: vec!["InterestRateSwap".into()],
+            ..Default::default()
+        };
+        let r = compare_hedges(&position(), &proposals, &constraints).unwrap();
+        // DurationFutures is cheaper but excluded by the allow-list.
+        assert_eq!(r.recommendation.strategy, "InterestRateSwap");
+    }
+
+    #[test]
+    fn allowed_strategies_with_no_match_errors() {
+        let proposals = [proposal_named("DurationFutures", 0.25, 1500.0)];
+        let constraints = Constraints {
+            allowed_strategies: vec!["CashBondPair".into()],
+            ..Default::default()
+        };
+        let err = compare_hedges(&position(), &proposals, &constraints);
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 
     #[test]

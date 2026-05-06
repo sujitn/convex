@@ -205,9 +205,9 @@ fn synthetic_fixed_leg(
     fixed_rate: Decimal,
     settlement: Date,
 ) -> AnalyticsResult<FixedRateBond> {
-    if !(spec.tenor_years > 0.0) {
+    if !spec.tenor_years.is_finite() || spec.tenor_years <= 0.0 {
         return Err(AnalyticsError::InvalidInput(format!(
-            "InterestRateSwap: tenor_years must be > 0 (got {})",
+            "InterestRateSwap: tenor_years must be a finite positive number (got {})",
             spec.tenor_years
         )));
     }
