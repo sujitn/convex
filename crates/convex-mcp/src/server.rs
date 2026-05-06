@@ -284,25 +284,35 @@ pub struct CurveSpec {
     pub zero_rates_pct: Vec<f64>,
 }
 
-/// Either an id of a stored bond, or an inline `BondSpec`.
+/// Either an inline `BondSpec` (preferred — keeps tool calls stateless) or
+/// the id of a bond previously created via `create_bond` in the same server
+/// process. Inline specs avoid the implicit dependency on prior calls and
+/// keep each request self-contained.
 ///
-/// JSON: `"AAPL.10Y"` (string id) or `{"coupon_rate_pct": ...}` (inline spec).
+/// JSON: `{"coupon_rate_pct": ...}` (inline spec, recommended) or
+/// `"AAPL.10Y"` (string id, requires the server to have a matching entry
+/// in its in-memory registry — lost on restart, not shared across processes).
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum BondRef {
-    /// Reference a stored bond by id.
+    /// Reference a bond stored in this server process by `create_bond`. Use
+    /// only when you've already called `create_bond` in this session.
     Id(String),
-    /// Use an inline spec (not stored).
+    /// Inline bond spec — recommended. Self-contained; no registry lookup.
     Spec(BondSpec),
 }
 
-/// Either an id of a stored curve, or an inline `CurveSpec`.
+/// Either an inline `CurveSpec` (preferred — keeps tool calls stateless) or
+/// the id of a curve previously created via `create_curve` /
+/// `bootstrap_curve` in the same server process. Inline specs are the
+/// recommended form for advisor tool calls.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum CurveRef {
-    /// Reference a stored curve by id.
+    /// Reference a curve stored in this server process. Use only when you've
+    /// already created the curve in this session.
     Id(String),
-    /// Use an inline spec (not stored).
+    /// Inline curve spec — recommended. Self-contained; no registry lookup.
     Spec(CurveSpec),
 }
 
@@ -404,14 +414,15 @@ pub enum SpreadKind {
 /// `compute_position_risk` parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct ComputePositionRiskParams {
-    /// Bond reference — id or inline spec.
+    /// Bond — inline spec is recommended for stateless calls; an id only
+    /// works if the bond was created earlier in this session.
     pub bond: BondRef,
     /// Settlement date as ISO-8601 (`"YYYY-MM-DD"`).
     pub settlement: String,
     /// Trader mark as text (e.g. `"99.5C"`, `"4.65%@SA"`, `"+85bps@USD.SOFR"`).
     /// Parsed via `Mark::from_str`.
     pub mark: String,
-    /// Discount curve reference.
+    /// Discount curve — inline spec is recommended for stateless calls.
     pub curve: CurveRef,
     /// Position face notional. Positive = long, negative = short.
     pub notional_face: f64,
@@ -429,11 +440,15 @@ pub struct ComputePositionRiskParams {
 /// `propose_hedges` parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct ProposeHedgesParams {
-    /// Risk profile of the position to hedge.
+    /// Risk profile of the position to hedge (output of
+    /// `compute_position_risk`).
     pub risk: RiskProfile,
-    /// Discount curve reference.
+    /// Discount curve — inline spec is recommended for stateless calls.
     pub curve: CurveRef,
-    /// Optional caller constraints.
+    /// Optional caller constraints. `allowed_strategies` filters which
+    /// strategies are run (empty = all). `max_residual_dv01` and
+    /// `max_cost_bps` are surfaced in `tradeoffs.weaknesses` and applied
+    /// to the recommendation by `compare_hedges`.
     #[serde(default)]
     pub constraints: Option<Constraints>,
 }
@@ -1009,7 +1024,9 @@ impl ConvexMcpServer {
 
     #[tool(
         description = "Compute per-position risk: DV01, durations, convexity, KRD buckets, \
-        provenance. Mirrors Bloomberg-parity KRD (Z-spread held fixed, ±1bp triangular bumps)."
+        provenance. Mirrors Bloomberg-parity KRD (Z-spread held fixed, ±1bp triangular bumps). \
+        Pass `bond` and `curve` as inline specs for stateless calls; ids only work if the \
+        bond/curve was created earlier in this server session."
     )]
     pub async fn compute_position_risk(
         &self,
@@ -1058,8 +1075,9 @@ impl ConvexMcpServer {
 
     #[tool(
         description = "Propose hedges for a risk profile. v1 ships DurationFutures + \
-        InterestRateSwap. Each proposal includes trades, residual KRD, heuristic cost, \
-        tradeoff notes, and provenance."
+        InterestRateSwap; `constraints.allowed_strategies` restricts the set (empty = both). \
+        Each proposal includes trades, residual KRD, heuristic cost, tradeoff notes, and \
+        provenance. Pass `curve` as an inline spec for a stateless call."
     )]
     pub async fn propose_hedges(
         &self,
@@ -1070,25 +1088,44 @@ impl ConvexMcpServer {
         let constraints = params.constraints.unwrap_or_default();
         let settlement = params.risk.settlement;
 
-        let f = duration_futures(
-            &params.risk,
-            &constraints,
-            &curve,
-            &curve_id_str,
-            settlement,
-        )
-        .map_err(McpToolError::from)?;
-        let s = interest_rate_swap(
-            &params.risk,
-            &constraints,
-            &curve,
-            &curve_id_str,
-            settlement,
-        )
-        .map_err(McpToolError::from)?;
-        Self::json_result(&ProposeHedgesOutput {
-            proposals: vec![f, s],
-        })
+        // Honour `allowed_strategies` at propose time. Empty list = all.
+        let run = |name: &str| {
+            constraints.allowed_strategies.is_empty()
+                || constraints.allowed_strategies.iter().any(|s| s == name)
+        };
+        let mut proposals: Vec<HedgeProposal> = Vec::new();
+        if run("DurationFutures") {
+            proposals.push(
+                duration_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                )
+                .map_err(McpToolError::from)?,
+            );
+        }
+        if run("InterestRateSwap") {
+            proposals.push(
+                interest_rate_swap(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                )
+                .map_err(McpToolError::from)?,
+            );
+        }
+        if proposals.is_empty() {
+            return Err(McpToolError::InvalidInput(format!(
+                "propose_hedges: no strategy matches allowed_strategies = {:?}",
+                constraints.allowed_strategies
+            ))
+            .into());
+        }
+        Self::json_result(&ProposeHedgesOutput { proposals })
     }
 
     #[tool(
@@ -1467,5 +1504,66 @@ mod tests {
             rmcp::model::RawContent::Text(t) => t.text.clone(),
             _ => panic!("expected text content"),
         }
+    }
+
+    #[tokio::test]
+    async fn propose_hedges_honours_allowed_strategies() {
+        // Build a position by hand so the test is independent of compute_position_risk.
+        let profile = RiskProfile {
+            position_id: None,
+            currency: Currency::USD,
+            settlement: Date::from_ymd(2026, 1, 15).unwrap(),
+            notional_face: dec!(10_000_000),
+            clean_price_per_100: 100.0,
+            dirty_price_per_100: 100.0,
+            accrued_per_100: 0.0,
+            market_value: dec!(10_000_000),
+            ytm_decimal: 0.05,
+            modified_duration_years: 7.0,
+            macaulay_duration_years: 7.18,
+            convexity: 50.0,
+            dv01: 7000.0,
+            key_rate_buckets: vec![convex::KeyRateBucket {
+                tenor_years: 10.0,
+                partial_dv01: 7000.0,
+            }],
+            provenance: convex::Provenance {
+                curves_used: vec!["sofr".into()],
+                cost_model: "heuristic_v1".into(),
+                advisor_version: env!("CARGO_PKG_VERSION").into(),
+            },
+        };
+
+        let server = ConvexMcpServer::new();
+        let curve_spec = flat_curve_spec(4.5);
+
+        // Only DurationFutures allowed → exactly one proposal.
+        let only_futures = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile.clone(),
+                curve: CurveRef::Spec(curve_spec.clone()),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["DurationFutures".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await
+            .unwrap();
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(only_futures)).unwrap();
+        assert_eq!(out.proposals.len(), 1);
+        assert_eq!(out.proposals[0].strategy, "DurationFutures");
+
+        // Allow-list with no matching strategy → error.
+        let none_allowed = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile,
+                curve: CurveRef::Spec(curve_spec),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["CashBondPair".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await;
+        assert!(none_allowed.is_err());
     }
 }
