@@ -6,6 +6,76 @@ Source: `docs/hedge-advisor-investigation.md` (Phase 1) + `docs/hedge-advisor-ga
 
 ---
 
+## ⚡ Status — current
+
+**v1 shipped + extended in PR #83** on branch `feat/hedge-advisor`. 14 commits. 259 + 13 tests passing. Live-tested with a real LLM agent in Claude Desktop.
+
+### Beyond the original plan
+
+The original 11 commits all landed (see §3.3 below — every box checked). Subsequent review and smoke-test cycles added:
+
+- **ISDA-correct swap conventions** (USD/GBP fixed legs are Annual, not SemiAnnual/Quarterly).
+- **String-typed MCP inputs** for `settlement` (ISO-8601) and `mark` (parsed via `Mark::from_str`) — applied to both `compute_position_risk` and `price_bond` for consistency.
+- **`Constraints::allowed_strategies` honored at propose time** (was only applied at compare time — half-wired).
+- **`residual_from` unions trade tenors with the position's** (off-position trade buckets used to be silently dropped).
+- **Fractional-year swap tenors** via `add_months` (was rounding to integer years).
+- **`#[serde(default)]` on Provenance / TradeoffNotes / KRD buckets** to survive LLM round-trip drops.
+- **Smoke-test discoveries** wired into permanent fixes — bug found and patched.
+
+### Strategies shipped (was 2, now 4)
+
+- `DurationFutures` — single benchmark contract, parallel DV01 match.
+- `BarbellFutures` — two contracts solving 2x2 for parallel DV01 + dominant KRD bucket.
+- `CashBondPair` — synthetic on-the-run sovereign sized to neutralize DV01.
+- `InterestRateSwap` — tenor-matched payer/receiver, parallel DV01 match.
+
+### Mark types in `price_from_mark` (was 2, now 3)
+
+- `Mark::Price { Clean | Dirty }` ✅
+- `Mark::Yield { value, frequency }` ✅
+- `Mark::Spread { ZSpread | ISpread | GSpread, benchmark }` ✅
+- `Mark::Spread { OAS, ... }` — still rejected with a pointer to `compute_spread`; out of scope.
+
+### Performance baseline (release, recorded in `docs/perf-baselines.md`)
+
+| Bench | Median |
+|---|---|
+| `risk_profile_apple_10y` | ~22 µs |
+| `propose_four_strategies` | ~286 µs |
+| `end_to_end` (compute → propose → compare → narrate) | ~309 µs |
+
+Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we're at 309 µs with 4. Honest delta: each strategy adds one `compute_position_risk` call internally.
+
+### Validation
+
+- `cargo fmt --all -- --check` — exit 0
+- `cargo clippy --workspace --lib` — clean
+- `cargo doc -p convex-analytics --no-deps --features schemars` — 0 warnings
+- `cargo doc -p convex-mcp --no-deps` — 0 warnings
+- `cargo test -p convex-analytics --lib --features schemars` — **259 passed**
+- `cargo test -p convex-mcp --lib` — **13 passed** (incl. `hedge_advisor_e2e_apple_10y`)
+- Smoke-tested live in Claude Desktop ([`docs/hedge-advisor-smoke.md`](hedge-advisor-smoke.md))
+
+### What's genuinely deferred to a future PR
+
+| Item | Reason |
+| --- | --- |
+| OAS marks in `price_from_mark` | Needs `EmbeddedOptionBond` trait + vol param + tree pricing — not a dispatch tweak. ~1d. |
+| `KeyRateFutures` strategy | N-leg generalization of `BarbellFutures` (4×4 Cramer). Worth its own session for tests + math. ~1d. |
+| Real CTD optimization | Deliverable basket + repo financing + dynamic CTD selection. ~1 week. Synthetic 6%-coupon CF=1.0 deliverable suffices for v1. |
+| FX delta | Cross-currency dimension. v1 is single-currency by design. |
+| Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |
+| Real cost feeds | Plug-in once `convex-traits::market_data::QuoteSource` is wired. |
+| CDS / credit DV01 | New instrument class. Smoke-test agent flagged correctly that it's out of scope. |
+| Inflation-linked instruments | No consumer asking. |
+| `ETFProxy` strategy | Lower-fidelity than `BarbellFutures` (already shipped). |
+| Per-benchmark partial spread DV01 | Niche; generic spread duration suffices. |
+| Floating-leg DV01 enhancements | Post-LIBOR ≈ 0 at reset; v1 approximation is fine. |
+
+The rest of this document is the **original plan** as written before implementation, kept for historical reference and to make review easier — every commit below maps to the corresponding work in the PR's history.
+
+---
+
 ## 3.1 Crate impact summary
 
 ### Dependency graph (before)
@@ -93,7 +163,25 @@ New file `crates/convex-analytics/benches/hedge_advisor.rs` with three groups:
 
 ## 3.3 Implementation sequence
 
-Eleven commits. Each is reviewable on its own; tests precede impl where TDD applies. **Stop and surface anything unexpected** at every step.
+Eleven commits planned. Each is reviewable on its own; tests precede impl where TDD applies. **Stop and surface anything unexpected** at every step.
+
+> **Status (post-implementation).** All 11 planned items shipped, plus 3 follow-on commits driven by review and smoke-test findings. Mapping to actual SHAs on `feat/hedge-advisor`:
+>
+> | # | Plan item | Status | Landed in |
+> | --- | --- | --- | --- |
+> | 1–9 | Types, compute, instruments, cost, strategies, compare, narrate | ✅ | `3a212f5` (single squash of the analytics layer) |
+> | 10 | Four MCP tools | ✅ | `94188b0` |
+> | 11 | Bench + README + perf-baselines + investigation flip | ✅ | `62d2073` |
+> | – | rustfmt + intra-doc link fix | ✅ | `2358aa8` |
+> | – | ISDA swap conventions, string MCP inputs, KRD union, fractional-year tenors | ✅ | `e7dded1` |
+> | – | `allowed_strategies` honored; clippy `neg_cmp_op_on_partial_ord` fix | ✅ | `5b76d06` |
+> | – | Smoke-test plan doc | ✅ | `6c437d3` |
+> | – | `propose_hedges` honors `allowed_strategies` + doc-string flip | ✅ | `2f87529` |
+> | – | Optional Provenance/TradeoffNotes/buckets (LLM round-trip resilience) | ✅ | `4a92da8` |
+> | – | `BarbellFutures` strategy + unified leg-notional cost model | ✅ | `2c8f8df` |
+> | – | I/G-spread marks in `price_from_mark` | ✅ | `9f90996` |
+> | – | `CashBondPair` strategy + `HedgeInstrument::CashBond` variant | ✅ | `5a6e902` |
+> | – | `PriceBondParams` string consistency | ✅ | `b119f9e` |
 
 ### Commit 1 — domain types (S, ~3 hours)
 
