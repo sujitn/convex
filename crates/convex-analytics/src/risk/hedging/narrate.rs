@@ -137,7 +137,10 @@ mod tests {
 
     #[test]
     fn narration_mentions_every_strategy_and_recommendation() {
-        let proposals = [proposal("DurationFutures", 0.25), proposal("InterestRateSwap", 0.6)];
+        let proposals = [
+            proposal("DurationFutures", 0.25),
+            proposal("InterestRateSwap", 0.6),
+        ];
         let report = compare_hedges(&position(), &proposals, &Constraints::default()).unwrap();
         let text = narrate(&report);
         assert!(text.contains("DurationFutures"));
@@ -148,7 +151,10 @@ mod tests {
 
     #[test]
     fn narrator_is_deterministic() {
-        let proposals = [proposal("DurationFutures", 0.25), proposal("InterestRateSwap", 0.6)];
+        let proposals = [
+            proposal("DurationFutures", 0.25),
+            proposal("InterestRateSwap", 0.6),
+        ];
         let report = compare_hedges(&position(), &proposals, &Constraints::default()).unwrap();
         let a = narrate(&report);
         let b = narrate(&report);

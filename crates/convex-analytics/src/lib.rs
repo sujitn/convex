@@ -100,9 +100,9 @@ pub mod prelude {
     // Risk
     pub use crate::risk::{
         aggregate_portfolio_risk,
+        analytical_convexity,
         // Hedge advisor (entry point)
         compute_position_risk,
-        analytical_convexity,
         duration_hedge_ratio,
         dv01_from_duration,
         dv01_from_prices,

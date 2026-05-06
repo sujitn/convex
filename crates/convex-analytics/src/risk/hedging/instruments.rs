@@ -2,7 +2,7 @@
 //!
 //! Each function takes a wire spec + market context (curve + settlement +
 //! tenors) and returns DV01 and a per-tenor KRD vector. Strategies dispatch
-//! over the [`HedgeInstrument`] enum and call the right function.
+//! over the [`super::types::HedgeInstrument`] enum and call the right function.
 //!
 //! v1 ships [`bond_future_risk`] and (commit 4) `interest_rate_swap_risk`.
 //! The math reuses `compute_position_risk` — no parallel pricer.
@@ -273,8 +273,11 @@ mod tests {
         let risk = bond_future_risk(&ty_future(1.0), &curve, "c", d(2026, 1, 15), None).unwrap();
         // 10Y 6% bond at 5% has dirty ~107.7, mod-dur ~7.6, DV01 per $100 ~$0.082.
         // For $100k face that's ~$82 per contract.
-        assert!(risk.dv01_per_contract > 60.0 && risk.dv01_per_contract < 110.0,
-            "DV01/contract = {} (expected ~$60-110)", risk.dv01_per_contract);
+        assert!(
+            risk.dv01_per_contract > 60.0 && risk.dv01_per_contract < 110.0,
+            "DV01/contract = {} (expected ~$60-110)",
+            risk.dv01_per_contract
+        );
     }
 
     #[test]
@@ -300,14 +303,8 @@ mod tests {
     fn ten_year_future_concentrates_krd_at_ten_years() {
         let curve = flat_curve(0.05);
         let tenors = [2.0, 5.0, 10.0, 30.0];
-        let risk = bond_future_risk(
-            &ty_future(1.0),
-            &curve,
-            "c",
-            d(2026, 1, 15),
-            Some(&tenors),
-        )
-        .unwrap();
+        let risk =
+            bond_future_risk(&ty_future(1.0), &curve, "c", d(2026, 1, 15), Some(&tenors)).unwrap();
         let by_tenor: std::collections::HashMap<_, _> = risk
             .buckets_per_contract
             .iter()
@@ -317,7 +314,10 @@ mod tests {
         let two = by_tenor[&20];
         let thirty = by_tenor[&300];
         assert!(ten.abs() > two.abs() * 5.0, "10Y bucket should dominate 2Y");
-        assert!(ten.abs() > thirty.abs() * 5.0, "10Y bucket should dominate 30Y");
+        assert!(
+            ten.abs() > thirty.abs() * 5.0,
+            "10Y bucket should dominate 30Y"
+        );
     }
 
     #[test]
@@ -370,10 +370,18 @@ mod tests {
         let curve = flat_curve(0.045);
         let swap = sofr_swap(SwapSide::PayFixed, 10.0, dec!(10_000_000));
         let risk = interest_rate_swap_risk(&swap, &curve, "c", d(2026, 1, 15), None).unwrap();
-        assert!(risk.dv01 < 0.0, "pay-fixed DV01 should be negative; got {}", risk.dv01);
+        assert!(
+            risk.dv01 < 0.0,
+            "pay-fixed DV01 should be negative; got {}",
+            risk.dv01
+        );
         for b in &risk.buckets {
-            assert!(b.partial_dv01 <= 0.0 || b.partial_dv01.abs() < 1e-6,
-                "pay-fixed bucket {} should be ≤ 0 (got {})", b.tenor_years, b.partial_dv01);
+            assert!(
+                b.partial_dv01 <= 0.0 || b.partial_dv01.abs() < 1e-6,
+                "pay-fixed bucket {} should be ≤ 0 (got {})",
+                b.tenor_years,
+                b.partial_dv01
+            );
         }
     }
 
@@ -382,12 +390,20 @@ mod tests {
         let curve = flat_curve(0.045);
         let pay = interest_rate_swap_risk(
             &sofr_swap(SwapSide::PayFixed, 10.0, dec!(10_000_000)),
-            &curve, "c", d(2026, 1, 15), None,
-        ).unwrap();
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
         let recv = interest_rate_swap_risk(
             &sofr_swap(SwapSide::ReceiveFixed, 10.0, dec!(10_000_000)),
-            &curve, "c", d(2026, 1, 15), None,
-        ).unwrap();
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
         assert_relative_eq!(pay.dv01, -recv.dv01, epsilon = 1e-6);
         for (a, b) in pay.buckets.iter().zip(recv.buckets.iter()) {
             assert_relative_eq!(a.partial_dv01, -b.partial_dv01, epsilon = 1e-6);
@@ -399,12 +415,20 @@ mod tests {
         let curve = flat_curve(0.045);
         let small = interest_rate_swap_risk(
             &sofr_swap(SwapSide::PayFixed, 10.0, dec!(1_000_000)),
-            &curve, "c", d(2026, 1, 15), None,
-        ).unwrap();
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
         let big = interest_rate_swap_risk(
             &sofr_swap(SwapSide::PayFixed, 10.0, dec!(10_000_000)),
-            &curve, "c", d(2026, 1, 15), None,
-        ).unwrap();
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
         assert_relative_eq!(big.dv01, small.dv01 * 10.0, epsilon = 1e-6);
     }
 
@@ -414,15 +438,23 @@ mod tests {
         let tenors = [2.0, 5.0, 10.0, 30.0];
         let risk = interest_rate_swap_risk(
             &sofr_swap(SwapSide::PayFixed, 10.0, dec!(10_000_000)),
-            &curve, "c", d(2026, 1, 15), Some(&tenors),
-        ).unwrap();
-        let by: std::collections::HashMap<_, _> = risk.buckets.iter()
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            Some(&tenors),
+        )
+        .unwrap();
+        let by: std::collections::HashMap<_, _> = risk
+            .buckets
+            .iter()
             .map(|b| ((b.tenor_years * 10.0) as i64, b.partial_dv01))
             .collect();
         let ten = by[&100].abs();
         let two = by[&20].abs();
-        assert!(ten > two * 5.0,
-            "10Y swap should concentrate KRD at 10Y (got |10Y|={ten}, |2Y|={two})");
+        assert!(
+            ten > two * 5.0,
+            "10Y swap should concentrate KRD at 10Y (got |10Y|={ten}, |2Y|={two})"
+        );
     }
 
     #[test]
@@ -430,12 +462,18 @@ mod tests {
         let curve = flat_curve(0.045);
         let risk = interest_rate_swap_risk(
             &sofr_swap(SwapSide::PayFixed, 10.0, dec!(10_000_000)),
-            &curve, "c", d(2026, 1, 15), None,
-        ).unwrap();
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            None,
+        )
+        .unwrap();
         // Textbook: 10Y par swap PV01 ≈ 8 × notional × 1bp ≈ $8,000 on $10mm.
         let mag = risk.dv01.abs();
-        assert!(mag > 6_000.0 && mag < 11_000.0,
-            "|DV01| for 10Y $10mm swap should be ~$6-11k; got {mag}");
+        assert!(
+            mag > 6_000.0 && mag < 11_000.0,
+            "|DV01| for 10Y $10mm swap should be ~$6-11k; got {mag}"
+        );
     }
 
     #[test]

@@ -79,7 +79,12 @@ pub fn duration_futures(
             "Roll risk on contract expiry".into(),
         ],
     };
-    tag_constraint_violations(constraints, &residual.residual_dv01, cost_bps, &mut tradeoffs);
+    tag_constraint_violations(
+        constraints,
+        &residual.residual_dv01,
+        cost_bps,
+        &mut tradeoffs,
+    );
 
     Ok(HedgeProposal {
         strategy: "DurationFutures".into(),
@@ -186,7 +191,12 @@ pub fn interest_rate_swap(
             "Wider bid-ask than listed futures".into(),
         ],
     };
-    tag_constraint_violations(constraints, &residual.residual_dv01, cost_bps, &mut tradeoffs);
+    tag_constraint_violations(
+        constraints,
+        &residual.residual_dv01,
+        cost_bps,
+        &mut tradeoffs,
+    );
 
     Ok(HedgeProposal {
         strategy: "InterestRateSwap".into(),
@@ -259,11 +269,19 @@ fn pick_swap_tenor(position: &RiskProfile) -> f64 {
 
 fn swap_conventions_for(
     currency: Currency,
-) -> AnalyticsResult<(Frequency, convex_core::daycounts::DayCountConvention, &'static str)> {
+) -> AnalyticsResult<(
+    Frequency,
+    convex_core::daycounts::DayCountConvention,
+    &'static str,
+)> {
     use convex_core::daycounts::DayCountConvention;
     match currency {
         Currency::USD => Ok((Frequency::SemiAnnual, DayCountConvention::Act360, "SOFR")),
-        Currency::GBP => Ok((Frequency::Quarterly, DayCountConvention::Act365Fixed, "SONIA")),
+        Currency::GBP => Ok((
+            Frequency::Quarterly,
+            DayCountConvention::Act365Fixed,
+            "SONIA",
+        )),
         Currency::EUR => Ok((Frequency::Annual, DayCountConvention::Act360, "ESTR")),
         other => Err(AnalyticsError::InvalidInput(format!(
             "InterestRateSwap: no swap conventions for {other:?}"
@@ -328,9 +346,9 @@ fn tag_constraint_violations(
     }
     if let Some(max_cost) = constraints.max_cost_bps {
         if cost_bps > max_cost {
-            notes
-                .weaknesses
-                .push(format!("Cost {cost_bps:.2} bp exceeds max_cost_bps = {max_cost:.2}"));
+            notes.weaknesses.push(format!(
+                "Cost {cost_bps:.2} bp exceeds max_cost_bps = {max_cost:.2}"
+            ));
         }
     }
 }
@@ -420,14 +438,8 @@ mod tests {
     #[test]
     fn duration_futures_picks_short_for_long_position() {
         let (pos, curve) = long_10y_corporate();
-        let p = duration_futures(
-            &pos,
-            &Constraints::default(),
-            &curve,
-            "c",
-            d(2026, 1, 15),
-        )
-        .unwrap();
+        let p =
+            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
         // Long bond + positive DV01 → short futures.
         assert!(p.trades[0].quantity < 0.0);
         assert_eq!(p.trades.len(), 1);
@@ -460,7 +472,8 @@ mod tests {
     #[test]
     fn interest_rate_swap_picks_pay_fixed_for_long_position() {
         let (pos, curve) = long_10y_corporate();
-        let p = interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p =
+            interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
         match &p.trades[0].instrument {
             HedgeInstrument::InterestRateSwap(s) => {
                 assert_eq!(s.side, SwapSide::PayFixed);
@@ -474,8 +487,10 @@ mod tests {
     fn swap_residual_curvature_is_smaller_than_futures() {
         // Tenor-matched swap should leave less curvature than a single 10Y future.
         let (pos, curve) = long_10y_corporate();
-        let f = duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
-        let s = interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let f =
+            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let s =
+            interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
         // Both should match parallel DV01; the swap matches the bucket pattern
         // more closely (CTD ≠ position bond), so its L1 residual should be
         // strictly smaller. This is the documented tradeoff.
@@ -490,7 +505,14 @@ mod tests {
     #[test]
     fn provenance_carries_curve_and_cost_model() {
         let (pos, curve) = long_10y_corporate();
-        let p = duration_futures(&pos, &Constraints::default(), &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        let p = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "usd_sofr",
+            d(2026, 1, 15),
+        )
+        .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
         assert!(p.provenance.curves_used.contains(&"usd_sofr".to_string()));
     }
@@ -503,7 +525,11 @@ mod tests {
             ..Default::default()
         };
         let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
-        assert!(p.tradeoffs.weaknesses.iter().any(|w| w.contains("max_cost_bps")));
+        assert!(p
+            .tradeoffs
+            .weaknesses
+            .iter()
+            .any(|w| w.contains("max_cost_bps")));
     }
 
     #[test]

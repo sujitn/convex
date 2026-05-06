@@ -119,10 +119,11 @@ where
         .ok_or_else(|| AnalyticsError::InvalidInput("notional_face: non-finite".into()))?;
     let face_scale = face_f64 / 100.0;
 
-    let market_value =
-        notional_face * Decimal::from_f64_retain(priced.dirty_price_per_100).ok_or_else(|| {
+    let market_value = notional_face
+        * Decimal::from_f64_retain(priced.dirty_price_per_100).ok_or_else(|| {
             AnalyticsError::InvalidInput("dirty price not representable as Decimal".into())
-        })? / Decimal::from(100);
+        })?
+        / Decimal::from(100);
 
     // Analytical risk metrics from BondRiskCalculator (per 100 face).
     let calc = BondRiskCalculator::from_bond(
@@ -243,8 +244,14 @@ mod tests {
             convexity: 30.0,
             dv01: 500.0,
             key_rate_buckets: vec![
-                KeyRateBucket { tenor_years: 2.0, partial_dv01: 50.0 },
-                KeyRateBucket { tenor_years: 5.0, partial_dv01: 450.0 },
+                KeyRateBucket {
+                    tenor_years: 2.0,
+                    partial_dv01: 50.0,
+                },
+                KeyRateBucket {
+                    tenor_years: 5.0,
+                    partial_dv01: 450.0,
+                },
             ],
             provenance: Provenance {
                 curves_used: vec!["sofr".into()],
@@ -257,7 +264,8 @@ mod tests {
     #[test]
     fn round_trips_via_json() {
         let p = sample();
-        let parsed: RiskProfile = serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
+        let parsed: RiskProfile =
+            serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
         assert_eq!(p, parsed);
     }
 
@@ -410,7 +418,11 @@ mod tests {
         )
         .unwrap();
 
-        let bucket_sum: f64 = profile.key_rate_buckets.iter().map(|b| b.partial_dv01).sum();
+        let bucket_sum: f64 = profile
+            .key_rate_buckets
+            .iter()
+            .map(|b| b.partial_dv01)
+            .sum();
         // Triangular bumps with 4 tenors don't cover the full ladder, so the sum
         // is approximate. For a 9Y bullet with most weight at 10Y, the residual
         // gap to parallel DV01 should be a few percent.
@@ -488,6 +500,9 @@ mod tests {
         .unwrap();
         assert_eq!(profile.provenance.curves_used, vec!["usd_sofr"]);
         assert_eq!(profile.provenance.cost_model, "heuristic_v1");
-        assert_eq!(profile.provenance.advisor_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(
+            profile.provenance.advisor_version,
+            env!("CARGO_PKG_VERSION")
+        );
     }
 }

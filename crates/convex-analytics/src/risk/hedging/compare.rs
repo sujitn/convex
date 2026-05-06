@@ -278,5 +278,4 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&r).unwrap()).unwrap();
         assert_eq!(parsed, r);
     }
-
 }

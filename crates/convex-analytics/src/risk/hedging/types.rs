@@ -270,8 +270,14 @@ mod tests {
             convexity: 30.0,
             dv01,
             key_rate_buckets: vec![
-                KeyRateBucket { tenor_years: 5.0, partial_dv01: dv01 * 0.7 },
-                KeyRateBucket { tenor_years: 10.0, partial_dv01: dv01 * 0.3 },
+                KeyRateBucket {
+                    tenor_years: 5.0,
+                    partial_dv01: dv01 * 0.7,
+                },
+                KeyRateBucket {
+                    tenor_years: 10.0,
+                    partial_dv01: dv01 * 0.3,
+                },
             ],
             provenance: Provenance {
                 curves_used: vec!["sofr".into()],
@@ -293,8 +299,14 @@ mod tests {
             quantity: -50.0,
             dv01,
             key_rate_buckets: vec![
-                KeyRateBucket { tenor_years: 5.0, partial_dv01: 0.0 },
-                KeyRateBucket { tenor_years: 10.0, partial_dv01: dv01 },
+                KeyRateBucket {
+                    tenor_years: 5.0,
+                    partial_dv01: 0.0,
+                },
+                KeyRateBucket {
+                    tenor_years: 10.0,
+                    partial_dv01: dv01,
+                },
             ],
         }
     }
@@ -314,7 +326,10 @@ mod tests {
         let json = serde_json::to_string(&inst).unwrap();
         assert!(json.contains("\"instrument\":\"interest_rate_swap\""));
         assert!(json.contains("\"side\":\"pay_fixed\""));
-        assert_eq!(serde_json::from_str::<HedgeInstrument>(&json).unwrap(), inst);
+        assert_eq!(
+            serde_json::from_str::<HedgeInstrument>(&json).unwrap(),
+            inst
+        );
     }
 
     #[test]
@@ -333,7 +348,8 @@ mod tests {
             },
             provenance: pos.provenance,
         };
-        let parsed: HedgeProposal = serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
+        let parsed: HedgeProposal =
+            serde_json::from_str(&serde_json::to_string(&p).unwrap()).unwrap();
         assert_eq!(p, parsed);
     }
 
@@ -358,7 +374,11 @@ mod tests {
         let pos = position(500.0);
         let trade = future_trade(-500.0);
         let r = residual_from(&pos, &[trade]);
-        let ten = r.residual_buckets.iter().find(|b| b.tenor_years == 10.0).unwrap();
+        let ten = r
+            .residual_buckets
+            .iter()
+            .find(|b| b.tenor_years == 10.0)
+            .unwrap();
         // Position 10Y = 150; trade 10Y = -500; residual = -350.
         assert!((ten.partial_dv01 - (-350.0)).abs() < 1e-9);
     }

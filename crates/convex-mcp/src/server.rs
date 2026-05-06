@@ -1006,8 +1006,10 @@ impl ConvexMcpServer {
         })
     }
 
-    #[tool(description = "Compute per-position risk: DV01, durations, convexity, KRD buckets, \
-        provenance. Mirrors Bloomberg-parity KRD (Z-spread held fixed, ±1bp triangular bumps).")]
+    #[tool(
+        description = "Compute per-position risk: DV01, durations, convexity, KRD buckets, \
+        provenance. Mirrors Bloomberg-parity KRD (Z-spread held fixed, ±1bp triangular bumps)."
+    )]
     pub async fn compute_position_risk(
         &self,
         Parameters(params): Parameters<ComputePositionRiskParams>,
@@ -1047,9 +1049,11 @@ impl ConvexMcpServer {
         Self::json_result(&profile)
     }
 
-    #[tool(description = "Propose hedges for a risk profile. v1 ships DurationFutures + \
+    #[tool(
+        description = "Propose hedges for a risk profile. v1 ships DurationFutures + \
         InterestRateSwap. Each proposal includes trades, residual KRD, heuristic cost, \
-        tradeoff notes, and provenance.")]
+        tradeoff notes, and provenance."
+    )]
     pub async fn propose_hedges(
         &self,
         Parameters(params): Parameters<ProposeHedgesParams>,
@@ -1059,17 +1063,31 @@ impl ConvexMcpServer {
         let constraints = params.constraints.unwrap_or_default();
         let settlement = params.risk.settlement;
 
-        let f = duration_futures(&params.risk, &constraints, &curve, &curve_id_str, settlement)
-            .map_err(McpToolError::from)?;
-        let s = interest_rate_swap(&params.risk, &constraints, &curve, &curve_id_str, settlement)
-            .map_err(McpToolError::from)?;
+        let f = duration_futures(
+            &params.risk,
+            &constraints,
+            &curve,
+            &curve_id_str,
+            settlement,
+        )
+        .map_err(McpToolError::from)?;
+        let s = interest_rate_swap(
+            &params.risk,
+            &constraints,
+            &curve,
+            &curve_id_str,
+            settlement,
+        )
+        .map_err(McpToolError::from)?;
         Self::json_result(&ProposeHedgesOutput {
             proposals: vec![f, s],
         })
     }
 
-    #[tool(description = "Side-by-side comparison of hedge proposals. Recommends lowest cost \
-        meeting constraints, tie-broken by smallest residual KRD L1 norm.")]
+    #[tool(
+        description = "Side-by-side comparison of hedge proposals. Recommends lowest cost \
+        meeting constraints, tie-broken by smallest residual KRD L1 norm."
+    )]
     pub async fn compare_hedges(
         &self,
         Parameters(params): Parameters<CompareHedgesParams>,
@@ -1080,8 +1098,10 @@ impl ConvexMcpServer {
         Self::json_result(&report)
     }
 
-    #[tool(description = "Render a deterministic trader-brief paragraph from a ComparisonReport. \
-        v1 narrator is template-only (no LLM call).")]
+    #[tool(
+        description = "Render a deterministic trader-brief paragraph from a ComparisonReport. \
+        v1 narrator is template-only (no LLM call)."
+    )]
     pub async fn narrate_recommendation(
         &self,
         Parameters(params): Parameters<NarrateRecommendationParams>,
@@ -1333,10 +1353,7 @@ mod tests {
             id: "usd_sofr".into(),
             spec: flat_curve_spec(4.5),
         };
-        server
-            .create_curve(Parameters(curve_params))
-            .await
-            .unwrap();
+        server.create_curve(Parameters(curve_params)).await.unwrap();
 
         // Stash an AAPL-like bond.
         let aapl_spec = BondSpec {
@@ -1398,8 +1415,14 @@ mod tests {
         );
         let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
         assert_eq!(proposed.proposals.len(), 2);
-        assert!(proposed.proposals.iter().any(|p| p.strategy == "DurationFutures"));
-        assert!(proposed.proposals.iter().any(|p| p.strategy == "InterestRateSwap"));
+        assert!(proposed
+            .proposals
+            .iter()
+            .any(|p| p.strategy == "DurationFutures"));
+        assert!(proposed
+            .proposals
+            .iter()
+            .any(|p| p.strategy == "InterestRateSwap"));
         for p in &proposed.proposals {
             assert!(p.residual.residual_dv01.abs() / profile.dv01.abs() < 0.001);
             assert_eq!(p.provenance.cost_model, "heuristic_v1");
