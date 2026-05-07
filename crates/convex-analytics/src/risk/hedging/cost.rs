@@ -1,9 +1,6 @@
-//! Heuristic transaction-cost model for hedge proposals.
-//!
-//! Real cost feeds (TCA, broker quotes) are out of scope for v1. The
-//! [`HeuristicCostModel`] returns plausible bid-ask half-spreads in basis
-//! points by instrument class. Every proposal that uses it stamps
-//! `provenance.cost_model = "heuristic_v1"` so the source is unambiguous.
+//! Heuristic round-trip cost in bps by instrument class. Plausible mid-2024
+//! D2D mids — replace with a real feed when one's wired up. Outputs are
+//! tagged `cost_model = "heuristic_v1"` on `Provenance`.
 
 use super::types::HedgeInstrument;
 use convex_core::types::Currency;

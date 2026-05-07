@@ -1,11 +1,6 @@
-//! Closed-form risk for hedge-leg variants.
-//!
-//! Each function takes a wire spec + market context (curve + settlement +
-//! tenors) and returns DV01 and a per-tenor KRD vector. Strategies dispatch
-//! over the [`super::types::HedgeInstrument`] enum and call the right function.
-//!
-//! v1 ships [`bond_future_risk`] and (commit 4) `interest_rate_swap_risk`.
-//! The math reuses `compute_position_risk` — no parallel pricer.
+//! Per-instrument risk: each function returns DV01 + KRD for one hedge leg
+//! by building a synthetic underlying and routing through
+//! `compute_position_risk`. Sign convention is in [`super::types`].
 
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -20,25 +15,16 @@ use crate::risk::profile::{compute_position_risk, KeyRateBucket};
 
 use super::types::{BondFuture, CashBondLeg, InterestRateSwap, SwapSide};
 
-/// Risk of one bond-future contract in `spec.currency`.
+/// Per-contract DV01 + KRD for a [`BondFuture`].
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub struct BondFutureRisk {
-    /// DV01 per single contract.
     pub dv01_per_contract: f64,
-    /// KRD buckets per single contract.
     pub buckets_per_contract: Vec<KeyRateBucket>,
 }
 
-/// Compute the per-contract DV01 + KRD profile for a [`BondFuture`].
-///
-/// v1 model: build a representative deliverable (CBOT 6%-coupon reference
-/// bond at the contract's underlying tenor), mark it Z-flat to the discount
-/// curve, run `compute_position_risk` against `contract_size_face` of face,
-/// then divide DV01 and every bucket by `conversion_factor`.
-///
-/// CTD optionality, repo financing, and live deliverable basket switching are
-/// deferred to v2. The synthetic deliverable is a textbook approximation but
-/// preserves the curve-bumping linearity that hedging cares about.
+/// Per-contract risk via a synthetic 6% CBOT-style deliverable, divided by
+/// the conversion factor. v1 ignores CTD optionality and basis.
 pub fn bond_future_risk(
     spec: &BondFuture,
     curve: &RateCurve<DiscreteCurve>,
@@ -82,8 +68,6 @@ pub fn bond_future_risk(
     })
 }
 
-/// Representative CBOT deliverable for a futures contract: a 6%-coupon
-/// sovereign at the contract's underlying tenor.
 fn representative_ctd(spec: &BondFuture, settlement: Date) -> AnalyticsResult<FixedRateBond> {
     synthetic_sovereign_bond(
         spec.currency,
@@ -93,25 +77,16 @@ fn representative_ctd(spec: &BondFuture, settlement: Date) -> AnalyticsResult<Fi
     )
 }
 
-/// Risk of an interest-rate swap, signed from the position's perspective:
-/// pay-fixed → negative DV01 (gains when rates rise), receive-fixed → positive.
+/// Total swap DV01 + KRD, signed by `side`. Pay-fixed → negative DV01.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub struct InterestRateSwapRisk {
-    /// Total swap DV01 in `spec.currency`, signed by `side`.
     pub dv01: f64,
-    /// Per-tenor partial DV01s, signed.
     pub buckets: Vec<KeyRateBucket>,
 }
 
-/// Compute DV01 + KRD for an [`InterestRateSwap`].
-///
-/// v1 model: the fixed leg is a synthetic [`FixedRateBond`] priced Z-flat to
-/// the discount curve; floating-leg DV01 is approximated as zero (post-LIBOR
-/// SOFR/SONIA/€STR floating ≈ 0 at reset). DV01_payfixed = −DV01_fixed_bond;
-/// DV01_recvfixed = +DV01_fixed_bond. KRD buckets follow the same sign.
-///
-/// Limitations: ignores convexity adjustments and floating-leg fixings between
-/// reset dates. Acceptable for hedge-sizing on a daily horizon.
+/// Fixed-leg DV01 priced Z-flat against the discount curve, signed by `side`.
+/// Floating leg is treated as zero DV01 (post-LIBOR floating ≈ 0 at reset).
 pub fn interest_rate_swap_risk(
     spec: &InterestRateSwap,
     curve: &RateCurve<DiscreteCurve>,
@@ -175,10 +150,8 @@ pub fn interest_rate_swap_risk(
     })
 }
 
-/// Build a `FixedRateBond` mirroring the swap's fixed leg cashflow shape.
-///
-/// At swap inception, the fixed-leg PV01 equals the PV01 of an at-par bond
-/// with the same coupon, frequency, day count, and tenor.
+/// At inception, the fixed-leg PV01 equals the PV01 of an at-par bond with
+/// the same coupon, frequency, day count, and tenor — so we reuse a bond.
 fn synthetic_fixed_leg(
     spec: &InterestRateSwap,
     fixed_rate: Decimal,
@@ -214,22 +187,16 @@ fn synthetic_fixed_leg(
         .map_err(|e| AnalyticsError::BondError(format!("swap fixed leg build: {e}")))
 }
 
-/// Risk of a cash on-the-run bond hedge leg, signed by `face_amount`.
+/// Cash-bond leg DV01 + KRD, signed by `face_amount`.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub struct CashBondRisk {
-    /// Total leg DV01 in `spec.currency`, signed by `face_amount`.
     pub dv01: f64,
-    /// Per-tenor partial DV01s, signed.
     pub buckets: Vec<KeyRateBucket>,
 }
 
-/// Compute DV01 + KRD for a [`CashBondLeg`].
-///
-/// Builds a synthetic on-the-run government bond (par-coupon at the spec's
-/// `coupon_rate_decimal`, country-standard sovereign conventions), prices it
-/// Z-flat to the discount curve, scales by `face_amount`. Sign of the result
-/// follows `face_amount`: a short position (`face_amount < 0`) produces
-/// negative DV01 (gains when rates rise).
+/// DV01 + KRD of a synthetic OTR sovereign at the spec's coupon, scaled by
+/// signed `face_amount`. Country preset by `currency`.
 pub fn cash_bond_risk(
     spec: &CashBondLeg,
     curve: &RateCurve<DiscreteCurve>,
@@ -272,11 +239,9 @@ pub fn cash_bond_risk(
     })
 }
 
-/// Build a synthetic sovereign bond at `tenor_years` from `settlement` with
-/// `coupon`, using the country's standard market conventions
-/// (`us_treasury` / `uk_gilt` / `german_bund` from `convex-bonds`). Issued on
-/// `settlement` so accrued is zero at t0. Used by both the CBOT reference
-/// CTD and the on-the-run cash-bond hedge leg.
+/// Synthetic at-par sovereign issued on `settlement` (zero accrued), country
+/// preset from `currency`. Shared by the CBOT-reference CTD and the OTR
+/// cash-bond hedge leg.
 fn synthetic_sovereign_bond(
     currency: Currency,
     coupon: Decimal,

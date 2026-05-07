@@ -1,7 +1,5 @@
-//! Side-by-side comparison of hedge proposals.
-//!
-//! Pure transformation — flattens proposals into rows and picks the
-//! recommended one deterministically. No new math.
+//! Side-by-side comparison of hedge proposals. Pure transformation — no
+//! new pricing.
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::RiskProfile;

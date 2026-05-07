@@ -135,11 +135,9 @@ pub mod prelude {
         // Duration types (low-level functions available via crate::risk::)
         Duration,
         EffectiveDurationCalculator,
-        HedgeDirection,
         // Hedge advisor (proposals)
         HedgeInstrument,
         HedgeProposal,
-        HedgeRecommendation,
         HedgeTrade,
         InterestRateSwap,
         // Hedge advisor (per-tenor bucket on the key-rate ladder)

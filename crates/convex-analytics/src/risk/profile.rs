@@ -1,9 +1,5 @@
-//! Per-position risk profile — output of `compute_position_risk`.
-//!
-//! `dv01` is signed: long fixed-coupon bond → positive DV01 (P&L for +1bp =
-//! `−dv01`). `notional_face` follows the same convention. All `_per_100`
-//! fields are per 100 face. KRD buckets are partial DV01 by tenor — Σ ≈
-//! parallel `dv01` for small shifts.
+//! Per-position risk profile. Sign convention lives on the wire types in
+//! `risk::hedging::types` and applies here too.
 
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
@@ -20,22 +16,16 @@ use crate::risk::calculator::BondRiskCalculator;
 use crate::risk::duration::STANDARD_KEY_RATE_TENORS;
 use crate::spreads::ZSpreadCalculator;
 
-/// One bucket on the key-rate ladder: partial DV01 attributable to a +1bp
-/// shock at `tenor_years` only.
-///
-/// Different from [`crate::risk::duration::KeyRateDuration`] (which carries
-/// duration only, per-unit). This one is position-scaled DV01.
+/// Position-scaled partial DV01 from a +1bp shock at one tenor.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[allow(missing_docs)]
 pub struct KeyRateBucket {
-    /// Key tenor center in years.
     pub tenor_years: f64,
-    /// Partial DV01 in `RiskProfile::currency`.
     pub partial_dv01: f64,
 }
 
-/// Audit metadata stamped on advisor outputs. Only the non-redundant bits
-/// (the bond and curve are already visible to the caller).
+/// Audit metadata stamped on every advisor output.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Provenance {
@@ -53,55 +43,38 @@ pub struct Provenance {
 /// Risk profile of a single position.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[allow(missing_docs)]
 pub struct RiskProfile {
-    /// Caller-supplied position id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position_id: Option<String>,
-    /// Position currency.
     pub currency: Currency,
-    /// Settlement date used for pricing.
     pub settlement: Date,
-    /// Face notional. Positive = long, negative = short.
+    /// Signed face notional (positive = long).
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub notional_face: Decimal,
-    /// Clean price per 100.
     pub clean_price_per_100: f64,
-    /// Dirty price per 100.
     pub dirty_price_per_100: f64,
-    /// Accrued interest per 100.
     pub accrued_per_100: f64,
     /// Dirty market value = `notional_face × dirty / 100`.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub market_value: Decimal,
-    /// Yield to maturity (decimal).
     pub ytm_decimal: f64,
-    /// Modified duration of the underlying.
     pub modified_duration_years: f64,
-    /// Macaulay duration of the underlying.
     pub macaulay_duration_years: f64,
-    /// Analytical convexity of the underlying.
     pub convexity: f64,
-    /// Total position DV01 in `currency`.
+    /// Position DV01 in `currency`.
     pub dv01: f64,
-    /// Per-tenor DV01 buckets, ascending.
+    /// Per-tenor partial DV01 buckets.
     #[serde(default)]
     pub key_rate_buckets: Vec<KeyRateBucket>,
-    /// Audit metadata. Defaulted to empty when omitted by an LLM-driven
-    /// caller round-tripping the struct — the analytics-side computation
-    /// re-stamps it on the way out.
+    /// Re-stamped by `compute_position_risk` if a round-trip dropped it.
     #[serde(default)]
     pub provenance: Provenance,
 }
 
-/// Compute per-position risk against a discount curve.
-///
-/// Mirrors the canonical Bloomberg-parity path used in `convex-ffi::dispatch`:
-/// price the bond against the trader mark, derive analytical macaulay /
-/// modified / convexity / DV01 via `BondRiskCalculator`, and bucket DV01 by
-/// tenor with ±1bp triangular bumps holding the implied Z-spread fixed.
-///
-/// `notional_face` is signed (positive long, negative short). All scalar risk
-/// fields scale linearly with notional.
+/// Per-position risk: price the bond, derive analytical metrics via
+/// [`BondRiskCalculator`], then bucket DV01 with ±1bp triangular bumps at
+/// each `key_rate_tenor` holding the implied Z-spread fixed.
 #[allow(clippy::too_many_arguments)]
 pub fn compute_position_risk<B>(
     bond: &B,

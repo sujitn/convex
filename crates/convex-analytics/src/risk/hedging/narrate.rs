@@ -1,8 +1,5 @@
-//! Deterministic template narrator. No LLM call.
-//!
-//! Takes a [`ComparisonReport`] and produces a trader-brief paragraph that
-//! states the position, lists each candidate with its key tradeoff number,
-//! and ends with the recommended pick + the reason tags.
+//! Template narrator (no LLM). Renders a trader-brief paragraph from a
+//! [`ComparisonReport`] — same input → same bytes.
 
 use rust_decimal::prelude::ToPrimitive;
 

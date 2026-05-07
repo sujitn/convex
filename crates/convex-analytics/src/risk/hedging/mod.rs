@@ -1,21 +1,9 @@
-//! Hedging calculations for fixed income portfolios.
-//!
-//! Two distinct surfaces share this module:
-//!
-//! - **Numeric helpers** (`hedge_ratio`, `portfolio`): low-level building
-//!   blocks. [`dv01_hedge_ratio`] / [`duration_hedge_ratio`] return a single
-//!   ratio; [`HedgeRecommendation`] is a tiny three-field DTO they emit.
-//!   These exist independently of the advisor and are used by callers that
-//!   want raw numbers, not proposals.
+//! Hedging analytics. Two surfaces:
 //!
 //! - **Hedge advisor** (`types`, `instruments`, `strategies`, `cost`,
-//!   `compare`, `narrate`): the structured proposal pipeline. Strategies
-//!   produce [`HedgeProposal`]s; [`compare_hedges`] aggregates them into a
-//!   [`ComparisonReport`] with a deterministic [`Recommendation`].
-//!
-//! Don't confuse [`HedgeRecommendation`] (legacy numeric DTO from the
-//! ratio helpers) with [`Recommendation`] (advisor's pick, lives on a
-//! `ComparisonReport`).
+//!   `compare`, `narrate`): structured proposal pipeline.
+//! - **Ratio helpers** (`hedge_ratio`, `portfolio`): scalar DV01/duration
+//!   ratios for callers that want raw numbers.
 
 pub mod compare;
 pub mod cost;
@@ -28,7 +16,7 @@ pub mod types;
 
 pub use compare::compare_hedges;
 pub use cost::{CostModel, HeuristicCostModel};
-pub use hedge_ratio::*;
+pub use hedge_ratio::{duration_hedge_ratio, dv01_hedge_ratio};
 pub use instruments::{
     bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk, CashBondRisk,
     InterestRateSwapRisk,

@@ -1,8 +1,14 @@
 //! Hedge advisor wire types.
 //!
-//! Sign convention: `dv01` is signed (long bond → +; pay-fixed swap → −).
-//! `notional` is signed (long → +). A hedge neutralizes the position when
-//! `position.dv01 + Σ trade.dv01 ≈ 0`.
+//! Sign convention: a long bond has positive DV01; a pay-fixed swap has
+//! negative DV01. A hedge neutralizes when `position.dv01 + Σ trade.dv01 ≈ 0`.
+//! `RiskProfile::notional_face` and `CashBondLeg::face_amount` are signed;
+//! `InterestRateSwap::notional` is unsigned (direction lives on `SwapSide`).
+//!
+//! These are JSON wire types — the field name is the doc, surfaced through
+//! schemars to the MCP schema.
+
+#![allow(missing_docs)]
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -17,240 +23,186 @@ use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "instrument", rename_all = "snake_case")]
 pub enum HedgeInstrument {
-    /// Liquid bond future (CBOT TY/FV/TU/US, Eurex Bund, …).
+    /// CBOT/Eurex/LIFFE listed bond future.
     BondFuture(BondFuture),
-    /// Vanilla single-currency interest-rate swap.
+    /// Single-currency vanilla IRS.
     InterestRateSwap(InterestRateSwap),
-    /// Cash on-the-run government bond (UST, Bund, Gilt) used as a hedge.
-    /// Wider bid-ask than futures but no roll, no margin, and no CTD basis.
+    /// On-the-run sovereign cash bond.
     CashBond(CashBondLeg),
 }
 
-/// Side of a swap from the position's perspective.
+/// Swap side from the position's perspective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SwapSide {
-    /// Pay fixed, receive floating. Acts as a short-bond hedge.
+    /// Pay fixed → short-bond hedge.
     PayFixed,
-    /// Receive fixed, pay floating. Acts as a long-bond exposure.
+    /// Receive fixed → long-bond exposure.
     ReceiveFixed,
 }
 
-/// Bond-future descriptor. Names the contract; the strategy resolves
-/// `contract_code` to a representative CTD bond internally.
-///
-/// `conversion_factor` is the CTD conversion factor (CF). v1 uses a synthetic
-/// 6%-coupon reference deliverable so CF ≡ 1.0 by construction. Real
-/// per-deliverable CFs land with v2 CTD optimization; the field is kept on
-/// the wire so callers can override.
+/// Bond future descriptor. v1 prices through a synthetic 6%-coupon
+/// deliverable so `conversion_factor` is 1.0 by construction; the field is
+/// kept for callers that supply real CFs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BondFuture {
-    /// Bloomberg-style contract ticker (e.g. `"TY"` for CBOT 10-Year).
     pub contract_code: String,
-    /// Underlying tenor in years.
     pub underlying_tenor_years: f64,
-    /// CTD conversion factor (1.0 for the v1 synthetic deliverable).
     pub conversion_factor: f64,
-    /// Face per contract (e.g. 100_000 for CBOT TY).
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub contract_size_face: Decimal,
-    /// Contract currency.
     pub currency: Currency,
 }
 
-/// On-the-run government bond hedge leg. v1 builds a synthetic deliverable
-/// (par coupon at the curve's yield at tenor) using the country's standard
-/// sovereign conventions (US Treasury Note/Bond / UK Gilt / German Bund).
-///
-/// `face_amount` is signed (positive = long, negative = short). The
-/// strategy that builds it sizes face to neutralize the position's DV01.
+/// Cash on-the-run sovereign hedge leg. The bond's country preset is picked
+/// from `currency` (USD → UST, GBP → Gilt, EUR → Bund). `face_amount` is
+/// signed (positive = long).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CashBondLeg {
-    /// Tenor at issue (e.g. 10.0 for an on-the-run 10Y).
     pub tenor_years: f64,
-    /// Annual coupon as decimal (`0.045` = 4.5%).
     pub coupon_rate_decimal: f64,
-    /// Currency — picks the sovereign convention (USD → UST, GBP → Gilt,
-    /// EUR → Bund).
     pub currency: Currency,
-    /// Signed face amount in `currency`.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub face_amount: Decimal,
 }
 
-/// Interest-rate swap descriptor (single-currency vanilla).
+/// Vanilla single-currency IRS. Direction is on `side`; `notional` is
+/// strictly positive.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct InterestRateSwap {
-    /// Tenor in years.
     pub tenor_years: f64,
-    /// Fixed rate as decimal (`0.045` = 4.5%).
     pub fixed_rate_decimal: f64,
-    /// Fixed-leg frequency.
     pub fixed_frequency: Frequency,
-    /// Fixed-leg day count.
     pub fixed_day_count: DayCountConvention,
-    /// Floating index name (`"SOFR"`, `"SONIA"`, `"ESTR"`).
+    /// `"SOFR"` / `"SONIA"` / `"ESTR"`.
     pub floating_index: String,
-    /// Side from the position's perspective.
     pub side: SwapSide,
-    /// Notional in `currency`.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub notional: Decimal,
-    /// Currency.
     pub currency: Currency,
 }
 
-/// One leg of a hedge proposal. `quantity` is the number of contracts for
-/// futures and `1.0` (or `-1.0`) for swaps (swap size lives on the
-/// instrument itself).
+/// One leg of a hedge proposal.
+///
+/// `quantity` is the number of contracts for `BondFuture`. For `InterestRateSwap`
+/// and `CashBond` it's just `±1.0` recording direction — the actual size lives on
+/// the instrument's `notional` / `face_amount`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct HedgeTrade {
-    /// The instrument.
     pub instrument: HedgeInstrument,
-    /// Signed quantity. See struct doc.
     pub quantity: f64,
-    /// Trade DV01 in instrument currency, signed.
+    /// Signed trade DV01 in instrument currency.
     pub dv01: f64,
-    /// Per-tenor DV01 buckets for the trade, on the same ladder as the
-    /// position. Optional on the wire so an LLM-driven round-trip that
-    /// omits the buckets still parses; downstream just sees an empty
-    /// ladder for that trade.
+    /// Optional on the wire — round-trips from LLM agents may drop it.
     #[serde(default)]
     pub key_rate_buckets: Vec<KeyRateBucket>,
 }
 
-/// Caller-supplied constraints on `propose_hedges`. Strategies that cannot
-/// honor a constraint surface that in `TradeoffNotes::weaknesses`.
+/// Caller-supplied constraints. Strategies surface violations in
+/// [`TradeoffNotes::weaknesses`]; [`crate::risk::hedging::compare_hedges`]
+/// applies them when picking a recommendation.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Constraints {
-    /// Max tolerated absolute residual DV01 in position currency.
+    /// Max |residual DV01| in position currency.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_residual_dv01: Option<f64>,
-    /// Max round-trip cost in bps of position market value.
+    /// Max round-trip cost as bps of position market value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_cost_bps: Option<f64>,
-    /// Restrict to a subset of strategies. Empty = all.
+    /// Allow-list of strategy names. Empty = all.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_strategies: Vec<String>,
 }
 
-/// Residual risk after applying the trades.
+/// Residual risk after applying trades.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ResidualRisk {
     /// `position.dv01 + Σ trade.dv01`.
     pub residual_dv01: f64,
-    /// Per-tenor residual buckets. Optional on the wire — see `HedgeTrade::key_rate_buckets`.
+    /// Optional on the wire — see [`HedgeTrade::key_rate_buckets`].
     #[serde(default)]
     pub residual_buckets: Vec<KeyRateBucket>,
-    /// Σ |bucket.partial_dv01| — scalar curvature measure.
+    /// Σ |bucket.partial_dv01|.
     pub residual_krd_l1_norm: f64,
 }
 
-/// Structured tradeoff notes — strengths/weaknesses bullets.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct TradeoffNotes {
-    /// Strengths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub strengths: Vec<String>,
-    /// Weaknesses / caveats.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub weaknesses: Vec<String>,
 }
 
-/// One hedge proposal from a single strategy.
+/// One strategy's proposed hedge. Optional fields default on the wire so an
+/// LLM round-trip that drops them still parses.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct HedgeProposal {
-    /// Strategy name.
     pub strategy: String,
-    /// Trade legs.
     pub trades: Vec<HedgeTrade>,
-    /// Residual risk.
     pub residual: ResidualRisk,
     /// Cost as bps of position market value.
     pub cost_bps: f64,
-    /// Cost in position currency.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub cost_total: Decimal,
-    /// Tradeoff notes. Optional on the wire so a round-trip that drops the
-    /// notes still parses.
     #[serde(default)]
     pub tradeoffs: TradeoffNotes,
-    /// Audit metadata. Optional on the wire — see `RiskProfile::provenance`.
     #[serde(default)]
     pub provenance: Provenance,
 }
 
-/// One row of `ComparisonReport`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ComparisonRow {
-    /// Strategy name.
     pub strategy: String,
     /// Σ trade DV01.
     pub hedge_dv01: f64,
-    /// Position DV01 + Σ trade DV01.
     pub residual_dv01: f64,
-    /// L1 norm of residual buckets.
     pub residual_krd_l1_norm: f64,
-    /// Cost in bps of position market value.
     pub cost_bps: f64,
-    /// Cost in position currency.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub cost_total: Decimal,
 }
 
-/// Side-by-side comparison of two or more proposals.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ComparisonReport {
-    /// Position currency.
     pub currency: Currency,
-    /// Position market value at comparison time.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub position_market_value: Decimal,
-    /// Position DV01 at comparison time.
     pub position_dv01: f64,
-    /// One row per proposal, in input order.
+    /// One row per proposal, input order.
     pub rows: Vec<ComparisonRow>,
-    /// Deterministic recommendation seed for the narrator.
     pub recommendation: Recommendation,
 }
 
-/// Why a row was recommended. Multiple reasons may apply (e.g. a row that
-/// is both lowest-cost and meets all constraints).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecommendationReason {
-    /// Lowest `cost_bps` among the candidates.
     LowestCost,
-    /// Smallest `residual_krd_l1_norm` among the candidates.
     SmallestCurvature,
-    /// Met all caller-supplied constraints (`max_residual_dv01`, `max_cost_bps`).
+    /// Row met all caller-supplied constraints.
     MeetsConstraints,
-    /// Constraints were supplied but no row met them — fell back to lowest cost.
+    /// Constraints were supplied but nothing met them — fell back to lowest cost.
     NoRowMetConstraints,
 }
 
-/// Deterministic pick — lowest `cost_bps` honoring `Constraints`, tie-broken
-/// by smallest `residual_krd_l1_norm`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Recommendation {
-    /// Recommended strategy name.
     pub strategy: String,
-    /// Index into `ComparisonReport::rows`.
+    /// Index into [`ComparisonReport::rows`].
     pub row_index: usize,
-    /// Reasons the row was chosen.
     pub reasons: Vec<RecommendationReason>,
 }
 

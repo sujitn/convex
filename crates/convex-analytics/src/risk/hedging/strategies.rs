@@ -1,12 +1,5 @@
-//! Concrete hedge strategies. Each function takes a [`RiskProfile`] and
-//! returns a [`HedgeProposal`] sized to neutralize at least the position's
-//! parallel DV01.
-//!
-//! Ships [`duration_futures`] (single contract), [`barbell_futures`] (two
-//! contracts solving for parallel + dominant-bucket KRD), and
-//! [`interest_rate_swap`] (tenor-matched IRS). All three reuse
-//! `bond_future_risk` / `interest_rate_swap_risk` from [`super::instruments`]
-//! — no parallel sizing logic.
+//! Hedge strategies. Each function sizes legs to neutralize the position's
+//! parallel DV01 and returns a [`HedgeProposal`].
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -26,12 +19,8 @@ use super::types::{
     HedgeTrade, InterestRateSwap, SwapSide, TradeoffNotes,
 };
 
-/// Strategy that neutralizes parallel DV01 with a single bond future.
-///
-/// Selects a benchmark contract by position currency + duration band, sizes
-/// it to `−position.dv01 / future.dv01_per_contract`, computes residual KRD,
-/// and stamps a heuristic cost. Curvature exposure is left in the residual —
-/// that's the strategy's documented weakness.
+/// Single benchmark bond future, sized to neutralize parallel DV01. Leaves
+/// curvature in the residual (that's the named weakness).
 pub fn duration_futures(
     position: &RiskProfile,
     constraints: &Constraints,
@@ -102,16 +91,10 @@ pub fn duration_futures(
     })
 }
 
-/// Strategy that uses two bond futures (a barbell pair) to neutralize
-/// parallel DV01 and the position's dominant key-rate bucket simultaneously.
-///
-/// Useful for positions whose curvature is concentrated at a tenor that no
-/// single benchmark contract matches well — e.g., a 7-year position hedged
-/// with FV+TY rather than TY alone, or a 20-year position with TY+US.
-///
-/// Math: solve a 2x2 system where contract A and contract B's per-contract
-/// (DV01, KRD-at-target) zero out (-position.dv01, -position.krd_at_target)
-/// via Cramer's rule. Singular system (proportional risk profiles) → error.
+/// Two bond futures bracketing the position's duration. Solves a 2x2 for
+/// parallel DV01 and the dominant key-rate bucket simultaneously, so a 7Y
+/// position is hedged with FV+TY rather than just TY. Errors if the two
+/// contracts' (DV01, KRD-at-target) are colinear.
 pub fn barbell_futures(
     position: &RiskProfile,
     constraints: &Constraints,
@@ -125,7 +108,6 @@ pub fn barbell_futures(
         ));
     }
 
-    // 1. Dominant target bucket — largest |partial_dv01| in the ladder.
     let target = position
         .key_rate_buckets
         .iter()
@@ -138,10 +120,7 @@ pub fn barbell_futures(
         .copied()
         .expect("non-empty by check above");
 
-    // 2. Pick a bracketing contract pair for the position's currency + duration.
     let (lo, hi) = pick_barbell_pair(position)?;
-
-    // 3. Per-contract risks on the position's tenor ladder.
     let key_rate_tenors: Vec<f64> = position
         .key_rate_buckets
         .iter()
@@ -162,15 +141,12 @@ pub fn barbell_futures(
         Some(&key_rate_tenors),
     )?;
 
-    // 4. Per-contract KRD at the target tenor.
+    // Cramer on:  n_lo·lo_d + n_hi·hi_d = −position.dv01
+    //             n_lo·lo_k + n_hi·hi_k = −target.partial_dv01
     let lo_k = krd_at(&lo_risk.buckets_per_contract, target.tenor_years);
     let hi_k = krd_at(&hi_risk.buckets_per_contract, target.tenor_years);
     let lo_d = lo_risk.dv01_per_contract;
     let hi_d = hi_risk.dv01_per_contract;
-
-    // 5. Cramer's rule on:
-    //    n_lo * lo_d + n_hi * hi_d = −position.dv01
-    //    n_lo * lo_k + n_hi * hi_k = −target.partial_dv01
     let det = lo_d * hi_k - hi_d * lo_k;
     if det.abs() < 1e-9 {
         return Err(AnalyticsError::CalculationFailed(format!(
@@ -183,7 +159,6 @@ pub fn barbell_futures(
     let n_lo = (hi_d * k - d * hi_k) / det;
     let n_hi = (d * lo_k - lo_d * k) / det;
 
-    // 6. Build the two trade legs.
     let trade_lo = scale_future_trade(&lo, &lo_risk, n_lo);
     let trade_hi = scale_future_trade(&hi, &hi_risk, n_hi);
     let trades = vec![trade_lo, trade_hi];
@@ -222,13 +197,9 @@ pub fn barbell_futures(
     })
 }
 
-/// Pick a contract pair that brackets the position's effective duration.
-/// Returns `(short-tenor contract, long-tenor contract)`.
+/// Two benchmark futures bracketing the position's modified duration. Returns
+/// `(short-tenor, long-tenor)` so callers can rely on the order in `det` math.
 fn pick_barbell_pair(position: &RiskProfile) -> AnalyticsResult<(BondFuture, BondFuture)> {
-    // Bracket the position's modified duration with the two adjacent
-    // benchmark contracts. Tenors line up at 2 / 5 / 10 / 30; the breakpoints
-    // (5 and 10) put each duration into the pair whose underlying tenors
-    // span it.
     let pair = match (position.currency, position.modified_duration_years) {
         (Currency::USD, d) if d <= 5.0 => (("TU", 2.0), ("FV", 5.0)),
         (Currency::USD, d) if d <= 10.0 => (("FV", 5.0), ("TY", 10.0)),
@@ -259,7 +230,6 @@ fn pick_barbell_pair(position: &RiskProfile) -> AnalyticsResult<(BondFuture, Bon
     ))
 }
 
-/// Per-bucket DV01 lookup at a tenor (within 1e-9 tolerance). Zero if absent.
 fn krd_at(buckets: &[KeyRateBucket], tenor_years: f64) -> f64 {
     buckets
         .iter()
@@ -268,7 +238,6 @@ fn krd_at(buckets: &[KeyRateBucket], tenor_years: f64) -> f64 {
         .unwrap_or(0.0)
 }
 
-/// Build a `HedgeTrade` for a futures contract scaled by `quantity`.
 fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -> HedgeTrade {
     HedgeTrade {
         instrument: HedgeInstrument::BondFuture(spec.clone()),
@@ -285,21 +254,12 @@ fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -
     }
 }
 
-/// Strategy that neutralizes DV01 by shorting a duration-matched on-the-run
-/// sovereign bond (UST / Bund / Gilt). Most-asked-for hedge on real desks
-/// when the trader wants to keep curve exposure but neutralize rates risk
-/// without futures roll or bilateral swap docs.
+/// Short a duration-matched on-the-run sovereign sized to neutralize DV01.
 ///
-/// Sizes the cash-bond face to `−position.dv01 / cash_bond_dv01_per_unit_face`
-/// by probing risk on a unit face, then scaling linearly.
-///
-/// v1 simplification: the synthetic OTR bond's coupon is the discount
-/// curve's par swap rate at the chosen tenor — the bond is thus issued at
-/// par against the discount curve, which gives correct DV01 sizing under
-/// Z-flat pricing. For a SOFR/€STR/SONIA discount this is the swap rate,
-/// not the actual on-the-run UST/Bund/Gilt coupon. The math holds because
-/// the strategy only needs DV01 neutrality, but a real OTR coupon would
-/// require an explicit govt curve — deferred to v2.
+/// The synthetic OTR coupon is the discount curve's par-swap rate at tenor —
+/// the bond is at par against the discount curve, which gives correct DV01
+/// sizing under Z-flat pricing. A real govt-curve OTR coupon needs a separate
+/// govt curve (deferred).
 pub fn cash_bond_pair(
     position: &RiskProfile,
     constraints: &Constraints,
@@ -390,10 +350,8 @@ pub fn cash_bond_pair(
     })
 }
 
-/// Par coupon for a synthetic on-the-run sovereign at `tenor_years`. Reads
-/// the par swap rate against the discount curve as a proxy — fine for
-/// near-flat curves and good enough for the Z-flat pricing the strategy
-/// does next.
+/// Par-coupon proxy: the discount curve's par swap rate at tenor. Good
+/// enough for the Z-flat pricing that follows.
 fn otr_par_coupon(
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
@@ -404,11 +362,8 @@ fn otr_par_coupon(
         .map_err(|e| AnalyticsError::CurveError(e.to_string()))
 }
 
-/// Strategy that neutralizes DV01 with a tenor-matched IRS.
-///
-/// Builds a pay-fixed (long bond → +DV01) or receive-fixed (short bond)
-/// vanilla swap at the position's effective duration tenor, sized so the
-/// fixed-leg PV01 matches the position's DV01.
+/// Tenor-matched vanilla IRS sized to neutralize DV01. Pay-fixed for long
+/// positions, receive-fixed for short.
 pub fn interest_rate_swap(
     position: &RiskProfile,
     constraints: &Constraints,
@@ -431,8 +386,7 @@ pub fn interest_rate_swap(
     )
     .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-    // Price a unit-notional swap once; DV01 and KRD scale linearly with
-    // notional so we size analytically rather than re-pricing.
+    // Risk scales linearly with notional, so price a unit swap and scale.
     let unit_swap = InterestRateSwap {
         tenor_years,
         fixed_rate_decimal,
@@ -519,9 +473,6 @@ pub fn interest_rate_swap(
 // ---- internals ----------------------------------------------------------
 
 fn pick_future_contract(position: &RiskProfile) -> AnalyticsResult<BondFuture> {
-    // Bucket by modified duration → benchmark contract code. v1 uses the most
-    // liquid contract per region and assumes CF=1.0 (synthetic deliverable);
-    // real CFs are wired in v2 against the deliverable basket.
     let (code, tenor) = match (position.currency, position.modified_duration_years) {
         (Currency::USD, d) if d < 2.5 => ("TU", 2.0),
         (Currency::USD, d) if d < 5.5 => ("FV", 5.0),
@@ -558,8 +509,8 @@ fn contract_size_for(currency: Currency, code: &str) -> Decimal {
 }
 
 fn pick_swap_tenor(position: &RiskProfile) -> f64 {
-    // Round modified duration to the nearest standard liquid swap tenor.
-    // NaN-safe: NaN duration falls into the >20 band → 30Y.
+    // Bucket modified duration into standard liquid swap tenors. NaN falls
+    // through every comparison and lands in the final branch (30Y).
     let d = position.modified_duration_years;
     if d < 3.5 {
         2.0
@@ -594,7 +545,6 @@ fn swap_conventions_for(
     }
 }
 
-/// Years from the curve's reference date to `settlement`.
 fn curve_tenor_to(discount_curve: &RateCurve<DiscreteCurve>, settlement: Date) -> f64 {
     use convex_curves::TermStructure;
     discount_curve
@@ -611,14 +561,8 @@ fn side_sign(side: SwapSide) -> f64 {
     }
 }
 
-/// Unified cost calculation across single-leg and multi-leg proposals.
-///
-/// Cost in currency = Σ over legs of (leg notional × `HeuristicCostModel`
-/// bps / 10_000). For futures, leg notional = `|quantity| × contract size`;
-/// for swaps, the notional comes from the spec. The reported `cost_bps` is
-/// the total dollar cost expressed as bps of position market value, so
-/// proposals are comparable on a per-position basis even when their hedge
-/// notionals differ.
+/// Sum each leg's `notional × cost_bps / 10_000`, expressed both as a Decimal
+/// total and as bps of position market value.
 fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal) {
     let model = HeuristicCostModel;
     let mv = position.market_value.to_f64().unwrap_or(0.0).abs();
@@ -644,8 +588,6 @@ fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal
     )
 }
 
-/// Build a fresh `Provenance` for a strategy's output. Carries forward the
-/// position's curve list and the strategy's discount-curve id (deduplicated).
 fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Provenance {
     let mut curves_used = position.provenance.curves_used.clone();
     if !curves_used.iter().any(|c| c == discount_curve_id) {
