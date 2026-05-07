@@ -455,11 +455,25 @@ pub struct ProposeHedgesParams {
     pub constraints: Option<Constraints>,
 }
 
+/// One strategy that didn't run, with the analytics-layer error message.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct SkippedStrategy {
+    pub strategy: String,
+    pub reason: String,
+}
+
 /// `propose_hedges` output.
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ProposeHedgesOutput {
     pub proposals: Vec<HedgeProposal>,
+    /// Strategies that ran but failed (e.g. empty key-rate ladder for
+    /// `BarbellFutures`). Skipped silently in the body so a missing
+    /// strategy doesn't fail the whole call; surfaced here for audit.
+    /// Strategies excluded by `allowed_strategies` are *not* listed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_strategies: Vec<SkippedStrategy>,
 }
 
 /// `compare_hedges` parameters.
@@ -1098,74 +1112,100 @@ impl ConvexMcpServer {
         let constraints = params.constraints.unwrap_or_default();
         let settlement = params.risk.settlement;
 
-        // Honour `allowed_strategies` at propose time. Empty list = all.
-        let run = |name: &str| {
+        let allow = |name: &str| {
             constraints.allowed_strategies.is_empty()
                 || constraints.allowed_strategies.iter().any(|s| s == name)
         };
+        let was_explicitly_requested =
+            |name: &str| constraints.allowed_strategies.iter().any(|s| s == name);
+
         let mut proposals: Vec<HedgeProposal> = Vec::new();
-        if run("DurationFutures") {
-            proposals.push(
+        let mut skipped: Vec<SkippedStrategy> = Vec::new();
+
+        // All strategies handled uniformly: try to run, on error either
+        // surface it (when the trader explicitly asked for that strategy)
+        // or record it in `skipped` so the call doesn't fail on a degenerate
+        // input that happened to break only one of the four.
+        let mut try_run = |name: &str,
+                           result: Result<HedgeProposal, convex::AnalyticsError>|
+         -> Result<(), McpError> {
+            match result {
+                Ok(p) => {
+                    proposals.push(p);
+                    Ok(())
+                }
+                Err(e) if was_explicitly_requested(name) => Err(McpToolError::from(e).into()),
+                Err(e) => {
+                    skipped.push(SkippedStrategy {
+                        strategy: name.into(),
+                        reason: e.to_string(),
+                    });
+                    Ok(())
+                }
+            }
+        };
+
+        if allow("DurationFutures") {
+            try_run(
+                "DurationFutures",
                 duration_futures(
                     &params.risk,
                     &constraints,
                     &curve,
                     &curve_id_str,
                     settlement,
-                )
-                .map_err(McpToolError::from)?,
-            );
+                ),
+            )?;
         }
-        if run("BarbellFutures") {
-            // BarbellFutures requires a non-empty key-rate ladder; if the
-            // position lacks one, surface the error only when the trader
-            // explicitly asked for the strategy. Otherwise silently skip.
-            match barbell_futures(
-                &params.risk,
-                &constraints,
-                &curve,
-                &curve_id_str,
-                settlement,
-            ) {
-                Ok(p) => proposals.push(p),
-                Err(e) if !constraints.allowed_strategies.is_empty() => {
-                    return Err(McpToolError::from(e).into())
-                }
-                Err(_) => {}
-            }
+        if allow("BarbellFutures") {
+            try_run(
+                "BarbellFutures",
+                barbell_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
         }
-        if run("CashBondPair") {
-            proposals.push(
+        if allow("CashBondPair") {
+            try_run(
+                "CashBondPair",
                 cash_bond_pair(
                     &params.risk,
                     &constraints,
                     &curve,
                     &curve_id_str,
                     settlement,
-                )
-                .map_err(McpToolError::from)?,
-            );
+                ),
+            )?;
         }
-        if run("InterestRateSwap") {
-            proposals.push(
+        if allow("InterestRateSwap") {
+            try_run(
+                "InterestRateSwap",
                 interest_rate_swap(
                     &params.risk,
                     &constraints,
                     &curve,
                     &curve_id_str,
                     settlement,
-                )
-                .map_err(McpToolError::from)?,
-            );
+                ),
+            )?;
         }
         if proposals.is_empty() {
             return Err(McpToolError::InvalidInput(format!(
-                "propose_hedges: no strategy matches allowed_strategies = {:?}",
-                constraints.allowed_strategies
+                "propose_hedges: no strategy produced a proposal (allowed_strategies = {:?}, \
+                 skipped = {:?})",
+                constraints.allowed_strategies,
+                skipped.iter().map(|s| &s.strategy).collect::<Vec<_>>()
             ))
             .into());
         }
-        Self::json_result(&ProposeHedgesOutput { proposals })
+        Self::json_result(&ProposeHedgesOutput {
+            proposals,
+            skipped_strategies: skipped,
+        })
     }
 
     #[tool(
@@ -1609,5 +1649,69 @@ mod tests {
             }))
             .await;
         assert!(none_allowed.is_err());
+    }
+
+    #[tokio::test]
+    async fn propose_hedges_skips_failing_strategy_silently_when_unrequested() {
+        // A position with no key-rate ladder breaks BarbellFutures only.
+        // Without explicit `allowed_strategies`, the call should still
+        // succeed with the other three proposals; barbell goes into
+        // `skipped_strategies` with its error.
+        let profile = RiskProfile {
+            position_id: None,
+            currency: Currency::USD,
+            settlement: Date::from_ymd(2026, 1, 15).unwrap(),
+            notional_face: dec!(10_000_000),
+            clean_price_per_100: 100.0,
+            dirty_price_per_100: 100.0,
+            accrued_per_100: 0.0,
+            market_value: dec!(10_000_000),
+            ytm_decimal: 0.05,
+            modified_duration_years: 7.0,
+            macaulay_duration_years: 7.18,
+            convexity: 50.0,
+            dv01: 7000.0,
+            key_rate_buckets: vec![],
+            provenance: convex::Provenance {
+                curves_used: vec!["sofr".into()],
+                cost_model: "heuristic_v1".into(),
+                advisor_version: env!("CARGO_PKG_VERSION").into(),
+            },
+        };
+
+        let server = ConvexMcpServer::new();
+        let result = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile.clone(),
+                curve: CurveRef::Spec(flat_curve_spec(4.5)),
+                constraints: None,
+            }))
+            .await
+            .unwrap();
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(result)).unwrap();
+
+        // Three strategies still produced proposals.
+        let names: Vec<&str> = out.proposals.iter().map(|p| p.strategy.as_str()).collect();
+        assert!(names.contains(&"DurationFutures"));
+        assert!(names.contains(&"CashBondPair"));
+        assert!(names.contains(&"InterestRateSwap"));
+
+        // Barbell skipped with a reason — visible to the caller.
+        assert_eq!(out.skipped_strategies.len(), 1);
+        assert_eq!(out.skipped_strategies[0].strategy, "BarbellFutures");
+        assert!(out.skipped_strategies[0].reason.contains("key-rate ladder"));
+
+        // But explicitly requesting only Barbell on the same input must error.
+        let explicit = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile,
+                curve: CurveRef::Spec(flat_curve_spec(4.5)),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["BarbellFutures".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await;
+        assert!(explicit.is_err());
     }
 }
