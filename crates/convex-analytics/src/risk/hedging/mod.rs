@@ -18,8 +18,7 @@ pub use compare::compare_hedges;
 pub use cost::{cost_bps, COST_MODEL_NAME};
 pub use hedge_ratio::{duration_hedge_ratio, dv01_hedge_ratio};
 pub use instruments::{
-    bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk, CashBondRisk,
-    InterestRateSwapRisk,
+    bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk, LegRisk,
 };
 pub use narrate::narrate;
 pub use portfolio::*;

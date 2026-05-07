@@ -77,10 +77,12 @@ fn representative_ctd(spec: &BondFuture, settlement: Date) -> AnalyticsResult<Fi
     )
 }
 
-/// Total swap DV01 + KRD, signed by `side`. Pay-fixed → negative DV01.
+/// Total DV01 + KRD of one hedge leg, signed by direction (pay-fixed swap
+/// or short cash bond → negative). Shared by [`interest_rate_swap_risk`]
+/// and [`cash_bond_risk`].
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
-pub struct InterestRateSwapRisk {
+pub struct LegRisk {
     pub dv01: f64,
     pub buckets: Vec<KeyRateBucket>,
 }
@@ -93,7 +95,7 @@ pub fn interest_rate_swap_risk(
     curve_id: &str,
     settlement: Date,
     key_rate_tenors: Option<&[f64]>,
-) -> AnalyticsResult<InterestRateSwapRisk> {
+) -> AnalyticsResult<LegRisk> {
     if spec.tenor_years <= 0.0 {
         return Err(AnalyticsError::InvalidInput(format!(
             "InterestRateSwap: tenor_years must be > 0 (got {})",
@@ -137,7 +139,7 @@ pub fn interest_rate_swap_risk(
         SwapSide::PayFixed => -1.0,
         SwapSide::ReceiveFixed => 1.0,
     };
-    Ok(InterestRateSwapRisk {
+    Ok(LegRisk {
         dv01: leg_profile.dv01 * sign,
         buckets: leg_profile
             .key_rate_buckets
@@ -187,14 +189,6 @@ fn synthetic_fixed_leg(
         .map_err(|e| AnalyticsError::BondError(format!("swap fixed leg build: {e}")))
 }
 
-/// Cash-bond leg DV01 + KRD, signed by `face_amount`.
-#[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
-pub struct CashBondRisk {
-    pub dv01: f64,
-    pub buckets: Vec<KeyRateBucket>,
-}
-
 /// DV01 + KRD of a synthetic OTR sovereign at the spec's coupon, scaled by
 /// signed `face_amount`. Country preset by `currency`.
 pub fn cash_bond_risk(
@@ -203,7 +197,7 @@ pub fn cash_bond_risk(
     curve_id: &str,
     settlement: Date,
     key_rate_tenors: Option<&[f64]>,
-) -> AnalyticsResult<CashBondRisk> {
+) -> AnalyticsResult<LegRisk> {
     if !spec.tenor_years.is_finite() || spec.tenor_years <= 0.0 {
         return Err(AnalyticsError::InvalidInput(format!(
             "CashBondLeg: tenor_years must be a finite positive number (got {})",
@@ -233,7 +227,7 @@ pub fn cash_bond_risk(
         key_rate_tenors,
         None,
     )?;
-    Ok(CashBondRisk {
+    Ok(LegRisk {
         dv01: profile.dv01,
         buckets: profile.key_rate_buckets,
     })
