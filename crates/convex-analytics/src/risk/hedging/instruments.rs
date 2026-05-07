@@ -46,10 +46,11 @@ pub fn bond_future_risk(
     settlement: Date,
     key_rate_tenors: Option<&[f64]>,
 ) -> AnalyticsResult<BondFutureRisk> {
-    if spec.conversion_factor.abs() < 1e-9 {
-        return Err(AnalyticsError::InvalidInput(
-            "BondFuture: conversion_factor is zero".into(),
-        ));
+    if !spec.conversion_factor.is_finite() || spec.conversion_factor <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "BondFuture: conversion_factor must be finite and strictly positive (got {})",
+            spec.conversion_factor
+        )));
     }
     let ctd = representative_ctd(spec, settlement)?;
     let mark = Mark::Spread {
@@ -122,6 +123,13 @@ pub fn interest_rate_swap_risk(
         return Err(AnalyticsError::InvalidInput(format!(
             "InterestRateSwap: tenor_years must be > 0 (got {})",
             spec.tenor_years
+        )));
+    }
+    if spec.notional <= Decimal::ZERO {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "InterestRateSwap: notional must be strictly positive — encode direction via `side` \
+             (PayFixed / ReceiveFixed), not by sign of notional (got {})",
+            spec.notional
         )));
     }
     let fixed_rate = Decimal::from_f64_retain(spec.fixed_rate_decimal).ok_or_else(|| {
@@ -407,6 +415,28 @@ mod tests {
     }
 
     #[test]
+    fn negative_conversion_factor_errors() {
+        let curve = flat_curve(0.05);
+        let err = bond_future_risk(&ty_future(-1.0), &curve, "c", d(2026, 1, 15), None);
+        assert!(
+            matches!(err, Err(AnalyticsError::InvalidInput(_))),
+            "negative CF must be rejected — would silently flip hedge sign"
+        );
+    }
+
+    #[test]
+    fn non_finite_conversion_factor_errors() {
+        let curve = flat_curve(0.05);
+        for cf in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let err = bond_future_risk(&ty_future(cf), &curve, "c", d(2026, 1, 15), None);
+            assert!(
+                matches!(err, Err(AnalyticsError::InvalidInput(_))),
+                "non-finite CF ({cf}) must be rejected"
+            );
+        }
+    }
+
+    #[test]
     fn unsupported_currency_errors() {
         let curve = flat_curve(0.05);
         let mut spec = ty_future(1.0);
@@ -562,6 +592,19 @@ mod tests {
         spec.tenor_years = 0.0;
         let err = interest_rate_swap_risk(&spec, &curve, "c", d(2026, 1, 15), None);
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn non_positive_swap_notional_errors() {
+        let curve = flat_curve(0.045);
+        for n in [Decimal::ZERO, dec!(-1_000_000)] {
+            let spec = sofr_swap(SwapSide::PayFixed, 10.0, n);
+            let err = interest_rate_swap_risk(&spec, &curve, "c", d(2026, 1, 15), None);
+            assert!(
+                matches!(err, Err(AnalyticsError::InvalidInput(_))),
+                "notional={n} must be rejected — direction encoded by `side`, not sign"
+            );
+        }
     }
 
     // ---- CashBondLeg ----------------------------------------------------
