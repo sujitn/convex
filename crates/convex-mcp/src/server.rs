@@ -16,10 +16,13 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond, Compounding, Currency,
-    Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
-    GlobalFitter, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
-    RateCurveDyn, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
+    interest_rate_swap, narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule,
+    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
+    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
+    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
+    RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -282,25 +285,35 @@ pub struct CurveSpec {
     pub zero_rates_pct: Vec<f64>,
 }
 
-/// Either an id of a stored bond, or an inline `BondSpec`.
+/// Either an inline `BondSpec` (preferred — keeps tool calls stateless) or
+/// the id of a bond previously created via `create_bond` in the same server
+/// process. Inline specs avoid the implicit dependency on prior calls and
+/// keep each request self-contained.
 ///
-/// JSON: `"AAPL.10Y"` (string id) or `{"coupon_rate_pct": ...}` (inline spec).
+/// JSON: `{"coupon_rate_pct": ...}` (inline spec, recommended) or
+/// `"AAPL.10Y"` (string id, requires the server to have a matching entry
+/// in its in-memory registry — lost on restart, not shared across processes).
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum BondRef {
-    /// Reference a stored bond by id.
+    /// Reference a bond stored in this server process by `create_bond`. Use
+    /// only when you've already called `create_bond` in this session.
     Id(String),
-    /// Use an inline spec (not stored).
+    /// Inline bond spec — recommended. Self-contained; no registry lookup.
     Spec(BondSpec),
 }
 
-/// Either an id of a stored curve, or an inline `CurveSpec`.
+/// Either an inline `CurveSpec` (preferred — keeps tool calls stateless) or
+/// the id of a curve previously created via `create_curve` /
+/// `bootstrap_curve` in the same server process. Inline specs are the
+/// recommended form for advisor tool calls.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum CurveRef {
-    /// Reference a stored curve by id.
+    /// Reference a curve stored in this server process. Use only when you've
+    /// already created the curve in this session.
     Id(String),
-    /// Use an inline spec (not stored).
+    /// Inline curve spec — recommended. Self-contained; no registry lookup.
     Spec(CurveSpec),
 }
 
@@ -324,16 +337,17 @@ pub struct CreateCurveParams {
     pub spec: CurveSpec,
 }
 
-/// Pricing tool input. `mark` is the canonical [`Mark`] enum,
-/// tagged with `mark` for JSON (e.g. `{"mark":"price","value":99.5,"kind":"clean"}`).
+/// Pricing tool input. `mark` is parsed via [`Mark::from_str`] (e.g. `"99.5C"`,
+/// `"4.65%@SA"`, `"+85bps@USD.SOFR"`); `settlement` is ISO-8601.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct PriceBondParams {
-    /// Bond reference — id or inline spec.
+    /// Bond — inline spec is recommended for stateless calls; an id only
+    /// works if the bond was created earlier in this session.
     pub bond: BondRef,
-    /// Settlement date.
-    pub settlement: DateInput,
-    /// Trader mark.
-    pub mark: Mark,
+    /// Settlement date as ISO-8601 (`"YYYY-MM-DD"`).
+    pub settlement: String,
+    /// Trader mark as text (e.g. `"99.5C"`, `"4.65%@SA"`, `"+85bps@USD.SOFR"`).
+    pub mark: String,
     /// Discount curve. Required for spread marks; optional otherwise.
     #[serde(default)]
     pub curve: Option<CurveRef>,
@@ -397,6 +411,93 @@ pub enum SpreadKind {
     /// G-spread — bond YTM minus the government-curve rate at maturity. Mathematically
     /// identical to I-spread; the distinction is which curve the caller passes in.
     GSpread,
+}
+
+/// `compute_position_risk` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ComputePositionRiskParams {
+    /// Bond — inline spec is recommended for stateless calls; an id only
+    /// works if the bond was created earlier in this session.
+    pub bond: BondRef,
+    /// Settlement date as ISO-8601 (`"YYYY-MM-DD"`).
+    pub settlement: String,
+    /// Trader mark as text (e.g. `"99.5C"`, `"4.65%@SA"`, `"+85bps@USD.SOFR"`).
+    /// Parsed via `Mark::from_str`.
+    pub mark: String,
+    /// Discount curve — inline spec is recommended for stateless calls.
+    pub curve: CurveRef,
+    /// Position face notional. Positive = long, negative = short.
+    pub notional_face: f64,
+    /// Compounding frequency for derived YTM. Defaults to bond frequency.
+    #[serde(default)]
+    pub quote_frequency: Option<Frequency>,
+    /// Optional caller-supplied position id.
+    #[serde(default)]
+    pub position_id: Option<String>,
+    /// KRD tenors (years). Defaults to `[2, 5, 10, 30]`.
+    #[serde(default)]
+    pub key_rate_tenors: Option<Vec<f64>>,
+}
+
+/// `propose_hedges` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ProposeHedgesParams {
+    /// Risk profile of the position to hedge (output of
+    /// `compute_position_risk`).
+    pub risk: RiskProfile,
+    /// Discount curve — inline spec is recommended for stateless calls.
+    pub curve: CurveRef,
+    /// `allowed_strategies` filters at propose time (empty = all);
+    /// `max_residual_dv01` / `max_cost_bps` apply at recommend time.
+    #[serde(default)]
+    pub constraints: Option<Constraints>,
+}
+
+/// One strategy that didn't run, with the analytics-layer error message.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct SkippedStrategy {
+    pub strategy: String,
+    pub reason: String,
+}
+
+/// `propose_hedges` output.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct ProposeHedgesOutput {
+    pub proposals: Vec<HedgeProposal>,
+    /// Strategies that ran but failed (e.g. empty key-rate ladder for
+    /// `BarbellFutures`). Skipped silently in the body so a missing
+    /// strategy doesn't fail the whole call; surfaced here for audit.
+    /// Strategies excluded by `allowed_strategies` are *not* listed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_strategies: Vec<SkippedStrategy>,
+}
+
+/// `compare_hedges` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct CompareHedgesParams {
+    /// Position risk (echoed for currency / market value / DV01).
+    pub position: RiskProfile,
+    /// Proposals to compare. Pass at least one.
+    pub proposals: Vec<HedgeProposal>,
+    /// Optional constraints used to filter the recommendation pool.
+    #[serde(default)]
+    pub constraints: Option<Constraints>,
+}
+
+/// `narrate_recommendation` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[allow(missing_docs)]
+pub struct NarrateRecommendationParams {
+    pub comparison: ComparisonReport,
+}
+
+/// `narrate_recommendation` output.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct NarrationOutput {
+    pub text: String,
 }
 
 /// `compute_spread` parameters.
@@ -610,7 +711,13 @@ impl ConvexMcpServer {
         Parameters(params): Parameters<PriceBondParams>,
     ) -> Result<CallToolResult, McpError> {
         let (bond, bond_id) = self.resolve_bond(&params.bond)?;
-        let settlement = params.settlement.to_date()?;
+        let settlement = Date::parse(&params.settlement).map_err(|e| {
+            McpToolError::InvalidInput(format!("settlement '{}': {e}", params.settlement))
+        })?;
+        let mark: Mark = params
+            .mark
+            .parse()
+            .map_err(|e| McpToolError::InvalidInput(format!("mark '{}': {e}", params.mark)))?;
         let (curve, curve_id) = match &params.curve {
             Some(r) => {
                 let (c, id) = self.resolve_curve(r)?;
@@ -628,7 +735,7 @@ impl ConvexMcpServer {
         })?;
         let freq = params.quote_frequency.unwrap_or_else(|| fixed.frequency());
 
-        let result = price_from_mark(fixed, settlement, &params.mark, curve_dyn, freq)
+        let result = price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
             .map_err(McpToolError::from)?;
 
         Self::json_result(&PriceBondOutput {
@@ -934,6 +1041,187 @@ impl ConvexMcpServer {
             items,
         })
     }
+
+    #[tool(
+        description = "Per-position risk: DV01, durations, convexity, KRD buckets. \
+        KRD bumps the curve ±1bp at each tenor with Z-spread held fixed. \
+        Inline `bond`/`curve` specs work statelessly; ids require an earlier create call."
+    )]
+    pub async fn compute_position_risk(
+        &self,
+        Parameters(params): Parameters<ComputePositionRiskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let (bond, _bond_id) = self.resolve_bond(&params.bond)?;
+        let fixed = bond.fixed().ok_or_else(|| {
+            McpToolError::InvalidInput(format!(
+                "compute_position_risk requires Fixed/Callable, got {}",
+                bond.type_name()
+            ))
+        })?;
+        let (curve, curve_id) = self.resolve_curve(&params.curve)?;
+        let curve_id_str = curve_id.unwrap_or_else(|| "<inline>".into());
+        let settlement = Date::parse(&params.settlement).map_err(|e| {
+            McpToolError::InvalidInput(format!("settlement '{}': {e}", params.settlement))
+        })?;
+        let mark: Mark = params
+            .mark
+            .parse()
+            .map_err(|e| McpToolError::InvalidInput(format!("mark '{}': {e}", params.mark)))?;
+        let notional = finite_decimal(params.notional_face, "notional_face")?;
+        let tenors_owned: Vec<f64>;
+        let tenor_slice: &[f64] = match &params.key_rate_tenors {
+            Some(v) => {
+                tenors_owned = v.clone();
+                &tenors_owned
+            }
+            None => ADVISOR_KEY_RATE_TENORS,
+        };
+        let profile = compute_position_risk(
+            fixed,
+            settlement,
+            &mark,
+            notional,
+            &curve,
+            &curve_id_str,
+            params.quote_frequency,
+            Some(tenor_slice),
+            params.position_id,
+        )
+        .map_err(McpToolError::from)?;
+        Self::json_result(&profile)
+    }
+
+    #[tool(description = "Propose hedges for a risk profile. Strategies: \
+        DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap. \
+        Each proposal carries trades, residual KRD, heuristic cost, tradeoffs, provenance. \
+        Strategies that fail on a given position are listed in `skipped_strategies` \
+        unless the caller named them in `allowed_strategies`.")]
+    pub async fn propose_hedges(
+        &self,
+        Parameters(params): Parameters<ProposeHedgesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let (curve, curve_id) = self.resolve_curve(&params.curve)?;
+        let curve_id_str = curve_id.unwrap_or_else(|| "<inline>".into());
+        let constraints = params.constraints.unwrap_or_default();
+        let settlement = params.risk.settlement;
+
+        let allow = |name: &str| {
+            constraints.allowed_strategies.is_empty()
+                || constraints.allowed_strategies.iter().any(|s| s == name)
+        };
+        let was_explicitly_requested =
+            |name: &str| constraints.allowed_strategies.iter().any(|s| s == name);
+
+        let mut proposals: Vec<HedgeProposal> = Vec::new();
+        let mut skipped: Vec<SkippedStrategy> = Vec::new();
+
+        let mut try_run = |name: &str,
+                           result: Result<HedgeProposal, convex::AnalyticsError>|
+         -> Result<(), McpError> {
+            match result {
+                Ok(p) => {
+                    proposals.push(p);
+                    Ok(())
+                }
+                Err(e) if was_explicitly_requested(name) => Err(McpToolError::from(e).into()),
+                Err(e) => {
+                    skipped.push(SkippedStrategy {
+                        strategy: name.into(),
+                        reason: e.to_string(),
+                    });
+                    Ok(())
+                }
+            }
+        };
+
+        if allow("DurationFutures") {
+            try_run(
+                "DurationFutures",
+                duration_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if allow("BarbellFutures") {
+            try_run(
+                "BarbellFutures",
+                barbell_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if allow("CashBondPair") {
+            try_run(
+                "CashBondPair",
+                cash_bond_pair(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if allow("InterestRateSwap") {
+            try_run(
+                "InterestRateSwap",
+                interest_rate_swap(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if proposals.is_empty() {
+            return Err(McpToolError::InvalidInput(format!(
+                "propose_hedges: no strategy produced a proposal (allowed_strategies = {:?}, \
+                 skipped = {:?})",
+                constraints.allowed_strategies,
+                skipped.iter().map(|s| &s.strategy).collect::<Vec<_>>()
+            ))
+            .into());
+        }
+        Self::json_result(&ProposeHedgesOutput {
+            proposals,
+            skipped_strategies: skipped,
+        })
+    }
+
+    #[tool(
+        description = "Side-by-side comparison of hedge proposals. Recommends lowest cost \
+        meeting constraints, tie-broken by smallest residual KRD L1 norm."
+    )]
+    pub async fn compare_hedges(
+        &self,
+        Parameters(params): Parameters<CompareHedgesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let constraints = params.constraints.unwrap_or_default();
+        let report = compare_hedges(&params.position, &params.proposals, &constraints)
+            .map_err(McpToolError::from)?;
+        Self::json_result(&report)
+    }
+
+    #[tool(
+        description = "Render a deterministic trader-brief paragraph from a ComparisonReport \
+        (template, no LLM call)."
+    )]
+    pub async fn narrate_recommendation(
+        &self,
+        Parameters(params): Parameters<NarrateRecommendationParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let text = narrate(&params.comparison);
+        Self::json_result(&NarrationOutput { text })
+    }
 }
 
 #[tool_handler]
@@ -1164,5 +1452,255 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(inline, BondRef::Spec(_)));
+    }
+
+    #[tokio::test]
+    async fn hedge_advisor_e2e_apple_10y() {
+        // Demo scenario: long $10mm AAPL-like 4.85% '34 corporate, USD SOFR
+        // flat curve at 4.5%, mark via Mark::Yield. Run all four advisor
+        // tools end-to-end and assert structural shape.
+        let server = ConvexMcpServer::new();
+
+        // Stash a flat 4.5% curve.
+        let curve_params = CreateCurveParams {
+            id: "usd_sofr".into(),
+            spec: flat_curve_spec(4.5),
+        };
+        server.create_curve(Parameters(curve_params)).await.unwrap();
+
+        // Stash an AAPL-like bond.
+        let aapl_spec = BondSpec {
+            coupon_rate_pct: 4.85,
+            maturity: date(2034, 5, 10),
+            issue_date: date(2024, 5, 10),
+            frequency: Frequency::SemiAnnual,
+            day_count: DayCountConvention::Thirty360US,
+            currency: Currency::USD,
+            face_value: 100.0,
+            make_whole_spread_bps: None,
+        };
+        server
+            .create_bond(Parameters(CreateBondParams {
+                id: "AAPL.10Y".into(),
+                spec: aapl_spec,
+            }))
+            .await
+            .unwrap();
+
+        // Tool 1: compute_position_risk — strings on the wire.
+        let risk_params = ComputePositionRiskParams {
+            bond: BondRef::Id("AAPL.10Y".into()),
+            settlement: "2026-01-15".into(),
+            mark: "5.35%@SA".into(),
+            curve: CurveRef::Id("usd_sofr".into()),
+            notional_face: 10_000_000.0,
+            quote_frequency: None,
+            position_id: Some("AAPL.10Y_long".into()),
+            key_rate_tenors: Some(vec![2.0, 5.0, 10.0, 30.0]),
+        };
+        let risk_result = server
+            .compute_position_risk(Parameters(risk_params))
+            .await
+            .unwrap();
+        let risk_text = match &risk_result.content[0].raw {
+            rmcp::model::RawContent::Text(t) => t.text.clone(),
+            _ => panic!("expected text content"),
+        };
+        let profile: RiskProfile = serde_json::from_str(&risk_text).unwrap();
+        assert_eq!(profile.currency, Currency::USD);
+        assert!(profile.dv01 > 0.0);
+        assert_eq!(profile.key_rate_buckets.len(), 4);
+        assert_eq!(profile.provenance.cost_model, "heuristic_v1");
+
+        // Tool 2: propose_hedges
+        let proposals_text = response_text(
+            server
+                .propose_hedges(Parameters(ProposeHedgesParams {
+                    risk: profile.clone(),
+                    curve: CurveRef::Id("usd_sofr".into()),
+                    constraints: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
+        // Ships 4 strategies: DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap.
+        assert_eq!(proposed.proposals.len(), 4);
+        for name in [
+            "DurationFutures",
+            "BarbellFutures",
+            "CashBondPair",
+            "InterestRateSwap",
+        ] {
+            assert!(
+                proposed.proposals.iter().any(|p| p.strategy == name),
+                "missing strategy {name}"
+            );
+        }
+        for p in &proposed.proposals {
+            assert!(p.residual.residual_dv01.abs() / profile.dv01.abs() < 0.001);
+            assert_eq!(p.provenance.cost_model, "heuristic_v1");
+        }
+
+        // Tool 3: compare_hedges
+        let comparison_text = response_text(
+            server
+                .compare_hedges(Parameters(CompareHedgesParams {
+                    position: profile.clone(),
+                    proposals: proposed.proposals.clone(),
+                    constraints: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        let report: ComparisonReport = serde_json::from_str(&comparison_text).unwrap();
+        assert_eq!(report.rows.len(), 4);
+        assert_eq!(report.recommendation.strategy, "DurationFutures");
+
+        // Tool 4: narrate_recommendation
+        let narration_text = response_text(
+            server
+                .narrate_recommendation(Parameters(NarrateRecommendationParams {
+                    comparison: report,
+                }))
+                .await
+                .unwrap(),
+        );
+        let narration: NarrationOutput = serde_json::from_str(&narration_text).unwrap();
+        assert!(narration.text.contains("DurationFutures"));
+        assert!(narration.text.contains("InterestRateSwap"));
+        assert!(narration.text.contains("Recommend DurationFutures"));
+    }
+
+    fn response_text(result: CallToolResult) -> String {
+        match &result.content[0].raw {
+            rmcp::model::RawContent::Text(t) => t.text.clone(),
+            _ => panic!("expected text content"),
+        }
+    }
+
+    #[tokio::test]
+    async fn propose_hedges_honours_allowed_strategies() {
+        // Build a position by hand so the test is independent of compute_position_risk.
+        let profile = RiskProfile {
+            position_id: None,
+            currency: Currency::USD,
+            settlement: Date::from_ymd(2026, 1, 15).unwrap(),
+            notional_face: dec!(10_000_000),
+            clean_price_per_100: 100.0,
+            dirty_price_per_100: 100.0,
+            accrued_per_100: 0.0,
+            market_value: dec!(10_000_000),
+            ytm_decimal: 0.05,
+            modified_duration_years: 7.0,
+            macaulay_duration_years: 7.18,
+            convexity: 50.0,
+            dv01: 7000.0,
+            key_rate_buckets: vec![convex::KeyRateBucket {
+                tenor_years: 10.0,
+                partial_dv01: 7000.0,
+            }],
+            provenance: convex::Provenance {
+                curves_used: vec!["sofr".into()],
+                cost_model: "heuristic_v1".into(),
+                advisor_version: env!("CARGO_PKG_VERSION").into(),
+            },
+        };
+
+        let server = ConvexMcpServer::new();
+        let curve_spec = flat_curve_spec(4.5);
+
+        // Only DurationFutures allowed → exactly one proposal.
+        let only_futures = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile.clone(),
+                curve: CurveRef::Spec(curve_spec.clone()),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["DurationFutures".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await
+            .unwrap();
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(only_futures)).unwrap();
+        assert_eq!(out.proposals.len(), 1);
+        assert_eq!(out.proposals[0].strategy, "DurationFutures");
+
+        // Allow-list with no matching strategy → error.
+        let none_allowed = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile,
+                curve: CurveRef::Spec(curve_spec),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["NotARealStrategy".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await;
+        assert!(none_allowed.is_err());
+    }
+
+    #[tokio::test]
+    async fn propose_hedges_skips_failing_strategy_silently_when_unrequested() {
+        // A position with no key-rate ladder breaks BarbellFutures only.
+        // Without explicit `allowed_strategies`, the call should still
+        // succeed with the other three proposals; barbell goes into
+        // `skipped_strategies` with its error.
+        let profile = RiskProfile {
+            position_id: None,
+            currency: Currency::USD,
+            settlement: Date::from_ymd(2026, 1, 15).unwrap(),
+            notional_face: dec!(10_000_000),
+            clean_price_per_100: 100.0,
+            dirty_price_per_100: 100.0,
+            accrued_per_100: 0.0,
+            market_value: dec!(10_000_000),
+            ytm_decimal: 0.05,
+            modified_duration_years: 7.0,
+            macaulay_duration_years: 7.18,
+            convexity: 50.0,
+            dv01: 7000.0,
+            key_rate_buckets: vec![],
+            provenance: convex::Provenance {
+                curves_used: vec!["sofr".into()],
+                cost_model: "heuristic_v1".into(),
+                advisor_version: env!("CARGO_PKG_VERSION").into(),
+            },
+        };
+
+        let server = ConvexMcpServer::new();
+        let result = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile.clone(),
+                curve: CurveRef::Spec(flat_curve_spec(4.5)),
+                constraints: None,
+            }))
+            .await
+            .unwrap();
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(result)).unwrap();
+
+        // Three strategies still produced proposals.
+        let names: Vec<&str> = out.proposals.iter().map(|p| p.strategy.as_str()).collect();
+        assert!(names.contains(&"DurationFutures"));
+        assert!(names.contains(&"CashBondPair"));
+        assert!(names.contains(&"InterestRateSwap"));
+
+        // Barbell skipped with a reason — visible to the caller.
+        assert_eq!(out.skipped_strategies.len(), 1);
+        assert_eq!(out.skipped_strategies[0].strategy, "BarbellFutures");
+        assert!(out.skipped_strategies[0].reason.contains("key-rate ladder"));
+
+        // But explicitly requesting only Barbell on the same input must error.
+        let explicit = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile,
+                curve: CurveRef::Spec(flat_curve_spec(4.5)),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["BarbellFutures".into()],
+                    ..Default::default()
+                }),
+            }))
+            .await;
+        assert!(explicit.is_err());
     }
 }

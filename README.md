@@ -16,6 +16,7 @@ Convex is a production-grade fixed income analytics library providing comprehens
 - **Yield Curves**: Bootstrap from market data with multiple interpolation methods
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
 - **Risk Metrics**: Duration (Macaulay, Modified, Effective, Key Rate), Convexity, DV01
+- **Hedge Advisor**: AI-friendly proposal layer — DV01-neutral hedges via bond futures or IRS, with structured tradeoffs and a deterministic narrator (research tool, not an execution recommender)
 - **Day Count Conventions**: ACT/360, ACT/365, 30/360, ACT/ACT (ICMA, ISDA)
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing
@@ -118,6 +119,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+## Hedge Advisor
+
+> **Research tool, not an execution recommender.** Costs come from a
+> labeled `heuristic_v1` table; futures use a synthetic 6%-coupon
+> deliverable (no live CTD basket). Every output stamps
+> `provenance.cost_model` and `ComparisonRow.cost_source`.
+
+DV01-neutral hedge proposals with structured tradeoffs. Strategies:
+`DurationFutures`, `BarbellFutures`, `CashBondPair`, `InterestRateSwap`.
+
+### MCP tools
+
+```
+compute_position_risk(bond, settlement, mark, notional_face, curve, [key_rate_tenors])
+  -> RiskProfile { dv01, modified_duration, key_rate_buckets, …, provenance }
+
+propose_hedges(risk, curve, [constraints])
+  -> { proposals: HedgeProposal[…], skipped_strategies: [{strategy, reason}] }
+
+compare_hedges(position, proposals, [constraints])
+  -> ComparisonReport { rows, recommendation }
+
+narrate_recommendation(comparison)
+  -> { text }   # deterministic template; no LLM call
+```
+
+End-to-end test:
+
+```bash
+cargo run  -p convex-mcp --bin convex-mcp-server
+cargo test -p convex-mcp --lib hedge_advisor_e2e
+```
+
+See `docs/hedge-advisor-{investigation,gaps,plan}.md` for design and
+`docs/perf-baselines.md` for current benchmark numbers.
+
+### Deferred
+
+OAS marks; CTD basket + repo financing; multi-position book hedging; FX
+delta; LLM narration; real cost feeds; KRD constraints.
 
 ## Architecture
 
