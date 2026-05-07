@@ -1,62 +1,47 @@
-//! Heuristic round-trip cost in bps by instrument class. Plausible mid-2024
-//! D2D mids — replace with a real feed when one's wired up. Outputs are
-//! tagged `cost_model = "heuristic_v1"` on `Provenance`.
+//! Heuristic round-trip cost in bps by instrument class.
+//!
+//! Numbers are plausible mid-2024 D2D mids (CBOT TCA monthlies + Bloomberg
+//! MOSB on-the-run UST quotes). Replace with a real feed when one's wired
+//! up; advisor outputs are tagged `cost_model = "heuristic_v1"` on
+//! `Provenance` so a trader reading the JSON knows the source.
 
 use super::types::HedgeInstrument;
 use convex_core::types::Currency;
 
-/// Source of cost numbers, for traceability on outputs.
-pub trait CostModel {
-    /// Round-trip cost in bps of notional for a single hedge instrument.
-    fn cost_bps(&self, instrument: &HedgeInstrument) -> f64;
-    /// Stable identifier echoed in `Provenance::cost_model`.
-    fn name(&self) -> &'static str;
-}
+/// Stable identifier echoed in `Provenance::cost_model`.
+pub const COST_MODEL_NAME: &str = "heuristic_v1";
 
-/// Default v1 cost model. Numbers are deliberately conservative and labeled.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct HeuristicCostModel;
-
-impl CostModel for HeuristicCostModel {
-    fn cost_bps(&self, instrument: &HedgeInstrument) -> f64 {
-        match instrument {
-            // CBOT/Eurex/LIFFE listed bond futures: ~0.25 bp round trip on the
-            // benchmark contract. TY/FV/Bund are tighter, off-the-runs wider.
-            // Bloomberg tickers: TU/FV/TY/US (CBOT), OE/RX (Eurex Schatz/Bobl/Bund), G (Liffe Long Gilt).
-            HedgeInstrument::BondFuture(f) => match f.contract_code.as_str() {
-                "TU" | "FV" | "TY" | "US" => 0.25,
-                "OE" | "RX" => 0.30,
-                "G" => 0.40,
-                _ => 0.50,
-            },
-            // Vanilla SOFR/SONIA/€STR swaps: bid-ask widens with tenor; D2D
-            // benchmark swaps trade at ~0.5 bp through 10Y, ~1 bp at 30Y.
-            // Pay/receive sides are symmetric.
-            HedgeInstrument::InterestRateSwap(s) => {
-                if s.tenor_years <= 5.0 {
-                    0.4
-                } else if s.tenor_years <= 10.0 {
-                    0.6
-                } else if s.tenor_years <= 20.0 {
-                    0.8
-                } else {
-                    1.0
-                }
+/// Round-trip cost in bps of notional for one hedge instrument.
+pub fn cost_bps(instrument: &HedgeInstrument) -> f64 {
+    match instrument {
+        // CBOT/Eurex/LIFFE benchmark futures: TY/FV/TU/US tightest, Bund
+        // close behind, Long Gilt and off-the-runs wider.
+        HedgeInstrument::BondFuture(f) => match f.contract_code.as_str() {
+            "TU" | "FV" | "TY" | "US" => 0.25,
+            "OE" | "RX" => 0.30,
+            "G" => 0.40,
+            _ => 0.50,
+        },
+        // SOFR/SONIA/€STR D2D: ~0.4 bp through 5Y, widening to ~1 bp at 30Y.
+        HedgeInstrument::InterestRateSwap(s) => {
+            if s.tenor_years <= 5.0 {
+                0.4
+            } else if s.tenor_years <= 10.0 {
+                0.6
+            } else if s.tenor_years <= 20.0 {
+                0.8
+            } else {
+                1.0
             }
-            // On-the-run sovereigns: USTs trade ~1 bp at the front, wider at
-            // the long end; off-the-run / non-USD wider still.
-            HedgeInstrument::CashBond(c) => match (c.currency, c.tenor_years) {
-                (Currency::USD, t) if t <= 5.0 => 1.0,
-                (Currency::USD, t) if t <= 10.0 => 1.5,
-                (Currency::USD, _) => 2.5,
-                (Currency::GBP, _) | (Currency::EUR, _) => 2.0,
-                _ => 3.0,
-            },
         }
-    }
-
-    fn name(&self) -> &'static str {
-        "heuristic_v1"
+        // OTR sovereigns: USTs ~1 bp front, wider long. Bunds/Gilts mid.
+        HedgeInstrument::CashBond(c) => match (c.currency, c.tenor_years) {
+            (Currency::USD, t) if t <= 5.0 => 1.0,
+            (Currency::USD, t) if t <= 10.0 => 1.5,
+            (Currency::USD, _) => 2.5,
+            (Currency::GBP, _) | (Currency::EUR, _) => 2.0,
+            _ => 3.0,
+        },
     }
 }
 
@@ -92,35 +77,26 @@ mod tests {
     }
 
     #[test]
-    fn name_is_heuristic_v1() {
-        assert_eq!(HeuristicCostModel.name(), "heuristic_v1");
-    }
-
-    #[test]
     fn ty_future_cheaper_than_unknown_future() {
         let mut unknown = match ty() {
             HedgeInstrument::BondFuture(f) => f,
             _ => unreachable!(),
         };
         unknown.contract_code = "ZZ".into();
-        let cost_ty = HeuristicCostModel.cost_bps(&ty());
-        let cost_zz = HeuristicCostModel.cost_bps(&HedgeInstrument::BondFuture(unknown));
-        assert!(cost_ty < cost_zz);
+        assert!(cost_bps(&ty()) < cost_bps(&HedgeInstrument::BondFuture(unknown)));
     }
 
     #[test]
     fn longer_swap_costs_more() {
-        let m = HeuristicCostModel;
-        assert!(m.cost_bps(&swap(2.0)) < m.cost_bps(&swap(10.0)));
-        assert!(m.cost_bps(&swap(10.0)) < m.cost_bps(&swap(30.0)));
+        assert!(cost_bps(&swap(2.0)) < cost_bps(&swap(10.0)));
+        assert!(cost_bps(&swap(10.0)) < cost_bps(&swap(30.0)));
     }
 
     #[test]
     fn all_costs_are_positive() {
-        let m = HeuristicCostModel;
         for tenor in [2.0, 5.0, 10.0, 30.0] {
-            assert!(m.cost_bps(&swap(tenor)) > 0.0);
+            assert!(cost_bps(&swap(tenor)) > 0.0);
         }
-        assert!(m.cost_bps(&ty()) > 0.0);
+        assert!(cost_bps(&ty()) > 0.0);
     }
 }

@@ -14,6 +14,7 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::pricing::price_from_mark;
 use crate::risk::calculator::BondRiskCalculator;
 use crate::risk::duration::STANDARD_KEY_RATE_TENORS;
+use crate::risk::hedging::cost::COST_MODEL_NAME;
 use crate::spreads::ZSpreadCalculator;
 
 /// Position-scaled partial DV01 from a +1bp shock at one tenor.
@@ -160,7 +161,7 @@ where
         key_rate_buckets: buckets,
         provenance: Provenance {
             curves_used: vec![discount_curve_id.to_string()],
-            cost_model: "heuristic_v1".to_string(),
+            cost_model: COST_MODEL_NAME.to_string(),
             advisor_version: env!("CARGO_PKG_VERSION").to_string(),
         },
     })

@@ -10,7 +10,7 @@ use convex_curves::{DiscreteCurve, RateCurve, RateCurveDyn};
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 
-use super::cost::{CostModel, HeuristicCostModel};
+use super::cost::{cost_bps, COST_MODEL_NAME};
 use super::instruments::{
     bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk,
 };
@@ -564,7 +564,6 @@ fn side_sign(side: SwapSide) -> f64 {
 /// Sum each leg's `notional × cost_bps / 10_000`, expressed both as a Decimal
 /// total and as bps of position market value.
 fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal) {
-    let model = HeuristicCostModel;
     let mv = position.market_value.to_f64().unwrap_or(0.0).abs();
     let mut total = 0.0_f64;
     for trade in trades {
@@ -575,15 +574,15 @@ fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal
             HedgeInstrument::InterestRateSwap(spec) => spec.notional.to_f64().unwrap_or(0.0).abs(),
             HedgeInstrument::CashBond(spec) => spec.face_amount.to_f64().unwrap_or(0.0).abs(),
         };
-        total += leg_notional * model.cost_bps(&trade.instrument) / 10_000.0;
+        total += leg_notional * cost_bps(&trade.instrument) / 10_000.0;
     }
-    let cost_bps = if mv > 1e-9 {
+    let cost_bps_total = if mv > 1e-9 {
         total / mv * 10_000.0
     } else {
         0.0
     };
     (
-        cost_bps,
+        cost_bps_total,
         Decimal::from_f64_retain(total).unwrap_or(Decimal::ZERO),
     )
 }
@@ -595,7 +594,7 @@ fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Prove
     }
     Provenance {
         curves_used,
-        cost_model: HeuristicCostModel.name().to_string(),
+        cost_model: COST_MODEL_NAME.to_string(),
         advisor_version: env!("CARGO_PKG_VERSION").to_string(),
     }
 }
