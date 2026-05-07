@@ -57,7 +57,9 @@ pub use hedging::{
     InterestRateSwapRisk, PortfolioRisk, Position, Recommendation, RecommendationReason,
     ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
-pub use profile::{compute_position_risk, KeyRateBucket, Provenance, RiskProfile};
+pub use profile::{
+    compute_position_risk, KeyRateBucket, Provenance, RiskProfile, ADVISOR_KEY_RATE_TENORS,
+};
 pub use var::{historical_var, parametric_var, parametric_var_from_dv01, VaRMethod, VaRResult};
 
 /// Prelude for convenient imports

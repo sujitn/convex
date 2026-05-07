@@ -171,6 +171,11 @@ pub struct ComparisonRow {
     pub cost_bps: f64,
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub cost_total: Decimal,
+    /// Source of `cost_bps` / `cost_total` (mirrors `Provenance::cost_model`),
+    /// e.g. `"heuristic_v1"`. Surfaced inline so the costs aren't mistaken
+    /// for a live broker feed in the JSON output.
+    #[serde(default)]
+    pub cost_source: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

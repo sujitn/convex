@@ -37,7 +37,7 @@ pub use convex_analytics::risk::{
     interest_rate_swap, narrate, BondFuture, CashBondLeg, ComparisonReport, ComparisonRow,
     Constraints, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucket,
     Provenance, Recommendation, RecommendationReason, ResidualRisk, RiskProfile, SwapSide,
-    TradeoffNotes,
+    TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
 };
 pub use convex_analytics::spreads::{
     GSpreadCalculator, ISpreadCalculator, OASCalculator, ZSpreadCalculator,

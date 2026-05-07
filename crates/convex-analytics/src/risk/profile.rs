@@ -17,6 +17,11 @@ use crate::risk::duration::STANDARD_KEY_RATE_TENORS;
 use crate::risk::hedging::cost::COST_MODEL_NAME;
 use crate::spreads::ZSpreadCalculator;
 
+/// Default KRD ladder for the hedge advisor. Chosen for liquid sovereign
+/// benchmarks: 2Y/5Y/10Y/30Y. Pricing crates that want a deeper ladder can
+/// pass their own slice into [`compute_position_risk`].
+pub const ADVISOR_KEY_RATE_TENORS: &[f64] = &[2.0, 5.0, 10.0, 30.0];
+
 /// Position-scaled partial DV01 from a +1bp shock at one tenor.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

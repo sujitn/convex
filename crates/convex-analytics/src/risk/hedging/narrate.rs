@@ -52,6 +52,14 @@ pub fn narrate(report: &ComparisonReport) -> String {
     }
     out.push('.');
 
+    // Tag costs with their source so a trader reading the paragraph doesn't
+    // mistake the heuristic table for a live broker feed.
+    if let Some(source) = report.rows.first().map(|r| r.cost_source.as_str()) {
+        if !source.is_empty() && report.rows.iter().all(|r| r.cost_source == source) {
+            let _ = write!(out, " (cost source: {source})");
+        }
+    }
+
     let rec = &report.recommendation;
     let reason = if rec.reasons.is_empty() {
         "tie-broken by input order".to_string()
@@ -156,6 +164,20 @@ mod tests {
         let a = narrate(&report);
         let b = narrate(&report);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn narration_tags_cost_source_when_uniform() {
+        let proposals = [
+            proposal("DurationFutures", 0.25),
+            proposal("InterestRateSwap", 0.6),
+        ];
+        let report = compare_hedges(&position(), &proposals, &Constraints::default()).unwrap();
+        let text = narrate(&report);
+        assert!(
+            text.contains("cost source: heuristic_v1"),
+            "narration should disclose the cost-model source; got: {text}"
+        );
     }
 
     #[test]

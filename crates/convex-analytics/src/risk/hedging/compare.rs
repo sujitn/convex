@@ -51,6 +51,7 @@ fn row_for(p: &HedgeProposal) -> ComparisonRow {
         residual_krd_l1_norm: p.residual.residual_krd_l1_norm,
         cost_bps: p.cost_bps,
         cost_total: p.cost_total,
+        cost_source: p.provenance.cost_model.clone(),
     }
 }
 
@@ -213,6 +214,13 @@ mod tests {
     fn empty_proposals_errors() {
         let err = compare_hedges(&position(), &[], &Constraints::default());
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn rows_carry_cost_source_from_proposal_provenance() {
+        let proposals = [proposal_named("DurationFutures", 0.25, 1500.0)];
+        let r = compare_hedges(&position(), &proposals, &Constraints::default()).unwrap();
+        assert_eq!(r.rows[0].cost_source, "heuristic_v1");
     }
 
     #[test]

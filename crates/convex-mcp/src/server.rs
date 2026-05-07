@@ -22,6 +22,7 @@ use convex::{
     Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
     HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
     RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -1056,14 +1057,13 @@ impl ConvexMcpServer {
             .parse()
             .map_err(|e| McpToolError::InvalidInput(format!("mark '{}': {e}", params.mark)))?;
         let notional = finite_decimal(params.notional_face, "notional_face")?;
-        let default_tenors = [2.0_f64, 5.0, 10.0, 30.0];
         let tenors_owned: Vec<f64>;
         let tenor_slice: &[f64] = match &params.key_rate_tenors {
             Some(v) => {
                 tenors_owned = v.clone();
                 &tenors_owned
             }
-            None => &default_tenors,
+            None => ADVISOR_KEY_RATE_TENORS,
         };
         let profile = compute_position_risk(
             fixed,
