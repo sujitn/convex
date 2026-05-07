@@ -6,13 +6,18 @@
 //! correctness lives in the per-crate unit tests.
 
 use rmcp::handler::server::wrapper::Parameters;
-use rust_decimal_macros::dec;
 
-use convex::{Currency, DayCountConvention, Frequency, Mark, PriceKind, Spread, SpreadType};
+use convex::{Currency, DayCountConvention, Frequency};
 use convex_mcp::server::*;
 
 fn d(year: i32, month: u32, day: u32) -> DateInput {
     DateInput { year, month, day }
+}
+
+/// `PriceBondParams::settlement` is `String` (ISO-8601) — the typed
+/// `DateInput` only feeds the structured-date params.
+fn iso(year: i32, month: u32, day: u32) -> String {
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 fn ust_10y_spec() -> BondSpec {
@@ -101,26 +106,13 @@ async fn end_to_end_happy_path() {
         .await
         .expect("get_zero_rate");
 
-    // 5. Price the bond from each Mark variant.
-    for mark in [
-        Mark::Price {
-            value: dec!(99.5),
-            kind: PriceKind::Clean,
-        },
-        Mark::Yield {
-            value: dec!(0.0455),
-            frequency: Frequency::SemiAnnual,
-        },
-        Mark::Spread {
-            value: Spread::new(dec!(50), SpreadType::ZSpread),
-            benchmark: "USD.TSY".into(),
-        },
-    ] {
+    // 5. Price the bond from each mark form (Mark::from_str grammar).
+    for mark in ["99.5C", "4.55%@SA", "+50bps@USD.TSY"] {
         server
             .price_bond(Parameters(PriceBondParams {
                 bond: BondRef::Id("UST.10Y".into()),
-                settlement: d(2025, 4, 15),
-                mark,
+                settlement: iso(2025, 4, 15),
+                mark: mark.into(),
                 curve: Some(CurveRef::Id("USD.TSY".into())),
                 quote_frequency: None,
             }))
@@ -168,11 +160,8 @@ async fn inline_specs_avoid_registry_round_trip() {
     server
         .price_bond(Parameters(PriceBondParams {
             bond: BondRef::Spec(ust_10y_spec()),
-            settlement: d(2025, 4, 15),
-            mark: Mark::Price {
-                value: dec!(99.5),
-                kind: PriceKind::Clean,
-            },
+            settlement: iso(2025, 4, 15),
+            mark: "99.5C".into(),
             curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
             quote_frequency: None,
         }))
@@ -210,11 +199,8 @@ async fn settlement_after_maturity_errors() {
     let res = server
         .price_bond(Parameters(PriceBondParams {
             bond: BondRef::Spec(ust_10y_spec()),
-            settlement: d(2040, 1, 15), // past maturity
-            mark: Mark::Price {
-                value: dec!(99.5),
-                kind: PriceKind::Clean,
-            },
+            settlement: iso(2040, 1, 15), // past maturity
+            mark: "99.5C".into(),
             curve: None,
             quote_frequency: None,
         }))
@@ -228,11 +214,8 @@ async fn spread_mark_without_curve_errors() {
     let res = server
         .price_bond(Parameters(PriceBondParams {
             bond: BondRef::Spec(ust_10y_spec()),
-            settlement: d(2025, 4, 15),
-            mark: Mark::Spread {
-                value: Spread::new(dec!(50), SpreadType::ZSpread),
-                benchmark: "X".into(),
-            },
+            settlement: iso(2025, 4, 15),
+            mark: "+50bps@X".into(),
             curve: None,
             quote_frequency: None,
         }))
