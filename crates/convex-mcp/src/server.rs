@@ -447,10 +447,8 @@ pub struct ProposeHedgesParams {
     pub risk: RiskProfile,
     /// Discount curve — inline spec is recommended for stateless calls.
     pub curve: CurveRef,
-    /// Optional caller constraints. `allowed_strategies` filters which
-    /// strategies are run (empty = all). `max_residual_dv01` and
-    /// `max_cost_bps` are surfaced in `tradeoffs.weaknesses` and applied
-    /// to the recommendation by `compare_hedges`.
+    /// `allowed_strategies` filters at propose time (empty = all);
+    /// `max_residual_dv01` / `max_cost_bps` apply at recommend time.
     #[serde(default)]
     pub constraints: Option<Constraints>,
 }
@@ -490,8 +488,8 @@ pub struct CompareHedgesParams {
 
 /// `narrate_recommendation` parameters.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[allow(missing_docs)]
 pub struct NarrateRecommendationParams {
-    /// Comparison report to narrate.
     pub comparison: ComparisonReport,
 }
 
@@ -1045,10 +1043,9 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Compute per-position risk: DV01, durations, convexity, KRD buckets, \
-        provenance. Mirrors Bloomberg-parity KRD (Z-spread held fixed, ±1bp triangular bumps). \
-        Pass `bond` and `curve` as inline specs for stateless calls; ids only work if the \
-        bond/curve was created earlier in this server session."
+        description = "Per-position risk: DV01, durations, convexity, KRD buckets. \
+        KRD bumps the curve ±1bp at each tenor with Z-spread held fixed. \
+        Inline `bond`/`curve` specs work statelessly; ids require an earlier create call."
     )]
     pub async fn compute_position_risk(
         &self,
@@ -1094,15 +1091,11 @@ impl ConvexMcpServer {
         Self::json_result(&profile)
     }
 
-    #[tool(
-        description = "Propose hedges for a risk profile. Ships DurationFutures (single \
-        contract, parallel-DV01 match), BarbellFutures (two contracts, parallel + dominant \
-        KRD match), CashBondPair (short on-the-run sovereign sized to DV01), and \
-        InterestRateSwap (tenor-matched, parallel-DV01 match). \
-        `constraints.allowed_strategies` restricts the set (empty = all). Each proposal \
-        includes trades, residual KRD, heuristic cost, tradeoff notes, and provenance. Pass \
-        `curve` as an inline spec for a stateless call."
-    )]
+    #[tool(description = "Propose hedges for a risk profile. Strategies: \
+        DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap. \
+        Each proposal carries trades, residual KRD, heuristic cost, tradeoffs, provenance. \
+        Strategies that fail on a given position are listed in `skipped_strategies` \
+        unless the caller named them in `allowed_strategies`.")]
     pub async fn propose_hedges(
         &self,
         Parameters(params): Parameters<ProposeHedgesParams>,
@@ -1122,10 +1115,6 @@ impl ConvexMcpServer {
         let mut proposals: Vec<HedgeProposal> = Vec::new();
         let mut skipped: Vec<SkippedStrategy> = Vec::new();
 
-        // All strategies handled uniformly: try to run, on error either
-        // surface it (when the trader explicitly asked for that strategy)
-        // or record it in `skipped` so the call doesn't fail on a degenerate
-        // input that happened to break only one of the four.
         let mut try_run = |name: &str,
                            result: Result<HedgeProposal, convex::AnalyticsError>|
          -> Result<(), McpError> {
@@ -1223,8 +1212,8 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Render a deterministic trader-brief paragraph from a ComparisonReport. \
-        v1 narrator is template-only (no LLM call)."
+        description = "Render a deterministic trader-brief paragraph from a ComparisonReport \
+        (template, no LLM call)."
     )]
     pub async fn narrate_recommendation(
         &self,

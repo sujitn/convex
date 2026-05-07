@@ -99,69 +99,17 @@ pub mod prelude {
 
     // Risk
     pub use crate::risk::{
-        aggregate_portfolio_risk,
-        analytical_convexity,
-        // Hedge advisor (entry point)
-        compute_position_risk,
-        duration_hedge_ratio,
-        dv01_from_duration,
-        dv01_from_prices,
-        // Hedging
-        dv01_hedge_ratio,
-        dv01_per_100_face,
-        historical_var,
-        key_rate_duration_at_tenor,
-        modified_from_macaulay,
-        notional_from_dv01,
-        parametric_var,
-        parametric_var_from_dv01,
-        price_change_from_duration,
-        price_change_with_convexity,
-        // Hedge advisor (residual computation)
-        residual_from,
-        spread_duration,
-        // Hedge advisor (instrument value types)
-        BondFuture,
-        // Calculator
-        BondRiskCalculator,
-        BondRiskMetrics,
-        // Hedge advisor (comparison)
-        ComparisonReport,
-        ComparisonRow,
-        // Hedge advisor (constraints)
-        Constraints,
-        // Convexity types (low-level functions available via crate::risk::)
-        Convexity,
-        // Duration types (low-level functions available via crate::risk::)
-        Duration,
-        EffectiveDurationCalculator,
-        // Hedge advisor (proposals)
-        HedgeInstrument,
-        HedgeProposal,
-        HedgeTrade,
-        InterestRateSwap,
-        // Hedge advisor (per-tenor bucket on the key-rate ladder)
-        KeyRateBucket,
-        KeyRateDuration,
-        KeyRateDurationCalculator,
-        KeyRateDurations,
-        PortfolioRisk,
-        Position,
-        Provenance,
-        Recommendation,
-        RecommendationReason,
-        ResidualRisk,
-        // Hedge advisor (risk profile)
-        RiskProfile,
-        SwapSide,
-        TradeoffNotes,
-        VaRMethod,
-        // VaR
-        VaRResult,
-        DEFAULT_BUMP_SIZE,
-        // DV01
-        DV01,
-        SMALL_BUMP_SIZE,
+        aggregate_portfolio_risk, analytical_convexity, compute_position_risk,
+        duration_hedge_ratio, dv01_from_duration, dv01_from_prices, dv01_hedge_ratio,
+        dv01_per_100_face, historical_var, key_rate_duration_at_tenor, modified_from_macaulay,
+        notional_from_dv01, parametric_var, parametric_var_from_dv01, price_change_from_duration,
+        price_change_with_convexity, residual_from, spread_duration, BondFuture,
+        BondRiskCalculator, BondRiskMetrics, ComparisonReport, ComparisonRow, Constraints,
+        Convexity, Duration, EffectiveDurationCalculator, HedgeInstrument, HedgeProposal,
+        HedgeTrade, InterestRateSwap, KeyRateBucket, KeyRateDuration, KeyRateDurationCalculator,
+        KeyRateDurations, PortfolioRisk, Position, Provenance, Recommendation,
+        RecommendationReason, ResidualRisk, RiskProfile, SwapSide, TradeoffNotes, VaRMethod,
+        VaRResult, ADVISOR_KEY_RATE_TENORS, DEFAULT_BUMP_SIZE, DV01, SMALL_BUMP_SIZE,
         STANDARD_KEY_RATE_TENORS,
     };
 

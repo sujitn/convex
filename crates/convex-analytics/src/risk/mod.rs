@@ -1,31 +1,5 @@
-//! Risk analytics for fixed income instruments.
-//!
-//! This module provides comprehensive risk calculations including:
-//!
-//! - **Duration**: Macaulay, Modified, Effective, Key Rate, Spread
-//! - **Convexity**: Analytical and Effective
-//! - **DV01/PV01**: Dollar value of a basis point
-//! - **VaR**: Value at Risk (Historical and Parametric)
-//! - **Hedging**: Hedge ratios and portfolio risk
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use convex_analytics::risk::prelude::*;
-//!
-//! let calc = BondRiskCalculator::from_cash_flows(
-//!     times, cash_flows,
-//!     0.05,   // YTM
-//!     2,      // semi-annual
-//!     100.0,  // dirty price
-//!     100.0,  // face value
-//! )?;
-//!
-//! let metrics = calc.all_metrics()?;
-//! println!("Modified Duration: {}", metrics.modified_duration);
-//! println!("Convexity: {}", metrics.convexity);
-//! println!("DV01: {}", metrics.dv01);
-//! ```
+//! Risk analytics: duration, convexity, DV01, VaR, KRD profiles, and the
+//! hedge advisor surface.
 
 pub mod calculator;
 pub mod convexity;
@@ -35,7 +9,6 @@ pub mod hedging;
 pub mod profile;
 pub mod var;
 
-// Re-export main types and functions
 pub use calculator::{
     BondRiskCalculator, BondRiskMetrics, EffectiveDurationCalculator, KeyRateDurationCalculator,
 };
@@ -61,7 +34,7 @@ pub use profile::{
 };
 pub use var::{historical_var, parametric_var, parametric_var_from_dv01, VaRMethod, VaRResult};
 
-/// Prelude for convenient imports
+/// Glob-importable re-exports.
 pub mod prelude {
     pub use super::calculator::*;
     pub use super::convexity::*;

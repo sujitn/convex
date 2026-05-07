@@ -9,18 +9,9 @@ use super::types::{
     RecommendationReason,
 };
 
-/// Build a [`ComparisonReport`] from one position and a slice of proposals.
-///
-/// Recommendation rule (deterministic):
-///   1. If `Constraints::allowed_strategies` is non-empty, restrict
-///      candidates to rows whose `strategy` name is in the allow-list.
-///      Errors if no row's strategy is allowed.
-///   2. Prefer rows that also meet `Constraints::max_residual_dv01` and
-///      `Constraints::max_cost_bps` if any are supplied.
-///   3. Among the remaining (or all allowed rows if no row meets the soft
-///      constraints), pick lowest `cost_bps`.
-///   4. Tie-break by smallest `residual_krd_l1_norm`.
-///   5. Final tie-break by input order.
+/// Build a [`ComparisonReport`] and pick a recommendation deterministically:
+/// `allowed_strategies` (hard filter) → soft constraints if any are supplied
+/// → lowest `cost_bps` → smallest `residual_krd_l1_norm` → input order.
 pub fn compare_hedges(
     position: &RiskProfile,
     proposals: &[HedgeProposal],

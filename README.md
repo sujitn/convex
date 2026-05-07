@@ -122,49 +122,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Hedge Advisor
 
-> **Research tool, not an execution recommender.** v1 uses synthetic representative deliverables for futures and a labeled `heuristic_v1` cost model. Every output stamps `provenance.cost_model` so the source is unambiguous.
+> **Research tool, not an execution recommender.** Costs come from a
+> labeled `heuristic_v1` table; futures use a synthetic 6%-coupon
+> deliverable (no live CTD basket). Every output stamps
+> `provenance.cost_model` and `ComparisonRow.cost_source`.
 
-The advisor proposes DV01-neutral hedges and surfaces structured tradeoffs the trader picks from. Two strategies in v1: `DurationFutures` (single benchmark contract, sized to neutralize parallel DV01) and `InterestRateSwap` (tenor-matched payer or receiver, sized to match DV01). Both echo per-tenor residual KRD, a heuristic cost in bps of position MV, and a deterministic recommendation tag.
+DV01-neutral hedge proposals with structured tradeoffs. Strategies:
+`DurationFutures`, `BarbellFutures`, `CashBondPair`, `InterestRateSwap`.
 
 ### MCP tools
 
 ```
 compute_position_risk(bond, settlement, mark, notional_face, curve, [key_rate_tenors])
-  -> RiskProfile { dv01, modified_duration, key_rate_buckets, ... , provenance }
+  -> RiskProfile { dv01, modified_duration, key_rate_buckets, …, provenance }
 
 propose_hedges(risk, curve, [constraints])
-  -> [HedgeProposal { strategy, trades, residual, cost_bps, tradeoffs, provenance } × N]
+  -> { proposals: HedgeProposal[…], skipped_strategies: [{strategy, reason}] }
 
 compare_hedges(position, proposals, [constraints])
   -> ComparisonReport { rows, recommendation }
 
 narrate_recommendation(comparison)
-  -> { text }   # deterministic template; no LLM call in v1
+  -> { text }   # deterministic template; no LLM call
 ```
 
-### Demo invocation (Apple 10Y, $10mm long)
+End-to-end test:
 
 ```bash
-# 1. Start the MCP server (stdio).
-cargo run -p convex-mcp --bin convex-mcp-server
-
-# 2. Or as a library. End-to-end test that runs all four tools:
+cargo run  -p convex-mcp --bin convex-mcp-server
 cargo test -p convex-mcp --lib hedge_advisor_e2e
 ```
 
-The Apple 10Y scenario produces a `DurationFutures` recommendation (lower
-cost) plus an `InterestRateSwap` alternative (smaller curvature residual),
-narrated as a single trader-brief paragraph. See
-`docs/hedge-advisor-{investigation,gaps,plan}.md` for the design and
-`docs/perf-baselines.md` for benchmarks (~24 µs per-position risk, ~230 µs
-end-to-end).
+See `docs/hedge-advisor-{investigation,gaps,plan}.md` for design and
+`docs/perf-baselines.md` for current benchmark numbers.
 
-### What's deferred to v2
+### Deferred
 
-CTD optionality with repo financing; ETF proxy and key-rate-futures
-strategies; LLM-based narration; multi-position book hedging; FX delta;
-non-Z spread marks (OAS/I/G); real (non-heuristic) cost feeds; constraint
-enforcement on residual KRD beyond cost.
+OAS marks; CTD basket + repo financing; multi-position book hedging; FX
+delta; LLM narration; real cost feeds; KRD constraints.
 
 ## Architecture
 

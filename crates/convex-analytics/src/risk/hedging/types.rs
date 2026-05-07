@@ -103,9 +103,9 @@ pub struct HedgeTrade {
     pub key_rate_buckets: Vec<KeyRateBucket>,
 }
 
-/// Caller-supplied constraints. Strategies surface violations in
-/// [`TradeoffNotes::weaknesses`]; [`crate::risk::hedging::compare_hedges`]
-/// applies them when picking a recommendation.
+/// Caller-supplied constraints. Surfaced in [`TradeoffNotes::weaknesses`]
+/// per proposal and applied by [`crate::risk::hedging::compare_hedges`]
+/// when picking a recommendation.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Constraints {
@@ -174,7 +174,6 @@ pub struct ComparisonRow {
     /// Source of `cost_bps` / `cost_total` (mirrors `Provenance::cost_model`),
     /// e.g. `"heuristic_v1"`. Surfaced inline so the costs aren't mistaken
     /// for a live broker feed in the JSON output.
-    #[serde(default)]
     pub cost_source: String,
 }
 
@@ -211,12 +210,8 @@ pub struct Recommendation {
     pub reasons: Vec<RecommendationReason>,
 }
 
-/// Sum position DV01 with all trade DV01s, bucket-by-bucket.
-///
-/// Unions the tenor sets from `position.key_rate_buckets` and every trade's
-/// `key_rate_buckets` so trades with off-position tenors contribute rather
-/// than being silently dropped. Buckets are matched by `tenor_years` within
-/// 1e-9 tolerance.
+/// Sum position + trade DV01 bucket-by-bucket. Tenors are unioned (1e-9
+/// match), so trades with off-position tenors contribute rather than drop.
 #[must_use]
 pub fn residual_from(position: &RiskProfile, trades: &[HedgeTrade]) -> ResidualRisk {
     let trade_dv01: f64 = trades.iter().map(|t| t.dv01).sum();

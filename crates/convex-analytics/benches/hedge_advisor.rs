@@ -1,8 +1,5 @@
-//! End-to-end hedge advisor benchmarks.
-//!
-//! Three groups: per-position risk, propose-three-strategies, and the full
-//! chain (compute → propose → compare → narrate). Baseline numbers tracked
-//! in `docs/perf-baselines.md`.
+//! Hedge advisor benchmarks. Baselines tracked in
+//! `docs/perf-baselines.md`.
 
 use std::hint::black_box;
 

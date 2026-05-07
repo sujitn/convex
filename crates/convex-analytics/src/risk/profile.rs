@@ -34,19 +34,17 @@ pub struct KeyRateBucket {
 /// Audit metadata stamped on every advisor output.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[allow(missing_docs)]
 pub struct Provenance {
-    /// Curve ids used (discount, projection, govt).
     #[serde(default)]
     pub curves_used: Vec<String>,
-    /// Cost-model name (`"heuristic_v1"` for v1).
     #[serde(default)]
     pub cost_model: String,
-    /// `convex-analytics` crate version.
     #[serde(default)]
     pub advisor_version: String,
 }
 
-/// Risk profile of a single position.
+/// Risk profile of a single position. `notional_face` is signed (long → +).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[allow(missing_docs)]
@@ -55,25 +53,20 @@ pub struct RiskProfile {
     pub position_id: Option<String>,
     pub currency: Currency,
     pub settlement: Date,
-    /// Signed face notional (positive = long).
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub notional_face: Decimal,
     pub clean_price_per_100: f64,
     pub dirty_price_per_100: f64,
     pub accrued_per_100: f64,
-    /// Dirty market value = `notional_face × dirty / 100`.
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub market_value: Decimal,
     pub ytm_decimal: f64,
     pub modified_duration_years: f64,
     pub macaulay_duration_years: f64,
     pub convexity: f64,
-    /// Position DV01 in `currency`.
     pub dv01: f64,
-    /// Per-tenor partial DV01 buckets.
     #[serde(default)]
     pub key_rate_buckets: Vec<KeyRateBucket>,
-    /// Re-stamped by `compute_position_risk` if a round-trip dropped it.
     #[serde(default)]
     pub provenance: Provenance,
 }
@@ -111,7 +104,6 @@ where
         })?
         / Decimal::from(100);
 
-    // Analytical risk metrics from BondRiskCalculator (per 100 face).
     let calc = BondRiskCalculator::from_bond(
         bond,
         settlement,

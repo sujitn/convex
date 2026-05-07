@@ -254,12 +254,8 @@ fn scale_future_trade(spec: &BondFuture, risk: &BondFutureRisk, quantity: f64) -
     }
 }
 
-/// Short a duration-matched on-the-run sovereign sized to neutralize DV01.
-///
-/// The synthetic OTR coupon is the discount curve's par-swap rate at tenor —
-/// the bond is at par against the discount curve, which gives correct DV01
-/// sizing under Z-flat pricing. A real govt-curve OTR coupon needs a separate
-/// govt curve (deferred).
+/// Short a duration-matched OTR sovereign sized to neutralize DV01. Coupon
+/// is read off the discount curve's par-swap rate (real govt curve deferred).
 pub fn cash_bond_pair(
     position: &RiskProfile,
     constraints: &Constraints,
@@ -350,8 +346,6 @@ pub fn cash_bond_pair(
     })
 }
 
-/// Par-coupon proxy: the discount curve's par swap rate at tenor. Good
-/// enough for the Z-flat pricing that follows.
 fn otr_par_coupon(
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
@@ -561,8 +555,6 @@ fn side_sign(side: SwapSide) -> f64 {
     }
 }
 
-/// Sum each leg's `notional × cost_bps / 10_000`, expressed both as a Decimal
-/// total and as bps of position market value.
 fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal) {
     let mv = position.market_value.to_f64().unwrap_or(0.0).abs();
     let mut total = 0.0_f64;
