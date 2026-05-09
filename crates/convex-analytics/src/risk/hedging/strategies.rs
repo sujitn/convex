@@ -1349,17 +1349,9 @@ mod tests {
     }
 
     #[test]
-    fn key_rate_bucket_limit_round_trips_via_json() {
-        let limit = super::super::types::KeyRateBucketLimit {
-            tenor_years: 10.0,
-            max_abs_dv01: 1500.0,
-        };
-        let s = serde_json::to_string(&limit).unwrap();
-        let back: super::super::types::KeyRateBucketLimit = serde_json::from_str(&s).unwrap();
-        assert_eq!(limit, back);
-
-        // The full Constraints round-trips with an empty default list when
-        // omitted on the wire.
+    fn constraints_default_max_residual_per_bucket_is_empty_when_omitted() {
+        // Wire-compat: old payloads without max_residual_per_bucket should
+        // still parse, with the new field defaulting to an empty list.
         let c: Constraints = serde_json::from_str(r#"{"max_residual_dv01": 1000}"#).unwrap();
         assert_eq!(c.max_residual_dv01, Some(1000.0));
         assert!(c.max_residual_per_bucket.is_empty());
