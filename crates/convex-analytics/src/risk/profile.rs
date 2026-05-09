@@ -32,7 +32,9 @@ pub struct KeyRateBucket {
     pub partial_dv01: f64,
 }
 
-/// Audit metadata stamped on every advisor output.
+/// Audit metadata stamped on every advisor output. `oas_volatility` is set
+/// only on the callable OAS path (so a snapshot can be reproduced without
+/// re-fetching the original request).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[allow(missing_docs)]
@@ -43,6 +45,8 @@ pub struct Provenance {
     pub cost_model: String,
     #[serde(default)]
     pub advisor_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oas_volatility: Option<f64>,
 }
 
 /// Risk profile of a single position. `notional_face` is signed (long → +).
@@ -161,6 +165,7 @@ where
             curves_used: vec![discount_curve_id.to_string()],
             cost_model: COST_MODEL_NAME.to_string(),
             advisor_version: env!("CARGO_PKG_VERSION").to_string(),
+            oas_volatility: None,
         },
     })
 }
@@ -315,6 +320,7 @@ pub fn compute_callable_position_risk(
             curves_used: vec![discount_curve_id.to_string()],
             cost_model: COST_MODEL_NAME.to_string(),
             advisor_version: env!("CARGO_PKG_VERSION").to_string(),
+            oas_volatility: Some(volatility_decimal),
         },
     })
 }
@@ -390,6 +396,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         }
     }
@@ -690,6 +697,9 @@ mod tests {
         assert_eq!(profile.position_id.as_deref(), Some("CALL_P1"));
         assert!(profile.dv01 > 0.0, "long callable DV01 should be positive");
         assert!(profile.modified_duration_years > 0.0);
+        // Audit trail: the OAS vol used flows through Provenance so the
+        // snapshot can be reproduced without re-fetching the request.
+        assert_eq!(profile.provenance.oas_volatility, Some(0.01));
     }
 
     #[test]

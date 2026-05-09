@@ -786,10 +786,12 @@ fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Prove
     if !curves_used.iter().any(|c| c == discount_curve_id) {
         curves_used.push(discount_curve_id.to_string());
     }
+    // Strategies don't change the position's OAS vol; carry it through if set.
     Provenance {
         curves_used,
         cost_model: COST_MODEL_NAME.to_string(),
         advisor_version: env!("CARGO_PKG_VERSION").to_string(),
+        oas_volatility: position.provenance.oas_volatility,
     }
 }
 

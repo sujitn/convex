@@ -1728,6 +1728,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         };
 
@@ -1790,6 +1791,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         };
 
