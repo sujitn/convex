@@ -211,19 +211,16 @@ fn spot_and_coupons(
 ) -> AnalyticsResult<(f64, f64)> {
     let bond = deliverable_to_bond(deliverable, currency, settlement)?;
     let spot = price_at_z_zero(&bond, curve, settlement);
+    // Coupons only — principal repayment isn't carry. We assume no
+    // CouponAndPrincipal flows fall in the [settle, delivery] window;
+    // `select_ctd` enforces `maturity > delivery` upstream, so the maturity
+    // payment (which is typically merged) lands strictly after delivery.
     let coupons: f64 = bond
         .cash_flows(settlement)
         .into_iter()
         .filter(|cf| cf.date > settlement && cf.date <= delivery)
-        .map(|cf| {
-            // The maturity cash flow includes principal — for repo carry we
-            // only want the coupon component. Use coupon_rate × face / freq
-            // as a precise per-period coupon; cash_flows kindly tag this.
-            match cf.flow_type {
-                convex_bonds::traits::CashFlowType::Coupon => cf.amount.to_f64().unwrap_or(0.0),
-                _ => 0.0,
-            }
-        })
+        .filter(|cf| matches!(cf.flow_type, convex_bonds::traits::CashFlowType::Coupon))
+        .map(|cf| cf.amount.to_f64().unwrap_or(0.0))
         .sum();
     Ok((spot, coupons))
 }
@@ -343,16 +340,10 @@ mod tests {
             None,
         )
         .unwrap();
-        // No-arb F = min implied forward → chosen CTD's net basis is ≈ 0; the
-        // other bond must have NB ≥ 0.
+        // At no-arb F (min implied forward), the chosen CTD has net basis ≈ 0
+        // and selection lands on a real basket index.
+        assert!(sel.index < basket.len());
         assert!(sel.net_basis_per_100.abs() < 0.05);
-        let other = if sel.index == 0 {
-            &basket[1]
-        } else {
-            &basket[0]
-        };
-        // Sanity: cheapest forward across the two bonds matches the chosen one.
-        assert!(other.conversion_factor > 0.0);
     }
 
     #[test]
