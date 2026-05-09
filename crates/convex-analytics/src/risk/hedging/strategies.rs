@@ -656,42 +656,13 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// Default deliverable maturity tenors (years from settlement) per CME-style
-/// contract code. Each entry returns 2 deliverables clustered near the
-/// contract's headline tenor — narrow enough that CTD selection on a flat
-/// curve always lands on a maturity that the standard KRD ladder
-/// (`[2, 5, 10, 30]`) can hedge, but with enough spread for the selector
-/// to actually pick between them. Real CME baskets span a much wider range
-/// (TY: 6.5–10y; US: 15–25y; etc.) — for realistic CTD-selection behavior,
-/// callers should construct `BondFuture` with a hand-built basket directly
-/// rather than relying on this default. Unknown contract codes fall back
-/// to a single-deliverable basket at the underlying tenor.
-fn default_basket_tenors_for(contract_code: &str, underlying_tenor_years: f64) -> Vec<f64> {
-    match contract_code {
-        // USD CME notes / bond
-        "TU" => vec![1.83, 2.0],
-        "FV" => vec![4.5, 5.0],
-        "TY" => vec![9.5, 10.0],
-        "US" => vec![27.0, 30.0],
-        // EUR Eurex
-        "SCH" => vec![1.83, 2.0],
-        "OE" => vec![4.5, 5.0],
-        "RX" => vec![9.5, 10.0],
-        "BUXL" => vec![27.0, 30.0],
-        // GBP LIFFE
-        "G" => vec![9.5, 10.0],
-        // Unknown contract: fall back to the underlying tenor only.
-        _ => vec![underlying_tenor_years],
-    }
-}
-
-/// **Synthetic placeholder.** Builds a [`BondFuture`] with two synthetic
-/// at-par deliverables clustered near the contract's headline tenor (see
-/// [`default_basket_tenors_for`]). Coupons sampled from the curve, CFs
-/// approximated via [`approximate_cme_cf`], 3M front-month delivery, repo
-/// from the curve front-end. Real CME baskets span much wider ranges and
-/// the CTD is typically a shorter bond — for live or backtested results
-/// callers should construct [`BondFuture`] directly with the actual basket.
+/// Builds a [`BondFuture`] with one synthetic at-par deliverable at the
+/// contract's headline tenor — the smallest reasonable default. Coupon is
+/// the par-swap rate at that tenor; CF is from [`approximate_cme_cf`]; repo
+/// from the curve front-end; first delivery 3 months out. Callers with
+/// real basket data should construct [`BondFuture`] with their own
+/// `deliverable_basket` and pass it to the strategy functions; the
+/// `select_ctd` machinery handles multi-deliverable baskets directly.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -699,33 +670,28 @@ fn make_default_future(
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
 ) -> AnalyticsResult<BondFuture> {
-    let tenors = default_basket_tenors_for(contract_code, underlying_tenor_years);
-    let mut basket = Vec::with_capacity(tenors.len());
-    for tenor in &tenors {
-        let tenor_months = (tenor * 12.0).round() as i32;
-        if tenor_months <= 0 {
-            return Err(AnalyticsError::InvalidInput(format!(
-                "make_default_future({contract_code}): deliverable tenor must round to \
-                 >0 months (got {tenor})"
-            )));
-        }
-        let maturity = settlement.add_months(tenor_months).map_err(|e| {
-            AnalyticsError::InvalidInput(format!("future deliverable maturity: {e}"))
-        })?;
-        let coupon = otr_par_coupon(discount_curve, settlement, *tenor)?;
-        let mut deliverable = Deliverable {
-            name: Some(format!("{contract_code}_{tenor:.2}Y")),
-            coupon_rate_decimal: coupon,
-            maturity,
-            conversion_factor: 1.0,
-        };
-        deliverable.conversion_factor = approximate_cme_cf(&deliverable, currency, settlement)?;
-        basket.push(deliverable);
+    let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
+    if tenor_months <= 0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "make_default_future({contract_code}): underlying tenor must round to \
+             >0 months (got {underlying_tenor_years})"
+        )));
     }
+    let maturity = settlement
+        .add_months(tenor_months)
+        .map_err(|e| AnalyticsError::InvalidInput(format!("future deliverable maturity: {e}")))?;
+    let coupon = otr_par_coupon(discount_curve, settlement, underlying_tenor_years)?;
+    let mut deliverable = Deliverable {
+        name: Some(format!("{contract_code}_{underlying_tenor_years:.1}Y")),
+        coupon_rate_decimal: coupon,
+        maturity,
+        conversion_factor: 1.0,
+    };
+    deliverable.conversion_factor = approximate_cme_cf(&deliverable, currency, settlement)?;
     Ok(BondFuture {
         contract_code: contract_code.into(),
         underlying_tenor_years,
-        deliverable_basket: basket,
+        deliverable_basket: vec![deliverable],
         delivery_months: 3,
         repo_rate_decimal: repo_rate(discount_curve)?,
         futures_price: None,
@@ -1189,18 +1155,16 @@ mod tests {
 
     #[test]
     fn key_rate_futures_residual_dv01_is_bounded() {
-        // KeyRateFutures pins each *KRD bucket* exactly; the residual
-        // parallel DV01 is a second-order artifact of (position KRD-vs-DV01
-        // leakage − Σ leg KRD-vs-DV01 leakage). With multi-deliverable
-        // baskets the CTDs are not exactly at the headline tenors, so the
-        // DV01-vs-KRD leakage grows; bound it within ~20% of position DV01.
+        // KRF pins each KRD bucket exactly; residual parallel DV01 is the
+        // KRD-vs-parallel-DV01 leakage from triangular bumps not summing
+        // to a true parallel shift. A few percent on a 10Y position.
         let (pos, curve) = long_10y_corporate();
         let p =
             key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
         assert!(
-            resid_pct < 0.2,
-            "residual DV01 = {} should be <20% of position DV01 {}; got {resid_pct:.4}",
+            resid_pct < 0.05,
+            "residual DV01 = {} should be <5% of position DV01 {}; got {resid_pct:.4}",
             p.residual.residual_dv01,
             pos.dv01,
         );
@@ -1259,24 +1223,15 @@ mod tests {
 
     #[test]
     fn default_future_coupon_tracks_par_swap_rate_at_underlying_tenor() {
-        // Flat 3% curve → every deliverable's coupon ≈ par-swap-rate at its
-        // own tenor ≈ 3% (flat curve → all tenors give the same par rate).
         let curve = flat_curve(0.03);
         let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        let coupon = f.deliverable_basket[0].coupon_rate_decimal;
+        // par_swap_rate on a flat curve equals the zero rate; tolerate small
+        // compounding/day-count drift.
         assert!(
-            f.deliverable_basket.len() >= 2,
-            "TY default basket should be multi-deliverable"
+            (coupon - 0.03).abs() < 0.005,
+            "coupon = {coupon}, expected ~0.03"
         );
-        for d in &f.deliverable_basket {
-            // par_swap_rate on a flat curve equals the zero rate; tolerate
-            // small compounding/day-count drift across tenors.
-            assert!(
-                (d.coupon_rate_decimal - 0.03).abs() < 0.005,
-                "deliverable {:?} coupon = {}, expected ~0.03",
-                d.name,
-                d.coupon_rate_decimal,
-            );
-        }
     }
 
     #[test]
@@ -1382,40 +1337,6 @@ mod tests {
             hi - lo > 0.03,
             "high-rate repo ({hi}) should exceed low-rate repo ({lo}) by ≥ 300bps"
         );
-    }
-
-    #[test]
-    fn default_future_basket_is_multi_deliverable_for_known_contracts() {
-        // Every standard contract code returns ≥2 synthetic deliverables —
-        // that's what gives the CTD selector a meaningful choice. Unknown
-        // contract codes fall back to a single deliverable at the underlying
-        // tenor.
-        let curve = flat_curve(0.045);
-        for (code, headline) in [
-            ("TU", 2.0),
-            ("FV", 5.0),
-            ("TY", 10.0),
-            ("US", 30.0),
-            ("SCH", 2.0),
-            ("OE", 5.0),
-            ("RX", 10.0),
-            ("BUXL", 30.0),
-        ] {
-            let f =
-                make_default_future(code, headline, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
-            assert!(
-                f.deliverable_basket.len() >= 2,
-                "{code} default basket has {} deliverables, expected ≥2",
-                f.deliverable_basket.len(),
-            );
-        }
-    }
-
-    #[test]
-    fn default_future_unknown_contract_code_falls_back_to_single_deliverable() {
-        let curve = flat_curve(0.045);
-        let f = make_default_future("UNKNOWN", 7.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
-        assert_eq!(f.deliverable_basket.len(), 1);
     }
 
     #[test]

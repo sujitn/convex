@@ -60,15 +60,13 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
   as `TradeoffNotes::weaknesses` and lose the `compare_hedges`
   recommendation race the same way `max_residual_dv01` and
   `max_cost_bps` already do.
-- **Multi-deliverable default baskets**: `make_default_future` now
-  synthesizes 2 deliverables per contract code (down from a single
-  representative), clustered narrowly around the contract's headline
-  tenor — wide enough that CTD selection actually picks between
-  alternatives, narrow enough that the chosen CTD still has KRD
-  alignment with the standard `[2, 5, 10, 30]` ladder. Real CME
-  baskets span much wider (TY: 6.5–10y, US: 15–25y); callers wanting
-  realistic basket-skew should override `BondFuture.deliverable_basket`
-  directly.
+- **`BondFuture.deliverable_basket` carries the real basket.** The
+  default factory `make_default_future` produces a single synthetic
+  at-par deliverable at the contract's headline tenor — the smallest
+  reasonable starting point. Callers with live or backtested basket
+  data construct `BondFuture` with their own `deliverable_basket`;
+  `select_ctd` runs the same min-net-basis math regardless of basket
+  size.
 
 ### Strategies shipped (was 2, now 5)
 

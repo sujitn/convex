@@ -1638,13 +1638,12 @@ mod tests {
                 "missing strategy {name}"
             );
         }
-        // KeyRateFutures pins each KRD bucket; its parallel residual is the
-        // KRD-vs-DV01 leakage from the chosen CTDs (which sit at narrower
-        // tenors than the contracts' headlines, so the leakage runs ~10%).
-        // Other strategies neutralize parallel DV01 to <0.1%.
+        // KeyRateFutures pins each KRD bucket; the parallel residual is the
+        // KRD-vs-parallel-DV01 leakage (a few percent). Other strategies
+        // neutralize parallel DV01 to <0.1%.
         for p in &proposed.proposals {
             let bound = if p.strategy == "KeyRateFutures" {
-                0.20
+                0.05
             } else {
                 0.001
             };
