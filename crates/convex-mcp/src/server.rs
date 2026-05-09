@@ -16,12 +16,13 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
-    interest_rate_swap, narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule,
-    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
-    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
-    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
-    RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
+    barbell_futures, cash_bond_pair, compare_hedges, compute_callable_position_risk,
+    compute_position_risk, duration_futures, interest_rate_swap, key_rate_futures, narrate,
+    price_callable_from_mark, price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond,
+    ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention, Deposit,
+    DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter, HedgeProposal,
+    ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn,
+    RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
     ADVISOR_KEY_RATE_TENORS,
 };
 
@@ -354,6 +355,11 @@ pub struct PriceBondParams {
     /// Compounding frequency for derived YTM. Defaults to the bond's frequency.
     #[serde(default)]
     pub quote_frequency: Option<Frequency>,
+    /// Annual normal volatility for OAS pricing (decimal, `0.01` = 1%).
+    /// **Required** when `mark` is an OAS spread on a callable bond; ignored
+    /// for any other mark type.
+    #[serde(default)]
+    pub volatility: Option<f64>,
 }
 
 /// Calculate-yield parameters.
@@ -437,6 +443,12 @@ pub struct ComputePositionRiskParams {
     /// KRD tenors (years). Defaults to `[2, 5, 10, 30]`.
     #[serde(default)]
     pub key_rate_tenors: Option<Vec<f64>>,
+    /// Annual normal volatility for HW1F effective risk (decimal, `0.01` = 1%).
+    /// **Required** when the bond is a callable AND the mark is an OAS spread —
+    /// triggers the OAS-aware path (effective duration / KRD at constant OAS).
+    /// Ignored for non-OAS marks and non-callable bonds.
+    #[serde(default)]
+    pub volatility: Option<f64>,
 }
 
 /// `propose_hedges` parameters.
@@ -598,6 +610,9 @@ pub struct PriceBondOutput {
     pub ytm_pct: f64,
     pub ytm_frequency: Frequency,
     pub z_spread_bps: Option<f64>,
+    /// OAS in bps. Some only when the input mark was an OAS spread (callable
+    /// bonds only).
+    pub oas_bps: Option<f64>,
 }
 
 /// Output of `calculate_yield`.
@@ -704,7 +719,10 @@ impl ConvexMcpServer {
     #[tool(
         description = "Price a bond against a trader Mark (price | yield | spread). \
             `bond` and `curve` accept either a stored id (string) or an inline spec (object). \
-            Returns clean/dirty price, accrued, derived YTM, and — for spread marks — the input z-spread."
+            OAS spread marks (e.g. `+50 OAS@USD.SOFR`) require a callable bond and a \
+            `volatility` (annual normal vol, decimal: `0.01` = 1%); they price through an \
+            HW1F trinomial tree. Returns clean/dirty price, accrued, derived YTM, the input \
+            z-spread (for Z-spread marks), and the input OAS (for OAS marks)."
     )]
     pub async fn price_bond(
         &self,
@@ -735,8 +753,34 @@ impl ConvexMcpServer {
         })?;
         let freq = params.quote_frequency.unwrap_or_else(|| fixed.frequency());
 
-        let result = price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
-            .map_err(McpToolError::from)?;
+        let is_oas = matches!(
+            &mark,
+            Mark::Spread { value, .. } if value.spread_type() == SpreadType::OAS
+        );
+        let result = if is_oas {
+            let callable = match &bond {
+                StoredBond::Callable(c) => c,
+                _ => {
+                    return Err(McpToolError::InvalidInput(format!(
+                        "OAS marks require a Callable bond, got {}",
+                        bond.type_name()
+                    ))
+                    .into())
+                }
+            };
+            price_callable_from_mark(
+                callable,
+                settlement,
+                &mark,
+                curve_dyn,
+                freq,
+                params.volatility,
+            )
+            .map_err(McpToolError::from)?
+        } else {
+            price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
+                .map_err(McpToolError::from)?
+        };
 
         Self::json_result(&PriceBondOutput {
             bond_id,
@@ -750,6 +794,7 @@ impl ConvexMcpServer {
             ytm_pct: result.ytm_decimal * 100.0,
             ytm_frequency: freq,
             z_spread_bps: result.z_spread_bps,
+            oas_bps: result.oas_bps,
         })
     }
 
@@ -1045,6 +1090,9 @@ impl ConvexMcpServer {
     #[tool(
         description = "Per-position risk: DV01, durations, convexity, KRD buckets. \
         KRD bumps the curve ±1bp at each tenor with Z-spread held fixed. \
+        OAS spread marks on callable bonds (e.g. `+50 OAS@USD.SOFR`) route \
+        through HW1F effective duration / convexity / KRD at constant OAS \
+        and require a `volatility` (annual normal vol, decimal: `0.01` = 1%). \
         Inline `bond`/`curve` specs work statelessly; ids require an earlier create call."
     )]
     pub async fn compute_position_risk(
@@ -1076,23 +1124,61 @@ impl ConvexMcpServer {
             }
             None => ADVISOR_KEY_RATE_TENORS,
         };
-        let profile = compute_position_risk(
-            fixed,
-            settlement,
+
+        let is_oas = matches!(
             &mark,
-            notional,
-            &curve,
-            &curve_id_str,
-            params.quote_frequency,
-            Some(tenor_slice),
-            params.position_id,
-        )
-        .map_err(McpToolError::from)?;
+            Mark::Spread { value, .. } if value.spread_type() == SpreadType::OAS
+        );
+        let profile = if is_oas {
+            let callable = match &bond {
+                StoredBond::Callable(c) => c,
+                _ => {
+                    return Err(McpToolError::InvalidInput(format!(
+                        "OAS marks require a Callable bond, got {}",
+                        bond.type_name()
+                    ))
+                    .into())
+                }
+            };
+            let vol = params.volatility.ok_or_else(|| {
+                McpToolError::InvalidInput(
+                    "OAS mark on callable requires `volatility` (annual normal vol, decimal: \
+                     `0.01` = 1%)"
+                        .into(),
+                )
+            })?;
+            compute_callable_position_risk(
+                callable,
+                settlement,
+                &mark,
+                notional,
+                &curve,
+                &curve_id_str,
+                params.quote_frequency,
+                Some(tenor_slice),
+                params.position_id,
+                vol,
+            )
+            .map_err(McpToolError::from)?
+        } else {
+            compute_position_risk(
+                fixed,
+                settlement,
+                &mark,
+                notional,
+                &curve,
+                &curve_id_str,
+                params.quote_frequency,
+                Some(tenor_slice),
+                params.position_id,
+            )
+            .map_err(McpToolError::from)?
+        };
         Self::json_result(&profile)
     }
 
     #[tool(description = "Propose hedges for a risk profile. Strategies: \
-        DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap. \
+        DurationFutures, BarbellFutures, KeyRateFutures, CashBondPair, InterestRateSwap. \
         Each proposal carries trades, residual KRD, heuristic cost, tradeoffs, provenance. \
         Strategies that fail on a given position are listed in `skipped_strategies` \
         unless the caller named them in `allowed_strategies`.")]
@@ -1150,6 +1236,18 @@ impl ConvexMcpServer {
             try_run(
                 "BarbellFutures",
                 barbell_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if allow("KeyRateFutures") {
+            try_run(
+                "KeyRateFutures",
+                key_rate_futures(
                     &params.risk,
                     &constraints,
                     &curve,
@@ -1497,6 +1595,7 @@ mod tests {
             quote_frequency: None,
             position_id: Some("AAPL.10Y_long".into()),
             key_rate_tenors: Some(vec![2.0, 5.0, 10.0, 30.0]),
+            volatility: None,
         };
         let risk_result = server
             .compute_position_risk(Parameters(risk_params))
@@ -1524,11 +1623,13 @@ mod tests {
                 .unwrap(),
         );
         let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
-        // Ships 4 strategies: DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap.
-        assert_eq!(proposed.proposals.len(), 4);
+        // Ships 5 strategies: DurationFutures, BarbellFutures, KeyRateFutures,
+        // CashBondPair, InterestRateSwap.
+        assert_eq!(proposed.proposals.len(), 5);
         for name in [
             "DurationFutures",
             "BarbellFutures",
+            "KeyRateFutures",
             "CashBondPair",
             "InterestRateSwap",
         ] {
@@ -1537,8 +1638,23 @@ mod tests {
                 "missing strategy {name}"
             );
         }
+        // KeyRateFutures pins each KRD bucket; the parallel residual is the
+        // KRD-vs-parallel-DV01 leakage and is position-specific (depends on
+        // the CTDs' duration vs each ladder bucket). Other strategies
+        // neutralize parallel DV01 to <0.1%.
         for p in &proposed.proposals {
-            assert!(p.residual.residual_dv01.abs() / profile.dv01.abs() < 0.001);
+            let bound = if p.strategy == "KeyRateFutures" {
+                0.10
+            } else {
+                0.001
+            };
+            assert!(
+                p.residual.residual_dv01.abs() / profile.dv01.abs() < bound,
+                "{}: residual DV01 {} on position DV01 {}",
+                p.strategy,
+                p.residual.residual_dv01,
+                profile.dv01
+            );
             assert_eq!(p.provenance.cost_model, "heuristic_v1");
         }
 
@@ -1554,8 +1670,16 @@ mod tests {
                 .unwrap(),
         );
         let report: ComparisonReport = serde_json::from_str(&comparison_text).unwrap();
-        assert_eq!(report.rows.len(), 4);
-        assert_eq!(report.recommendation.strategy, "DurationFutures");
+        assert_eq!(report.rows.len(), 5);
+        // Recommendation is whichever row has the lowest cost (with KRD-L1
+        // tie-break). Asserting a specific strategy is fragile under cost-
+        // model tweaks; assert the rule instead.
+        let cheapest = report
+            .rows
+            .iter()
+            .min_by(|a, b| a.cost_bps.partial_cmp(&b.cost_bps).unwrap())
+            .unwrap();
+        assert_eq!(report.recommendation.strategy, cheapest.strategy);
 
         // Tool 4: narrate_recommendation
         let narration_text = response_text(
@@ -1569,7 +1693,7 @@ mod tests {
         let narration: NarrationOutput = serde_json::from_str(&narration_text).unwrap();
         assert!(narration.text.contains("DurationFutures"));
         assert!(narration.text.contains("InterestRateSwap"));
-        assert!(narration.text.contains("Recommend DurationFutures"));
+        assert!(narration.text.contains("Recommend "));
     }
 
     fn response_text(result: CallToolResult) -> String {
@@ -1604,6 +1728,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         };
 
@@ -1642,10 +1767,11 @@ mod tests {
 
     #[tokio::test]
     async fn propose_hedges_skips_failing_strategy_silently_when_unrequested() {
-        // A position with no key-rate ladder breaks BarbellFutures only.
-        // Without explicit `allowed_strategies`, the call should still
-        // succeed with the other three proposals; barbell goes into
-        // `skipped_strategies` with its error.
+        // A position with no key-rate ladder breaks both BarbellFutures and
+        // KeyRateFutures. Without explicit `allowed_strategies`, the call
+        // should still succeed with the other three proposals; the two
+        // KRD-dependent strategies go into `skipped_strategies` with their
+        // errors.
         let profile = RiskProfile {
             position_id: None,
             currency: Currency::USD,
@@ -1665,6 +1791,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         };
 
@@ -1685,10 +1812,19 @@ mod tests {
         assert!(names.contains(&"CashBondPair"));
         assert!(names.contains(&"InterestRateSwap"));
 
-        // Barbell skipped with a reason — visible to the caller.
-        assert_eq!(out.skipped_strategies.len(), 1);
-        assert_eq!(out.skipped_strategies[0].strategy, "BarbellFutures");
-        assert!(out.skipped_strategies[0].reason.contains("key-rate ladder"));
+        // Both KRD-dependent strategies skipped with a reason — visible to the caller.
+        let skipped: Vec<&str> = out
+            .skipped_strategies
+            .iter()
+            .map(|s| s.strategy.as_str())
+            .collect();
+        assert_eq!(out.skipped_strategies.len(), 2);
+        assert!(skipped.contains(&"BarbellFutures"));
+        assert!(skipped.contains(&"KeyRateFutures"));
+        assert!(out
+            .skipped_strategies
+            .iter()
+            .any(|s| s.strategy == "BarbellFutures" && s.reason.contains("key-rate ladder")));
 
         // But explicitly requesting only Barbell on the same input must error.
         let explicit = server
@@ -1702,5 +1838,156 @@ mod tests {
             }))
             .await;
         assert!(explicit.is_err());
+    }
+
+    fn callable_bond_with_real_schedule() -> StoredBond {
+        use convex::{CallEntry, CallSchedule, CallType, CallableBond};
+        let base = build_fixed_bond(
+            "CALL.5Y",
+            &BondSpec {
+                coupon_rate_pct: 5.0,
+                maturity: date(2030, 1, 15),
+                issue_date: date(2025, 1, 15),
+                frequency: Frequency::SemiAnnual,
+                day_count: DayCountConvention::Thirty360US,
+                currency: Currency::USD,
+                face_value: 100.0,
+                make_whole_spread_bps: None,
+            },
+        )
+        .unwrap();
+        let schedule = CallSchedule::new(CallType::American)
+            .with_entry(CallEntry::new(date(2027, 1, 15).to_date().unwrap(), 102.0))
+            .with_entry(CallEntry::new(date(2028, 1, 15).to_date().unwrap(), 101.0))
+            .with_entry(CallEntry::new(date(2029, 1, 15).to_date().unwrap(), 100.0));
+        StoredBond::Callable(CallableBond::new(base, schedule))
+    }
+
+    #[tokio::test]
+    async fn price_bond_routes_oas_mark_through_callable_path() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let out = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: Some(0.01),
+            }))
+            .await
+            .unwrap();
+        let text = match &out.content[0].raw {
+            rmcp::model::RawContent::Text(t) => t.text.clone(),
+            _ => panic!("expected text content"),
+        };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["oas_bps"].as_f64(), Some(50.0));
+        assert!(parsed["z_spread_bps"].is_null());
+        let dirty = parsed["dirty_price_per_100"].as_f64().unwrap();
+        assert!(dirty > 70.0 && dirty < 130.0, "dirty out of range: {dirty}");
+    }
+
+    #[tokio::test]
+    async fn price_bond_oas_without_volatility_errors() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let err = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: None,
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn price_bond_oas_on_non_callable_errors() {
+        let server = ConvexMcpServer::new();
+        let err = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Spec(ust_10y_spec()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: Some(0.01),
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn compute_position_risk_routes_oas_mark_through_callable_path() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let out = server
+            .compute_position_risk(Parameters(ComputePositionRiskParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: CurveRef::Spec(flat_curve_spec(4.0)),
+                notional_face: 10_000_000.0,
+                quote_frequency: None,
+                position_id: Some("CALL.5Y_long".into()),
+                key_rate_tenors: None,
+                volatility: Some(0.01),
+            }))
+            .await
+            .unwrap();
+        let text = match &out.content[0].raw {
+            rmcp::model::RawContent::Text(t) => t.text.clone(),
+            _ => panic!("expected text content"),
+        };
+        let profile: RiskProfile = serde_json::from_str(&text).unwrap();
+        assert!(profile.dv01 > 0.0);
+    }
+
+    #[tokio::test]
+    async fn compute_position_risk_oas_without_volatility_errors() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let err = server
+            .compute_position_risk(Parameters(ComputePositionRiskParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: CurveRef::Spec(flat_curve_spec(4.0)),
+                notional_face: 10_000_000.0,
+                quote_frequency: None,
+                position_id: None,
+                key_rate_tenors: None,
+                volatility: None,
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn compute_position_risk_oas_on_non_callable_errors() {
+        let server = ConvexMcpServer::new();
+        let err = server
+            .compute_position_risk(Parameters(ComputePositionRiskParams {
+                bond: BondRef::Spec(ust_10y_spec()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: CurveRef::Spec(flat_curve_spec(4.0)),
+                notional_face: 10_000_000.0,
+                quote_frequency: None,
+                position_id: None,
+                key_rate_tenors: None,
+                volatility: Some(0.01),
+            }))
+            .await;
+        assert!(err.is_err());
     }
 }

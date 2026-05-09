@@ -11,20 +11,34 @@ use convex_core::types::{Currency, Date, Mark, Spread, SpreadType};
 use convex_curves::{DiscreteCurve, RateCurve};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
+use crate::risk::hedging::ctd::{deliverable_to_bond, select_ctd, CtdSelection};
 use crate::risk::profile::{compute_position_risk, KeyRateBucket};
 
 use super::types::{BondFuture, CashBondLeg, InterestRateSwap, SwapSide};
 
-/// Per-contract DV01 + KRD for a [`BondFuture`].
+/// Per-contract DV01 + KRD for a [`BondFuture`], plus details on the
+/// chosen cheapest-to-deliver bond.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
 pub struct BondFutureRisk {
     pub dv01_per_contract: f64,
     pub buckets_per_contract: Vec<KeyRateBucket>,
+    /// Net-basis CTD selection — index, net basis, implied repo.
+    pub ctd_selection: CtdSelection,
+    /// Coupon of the chosen CTD (decimal).
+    pub ctd_coupon_rate_decimal: f64,
+    /// Maturity of the chosen CTD.
+    pub ctd_maturity: Date,
+    /// Conversion factor of the chosen CTD.
+    pub ctd_conversion_factor: f64,
+    /// Futures price (per 100) actually used — either the spec's
+    /// `futures_price` or the no-arb fair forward derived from the basket.
+    pub futures_price_per_100: f64,
 }
 
-/// Per-contract risk via a synthetic 6% CBOT-style deliverable, divided by
-/// the conversion factor. v1 ignores CTD optionality and basis.
+/// Per-contract risk via the cheapest-to-deliver bond from the spec's
+/// basket. CTD is selected by minimizing net basis at the spec's repo rate
+/// and (live or no-arb) futures price; per-contract DV01 = CTD DV01 / CF.
 pub fn bond_future_risk(
     spec: &BondFuture,
     curve: &RateCurve<DiscreteCurve>,
@@ -32,19 +46,34 @@ pub fn bond_future_risk(
     settlement: Date,
     key_rate_tenors: Option<&[f64]>,
 ) -> AnalyticsResult<BondFutureRisk> {
-    if !spec.conversion_factor.is_finite() || spec.conversion_factor <= 0.0 {
+    if spec.deliverable_basket.is_empty() {
         return Err(AnalyticsError::InvalidInput(format!(
-            "BondFuture: conversion_factor must be finite and strictly positive (got {})",
-            spec.conversion_factor
+            "BondFuture {}: deliverable_basket is empty — populate via the strategy helpers",
+            spec.contract_code
         )));
     }
-    let ctd = representative_ctd(spec, settlement)?;
+    let delivery = settlement
+        .add_months(spec.delivery_months as i32)
+        .map_err(|e| AnalyticsError::InvalidInput(format!("delivery date: {e}")))?;
+    // Single basket pass: prices each deliverable once, computes F (input or
+    // no-arb fair forward), selects min-net-basis CTD.
+    let (selection, f_used) = select_ctd(
+        &spec.deliverable_basket,
+        spec.currency,
+        curve,
+        settlement,
+        delivery,
+        spec.repo_rate_decimal,
+        spec.futures_price,
+    )?;
+    let ctd = &spec.deliverable_basket[selection.index];
+    let bond = deliverable_to_bond(ctd, spec.currency, settlement)?;
     let mark = Mark::Spread {
         value: Spread::new(Decimal::ZERO, SpreadType::ZSpread),
         benchmark: curve_id.to_string(),
     };
     let profile = compute_position_risk(
-        &ctd,
+        &bond,
         settlement,
         &mark,
         spec.contract_size_face,
@@ -54,7 +83,7 @@ pub fn bond_future_risk(
         key_rate_tenors,
         None,
     )?;
-    let cf = spec.conversion_factor;
+    let cf = ctd.conversion_factor;
     Ok(BondFutureRisk {
         dv01_per_contract: profile.dv01 / cf,
         buckets_per_contract: profile
@@ -65,16 +94,12 @@ pub fn bond_future_risk(
                 partial_dv01: b.partial_dv01 / cf,
             })
             .collect(),
+        ctd_selection: selection,
+        ctd_coupon_rate_decimal: ctd.coupon_rate_decimal,
+        ctd_maturity: ctd.maturity,
+        ctd_conversion_factor: cf,
+        futures_price_per_100: f_used,
     })
-}
-
-fn representative_ctd(spec: &BondFuture, settlement: Date) -> AnalyticsResult<FixedRateBond> {
-    synthetic_sovereign_bond(
-        spec.currency,
-        dec!(0.06),
-        spec.underlying_tenor_years,
-        settlement,
-    )
 }
 
 /// Total DV01 + KRD of one hedge leg, signed by direction (pay-fixed swap
@@ -304,10 +329,32 @@ mod tests {
     }
 
     fn ty_future(cf: f64) -> BondFuture {
+        use crate::risk::hedging::ctd::Deliverable;
         BondFuture {
             contract_code: "TY".into(),
             underlying_tenor_years: 10.0,
-            conversion_factor: cf,
+            deliverable_basket: vec![Deliverable {
+                name: None,
+                coupon_rate_decimal: 0.06,
+                maturity: d(2036, 1, 15),
+                conversion_factor: cf,
+            }],
+            delivery_months: 3,
+            repo_rate_decimal: 0.043,
+            futures_price: None,
+            contract_size_face: dec!(100_000),
+            currency: Currency::USD,
+        }
+    }
+
+    fn ty_future_empty_basket() -> BondFuture {
+        BondFuture {
+            contract_code: "TY".into(),
+            underlying_tenor_years: 10.0,
+            deliverable_basket: vec![],
+            delivery_months: 3,
+            repo_rate_decimal: 0.043,
+            futures_price: None,
             contract_size_face: dec!(100_000),
             currency: Currency::USD,
         }
@@ -406,16 +453,69 @@ mod tests {
 
     #[test]
     fn gbp_long_gilt_future_builds_a_gilt_ctd() {
+        use crate::risk::hedging::ctd::Deliverable;
         let curve = flat_curve(0.04);
         let spec = BondFuture {
             contract_code: "G".into(),
             underlying_tenor_years: 10.0,
-            conversion_factor: 1.0,
+            deliverable_basket: vec![Deliverable {
+                name: None,
+                coupon_rate_decimal: 0.04,
+                maturity: d(2036, 1, 15),
+                conversion_factor: 1.0,
+            }],
+            delivery_months: 3,
+            repo_rate_decimal: 0.04,
+            futures_price: None,
             contract_size_face: dec!(100_000),
             currency: Currency::GBP,
         };
         let risk = bond_future_risk(&spec, &curve, "c", d(2026, 1, 15), None).unwrap();
         assert!(risk.dv01_per_contract > 0.0);
+    }
+
+    #[test]
+    fn empty_basket_errors() {
+        let curve = flat_curve(0.05);
+        let err = bond_future_risk(&ty_future_empty_basket(), &curve, "c", d(2026, 1, 15), None);
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn ctd_selection_is_surfaced_in_risk_output() {
+        use crate::risk::hedging::ctd::Deliverable;
+        let curve = flat_curve(0.05);
+        let cheap = Deliverable {
+            name: Some("CHEAP".into()),
+            coupon_rate_decimal: 0.04,
+            maturity: d(2036, 1, 15),
+            conversion_factor: 0.85,
+        };
+        let rich = Deliverable {
+            name: Some("RICH".into()),
+            coupon_rate_decimal: 0.08,
+            maturity: d(2036, 1, 15),
+            conversion_factor: 1.15,
+        };
+        let spec = BondFuture {
+            contract_code: "TY".into(),
+            underlying_tenor_years: 10.0,
+            deliverable_basket: vec![cheap, rich],
+            delivery_months: 3,
+            repo_rate_decimal: 0.043,
+            futures_price: None,
+            contract_size_face: dec!(100_000),
+            currency: Currency::USD,
+        };
+        let risk = bond_future_risk(&spec, &curve, "c", d(2026, 1, 15), None).unwrap();
+        assert!(risk.ctd_selection.index < 2);
+        assert!(risk.ctd_conversion_factor > 0.0);
+        // At fair-forward F, the chosen CTD's net basis is ≈0 by construction.
+        assert!(
+            risk.ctd_selection.net_basis_per_100.abs() < 0.05,
+            "chosen CTD NB at fair F = {}",
+            risk.ctd_selection.net_basis_per_100
+        );
     }
 
     // -- InterestRateSwap --------------------------------------------------

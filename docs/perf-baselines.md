@@ -11,16 +11,15 @@ Recorded on Windows 11 / convex-analytics 0.12.1, criterion default settings.
 
 | Bench | Median | Notes |
 | --- | --- | --- |
-| `risk_profile_apple_10y` | ~24 µs | One `price_from_mark` + one `BondRiskCalculator` + 4-tenor KRD profile (4 ZSpreadCalculator reprices). |
-| `propose_four_strategies` | ~300 µs | Four strategies → 5 `compute_position_risk` calls (1 single-future CTD, 2 barbell-future CTDs, 1 unit-notional swap leg, 1 unit-face cash bond). |
-| `end_to_end` | ~328 µs | `risk_profile + propose_four + compare + narrate`. |
+| `risk_profile_apple_10y` | ~22 µs | One `price_from_mark` + one `BondRiskCalculator` + 4-tenor KRD profile. |
+| `propose_five_strategies` | ~1.18 ms | Each futures-based strategy builds a single-deliverable BondFuture via `make_default_future`, runs CTD selection trivially (basket of 1), then prices the CTD with full KRD bumps. Callers supplying real multi-deliverable baskets pay extra basket-pricing per leg. |
+| `end_to_end` | ~1.21 ms | `risk_profile + propose_five + compare + narrate`. |
 
-History: v1 release (commit `62d2073`) recorded 22 / 286 / 309 µs. The
-post-review cleanup (`af120f4`..`07785a8`) did not change any hot-path
-arithmetic; the ~5–8% drift is criterion run-to-run variance on Windows.
-
-A v2 optimization could amortize `KeyRateBump` setup across strategies
-(build the bumped curves once, share with all legs) — not pursued.
+The propose path is dominated by KRD bumping — `KeyRateFutures` runs four
+`compute_position_risk` calls (one per ladder leg) against the bumped
+curve. Amortizing `KeyRateBump` curve construction across legs is the
+obvious next optimization but isn't pursued; 1.2 ms is well under
+interactive thresholds.
 
 ## Existing benches — untouched
 

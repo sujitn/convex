@@ -23,7 +23,7 @@ pub fn compare_hedges(
         ));
     }
     let rows: Vec<ComparisonRow> = proposals.iter().map(row_for).collect();
-    let recommendation = recommend(&rows, constraints)?;
+    let recommendation = recommend(&rows, proposals, constraints)?;
     Ok(ComparisonReport {
         currency: position.currency,
         position_market_value: position.market_value,
@@ -46,7 +46,11 @@ fn row_for(p: &HedgeProposal) -> ComparisonRow {
     }
 }
 
-fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResult<Recommendation> {
+fn recommend(
+    rows: &[ComparisonRow],
+    proposals: &[HedgeProposal],
+    constraints: &Constraints,
+) -> AnalyticsResult<Recommendation> {
     // Hard filter: allowed_strategies (empty list = all allowed).
     let allow_all = constraints.allowed_strategies.is_empty();
     let allowed_indices: Vec<usize> = rows
@@ -62,8 +66,8 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResu
         )));
     }
 
-    // Soft filter: max_residual_dv01 / max_cost_bps over the allowed set.
-    let meets_soft = |row: &ComparisonRow| -> bool {
+    let meets_soft = |i: usize| -> bool {
+        let row = &rows[i];
         if let Some(max) = constraints.max_residual_dv01 {
             if row.residual_dv01.abs() > max {
                 return false;
@@ -74,13 +78,24 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResu
                 return false;
             }
         }
+        for limit in &constraints.max_residual_per_bucket {
+            let breach = proposals[i]
+                .residual
+                .residual_buckets
+                .iter()
+                .find(|b| (b.tenor_years - limit.tenor_years).abs() < 1e-9)
+                .is_some_and(|b| b.partial_dv01.abs() > limit.max_abs_dv01);
+            if breach {
+                return false;
+            }
+        }
         true
     };
 
     let soft_indices: Vec<usize> = allowed_indices
         .iter()
         .copied()
-        .filter(|&i| meets_soft(&rows[i]))
+        .filter(|&i| meets_soft(i))
         .collect();
     let any_met_soft = !soft_indices.is_empty();
     let pool: Vec<usize> = if any_met_soft {
@@ -119,9 +134,12 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResu
     {
         reasons.push(RecommendationReason::SmallestCurvature);
     }
+    let any_soft_constraint_set = constraints.max_residual_dv01.is_some()
+        || constraints.max_cost_bps.is_some()
+        || !constraints.max_residual_per_bucket.is_empty();
     if any_met_soft {
         reasons.push(RecommendationReason::MeetsConstraints);
-    } else if constraints.max_residual_dv01.is_some() || constraints.max_cost_bps.is_some() {
+    } else if any_soft_constraint_set {
         reasons.push(RecommendationReason::NoRowMetConstraints);
     }
 
@@ -135,6 +153,7 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::risk::hedging::ctd::Deliverable;
     use crate::risk::hedging::types::{
         BondFuture, HedgeInstrument, HedgeProposal, HedgeTrade, ResidualRisk, TradeoffNotes,
     };
@@ -165,6 +184,7 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
             },
         }
     }
@@ -174,7 +194,15 @@ mod tests {
             instrument: HedgeInstrument::BondFuture(BondFuture {
                 contract_code: "TY".into(),
                 underlying_tenor_years: 10.0,
-                conversion_factor: 1.0,
+                deliverable_basket: vec![Deliverable {
+                    name: None,
+                    coupon_rate_decimal: 0.045,
+                    maturity: Date::from_ymd(2036, 1, 15).unwrap(),
+                    conversion_factor: 0.85,
+                }],
+                delivery_months: 3,
+                repo_rate_decimal: 0.043,
+                futures_price: None,
                 contract_size_face: dec!(100_000),
                 currency: Currency::USD,
             }),
@@ -226,7 +254,13 @@ mod tests {
                     "instrument": "bond_future",
                     "contract_code": "TY",
                     "underlying_tenor_years": 10.0,
-                    "conversion_factor": 1.0,
+                    "deliverable_basket": [{
+                        "coupon_rate_decimal": 0.045,
+                        "maturity": "2036-01-15",
+                        "conversion_factor": 0.85
+                    }],
+                    "delivery_months": 3,
+                    "repo_rate_decimal": 0.043,
                     "contract_size_face": 100000.0,
                     "currency": "USD"
                 },
@@ -347,6 +381,72 @@ mod tests {
         let r = compare_hedges(&position(), &proposals, &constraints).unwrap();
         // Neither meets; fall back to lowest cost overall (DurationFutures).
         assert_eq!(r.recommendation.strategy, "DurationFutures");
+    }
+
+    #[test]
+    fn per_bucket_constraint_loses_recommendation_to_compliant_proposal() {
+        use super::super::types::KeyRateBucketLimit;
+        // Cheap proposal with $1500 at 10Y; expensive one with $100 at 10Y.
+        // Without the bucket constraint, cheap wins. With a $500 cap at 10Y,
+        // cheap is filtered and expensive should win.
+        let cheap = proposal_with_10y_bucket("Cheap", 0.25, 1500.0);
+        let expensive = proposal_with_10y_bucket("Expensive", 0.60, 100.0);
+
+        let unconstrained = compare_hedges(
+            &position(),
+            &[cheap.clone(), expensive.clone()],
+            &Constraints::default(),
+        )
+        .unwrap();
+        assert_eq!(unconstrained.recommendation.strategy, "Cheap");
+
+        let constraints = Constraints {
+            max_residual_per_bucket: vec![KeyRateBucketLimit {
+                tenor_years: 10.0,
+                max_abs_dv01: 500.0,
+            }],
+            ..Default::default()
+        };
+        let constrained = compare_hedges(&position(), &[cheap, expensive], &constraints).unwrap();
+        assert_eq!(constrained.recommendation.strategy, "Expensive");
+        assert!(constrained
+            .recommendation
+            .reasons
+            .contains(&RecommendationReason::MeetsConstraints));
+    }
+
+    #[test]
+    fn per_bucket_constraint_falls_back_when_no_proposal_meets() {
+        use super::super::types::KeyRateBucketLimit;
+        // Both breach the limit; pool falls back to all and picks lowest cost.
+        let a = proposal_with_10y_bucket("A", 0.25, 1500.0);
+        let b = proposal_with_10y_bucket("B", 0.60, 1200.0);
+        let constraints = Constraints {
+            max_residual_per_bucket: vec![KeyRateBucketLimit {
+                tenor_years: 10.0,
+                max_abs_dv01: 100.0,
+            }],
+            ..Default::default()
+        };
+        let r = compare_hedges(&position(), &[a, b], &constraints).unwrap();
+        assert_eq!(r.recommendation.strategy, "A");
+        assert!(r
+            .recommendation
+            .reasons
+            .contains(&RecommendationReason::NoRowMetConstraints));
+    }
+
+    fn proposal_with_10y_bucket(
+        strategy: &str,
+        cost_bps: f64,
+        ten_y_residual: f64,
+    ) -> HedgeProposal {
+        let mut p = proposal_named(strategy, cost_bps, ten_y_residual.abs());
+        p.residual.residual_buckets = vec![KeyRateBucket {
+            tenor_years: 10.0,
+            partial_dv01: ten_y_residual,
+        }];
+        p
     }
 
     #[test]
