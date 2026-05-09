@@ -21,6 +21,11 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
 - **Fractional-year swap tenors** via `add_months` (was rounding to integer years).
 - **`#[serde(default)]` on Provenance / TradeoffNotes / KRD buckets** to survive LLM round-trip drops.
 - **Smoke-test discoveries** wired into permanent fixes — bug found and patched.
+- **`compute_callable_position_risk`** routes OAS marks on callable bonds
+  through HW1F effective duration / convexity / KRD at constant OAS. Wired
+  into the MCP `compute_position_risk` tool (new optional `volatility`
+  field). `Provenance.oas_volatility` (optional, backwards-compatible) now
+  carries the vol used through the audit trail.
 
 ### Strategies shipped (was 2, now 5)
 
@@ -62,7 +67,6 @@ Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we'r
 
 | Item | Reason |
 | --- | --- |
-| Effective duration / KRD for callable positions in `compute_position_risk` | OAS pricing now lands; risk integration (curve ±1bp at constant OAS) is a follow-up. The OAS calculator already exposes `effective_duration` / `effective_convexity` / `oas_duration`. |
 | Real CTD optimization | Deliverable basket + repo financing + dynamic CTD selection. ~1 week. Synthetic 6%-coupon CF=1.0 deliverable suffices for v1. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |

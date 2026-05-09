@@ -754,6 +754,7 @@ fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Prove
         curves_used,
         cost_model: COST_MODEL_NAME.to_string(),
         advisor_version: env!("CARGO_PKG_VERSION").to_string(),
+        oas_volatility: position.provenance.oas_volatility,
     }
 }
 
