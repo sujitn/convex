@@ -43,10 +43,6 @@ pub struct Provenance {
     pub cost_model: String,
     #[serde(default)]
     pub advisor_version: String,
-    /// Annual normal volatility used for HW1F effective duration / KRD on
-    /// callable positions. Only set on the OAS-driven callable risk path.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub oas_volatility: Option<f64>,
 }
 
 /// Risk profile of a single position. `notional_face` is signed (long → +).
@@ -165,7 +161,6 @@ where
             curves_used: vec![discount_curve_id.to_string()],
             cost_model: COST_MODEL_NAME.to_string(),
             advisor_version: env!("CARGO_PKG_VERSION").to_string(),
-            oas_volatility: None,
         },
     })
 }
@@ -191,12 +186,10 @@ where
 ///   the call truncates upside.
 /// - `convexity` is **effective** convexity and may be **negative** when
 ///   the call is in-the-money — the textbook signature of a callable.
-/// - `macaulay_duration_years` is set to the effective duration as a
-///   placeholder. Macaulay is not well-defined for instruments with
-///   embedded optionality; consumers needing a YTM-equivalent Macaulay
-///   should compute it against the bullet cashflows separately.
-/// - `provenance.oas_volatility` carries the vol used so the audit trail
-///   is complete.
+/// - `macaulay_duration_years` is the **bullet** YTM-equivalent Macaulay
+///   against the underlying cashflows (i.e. duration if the bond ran to
+///   maturity with no call). Strict Macaulay isn't defined for callables;
+///   this is the "bullet reference" number, not an option-adjusted figure.
 #[allow(clippy::too_many_arguments)]
 pub fn compute_callable_position_risk(
     bond: &CallableBond,
@@ -267,6 +260,19 @@ pub fn compute_callable_position_risk(
     let eff_convexity =
         calculator.effective_convexity(bond, discount_curve, oas_decimal, settlement)?;
 
+    // Bullet (YTM-equivalent) Macaulay against the underlying cashflows. Not
+    // strictly meaningful for instruments with embedded options, but a useful
+    // reference number — what the duration would be if the bond ran to
+    // maturity with no call exercise.
+    let bullet_calc = BondRiskCalculator::from_bond(
+        bond,
+        settlement,
+        priced.dirty_price_per_100,
+        priced.ytm_decimal,
+        Compounding::from(freq),
+    )?;
+    let bullet_macaulay = bullet_calc.all_metrics()?.macaulay_duration.as_f64();
+
     // DV01_per_100 = effective_duration * dirty_per_100 * 1bp.
     let dv01_per_100 = eff_duration * priced.dirty_price_per_100 * 1.0e-4;
     let dv01 = dv01_per_100 * face_scale;
@@ -301,7 +307,7 @@ pub fn compute_callable_position_risk(
         market_value,
         ytm_decimal: priced.ytm_decimal,
         modified_duration_years: eff_duration,
-        macaulay_duration_years: eff_duration,
+        macaulay_duration_years: bullet_macaulay,
         convexity: eff_convexity,
         dv01,
         key_rate_buckets: buckets,
@@ -309,7 +315,6 @@ pub fn compute_callable_position_risk(
             curves_used: vec![discount_curve_id.to_string()],
             cost_model: COST_MODEL_NAME.to_string(),
             advisor_version: env!("CARGO_PKG_VERSION").to_string(),
-            oas_volatility: Some(volatility_decimal),
         },
     })
 }
@@ -385,7 +390,6 @@ mod tests {
                 curves_used: vec!["sofr".into()],
                 cost_model: "heuristic_v1".into(),
                 advisor_version: env!("CARGO_PKG_VERSION").into(),
-                oas_volatility: None,
             },
         }
     }
@@ -686,7 +690,6 @@ mod tests {
         assert_eq!(profile.position_id.as_deref(), Some("CALL_P1"));
         assert!(profile.dv01 > 0.0, "long callable DV01 should be positive");
         assert!(profile.modified_duration_years > 0.0);
-        assert_eq!(profile.provenance.oas_volatility, Some(0.01));
     }
 
     #[test]
@@ -879,8 +882,6 @@ mod tests {
             via_generic.modified_duration_years,
             epsilon = 1e-9
         );
-        // Forwarded path leaves the OAS-vol provenance unset.
-        assert_eq!(via_callable.provenance.oas_volatility, None);
     }
 
     #[test]
