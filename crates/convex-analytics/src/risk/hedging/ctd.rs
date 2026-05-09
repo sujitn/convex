@@ -47,7 +47,9 @@ pub struct CtdSelection {
 
 /// Build a cash bond from a deliverable spec for a given currency. Uses the
 /// currency's sovereign preset (USD = UST, GBP = Gilt, EUR = Bund) to set
-/// frequency and day count.
+/// frequency and day count. The synthetic issue date is back-stepped from
+/// maturity in coupon periods so the schedule is grid-aligned (no stub at
+/// maturity).
 pub fn deliverable_to_bond(
     deliverable: &Deliverable,
     currency: Currency,
@@ -66,12 +68,13 @@ pub fn deliverable_to_bond(
             deliverable.coupon_rate_decimal
         ))
     })?;
+    let issue_date = aligned_issue_date(deliverable.maturity, currency, settlement)?;
     let mut builder = FixedRateBond::builder()
         .identifiers(BondIdentifiers::new())
         .coupon_rate(coupon)
         .face_value(dec!(100))
         .maturity(deliverable.maturity)
-        .issue_date(settlement);
+        .issue_date(issue_date);
     builder = match currency {
         Currency::USD => builder.us_treasury(),
         Currency::GBP => builder.uk_gilt(),
@@ -85,6 +88,33 @@ pub fn deliverable_to_bond(
     builder
         .build()
         .map_err(|e| AnalyticsError::BondError(format!("deliverable build: {e}")))
+}
+
+/// Step back from `maturity` in coupon periods until we land at or before
+/// `settlement`. Anchors the synthetic schedule to the maturity grid so the
+/// final coupon falls exactly on maturity (no stub).
+fn aligned_issue_date(
+    maturity: Date,
+    currency: Currency,
+    settlement: Date,
+) -> AnalyticsResult<Date> {
+    // USD UST + UK Gilt = SemiAnnual (6M); German Bund = Annual (12M).
+    let period_months: i32 = match currency {
+        Currency::USD | Currency::GBP => 6,
+        Currency::EUR => 12,
+        other => {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "Deliverable: no coupon period for currency {other:?}"
+            )))
+        }
+    };
+    let mut anchor = maturity;
+    while anchor > settlement {
+        anchor = anchor
+            .add_months(-period_months)
+            .map_err(|e| AnalyticsError::InvalidInput(format!("issue date alignment: {e}")))?;
+    }
+    Ok(anchor)
 }
 
 /// Conversion factor from clean price of the deliverable at a flat 6% YTM,
@@ -210,7 +240,18 @@ fn spot_and_coupons(
     delivery: Date,
 ) -> AnalyticsResult<(f64, f64)> {
     let bond = deliverable_to_bond(deliverable, currency, settlement)?;
+    // ZSpreadCalculator returns sentinel 0.0 on internal failure (perpetual,
+    // expired bond, curve query error). Reject anything non-positive or
+    // non-finite — silently treating it as a $0 spot would cascade into a
+    // wrong fair forward and a wrong CTD pick.
     let spot = price_at_z_zero(&bond, curve, settlement);
+    if !spot.is_finite() || spot <= 0.0 {
+        return Err(AnalyticsError::CalculationFailed(format!(
+            "Deliverable {:?} priced at spot={spot} (non-positive / non-finite); \
+             curve query likely failed or bond matured before settlement",
+            deliverable.name
+        )));
+    }
     // Coupons only — principal repayment isn't carry. We assume no
     // CouponAndPrincipal flows fall in the [settle, delivery] window;
     // `select_ctd` enforces `maturity > delivery` upstream, so the maturity
@@ -443,6 +484,23 @@ mod tests {
             d(2026, 1, 15),
         );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn deliverable_to_bond_aligns_issue_date_to_maturity_grid() {
+        // USD/GBP step in 6-month chunks; EUR in 12-month chunks. Anchor must
+        // be on the maturity grid and at or before settlement.
+        let settle = d(2026, 1, 15);
+
+        // USD: maturity 2036-04-15; 6M steps land on 04-15 / 10-15 dates.
+        let usd_issue = aligned_issue_date(d(2036, 4, 15), Currency::USD, settle).unwrap();
+        assert!(usd_issue <= settle);
+        assert_eq!((usd_issue.month(), usd_issue.day()), (10, 15));
+
+        // EUR: 12M steps; landing always on the maturity month/day.
+        let eur_issue = aligned_issue_date(d(2036, 4, 15), Currency::EUR, settle).unwrap();
+        assert!(eur_issue <= settle);
+        assert_eq!((eur_issue.month(), eur_issue.day()), (4, 15));
     }
 
     #[test]

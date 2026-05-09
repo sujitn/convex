@@ -180,6 +180,17 @@ pub fn price_callable_from_mark(
         _ => return price_from_mark(bond, settlement, mark, curve, quote_frequency),
     };
 
+    // Same expiry guard the non-OAS path enjoys via price_from_mark.
+    let maturity = bond
+        .maturity()
+        .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity (perpetual)".into()))?;
+    if settlement >= maturity {
+        return Err(AnalyticsError::InvalidSettlement {
+            settlement: settlement.to_string(),
+            maturity: maturity.to_string(),
+        });
+    }
+
     let curve =
         curve.ok_or_else(|| AnalyticsError::InvalidInput("OAS mark requires a curve".into()))?;
     let vol = volatility_decimal.ok_or_else(|| {
@@ -481,6 +492,30 @@ mod tests {
         assert_eq!(r.oas_bps, Some(50.0));
         assert_eq!(r.z_spread_bps, None);
         assert!((r.dirty_price_per_100 - r.clean_price_per_100 - r.accrued_per_100).abs() < 1e-9);
+    }
+
+    #[test]
+    fn callable_oas_mark_after_maturity_returns_invalid_settlement() {
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let mark = Mark::Spread {
+            value: Spread::new(dec!(50), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        // bond matures 2030-01-15; settle a year past.
+        let err = price_callable_from_mark(
+            &bond,
+            d(2031, 1, 15),
+            &mark,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            Some(0.01),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, AnalyticsError::InvalidSettlement { .. }),
+            "expected InvalidSettlement, got {err:?}"
+        );
     }
 
     #[test]
