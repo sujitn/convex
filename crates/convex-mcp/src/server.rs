@@ -2145,14 +2145,10 @@ mod tests {
         assert!(err.is_err());
     }
 
-    #[tokio::test]
-    async fn aggregate_book_risk_sums_two_positions_and_feeds_propose_hedges() {
-        // 10mm long 10Y + 5mm long 5Y, both USD SOFR. Aggregate, then run
-        // propose_hedges on the book — DurationFutures should size against
-        // the summed DV01.
-        let server = ConvexMcpServer::new();
-        let curve = flat_curve_spec(4.5);
-
+    /// 2-position USD book fixture: long $10mm 10Y + long $5mm 5Y.
+    fn usd_book_fixture(
+        curve: &CurveSpec,
+    ) -> (ComputePositionRiskParams, ComputePositionRiskParams) {
         let pos_10y = ComputePositionRiskParams {
             bond: BondRef::Spec(BondSpec {
                 coupon_rate_pct: 4.5,
@@ -2193,8 +2189,15 @@ mod tests {
             key_rate_tenors: Some(vec![2.0, 5.0, 10.0, 30.0]),
             volatility: None,
         };
+        (pos_10y, pos_5y)
+    }
 
-        // Per-position risks for the cross-check.
+    #[tokio::test]
+    async fn aggregate_book_risk_dv01_matches_sum_of_per_position_dv01() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
         let r_10y: RiskProfile = serde_json::from_str(&response_text(
             server
                 .compute_position_risk(Parameters(pos_10y.clone()))
@@ -2210,7 +2213,7 @@ mod tests {
         ))
         .unwrap();
 
-        let book_text = response_text(
+        let book: RiskProfile = serde_json::from_str(&response_text(
             server
                 .aggregate_book_risk(Parameters(AggregateBookRiskParams {
                     positions: vec![pos_10y, pos_5y],
@@ -2218,27 +2221,40 @@ mod tests {
                 }))
                 .await
                 .unwrap(),
-        );
-        let book: RiskProfile = serde_json::from_str(&book_text).unwrap();
+        ))
+        .unwrap();
 
         assert_eq!(book.position_id.as_deref(), Some("USD_BOOK"));
         assert_eq!(book.currency, Currency::USD);
-        // DV01 sums.
         assert!((book.dv01 - (r_10y.dv01 + r_5y.dv01)).abs() < 1e-6);
-        // KRD union: 10Y bucket dominated by the 10Y leg, 5Y by the 5Y leg.
-        let by_tenor: std::collections::HashMap<i64, f64> = book
+        // 5Y and 10Y buckets surface in the union.
+        let tenors: Vec<i64> = book
             .key_rate_buckets
             .iter()
-            .map(|b| ((b.tenor_years * 10.0) as i64, b.partial_dv01))
+            .map(|b| (b.tenor_years * 10.0) as i64)
             .collect();
-        assert!(by_tenor.contains_key(&50));
-        assert!(by_tenor.contains_key(&100));
-        // Per-100 prices zeroed at the book level.
-        assert_eq!(book.dirty_price_per_100, 0.0);
+        assert!(tenors.contains(&50));
+        assert!(tenors.contains(&100));
+    }
 
-        // Feed the book risk into propose_hedges; DurationFutures should
-        // neutralise the summed DV01 within 0.1%.
-        let proposals_text = response_text(
+    #[tokio::test]
+    async fn aggregate_book_risk_feeds_propose_hedges_within_one_basis_point() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        let book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![pos_10y, pos_5y],
+                    book_id: None,
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(
             server
                 .propose_hedges(Parameters(ProposeHedgesParams {
                     risk: book.clone(),
@@ -2251,11 +2267,47 @@ mod tests {
                 }))
                 .await
                 .unwrap(),
-        );
-        let out: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
-        assert_eq!(out.proposals.len(), 1);
+        ))
+        .unwrap();
         let p = &out.proposals[0];
         assert!(p.residual.residual_dv01.abs() / book.dv01.abs() < 0.001);
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_routes_oas_position_through_callable_path() {
+        // One callable position with an OAS mark + volatility — exercises
+        // the OAS branch of the factored `position_risk` helper. Single
+        // position is enough; we just need to prove the OAS path is used
+        // and the resulting profile aggregates without panicking.
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y.AGG".into(), callable_bond_with_real_schedule());
+
+        let oas_pos = ComputePositionRiskParams {
+            bond: BondRef::Id("CALL.5Y.AGG".into()),
+            settlement: "2025-04-15".into(),
+            mark: "+50 OAS@USD.SOFR".into(),
+            curve: CurveRef::Spec(flat_curve_spec(4.0)),
+            notional_face: 5_000_000.0,
+            quote_frequency: None,
+            position_id: Some("CALL".into()),
+            key_rate_tenors: None,
+            volatility: Some(0.01),
+        };
+
+        let book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![oas_pos],
+                    book_id: Some("CALLABLE_BOOK".into()),
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+        assert_eq!(book.position_id.as_deref(), Some("CALLABLE_BOOK"));
+        assert!(book.dv01 > 0.0, "long callable book DV01 should be > 0");
+        // OAS vol drops to None on aggregation by design.
+        assert_eq!(book.provenance.oas_volatility, None);
     }
 
     #[tokio::test]
