@@ -12,7 +12,7 @@ use convex_curves::{DiscreteCurve, RateCurve};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::hedging::ctd::{
-    deliverable_to_bond, fair_futures_price, select_ctd_by_net_basis, CtdSelection,
+    deliverable_to_bond, select_ctd_with_market_or_fair_price, CtdSelection,
 };
 use crate::risk::profile::{compute_position_risk, KeyRateBucket};
 
@@ -57,33 +57,16 @@ pub fn bond_future_risk(
     let delivery = settlement
         .add_months(spec.delivery_months as i32)
         .map_err(|e| AnalyticsError::InvalidInput(format!("delivery date: {e}")))?;
-    let f_used = match spec.futures_price {
-        Some(f) => {
-            if !f.is_finite() || f <= 0.0 {
-                return Err(AnalyticsError::InvalidInput(format!(
-                    "BondFuture {}: futures_price must be finite and > 0 (got {f})",
-                    spec.contract_code
-                )));
-            }
-            f
-        }
-        None => fair_futures_price(
-            &spec.deliverable_basket,
-            spec.currency,
-            curve,
-            settlement,
-            delivery,
-            spec.repo_rate_decimal,
-        )?,
-    };
-    let selection = select_ctd_by_net_basis(
+    // Single basket pass: prices each deliverable once, computes F (input or
+    // no-arb fair forward), selects min-net-basis CTD.
+    let (selection, f_used) = select_ctd_with_market_or_fair_price(
         &spec.deliverable_basket,
         spec.currency,
         curve,
         settlement,
         delivery,
         spec.repo_rate_decimal,
-        f_used,
+        spec.futures_price,
     )?;
     let ctd = &spec.deliverable_basket[selection.index];
     let bond = deliverable_to_bond(ctd, spec.currency, settlement)?;
