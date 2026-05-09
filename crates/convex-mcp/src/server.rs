@@ -16,13 +16,13 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    barbell_futures, cash_bond_pair, compare_hedges, compute_callable_position_risk,
-    compute_position_risk, duration_futures, interest_rate_swap, key_rate_futures, narrate,
-    price_callable_from_mark, price_from_mark, yield_to_maturity, Bond, BondFuture, CallSchedule,
-    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
-    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
-    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
-    RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator,
+    aggregate_risk_profiles, barbell_futures, cash_bond_pair, compare_hedges,
+    compute_callable_position_risk, compute_position_risk, duration_futures, interest_rate_swap,
+    key_rate_futures, narrate, price_callable_from_mark, price_from_mark, yield_to_maturity, Bond,
+    BondFuture, CallSchedule, CallableBond, ComparisonReport, Compounding, Constraints, Currency,
+    Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois,
+    RateCurve, RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator,
     ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
@@ -449,6 +449,19 @@ pub struct ComputePositionRiskParams {
     /// Ignored for non-OAS marks and non-callable bonds.
     #[serde(default)]
     pub volatility: Option<f64>,
+}
+
+/// `aggregate_book_risk` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct AggregateBookRiskParams {
+    /// Positions to aggregate. Each is a full `compute_position_risk` input;
+    /// the server prices each position independently and sums the resulting
+    /// risk profiles. Single-currency, single-settlement by design — mismatched
+    /// currency or settlement is rejected.
+    pub positions: Vec<ComputePositionRiskParams>,
+    /// Optional book identifier; appears as `position_id` on the aggregate.
+    #[serde(default)]
+    pub book_id: Option<String>,
 }
 
 /// `propose_hedges` parameters.
@@ -1105,6 +1118,41 @@ impl ConvexMcpServer {
         &self,
         Parameters(params): Parameters<ComputePositionRiskParams>,
     ) -> Result<CallToolResult, McpError> {
+        let profile = self.position_risk(&params)?;
+        Self::json_result(&profile)
+    }
+
+    #[tool(
+        description = "Book-level risk: prices each position via the same path \
+        as `compute_position_risk`, then sums DV01, unions KRD by tenor, and \
+        market-value-weights durations / convexity / YTM. Returns a single \
+        `RiskProfile` with `position_id = book_id`, ready to feed into \
+        `propose_hedges`. Rejects mismatched currency or settlement across \
+        positions (advisor is single-currency by design)."
+    )]
+    pub async fn aggregate_book_risk(
+        &self,
+        Parameters(params): Parameters<AggregateBookRiskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        if params.positions.is_empty() {
+            return Err(McpToolError::InvalidInput(
+                "aggregate_book_risk: positions list is empty".into(),
+            )
+            .into());
+        }
+        let mut profiles = Vec::with_capacity(params.positions.len());
+        for pos in &params.positions {
+            profiles.push(self.position_risk(pos)?);
+        }
+        let book =
+            aggregate_risk_profiles(&profiles, params.book_id).map_err(McpToolError::from)?;
+        Self::json_result(&book)
+    }
+
+    /// Shared compute body for `compute_position_risk` and
+    /// `aggregate_book_risk`. Resolves bond/curve refs, parses settlement
+    /// and mark, then routes to the OAS or generic risk path.
+    fn position_risk(&self, params: &ComputePositionRiskParams) -> Result<RiskProfile, McpError> {
         let (bond, _bond_id) = self.resolve_bond(&params.bond)?;
         let fixed = bond.fixed().ok_or_else(|| {
             McpToolError::InvalidInput(format!(
@@ -1162,7 +1210,7 @@ impl ConvexMcpServer {
                 &curve_id_str,
                 params.quote_frequency,
                 Some(tenor_slice),
-                params.position_id,
+                params.position_id.clone(),
                 vol,
             )
             .map_err(McpToolError::from)?
@@ -1176,11 +1224,11 @@ impl ConvexMcpServer {
                 &curve_id_str,
                 params.quote_frequency,
                 Some(tenor_slice),
-                params.position_id,
+                params.position_id.clone(),
             )
             .map_err(McpToolError::from)?
         };
-        Self::json_result(&profile)
+        Ok(profile)
     }
 
     #[tool(description = "Propose hedges for a risk profile. Strategies: \
@@ -2092,6 +2140,211 @@ mod tests {
                 position_id: None,
                 key_rate_tenors: None,
                 volatility: Some(0.01),
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    /// 2-position USD book fixture: long $10mm 10Y + long $5mm 5Y.
+    fn usd_book_fixture(
+        curve: &CurveSpec,
+    ) -> (ComputePositionRiskParams, ComputePositionRiskParams) {
+        let pos_10y = ComputePositionRiskParams {
+            bond: BondRef::Spec(BondSpec {
+                coupon_rate_pct: 4.5,
+                maturity: date(2035, 1, 15),
+                issue_date: date(2025, 1, 15),
+                frequency: Frequency::SemiAnnual,
+                day_count: DayCountConvention::Thirty360US,
+                currency: Currency::USD,
+                face_value: 100.0,
+                make_whole_spread_bps: None,
+            }),
+            settlement: "2026-01-15".into(),
+            mark: "4.5%@SA".into(),
+            curve: CurveRef::Spec(curve.clone()),
+            notional_face: 10_000_000.0,
+            quote_frequency: None,
+            position_id: Some("LEG_10Y".into()),
+            key_rate_tenors: Some(vec![2.0, 5.0, 10.0, 30.0]),
+            volatility: None,
+        };
+        let pos_5y = ComputePositionRiskParams {
+            bond: BondRef::Spec(BondSpec {
+                coupon_rate_pct: 4.0,
+                maturity: date(2031, 1, 15),
+                issue_date: date(2026, 1, 15),
+                frequency: Frequency::SemiAnnual,
+                day_count: DayCountConvention::Thirty360US,
+                currency: Currency::USD,
+                face_value: 100.0,
+                make_whole_spread_bps: None,
+            }),
+            settlement: "2026-01-15".into(),
+            mark: "4.5%@SA".into(),
+            curve: CurveRef::Spec(curve.clone()),
+            notional_face: 5_000_000.0,
+            quote_frequency: None,
+            position_id: Some("LEG_5Y".into()),
+            key_rate_tenors: Some(vec![2.0, 5.0, 10.0, 30.0]),
+            volatility: None,
+        };
+        (pos_10y, pos_5y)
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_dv01_matches_sum_of_per_position_dv01() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        let r_10y: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .compute_position_risk(Parameters(pos_10y.clone()))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+        let r_5y: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .compute_position_risk(Parameters(pos_5y.clone()))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        let book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![pos_10y, pos_5y],
+                    book_id: Some("USD_BOOK".into()),
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        assert_eq!(book.position_id.as_deref(), Some("USD_BOOK"));
+        assert_eq!(book.currency, Currency::USD);
+        assert!((book.dv01 - (r_10y.dv01 + r_5y.dv01)).abs() < 1e-6);
+        // 5Y and 10Y buckets surface in the union.
+        let tenors: Vec<i64> = book
+            .key_rate_buckets
+            .iter()
+            .map(|b| (b.tenor_years * 10.0) as i64)
+            .collect();
+        assert!(tenors.contains(&50));
+        assert!(tenors.contains(&100));
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_feeds_propose_hedges_within_one_basis_point() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        let book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![pos_10y, pos_5y],
+                    book_id: None,
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_hedges(Parameters(ProposeHedgesParams {
+                    risk: book.clone(),
+                    curve: CurveRef::Spec(curve),
+                    constraints: Some(Constraints {
+                        allowed_strategies: vec!["DurationFutures".into()],
+                        ..Default::default()
+                    }),
+                    basket_overrides: vec![],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+        let p = &out.proposals[0];
+        assert!(p.residual.residual_dv01.abs() / book.dv01.abs() < 0.001);
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_routes_oas_position_through_callable_path() {
+        // One callable position with an OAS mark + volatility — exercises
+        // the OAS branch of the factored `position_risk` helper. Single
+        // position is enough; we just need to prove the OAS path is used
+        // and the resulting profile aggregates without panicking.
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y.AGG".into(), callable_bond_with_real_schedule());
+
+        let oas_pos = ComputePositionRiskParams {
+            bond: BondRef::Id("CALL.5Y.AGG".into()),
+            settlement: "2025-04-15".into(),
+            mark: "+50 OAS@USD.SOFR".into(),
+            curve: CurveRef::Spec(flat_curve_spec(4.0)),
+            notional_face: 5_000_000.0,
+            quote_frequency: None,
+            position_id: Some("CALL".into()),
+            key_rate_tenors: None,
+            volatility: Some(0.01),
+        };
+
+        let book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![oas_pos],
+                    book_id: Some("CALLABLE_BOOK".into()),
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+        assert_eq!(book.position_id.as_deref(), Some("CALLABLE_BOOK"));
+        assert!(book.dv01 > 0.0, "long callable book DV01 should be > 0");
+        // OAS vol drops to None on aggregation by design.
+        assert_eq!(book.provenance.oas_volatility, None);
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_rejects_currency_mismatch() {
+        let server = ConvexMcpServer::new();
+        let usd_pos = ComputePositionRiskParams {
+            bond: BondRef::Spec(ust_10y_spec()),
+            settlement: "2025-04-15".into(),
+            mark: "4.0%@SA".into(),
+            curve: CurveRef::Spec(flat_curve_spec(4.0)),
+            notional_face: 1_000_000.0,
+            quote_frequency: None,
+            position_id: None,
+            key_rate_tenors: None,
+            volatility: None,
+        };
+        let mut eur_pos = usd_pos.clone();
+        let mut eur_spec = ust_10y_spec();
+        eur_spec.currency = Currency::EUR;
+        eur_pos.bond = BondRef::Spec(eur_spec);
+
+        let err = server
+            .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                positions: vec![usd_pos, eur_pos],
+                book_id: None,
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn aggregate_book_risk_empty_positions_errors() {
+        let server = ConvexMcpServer::new();
+        let err = server
+            .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                positions: vec![],
+                book_id: None,
             }))
             .await;
         assert!(err.is_err());

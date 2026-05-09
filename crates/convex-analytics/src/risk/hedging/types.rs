@@ -17,7 +17,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Frequency};
 
 use crate::risk::hedging::ctd::Deliverable;
-use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
+use crate::risk::profile::{merge_key_rate_buckets, KeyRateBucket, Provenance, RiskProfile};
 
 /// Hedge instrument variants the advisor can recommend.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -252,20 +252,8 @@ pub fn residual_from(position: &RiskProfile, trades: &[HedgeTrade]) -> ResidualR
     let residual_dv01 = position.dv01 + trade_dv01;
 
     let mut buckets: Vec<KeyRateBucket> = position.key_rate_buckets.clone();
-    let mut add_to_bucket = |row: &KeyRateBucket| {
-        if let Some(existing) = buckets
-            .iter_mut()
-            .find(|b| (b.tenor_years - row.tenor_years).abs() < 1e-9)
-        {
-            existing.partial_dv01 += row.partial_dv01;
-        } else {
-            buckets.push(*row);
-        }
-    };
     for trade in trades {
-        for tb in &trade.key_rate_buckets {
-            add_to_bucket(tb);
-        }
+        merge_key_rate_buckets(&mut buckets, &trade.key_rate_buckets);
     }
     buckets.sort_by(|a, b| {
         a.tenor_years
