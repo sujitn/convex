@@ -7,6 +7,7 @@
 
 pub mod compare;
 pub mod cost;
+pub mod ctd;
 mod hedge_ratio;
 pub mod instruments;
 pub mod narrate;
@@ -16,6 +17,10 @@ pub mod types;
 
 pub use compare::compare_hedges;
 pub use cost::{cost_bps, COST_MODEL_NAME};
+pub use ctd::{
+    approximate_cme_cf, deliverable_to_bond, fair_futures_price, select_ctd_by_net_basis,
+    CtdSelection, Deliverable,
+};
 pub use hedge_ratio::{duration_hedge_ratio, dv01_hedge_ratio};
 pub use instruments::{
     bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk, LegRisk,
