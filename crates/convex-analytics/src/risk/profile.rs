@@ -170,6 +170,165 @@ where
     })
 }
 
+/// Sum a per-position [`RiskProfile`] slice into one book-level profile.
+/// Positions must share currency and evaluation date.
+///
+/// Duration, Macaulay, convexity are DV01-weighted with signed weights —
+/// `D = Σ(D_i · DV01_i) / Σ(DV01_i)` — so the contract picker downstream
+/// sees the duration of the net DV01 exposure, not an MV-weighted midpoint.
+/// Collapses to 0 when `|Σ DV01| < 1e-12`. `ytm_decimal` is 0 (yields
+/// don't compound linearly). Per-100 prices are face-weighted.
+pub fn aggregate_risk_profiles(
+    profiles: &[RiskProfile],
+    book_id: Option<String>,
+) -> AnalyticsResult<RiskProfile> {
+    let first = profiles.first().ok_or_else(|| {
+        AnalyticsError::InvalidInput("aggregate_risk_profiles: positions list is empty".into())
+    })?;
+
+    let currency = first.currency;
+    let settlement = first.settlement;
+    for (i, p) in profiles.iter().enumerate().skip(1) {
+        if p.currency != currency {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "aggregate_risk_profiles: currency mismatch at position {i}: {:?} vs {:?}",
+                p.currency, currency
+            )));
+        }
+        if p.settlement != settlement {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "aggregate_risk_profiles: evaluation date mismatch at position {i}: {} vs {}",
+                p.settlement, settlement
+            )));
+        }
+        // KRD ladders must match: union-by-tenor would silently treat
+        // unmeasured tenors as zero, which under-counts the book's real
+        // sensitivity at those points.
+        if !same_ladder(&first.key_rate_buckets, &p.key_rate_buckets) {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "aggregate_risk_profiles: KRD ladder mismatch at position {i}; \
+                 reprice with a common `key_rate_tenors`"
+            )));
+        }
+    }
+
+    let mut notional_face = Decimal::ZERO;
+    let mut market_value = Decimal::ZERO;
+    let mut dv01 = 0.0_f64;
+    let mut mod_dur_num = 0.0_f64;
+    let mut mac_dur_num = 0.0_f64;
+    let mut convexity_num = 0.0_f64;
+    let mut clean_num = 0.0_f64;
+    let mut dirty_num = 0.0_f64;
+    let mut accrued_num = 0.0_f64;
+    let mut abs_face_total = 0.0_f64;
+    let mut buckets: Vec<KeyRateBucket> = Vec::new();
+    let mut curves_used: Vec<String> = Vec::new();
+    let mut cost_model_mixed = false;
+
+    for p in profiles {
+        notional_face += p.notional_face;
+        market_value += p.market_value;
+        dv01 += p.dv01;
+
+        mod_dur_num += p.modified_duration_years * p.dv01;
+        mac_dur_num += p.macaulay_duration_years * p.dv01;
+        convexity_num += p.convexity * p.dv01;
+
+        let abs_face = p.notional_face.to_f64().unwrap_or(0.0).abs();
+        abs_face_total += abs_face;
+        clean_num += p.clean_price_per_100 * abs_face;
+        dirty_num += p.dirty_price_per_100 * abs_face;
+        accrued_num += p.accrued_per_100 * abs_face;
+
+        merge_key_rate_buckets(&mut buckets, &p.key_rate_buckets);
+
+        for curve in &p.provenance.curves_used {
+            if !curves_used.iter().any(|c| c == curve) {
+                curves_used.push(curve.clone());
+            }
+        }
+        if p.provenance.cost_model != first.provenance.cost_model {
+            cost_model_mixed = true;
+        }
+    }
+    buckets.sort_by(|a, b| {
+        a.tenor_years
+            .partial_cmp(&b.tenor_years)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let dur_book = if dv01.abs() > 1e-12 {
+        mod_dur_num / dv01
+    } else {
+        0.0
+    };
+    let mac_book = if dv01.abs() > 1e-12 {
+        mac_dur_num / dv01
+    } else {
+        0.0
+    };
+    let conv_book = if dv01.abs() > 1e-12 {
+        convexity_num / dv01
+    } else {
+        0.0
+    };
+    let face_weight = if abs_face_total > 1e-12 {
+        abs_face_total
+    } else {
+        1.0
+    };
+
+    Ok(RiskProfile {
+        position_id: book_id,
+        currency,
+        settlement,
+        notional_face,
+        clean_price_per_100: clean_num / face_weight,
+        dirty_price_per_100: dirty_num / face_weight,
+        accrued_per_100: accrued_num / face_weight,
+        market_value,
+        ytm_decimal: 0.0,
+        modified_duration_years: dur_book,
+        macaulay_duration_years: mac_book,
+        convexity: conv_book,
+        dv01,
+        key_rate_buckets: buckets,
+        provenance: Provenance {
+            curves_used,
+            cost_model: if cost_model_mixed {
+                "mixed".into()
+            } else {
+                first.provenance.cost_model.clone()
+            },
+            advisor_version: first.provenance.advisor_version.clone(),
+            oas_volatility: None,
+        },
+    })
+}
+
+/// Same set of tenors in the same order, within 1e-9.
+fn same_ladder(a: &[KeyRateBucket], b: &[KeyRateBucket]) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .zip(b)
+            .all(|(x, y)| (x.tenor_years - y.tenor_years).abs() < 1e-9)
+}
+
+/// Add `from` into `into`, summing partial DV01s on tenor matches (1e-9).
+pub(crate) fn merge_key_rate_buckets(into: &mut Vec<KeyRateBucket>, from: &[KeyRateBucket]) {
+    for tb in from {
+        if let Some(existing) = into
+            .iter_mut()
+            .find(|b| (b.tenor_years - tb.tenor_years).abs() < 1e-9)
+        {
+            existing.partial_dv01 += tb.partial_dv01;
+        } else {
+            into.push(*tb);
+        }
+    }
+}
+
 /// Per-position risk for a [`CallableBond`] under an OAS spread mark.
 ///
 /// Routes the price through [`price_callable_from_mark`] (HW1F trinomial),
@@ -917,5 +1076,232 @@ mod tests {
                 "vol={bad} should be rejected, got {err:?}"
             );
         }
+    }
+
+    // ---- aggregate_risk_profiles -----------------------------------------
+
+    fn sample_with(
+        position_id: &str,
+        notional: Decimal,
+        market_value: Decimal,
+        dv01: f64,
+        modified_duration_years: f64,
+        krd: Vec<(f64, f64)>,
+        curve_id: &str,
+    ) -> RiskProfile {
+        let mut p = sample();
+        p.position_id = Some(position_id.into());
+        p.notional_face = notional;
+        p.market_value = market_value;
+        p.dv01 = dv01;
+        p.modified_duration_years = modified_duration_years;
+        p.key_rate_buckets = krd
+            .into_iter()
+            .map(|(t, d)| KeyRateBucket {
+                tenor_years: t,
+                partial_dv01: d,
+            })
+            .collect();
+        p.provenance.curves_used = vec![curve_id.into()];
+        p
+    }
+
+    #[test]
+    fn aggregate_sums_dv01_and_krd_bucketwise() {
+        let a = sample_with(
+            "A",
+            dec!(10_000_000),
+            dec!(10_000_000),
+            7000.0,
+            7.0,
+            vec![(2.0, 0.0), (5.0, 2000.0), (10.0, 5000.0)],
+            "sofr",
+        );
+        let b = sample_with(
+            "B",
+            dec!(5_000_000),
+            dec!(5_100_000),
+            3500.0,
+            3.0,
+            vec![(2.0, 500.0), (5.0, 3000.0), (10.0, 0.0)],
+            "tsy",
+        );
+        let book = aggregate_risk_profiles(&[a, b], Some("BOOK".into())).unwrap();
+
+        assert_eq!(book.position_id.as_deref(), Some("BOOK"));
+        assert_eq!(book.notional_face, dec!(15_000_000));
+        assert_eq!(book.market_value, dec!(15_100_000));
+        assert_relative_eq!(book.dv01, 10500.0, epsilon = 1e-9);
+
+        let by_tenor: std::collections::HashMap<i64, f64> = book
+            .key_rate_buckets
+            .iter()
+            .map(|b| ((b.tenor_years * 10.0) as i64, b.partial_dv01))
+            .collect();
+        assert_relative_eq!(by_tenor[&20], 500.0, epsilon = 1e-9);
+        assert_relative_eq!(by_tenor[&50], 5000.0, epsilon = 1e-9);
+        assert_relative_eq!(by_tenor[&100], 5000.0, epsilon = 1e-9);
+
+        let tenors: Vec<f64> = book
+            .key_rate_buckets
+            .iter()
+            .map(|b| b.tenor_years)
+            .collect();
+        assert_eq!(tenors, vec![2.0, 5.0, 10.0]);
+
+        // (7×7000 + 3×3500) / 10500 ≈ 5.667.
+        assert_relative_eq!(book.modified_duration_years, 5.667, epsilon = 1e-3);
+
+        // Both legs share the sample's (99, 100, 1), so the face-weighted
+        // averages match.
+        assert_relative_eq!(book.clean_price_per_100, 99.0, epsilon = 1e-9);
+        assert_relative_eq!(book.dirty_price_per_100, 100.0, epsilon = 1e-9);
+        assert_relative_eq!(book.accrued_per_100, 1.0, epsilon = 1e-9);
+        assert_eq!(book.ytm_decimal, 0.0);
+
+        assert_eq!(book.provenance.curves_used, vec!["sofr", "tsy"]);
+        assert_eq!(book.provenance.cost_model, "heuristic_v1");
+        assert_eq!(book.provenance.oas_volatility, None);
+    }
+
+    #[test]
+    fn aggregate_single_position_passes_through_book_metrics() {
+        let p = sample();
+        let book = aggregate_risk_profiles(std::slice::from_ref(&p), Some("BOOK".into())).unwrap();
+        assert_eq!(book.position_id.as_deref(), Some("BOOK"));
+        assert_eq!(book.dv01, p.dv01);
+        assert_eq!(book.market_value, p.market_value);
+        assert_relative_eq!(book.modified_duration_years, p.modified_duration_years);
+        assert_eq!(book.ytm_decimal, 0.0);
+    }
+
+    #[test]
+    fn aggregate_empty_errors() {
+        let err = aggregate_risk_profiles(&[], None);
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn aggregate_currency_mismatch_errors() {
+        let a = sample();
+        let mut b = sample();
+        b.currency = Currency::EUR;
+        let err = aggregate_risk_profiles(&[a, b], None);
+        match err {
+            Err(AnalyticsError::InvalidInput(msg)) => assert!(msg.contains("currency")),
+            other => panic!("expected currency InvalidInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn aggregate_evaluation_date_mismatch_errors() {
+        let a = sample();
+        let mut b = sample();
+        b.settlement = Date::from_ymd(2026, 6, 1).unwrap();
+        let err = aggregate_risk_profiles(&[a, b], None);
+        match err {
+            Err(AnalyticsError::InvalidInput(msg)) => {
+                assert!(msg.contains("evaluation date"), "got: {msg}");
+            }
+            other => panic!("expected evaluation-date InvalidInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn aggregate_drops_oas_volatility_on_mixed_book() {
+        let mut a = sample();
+        a.provenance.oas_volatility = Some(0.01);
+        let b = sample();
+        let book = aggregate_risk_profiles(&[a, b], None).unwrap();
+        assert_eq!(book.provenance.oas_volatility, None);
+    }
+
+    #[test]
+    fn aggregate_dv01_dominated_long_short_picks_dominant_duration() {
+        // Long 2Y (DV01 +1900) + short 30Y (DV01 -15000): the 30Y short
+        // dominates net DV01, so the reported duration tracks the long end.
+        let long_2y = sample_with(
+            "L2Y",
+            dec!(10_000_000),
+            dec!(10_000_000),
+            1900.0,
+            2.0,
+            vec![(2.0, 1900.0), (30.0, 0.0)],
+            "sofr",
+        );
+        let short_30y = sample_with(
+            "S30Y",
+            dec!(-10_000_000),
+            dec!(-10_000_000),
+            -15000.0,
+            30.0,
+            vec![(2.0, 0.0), (30.0, -15000.0)],
+            "sofr",
+        );
+        let book = aggregate_risk_profiles(&[long_2y, short_30y], None).unwrap();
+        assert_relative_eq!(book.dv01, -13100.0, epsilon = 1e-9);
+        // (2 × 1900 + 30 × -15000) / -13100 ≈ 34.06.
+        assert!(
+            book.modified_duration_years > 30.0,
+            "got {}",
+            book.modified_duration_years
+        );
+    }
+
+    #[test]
+    fn aggregate_dv01_neutral_book_zeroes_duration() {
+        let mut a = sample();
+        a.dv01 = 5000.0;
+        a.modified_duration_years = 5.0;
+        let mut b = sample();
+        b.dv01 = -5000.0;
+        b.modified_duration_years = 5.0;
+        let book = aggregate_risk_profiles(&[a, b], None).unwrap();
+        assert_relative_eq!(book.dv01, 0.0, epsilon = 1e-9);
+        assert_eq!(book.modified_duration_years, 0.0);
+        assert_eq!(book.macaulay_duration_years, 0.0);
+        assert_eq!(book.convexity, 0.0);
+    }
+
+    #[test]
+    fn aggregate_rejects_mismatched_krd_ladders() {
+        let mut a = sample();
+        a.key_rate_buckets = vec![
+            KeyRateBucket {
+                tenor_years: 2.0,
+                partial_dv01: 100.0,
+            },
+            KeyRateBucket {
+                tenor_years: 5.0,
+                partial_dv01: 400.0,
+            },
+        ];
+        let mut b = sample();
+        b.key_rate_buckets = vec![
+            KeyRateBucket {
+                tenor_years: 3.0,
+                partial_dv01: 100.0,
+            },
+            KeyRateBucket {
+                tenor_years: 7.0,
+                partial_dv01: 400.0,
+            },
+        ];
+        let err = aggregate_risk_profiles(&[a, b], None);
+        match err {
+            Err(AnalyticsError::InvalidInput(msg)) => {
+                assert!(msg.contains("KRD ladder"), "got: {msg}");
+            }
+            other => panic!("expected ladder InvalidInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn aggregate_marks_cost_model_mixed_when_positions_disagree() {
+        let a = sample();
+        let mut b = sample();
+        b.provenance.cost_model = "live_v1".into();
+        let book = aggregate_risk_profiles(&[a, b], None).unwrap();
+        assert_eq!(book.provenance.cost_model, "mixed");
     }
 }
