@@ -18,12 +18,12 @@ use rust_decimal_macros::dec;
 use convex::{
     barbell_futures, cash_bond_pair, compare_hedges, compute_callable_position_risk,
     compute_position_risk, duration_futures, interest_rate_swap, key_rate_futures, narrate,
-    price_callable_from_mark, price_from_mark, yield_to_maturity, Bond, CallSchedule, CallableBond,
-    ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention, Deposit,
-    DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter, HedgeProposal,
-    ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn,
-    RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
-    ADVISOR_KEY_RATE_TENORS,
+    price_callable_from_mark, price_from_mark, yield_to_maturity, Bond, BondFuture, CallSchedule,
+    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
+    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
+    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
+    RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator,
+    ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -463,6 +463,12 @@ pub struct ProposeHedgesParams {
     /// `max_residual_dv01` / `max_cost_bps` apply at recommend time.
     #[serde(default)]
     pub constraints: Option<Constraints>,
+    /// Live `BondFuture` specs keyed by `contract_code` (`"TY"`, `"FV"`, ...).
+    /// Futures strategies use a code-matched spec verbatim; mismatched
+    /// currency or duplicate codes are rejected. Empty (default) keeps the
+    /// synthetic curve-derived fallback.
+    #[serde(default)]
+    pub basket_overrides: Vec<BondFuture>,
 }
 
 /// One strategy that didn't run, with the analytics-layer error message.
@@ -1229,6 +1235,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    &params.basket_overrides,
                 ),
             )?;
         }
@@ -1241,6 +1248,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    &params.basket_overrides,
                 ),
             )?;
         }
@@ -1253,6 +1261,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    &params.basket_overrides,
                 ),
             )?;
         }
@@ -1618,6 +1627,7 @@ mod tests {
                     risk: profile.clone(),
                     curve: CurveRef::Id("usd_sofr".into()),
                     constraints: None,
+                    basket_overrides: vec![],
                 }))
                 .await
                 .unwrap(),
@@ -1744,6 +1754,7 @@ mod tests {
                     allowed_strategies: vec!["DurationFutures".into()],
                     ..Default::default()
                 }),
+                basket_overrides: vec![],
             }))
             .await
             .unwrap();
@@ -1760,6 +1771,7 @@ mod tests {
                     allowed_strategies: vec!["NotARealStrategy".into()],
                     ..Default::default()
                 }),
+                basket_overrides: vec![],
             }))
             .await;
         assert!(none_allowed.is_err());
@@ -1801,6 +1813,7 @@ mod tests {
                 risk: profile.clone(),
                 curve: CurveRef::Spec(flat_curve_spec(4.5)),
                 constraints: None,
+                basket_overrides: vec![],
             }))
             .await
             .unwrap();
@@ -1835,9 +1848,97 @@ mod tests {
                     allowed_strategies: vec!["BarbellFutures".into()],
                     ..Default::default()
                 }),
+                basket_overrides: vec![],
             }))
             .await;
         assert!(explicit.is_err());
+    }
+
+    #[tokio::test]
+    async fn propose_hedges_threads_basket_overrides_through_to_strategies() {
+        // Caller-supplied TY basket should land on the DurationFutures
+        // proposal's BondFuture trade (4 deliverables, live futures price)
+        // instead of the synthetic single-deliverable fallback.
+        use convex::Deliverable;
+        let profile = RiskProfile {
+            position_id: None,
+            currency: Currency::USD,
+            settlement: Date::from_ymd(2026, 1, 15).unwrap(),
+            notional_face: dec!(10_000_000),
+            clean_price_per_100: 100.0,
+            dirty_price_per_100: 100.0,
+            accrued_per_100: 0.0,
+            market_value: dec!(10_000_000),
+            ytm_decimal: 0.05,
+            modified_duration_years: 7.0,
+            macaulay_duration_years: 7.18,
+            convexity: 50.0,
+            dv01: 7000.0,
+            key_rate_buckets: vec![convex::KeyRateBucket {
+                tenor_years: 10.0,
+                partial_dv01: 7000.0,
+            }],
+            provenance: convex::Provenance {
+                curves_used: vec!["sofr".into()],
+                cost_model: "heuristic_v1".into(),
+                advisor_version: env!("CARGO_PKG_VERSION").into(),
+                oas_volatility: None,
+            },
+        };
+        let ty_real = BondFuture {
+            contract_code: "TY".into(),
+            underlying_tenor_years: 10.0,
+            deliverable_basket: vec![
+                Deliverable {
+                    name: Some("T 4.000 11/15/2035".into()),
+                    coupon_rate_decimal: 0.04000,
+                    maturity: Date::from_ymd(2035, 11, 15).unwrap(),
+                    conversion_factor: 0.8654,
+                },
+                Deliverable {
+                    name: Some("T 4.250 5/15/2036".into()),
+                    coupon_rate_decimal: 0.04250,
+                    maturity: Date::from_ymd(2036, 5, 15).unwrap(),
+                    conversion_factor: 0.8782,
+                },
+                Deliverable {
+                    name: Some("T 4.500 11/15/2036".into()),
+                    coupon_rate_decimal: 0.04500,
+                    maturity: Date::from_ymd(2036, 11, 15).unwrap(),
+                    conversion_factor: 0.8915,
+                },
+            ],
+            delivery_months: 3,
+            repo_rate_decimal: 0.0532,
+            futures_price: Some(110.21875),
+            contract_size_face: dec!(100_000),
+            currency: Currency::USD,
+        };
+
+        let server = ConvexMcpServer::new();
+        let result = server
+            .propose_hedges(Parameters(ProposeHedgesParams {
+                risk: profile,
+                curve: CurveRef::Spec(flat_curve_spec(4.5)),
+                constraints: Some(Constraints {
+                    allowed_strategies: vec!["DurationFutures".into()],
+                    ..Default::default()
+                }),
+                basket_overrides: vec![ty_real],
+            }))
+            .await
+            .unwrap();
+        let out: ProposeHedgesOutput = serde_json::from_str(&response_text(result)).unwrap();
+        let p = &out.proposals[0];
+        assert_eq!(p.strategy, "DurationFutures");
+        match &p.trades[0].instrument {
+            convex::HedgeInstrument::BondFuture(f) => {
+                assert_eq!(f.deliverable_basket.len(), 3, "live basket dropped");
+                assert_eq!(f.futures_price, Some(110.21875));
+                assert_eq!(f.repo_rate_decimal, 0.0532);
+            }
+            other => panic!("expected BondFuture, got {other:?}"),
+        }
     }
 
     fn callable_bond_with_real_schedule() -> StoredBond {

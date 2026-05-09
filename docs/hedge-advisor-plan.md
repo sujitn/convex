@@ -110,11 +110,18 @@ correctness gain.
 - `cargo test -p convex-mcp --lib` — **13 passed** (incl. `hedge_advisor_e2e_apple_10y`)
 - Smoke-tested live in Claude Desktop ([`docs/hedge-advisor-smoke.md`](hedge-advisor-smoke.md))
 
+### Beyond the original plan (continued)
+
+- **Live deliverable feed — overrides path.** `propose_hedges` accepts
+  `basket_overrides: Vec<BondFuture>`. Futures strategies use a code-matched
+  override verbatim; mismatched currency or duplicate codes are hard errors.
+  A typed `BasketProvider` trait waits for a real consumer.
+
 ### What's genuinely deferred to a future PR
 
 | Item | Reason |
 | --- | --- |
-| Live deliverable feed | Plug in once a market-data source is wired; currently callers can override `BondFuture.deliverable_basket` and `futures_price` directly. |
+| `BasketProvider` trait | Sync provider the MCP server can hold; needed once a file/snapshot feed drives the abstraction. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |
 | Real cost feeds | Plug-in once `convex-traits::market_data::QuoteSource` is wired. |

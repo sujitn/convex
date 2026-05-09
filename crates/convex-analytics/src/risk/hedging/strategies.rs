@@ -22,14 +22,18 @@ use super::types::{
 
 /// Single benchmark bond future, sized to neutralize parallel DV01. Leaves
 /// curvature in the residual (that's the named weakness).
+///
+/// `basket_overrides` is matched by `contract_code`; pass `&[]` for no override.
 pub fn duration_futures(
     position: &RiskProfile,
     constraints: &Constraints,
     discount_curve: &RateCurve<DiscreteCurve>,
     discount_curve_id: &str,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<HedgeProposal> {
-    let contract = pick_future_contract(position, discount_curve, settlement)?;
+    check_no_duplicate_codes(basket_overrides)?;
+    let contract = pick_future_contract(position, discount_curve, settlement, basket_overrides)?;
     let key_rate_tenors: Vec<f64> = position
         .key_rate_buckets
         .iter()
@@ -91,13 +95,16 @@ pub fn duration_futures(
 /// parallel DV01 and the dominant key-rate bucket simultaneously, so a 7Y
 /// position is hedged with FV+TY rather than just TY. Errors if the two
 /// contracts' (DV01, KRD-at-target) are colinear.
+///
 pub fn barbell_futures(
     position: &RiskProfile,
     constraints: &Constraints,
     discount_curve: &RateCurve<DiscreteCurve>,
     discount_curve_id: &str,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<HedgeProposal> {
+    check_no_duplicate_codes(basket_overrides)?;
     if position.key_rate_buckets.is_empty() {
         return Err(AnalyticsError::InvalidInput(
             "BarbellFutures requires a key-rate ladder on the position".into(),
@@ -116,7 +123,7 @@ pub fn barbell_futures(
         .copied()
         .expect("non-empty by check above");
 
-    let (lo, hi) = pick_barbell_pair(position, discount_curve, settlement)?;
+    let (lo, hi) = pick_barbell_pair(position, discount_curve, settlement, basket_overrides)?;
     let key_rate_tenors: Vec<f64> = position
         .key_rate_buckets
         .iter()
@@ -194,6 +201,7 @@ fn pick_barbell_pair(
     position: &RiskProfile,
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<(BondFuture, BondFuture)> {
     let pair = match (position.currency, position.modified_duration_years) {
         (Currency::USD, d) if d <= 5.0 => (("TU", 2.0), ("FV", 5.0)),
@@ -214,6 +222,7 @@ fn pick_barbell_pair(
             position.currency,
             discount_curve,
             settlement,
+            basket_overrides,
         )?,
         make_default_future(
             pair.1 .0,
@@ -221,6 +230,7 @@ fn pick_barbell_pair(
             position.currency,
             discount_curve,
             settlement,
+            basket_overrides,
         )?,
     ))
 }
@@ -461,14 +471,22 @@ pub fn interest_rate_swap(
 ///
 /// Errors if the position has fewer KRD tenors than ladder legs (under-determined),
 /// or if the system is near-singular.
+///
 pub fn key_rate_futures(
     position: &RiskProfile,
     constraints: &Constraints,
     discount_curve: &RateCurve<DiscreteCurve>,
     discount_curve_id: &str,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<HedgeProposal> {
-    let ladder = pick_key_rate_ladder(position.currency, discount_curve, settlement)?;
+    check_no_duplicate_codes(basket_overrides)?;
+    let ladder = pick_key_rate_ladder(
+        position.currency,
+        discount_curve,
+        settlement,
+        basket_overrides,
+    )?;
     let n = ladder.len();
 
     if position.key_rate_buckets.len() < n {
@@ -547,6 +565,7 @@ fn pick_key_rate_ladder(
     currency: Currency,
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<Vec<BondFuture>> {
     let pairs: &[(&str, f64)] = match currency {
         Currency::USD => &[("TU", 2.0), ("FV", 5.0), ("TY", 10.0), ("US", 30.0)],
@@ -560,7 +579,14 @@ fn pick_key_rate_ladder(
     pairs
         .iter()
         .map(|(code, tenor)| {
-            make_default_future(code, *tenor, currency, discount_curve, settlement)
+            make_default_future(
+                code,
+                *tenor,
+                currency,
+                discount_curve,
+                settlement,
+                basket_overrides,
+            )
         })
         .collect()
 }
@@ -616,6 +642,7 @@ fn pick_future_contract(
     position: &RiskProfile,
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<BondFuture> {
     let (code, tenor) = match (position.currency, position.modified_duration_years) {
         (Currency::USD, d) if d < 2.5 => ("TU", 2.0),
@@ -632,7 +659,14 @@ fn pick_future_contract(
             )))
         }
     };
-    make_default_future(code, tenor, position.currency, discount_curve, settlement)
+    make_default_future(
+        code,
+        tenor,
+        position.currency,
+        discount_curve,
+        settlement,
+        basket_overrides,
+    )
 }
 
 fn contract_size_for(currency: Currency, code: &str) -> Decimal {
@@ -656,20 +690,61 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// Builds a [`BondFuture`] with one synthetic at-par deliverable. CME
-/// convention is "remaining maturity at first delivery", so the deliverable
-/// matures `underlying_tenor_years` after the first delivery date (not after
-/// settlement). Coupon is the par-swap rate at the underlying tenor; CF is
-/// from [`approximate_cme_cf`]; repo from the curve front-end; first
-/// delivery 3 months out. Callers with real basket data should construct
-/// [`BondFuture`] with their own `deliverable_basket`.
+/// Find a basket override matching `contract_code`. Errors on a code match
+/// with mismatched currency — that's the user keying real data under a code
+/// from a different market. Empty-basket and per-deliverable invariants are
+/// enforced downstream in `bond_future_risk` / `select_ctd`.
+fn lookup_basket_override<'a>(
+    contract_code: &str,
+    currency: Currency,
+    basket_overrides: &'a [BondFuture],
+) -> AnalyticsResult<Option<&'a BondFuture>> {
+    let Some(spec) = basket_overrides
+        .iter()
+        .find(|f| f.contract_code == contract_code)
+    else {
+        return Ok(None);
+    };
+    if spec.currency != currency {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "basket_overrides[{contract_code}]: currency {:?} doesn't match strategy currency {currency:?}",
+            spec.currency
+        )));
+    }
+    Ok(Some(spec))
+}
+
+/// Reject duplicate `contract_code`s. First-match-wins would silently drop
+/// later entries — fine today (one TY per advisor call) but a footgun once
+/// `BondFuture` carries a contract-month dimension.
+fn check_no_duplicate_codes(basket_overrides: &[BondFuture]) -> AnalyticsResult<()> {
+    for (i, a) in basket_overrides.iter().enumerate() {
+        if basket_overrides[i + 1..]
+            .iter()
+            .any(|b| b.contract_code == a.contract_code)
+        {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "basket_overrides: duplicate contract_code {:?}",
+                a.contract_code
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// `basket_overrides` short-circuits this synthetic path on
+/// `(contract_code, currency)` match.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
     currency: Currency,
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
+    basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<BondFuture> {
+    if let Some(real) = lookup_basket_override(contract_code, currency, basket_overrides)? {
+        return Ok(real.clone());
+    }
     const DELIVERY_MONTHS: u32 = 3;
     let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
     if tenor_months <= 0 {
@@ -906,6 +981,7 @@ mod tests {
             &curve,
             "usd_sofr",
             d(2026, 1, 15),
+            &[],
         )
         .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
@@ -920,8 +996,15 @@ mod tests {
     #[test]
     fn duration_futures_picks_short_for_long_position() {
         let (pos, curve) = long_10y_corporate();
-        let p =
-            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         // Long bond + positive DV01 → short futures.
         assert!(p.trades[0].quantity < 0.0);
         assert_eq!(p.trades.len(), 1);
@@ -975,8 +1058,15 @@ mod tests {
         // we only assert both are non-trivial and within an order of
         // magnitude of each other.
         let (pos, curve) = long_10y_corporate();
-        let f =
-            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let f = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         let s =
             interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
         let fl1 = f.residual.residual_krd_l1_norm;
@@ -998,6 +1088,7 @@ mod tests {
             &curve,
             "usd_sofr",
             d(2026, 1, 15),
+            &[],
         )
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1011,7 +1102,7 @@ mod tests {
             max_cost_bps: Some(0.0),
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
         assert!(p
             .tradeoffs
             .weaknesses
@@ -1022,8 +1113,15 @@ mod tests {
     #[test]
     fn barbell_futures_neutralizes_dv01_and_target_bucket() {
         let (pos, curve) = long_10y_corporate();
-        let p =
-            barbell_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = barbell_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         // Parallel DV01 neutralised within 0.1%.
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
         assert!(
@@ -1068,7 +1166,14 @@ mod tests {
     fn barbell_futures_errors_on_empty_ladder() {
         let (mut pos, curve) = long_10y_corporate();
         pos.key_rate_buckets.clear();
-        let err = barbell_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        let err = barbell_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 
@@ -1127,8 +1232,15 @@ mod tests {
     #[test]
     fn key_rate_futures_pins_every_target_bucket() {
         let (pos, curve) = long_10y_corporate();
-        let p =
-            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         // 4-leg ladder.
         assert_eq!(p.trades.len(), 4);
         let codes: Vec<&str> = p
@@ -1165,8 +1277,15 @@ mod tests {
         // KRD-vs-parallel-DV01 leakage from triangular bumps not summing
         // to a true parallel shift. A few percent on a 10Y position.
         let (pos, curve) = long_10y_corporate();
-        let p =
-            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
         assert!(
             resid_pct < 0.05,
@@ -1181,10 +1300,24 @@ mod tests {
         // Pinning every key tenor should leave a smaller residual KRD L1 norm
         // than a single-tenor parallel hedge — that's the whole point.
         let (pos, curve) = long_10y_corporate();
-        let krf =
-            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
-        let df =
-            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let krf = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
+        let df = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap();
         assert!(
             krf.residual.residual_krd_l1_norm < df.residual.residual_krd_l1_norm,
             "key-rate residual L1 ({}) should be < duration-futures residual L1 ({})",
@@ -1198,7 +1331,14 @@ mod tests {
         let (mut pos, curve) = long_10y_corporate();
         // Strip down to two buckets — under the 4-leg ladder.
         pos.key_rate_buckets.truncate(2);
-        let err = key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        let err = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 
@@ -1206,7 +1346,14 @@ mod tests {
     fn key_rate_futures_errors_for_unsupported_currency() {
         let (mut pos, curve) = long_10y_corporate();
         pos.currency = Currency::JPY;
-        let err = key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        let err = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+        );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
 
@@ -1219,6 +1366,7 @@ mod tests {
             &curve,
             "usd_sofr",
             d(2026, 1, 15),
+            &[],
         )
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1230,7 +1378,8 @@ mod tests {
     #[test]
     fn default_future_coupon_tracks_par_swap_rate_at_underlying_tenor() {
         let curve = flat_curve(0.03);
-        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        let f =
+            make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15), &[]).unwrap();
         let coupon = f.deliverable_basket[0].coupon_rate_decimal;
         // par_swap_rate on a flat curve equals the zero rate; tolerate small
         // compounding/day-count drift.
@@ -1245,13 +1394,27 @@ mod tests {
         // Same contract on 3% vs 6% curves should produce materially
         // different coupons — the previous hardcoded behavior was flat at
         // 4.5% USD regardless of curve.
-        let lo = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.03), d(2026, 1, 15))
-            .unwrap()
-            .deliverable_basket[0]
+        let lo = make_default_future(
+            "TY",
+            10.0,
+            Currency::USD,
+            &flat_curve(0.03),
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap()
+        .deliverable_basket[0]
             .coupon_rate_decimal;
-        let hi = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.06), d(2026, 1, 15))
-            .unwrap()
-            .deliverable_basket[0]
+        let hi = make_default_future(
+            "TY",
+            10.0,
+            Currency::USD,
+            &flat_curve(0.06),
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap()
+        .deliverable_basket[0]
             .coupon_rate_decimal;
         assert!(
             hi - lo > 0.025,
@@ -1281,7 +1444,7 @@ mod tests {
             ],
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
         let weakness_text = p.tradeoffs.weaknesses.join(" | ");
         assert!(
             weakness_text.contains("bucket residual") && weakness_text.contains("exceeds max"),
@@ -1301,7 +1464,7 @@ mod tests {
             }],
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
         let weakness_text = p.tradeoffs.weaknesses.join(" | ");
         assert!(
             !weakness_text.contains("bucket residual"),
@@ -1322,7 +1485,8 @@ mod tests {
     fn default_future_repo_tracks_curve_front_end() {
         // 3% flat curve → repo ≈ 3% (3M zero rate, simple compounding).
         let curve = flat_curve(0.03);
-        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        let f =
+            make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15), &[]).unwrap();
         assert!(
             (f.repo_rate_decimal - 0.03).abs() < 0.005,
             "repo on 3% curve = {}, expected ~0.03",
@@ -1333,12 +1497,26 @@ mod tests {
     #[test]
     fn default_future_repo_shifts_with_curve_level() {
         // Same contract on 2% vs 6% curves → repo shifts ~400bps.
-        let lo = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.02), d(2026, 1, 15))
-            .unwrap()
-            .repo_rate_decimal;
-        let hi = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.06), d(2026, 1, 15))
-            .unwrap()
-            .repo_rate_decimal;
+        let lo = make_default_future(
+            "TY",
+            10.0,
+            Currency::USD,
+            &flat_curve(0.02),
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap()
+        .repo_rate_decimal;
+        let hi = make_default_future(
+            "TY",
+            10.0,
+            Currency::USD,
+            &flat_curve(0.06),
+            d(2026, 1, 15),
+            &[],
+        )
+        .unwrap()
+        .repo_rate_decimal;
         assert!(
             hi - lo > 0.03,
             "high-rate repo ({hi}) should exceed low-rate repo ({lo}) by ≥ 300bps"
@@ -1407,11 +1585,172 @@ mod tests {
         // compounding from the 6% YTM used inside approximate_cme_cf — so a
         // 1.5% tolerance accommodates that drift.
         let curve = flat_curve(0.06);
-        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        let f =
+            make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15), &[]).unwrap();
         let cf = f.deliverable_basket[0].conversion_factor;
         assert!(
             (cf - 1.0).abs() < 0.015,
             "CF on 6% curve = {cf}, expected ≈ 1.0 (within 1.5%)"
         );
+    }
+
+    // ---- basket_overrides (live deliverable feed) ------------------------
+
+    /// 4-deliverable TY basket clustered around the contract's headline 10Y
+    /// tenor. Maturities are deliberately spread across distinct semi-annual
+    /// dates so CTD selection has to pick (no ties) and the FV/TY KRD matrix
+    /// in `barbell_futures` stays well-conditioned.
+    fn ty_basket_override(currency: Currency) -> BondFuture {
+        use crate::risk::hedging::ctd::Deliverable;
+        BondFuture {
+            contract_code: "TY".into(),
+            underlying_tenor_years: 10.0,
+            deliverable_basket: vec![
+                Deliverable {
+                    name: Some("T 4.000 11/15/2035".into()),
+                    coupon_rate_decimal: 0.04000,
+                    maturity: d(2035, 11, 15),
+                    conversion_factor: 0.8654,
+                },
+                Deliverable {
+                    name: Some("T 4.250 5/15/2036".into()),
+                    coupon_rate_decimal: 0.04250,
+                    maturity: d(2036, 5, 15),
+                    conversion_factor: 0.8782,
+                },
+                Deliverable {
+                    name: Some("T 4.500 11/15/2036".into()),
+                    coupon_rate_decimal: 0.04500,
+                    maturity: d(2036, 11, 15),
+                    conversion_factor: 0.8915,
+                },
+                Deliverable {
+                    name: Some("T 4.625 5/15/2037".into()),
+                    coupon_rate_decimal: 0.04625,
+                    maturity: d(2037, 5, 15),
+                    conversion_factor: 0.8957,
+                },
+            ],
+            delivery_months: 3,
+            repo_rate_decimal: 0.0532,
+            futures_price: Some(110.21875),
+            contract_size_face: dec!(100_000),
+            currency,
+        }
+    }
+
+    #[test]
+    fn duration_futures_uses_basket_override_when_provided() {
+        let (pos, curve) = long_10y_corporate();
+        let overrides = [ty_basket_override(Currency::USD)];
+        let p = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &overrides,
+        )
+        .unwrap();
+        let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
+            panic!("expected BondFuture, got {:?}", p.trades[0].instrument);
+        };
+        assert_eq!(f.deliverable_basket.len(), 4);
+        assert_eq!(f.futures_price, Some(110.21875));
+        assert_eq!(f.repo_rate_decimal, 0.0532);
+        // Hedge sizes against the live basket's CTD; parallel DV01 should
+        // still neutralize within 0.1%.
+        assert!(p.residual.residual_dv01.abs() / pos.dv01.abs() < 0.001);
+    }
+
+    #[test]
+    fn barbell_futures_uses_overrides_for_matching_codes_only() {
+        // Barbell on a 10Y position picks FV+TY. Override TY only; FV must
+        // fall back to the synthetic single-deliverable.
+        let (pos, curve) = long_10y_corporate();
+        let overrides = [ty_basket_override(Currency::USD)];
+        let p = barbell_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &overrides,
+        )
+        .unwrap();
+        let by_code: std::collections::HashMap<&str, &BondFuture> = p
+            .trades
+            .iter()
+            .filter_map(|t| match &t.instrument {
+                HedgeInstrument::BondFuture(f) => Some((f.contract_code.as_str(), f)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(by_code["TY"].deliverable_basket.len(), 4);
+        assert_eq!(by_code["TY"].futures_price, Some(110.21875));
+        assert_eq!(by_code["FV"].deliverable_basket.len(), 1);
+        assert!(by_code["FV"].futures_price.is_none());
+    }
+
+    #[test]
+    fn basket_override_currency_mismatch_is_a_hard_error() {
+        // "TY" override flagged EUR while a USD position is hedged.
+        // Silent substitution would corrupt sizing; reject loud.
+        let (pos, curve) = long_10y_corporate();
+        let mut wrong = ty_basket_override(Currency::EUR);
+        wrong.contract_code = "TY".into();
+        let err = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[wrong],
+        );
+        let Err(AnalyticsError::InvalidInput(msg)) = err else {
+            panic!("expected InvalidInput, got {err:?}");
+        };
+        assert!(msg.contains("currency"), "got: {msg}");
+    }
+
+    #[test]
+    fn duplicate_contract_codes_are_rejected() {
+        let (pos, curve) = long_10y_corporate();
+        let overrides = [
+            ty_basket_override(Currency::USD),
+            ty_basket_override(Currency::USD),
+        ];
+        let err = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &overrides,
+        );
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn unmatched_basket_overrides_are_ignored() {
+        // Override keyed "FV" but DurationFutures on a 10Y position picks
+        // "TY". The mismatch is a no-op; synthetic TY is built.
+        let (pos, curve) = long_10y_corporate();
+        let mut fv_only = ty_basket_override(Currency::USD);
+        fv_only.contract_code = "FV".into();
+        let p = duration_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[fv_only],
+        )
+        .unwrap();
+        let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
+            panic!("expected BondFuture");
+        };
+        assert_eq!(f.contract_code, "TY");
+        assert_eq!(f.deliverable_basket.len(), 1);
     }
 }
