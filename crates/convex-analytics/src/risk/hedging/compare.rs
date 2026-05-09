@@ -135,6 +135,7 @@ fn recommend(rows: &[ComparisonRow], constraints: &Constraints) -> AnalyticsResu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::risk::hedging::ctd::Deliverable;
     use crate::risk::hedging::types::{
         BondFuture, HedgeInstrument, HedgeProposal, HedgeTrade, ResidualRisk, TradeoffNotes,
     };
@@ -175,7 +176,15 @@ mod tests {
             instrument: HedgeInstrument::BondFuture(BondFuture {
                 contract_code: "TY".into(),
                 underlying_tenor_years: 10.0,
-                conversion_factor: 1.0,
+                deliverable_basket: vec![Deliverable {
+                    name: None,
+                    coupon_rate_decimal: 0.045,
+                    maturity: Date::from_ymd(2036, 1, 15).unwrap(),
+                    conversion_factor: 0.85,
+                }],
+                delivery_months: 3,
+                repo_rate_decimal: 0.043,
+                futures_price: None,
                 contract_size_face: dec!(100_000),
                 currency: Currency::USD,
             }),
@@ -227,7 +236,13 @@ mod tests {
                     "instrument": "bond_future",
                     "contract_code": "TY",
                     "underlying_tenor_years": 10.0,
-                    "conversion_factor": 1.0,
+                    "deliverable_basket": [{
+                        "coupon_rate_decimal": 0.045,
+                        "maturity": "2036-01-15",
+                        "conversion_factor": 0.85
+                    }],
+                    "delivery_months": 3,
+                    "repo_rate_decimal": 0.043,
                     "contract_size_face": 100000.0,
                     "currency": "USD"
                 },

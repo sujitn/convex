@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Frequency};
 
+use crate::risk::hedging::ctd::Deliverable;
 use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 
 /// Hedge instrument variants the advisor can recommend.
@@ -42,15 +43,29 @@ pub enum SwapSide {
     ReceiveFixed,
 }
 
-/// Bond future descriptor. v1 prices through a synthetic 6%-coupon
-/// deliverable so `conversion_factor` is 1.0 by construction; the field is
-/// kept for callers that supply real CFs.
+/// Bond future descriptor. Carries the full delivery basket so
+/// [`crate::risk::hedging::bond_future_risk`] can pick the cheapest-to-deliver
+/// by net basis and route per-contract DV01 / KRD through the actual CTD
+/// rather than a synthetic 6% bond.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BondFuture {
     pub contract_code: String,
     pub underlying_tenor_years: f64,
-    pub conversion_factor: f64,
+    /// Bonds eligible for delivery into this contract. Must be non-empty;
+    /// callers that don't have a live basket should populate via the
+    /// strategy-level helpers (a single synthetic at-current-coupon
+    /// deliverable with a numerically-approximated CF).
+    pub deliverable_basket: Vec<Deliverable>,
+    /// First-delivery offset from settlement (months). Quarterly contracts:
+    /// 3 for the front-month, 6 for the back, etc.
+    pub delivery_months: u32,
+    /// Annualized money-market repo rate (decimal) used for net-basis carry.
+    pub repo_rate_decimal: f64,
+    /// Live futures price per 100. When `None`, a no-arb fair forward
+    /// computed from the basket is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub futures_price: Option<f64>,
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub contract_size_face: Decimal,
     pub currency: Currency,
@@ -291,7 +306,15 @@ mod tests {
             instrument: HedgeInstrument::BondFuture(BondFuture {
                 contract_code: "TY".into(),
                 underlying_tenor_years: 10.0,
-                conversion_factor: 0.85,
+                deliverable_basket: vec![Deliverable {
+                    name: None,
+                    coupon_rate_decimal: 0.045,
+                    maturity: Date::from_ymd(2036, 1, 1).unwrap(),
+                    conversion_factor: 0.85,
+                }],
+                delivery_months: 3,
+                repo_rate_decimal: 0.043,
+                futures_price: None,
                 contract_size_face: dec!(100_000),
                 currency: Currency::USD,
             }),
@@ -389,7 +412,15 @@ mod tests {
             instrument: HedgeInstrument::BondFuture(BondFuture {
                 contract_code: "TY".into(),
                 underlying_tenor_years: 10.0,
-                conversion_factor: 1.0,
+                deliverable_basket: vec![Deliverable {
+                    name: None,
+                    coupon_rate_decimal: 0.045,
+                    maturity: Date::from_ymd(2036, 1, 15).unwrap(),
+                    conversion_factor: 0.85,
+                }],
+                delivery_months: 3,
+                repo_rate_decimal: 0.043,
+                futures_price: None,
                 contract_size_face: dec!(100_000),
                 currency: Currency::USD,
             }),
