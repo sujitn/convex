@@ -32,8 +32,8 @@ pub use hedging::{
     RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
 pub use profile::{
-    compute_callable_position_risk, compute_position_risk, KeyRateBucket, Provenance, RiskProfile,
-    ADVISOR_KEY_RATE_TENORS,
+    aggregate_risk_profiles, compute_callable_position_risk, compute_position_risk, KeyRateBucket,
+    Provenance, RiskProfile, ADVISOR_KEY_RATE_TENORS,
 };
 pub use var::{historical_var, parametric_var, parametric_var_from_dv01, VaRMethod, VaRResult};
 
