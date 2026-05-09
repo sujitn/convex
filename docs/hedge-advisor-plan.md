@@ -60,6 +60,15 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
   as `TradeoffNotes::weaknesses` and lose the `compare_hedges`
   recommendation race the same way `max_residual_dv01` and
   `max_cost_bps` already do.
+- **Multi-deliverable default baskets**: `make_default_future` now
+  synthesizes 2 deliverables per contract code (down from a single
+  representative), clustered narrowly around the contract's headline
+  tenor — wide enough that CTD selection actually picks between
+  alternatives, narrow enough that the chosen CTD still has KRD
+  alignment with the standard `[2, 5, 10, 30]` ladder. Real CME
+  baskets span much wider (TY: 6.5–10y, US: 15–25y); callers wanting
+  realistic basket-skew should override `BondFuture.deliverable_basket`
+  directly.
 
 ### Strategies shipped (was 2, now 5)
 
@@ -107,7 +116,6 @@ correctness gain.
 
 | Item | Reason |
 | --- | --- |
-| Multi-deliverable default baskets | `make_default_future` synthesizes a single representative deliverable per contract code. Real CME baskets have 3–10 issues per contract; richer baskets would let the CTD selector exhibit basket-skew behavior in tests. |
 | Live deliverable feed | Plug in once a market-data source is wired; currently callers can override `BondFuture.deliverable_basket` and `futures_price` directly. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |

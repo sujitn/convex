@@ -12,8 +12,8 @@ Recorded on Windows 11 / convex-analytics 0.12.1, criterion default settings.
 | Bench | Median | Notes |
 | --- | --- | --- |
 | `risk_profile_apple_10y` | ~22 µs | One `price_from_mark` + one `BondRiskCalculator` + 4-tenor KRD profile (4 ZSpreadCalculator reprices). |
-| `propose_five_strategies` | ~1.18 ms | Five strategies; each futures-based one prices the basket once (single-pass `select_ctd_with_market_or_fair_price`), selects min-net-basis CTD, then prices the chosen CTD via `compute_position_risk`. |
-| `end_to_end` | ~1.20 ms | `risk_profile + propose_five + compare + narrate`. |
+| `propose_five_strategies` | ~1.79 ms | Five strategies; each futures-based one prices a 2-deliverable basket via single-pass `select_ctd_with_market_or_fair_price`, selects min-net-basis CTD, then prices the chosen CTD via `compute_position_risk`. |
+| `end_to_end` | ~1.75 ms | `risk_profile + propose_five + compare + narrate`. |
 
 History:
 - v1 release (commit `62d2073`): 22 / 286 / 309 µs for
@@ -23,12 +23,16 @@ History:
 - CTD optimization landed: 22 / 1440 / 1450 µs (~2.8× regression because
   every futures-based strategy now prices a real deliverable basket
   instead of a hardcoded synthetic 6% bond).
-- **CTD perf shortcut (this commit):** 22 / 1180 / 1200 µs. Single-pass
-  basket pricing dedup (`select_ctd_with_market_or_fair_price`) saves
-  ~17% on propose / ~19% on end-to-end vs the two-pass implementation.
-  The remaining slowdown vs the pre-CTD baseline (~1.2 ms vs ~538 µs) is
-  structural — the CTD path is genuinely more work than pricing one
-  synthetic — but is well under interactive thresholds.
+- CTD perf shortcut: 22 / 1180 / 1200 µs (single-pass dedup recovers
+  ~17–19% of the regression).
+- **Multi-deliverable default baskets (this commit):** 22 / 1790 / 1750
+  µs. Each contract's basket grew from 1 to 2 deliverables; that's 2×
+  per-leg pricing work in `select_ctd_with_market_or_fair_price` plus
+  the chosen CTD then gets full KRD-bumping. Single-position risk
+  profile unchanged. The propose path is now ~50% slower than the
+  single-deliverable shortcut, which is the cost of the basket
+  actually exercising — CTD selection picks between multiple bonds
+  rather than always returning index 0.
 
 Further optimization is possible but not pursued: amortize `KeyRateBump`
 setup across strategies (build the bumped curves once, share with all
