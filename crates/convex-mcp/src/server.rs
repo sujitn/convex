@@ -21,9 +21,9 @@ use convex::{
     price_callable_from_mark, price_from_mark, yield_to_maturity, Bond, BondFuture, CallSchedule,
     CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
     Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
-    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
-    RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator,
-    ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
+    HedgeProposal, HeuristicCostFeed, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark,
+    Ois, RateCurve, RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield,
+    ZSpreadCalculator, ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -1226,6 +1226,8 @@ impl ConvexMcpServer {
             }
         };
 
+        let cost_feed = HeuristicCostFeed;
+
         if allow("DurationFutures") {
             try_run(
                 "DurationFutures",
@@ -1236,6 +1238,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    &cost_feed,
                 ),
             )?;
         }
@@ -1249,6 +1252,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    &cost_feed,
                 ),
             )?;
         }
@@ -1262,6 +1266,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    &cost_feed,
                 ),
             )?;
         }
@@ -1274,6 +1279,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    &cost_feed,
                 ),
             )?;
         }
@@ -1286,6 +1292,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    &cost_feed,
                 ),
             )?;
         }

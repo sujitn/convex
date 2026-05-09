@@ -10,7 +10,7 @@ use convex_curves::{DiscreteCurve, RateCurve, RateCurveDyn};
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::profile::{KeyRateBucket, Provenance, RiskProfile};
 
-use super::cost::{cost_bps, COST_MODEL_NAME};
+use super::cost::CostFeed;
 use super::ctd::{approximate_cme_cf, Deliverable};
 use super::instruments::{
     bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk,
@@ -31,6 +31,7 @@ pub fn duration_futures(
     discount_curve_id: &str,
     settlement: Date,
     basket_overrides: &[BondFuture],
+    cost_feed: &dyn CostFeed,
 ) -> AnalyticsResult<HedgeProposal> {
     check_no_duplicate_keys(basket_overrides)?;
     let contract = pick_future_contract(position, discount_curve, settlement, basket_overrides)?;
@@ -65,9 +66,9 @@ pub fn duration_futures(
     };
 
     let residual = residual_from(position, std::slice::from_ref(&trade));
-    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position, cost_feed);
 
-    let provenance = strategy_provenance(position, discount_curve_id);
+    let provenance = strategy_provenance(position, discount_curve_id, cost_feed);
     let mut tradeoffs = TradeoffNotes {
         strengths: vec![
             "Highly liquid; tight bid-ask".into(),
@@ -103,6 +104,7 @@ pub fn barbell_futures(
     discount_curve_id: &str,
     settlement: Date,
     basket_overrides: &[BondFuture],
+    cost_feed: &dyn CostFeed,
 ) -> AnalyticsResult<HedgeProposal> {
     check_no_duplicate_keys(basket_overrides)?;
     if position.key_rate_buckets.is_empty() {
@@ -166,9 +168,9 @@ pub fn barbell_futures(
     let trade_hi = scale_future_trade(&hi, &hi_risk, n_hi);
     let trades = vec![trade_lo, trade_hi];
     let residual = residual_from(position, &trades);
-    let (cost_bps, cost_total) = proposal_cost(&trades, position);
+    let (cost_bps, cost_total) = proposal_cost(&trades, position, cost_feed);
 
-    let provenance = strategy_provenance(position, discount_curve_id);
+    let provenance = strategy_provenance(position, discount_curve_id, cost_feed);
     let mut tradeoffs = TradeoffNotes {
         strengths: vec![
             format!(
@@ -267,6 +269,7 @@ pub fn cash_bond_pair(
     discount_curve: &RateCurve<DiscreteCurve>,
     discount_curve_id: &str,
     settlement: Date,
+    cost_feed: &dyn CostFeed,
 ) -> AnalyticsResult<HedgeProposal> {
     let tenor_years = pick_swap_tenor(position);
     let coupon = otr_par_coupon(discount_curve, settlement, tenor_years)?;
@@ -320,9 +323,9 @@ pub fn cash_bond_pair(
             .collect(),
     };
     let residual = residual_from(position, std::slice::from_ref(&trade));
-    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position, cost_feed);
 
-    let provenance = strategy_provenance(position, discount_curve_id);
+    let provenance = strategy_provenance(position, discount_curve_id, cost_feed);
     let mut tradeoffs = TradeoffNotes {
         strengths: vec![
             "Cash bond — no roll, no margin, no CTD basis".into(),
@@ -364,6 +367,7 @@ pub fn interest_rate_swap(
     discount_curve: &RateCurve<DiscreteCurve>,
     discount_curve_id: &str,
     settlement: Date,
+    cost_feed: &dyn CostFeed,
 ) -> AnalyticsResult<HedgeProposal> {
     let tenor_years = pick_swap_tenor(position);
     let side = if position.dv01 >= 0.0 {
@@ -433,9 +437,9 @@ pub fn interest_rate_swap(
             .collect(),
     };
     let residual = residual_from(position, std::slice::from_ref(&trade));
-    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position);
+    let (cost_bps, cost_total) = proposal_cost(std::slice::from_ref(&trade), position, cost_feed);
 
-    let provenance = strategy_provenance(position, discount_curve_id);
+    let provenance = strategy_provenance(position, discount_curve_id, cost_feed);
     let mut tradeoffs = TradeoffNotes {
         strengths: vec![
             "Tenor-matched: smaller curvature residual".into(),
@@ -479,6 +483,7 @@ pub fn key_rate_futures(
     discount_curve_id: &str,
     settlement: Date,
     basket_overrides: &[BondFuture],
+    cost_feed: &dyn CostFeed,
 ) -> AnalyticsResult<HedgeProposal> {
     check_no_duplicate_keys(basket_overrides)?;
     let ladder = pick_key_rate_ladder(
@@ -530,8 +535,8 @@ pub fn key_rate_futures(
         .collect();
 
     let residual = residual_from(position, &trades);
-    let (cost_bps, cost_total) = proposal_cost(&trades, position);
-    let provenance = strategy_provenance(position, discount_curve_id);
+    let (cost_bps, cost_total) = proposal_cost(&trades, position, cost_feed);
+    let provenance = strategy_provenance(position, discount_curve_id, cost_feed);
 
     let leg_codes: Vec<&str> = ladder.iter().map(|f| f.contract_code.as_str()).collect();
     let mut tradeoffs = TradeoffNotes {
@@ -848,7 +853,11 @@ fn side_sign(side: SwapSide) -> f64 {
     }
 }
 
-fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal) {
+fn proposal_cost(
+    trades: &[HedgeTrade],
+    position: &RiskProfile,
+    cost_feed: &dyn CostFeed,
+) -> (f64, Decimal) {
     let mv = position.market_value.to_f64().unwrap_or(0.0).abs();
     let mut total = 0.0_f64;
     for trade in trades {
@@ -859,7 +868,7 @@ fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal
             HedgeInstrument::InterestRateSwap(spec) => spec.notional.to_f64().unwrap_or(0.0).abs(),
             HedgeInstrument::CashBond(spec) => spec.face_amount.to_f64().unwrap_or(0.0).abs(),
         };
-        total += leg_notional * cost_bps(&trade.instrument) / 10_000.0;
+        total += leg_notional * cost_feed.cost_bps(&trade.instrument) / 10_000.0;
     }
     let cost_bps_total = if mv > 1e-9 {
         total / mv * 10_000.0
@@ -872,7 +881,11 @@ fn proposal_cost(trades: &[HedgeTrade], position: &RiskProfile) -> (f64, Decimal
     )
 }
 
-fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Provenance {
+fn strategy_provenance(
+    position: &RiskProfile,
+    discount_curve_id: &str,
+    cost_feed: &dyn CostFeed,
+) -> Provenance {
     let mut curves_used = position.provenance.curves_used.clone();
     if !curves_used.iter().any(|c| c == discount_curve_id) {
         curves_used.push(discount_curve_id.to_string());
@@ -880,7 +893,7 @@ fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Prove
     // Strategies don't change the position's OAS vol; carry it through if set.
     Provenance {
         curves_used,
-        cost_model: COST_MODEL_NAME.to_string(),
+        cost_model: cost_feed.name().to_string(),
         advisor_version: env!("CARGO_PKG_VERSION").to_string(),
         oas_volatility: position.provenance.oas_volatility,
     }
@@ -929,6 +942,7 @@ fn tag_constraint_violations(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::risk::hedging::cost::HeuristicCostFeed;
     use convex_core::daycounts::DayCountConvention;
     use convex_core::types::{Compounding, Currency, Mark};
     use convex_curves::{InterpolationMethod, ValueType};
@@ -998,6 +1012,7 @@ mod tests {
             "usd_sofr",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
@@ -1019,6 +1034,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         // Long bond + positive DV01 → short futures.
@@ -1039,6 +1055,7 @@ mod tests {
             &curve,
             "usd_sofr",
             d(2026, 1, 15),
+            &HeuristicCostFeed,
         )
         .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
@@ -1053,8 +1070,15 @@ mod tests {
     #[test]
     fn interest_rate_swap_picks_pay_fixed_for_long_position() {
         let (pos, curve) = long_10y_corporate();
-        let p =
-            interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = interest_rate_swap(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         match &p.trades[0].instrument {
             HedgeInstrument::InterestRateSwap(s) => {
                 assert_eq!(s.side, SwapSide::PayFixed);
@@ -1081,10 +1105,18 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
-        let s =
-            interest_rate_swap(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let s = interest_rate_swap(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         let fl1 = f.residual.residual_krd_l1_norm;
         let sl1 = s.residual.residual_krd_l1_norm;
         assert!(fl1 > 0.0 && sl1 > 0.0, "expected both residuals nonzero");
@@ -1105,6 +1137,7 @@ mod tests {
             "usd_sofr",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1118,7 +1151,16 @@ mod tests {
             max_cost_bps: Some(0.0),
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
+        let p = duration_futures(
+            &pos,
+            &constraints,
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         assert!(p
             .tradeoffs
             .weaknesses
@@ -1136,6 +1178,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         // Parallel DV01 neutralised within 0.1%.
@@ -1189,6 +1232,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
@@ -1196,7 +1240,15 @@ mod tests {
     #[test]
     fn cash_bond_pair_neutralizes_dv01() {
         let (pos, curve) = long_10y_corporate();
-        let p = cash_bond_pair(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let p = cash_bond_pair(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
         assert!(
             resid_pct < 0.001,
@@ -1229,6 +1281,7 @@ mod tests {
             &curve,
             "usd_sofr",
             d(2026, 1, 15),
+            &HeuristicCostFeed,
         )
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1255,6 +1308,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         // 4-leg ladder.
@@ -1300,6 +1354,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
@@ -1323,6 +1378,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         let df = duration_futures(
@@ -1332,6 +1388,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         assert!(
@@ -1354,6 +1411,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
@@ -1369,6 +1427,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
@@ -1383,6 +1442,7 @@ mod tests {
             "usd_sofr",
             d(2026, 1, 15),
             &[],
+            &HeuristicCostFeed,
         )
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
@@ -1460,7 +1520,16 @@ mod tests {
             ],
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
+        let p = duration_futures(
+            &pos,
+            &constraints,
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         let weakness_text = p.tradeoffs.weaknesses.join(" | ");
         assert!(
             weakness_text.contains("bucket residual") && weakness_text.contains("exceeds max"),
@@ -1480,7 +1549,16 @@ mod tests {
             }],
             ..Default::default()
         };
-        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15), &[]).unwrap();
+        let p = duration_futures(
+            &pos,
+            &constraints,
+            &curve,
+            "c",
+            d(2026, 1, 15),
+            &[],
+            &HeuristicCostFeed,
+        )
+        .unwrap();
         let weakness_text = p.tradeoffs.weaknesses.join(" | ");
         assert!(
             !weakness_text.contains("bucket residual"),
@@ -1666,6 +1744,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &overrides,
+            &HeuristicCostFeed,
         )
         .unwrap();
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
@@ -1692,6 +1771,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &overrides,
+            &HeuristicCostFeed,
         )
         .unwrap();
         let by_code: std::collections::HashMap<&str, &BondFuture> = p
@@ -1722,6 +1802,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[wrong],
+            &HeuristicCostFeed,
         );
         let Err(AnalyticsError::InvalidInput(msg)) = err else {
             panic!("expected InvalidInput, got {err:?}");
@@ -1744,6 +1825,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &overrides,
+            &HeuristicCostFeed,
         );
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
     }
@@ -1764,6 +1846,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &overrides,
+            &HeuristicCostFeed,
         )
         .unwrap();
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
@@ -1787,6 +1870,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[back],
+            &HeuristicCostFeed,
         )
         .unwrap();
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
@@ -1810,6 +1894,7 @@ mod tests {
             "c",
             d(2026, 1, 15),
             &[fv_only],
+            &HeuristicCostFeed,
         )
         .unwrap();
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
