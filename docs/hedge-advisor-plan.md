@@ -26,6 +26,15 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
   into the MCP `compute_position_risk` tool (new optional `volatility`
   field). `Provenance.oas_volatility` (optional, backwards-compatible) now
   carries the vol used through the audit trail.
+- **CTD-driven futures pricing** replaces the synthetic 6%-coupon CF=1
+  deliverable. New `risk::hedging::ctd` module: `Deliverable`,
+  `approximate_cme_cf` (numerical CF via 6% YTM), `fair_futures_price`
+  (no-arb min-implied-forward), and `select_ctd_by_net_basis` (net basis =
+  `(P_spot − F·CF) − Carry`; min NB ≡ max implied repo). `BondFuture` now
+  carries `deliverable_basket: Vec<Deliverable>`, `delivery_months`,
+  `repo_rate_decimal`, and an optional `futures_price`. `bond_future_risk`
+  picks the CTD by net basis and surfaces the selection on its return.
+  Strategies populate sensible defaults via a `make_default_future` helper.
 
 ### Strategies shipped (was 2, now 5)
 
@@ -48,10 +57,16 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
 | Bench | Median |
 |---|---|
 | `risk_profile_apple_10y` | ~22 µs |
-| `propose_four_strategies` | ~286 µs |
-| `end_to_end` (compute → propose → compare → narrate) | ~309 µs |
+| `propose_five_strategies` | ~1.44 ms |
+| `end_to_end` (compute → propose → compare → narrate) | ~1.45 ms |
 
-Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we're at 309 µs with 4. Honest delta: each strategy adds one `compute_position_risk` call internally.
+Was 22/286/309 µs at v1 ship (4 strategies, synthetic CTD). KeyRateFutures
+brought the propose path to ~513 µs by adding a 4-leg N×N solve. CTD
+optimization (this PR) drove it to ~1.44 ms because every futures-based
+strategy now exercises the full basket-pricing path. Single-position risk
+profile is unchanged. Two cheap optimizations are documented in
+`docs/perf-baselines.md` if the propose-time matters more than the
+correctness gain.
 
 ### Validation
 
@@ -67,7 +82,10 @@ Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we'r
 
 | Item | Reason |
 | --- | --- |
-| Real CTD optimization | Deliverable basket + repo financing + dynamic CTD selection. ~1 week. Synthetic 6%-coupon CF=1.0 deliverable suffices for v1. |
+| Curve-driven default coupon for synthetic deliverables | `make_default_future` hardcodes a per-currency current-coupon (USD 4.5%, GBP 4%, EUR 2.75%). Should sample the discount curve at the contract's underlying tenor. Affects accuracy when the curve is far from those defaults. |
+| Multi-deliverable default baskets | `make_default_future` synthesizes a single representative deliverable per contract code. Real CME baskets have 3–10 issues per contract; richer baskets would let the CTD selector exhibit basket-skew behavior in tests. |
+| Live deliverable feed | Plug in once a market-data source is wired; currently callers can override `BondFuture.deliverable_basket` and `futures_price` directly. |
+| Curve-implied repo | Currently currency-specific hardcoded defaults (USD 4.3%, GBP 4.5%, EUR 2.5%). |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |
 | Real cost feeds | Plug-in once `convex-traits::market_data::QuoteSource` is wired. |
