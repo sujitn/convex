@@ -12,34 +12,15 @@ Recorded on Windows 11 / convex-analytics 0.12.1, criterion default settings.
 | Bench | Median | Notes |
 | --- | --- | --- |
 | `risk_profile_apple_10y` | ~22 µs | One `price_from_mark` + one `BondRiskCalculator` + 4-tenor KRD profile (4 ZSpreadCalculator reprices). |
-| `propose_five_strategies` | ~1.79 ms | Five strategies; each futures-based one prices a 2-deliverable basket via single-pass `select_ctd_with_market_or_fair_price`, selects min-net-basis CTD, then prices the chosen CTD via `compute_position_risk`. |
+| `propose_five_strategies` | ~1.79 ms | Each futures-based strategy prices a 2-deliverable basket via `select_ctd`, picks min-net-basis CTD, then prices the chosen CTD with full KRD bumps. |
 | `end_to_end` | ~1.75 ms | `risk_profile + propose_five + compare + narrate`. |
 
-History:
-- v1 release (commit `62d2073`): 22 / 286 / 309 µs for
-  `risk_profile / propose_four / end_to_end`.
-- 4-strategy baseline after post-review cleanup: 24 / 300 / 328 µs.
-- Adding `KeyRateFutures` (4-leg N×N hedge): 21 / 513 / 538 µs.
-- CTD optimization landed: 22 / 1440 / 1450 µs (~2.8× regression because
-  every futures-based strategy now prices a real deliverable basket
-  instead of a hardcoded synthetic 6% bond).
-- CTD perf shortcut: 22 / 1180 / 1200 µs (single-pass dedup recovers
-  ~17–19% of the regression).
-- **Multi-deliverable default baskets (this commit):** 22 / 1790 / 1750
-  µs. Each contract's basket grew from 1 to 2 deliverables; that's 2×
-  per-leg pricing work in `select_ctd_with_market_or_fair_price` plus
-  the chosen CTD then gets full KRD-bumping. Single-position risk
-  profile unchanged. The propose path is now ~50% slower than the
-  single-deliverable shortcut, which is the cost of the basket
-  actually exercising — CTD selection picks between multiple bonds
-  rather than always returning index 0.
-
-Further optimization is possible but not pursued: amortize `KeyRateBump`
-setup across strategies (build the bumped curves once, share with all
-legs).
-
-A further optimization could amortize `KeyRateBump` setup across strategies
-(build the bumped curves once, share with all legs) — not pursued.
+The propose path is dominated by per-leg basket pricing — CTD selection on
+2 deliverables × 4 futures legs (DurationFutures + Barbell ×2 + KeyRate ×4)
+runs ~10 `compute_position_risk` calls. Cheaper alternatives (e.g.
+amortizing `KeyRateBump` curve construction across strategy legs) would
+recover some of this, but 1.8 ms end-to-end is well under interactive
+thresholds and the current code is simple to follow.
 
 ## Existing benches — untouched
 
