@@ -92,9 +92,9 @@ fn bench_advisor(c: &mut Criterion) {
 
     c.bench_function("propose_five_strategies", |b| {
         b.iter(|| {
-            let f = duration_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let bb = barbell_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let kr = key_rate_futures(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let f = duration_futures(&profile, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
+            let bb = barbell_futures(&profile, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
+            let kr = key_rate_futures(&profile, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
             let cb = cash_bond_pair(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&profile, &cs, &curve, "usd_sofr", settlement).unwrap();
             black_box((f, bb, kr, cb, s))
@@ -115,9 +115,9 @@ fn bench_advisor(c: &mut Criterion) {
                 None,
             )
             .unwrap();
-            let f = duration_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let bb = barbell_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
-            let kr = key_rate_futures(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
+            let f = duration_futures(&p, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
+            let bb = barbell_futures(&p, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
+            let kr = key_rate_futures(&p, &cs, &curve, "usd_sofr", settlement, &[]).unwrap();
             let cb = cash_bond_pair(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
             let s = interest_rate_swap(&p, &cs, &curve, "usd_sofr", settlement).unwrap();
             let report = compare_hedges(&p, &[f, bb, kr, cb, s], &cs).unwrap();
