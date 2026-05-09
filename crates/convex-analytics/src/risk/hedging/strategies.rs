@@ -29,7 +29,7 @@ pub fn duration_futures(
     discount_curve_id: &str,
     settlement: Date,
 ) -> AnalyticsResult<HedgeProposal> {
-    let contract = pick_future_contract(position, settlement)?;
+    let contract = pick_future_contract(position, discount_curve, settlement)?;
     let key_rate_tenors: Vec<f64> = position
         .key_rate_buckets
         .iter()
@@ -121,7 +121,7 @@ pub fn barbell_futures(
         .copied()
         .expect("non-empty by check above");
 
-    let (lo, hi) = pick_barbell_pair(position, settlement)?;
+    let (lo, hi) = pick_barbell_pair(position, discount_curve, settlement)?;
     let key_rate_tenors: Vec<f64> = position
         .key_rate_buckets
         .iter()
@@ -202,6 +202,7 @@ pub fn barbell_futures(
 /// `(short-tenor, long-tenor)` so callers can rely on the order in `det` math.
 fn pick_barbell_pair(
     position: &RiskProfile,
+    discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
 ) -> AnalyticsResult<(BondFuture, BondFuture)> {
     let pair = match (position.currency, position.modified_duration_years) {
@@ -217,8 +218,20 @@ fn pick_barbell_pair(
         }
     };
     Ok((
-        make_default_future(pair.0 .0, pair.0 .1, position.currency, settlement)?,
-        make_default_future(pair.1 .0, pair.1 .1, position.currency, settlement)?,
+        make_default_future(
+            pair.0 .0,
+            pair.0 .1,
+            position.currency,
+            discount_curve,
+            settlement,
+        )?,
+        make_default_future(
+            pair.1 .0,
+            pair.1 .1,
+            position.currency,
+            discount_curve,
+            settlement,
+        )?,
     ))
 }
 
@@ -475,7 +488,7 @@ pub fn key_rate_futures(
     discount_curve_id: &str,
     settlement: Date,
 ) -> AnalyticsResult<HedgeProposal> {
-    let ladder = pick_key_rate_ladder(position.currency, settlement)?;
+    let ladder = pick_key_rate_ladder(position.currency, discount_curve, settlement)?;
     let n = ladder.len();
 
     if position.key_rate_buckets.len() < n {
@@ -555,7 +568,11 @@ pub fn key_rate_futures(
 }
 
 /// Currency-specific liquid futures ladder.
-fn pick_key_rate_ladder(currency: Currency, settlement: Date) -> AnalyticsResult<Vec<BondFuture>> {
+fn pick_key_rate_ladder(
+    currency: Currency,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    settlement: Date,
+) -> AnalyticsResult<Vec<BondFuture>> {
     let pairs: &[(&str, f64)] = match currency {
         Currency::USD => &[("TU", 2.0), ("FV", 5.0), ("TY", 10.0), ("US", 30.0)],
         Currency::EUR => &[("SCH", 2.0), ("OE", 5.0), ("RX", 10.0), ("BUXL", 30.0)],
@@ -567,7 +584,9 @@ fn pick_key_rate_ladder(currency: Currency, settlement: Date) -> AnalyticsResult
     };
     pairs
         .iter()
-        .map(|(code, tenor)| make_default_future(code, *tenor, currency, settlement))
+        .map(|(code, tenor)| {
+            make_default_future(code, *tenor, currency, discount_curve, settlement)
+        })
         .collect()
 }
 
@@ -618,7 +637,11 @@ fn solve_key_rate_system(
 
 // ---- internals ----------------------------------------------------------
 
-fn pick_future_contract(position: &RiskProfile, settlement: Date) -> AnalyticsResult<BondFuture> {
+fn pick_future_contract(
+    position: &RiskProfile,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    settlement: Date,
+) -> AnalyticsResult<BondFuture> {
     let (code, tenor) = match (position.currency, position.modified_duration_years) {
         (Currency::USD, d) if d < 2.5 => ("TU", 2.0),
         (Currency::USD, d) if d < 5.5 => ("FV", 5.0),
@@ -634,7 +657,7 @@ fn pick_future_contract(position: &RiskProfile, settlement: Date) -> AnalyticsRe
             )))
         }
     };
-    make_default_future(code, tenor, position.currency, settlement)
+    make_default_future(code, tenor, position.currency, discount_curve, settlement)
 }
 
 fn contract_size_for(currency: Currency, code: &str) -> Decimal {
@@ -660,31 +683,22 @@ fn default_repo_rate_for(currency: Currency) -> f64 {
     }
 }
 
-/// Current-coupon proxy used when synthesizing a single representative
-/// deliverable. Hardcoded to a realistic 2026 par rate per currency; richer
-/// implementations should sample the curve at the contract's underlying
-/// tenor.
-fn default_current_coupon_for(currency: Currency) -> f64 {
-    match currency {
-        Currency::USD => 0.045,
-        Currency::GBP => 0.04,
-        Currency::EUR => 0.0275,
-        _ => 0.04,
-    }
-}
-
-/// Build a [`BondFuture`] with a single synthetic at-current-coupon deliverable
-/// covering the contract's underlying tenor. Conversion factor is computed
-/// numerically via [`approximate_cme_cf`]; repo and delivery offset use the
-/// currency's defaults. Callers with live deliverable data should construct
-/// `BondFuture` directly.
+/// Build a [`BondFuture`] with a single synthetic at-par deliverable covering
+/// the contract's underlying tenor. The deliverable's coupon is sampled from
+/// the discount curve via the par-swap rate at the underlying tenor — so the
+/// synthetic is at-par on the curve in front of the advisor, regardless of
+/// rate regime. Conversion factor is computed numerically via
+/// [`approximate_cme_cf`]; repo and delivery offset use the currency's
+/// defaults. Callers with live deliverable data should construct
+/// [`BondFuture`] directly.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
     currency: Currency,
+    discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
 ) -> AnalyticsResult<BondFuture> {
-    let coupon = default_current_coupon_for(currency);
+    let coupon = otr_par_coupon(discount_curve, settlement, underlying_tenor_years)?;
     let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
     if tenor_months <= 0 {
         return Err(AnalyticsError::InvalidInput(format!(
@@ -1218,5 +1232,58 @@ mod tests {
         .unwrap();
         assert_eq!(p.provenance.cost_model, "heuristic_v1");
         assert!(p.provenance.curves_used.contains(&"usd_sofr".to_string()));
+    }
+
+    // ---- make_default_future (curve-driven coupon) -----------------------
+
+    #[test]
+    fn default_future_coupon_tracks_par_swap_rate_at_underlying_tenor() {
+        // Flat 3% curve → synthetic deliverable coupon ≈ 3%.
+        let curve = flat_curve(0.03);
+        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        assert_eq!(f.deliverable_basket.len(), 1);
+        let coupon = f.deliverable_basket[0].coupon_rate_decimal;
+        // par_swap_rate on a flat curve equals the zero rate; tolerate small
+        // compounding/day-count drift.
+        assert!(
+            (coupon - 0.03).abs() < 0.005,
+            "low-rate curve coupon = {coupon}, expected ~0.03"
+        );
+    }
+
+    #[test]
+    fn default_future_coupon_shifts_with_curve_level() {
+        // Same contract on 3% vs 6% curves should produce materially
+        // different coupons — the previous hardcoded behavior was flat at
+        // 4.5% USD regardless of curve.
+        let lo = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.03), d(2026, 1, 15))
+            .unwrap()
+            .deliverable_basket[0]
+            .coupon_rate_decimal;
+        let hi = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.06), d(2026, 1, 15))
+            .unwrap()
+            .deliverable_basket[0]
+            .coupon_rate_decimal;
+        assert!(
+            hi - lo > 0.025,
+            "high-rate coupon ({hi}) should exceed low-rate coupon ({lo}) by ≥ 250bps"
+        );
+    }
+
+    #[test]
+    fn default_future_at_six_pct_curve_has_unit_conversion_factor() {
+        // CME standardized CF = clean price at 6% YTM ÷ 100. When the curve
+        // (and therefore the par-swap-rate coupon) is ≈6%, the deliverable
+        // trades near par and CF ≈ 1.0. par_swap_rate uses the curve's
+        // discount factors with semi-annual frequency — slightly different
+        // compounding from the 6% YTM used inside approximate_cme_cf — so a
+        // 1.5% tolerance accommodates that drift.
+        let curve = flat_curve(0.06);
+        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        let cf = f.deliverable_basket[0].conversion_factor;
+        assert!(
+            (cf - 1.0).abs() < 0.015,
+            "CF on 6% curve = {cf}, expected ≈ 1.0 (within 1.5%)"
+        );
     }
 }

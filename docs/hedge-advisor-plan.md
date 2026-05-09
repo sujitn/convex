@@ -35,6 +35,13 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
   `repo_rate_decimal`, and an optional `futures_price`. `bond_future_risk`
   picks the CTD by net basis and surfaces the selection on its return.
   Strategies populate sensible defaults via a `make_default_future` helper.
+- **Curve-driven default coupon** for synthetic deliverables: the helper
+  now samples the discount curve via `par_swap_rate` at the contract's
+  underlying tenor instead of using a per-currency hardcoded constant. On
+  a 3% curve the synthetic TY deliverable issues with a 3% coupon; on a 6%
+  curve the CF lands at ~1.0 (the textbook CME self-consistency check).
+  Three new unit tests cover the tracking, the level shift, and the
+  CF≈1-on-6%-curve invariant.
 
 ### Strategies shipped (was 2, now 5)
 
@@ -82,7 +89,6 @@ correctness gain.
 
 | Item | Reason |
 | --- | --- |
-| Curve-driven default coupon for synthetic deliverables | `make_default_future` hardcodes a per-currency current-coupon (USD 4.5%, GBP 4%, EUR 2.75%). Should sample the discount curve at the contract's underlying tenor. Affects accuracy when the curve is far from those defaults. |
 | Multi-deliverable default baskets | `make_default_future` synthesizes a single representative deliverable per contract code. Real CME baskets have 3–10 issues per contract; richer baskets would let the CTD selector exhibit basket-skew behavior in tests. |
 | Live deliverable feed | Plug in once a market-data source is wired; currently callers can override `BondFuture.deliverable_basket` and `futures_price` directly. |
 | Curve-implied repo | Currently currency-specific hardcoded defaults (USD 4.3%, GBP 4.5%, EUR 2.5%). |
