@@ -1236,6 +1236,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    None,
                 ),
             )?;
         }
@@ -1249,6 +1250,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    None,
                 ),
             )?;
         }
@@ -1262,6 +1264,7 @@ impl ConvexMcpServer {
                     &curve_id_str,
                     settlement,
                     &params.basket_overrides,
+                    None,
                 ),
             )?;
         }
@@ -1274,6 +1277,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    None,
                 ),
             )?;
         }
@@ -1286,6 +1290,7 @@ impl ConvexMcpServer {
                     &curve,
                     &curve_id_str,
                     settlement,
+                    None,
                 ),
             )?;
         }

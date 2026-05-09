@@ -23,11 +23,11 @@ pub use duration::{
 pub use dv01::{dv01_from_duration, dv01_from_prices, dv01_per_100_face, notional_from_dv01, DV01};
 pub use hedging::{
     aggregate_portfolio_risk, approximate_cme_cf, barbell_futures, bond_future_risk,
-    cash_bond_pair, cash_bond_risk, compare_hedges, cost_bps as hedge_cost_bps,
-    deliverable_to_bond, duration_futures, duration_hedge_ratio, dv01_hedge_ratio,
-    interest_rate_swap, interest_rate_swap_risk, key_rate_futures, narrate, residual_from,
-    select_ctd, BondFuture, BondFutureRisk, CashBondLeg, ComparisonReport, ComparisonRow,
-    Constraints, CtdSelection, Deliverable, HedgeInstrument, HedgeProposal, HedgeTrade,
+    cash_bond_pair, cash_bond_risk, compare_hedges, deliverable_to_bond, duration_futures,
+    duration_hedge_ratio, dv01_hedge_ratio, hedge_cost_bps, interest_rate_swap,
+    interest_rate_swap_risk, key_rate_futures, narrate, residual_from, select_ctd, BondFuture,
+    BondFutureRisk, CashBondLeg, ComparisonReport, ComparisonRow, Constraints, CostFeed,
+    CtdSelection, Deliverable, HedgeInstrument, HedgeProposal, HedgeTrade, HeuristicCostFeed,
     InterestRateSwap, KeyRateBucketLimit, LegRisk, PortfolioRisk, Position, Recommendation,
     RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
