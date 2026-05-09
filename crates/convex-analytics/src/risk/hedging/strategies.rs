@@ -4,7 +4,7 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
-use convex_core::types::{Currency, Date, Frequency};
+use convex_core::types::{Compounding, Currency, Date, Frequency};
 use convex_curves::{DiscreteCurve, RateCurve, RateCurveDyn};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
@@ -672,15 +672,24 @@ fn contract_size_for(currency: Currency, code: &str) -> Decimal {
 }
 
 /// Money-market repo rate (decimal) used for net-basis carry on
-/// futures-based hedges. Currency-specific defaults; a richer model would
-/// pull from a repo curve.
-fn default_repo_rate_for(currency: Currency) -> f64 {
-    match currency {
-        Currency::USD => 0.043, // ≈ SOFR
-        Currency::GBP => 0.045, // ≈ SONIA
-        Currency::EUR => 0.025, // ≈ €STR
+/// futures-based hedges. Sampled from the discount curve at the 3-month
+/// tenor with simple-compounding (money-market convention) — a standard
+/// proxy for SOFR / SONIA / €STR. Falls back to a currency-specific
+/// constant if the curve query fails (curve too short, etc.).
+fn default_repo_rate_from_curve(
+    discount_curve: &RateCurve<DiscreteCurve>,
+    currency: Currency,
+) -> f64 {
+    const REPO_TENOR_YEARS: f64 = 0.25;
+    let fallback = match currency {
+        Currency::USD => 0.043,
+        Currency::GBP => 0.045,
+        Currency::EUR => 0.025,
         _ => 0.04,
-    }
+    };
+    discount_curve
+        .zero_rate_at_tenor(REPO_TENOR_YEARS, Compounding::Simple)
+        .unwrap_or(fallback)
 }
 
 /// Build a [`BondFuture`] with a single synthetic at-par deliverable covering
@@ -722,7 +731,7 @@ fn make_default_future(
         underlying_tenor_years,
         deliverable_basket: vec![deliverable],
         delivery_months: 3,
-        repo_rate_decimal: default_repo_rate_for(currency),
+        repo_rate_decimal: default_repo_rate_from_curve(discount_curve, currency),
         futures_price: None,
         contract_size_face: contract_size_for(currency, contract_code),
         currency,
@@ -1267,6 +1276,33 @@ mod tests {
         assert!(
             hi - lo > 0.025,
             "high-rate coupon ({hi}) should exceed low-rate coupon ({lo}) by ≥ 250bps"
+        );
+    }
+
+    #[test]
+    fn default_future_repo_tracks_curve_front_end() {
+        // 3% flat curve → repo ≈ 3% (3M zero rate, simple compounding).
+        let curve = flat_curve(0.03);
+        let f = make_default_future("TY", 10.0, Currency::USD, &curve, d(2026, 1, 15)).unwrap();
+        assert!(
+            (f.repo_rate_decimal - 0.03).abs() < 0.005,
+            "repo on 3% curve = {}, expected ~0.03",
+            f.repo_rate_decimal
+        );
+    }
+
+    #[test]
+    fn default_future_repo_shifts_with_curve_level() {
+        // Same contract on 2% vs 6% curves → repo shifts ~400bps.
+        let lo = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.02), d(2026, 1, 15))
+            .unwrap()
+            .repo_rate_decimal;
+        let hi = make_default_future("TY", 10.0, Currency::USD, &flat_curve(0.06), d(2026, 1, 15))
+            .unwrap()
+            .repo_rate_decimal;
+        assert!(
+            hi - lo > 0.03,
+            "high-rate repo ({hi}) should exceed low-rate repo ({lo}) by ≥ 300bps"
         );
     }
 
