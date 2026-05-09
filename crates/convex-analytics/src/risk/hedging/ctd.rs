@@ -144,6 +144,12 @@ pub fn select_ctd(
                 d.conversion_factor
             )));
         }
+        if d.maturity <= delivery {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "Deliverable[{i}]: maturity ({}) must be after delivery ({delivery})",
+                d.maturity
+            )));
+        }
     }
 
     let t = settlement.days_between(&delivery) as f64 / 360.0;
@@ -152,13 +158,15 @@ pub fn select_ctd(
         .map(|d| spot_and_coupons(d, currency, curve, settlement, delivery))
         .collect::<AnalyticsResult<_>>()?;
 
-    // Market F or no-arb fair forward = min over basket of implied F_i.
+    // Market F or no-arb fair forward. Setting NB=0 in the formula below
+    // gives F = (spot − coupons + spot·r·T) / CF (only the spot purchase is
+    // financed; coupons received between settle and delivery aren't).
     let f_used = market_futures_price_per_100.unwrap_or_else(|| {
         basket
             .iter()
             .zip(&carries)
             .map(|(d, &(spot, coupons))| {
-                (spot - coupons) * (1.0 + repo_rate_decimal * t) / d.conversion_factor
+                (spot - coupons + spot * repo_rate_decimal * t) / d.conversion_factor
             })
             .fold(f64::INFINITY, f64::min)
     });
@@ -404,6 +412,24 @@ mod tests {
                 matches!(err, Err(AnalyticsError::InvalidInput(_))),
                 "futures_price={bad} should be rejected"
             );
+        }
+    }
+
+    #[test]
+    fn select_ctd_rejects_deliverable_maturing_before_delivery() {
+        // A bond maturing between settle and delivery is undeliverable;
+        // pricing it would still produce numbers but they're nonsensical.
+        let curve = flat_curve(0.04);
+        let settle = d(2026, 1, 15);
+        let delivery = d(2026, 4, 15);
+        // Matures one month before delivery.
+        let basket = vec![deliverable(0.05, d(2026, 3, 15), 1.0)];
+        let err = select_ctd(&basket, Currency::USD, &curve, settle, delivery, 0.04, None);
+        match err {
+            Err(AnalyticsError::InvalidInput(msg)) => {
+                assert!(msg.contains("maturity") && msg.contains("delivery"));
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
         }
     }
 
