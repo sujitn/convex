@@ -656,13 +656,13 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// Builds a [`BondFuture`] with one synthetic at-par deliverable at the
-/// contract's headline tenor — the smallest reasonable default. Coupon is
-/// the par-swap rate at that tenor; CF is from [`approximate_cme_cf`]; repo
-/// from the curve front-end; first delivery 3 months out. Callers with
-/// real basket data should construct [`BondFuture`] with their own
-/// `deliverable_basket` and pass it to the strategy functions; the
-/// `select_ctd` machinery handles multi-deliverable baskets directly.
+/// Builds a [`BondFuture`] with one synthetic at-par deliverable. CME
+/// convention is "remaining maturity at first delivery", so the deliverable
+/// matures `underlying_tenor_years` after the first delivery date (not after
+/// settlement). Coupon is the par-swap rate at the underlying tenor; CF is
+/// from [`approximate_cme_cf`]; repo from the curve front-end; first
+/// delivery 3 months out. Callers with real basket data should construct
+/// [`BondFuture`] with their own `deliverable_basket`.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -670,6 +670,7 @@ fn make_default_future(
     discount_curve: &RateCurve<DiscreteCurve>,
     settlement: Date,
 ) -> AnalyticsResult<BondFuture> {
+    const DELIVERY_MONTHS: u32 = 3;
     let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
     if tenor_months <= 0 {
         return Err(AnalyticsError::InvalidInput(format!(
@@ -677,7 +678,10 @@ fn make_default_future(
              >0 months (got {underlying_tenor_years})"
         )));
     }
-    let maturity = settlement
+    let first_delivery = settlement
+        .add_months(DELIVERY_MONTHS as i32)
+        .map_err(|e| AnalyticsError::InvalidInput(format!("first delivery: {e}")))?;
+    let maturity = first_delivery
         .add_months(tenor_months)
         .map_err(|e| AnalyticsError::InvalidInput(format!("future deliverable maturity: {e}")))?;
     let coupon = otr_par_coupon(discount_curve, settlement, underlying_tenor_years)?;
@@ -687,12 +691,12 @@ fn make_default_future(
         maturity,
         conversion_factor: 1.0,
     };
-    deliverable.conversion_factor = approximate_cme_cf(&deliverable, currency, settlement)?;
+    deliverable.conversion_factor = approximate_cme_cf(&deliverable, currency, first_delivery)?;
     Ok(BondFuture {
         contract_code: contract_code.into(),
         underlying_tenor_years,
         deliverable_basket: vec![deliverable],
-        delivery_months: 3,
+        delivery_months: DELIVERY_MONTHS,
         repo_rate_decimal: repo_rate(discount_curve)?,
         futures_price: None,
         contract_size_face: contract_size_for(currency, contract_code),
