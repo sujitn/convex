@@ -1,21 +1,12 @@
-//! Cheapest-to-deliver (CTD) selection and conversion factors for bond futures.
+//! Cheapest-to-deliver (CTD) selection for bond futures. Net basis =
+//! `(P_spot − F·CF) − Carry`; min net basis ≡ max implied repo ≡ CTD.
+//! [`select_ctd`] is the public entry; the underlying fair-forward and
+//! per-leg net-basis helpers are crate-private.
 //!
-//! Implements the textbook delivery basket model:
-//! - [`Deliverable`] is one bond eligible for delivery into a futures contract.
-//! - [`approximate_cme_cf`] is a numerical approximation of the CME conversion
-//!   factor: clean price of the deliverable at a flat 6% YTM, divided by 100.
-//!   The exact CME formula rounds maturity to the nearest 3-month (TY/US) or
-//!   1-month (TU/FV) chunk and accrues differently — this approximation gets
-//!   within ~0.5% for typical deliverables. Pass an explicit
-//!   `conversion_factor` on the [`Deliverable`] when CME-exact numbers matter.
-//! - [`fair_futures_price`] derives a no-arb futures price from the basket as
-//!   the lowest implied per-deliverable forward (the cheapest seller dictates
-//!   the market futures level).
-//! - [`select_ctd_by_net_basis`] picks the cheapest-to-deliver from a basket
-//!   by minimizing net basis: NB = (P_spot − F × CF) − Carry, where
-//!   Carry = (coupons collected between settle and delivery) − (financing
-//!   cost on P_spot at the supplied repo rate). Min net basis ≡ max implied
-//!   repo ≡ cheapest-to-deliver.
+//! [`approximate_cme_cf`] is a flat-6% bond pricing — close to but not
+//! identical to the exact CME formula (which has maturity rounding rules
+//! per contract code). Supply `Deliverable.conversion_factor` directly
+//! when you have the exchange's published number.
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -110,12 +101,11 @@ pub fn deliverable_to_bond(
         .map_err(|e| AnalyticsError::BondError(format!("deliverable build: {e}")))
 }
 
-/// Numerical approximation of the CME conversion factor: clean price of the
-/// deliverable at a flat 6% YTM, divided by 100. The exact CME formula
-/// rounds the maturity-at-first-delivery to the nearest 3-month (TY/US) or
-/// 1-month (TU/FV) chunk and accrues coupons differently; this approximation
-/// is accurate to ~0.5% for typical deliverables. Supply an explicit
-/// `conversion_factor` on [`Deliverable`] when CME-exact numbers matter.
+/// Conversion factor from clean price of the deliverable at a flat 6% YTM,
+/// divided by 100. Differs from the exact CME formula because that one
+/// rounds the maturity-at-first-delivery to a contract-specific quantum
+/// (3 months for TY/US, 1 month for TU/FV); supply an explicit
+/// `Deliverable.conversion_factor` when you need CME-exact numbers.
 pub fn approximate_cme_cf(
     deliverable: &Deliverable,
     currency: Currency,
@@ -130,7 +120,7 @@ pub fn approximate_cme_cf(
 /// per-deliverable implied forward `F_i = (P_spot_i − coupons_i) × (1 + r·T) / CF_i`.
 /// This is the futures level at which the cheapest deliverable's net basis
 /// is zero — the standard textbook result.
-pub fn fair_futures_price(
+pub(crate) fn fair_futures_price(
     basket: &[Deliverable],
     currency: Currency,
     curve: &dyn RateCurveDyn,
@@ -177,7 +167,7 @@ pub fn fair_futures_price(
 ///
 /// `futures_price_per_100` may be a market quote; pass [`fair_futures_price`]
 /// when no live price is available.
-pub fn select_ctd_by_net_basis(
+pub(crate) fn select_ctd_by_net_basis(
     basket: &[Deliverable],
     currency: Currency,
     curve: &dyn RateCurveDyn,
@@ -244,12 +234,11 @@ pub fn select_ctd_by_net_basis(
     best.ok_or_else(|| AnalyticsError::CalculationFailed("CTD selection: no candidate".into()))
 }
 
-/// Combined CTD entry: prices the basket once, computes F (from input or
-/// no-arb fair forward), selects min-net-basis CTD. Returns the selection
-/// plus the futures price used. This is the path `bond_future_risk` takes
-/// to avoid double-pricing the basket (one pass for `fair_futures_price`,
-/// another for `select_ctd_by_net_basis`).
-pub fn select_ctd_with_market_or_fair_price(
+/// Pick the cheapest-to-deliver from a basket. Prices the basket once,
+/// uses `market_futures_price_per_100` when supplied or computes the no-arb
+/// fair forward otherwise, then selects min net basis. Returns the
+/// selection plus the futures price used.
+pub fn select_ctd(
     basket: &[Deliverable],
     currency: Currency,
     curve: &dyn RateCurveDyn,
@@ -260,7 +249,7 @@ pub fn select_ctd_with_market_or_fair_price(
 ) -> AnalyticsResult<(CtdSelection, f64)> {
     if basket.is_empty() {
         return Err(AnalyticsError::InvalidInput(
-            "select_ctd_with_market_or_fair_price: empty deliverable basket".into(),
+            "select_ctd: empty deliverable basket".into(),
         ));
     }
     if !repo_rate_decimal.is_finite() {
@@ -613,7 +602,7 @@ mod tests {
         }
     }
 
-    // ---- select_ctd_with_market_or_fair_price ----------------------------
+    // ---- select_ctd ----------------------------
 
     #[test]
     fn combined_ctd_at_no_arb_price_matches_fair_plus_select() {
@@ -633,16 +622,8 @@ mod tests {
             select_ctd_by_net_basis(&basket, Currency::USD, &curve, settle, delivery, 0.04, f)
                 .unwrap();
 
-        let (one_pass, f_combined) = select_ctd_with_market_or_fair_price(
-            &basket,
-            Currency::USD,
-            &curve,
-            settle,
-            delivery,
-            0.04,
-            None,
-        )
-        .unwrap();
+        let (one_pass, f_combined) =
+            select_ctd(&basket, Currency::USD, &curve, settle, delivery, 0.04, None).unwrap();
         assert_eq!(one_pass.index, two_pass.index);
         assert!(
             (f_combined - f).abs() < 1e-9,
@@ -659,7 +640,7 @@ mod tests {
         let basket = vec![deliverable(0.05, mat, 1.0)];
         let curve = flat_curve(0.05);
         // Market F at 95 (rich futures): net basis at chosen CTD will be > 0.
-        let (sel, f_used) = select_ctd_with_market_or_fair_price(
+        let (sel, f_used) = select_ctd(
             &basket,
             Currency::USD,
             &curve,
@@ -687,16 +668,8 @@ mod tests {
         let delivery = d(2026, 4, 15);
         let basket = vec![deliverable(0.05, mat, 1.0)];
         let curve = flat_curve(0.05);
-        let (sel, _f) = select_ctd_with_market_or_fair_price(
-            &basket,
-            Currency::USD,
-            &curve,
-            settle,
-            delivery,
-            0.04,
-            None,
-        )
-        .unwrap();
+        let (sel, _f) =
+            select_ctd(&basket, Currency::USD, &curve, settle, delivery, 0.04, None).unwrap();
         assert_eq!(sel.index, 0);
         assert!(sel.net_basis_per_100.abs() < 0.05);
         assert_relative_eq!(sel.implied_repo_decimal, 0.04, epsilon = 1e-3);
@@ -710,32 +683,16 @@ mod tests {
         let basket = vec![deliverable(0.05, d(2036, 1, 15), 1.0)];
 
         // Empty basket.
-        let err = select_ctd_with_market_or_fair_price(
-            &[],
-            Currency::USD,
-            &curve,
-            settle,
-            delivery,
-            0.04,
-            None,
-        );
+        let err = select_ctd(&[], Currency::USD, &curve, settle, delivery, 0.04, None);
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
 
         // Delivery before settlement.
-        let err = select_ctd_with_market_or_fair_price(
-            &basket,
-            Currency::USD,
-            &curve,
-            delivery,
-            settle,
-            0.04,
-            None,
-        );
+        let err = select_ctd(&basket, Currency::USD, &curve, delivery, settle, 0.04, None);
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
 
         // Non-finite or zero market futures price.
         for bad in [0.0, -100.0, f64::NAN, f64::INFINITY] {
-            let err = select_ctd_with_market_or_fair_price(
+            let err = select_ctd(
                 &basket,
                 Currency::USD,
                 &curve,

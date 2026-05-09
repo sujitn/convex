@@ -11,9 +11,7 @@ use convex_core::types::{Currency, Date, Mark, Spread, SpreadType};
 use convex_curves::{DiscreteCurve, RateCurve};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::risk::hedging::ctd::{
-    deliverable_to_bond, select_ctd_with_market_or_fair_price, CtdSelection,
-};
+use crate::risk::hedging::ctd::{deliverable_to_bond, select_ctd, CtdSelection};
 use crate::risk::profile::{compute_position_risk, KeyRateBucket};
 
 use super::types::{BondFuture, CashBondLeg, InterestRateSwap, SwapSide};
@@ -59,7 +57,7 @@ pub fn bond_future_risk(
         .map_err(|e| AnalyticsError::InvalidInput(format!("delivery date: {e}")))?;
     // Single basket pass: prices each deliverable once, computes F (input or
     // no-arb fair forward), selects min-net-basis CTD.
-    let (selection, f_used) = select_ctd_with_market_or_fair_price(
+    let (selection, f_used) = select_ctd(
         &spec.deliverable_basket,
         spec.currency,
         curve,

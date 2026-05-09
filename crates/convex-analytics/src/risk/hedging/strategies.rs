@@ -646,25 +646,14 @@ fn contract_size_for(currency: Currency, code: &str) -> Decimal {
     }
 }
 
-/// Money-market repo rate (decimal) used for net-basis carry on
-/// futures-based hedges. Sampled from the discount curve at the 3-month
-/// tenor with simple-compounding (money-market convention) — a standard
-/// proxy for SOFR / SONIA / €STR. Falls back to a currency-specific
-/// constant if the curve query fails (curve too short, etc.).
-fn default_repo_rate_from_curve(
-    discount_curve: &RateCurve<DiscreteCurve>,
-    currency: Currency,
-) -> f64 {
-    const REPO_TENOR_YEARS: f64 = 0.25;
-    let fallback = match currency {
-        Currency::USD => 0.043,
-        Currency::GBP => 0.045,
-        Currency::EUR => 0.025,
-        _ => 0.04,
-    };
-    discount_curve
-        .zero_rate_at_tenor(REPO_TENOR_YEARS, Compounding::Simple)
-        .unwrap_or(fallback)
+/// Repo proxy: 3-month simple-compounded zero rate on the discount curve.
+/// Used as the financing rate for net-basis CTD carry. The curve must
+/// quote at 0.25y — propagates the curve error otherwise rather than
+/// silently substituting a hardcoded constant.
+fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
+    curve
+        .zero_rate_at_tenor(0.25, Compounding::Simple)
+        .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
 /// Default deliverable maturity tenors (years from settlement) per CME-style
@@ -696,15 +685,13 @@ fn default_basket_tenors_for(contract_code: &str, underlying_tenor_years: f64) -
     }
 }
 
-/// Build a [`BondFuture`] with a multi-deliverable synthetic basket spanning
-/// the contract's eligible delivery range. Each deliverable's coupon is the
-/// par-swap rate at its OWN maturity tenor (so a 6.5Y issue has a 6.5Y-tenor
-/// coupon, an 8Y issue has an 8Y-tenor coupon, etc.) — this is the textbook
-/// "issue at par" approximation and gives the CTD selector a meaningful
-/// choice on non-flat curves. Conversion factors are computed numerically
-/// via [`approximate_cme_cf`]; repo and delivery offset use the curve / the
-/// currency's defaults. Callers with live deliverable data should construct
-/// [`BondFuture`] directly.
+/// **Synthetic placeholder.** Builds a [`BondFuture`] with two synthetic
+/// at-par deliverables clustered near the contract's headline tenor (see
+/// [`default_basket_tenors_for`]). Coupons sampled from the curve, CFs
+/// approximated via [`approximate_cme_cf`], 3M front-month delivery, repo
+/// from the curve front-end. Real CME baskets span much wider ranges and
+/// the CTD is typically a shorter bond — for live or backtested results
+/// callers should construct [`BondFuture`] directly with the actual basket.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -740,7 +727,7 @@ fn make_default_future(
         underlying_tenor_years,
         deliverable_basket: basket,
         delivery_months: 3,
-        repo_rate_decimal: default_repo_rate_from_curve(discount_curve, currency),
+        repo_rate_decimal: repo_rate(discount_curve)?,
         futures_price: None,
         contract_size_face: contract_size_for(currency, contract_code),
         currency,
@@ -1446,7 +1433,7 @@ mod tests {
         // selection should successfully pick one of them (basket-skew
         // exercises). Index need not always be ≠ 0; the point is that the
         // CTD machinery completes a real selection rather than degenerating.
-        use crate::risk::hedging::ctd::{select_ctd_with_market_or_fair_price, Deliverable};
+        use crate::risk::hedging::ctd::{select_ctd, Deliverable};
         let tenors = vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
         let rates = vec![0.02, 0.022, 0.025, 0.03, 0.04, 0.05, 0.058, 0.06];
         let dc = DiscreteCurve::new(
@@ -1475,7 +1462,7 @@ mod tests {
                 conversion_factor: 1.0,
             },
         ];
-        let (sel, _f_used) = select_ctd_with_market_or_fair_price(
+        let (sel, _f_used) = select_ctd(
             &basket,
             Currency::USD,
             &curve,
