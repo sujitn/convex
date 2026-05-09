@@ -116,6 +116,10 @@ correctness gain.
   `basket_overrides: Vec<BondFuture>`. Futures strategies use a code-matched
   override verbatim; mismatched currency or duplicate codes are hard errors.
   A typed `BasketProvider` trait waits for a real consumer.
+- **Cost-feed seam.** `CostFeed: Send + Sync` trait + `HeuristicCostFeed`
+  default in `risk::hedging::cost`. Strategies take `Option<&dyn CostFeed>`;
+  `Provenance.cost_model` reflects whatever feed is passed. Phase 2 plugs a
+  `QuoteSource`-backed adapter when one is wired.
 
 ### What's genuinely deferred to a future PR
 
@@ -124,7 +128,7 @@ correctness gain.
 | `BasketProvider` trait | Sync provider the MCP server can hold; needed once a file/snapshot feed drives the abstraction. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |
-| Real cost feeds | Plug-in once `convex-traits::market_data::QuoteSource` is wired. |
+| `QuoteSource`-backed cost feed | Adapter + MCP server-side wire-up; trait seam landed but no live impl yet. |
 | CDS / credit DV01 | New instrument class. Smoke-test agent flagged correctly that it's out of scope. |
 | Inflation-linked instruments | No consumer asking. |
 | `ETFProxy` strategy | Lower-fidelity than `BarbellFutures` (already shipped). |

@@ -1,46 +1,38 @@
-//! Round-trip cost in bps by instrument class.
-//!
-//! [`CostFeed`] is the seam — strategies call it to size the "Cost" column
-//! on each proposal. [`HeuristicCostFeed`] is the default: plausible mid-2024
-//! D2D mids (CBOT TCA monthlies + Bloomberg MOSB on-the-run UST quotes),
-//! tagged `cost_model = "heuristic_v1"` on `Provenance`. Live feeds plug in
-//! by implementing [`CostFeed`] against a real `QuoteSource` adapter.
+//! Round-trip cost in bps by instrument class. [`HeuristicCostFeed`] is the
+//! default; live feeds plug in by implementing [`CostFeed`].
 
 use super::types::HedgeInstrument;
 use convex_core::types::Currency;
 
-/// Stable identifier of the heuristic feed; surfaced via [`HeuristicCostFeed::name`]
-/// and echoed in `Provenance::cost_model`. Re-exported for callers that
-/// build a default `Provenance` ahead of any cost computation.
+/// Identifier of the heuristic feed, echoed in `Provenance::cost_model`.
 pub const COST_MODEL_NAME: &str = "heuristic_v1";
 
-/// Round-trip cost source for hedge proposals. Sync — pre-fetch quotes at
-/// the boundary if your underlying source is async.
-pub trait CostFeed {
+/// Round-trip cost source. `Send + Sync` so adapters wrapping an
+/// `Arc<dyn QuoteSource>` can flow through async MCP handlers.
+pub trait CostFeed: Send + Sync {
     /// Round-trip cost in bps of notional for one hedge instrument.
     fn cost_bps(&self, instrument: &HedgeInstrument) -> f64;
-    /// Identifier echoed on `Provenance::cost_model` so the JSON output
-    /// names its source.
+    /// Identifier echoed in `Provenance::cost_model`.
     fn name(&self) -> &str;
 }
 
-/// Default feed: hardcoded plausible-mid bps by instrument class. Replace
-/// with a real quote-driven feed in production.
+/// Hardcoded plausible-mid bps by instrument class. Replace with a real
+/// quote-driven feed in production.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HeuristicCostFeed;
 
 impl CostFeed for HeuristicCostFeed {
     fn cost_bps(&self, instrument: &HedgeInstrument) -> f64 {
         match instrument {
-            // CBOT/Eurex/LIFFE benchmark futures: TY/FV/TU/US tightest, Bund
-            // close behind, Long Gilt and off-the-runs wider.
             HedgeInstrument::BondFuture(f) => match f.contract_code.as_str() {
+                // CBOT (TU/FV/TY/US) and Eurex (OE/RX) tightest; ICE Long Gilt
+                // wider; off-the-run codes fall through.
                 "TU" | "FV" | "TY" | "US" => 0.25,
                 "OE" | "RX" => 0.30,
                 "G" => 0.40,
                 _ => 0.50,
             },
-            // SOFR/SONIA/€STR D2D: ~0.4 bp through 5Y, widening to ~1 bp at 30Y.
+            // SOFR/SONIA/€STR D2D: ~0.4 bp through 5Y, ~1 bp at 30Y.
             HedgeInstrument::InterestRateSwap(s) => {
                 if s.tenor_years <= 5.0 {
                     0.4
@@ -66,6 +58,12 @@ impl CostFeed for HeuristicCostFeed {
     fn name(&self) -> &str {
         COST_MODEL_NAME
     }
+}
+
+/// Back-compat shim — pre-trait callers used a free `cost_bps` from
+/// `convex::risk::hedge_cost_bps`. Delegates to [`HeuristicCostFeed`].
+pub fn hedge_cost_bps(instrument: &HedgeInstrument) -> f64 {
+    HeuristicCostFeed.cost_bps(instrument)
 }
 
 #[cfg(test)]
@@ -136,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn name_is_stable_identifier() {
-        assert_eq!(HeuristicCostFeed.name(), COST_MODEL_NAME);
+    fn hedge_cost_bps_back_compat_shim_matches_trait() {
+        assert_eq!(hedge_cost_bps(&ty()), HeuristicCostFeed.cost_bps(&ty()));
     }
 }
