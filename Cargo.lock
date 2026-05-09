@@ -580,6 +580,7 @@ dependencies = [
  "convex-math",
  "criterion 0.8.1",
  "log",
+ "nalgebra",
  "proptest",
  "rayon",
  "rust_decimal",

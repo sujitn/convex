@@ -34,6 +34,9 @@ thiserror = { workspace = true }
 # Logging
 log = { workspace = true }
 
+# Linear algebra (n×n LU for KeyRateFutures)
+nalgebra = { workspace = true }
+
 # Parallel processing (optional)
 rayon = { workspace = true, optional = true }
 

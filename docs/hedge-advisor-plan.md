@@ -22,10 +22,11 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
 - **`#[serde(default)]` on Provenance / TradeoffNotes / KRD buckets** to survive LLM round-trip drops.
 - **Smoke-test discoveries** wired into permanent fixes — bug found and patched.
 
-### Strategies shipped (was 2, now 4)
+### Strategies shipped (was 2, now 5)
 
 - `DurationFutures` — single benchmark contract, parallel DV01 match.
-- `BarbellFutures` — two contracts solving 2x2 for parallel DV01 + dominant KRD bucket.
+- `BarbellFutures` — two contracts solving 2×2 for parallel DV01 + dominant KRD bucket.
+- `KeyRateFutures` — N-leg ladder (USD: TU/FV/TY/US, EUR: SCH/OE/RX/BUXL); solves N×N to pin every targeted KRD bucket via `convex_math::solve_linear_system`.
 - `CashBondPair` — synthetic on-the-run sovereign sized to neutralize DV01.
 - `InterestRateSwap` — tenor-matched payer/receiver, parallel DV01 match.
 
@@ -61,7 +62,6 @@ Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we'r
 | Item | Reason |
 | --- | --- |
 | OAS marks in `price_from_mark` | Needs `EmbeddedOptionBond` trait + vol param + tree pricing — not a dispatch tweak. ~1d. |
-| `KeyRateFutures` strategy | N-leg generalization of `BarbellFutures` (4×4 Cramer). Worth its own session for tests + math. ~1d. |
 | Real CTD optimization | Deliverable basket + repo financing + dynamic CTD selection. ~1 week. Synthetic 6%-coupon CF=1.0 deliverable suffices for v1. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |

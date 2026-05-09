@@ -464,6 +464,172 @@ pub fn interest_rate_swap(
     })
 }
 
+/// N-leg key-rate hedge: solve an N×N system to neutralize each of the
+/// position's KRD buckets simultaneously, not just parallel DV01.
+///
+/// For currency `c` we pick a benchmark ladder of N futures spanning the
+/// curve (USD: TU/FV/TY/US, EUR: SCH/OE/RX/BUXL). Let `K_ij = krd_j(t_i)`
+/// be the j-th future's partial DV01 at the i-th tenor and `b_i = -position.krd(t_i)`.
+/// We solve `K · n = b` via LU; `n_j` is the contract count for future j.
+/// The parallel-DV01 constraint is implicit (sum of `K_ij` over `i` ≈ `dv01_j`
+/// for each leg).
+///
+/// Errors if the position has fewer KRD tenors than ladder legs (under-determined),
+/// or if the system is near-singular.
+pub fn key_rate_futures(
+    position: &RiskProfile,
+    constraints: &Constraints,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    discount_curve_id: &str,
+    settlement: Date,
+) -> AnalyticsResult<HedgeProposal> {
+    let ladder = pick_key_rate_ladder(position.currency)?;
+    let n = ladder.len();
+
+    if position.key_rate_buckets.len() < n {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "KeyRateFutures requires at least {n} KRD buckets on the position (got {}); \
+             pass `key_rate_tenors` covering the ladder",
+            position.key_rate_buckets.len()
+        )));
+    }
+
+    // Pick the N largest |KRD| tenors as targets so the algorithm zeroes the
+    // most material exposures even when the ladder is wider than the position.
+    let target_tenors = pick_target_tenors(position, n);
+    let target_buckets: Vec<KeyRateBucket> = target_tenors
+        .iter()
+        .map(|&t| KeyRateBucket {
+            tenor_years: t,
+            partial_dv01: krd_at(&position.key_rate_buckets, t),
+        })
+        .collect();
+
+    // Build each future's KRD profile against the same target tenors.
+    let mut leg_risks: Vec<BondFutureRisk> = Vec::with_capacity(n);
+    for spec in &ladder {
+        leg_risks.push(bond_future_risk(
+            spec,
+            discount_curve,
+            discount_curve_id,
+            settlement,
+            Some(&target_tenors),
+        )?);
+    }
+
+    let contracts = solve_key_rate_system(&leg_risks, &target_buckets, &ladder)?;
+
+    let trades: Vec<HedgeTrade> = ladder
+        .iter()
+        .zip(leg_risks.iter())
+        .zip(contracts.iter())
+        .map(|((spec, risk), &qty)| scale_future_trade(spec, risk, qty))
+        .collect();
+
+    let residual = residual_from(position, &trades);
+    let (cost_bps, cost_total) = proposal_cost(&trades, position);
+    let provenance = strategy_provenance(position, discount_curve_id);
+
+    let leg_codes: Vec<&str> = ladder.iter().map(|f| f.contract_code.as_str()).collect();
+    let mut tradeoffs = TradeoffNotes {
+        strengths: vec![
+            format!(
+                "{n}-leg ladder ({}) — solves N×N to pin every targeted KRD",
+                leg_codes.join("+")
+            ),
+            "Smallest curvature residual of the futures-only strategies".into(),
+        ],
+        weaknesses: vec![
+            format!("{n} contracts → {n}× the bid-ask and roll cost"),
+            "Sensitive to the ladder's KRD matrix conditioning; may swing big with tiny tenor moves".into(),
+        ],
+    };
+    tag_constraint_violations(
+        constraints,
+        &residual.residual_dv01,
+        cost_bps,
+        &mut tradeoffs,
+    );
+
+    Ok(HedgeProposal {
+        strategy: "KeyRateFutures".into(),
+        trades,
+        residual,
+        cost_bps,
+        cost_total,
+        tradeoffs,
+        provenance,
+    })
+}
+
+/// Currency-specific liquid futures ladder.
+fn pick_key_rate_ladder(currency: Currency) -> AnalyticsResult<Vec<BondFuture>> {
+    let pairs: &[(&str, f64)] = match currency {
+        Currency::USD => &[("TU", 2.0), ("FV", 5.0), ("TY", 10.0), ("US", 30.0)],
+        Currency::EUR => &[("SCH", 2.0), ("OE", 5.0), ("RX", 10.0), ("BUXL", 30.0)],
+        other => {
+            return Err(AnalyticsError::InvalidInput(format!(
+                "KeyRateFutures: no key-rate ladder defined for {other:?}"
+            )))
+        }
+    };
+    Ok(pairs
+        .iter()
+        .map(|(code, tenor)| BondFuture {
+            contract_code: (*code).into(),
+            underlying_tenor_years: *tenor,
+            conversion_factor: 1.0,
+            contract_size_face: contract_size_for(currency, code),
+            currency,
+        })
+        .collect())
+}
+
+/// Pick N tenors closest to the ladder while preferring the position's
+/// largest |KRD| buckets — keeps the algorithm aligned with the most material
+/// exposures even when the position has more buckets than ladder legs.
+fn pick_target_tenors(position: &RiskProfile, n: usize) -> Vec<f64> {
+    let mut buckets = position.key_rate_buckets.clone();
+    buckets.sort_by(|a, b| {
+        b.partial_dv01
+            .abs()
+            .partial_cmp(&a.partial_dv01.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut tenors: Vec<f64> = buckets.iter().take(n).map(|b| b.tenor_years).collect();
+    tenors.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    tenors
+}
+
+/// Solve `K · n = -k_pos` where `K[i,j] = leg_risks[j].krd(t_i)` and
+/// `k_pos[i] = position.krd(t_i)`. Returns `n` (one contract count per leg).
+fn solve_key_rate_system(
+    leg_risks: &[BondFutureRisk],
+    target_buckets: &[KeyRateBucket],
+    ladder: &[BondFuture],
+) -> AnalyticsResult<Vec<f64>> {
+    use convex_math::linear_algebra::solve_linear_system;
+    use nalgebra::{DMatrix, DVector};
+
+    let n = leg_risks.len();
+    let mut matrix = DMatrix::<f64>::zeros(n, n);
+    let mut rhs = DVector::<f64>::zeros(n);
+    for (i, target) in target_buckets.iter().enumerate() {
+        for (j, leg) in leg_risks.iter().enumerate() {
+            matrix[(i, j)] = krd_at(&leg.buckets_per_contract, target.tenor_years);
+        }
+        rhs[i] = -target.partial_dv01;
+    }
+    let solution = solve_linear_system(&matrix, &rhs).map_err(|e| {
+        let codes: Vec<&str> = ladder.iter().map(|f| f.contract_code.as_str()).collect();
+        AnalyticsError::CalculationFailed(format!(
+            "KeyRateFutures: {n}×{n} system over ({}) is singular: {e}",
+            codes.join(", ")
+        ))
+    })?;
+    Ok(solution.iter().copied().collect())
+}
+
 // ---- internals ----------------------------------------------------------
 
 fn pick_future_contract(position: &RiskProfile) -> AnalyticsResult<BondFuture> {
@@ -900,5 +1066,109 @@ mod tests {
         p.modified_duration_years = f64::NAN;
         // Just assert no panic; result is the >25 fallback.
         assert_eq!(pick_swap_tenor(&p), 30.0);
+    }
+
+    // ---- KeyRateFutures ---------------------------------------------------
+
+    #[test]
+    fn key_rate_futures_pins_every_target_bucket() {
+        let (pos, curve) = long_10y_corporate();
+        let p =
+            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        // 4-leg ladder.
+        assert_eq!(p.trades.len(), 4);
+        let codes: Vec<&str> = p
+            .trades
+            .iter()
+            .filter_map(|t| match &t.instrument {
+                HedgeInstrument::BondFuture(f) => Some(f.contract_code.as_str()),
+                _ => None,
+            })
+            .collect();
+        for code in ["TU", "FV", "TY", "US"] {
+            assert!(codes.contains(&code), "missing leg {code} in {codes:?}");
+        }
+        // Every targeted KRD bucket is pinned within ~0.5% of position DV01.
+        let tol = pos.dv01.abs() * 0.005;
+        for tenor in [2.0, 5.0, 10.0, 30.0] {
+            let r = p
+                .residual
+                .residual_buckets
+                .iter()
+                .find(|b| (b.tenor_years - tenor).abs() < 1e-9)
+                .unwrap_or_else(|| panic!("missing residual bucket {tenor}Y"));
+            assert!(
+                r.partial_dv01.abs() < tol,
+                "residual at {tenor}Y = {} should be < {tol}",
+                r.partial_dv01,
+            );
+        }
+    }
+
+    #[test]
+    fn key_rate_futures_residual_dv01_is_bounded() {
+        // KeyRateFutures pins each *KRD bucket* exactly; the residual
+        // parallel DV01 is a second-order artifact of (position KRD-vs-DV01
+        // leakage − Σ leg KRD-vs-DV01 leakage). It's expected to be small
+        // but nonzero — assert it stays within a few percent of position DV01.
+        let (pos, curve) = long_10y_corporate();
+        let p =
+            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let resid_pct = p.residual.residual_dv01.abs() / pos.dv01.abs();
+        assert!(
+            resid_pct < 0.05,
+            "residual DV01 = {} should be <5% of position DV01 {}; got {resid_pct:.4}",
+            p.residual.residual_dv01,
+            pos.dv01,
+        );
+    }
+
+    #[test]
+    fn key_rate_futures_l1_residual_smaller_than_duration_futures() {
+        // Pinning every key tenor should leave a smaller residual KRD L1 norm
+        // than a single-tenor parallel hedge — that's the whole point.
+        let (pos, curve) = long_10y_corporate();
+        let krf =
+            key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        let df =
+            duration_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15)).unwrap();
+        assert!(
+            krf.residual.residual_krd_l1_norm < df.residual.residual_krd_l1_norm,
+            "key-rate residual L1 ({}) should be < duration-futures residual L1 ({})",
+            krf.residual.residual_krd_l1_norm,
+            df.residual.residual_krd_l1_norm,
+        );
+    }
+
+    #[test]
+    fn key_rate_futures_errors_when_position_has_too_few_buckets() {
+        let (mut pos, curve) = long_10y_corporate();
+        // Strip down to two buckets — under the 4-leg ladder.
+        pos.key_rate_buckets.truncate(2);
+        let err = key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn key_rate_futures_errors_for_unsupported_currency() {
+        let (mut pos, curve) = long_10y_corporate();
+        pos.currency = Currency::JPY;
+        let err = key_rate_futures(&pos, &Constraints::default(), &curve, "c", d(2026, 1, 15));
+        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn key_rate_futures_provenance_carries_curve_and_cost_model() {
+        let (pos, curve) = long_10y_corporate();
+        let p = key_rate_futures(
+            &pos,
+            &Constraints::default(),
+            &curve,
+            "usd_sofr",
+            d(2026, 1, 15),
+        )
+        .unwrap();
+        assert_eq!(p.provenance.cost_model, "heuristic_v1");
+        assert!(p.provenance.curves_used.contains(&"usd_sofr".to_string()));
     }
 }

@@ -34,10 +34,10 @@ pub use convex_analytics::functions::{
 pub use convex_analytics::pricing::{price_from_mark, PricingResult};
 pub use convex_analytics::risk::{
     barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
-    interest_rate_swap, narrate, BondFuture, CashBondLeg, ComparisonReport, ComparisonRow,
-    Constraints, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucket,
-    Provenance, Recommendation, RecommendationReason, ResidualRisk, RiskProfile, SwapSide,
-    TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
+    interest_rate_swap, key_rate_futures, narrate, BondFuture, CashBondLeg, ComparisonReport,
+    ComparisonRow, Constraints, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap,
+    KeyRateBucket, Provenance, Recommendation, RecommendationReason, ResidualRisk, RiskProfile,
+    SwapSide, TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
 };
 pub use convex_analytics::spreads::{
     GSpreadCalculator, ISpreadCalculator, OASCalculator, ZSpreadCalculator,

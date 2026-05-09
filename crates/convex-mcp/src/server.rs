@@ -17,12 +17,12 @@ use rust_decimal_macros::dec;
 
 use convex::{
     barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
-    interest_rate_swap, narrate, price_from_mark, yield_to_maturity, Bond, CallSchedule,
-    CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date, DayCountConvention,
-    Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency, GlobalFitter,
-    HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois, RateCurve,
-    RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond,
-    ADVISOR_KEY_RATE_TENORS,
+    interest_rate_swap, key_rate_futures, narrate, price_from_mark, yield_to_maturity, Bond,
+    CallSchedule, CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date,
+    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
+    GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois,
+    RateCurve, RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator,
+    ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -1092,7 +1092,7 @@ impl ConvexMcpServer {
     }
 
     #[tool(description = "Propose hedges for a risk profile. Strategies: \
-        DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap. \
+        DurationFutures, BarbellFutures, KeyRateFutures, CashBondPair, InterestRateSwap. \
         Each proposal carries trades, residual KRD, heuristic cost, tradeoffs, provenance. \
         Strategies that fail on a given position are listed in `skipped_strategies` \
         unless the caller named them in `allowed_strategies`.")]
@@ -1150,6 +1150,18 @@ impl ConvexMcpServer {
             try_run(
                 "BarbellFutures",
                 barbell_futures(
+                    &params.risk,
+                    &constraints,
+                    &curve,
+                    &curve_id_str,
+                    settlement,
+                ),
+            )?;
+        }
+        if allow("KeyRateFutures") {
+            try_run(
+                "KeyRateFutures",
+                key_rate_futures(
                     &params.risk,
                     &constraints,
                     &curve,
@@ -1524,11 +1536,13 @@ mod tests {
                 .unwrap(),
         );
         let proposed: ProposeHedgesOutput = serde_json::from_str(&proposals_text).unwrap();
-        // Ships 4 strategies: DurationFutures, BarbellFutures, CashBondPair, InterestRateSwap.
-        assert_eq!(proposed.proposals.len(), 4);
+        // Ships 5 strategies: DurationFutures, BarbellFutures, KeyRateFutures,
+        // CashBondPair, InterestRateSwap.
+        assert_eq!(proposed.proposals.len(), 5);
         for name in [
             "DurationFutures",
             "BarbellFutures",
+            "KeyRateFutures",
             "CashBondPair",
             "InterestRateSwap",
         ] {
@@ -1537,8 +1551,22 @@ mod tests {
                 "missing strategy {name}"
             );
         }
+        // KeyRateFutures pins each KRD bucket exactly, so its parallel residual
+        // is the position's KRD-vs-DV01 leakage (a few percent). Other
+        // strategies neutralize parallel DV01 to <0.1%.
         for p in &proposed.proposals {
-            assert!(p.residual.residual_dv01.abs() / profile.dv01.abs() < 0.001);
+            let bound = if p.strategy == "KeyRateFutures" {
+                0.05
+            } else {
+                0.001
+            };
+            assert!(
+                p.residual.residual_dv01.abs() / profile.dv01.abs() < bound,
+                "{}: residual DV01 {} on position DV01 {}",
+                p.strategy,
+                p.residual.residual_dv01,
+                profile.dv01
+            );
             assert_eq!(p.provenance.cost_model, "heuristic_v1");
         }
 
@@ -1554,7 +1582,7 @@ mod tests {
                 .unwrap(),
         );
         let report: ComparisonReport = serde_json::from_str(&comparison_text).unwrap();
-        assert_eq!(report.rows.len(), 4);
+        assert_eq!(report.rows.len(), 5);
         assert_eq!(report.recommendation.strategy, "DurationFutures");
 
         // Tool 4: narrate_recommendation
@@ -1642,10 +1670,11 @@ mod tests {
 
     #[tokio::test]
     async fn propose_hedges_skips_failing_strategy_silently_when_unrequested() {
-        // A position with no key-rate ladder breaks BarbellFutures only.
-        // Without explicit `allowed_strategies`, the call should still
-        // succeed with the other three proposals; barbell goes into
-        // `skipped_strategies` with its error.
+        // A position with no key-rate ladder breaks both BarbellFutures and
+        // KeyRateFutures. Without explicit `allowed_strategies`, the call
+        // should still succeed with the other three proposals; the two
+        // KRD-dependent strategies go into `skipped_strategies` with their
+        // errors.
         let profile = RiskProfile {
             position_id: None,
             currency: Currency::USD,
@@ -1685,10 +1714,19 @@ mod tests {
         assert!(names.contains(&"CashBondPair"));
         assert!(names.contains(&"InterestRateSwap"));
 
-        // Barbell skipped with a reason — visible to the caller.
-        assert_eq!(out.skipped_strategies.len(), 1);
-        assert_eq!(out.skipped_strategies[0].strategy, "BarbellFutures");
-        assert!(out.skipped_strategies[0].reason.contains("key-rate ladder"));
+        // Both KRD-dependent strategies skipped with a reason — visible to the caller.
+        let skipped: Vec<&str> = out
+            .skipped_strategies
+            .iter()
+            .map(|s| s.strategy.as_str())
+            .collect();
+        assert_eq!(out.skipped_strategies.len(), 2);
+        assert!(skipped.contains(&"BarbellFutures"));
+        assert!(skipped.contains(&"KeyRateFutures"));
+        assert!(out
+            .skipped_strategies
+            .iter()
+            .any(|s| s.strategy == "BarbellFutures" && s.reason.contains("key-rate ladder")));
 
         // But explicitly requesting only Barbell on the same input must error.
         let explicit = server
