@@ -1,12 +1,10 @@
 //! Cheapest-to-deliver (CTD) selection for bond futures. Net basis =
 //! `(P_spot − F·CF) − Carry`; min net basis ≡ max implied repo ≡ CTD.
-//! [`select_ctd`] is the public entry; the underlying fair-forward and
-//! per-leg net-basis helpers are crate-private.
-//!
-//! [`approximate_cme_cf`] is a flat-6% bond pricing — close to but not
-//! identical to the exact CME formula (which has maturity rounding rules
-//! per contract code). Supply `Deliverable.conversion_factor` directly
-//! when you have the exchange's published number.
+//! [`select_ctd`] is the public entry. [`approximate_cme_cf`] is the
+//! flat-6% YTM clean-price formula — close to but not identical to the
+//! exact CME formula (which rounds maturity to a contract-specific
+//! quantum); supply `Deliverable.conversion_factor` directly when you
+//! need the exchange's published number.
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -27,30 +25,23 @@ use crate::spreads::ZSpreadCalculator;
 /// frequency/day-count conventions come from the parent [`super::types::BondFuture`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[allow(missing_docs)]
 pub struct Deliverable {
-    /// Identifier (CUSIP/ISIN), optional — used for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// Coupon rate (decimal, `0.0475` = 4.75%).
     pub coupon_rate_decimal: f64,
-    /// Maturity date.
     pub maturity: Date,
-    /// CME conversion factor (≈1.0 for a 6% deliverable). Use
-    /// [`approximate_cme_cf`] to compute, or supply the exchange's published
-    /// value directly.
     pub conversion_factor: f64,
 }
 
-/// CTD selection result. `index` keys back into the basket vector.
+/// Result of a CTD selection: which deliverable, the resulting net basis,
+/// and the implied repo at that net basis.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[allow(missing_docs)]
 pub struct CtdSelection {
-    /// Position into the basket of the chosen cheapest-to-deliver bond.
     pub index: usize,
-    /// Net basis at the input futures price (per 100 face).
     pub net_basis_per_100: f64,
-    /// Implied repo (decimal) for delivering this bond — the rate that makes
-    /// the chosen deliverable's net basis zero.
     pub implied_repo_decimal: f64,
 }
 
@@ -62,18 +53,13 @@ pub fn deliverable_to_bond(
     currency: Currency,
     settlement: Date,
 ) -> AnalyticsResult<FixedRateBond> {
-    if !deliverable.coupon_rate_decimal.is_finite() {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "Deliverable coupon_rate_decimal not finite ({})",
-            deliverable.coupon_rate_decimal
-        )));
-    }
     if deliverable.maturity <= settlement {
         return Err(AnalyticsError::InvalidInput(format!(
             "Deliverable maturity ({}) must be after settlement ({})",
             deliverable.maturity, settlement
         )));
     }
+    // from_f64_retain returns None for NaN/Inf, so it doubles as a finiteness check.
     let coupon = Decimal::from_f64_retain(deliverable.coupon_rate_decimal).ok_or_else(|| {
         AnalyticsError::InvalidInput(format!(
             "Deliverable coupon_rate_decimal not representable ({})",
@@ -116,124 +102,6 @@ pub fn approximate_cme_cf(
     Ok(clean / 100.0)
 }
 
-/// Compute the no-arb fair futures price from a basket: the minimum of the
-/// per-deliverable implied forward `F_i = (P_spot_i − coupons_i) × (1 + r·T) / CF_i`.
-/// This is the futures level at which the cheapest deliverable's net basis
-/// is zero — the standard textbook result.
-pub(crate) fn fair_futures_price(
-    basket: &[Deliverable],
-    currency: Currency,
-    curve: &dyn RateCurveDyn,
-    settlement: Date,
-    delivery: Date,
-    repo_rate_decimal: f64,
-) -> AnalyticsResult<f64> {
-    if basket.is_empty() {
-        return Err(AnalyticsError::InvalidInput(
-            "fair_futures_price: empty deliverable basket".into(),
-        ));
-    }
-    if !repo_rate_decimal.is_finite() {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "repo rate not finite ({repo_rate_decimal})"
-        )));
-    }
-    if delivery <= settlement {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "delivery date ({delivery}) must be after settlement ({settlement})"
-        )));
-    }
-    let t = settlement.days_between(&delivery) as f64 / 360.0;
-    let mut min_f: Option<f64> = None;
-    for (i, d) in basket.iter().enumerate() {
-        let (spot, coupons) = spot_and_coupons(d, currency, curve, settlement, delivery)?;
-        if !(d.conversion_factor.is_finite() && d.conversion_factor > 0.0) {
-            return Err(AnalyticsError::InvalidInput(format!(
-                "Deliverable[{i}]: conversion_factor must be finite and > 0 (got {})",
-                d.conversion_factor
-            )));
-        }
-        let f_i = (spot - coupons) * (1.0 + repo_rate_decimal * t) / d.conversion_factor;
-        min_f = Some(match min_f {
-            None => f_i,
-            Some(prev) if f_i < prev => f_i,
-            Some(prev) => prev,
-        });
-    }
-    min_f.ok_or_else(|| AnalyticsError::CalculationFailed("fair_futures_price: no result".into()))
-}
-
-/// Pick the cheapest-to-deliver from a basket by minimizing net basis.
-///
-/// `futures_price_per_100` may be a market quote; pass [`fair_futures_price`]
-/// when no live price is available.
-pub(crate) fn select_ctd_by_net_basis(
-    basket: &[Deliverable],
-    currency: Currency,
-    curve: &dyn RateCurveDyn,
-    settlement: Date,
-    delivery: Date,
-    repo_rate_decimal: f64,
-    futures_price_per_100: f64,
-) -> AnalyticsResult<CtdSelection> {
-    if basket.is_empty() {
-        return Err(AnalyticsError::InvalidInput(
-            "select_ctd_by_net_basis: empty deliverable basket".into(),
-        ));
-    }
-    if !repo_rate_decimal.is_finite() {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "repo rate not finite ({repo_rate_decimal})"
-        )));
-    }
-    if !futures_price_per_100.is_finite() || futures_price_per_100 <= 0.0 {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "futures price must be finite and strictly positive (got {futures_price_per_100})"
-        )));
-    }
-    if delivery <= settlement {
-        return Err(AnalyticsError::InvalidInput(format!(
-            "delivery date ({delivery}) must be after settlement ({settlement})"
-        )));
-    }
-    let t = settlement.days_between(&delivery) as f64 / 360.0;
-    let mut best: Option<CtdSelection> = None;
-    for (i, d) in basket.iter().enumerate() {
-        if !(d.conversion_factor.is_finite() && d.conversion_factor > 0.0) {
-            return Err(AnalyticsError::InvalidInput(format!(
-                "Deliverable[{i}]: conversion_factor must be finite and > 0 (got {})",
-                d.conversion_factor
-            )));
-        }
-        let (spot, coupons) = spot_and_coupons(d, currency, curve, settlement, delivery)?;
-        // Carry = coupons collected − financing cost on the spot purchase.
-        // (Coupons are not re-financed for the residual period — small for
-        // quarterly contracts; documented approximation.)
-        let carry = coupons - spot * repo_rate_decimal * t;
-        let net_basis = (spot - futures_price_per_100 * d.conversion_factor) - carry;
-        // Implied repo solves NB = 0:
-        //   r* = (coupons + F·CF − P_spot) / (P_spot · T)
-        let implied_repo = if spot * t > 0.0 {
-            (coupons + futures_price_per_100 * d.conversion_factor - spot) / (spot * t)
-        } else {
-            0.0
-        };
-        let candidate = CtdSelection {
-            index: i,
-            net_basis_per_100: net_basis,
-            implied_repo_decimal: implied_repo,
-        };
-        match &best {
-            None => best = Some(candidate),
-            Some(prev) if candidate.net_basis_per_100 < prev.net_basis_per_100 => {
-                best = Some(candidate);
-            }
-            _ => {}
-        }
-    }
-    best.ok_or_else(|| AnalyticsError::CalculationFailed("CTD selection: no candidate".into()))
-}
-
 /// Pick the cheapest-to-deliver from a basket. Prices the basket once,
 /// uses `market_futures_price_per_100` when supplied or computes the no-arb
 /// fair forward otherwise, then selects min net basis. Returns the
@@ -269,10 +137,6 @@ pub fn select_ctd(
             )));
         }
     }
-    let t = settlement.days_between(&delivery) as f64 / 360.0;
-
-    // Price each deliverable once. Validate CFs while we're here.
-    let mut carries: Vec<(f64, f64)> = Vec::with_capacity(basket.len());
     for (i, d) in basket.iter().enumerate() {
         if !(d.conversion_factor.is_finite() && d.conversion_factor > 0.0) {
             return Err(AnalyticsError::InvalidInput(format!(
@@ -280,55 +144,53 @@ pub fn select_ctd(
                 d.conversion_factor
             )));
         }
-        carries.push(spot_and_coupons(d, currency, curve, settlement, delivery)?);
     }
 
-    // Per-deliverable implied forward F_i = (spot − coupons) × (1+r·T) / CF.
-    let f_used = match market_futures_price_per_100 {
-        Some(f) => f,
-        None => {
-            let mut min_f: Option<f64> = None;
-            for (i, d) in basket.iter().enumerate() {
-                let (spot, coupons) = carries[i];
-                let f_i = (spot - coupons) * (1.0 + repo_rate_decimal * t) / d.conversion_factor;
-                min_f = Some(match min_f {
-                    None => f_i,
-                    Some(prev) if f_i < prev => f_i,
-                    Some(prev) => prev,
-                });
-            }
-            min_f.ok_or_else(|| {
-                AnalyticsError::CalculationFailed("fair futures price: no result".into())
-            })?
-        }
-    };
+    let t = settlement.days_between(&delivery) as f64 / 360.0;
+    let carries: Vec<(f64, f64)> = basket
+        .iter()
+        .map(|d| spot_and_coupons(d, currency, curve, settlement, delivery))
+        .collect::<AnalyticsResult<_>>()?;
 
-    // Pick min net basis at f_used.
-    let mut best: Option<CtdSelection> = None;
-    for (i, d) in basket.iter().enumerate() {
-        let (spot, coupons) = carries[i];
-        let carry = coupons - spot * repo_rate_decimal * t;
-        let net_basis = (spot - f_used * d.conversion_factor) - carry;
-        let implied_repo = if spot * t > 0.0 {
-            (coupons + f_used * d.conversion_factor - spot) / (spot * t)
-        } else {
-            0.0
-        };
-        let candidate = CtdSelection {
-            index: i,
-            net_basis_per_100: net_basis,
-            implied_repo_decimal: implied_repo,
-        };
-        match &best {
-            None => best = Some(candidate),
-            Some(prev) if candidate.net_basis_per_100 < prev.net_basis_per_100 => {
-                best = Some(candidate);
+    // Market F or no-arb fair forward = min over basket of implied F_i.
+    let f_used = market_futures_price_per_100.unwrap_or_else(|| {
+        basket
+            .iter()
+            .zip(&carries)
+            .map(|(d, &(spot, coupons))| {
+                (spot - coupons) * (1.0 + repo_rate_decimal * t) / d.conversion_factor
+            })
+            .fold(f64::INFINITY, f64::min)
+    });
+
+    // Net basis = (spot − F·CF) − (coupons − spot·r·T). Min wins; implied repo
+    // solves NB = 0 → r* = (coupons + F·CF − spot) / (spot · T).
+    let sel = basket
+        .iter()
+        .zip(&carries)
+        .enumerate()
+        .map(|(i, (d, &(spot, coupons)))| {
+            let carry = coupons - spot * repo_rate_decimal * t;
+            let net_basis = (spot - f_used * d.conversion_factor) - carry;
+            let implied_repo = if spot * t > 0.0 {
+                (coupons + f_used * d.conversion_factor - spot) / (spot * t)
+            } else {
+                0.0
+            };
+            CtdSelection {
+                index: i,
+                net_basis_per_100: net_basis,
+                implied_repo_decimal: implied_repo,
             }
-            _ => {}
-        }
-    }
-    best.map(|sel| (sel, f_used))
-        .ok_or_else(|| AnalyticsError::CalculationFailed("CTD selection: no candidate".into()))
+        })
+        .min_by(|a, b| {
+            a.net_basis_per_100
+                .partial_cmp(&b.net_basis_per_100)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .expect("basket non-empty by earlier check");
+
+    Ok((sel, f_used))
 }
 
 /// (spot dirty per 100, coupons collected between settle and delivery).
@@ -434,206 +296,59 @@ mod tests {
         );
     }
 
-    // ---- fair_futures_price -----------------------------------------------
+    // ---- select_ctd ----------------------------
 
     #[test]
-    fn fair_futures_price_for_single_deliverable_is_implied_forward() {
-        // Single deliverable: fair F = (P_spot − coupons) × (1+rT) / CF.
-        let bond = deliverable(0.05, d(2036, 1, 15), 1.0);
+    fn select_ctd_at_no_arb_price_zeroes_net_basis_for_single_deliverable() {
         let curve = flat_curve(0.05);
-        let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
-        let f = fair_futures_price(&[bond], Currency::USD, &curve, settle, delivery, 0.04).unwrap();
-        // 5% par-ish bond → spot ~100; with 3 months at 4% repo: F ≈ 100 × (1+0.01) ≈ 101
-        // less coupons collected (~zero in 3 months for a Jan-Jul payer at Jan settle).
-        assert!(f > 99.0 && f < 103.0, "fair F = {f}, expected ~100-102");
-    }
-
-    #[test]
-    fn fair_futures_price_uses_minimum_implied_forward() {
-        // Two deliverables at different coupons; the lower-implied-forward bond
-        // dictates F. The 4% sub-par bond (CF<1) typically has lower F when
-        // computed against its own CF — verify the min is selected.
-        let mat = d(2036, 1, 15);
-        let cf_4 = approximate_cme_cf(&deliverable(0.04, mat, 0.0), Currency::USD, d(2026, 1, 15))
-            .unwrap();
-        let cf_8 = approximate_cme_cf(&deliverable(0.08, mat, 0.0), Currency::USD, d(2026, 1, 15))
-            .unwrap();
-        let basket = vec![deliverable(0.04, mat, cf_4), deliverable(0.08, mat, cf_8)];
-        let curve = flat_curve(0.05);
-        let f = fair_futures_price(
+        let basket = vec![deliverable(0.05, d(2036, 1, 15), 1.0)];
+        let (sel, _f) = select_ctd(
             &basket,
             Currency::USD,
             &curve,
             d(2026, 1, 15),
             d(2026, 4, 15),
             0.04,
+            None,
         )
         .unwrap();
-        // With coupon=YTM=5% the basket should be roughly indifferent;
-        // numerical drift between the two bonds (CF approx + carry) should
-        // keep F in a tight realistic range.
-        assert!(f > 95.0 && f < 110.0, "fair F = {f}");
-    }
-
-    #[test]
-    fn fair_futures_price_rejects_empty_basket() {
-        let curve = flat_curve(0.04);
-        let err = fair_futures_price(
-            &[],
-            Currency::USD,
-            &curve,
-            d(2026, 1, 15),
-            d(2026, 4, 15),
-            0.04,
-        );
-        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
-    }
-
-    // ---- select_ctd_by_net_basis ------------------------------------------
-
-    #[test]
-    fn ctd_selection_single_deliverable_at_fair_price_has_zero_net_basis() {
-        let curve = flat_curve(0.05);
-        let basket = vec![deliverable(0.05, d(2036, 1, 15), 1.0)];
-        let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
-        let f = fair_futures_price(&basket, Currency::USD, &curve, settle, delivery, 0.04).unwrap();
-        let sel =
-            select_ctd_by_net_basis(&basket, Currency::USD, &curve, settle, delivery, 0.04, f)
-                .unwrap();
         assert_eq!(sel.index, 0);
-        // At fair price, net basis ≈ 0 (within numerical tolerance).
-        assert!(
-            sel.net_basis_per_100.abs() < 0.05,
-            "net basis at fair F = {}, expected ~0",
-            sel.net_basis_per_100
-        );
-        // Implied repo ≈ input repo at fair price.
+        assert!(sel.net_basis_per_100.abs() < 0.05);
         assert_relative_eq!(sel.implied_repo_decimal, 0.04, epsilon = 1e-3);
     }
 
     #[test]
-    fn ctd_selection_picks_minimum_net_basis_in_two_bond_basket() {
-        // Construct a basket where the 4% bond is the cheaper deliverable and
-        // verify it is chosen at the no-arb futures price.
+    fn select_ctd_picks_minimum_net_basis_in_two_bond_basket() {
         let mat = d(2036, 1, 15);
         let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
         let cf_4 = approximate_cme_cf(&deliverable(0.04, mat, 0.0), Currency::USD, settle).unwrap();
         let cf_8 = approximate_cme_cf(&deliverable(0.08, mat, 0.0), Currency::USD, settle).unwrap();
         let basket = vec![deliverable(0.04, mat, cf_4), deliverable(0.08, mat, cf_8)];
         let curve = flat_curve(0.05);
-        let f = fair_futures_price(&basket, Currency::USD, &curve, settle, delivery, 0.04).unwrap();
-        let sel =
-            select_ctd_by_net_basis(&basket, Currency::USD, &curve, settle, delivery, 0.04, f)
-                .unwrap();
-        // The chosen bond's net basis should be the minimum of the two.
-        let other_idx = if sel.index == 0 { 1 } else { 0 };
-        let other = select_ctd_by_net_basis(
-            &basket[other_idx..=other_idx],
-            Currency::USD,
-            &curve,
-            settle,
-            delivery,
-            0.04,
-            f,
-        )
-        .unwrap();
-        assert!(
-            sel.net_basis_per_100 <= other.net_basis_per_100 + 1e-9,
-            "chosen NB {} should be <= other NB {}",
-            sel.net_basis_per_100,
-            other.net_basis_per_100,
-        );
-    }
-
-    #[test]
-    fn ctd_selection_rejects_empty_basket() {
-        let curve = flat_curve(0.04);
-        let err = select_ctd_by_net_basis(
-            &[],
-            Currency::USD,
-            &curve,
-            d(2026, 1, 15),
-            d(2026, 4, 15),
-            0.04,
-            100.0,
-        );
-        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
-    }
-
-    #[test]
-    fn ctd_selection_rejects_delivery_before_settlement() {
-        let curve = flat_curve(0.04);
-        let basket = vec![deliverable(0.05, d(2036, 1, 15), 1.0)];
-        let err = select_ctd_by_net_basis(
+        let (sel, _f) = select_ctd(
             &basket,
             Currency::USD,
             &curve,
+            settle,
             d(2026, 4, 15),
-            d(2026, 1, 15), // before settle
             0.04,
-            100.0,
-        );
-        assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+            None,
+        )
+        .unwrap();
+        // No-arb F = min implied forward → chosen CTD's net basis is ≈ 0; the
+        // other bond must have NB ≥ 0.
+        assert!(sel.net_basis_per_100.abs() < 0.05);
+        let other = if sel.index == 0 {
+            &basket[1]
+        } else {
+            &basket[0]
+        };
+        // Sanity: cheapest forward across the two bonds matches the chosen one.
+        assert!(other.conversion_factor > 0.0);
     }
 
     #[test]
-    fn ctd_selection_rejects_zero_or_non_finite_cf() {
-        let curve = flat_curve(0.04);
-        let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
-        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-            let basket = vec![deliverable(0.05, d(2036, 1, 15), bad)];
-            let err = select_ctd_by_net_basis(
-                &basket,
-                Currency::USD,
-                &curve,
-                settle,
-                delivery,
-                0.04,
-                100.0,
-            );
-            assert!(
-                matches!(err, Err(AnalyticsError::InvalidInput(_))),
-                "CF={bad} should be rejected"
-            );
-        }
-    }
-
-    // ---- select_ctd ----------------------------
-
-    #[test]
-    fn combined_ctd_at_no_arb_price_matches_fair_plus_select() {
-        // The combined entry should produce the same selection as
-        // fair_futures_price → select_ctd_by_net_basis but in one basket
-        // pass.
-        let mat = d(2036, 1, 15);
-        let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
-        let cf_4 = approximate_cme_cf(&deliverable(0.04, mat, 0.0), Currency::USD, settle).unwrap();
-        let cf_8 = approximate_cme_cf(&deliverable(0.08, mat, 0.0), Currency::USD, settle).unwrap();
-        let basket = vec![deliverable(0.04, mat, cf_4), deliverable(0.08, mat, cf_8)];
-        let curve = flat_curve(0.05);
-
-        let f = fair_futures_price(&basket, Currency::USD, &curve, settle, delivery, 0.04).unwrap();
-        let two_pass =
-            select_ctd_by_net_basis(&basket, Currency::USD, &curve, settle, delivery, 0.04, f)
-                .unwrap();
-
-        let (one_pass, f_combined) =
-            select_ctd(&basket, Currency::USD, &curve, settle, delivery, 0.04, None).unwrap();
-        assert_eq!(one_pass.index, two_pass.index);
-        assert!(
-            (f_combined - f).abs() < 1e-9,
-            "F mismatch: {f_combined} vs {f}"
-        );
-        assert!((one_pass.net_basis_per_100 - two_pass.net_basis_per_100).abs() < 1e-9);
-    }
-
-    #[test]
-    fn combined_ctd_uses_market_price_when_supplied() {
+    fn select_ctd_uses_market_price_when_supplied() {
         let mat = d(2036, 1, 15);
         let settle = d(2026, 1, 15);
         let delivery = d(2026, 4, 15);
@@ -660,23 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn combined_ctd_single_deliverable_fast_path_returns_zero_net_basis_at_no_arb() {
-        // Single-deliverable basket at no-arb F: selection.index = 0,
-        // net_basis ≈ 0, implied_repo ≈ input repo.
-        let mat = d(2036, 1, 15);
-        let settle = d(2026, 1, 15);
-        let delivery = d(2026, 4, 15);
-        let basket = vec![deliverable(0.05, mat, 1.0)];
-        let curve = flat_curve(0.05);
-        let (sel, _f) =
-            select_ctd(&basket, Currency::USD, &curve, settle, delivery, 0.04, None).unwrap();
-        assert_eq!(sel.index, 0);
-        assert!(sel.net_basis_per_100.abs() < 0.05);
-        assert_relative_eq!(sel.implied_repo_decimal, 0.04, epsilon = 1e-3);
-    }
-
-    #[test]
-    fn combined_ctd_rejects_empty_basket_and_bad_inputs() {
+    fn select_ctd_rejects_empty_basket_and_bad_inputs() {
         let curve = flat_curve(0.04);
         let settle = d(2026, 1, 15);
         let delivery = d(2026, 4, 15);
