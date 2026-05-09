@@ -115,6 +115,7 @@ async fn end_to_end_happy_path() {
                 mark: mark.into(),
                 curve: Some(CurveRef::Id("USD.TSY".into())),
                 quote_frequency: None,
+                volatility: None,
             }))
             .await
             .expect("price_bond");
@@ -164,6 +165,7 @@ async fn inline_specs_avoid_registry_round_trip() {
             mark: "99.5C".into(),
             curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
             quote_frequency: None,
+            volatility: None,
         }))
         .await
         .expect("price_bond inline");
@@ -203,6 +205,7 @@ async fn settlement_after_maturity_errors() {
             mark: "99.5C".into(),
             curve: None,
             quote_frequency: None,
+            volatility: None,
         }))
         .await;
     assert!(res.is_err());
@@ -218,6 +221,7 @@ async fn spread_mark_without_curve_errors() {
             mark: "+50bps@X".into(),
             curve: None,
             quote_frequency: None,
+            volatility: None,
         }))
         .await;
     assert!(res.is_err());

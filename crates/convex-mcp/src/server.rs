@@ -17,12 +17,12 @@ use rust_decimal_macros::dec;
 
 use convex::{
     barbell_futures, cash_bond_pair, compare_hedges, compute_position_risk, duration_futures,
-    interest_rate_swap, key_rate_futures, narrate, price_from_mark, yield_to_maturity, Bond,
-    CallSchedule, CallableBond, ComparisonReport, Compounding, Constraints, Currency, Date,
-    DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
-    GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois,
-    RateCurve, RateCurveDyn, RiskProfile, Swap, ValueType, Yield, ZSpreadCalculator,
-    ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
+    interest_rate_swap, key_rate_futures, narrate, price_callable_from_mark, price_from_mark,
+    yield_to_maturity, Bond, CallSchedule, CallableBond, ComparisonReport, Compounding,
+    Constraints, Currency, Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond,
+    FloatingRateNote, Frequency, GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet,
+    InterpolationMethod, Mark, Ois, RateCurve, RateCurveDyn, RiskProfile, SpreadType, Swap,
+    ValueType, Yield, ZSpreadCalculator, ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -354,6 +354,11 @@ pub struct PriceBondParams {
     /// Compounding frequency for derived YTM. Defaults to the bond's frequency.
     #[serde(default)]
     pub quote_frequency: Option<Frequency>,
+    /// Annual normal volatility for OAS pricing (decimal, `0.01` = 1%).
+    /// **Required** when `mark` is an OAS spread on a callable bond; ignored
+    /// for any other mark type.
+    #[serde(default)]
+    pub volatility: Option<f64>,
 }
 
 /// Calculate-yield parameters.
@@ -598,6 +603,9 @@ pub struct PriceBondOutput {
     pub ytm_pct: f64,
     pub ytm_frequency: Frequency,
     pub z_spread_bps: Option<f64>,
+    /// OAS in bps. Some only when the input mark was an OAS spread (callable
+    /// bonds only).
+    pub oas_bps: Option<f64>,
 }
 
 /// Output of `calculate_yield`.
@@ -704,7 +712,10 @@ impl ConvexMcpServer {
     #[tool(
         description = "Price a bond against a trader Mark (price | yield | spread). \
             `bond` and `curve` accept either a stored id (string) or an inline spec (object). \
-            Returns clean/dirty price, accrued, derived YTM, and — for spread marks — the input z-spread."
+            OAS spread marks (e.g. `+50 OAS@USD.SOFR`) require a callable bond and a \
+            `volatility` (annual normal vol, decimal: `0.01` = 1%); they price through an \
+            HW1F trinomial tree. Returns clean/dirty price, accrued, derived YTM, the input \
+            z-spread (for Z-spread marks), and the input OAS (for OAS marks)."
     )]
     pub async fn price_bond(
         &self,
@@ -735,8 +746,34 @@ impl ConvexMcpServer {
         })?;
         let freq = params.quote_frequency.unwrap_or_else(|| fixed.frequency());
 
-        let result = price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
-            .map_err(McpToolError::from)?;
+        let is_oas = matches!(
+            &mark,
+            Mark::Spread { value, .. } if value.spread_type() == SpreadType::OAS
+        );
+        let result = if is_oas {
+            let callable = match &bond {
+                StoredBond::Callable(c) => c,
+                _ => {
+                    return Err(McpToolError::InvalidInput(format!(
+                        "OAS marks require a Callable bond, got {}",
+                        bond.type_name()
+                    ))
+                    .into())
+                }
+            };
+            price_callable_from_mark(
+                callable,
+                settlement,
+                &mark,
+                curve_dyn,
+                freq,
+                params.volatility,
+            )
+            .map_err(McpToolError::from)?
+        } else {
+            price_from_mark(fixed, settlement, &mark, curve_dyn, freq)
+                .map_err(McpToolError::from)?
+        };
 
         Self::json_result(&PriceBondOutput {
             bond_id,
@@ -750,6 +787,7 @@ impl ConvexMcpServer {
             ytm_pct: result.ytm_decimal * 100.0,
             ytm_frequency: freq,
             z_spread_bps: result.z_spread_bps,
+            oas_bps: result.oas_bps,
         })
     }
 
@@ -1740,5 +1778,89 @@ mod tests {
             }))
             .await;
         assert!(explicit.is_err());
+    }
+
+    fn callable_bond_with_real_schedule() -> StoredBond {
+        use convex::{CallEntry, CallSchedule, CallType, CallableBond};
+        let base = build_fixed_bond(
+            "CALL.5Y",
+            &BondSpec {
+                coupon_rate_pct: 5.0,
+                maturity: date(2030, 1, 15),
+                issue_date: date(2025, 1, 15),
+                frequency: Frequency::SemiAnnual,
+                day_count: DayCountConvention::Thirty360US,
+                currency: Currency::USD,
+                face_value: 100.0,
+                make_whole_spread_bps: None,
+            },
+        )
+        .unwrap();
+        let schedule = CallSchedule::new(CallType::American)
+            .with_entry(CallEntry::new(date(2027, 1, 15).to_date().unwrap(), 102.0))
+            .with_entry(CallEntry::new(date(2028, 1, 15).to_date().unwrap(), 101.0))
+            .with_entry(CallEntry::new(date(2029, 1, 15).to_date().unwrap(), 100.0));
+        StoredBond::Callable(CallableBond::new(base, schedule))
+    }
+
+    #[tokio::test]
+    async fn price_bond_routes_oas_mark_through_callable_path() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let out = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: Some(0.01),
+            }))
+            .await
+            .unwrap();
+        let text = match &out.content[0].raw {
+            rmcp::model::RawContent::Text(t) => t.text.clone(),
+            _ => panic!("expected text content"),
+        };
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed["oas_bps"].as_f64(), Some(50.0));
+        assert!(parsed["z_spread_bps"].is_null());
+        let dirty = parsed["dirty_price_per_100"].as_f64().unwrap();
+        assert!(dirty > 70.0 && dirty < 130.0, "dirty out of range: {dirty}");
+    }
+
+    #[tokio::test]
+    async fn price_bond_oas_without_volatility_errors() {
+        let server = ConvexMcpServer::new();
+        server.store_bond("CALL.5Y".into(), callable_bond_with_real_schedule());
+
+        let err = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Id("CALL.5Y".into()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: None,
+            }))
+            .await;
+        assert!(err.is_err());
+    }
+
+    #[tokio::test]
+    async fn price_bond_oas_on_non_callable_errors() {
+        let server = ConvexMcpServer::new();
+        let err = server
+            .price_bond(Parameters(PriceBondParams {
+                bond: BondRef::Spec(ust_10y_spec()),
+                settlement: "2025-04-15".into(),
+                mark: "+50 OAS@USD.SOFR".into(),
+                curve: Some(CurveRef::Spec(flat_curve_spec(4.0))),
+                quote_frequency: None,
+                volatility: Some(0.01),
+            }))
+            .await;
+        assert!(err.is_err());
     }
 }

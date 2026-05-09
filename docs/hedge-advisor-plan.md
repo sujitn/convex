@@ -30,12 +30,13 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
 - `CashBondPair` — synthetic on-the-run sovereign sized to neutralize DV01.
 - `InterestRateSwap` — tenor-matched payer/receiver, parallel DV01 match.
 
-### Mark types in `price_from_mark` (was 2, now 3)
+### Mark types in `price_from_mark` (was 2, now 4)
 
 - `Mark::Price { Clean | Dirty }` ✅
 - `Mark::Yield { value, frequency }` ✅
 - `Mark::Spread { ZSpread | ISpread | GSpread, benchmark }` ✅
-- `Mark::Spread { OAS, ... }` — still rejected with a pointer to `compute_spread`; out of scope.
+- `Mark::Spread { OAS, ... }` ✅ — supported on callable bonds via the new
+  `price_callable_from_mark` (HW1F trinomial pricer; `volatility` is required).
 
 ### Performance baseline (release, recorded in `docs/perf-baselines.md`)
 
@@ -61,7 +62,7 @@ Sub-millisecond pipeline. Target was <200 µs end-to-end with 2 strategies; we'r
 
 | Item | Reason |
 | --- | --- |
-| OAS marks in `price_from_mark` | Needs `EmbeddedOptionBond` trait + vol param + tree pricing — not a dispatch tweak. ~1d. |
+| Effective duration / KRD for callable positions in `compute_position_risk` | OAS pricing now lands; risk integration (curve ±1bp at constant OAS) is a follow-up. The OAS calculator already exposes `effective_duration` / `effective_convexity` / `oas_duration`. |
 | Real CTD optimization | Deliverable basket + repo financing + dynamic CTD selection. ~1 week. Synthetic 6%-coupon CF=1.0 deliverable suffices for v1. |
 | FX delta | Cross-currency dimension. v1 is single-currency by design. |
 | Multi-position book hedging | Architectural — `aggregate_portfolio_risk` exists but advisor surface is single-position. Needs MCP tool-shape design. |

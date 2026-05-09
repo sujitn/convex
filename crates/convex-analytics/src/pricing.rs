@@ -7,13 +7,14 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
+use convex_bonds::instruments::CallableBond;
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Frequency, Mark, PriceKind, SpreadType};
 use convex_curves::RateCurveDyn;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::functions::{dirty_price_from_yield, yield_to_maturity};
-use crate::spreads::ZSpreadCalculator;
+use crate::spreads::{OASCalculator, ZSpreadCalculator};
 
 /// Output of `price_from_mark`. Prices and accrued are per 100 face.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -24,10 +25,15 @@ pub struct PricingResult {
     pub dirty_price_per_100: f64,
     /// Accrued interest per 100.
     pub accrued_per_100: f64,
-    /// Yield to maturity as decimal (0.05 = 5%).
+    /// Yield to maturity as decimal (0.05 = 5%). Solved against the bullet
+    /// cashflow stream — for a callable this is YTM-equivalent, not YTW.
     pub ytm_decimal: f64,
-    /// Z-spread in bps. Some only when the input mark was a spread.
+    /// Z-spread in bps. Some only when the input mark was a Z/I/G-spread mark
+    /// that the function passed through.
     pub z_spread_bps: Option<f64>,
+    /// OAS in bps. Some only when the input mark was an OAS spread (handled by
+    /// [`price_callable_from_mark`]).
+    pub oas_bps: Option<f64>,
 }
 
 fn dec_to_f64(d: Decimal, field: &str) -> AnalyticsResult<f64> {
@@ -136,6 +142,78 @@ where
         accrued_per_100: accrued,
         ytm_decimal,
         z_spread_bps,
+        oas_bps: None,
+    })
+}
+
+/// Price a callable bond against a trader [`Mark`], including OAS marks.
+///
+/// Non-OAS marks (price/yield/Z/I/G-spread) are forwarded to [`price_from_mark`]
+/// against the callable bond — its bullet cash-flow stream is what gets
+/// discounted, identical to the existing surface.
+///
+/// **OAS marks** route through an HW1F trinomial pricer
+/// ([`OASCalculator::default_hull_white`], 200 steps): given OAS in bps and an
+/// annual normal volatility (decimal, `0.01` = 1%), the dirty price is the
+/// model price at that constant short-rate spread. `volatility_decimal` is
+/// **required** for OAS marks; passing `None` returns `InvalidInput`. For
+/// non-OAS marks the volatility is ignored.
+///
+/// The derived YTM is solved against the bullet cashflow stream and is
+/// YTM-equivalent — not YTW. For a deeply ITM callable expected to be called,
+/// callers should report YTW separately.
+pub fn price_callable_from_mark(
+    bond: &CallableBond,
+    settlement: Date,
+    mark: &Mark,
+    curve: Option<&dyn RateCurveDyn>,
+    quote_frequency: Frequency,
+    volatility_decimal: Option<f64>,
+) -> AnalyticsResult<PricingResult> {
+    // Non-OAS marks: forward to the generic path. Volatility, if supplied,
+    // is irrelevant here.
+    let oas_bps_input = match mark {
+        Mark::Spread { value, .. } if value.spread_type() == SpreadType::OAS => value
+            .as_bps()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("OAS bps not finite".into()))?,
+        _ => return price_from_mark(bond, settlement, mark, curve, quote_frequency),
+    };
+
+    let curve =
+        curve.ok_or_else(|| AnalyticsError::InvalidInput("OAS mark requires a curve".into()))?;
+    let vol = volatility_decimal.ok_or_else(|| {
+        AnalyticsError::InvalidInput(
+            "OAS mark requires `volatility_decimal` (annual normal vol, e.g. 0.01 = 1%)".into(),
+        )
+    })?;
+    if !vol.is_finite() || vol <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "OAS volatility must be finite and strictly positive (got {vol})"
+        )));
+    }
+
+    let oas_decimal = oas_bps_input / 10_000.0;
+    let calculator = OASCalculator::default_hull_white(vol);
+    let dirty = calculator.price_with_oas(bond, curve, oas_decimal, settlement)?;
+
+    let accrued = dec_to_f64(bond.accrued_interest(settlement), "accrued")?;
+    let clean = dirty - accrued;
+    let ytm_decimal = yield_to_maturity(
+        bond,
+        settlement,
+        f64_to_dec(clean, "clean price")?,
+        quote_frequency,
+    )?
+    .yield_value;
+
+    Ok(PricingResult {
+        clean_price_per_100: clean,
+        dirty_price_per_100: dirty,
+        accrued_per_100: accrued,
+        ytm_decimal,
+        z_spread_bps: None,
+        oas_bps: Some(oas_bps_input),
     })
 }
 
@@ -356,5 +434,172 @@ mod tests {
             }
             _ => panic!("expected InvalidInput, got {err:?}"),
         }
+    }
+
+    // ---- price_callable_from_mark ----------------------------------------
+
+    fn callable_5pct_5y() -> convex_bonds::instruments::CallableBond {
+        use convex_bonds::instruments::CallableBond;
+        use convex_bonds::types::{CallEntry, CallSchedule, CallType};
+        let base = FixedRateBond::builder()
+            .cusip_unchecked("CALL5Y5")
+            .coupon_rate(dec!(0.05))
+            .maturity(d(2030, 1, 15))
+            .issue_date(d(2025, 1, 15))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .currency(Currency::USD)
+            .face_value(dec!(100))
+            .build()
+            .unwrap();
+        let schedule = CallSchedule::new(CallType::American)
+            .with_entry(CallEntry::new(d(2027, 1, 15), 102.0))
+            .with_entry(CallEntry::new(d(2028, 1, 15), 101.0))
+            .with_entry(CallEntry::new(d(2029, 1, 15), 100.0));
+        CallableBond::new(base, schedule)
+    }
+
+    #[test]
+    fn callable_oas_mark_returns_finite_prices() {
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let mark = Mark::Spread {
+            value: Spread::new(dec!(50), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        let r = price_callable_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &mark,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            Some(0.01),
+        )
+        .unwrap();
+        assert!(r.dirty_price_per_100.is_finite());
+        assert!(r.clean_price_per_100 > 70.0 && r.clean_price_per_100 < 130.0);
+        assert_eq!(r.oas_bps, Some(50.0));
+        assert_eq!(r.z_spread_bps, None);
+        assert!((r.dirty_price_per_100 - r.clean_price_per_100 - r.accrued_per_100).abs() < 1e-9);
+    }
+
+    #[test]
+    fn callable_oas_mark_requires_volatility() {
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let mark = Mark::Spread {
+            value: Spread::new(dec!(50), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        let err = price_callable_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &mark,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            None,
+        )
+        .unwrap_err();
+        match err {
+            AnalyticsError::InvalidInput(msg) => {
+                assert!(msg.contains("volatility"), "got {msg}")
+            }
+            _ => panic!("expected InvalidInput, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn callable_oas_rejects_non_positive_vol() {
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let mark = Mark::Spread {
+            value: Spread::new(dec!(50), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        for bad in [0.0, -0.01, f64::NAN, f64::INFINITY] {
+            let err = price_callable_from_mark(
+                &bond,
+                d(2025, 4, 15),
+                &mark,
+                Some(&curve),
+                Frequency::SemiAnnual,
+                Some(bad),
+            );
+            assert!(
+                matches!(err, Err(AnalyticsError::InvalidInput(_))),
+                "vol={bad} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn callable_non_oas_mark_forwards_to_generic_path() {
+        // A yield mark on a callable should give the same answer as
+        // price_from_mark on its base bond — the function is just a forwarder
+        // for the non-OAS case.
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let yield_mark = Mark::Yield {
+            value: dec!(0.05),
+            frequency: Frequency::SemiAnnual,
+        };
+        let via_callable = price_callable_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &yield_mark,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            None,
+        )
+        .unwrap();
+        let via_generic = price_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &yield_mark,
+            Some(&curve),
+            Frequency::SemiAnnual,
+        )
+        .unwrap();
+        assert!((via_callable.clean_price_per_100 - via_generic.clean_price_per_100).abs() < 1e-9);
+        assert_eq!(via_callable.oas_bps, None);
+    }
+
+    #[test]
+    fn callable_oas_higher_oas_lowers_price() {
+        let bond = callable_5pct_5y();
+        let curve = flat_curve(0.04);
+        let cheap = Mark::Spread {
+            value: Spread::new(dec!(0), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        let rich = Mark::Spread {
+            value: Spread::new(dec!(200), SpreadType::OAS),
+            benchmark: "USD.SOFR".into(),
+        };
+        let p_cheap = price_callable_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &cheap,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            Some(0.01),
+        )
+        .unwrap();
+        let p_rich = price_callable_from_mark(
+            &bond,
+            d(2025, 4, 15),
+            &rich,
+            Some(&curve),
+            Frequency::SemiAnnual,
+            Some(0.01),
+        )
+        .unwrap();
+        // 200 bp wider OAS → lower price.
+        assert!(
+            p_rich.dirty_price_per_100 < p_cheap.dirty_price_per_100 - 1.0,
+            "wider OAS should lower price; got {} vs {}",
+            p_rich.dirty_price_per_100,
+            p_cheap.dirty_price_per_100,
+        );
     }
 }
