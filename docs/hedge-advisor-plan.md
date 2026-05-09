@@ -48,6 +48,18 @@ The original 11 commits all landed (see §3.3 below — every box checked). Subs
   convention) for the repo input to net-basis CTD selection, falling back
   to the per-currency constant only if the curve query fails. Two new
   tests prove the repo tracks and shifts with the curve front-end.
+- **Single-pass CTD path** in `bond_future_risk`: combined entry
+  `select_ctd_with_market_or_fair_price` prices the basket once,
+  computes F (input or no-arb fair forward), and selects min-net-basis
+  CTD. Saves ~17–19% on the propose / end-to-end benches vs the prior
+  two-pass implementation. Standalone `fair_futures_price` and
+  `select_ctd_by_net_basis` remain public for diagnostics.
+- **Per-bucket residual constraints** (`KeyRateBucketLimit`):
+  `Constraints` gains an optional `max_residual_per_bucket` list. Each
+  entry caps `|residual partial DV01|` at one tenor; violations surface
+  as `TradeoffNotes::weaknesses` and lose the `compare_hedges`
+  recommendation race the same way `max_residual_dv01` and
+  `max_cost_bps` already do.
 
 ### Strategies shipped (was 2, now 5)
 

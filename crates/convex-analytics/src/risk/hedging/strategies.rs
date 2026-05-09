@@ -74,12 +74,7 @@ pub fn duration_futures(
             "Roll risk on contract expiry".into(),
         ],
     };
-    tag_constraint_violations(
-        constraints,
-        &residual.residual_dv01,
-        cost_bps,
-        &mut tradeoffs,
-    );
+    tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
         strategy: "DurationFutures".into(),
@@ -180,12 +175,7 @@ pub fn barbell_futures(
             "Picks one target bucket; off-target buckets are not pinned".into(),
         ],
     };
-    tag_constraint_violations(
-        constraints,
-        &residual.residual_dv01,
-        cost_bps,
-        &mut tradeoffs,
-    );
+    tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
         strategy: "BarbellFutures".into(),
@@ -333,12 +323,7 @@ pub fn cash_bond_pair(
             "Funding cost (repo) on the short leg; not modelled in v1".into(),
         ],
     };
-    tag_constraint_violations(
-        constraints,
-        &residual.residual_dv01,
-        cost_bps,
-        &mut tradeoffs,
-    );
+    tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
         strategy: "CashBondPair".into(),
@@ -451,12 +436,7 @@ pub fn interest_rate_swap(
             "Wider bid-ask than listed futures".into(),
         ],
     };
-    tag_constraint_violations(
-        constraints,
-        &residual.residual_dv01,
-        cost_bps,
-        &mut tradeoffs,
-    );
+    tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
         strategy: "InterestRateSwap".into(),
@@ -549,12 +529,7 @@ pub fn key_rate_futures(
             "Sensitive to the ladder's KRD matrix conditioning; may swing big with tiny tenor moves".into(),
         ],
     };
-    tag_constraint_violations(
-        constraints,
-        &residual.residual_dv01,
-        cost_bps,
-        &mut tradeoffs,
-    );
+    tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
         strategy: "KeyRateFutures".into(),
@@ -830,15 +805,15 @@ fn strategy_provenance(position: &RiskProfile, discount_curve_id: &str) -> Prove
 
 fn tag_constraint_violations(
     constraints: &Constraints,
-    residual_dv01: &f64,
+    residual: &super::types::ResidualRisk,
     cost_bps: f64,
     notes: &mut TradeoffNotes,
 ) {
     if let Some(max_resid) = constraints.max_residual_dv01 {
-        if residual_dv01.abs() > max_resid {
+        if residual.residual_dv01.abs() > max_resid {
             notes.weaknesses.push(format!(
                 "Residual DV01 {:.0} exceeds max_residual_dv01 = {:.0}",
-                residual_dv01.abs(),
+                residual.residual_dv01.abs(),
                 max_resid
             ));
         }
@@ -848,6 +823,22 @@ fn tag_constraint_violations(
             notes.weaknesses.push(format!(
                 "Cost {cost_bps:.2} bp exceeds max_cost_bps = {max_cost:.2}"
             ));
+        }
+    }
+    for limit in &constraints.max_residual_per_bucket {
+        if let Some(bucket) = residual
+            .residual_buckets
+            .iter()
+            .find(|b| (b.tenor_years - limit.tenor_years).abs() < 1e-9)
+        {
+            if bucket.partial_dv01.abs() > limit.max_abs_dv01 {
+                notes.weaknesses.push(format!(
+                    "{:.1}Y bucket residual {:.0} exceeds max {:.0}",
+                    limit.tenor_years,
+                    bucket.partial_dv01.abs(),
+                    limit.max_abs_dv01,
+                ));
+            }
         }
     }
 }
@@ -1277,6 +1268,73 @@ mod tests {
             hi - lo > 0.025,
             "high-rate coupon ({hi}) should exceed low-rate coupon ({lo}) by ≥ 250bps"
         );
+    }
+
+    // ---- KeyRateBucketLimit ----------------------------------------------
+
+    #[test]
+    fn duration_futures_tags_bucket_violation_when_too_loose() {
+        // DurationFutures leaves curvature on; a tight per-bucket constraint
+        // at off-target tenors should produce a weakness tag.
+        let (pos, curve) = long_10y_corporate();
+        let constraints = Constraints {
+            // 10Y bucket is the dominant exposure; setting a tiny limit at
+            // 2Y/5Y/30Y should flag the residuals at those off-target tenors.
+            max_residual_per_bucket: vec![
+                super::super::types::KeyRateBucketLimit {
+                    tenor_years: 2.0,
+                    max_abs_dv01: 1.0,
+                },
+                super::super::types::KeyRateBucketLimit {
+                    tenor_years: 30.0,
+                    max_abs_dv01: 1.0,
+                },
+            ],
+            ..Default::default()
+        };
+        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
+        let weakness_text = p.tradeoffs.weaknesses.join(" | ");
+        assert!(
+            weakness_text.contains("bucket residual") && weakness_text.contains("exceeds max"),
+            "expected bucket-violation tag in weaknesses, got: {weakness_text}"
+        );
+    }
+
+    #[test]
+    fn duration_futures_no_tag_when_constraint_satisfied() {
+        // Set the per-bucket limits high enough that no real residual ever
+        // breaches; no bucket-violation weakness should appear.
+        let (pos, curve) = long_10y_corporate();
+        let constraints = Constraints {
+            max_residual_per_bucket: vec![super::super::types::KeyRateBucketLimit {
+                tenor_years: 2.0,
+                max_abs_dv01: 1e9,
+            }],
+            ..Default::default()
+        };
+        let p = duration_futures(&pos, &constraints, &curve, "c", d(2026, 1, 15)).unwrap();
+        let weakness_text = p.tradeoffs.weaknesses.join(" | ");
+        assert!(
+            !weakness_text.contains("bucket residual"),
+            "unexpected bucket-violation tag, got: {weakness_text}"
+        );
+    }
+
+    #[test]
+    fn key_rate_bucket_limit_round_trips_via_json() {
+        let limit = super::super::types::KeyRateBucketLimit {
+            tenor_years: 10.0,
+            max_abs_dv01: 1500.0,
+        };
+        let s = serde_json::to_string(&limit).unwrap();
+        let back: super::super::types::KeyRateBucketLimit = serde_json::from_str(&s).unwrap();
+        assert_eq!(limit, back);
+
+        // The full Constraints round-trips with an empty default list when
+        // omitted on the wire.
+        let c: Constraints = serde_json::from_str(r#"{"max_residual_dv01": 1000}"#).unwrap();
+        assert_eq!(c.max_residual_dv01, Some(1000.0));
+        assert!(c.max_residual_per_bucket.is_empty());
     }
 
     #[test]

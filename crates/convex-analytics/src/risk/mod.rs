@@ -28,8 +28,8 @@ pub use hedging::{
     fair_futures_price, interest_rate_swap, interest_rate_swap_risk, key_rate_futures, narrate,
     residual_from, select_ctd_by_net_basis, select_ctd_with_market_or_fair_price, BondFuture,
     BondFutureRisk, CashBondLeg, ComparisonReport, ComparisonRow, Constraints, CtdSelection,
-    Deliverable, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, LegRisk,
-    PortfolioRisk, Position, Recommendation, RecommendationReason, ResidualRisk, SwapSide,
+    Deliverable, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucketLimit,
+    LegRisk, PortfolioRisk, Position, Recommendation, RecommendationReason, ResidualRisk, SwapSide,
     TradeoffNotes, COST_MODEL_NAME,
 };
 pub use profile::{

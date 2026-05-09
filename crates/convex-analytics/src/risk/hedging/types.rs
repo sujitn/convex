@@ -133,6 +133,25 @@ pub struct Constraints {
     /// Allow-list of strategy names. Empty = all.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_strategies: Vec<String>,
+    /// Per-bucket maximum |residual partial DV01|. Each entry is
+    /// `(tenor_years, max_abs_dv01)`. A proposal whose residual at any
+    /// listed tenor exceeds the bound gets a weakness tag and loses the
+    /// recommendation in `compare_hedges`. Tenors that aren't in the list
+    /// are unconstrained.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub max_residual_per_bucket: Vec<KeyRateBucketLimit>,
+}
+
+/// One per-bucket residual constraint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct KeyRateBucketLimit {
+    /// Tenor (years) the constraint applies to. Matched against
+    /// `ResidualRisk::residual_buckets[*].tenor_years` exactly.
+    pub tenor_years: f64,
+    /// Max acceptable absolute partial DV01 (in position currency) at this
+    /// tenor.
+    pub max_abs_dv01: f64,
 }
 
 /// Residual risk after applying trades.
