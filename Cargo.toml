@@ -18,7 +18,6 @@ members = [
     "crates/convex-engine",
     "crates/convex-ext-redb",
     "crates/convex-ext-file",
-    "crates/convex-ext-json",
     "crates/convex-server",
 ]
 # Out-of-workspace: keeps Docker/fly.io minimal. Run with --manifest-path.
@@ -54,7 +53,6 @@ convex-traits = { path = "crates/convex-traits" }
 convex-engine = { path = "crates/convex-engine" }
 convex-ext-redb = { path = "crates/convex-ext-redb" }
 convex-ext-file = { path = "crates/convex-ext-file" }
-convex-ext-json = { path = "crates/convex-ext-json" }
 convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
@@ -68,13 +66,10 @@ anyhow = "1.0"
 
 # Mathematical dependencies
 nalgebra = "0.34"
-argmin = "0.9"
-statrs = "0.17"
 approx = "0.5"
 
 # Performance dependencies
 rayon = "1.10"
-ndarray = { version = "0.17", features = ["rayon", "serde"] }
 
 # Utility dependencies
 uuid = { version = "1.19", features = ["serde", "v4"] }

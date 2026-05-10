@@ -20,7 +20,6 @@ thiserror = { workspace = true }
 
 # Linear algebra
 nalgebra = { workspace = true }
-ndarray = { workspace = true }
 
 # Logging
 log = { workspace = true }
