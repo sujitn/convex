@@ -705,19 +705,13 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// First-delivery offset stamped on synthetic deliverables. Front-month
-/// quarterly futures (e.g. CME TYM6 vs settlement in March is 3 months out).
-/// Override matching is `(contract_code, currency)` only — `delivery_months`
-/// is a tiebreaker among multiple matches, not a gate.
+/// First-delivery offset stamped on synthetic deliverables (front-month
+/// quarterly = 3 months from a quarter-start settle).
 const DEFAULT_DELIVERY_MONTHS: u32 = 3;
 
-/// Find a basket override matching `(contract_code, currency)`. When more
-/// than one matches, prefer `delivery_months == DEFAULT_DELIVERY_MONTHS`
-/// (front-month convention); otherwise the smallest `delivery_months`
-/// (de-facto front-month for mid-quarter settles). Currency mismatch on a
-/// code-match is loud — that's the user keying real data under a code from
-/// a different market. Empty-basket and per-deliverable invariants are
-/// enforced downstream in `bond_future_risk`.
+/// Match by `(contract_code, currency)`. On multiple matches, prefer
+/// `delivery_months == DEFAULT_DELIVERY_MONTHS`, then the smallest.
+/// Currency mismatch on a code-match is a hard error.
 fn lookup_basket_override<'a>(
     contract_code: &str,
     currency: Currency,
@@ -763,8 +757,7 @@ fn check_no_duplicate_keys(basket_overrides: &[BondFuture]) -> AnalyticsResult<(
 }
 
 /// `basket_overrides` short-circuits this synthetic path on any
-/// `(contract_code, currency)` match. See `lookup_basket_override` for the
-/// tiebreaker rule when multiple entries match.
+/// `(contract_code, currency)` match (see `lookup_basket_override`).
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -809,20 +802,10 @@ fn make_default_future(
     })
 }
 
-/// Liquid swap tenors the picker can choose from. Restricted to the
-/// deepest benchmark points to keep the heuristic crude and predictable;
-/// callers needing a custom tenor (e.g. 7Y, 15Y) should construct an
-/// `InterestRateSwap` directly rather than relying on the picker.
 const LIQUID_SWAP_TENORS: [f64; 5] = [2.0, 5.0, 10.0, 20.0, 30.0];
 
-/// Snap a real-valued tenor to the liquid swap set by absolute distance,
-/// breaking ties to the longer tenor. NaN / non-finite returns the longest
-/// tenor (preserves the prior NaN-safety behavior).
-///
-/// The longer-on-tie rule is a UX choice — a book MD that displays as
-/// "7.50" should map to 10Y, not 5Y. Parallel duration is hedged by
-/// DV01-neutral sizing regardless of the chosen tenor; this only shapes
-/// the KRD residual.
+/// Snap to `LIQUID_SWAP_TENORS` by absolute distance; ties → longer.
+/// Non-finite returns the longest tenor.
 fn snap_to_liquid_swap_tenor(t: f64) -> f64 {
     if !t.is_finite() {
         return *LIQUID_SWAP_TENORS.last().expect("non-empty const");
@@ -839,19 +822,10 @@ fn snap_to_liquid_swap_tenor(t: f64) -> f64 {
         .expect("non-empty const")
 }
 
-/// Choose a single swap tenor that minimizes residual KRD L2 norm after
-/// DV01-neutral sizing. For each candidate liquid tenor, build a unit par
-/// swap, compute its risk on the position's KRD ladder, scale to neutralize
-/// parallel DV01, and measure residual L2. Pick the minimum (ties → longer).
-///
-/// MD-based snap is used as a fallback when the position has no usable KRD
-/// ladder (empty / all-zero / non-finite DV01) — projection is undefined
-/// in those cases.
-///
-/// `cash_bond_pair` shares this picker. For the same tenor a par cash
-/// bond's KRD differs from a par swap's KRD only by the floating-leg
-/// residual, which is ~bp-scale for OIS-style swaps and won't change the
-/// picked tenor in any realistic regime.
+/// Pick the liquid swap tenor that minimizes residual KRD L2 norm after
+/// DV01-neutral sizing; ties → longer. Falls back to MD-snap when the
+/// position has no usable KRD ladder. Shared by `cash_bond_pair` — the
+/// OIS-swap KRD is a fine probe for cash-bond hedging at the same tenor.
 fn pick_swap_tenor(
     position: &RiskProfile,
     discount_curve: &RateCurve<DiscreteCurve>,
@@ -890,8 +864,7 @@ fn pick_swap_tenor(
             fixed_frequency: frequency,
             fixed_day_count: day_count,
             floating_index: idx.into(),
-            // Direction is irrelevant for the projection — sign cancels in
-            // DV01-neutral sizing; we project on residual magnitudes only.
+            // Direction is irrelevant; sign cancels in DV01-neutral sizing.
             side: SwapSide::PayFixed,
             notional: Decimal::ONE,
             currency: position.currency,
@@ -1407,17 +1380,13 @@ mod tests {
         p.modified_duration_years = f64::NAN;
         p.key_rate_buckets.clear();
         p.dv01 = 0.0;
-        // Empty ladder + zero DV01 forces the MD-fallback snap, which
-        // routes NaN to the longest tenor.
         let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
         assert_eq!(t, 30.0);
     }
 
     #[test]
     fn pick_swap_tenor_uses_krd_projection_not_md_bucket() {
-        // Book MD displays as 7.5y but KRD is concentrated at 10Y. The
-        // old MD-bucket picker would have returned 5Y; projection picks
-        // 10Y because that minimizes residual KRD L2 norm.
+        // MD ≈ 7.5y but KRD heavy at 10Y → projection picks 10Y.
         let (mut p, curve) = long_10y_corporate();
         p.modified_duration_years = 7.499;
         p.key_rate_buckets = vec![
@@ -1445,9 +1414,7 @@ mod tests {
 
     #[test]
     fn pick_swap_tenor_falls_back_to_md_snap_when_ladder_empty() {
-        // No KRD ladder → projection is undefined. Fallback uses the
-        // round-up midpoint snap: 7.5 ties between 5Y and 10Y, longer
-        // wins.
+        // Empty KRD → MD-snap; 7.5 ties to longer (10Y).
         let (mut p, curve) = long_10y_corporate();
         p.key_rate_buckets.clear();
         p.modified_duration_years = 7.5;
