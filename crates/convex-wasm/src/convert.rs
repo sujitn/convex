@@ -161,18 +161,26 @@ pub(crate) fn parse_compounding(s: &str) -> CompoundingMethod {
     }
 }
 
-/// Parse a tenor string like "5Y", "10Y", "6M", "3M" to years.
-pub(crate) fn parse_tenor_to_years(tenor: &str) -> f64 {
+/// Parse a tenor string like "5Y", "10Y", "6M", "3M" to years. Bare numbers are also
+/// accepted and treated as years. Anything else (e.g. "5Q", "oops") is rejected so
+/// callers don't silently price against an unintended tenor.
+pub(crate) fn parse_tenor_to_years(tenor: &str) -> Result<f64, String> {
     let tenor = tenor.trim().to_uppercase();
-    if tenor.ends_with('Y') {
-        tenor[..tenor.len() - 1].parse::<f64>().unwrap_or(10.0)
-    } else if tenor.ends_with('M') {
-        tenor[..tenor.len() - 1]
-            .parse::<f64>()
+    if tenor.is_empty() {
+        return Err("empty tenor".to_string());
+    }
+    if let Some(num) = tenor.strip_suffix('Y') {
+        num.parse::<f64>()
+            .map_err(|_| format!("invalid tenor years: {}", tenor))
+    } else if let Some(num) = tenor.strip_suffix('M') {
+        num.parse::<f64>()
             .map(|m| m / 12.0)
-            .unwrap_or(1.0)
+            .map_err(|_| format!("invalid tenor months: {}", tenor))
     } else {
-        tenor.parse::<f64>().unwrap_or(10.0)
+        // Bare number — treat as years.
+        tenor
+            .parse::<f64>()
+            .map_err(|_| format!("unrecognized tenor: {}", tenor))
     }
 }
 

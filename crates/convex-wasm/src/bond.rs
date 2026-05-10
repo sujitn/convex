@@ -36,7 +36,8 @@ pub(crate) fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> 
     let first_coupon = params
         .first_coupon_date
         .as_ref()
-        .and_then(|s| parse_date(s).ok());
+        .map(|s| parse_date(s))
+        .transpose()?;
 
     // Create empty identifiers (WASM users don't need bond identifiers)
     let identifiers = BondIdentifiers::new();
@@ -171,7 +172,11 @@ pub(crate) fn get_yield_rules(params: &BondParams) -> YieldCalculationRules {
 
     let ex_dividend_rules = params.ex_dividend_days.map(|days| ExDividendRules {
         days,
-        day_type: DayType::BusinessDays,
+        day_type: if params.use_business_days == Some(false) {
+            DayType::CalendarDays
+        } else {
+            DayType::BusinessDays
+        },
         accrued_method: ExDivAccruedMethod::NegativeAccrued,
     });
 

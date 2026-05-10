@@ -346,7 +346,15 @@ fn price_from_benchmark_spread_impl(
         }
     };
 
-    let tenor_years = parse_tenor_to_years(&benchmark_tenor);
+    let tenor_years = match parse_tenor_to_years(&benchmark_tenor) {
+        Ok(t) => t,
+        Err(e) => {
+            return PriceFromYieldResult {
+                error: Some(e),
+                ..Default::default()
+            }
+        }
+    };
 
     let benchmark_days = (tenor_years * 365.25) as i64;
     let benchmark_date = settlement.add_days(benchmark_days);

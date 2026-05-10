@@ -61,7 +61,7 @@ function createMockModule() {
       { date: '2029-06-15', amount: 2.5, cf_type: 'coupon' },
       { date: '2029-12-15', amount: 102.5, cf_type: 'coupon_and_principal' },
     ],
-    calculate_accrued: (params) => ({ Ok: 1.5 }),
+    calculate_accrued: (params) => ({ accrued_interest: 1.5 }),
     calculate_simple_metrics: (params, price) => ({
       clean_price: price,
       dirty_price: price + 1.5,

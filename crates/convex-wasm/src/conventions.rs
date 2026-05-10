@@ -197,7 +197,7 @@ pub fn get_default_conventions(market: String, instrument_type: String) -> JsVal
     };
 
     let defaults = DefaultConventions {
-        day_count: format!("{:?}", rules.accrual_day_count),
+        day_count: format!("{}", rules.accrual_day_count),
         yield_convention: format_yield_convention(rules.convention),
         compounding: format_compounding(rules.compounding),
         settlement_days: rules.settlement_rules.days,

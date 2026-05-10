@@ -102,14 +102,27 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
 
     if let Some(ref call_entries) = bond_params.call_schedule {
         if !call_entries.is_empty() {
+            // Parse all call dates up front: a single bad date should fail the whole call,
+            // not silently flag the bond callable with a partial / empty schedule.
+            let parsed: Result<Vec<(convex_core::types::Date, f64)>, String> = call_entries
+                .iter()
+                .map(|entry| parse_date(&entry.date).map(|d| (d, entry.price)))
+                .collect();
+            let parsed = match parsed {
+                Ok(v) => v,
+                Err(e) => {
+                    return AnalysisResult {
+                        error: Some(format!("Invalid call schedule entry: {}", e)),
+                        ..Default::default()
+                    }
+                }
+            };
+
             result.is_callable = Some(true);
 
             let mut call_schedule = CallSchedule::new(CallType::American);
-            for entry in call_entries {
-                if let Ok(call_date) = parse_date(&entry.date) {
-                    call_schedule =
-                        call_schedule.with_entry(CallEntry::new(call_date, entry.price));
-                }
+            for (call_date, price) in parsed {
+                call_schedule = call_schedule.with_entry(CallEntry::new(call_date, price));
             }
 
             let callable = CallableBond::new(bond.clone(), call_schedule);
@@ -217,11 +230,15 @@ fn get_cash_flows_impl(params: JsValue) -> Vec<CashFlowEntry> {
         Err(_) => return vec![],
     };
 
+    let face = decimal_to_f64(bond.face_value());
     bond.cash_flows(settlement)
         .iter()
         .map(|cf| {
-            let cf_type = if cf.is_principal() && decimal_to_f64(cf.amount) > 50.0 {
-                if decimal_to_f64(cf.amount) > 100.0 {
+            let amount = decimal_to_f64(cf.amount);
+            // Classify against the bond's face value, not a hardcoded 100, so face_value != 100
+            // (e.g. 1000 for institutional notional) doesn't misclassify maturities.
+            let cf_type = if cf.is_principal() && amount >= face / 2.0 {
+                if amount > face {
                     "coupon_and_principal"
                 } else {
                     "principal"
@@ -232,7 +249,7 @@ fn get_cash_flows_impl(params: JsValue) -> Vec<CashFlowEntry> {
 
             CashFlowEntry {
                 date: format!("{}", cf.date),
-                amount: decimal_to_f64(cf.amount),
+                amount,
                 cf_type: cf_type.to_string(),
             }
         })
@@ -240,9 +257,21 @@ fn get_cash_flows_impl(params: JsValue) -> Vec<CashFlowEntry> {
 }
 
 /// Calculate accrued interest.
+///
+/// Returns an `AnalysisResult`-shaped object with `accrued_interest` populated on success
+/// or `error` populated on failure — consistent with the other analytics entrypoints.
 #[wasm_bindgen]
 pub fn calculate_accrued(params: JsValue) -> JsValue {
-    let result = calculate_accrued_impl(params);
+    let result = match calculate_accrued_impl(params) {
+        Ok(v) => AnalysisResult {
+            accrued_interest: Some(v),
+            ..Default::default()
+        },
+        Err(e) => AnalysisResult {
+            error: Some(e),
+            ..Default::default()
+        },
+    };
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
 
@@ -307,9 +336,10 @@ fn calculate_simple_metrics_impl(params: JsValue, clean_price: f64) -> AnalysisR
         None => (0, 0.0),
     };
 
-    // Current yield = annual coupon / clean price
-    let annual_coupon =
-        decimal_to_f64(bond.coupon_rate()) * decimal_to_f64(bond.face_value()) / 100.0;
+    // Current yield = annual coupon / clean price.
+    // coupon_rate() is decimal (0.05 for 5%), face_value() is per-100-face (100), so
+    // their product is the annual coupon amount; the percent conversion happens in current_yield.
+    let annual_coupon = decimal_to_f64(bond.coupon_rate()) * decimal_to_f64(bond.face_value());
     let current_yield = if clean_price > 0.0 {
         Some(annual_coupon / clean_price * 100.0)
     } else {
