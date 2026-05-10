@@ -705,25 +705,25 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// Default first-delivery offset for synthetic deliverables and override
-/// matching. Front-month quarterly futures (e.g. CME TYM6 vs settlement in
-/// March is 3 months out). A back-month override (`delivery_months != 3`)
-/// won't match — strategies pick the front-month per CME convention.
+/// First-delivery offset stamped on synthetic deliverables. Front-month
+/// quarterly futures (e.g. CME TYM6 vs settlement in March is 3 months out).
+/// Override matching is `(contract_code, currency)` only — `delivery_months`
+/// is a tiebreaker among multiple matches, not a gate.
 const DEFAULT_DELIVERY_MONTHS: u32 = 3;
 
-/// Find a basket override matching `(contract_code, delivery_months)`.
-/// Errors on a code match with mismatched currency — that's the user keying
-/// real data under a code from a different market. Empty-basket and
-/// per-deliverable invariants are enforced downstream in `bond_future_risk`.
+/// Find a basket override matching `(contract_code, currency)`. When more
+/// than one matches, prefer `delivery_months == DEFAULT_DELIVERY_MONTHS`
+/// (front-month convention); otherwise the smallest `delivery_months`
+/// (de-facto front-month for mid-quarter settles). Currency mismatch on a
+/// code-match is loud — that's the user keying real data under a code from
+/// a different market. Empty-basket and per-deliverable invariants are
+/// enforced downstream in `bond_future_risk`.
 fn lookup_basket_override<'a>(
     contract_code: &str,
     currency: Currency,
-    delivery_months: u32,
     basket_overrides: &'a [BondFuture],
 ) -> AnalyticsResult<Option<&'a BondFuture>> {
-    // Currency mismatch on any code-match is loud — a back-month-only
-    // override flagged with the wrong currency should still complain rather
-    // than fall through to the synthetic.
+    let mut matches: Vec<&BondFuture> = Vec::new();
     for spec in basket_overrides
         .iter()
         .filter(|f| f.contract_code == contract_code)
@@ -734,11 +734,14 @@ fn lookup_basket_override<'a>(
                 spec.currency
             )));
         }
-        if spec.delivery_months == delivery_months {
-            return Ok(Some(spec));
-        }
+        matches.push(spec);
     }
-    Ok(None)
+    let chosen = matches
+        .iter()
+        .find(|m| m.delivery_months == DEFAULT_DELIVERY_MONTHS)
+        .copied()
+        .or_else(|| matches.iter().min_by_key(|m| m.delivery_months).copied());
+    Ok(chosen)
 }
 
 /// Reject duplicate `(contract_code, delivery_months)` keys. Front + back
@@ -759,8 +762,9 @@ fn check_no_duplicate_keys(basket_overrides: &[BondFuture]) -> AnalyticsResult<(
     Ok(())
 }
 
-/// `basket_overrides` short-circuits this synthetic path on
-/// `(contract_code, currency, delivery_months=DEFAULT_DELIVERY_MONTHS)` match.
+/// `basket_overrides` short-circuits this synthetic path on any
+/// `(contract_code, currency)` match. See `lookup_basket_override` for the
+/// tiebreaker rule when multiple entries match.
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -769,12 +773,7 @@ fn make_default_future(
     settlement: Date,
     basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<BondFuture> {
-    if let Some(real) = lookup_basket_override(
-        contract_code,
-        currency,
-        DEFAULT_DELIVERY_MONTHS,
-        basket_overrides,
-    )? {
+    if let Some(real) = lookup_basket_override(contract_code, currency, basket_overrides)? {
         return Ok(real.clone());
     }
     let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
@@ -1842,9 +1841,11 @@ mod tests {
     }
 
     #[test]
-    fn back_month_only_override_falls_back_to_synthetic() {
-        // Trader supplies only the back-month TY. Strategies want front;
-        // synthetic 3-month TY is built (single-deliverable basket).
+    fn back_month_only_override_is_used() {
+        // Trader supplies only the back-month TY. The matcher keys on
+        // (contract_code, currency) — `delivery_months` is a tiebreaker, not
+        // a gate — so this back-month override is adopted rather than
+        // falling through to a synthetic.
         let (pos, curve) = long_10y_corporate();
         let mut back = ty_basket_override(Currency::USD);
         back.delivery_months = 6;
@@ -1861,8 +1862,8 @@ mod tests {
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
             panic!("expected BondFuture");
         };
-        assert_eq!(f.delivery_months, 3);
-        assert_eq!(f.deliverable_basket.len(), 1, "synthetic, not the override");
+        assert_eq!(f.delivery_months, 6, "override flowed through");
+        assert_eq!(f.deliverable_basket.len(), 4, "override basket, not synthetic");
     }
 
     #[test]
