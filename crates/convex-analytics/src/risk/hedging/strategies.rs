@@ -277,7 +277,7 @@ pub fn cash_bond_pair(
 ) -> AnalyticsResult<HedgeProposal> {
     let heuristic = HeuristicCostFeed;
     let cost_feed = cost_feed.unwrap_or(&heuristic);
-    let tenor_years = pick_swap_tenor(position);
+    let tenor_years = pick_swap_tenor(position, discount_curve, discount_curve_id, settlement)?;
     let coupon = otr_par_coupon(discount_curve, settlement, tenor_years)?;
 
     // Probe with a unit face to learn DV01 per unit face; scale linearly.
@@ -377,7 +377,7 @@ pub fn interest_rate_swap(
 ) -> AnalyticsResult<HedgeProposal> {
     let heuristic = HeuristicCostFeed;
     let cost_feed = cost_feed.unwrap_or(&heuristic);
-    let tenor_years = pick_swap_tenor(position);
+    let tenor_years = pick_swap_tenor(position, discount_curve, discount_curve_id, settlement)?;
     let side = if position.dv01 >= 0.0 {
         SwapSide::PayFixed
     } else {
@@ -809,21 +809,134 @@ fn make_default_future(
     })
 }
 
-fn pick_swap_tenor(position: &RiskProfile) -> f64 {
-    // Bucket modified duration into standard liquid swap tenors. NaN falls
-    // through every comparison and lands in the final branch (30Y).
-    let d = position.modified_duration_years;
-    if d < 3.5 {
-        2.0
-    } else if d < 7.5 {
-        5.0
-    } else if d < 15.0 {
-        10.0
-    } else if d < 25.0 {
-        20.0
-    } else {
-        30.0
+/// Liquid swap tenors the picker can choose from. Restricted to the
+/// deepest benchmark points to keep the heuristic crude and predictable;
+/// callers needing a custom tenor (e.g. 7Y, 15Y) should construct an
+/// `InterestRateSwap` directly rather than relying on the picker.
+const LIQUID_SWAP_TENORS: [f64; 5] = [2.0, 5.0, 10.0, 20.0, 30.0];
+
+/// Snap a real-valued tenor to the liquid swap set by absolute distance,
+/// breaking ties to the longer tenor. NaN / non-finite returns the longest
+/// tenor (preserves the prior NaN-safety behavior).
+///
+/// The longer-on-tie rule is a UX choice — a book MD that displays as
+/// "7.50" should map to 10Y, not 5Y. Parallel duration is hedged by
+/// DV01-neutral sizing regardless of the chosen tenor; this only shapes
+/// the KRD residual.
+fn snap_to_liquid_swap_tenor(t: f64) -> f64 {
+    if !t.is_finite() {
+        return *LIQUID_SWAP_TENORS.last().expect("non-empty const");
     }
+    *LIQUID_SWAP_TENORS
+        .iter()
+        .min_by(|a, b| {
+            let da = (**a - t).abs();
+            let db = (**b - t).abs();
+            da.partial_cmp(&db)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
+        })
+        .expect("non-empty const")
+}
+
+/// Choose a single swap tenor that minimizes residual KRD L2 norm after
+/// DV01-neutral sizing. For each candidate liquid tenor, build a unit par
+/// swap, compute its risk on the position's KRD ladder, scale to neutralize
+/// parallel DV01, and measure residual L2. Pick the minimum (ties → longer).
+///
+/// MD-based snap is used as a fallback when the position has no usable KRD
+/// ladder (empty / all-zero / non-finite DV01) — projection is undefined
+/// in those cases.
+///
+/// `cash_bond_pair` shares this picker. For the same tenor a par cash
+/// bond's KRD differs from a par swap's KRD only by the floating-leg
+/// residual, which is ~bp-scale for OIS-style swaps and won't change the
+/// picked tenor in any realistic regime.
+fn pick_swap_tenor(
+    position: &RiskProfile,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    discount_curve_id: &str,
+    settlement: Date,
+) -> AnalyticsResult<f64> {
+    let krd_threshold = position.dv01.abs() * 1e-9;
+    let usable_krd = !position.key_rate_buckets.is_empty()
+        && position
+            .key_rate_buckets
+            .iter()
+            .any(|b| b.partial_dv01.abs() > krd_threshold);
+    if !usable_krd || !position.dv01.is_finite() || position.dv01 == 0.0 {
+        return Ok(snap_to_liquid_swap_tenor(position.modified_duration_years));
+    }
+
+    let (frequency, day_count, idx) = swap_conventions_for(position.currency)?;
+    let tenor_grid: Vec<f64> = position
+        .key_rate_buckets
+        .iter()
+        .map(|b| b.tenor_years)
+        .collect();
+    let curve_t = curve_tenor_to(discount_curve, settlement);
+
+    let mut best: Option<(f64, f64)> = None;
+    for &candidate in LIQUID_SWAP_TENORS.iter() {
+        let par = RateCurveDyn::par_swap_rate(
+            discount_curve,
+            curve_t + candidate,
+            frequency.periods_per_year(),
+        )
+        .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+        let unit = InterestRateSwap {
+            tenor_years: candidate,
+            fixed_rate_decimal: par,
+            fixed_frequency: frequency,
+            fixed_day_count: day_count,
+            floating_index: idx.into(),
+            // Direction is irrelevant for the projection — sign cancels in
+            // DV01-neutral sizing; we project on residual magnitudes only.
+            side: SwapSide::PayFixed,
+            notional: Decimal::ONE,
+            currency: position.currency,
+        };
+        let unit_risk = interest_rate_swap_risk(
+            &unit,
+            discount_curve,
+            discount_curve_id,
+            settlement,
+            Some(&tenor_grid),
+        )?;
+        if unit_risk.dv01.abs() < 1e-12 {
+            continue;
+        }
+        let scale = -position.dv01 / unit_risk.dv01;
+        let l2_sq: f64 = position
+            .key_rate_buckets
+            .iter()
+            .map(|pb| {
+                let unit_at = unit_risk
+                    .buckets
+                    .iter()
+                    .find(|ub| (ub.tenor_years - pb.tenor_years).abs() < 1e-9)
+                    .map(|ub| ub.partial_dv01)
+                    .unwrap_or(0.0);
+                let residual = pb.partial_dv01 + scale * unit_at;
+                residual * residual
+            })
+            .sum();
+        let l2 = l2_sq.sqrt();
+        best = match best {
+            None => Some((candidate, l2)),
+            Some((cur_t, cur_l2)) => {
+                if l2 < cur_l2 || (l2 == cur_l2 && candidate > cur_t) {
+                    Some((candidate, l2))
+                } else {
+                    Some((cur_t, cur_l2))
+                }
+            }
+        };
+    }
+
+    Ok(best
+        .map(|(t, _)| t)
+        .unwrap_or_else(|| snap_to_liquid_swap_tenor(position.modified_duration_years)))
 }
 
 fn swap_conventions_for(
@@ -1290,10 +1403,67 @@ mod tests {
 
     #[test]
     fn nan_duration_does_not_panic_in_pick_swap_tenor() {
-        let mut p = long_10y_corporate().0;
+        let (mut p, curve) = long_10y_corporate();
         p.modified_duration_years = f64::NAN;
-        // Just assert no panic; result is the >25 fallback.
-        assert_eq!(pick_swap_tenor(&p), 30.0);
+        p.key_rate_buckets.clear();
+        p.dv01 = 0.0;
+        // Empty ladder + zero DV01 forces the MD-fallback snap, which
+        // routes NaN to the longest tenor.
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 30.0);
+    }
+
+    #[test]
+    fn pick_swap_tenor_uses_krd_projection_not_md_bucket() {
+        // Book MD displays as 7.5y but KRD is concentrated at 10Y. The
+        // old MD-bucket picker would have returned 5Y; projection picks
+        // 10Y because that minimizes residual KRD L2 norm.
+        let (mut p, curve) = long_10y_corporate();
+        p.modified_duration_years = 7.499;
+        p.key_rate_buckets = vec![
+            KeyRateBucket {
+                tenor_years: 2.0,
+                partial_dv01: 50.0,
+            },
+            KeyRateBucket {
+                tenor_years: 5.0,
+                partial_dv01: 100.0,
+            },
+            KeyRateBucket {
+                tenor_years: 10.0,
+                partial_dv01: 850.0,
+            },
+            KeyRateBucket {
+                tenor_years: 30.0,
+                partial_dv01: 100.0,
+            },
+        ];
+        p.dv01 = p.key_rate_buckets.iter().map(|b| b.partial_dv01).sum();
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 10.0);
+    }
+
+    #[test]
+    fn pick_swap_tenor_falls_back_to_md_snap_when_ladder_empty() {
+        // No KRD ladder → projection is undefined. Fallback uses the
+        // round-up midpoint snap: 7.5 ties between 5Y and 10Y, longer
+        // wins.
+        let (mut p, curve) = long_10y_corporate();
+        p.key_rate_buckets.clear();
+        p.modified_duration_years = 7.5;
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 10.0);
+    }
+
+    #[test]
+    fn snap_to_liquid_swap_tenor_round_up_at_midpoints() {
+        assert_eq!(snap_to_liquid_swap_tenor(3.5), 5.0);
+        assert_eq!(snap_to_liquid_swap_tenor(7.5), 10.0);
+        assert_eq!(snap_to_liquid_swap_tenor(15.0), 20.0);
+        assert_eq!(snap_to_liquid_swap_tenor(25.0), 30.0);
+        assert_eq!(snap_to_liquid_swap_tenor(0.5), 2.0);
+        assert_eq!(snap_to_liquid_swap_tenor(40.0), 30.0);
+        assert_eq!(snap_to_liquid_swap_tenor(f64::NAN), 30.0);
     }
 
     // ---- KeyRateFutures ---------------------------------------------------
