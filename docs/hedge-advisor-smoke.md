@@ -112,6 +112,58 @@ Same setup, but:
 returns a profile whose `dv01` is within 1% of the spread-mark version
 (same bond, equivalent yield).
 
+## Test 4 — Per-sleeve book hedge (`propose_book_hedges`)
+
+**Prompt** (paste verbatim into a fresh chat):
+
+> I'm running two sleeves on a USD 4.5%-flat SOFR curve, settling
+> 2026-01-15. Rates sleeve: long $10mm of a 4.5% UST May-2034. Credit
+> sleeve: long $5mm of a 4.0% IG-ish corporate Jan-2031. Hedge the
+> rates sleeve with bond-future strategies only and the credit sleeve
+> with cash-bond pair only — give me both proposals in one call.
+
+**What the agent should do** (single tool call):
+
+`propose_book_hedges` with two `BookGroup` entries:
+- `name: "rates"`, one position spec, curve = USD SOFR,
+  `constraints.allowed_strategies = ["DurationFutures"]` (or
+  `["KeyRateFutures"]` / `["BarbellFutures"]`).
+- `name: "credit"`, one position spec, curve = USD SOFR,
+  `constraints.allowed_strategies = ["CashBondPair"]`.
+
+**Verification checklist**
+
+### Output shape
+- [ ] `groups.len() == 2`.
+- [ ] `groups[0].group_name == "rates"`,
+      `groups[1].group_name == "credit"`.
+- [ ] Each group's `proposals[*].strategy` matches its
+      `allowed_strategies` (rates → futures; credit → `CashBondPair`).
+- [ ] Each group's `aggregate_risk.position_id` defaults to the group
+      name.
+
+### Contributions
+- [ ] Each group has `contributions.len() ==` its position count.
+- [ ] `Σ contributions[i].gross_dv01_share_pct == 100.0` (gross-share basis).
+- [ ] `Σ contributions[i].dv01 ≈ aggregate_risk.dv01` within 1e-6.
+
+### Independence
+- [ ] Different `allowed_strategies` per group are honored
+      independently; the rates sleeve doesn't get a `CashBondPair`
+      proposal and vice versa.
+- [ ] Errors in one group fail the whole call (e.g. mismatched
+      currency within a group → hard error; the other group does not
+      run).
+
+### Agent experience (qualitative)
+- [ ] Agent picks `propose_book_hedges` over the
+      `aggregate_book_risk` → `propose_hedges` chain when the prompt
+      mentions distinct sleeves with different policies.
+- [ ] Agent surfaces the `contributions` table to the user without
+      prompting.
+- [ ] Tool description is clear enough that the agent doesn't try to
+      pass a single shared curve at the top level.
+
 ## Triage notes
 
 | Symptom | Likely cause |

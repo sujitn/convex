@@ -128,16 +128,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 > `provenance.cost_model` and `ComparisonRow.cost_source`.
 
 DV01-neutral hedge proposals with structured tradeoffs. Strategies:
-`DurationFutures`, `BarbellFutures`, `CashBondPair`, `InterestRateSwap`.
+`DurationFutures`, `BarbellFutures`, `KeyRateFutures`, `CashBondPair`,
+`InterestRateSwap`.
 
 ### MCP tools
 
-```
+```text
 compute_position_risk(bond, settlement, mark, notional_face, curve, [key_rate_tenors])
   -> RiskProfile { dv01, modified_duration, key_rate_buckets, …, provenance }
 
-propose_hedges(risk, curve, [constraints])
+aggregate_book_risk(positions, [book_id])
+  -> RiskProfile  # net book DV01, KRD union, DV01-weighted durations
+
+propose_hedges(risk, curve, [constraints], [basket_overrides])
   -> { proposals: HedgeProposal[…], skipped_strategies: [{strategy, reason}] }
+
+propose_book_hedges(groups: BookGroup[…])
+  -> { groups: [{ group_name, aggregate_risk, contributions, proposals,
+                  skipped_strategies }] }
 
 compare_hedges(position, proposals, [constraints])
   -> ComparisonReport { rows, recommendation }
@@ -145,6 +153,14 @@ compare_hedges(position, proposals, [constraints])
 narrate_recommendation(comparison)
   -> { text }   # deterministic template; no LLM call
 ```
+
+`propose_book_hedges` hedges multiple sleeves with **per-group policy** —
+each `BookGroup` carries its own positions, curve, constraints, and
+basket overrides. Useful when a rates sleeve and a credit sleeve need
+different `allowed_strategies` / cost caps in one call. The output's
+`contributions` field decomposes each group's aggregate DV01 by
+position (signed DV01 + share of gross), so traders can see who's
+driving the book.
 
 End-to-end test:
 
@@ -158,8 +174,11 @@ See `docs/hedge-advisor-{investigation,gaps,plan}.md` for design and
 
 ### Deferred
 
-OAS marks; CTD basket + repo financing; multi-position book hedging; FX
-delta; LLM narration; real cost feeds; KRD constraints.
+CTD live basket feed (heuristic synthetic deliverable in place); live
+cost feed (heuristic table only); FX delta / cross-currency hedging;
+LLM narrator (deterministic template only); CDS / credit DV01;
+inflation-linked instruments; ETF-proxy strategy; per-benchmark partial
+spread DV01.
 
 ## Architecture
 

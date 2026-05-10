@@ -18,12 +18,12 @@ use rust_decimal_macros::dec;
 use convex::{
     aggregate_risk_profiles, barbell_futures, cash_bond_pair, compare_hedges,
     compute_callable_position_risk, compute_position_risk, duration_futures, interest_rate_swap,
-    key_rate_futures, narrate, price_callable_from_mark, price_from_mark, yield_to_maturity, Bond,
-    BondFuture, CallSchedule, CallableBond, ComparisonReport, Compounding, Constraints, Currency,
-    Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote, Frequency,
-    GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet, InterpolationMethod, Mark, Ois,
-    RateCurve, RateCurveDyn, RiskProfile, SpreadType, Swap, ValueType, Yield, ZSpreadCalculator,
-    ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
+    key_rate_futures, narrate, position_contributions, price_callable_from_mark, price_from_mark,
+    yield_to_maturity, Bond, BondFuture, CallSchedule, CallableBond, ComparisonReport, Compounding,
+    Constraints, Currency, Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond,
+    FloatingRateNote, Frequency, GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet,
+    InterpolationMethod, Mark, Ois, PositionContribution, RateCurve, RateCurveDyn, RiskProfile,
+    SpreadType, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -500,6 +500,64 @@ pub struct ProposeHedgesOutput {
     /// Strategies excluded by `allowed_strategies` are *not* listed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_strategies: Vec<SkippedStrategy>,
+}
+
+/// One sleeve of a book. Positions in a group are aggregated, then hedged
+/// independently with the group's own constraints / basket / curve.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct BookGroup {
+    /// Caller-supplied sleeve name (e.g. `"rates"`, `"credit"`). Surfaces on
+    /// the corresponding [`GroupProposals::group_name`] and, when `book_id`
+    /// is omitted, on the aggregate's `position_id`.
+    pub name: String,
+    /// Positions in this group. Single-currency, single-evaluation-date.
+    pub positions: Vec<ComputePositionRiskParams>,
+    /// Discount curve for this group. Per-group so a rates sleeve can use a
+    /// SOFR curve while a credit sleeve uses a corp curve in the same call.
+    pub curve: CurveRef,
+    /// Per-group constraints — `allowed_strategies`, residual / cost caps,
+    /// per-bucket residual limits. Independent of other groups.
+    #[serde(default)]
+    pub constraints: Option<Constraints>,
+    /// Per-group basket overrides. Same semantics as
+    /// [`ProposeHedgesParams::basket_overrides`] but scoped to this sleeve.
+    #[serde(default)]
+    pub basket_overrides: Vec<BondFuture>,
+    /// Becomes `RiskProfile.position_id` on the group's aggregate.
+    /// Defaults to `name`.
+    #[serde(default)]
+    pub book_id: Option<String>,
+}
+
+/// `propose_book_hedges` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ProposeBookHedgesParams {
+    /// Sleeves to hedge. Each is aggregated and hedged independently.
+    pub groups: Vec<BookGroup>,
+}
+
+/// One group's hedging output.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct GroupProposals {
+    pub group_name: String,
+    /// Book-level aggregate risk profile for this sleeve.
+    pub aggregate_risk: RiskProfile,
+    /// Per-position contribution to the group's aggregate.
+    pub contributions: Vec<PositionContribution>,
+    /// Hedge proposals for the group's aggregate.
+    pub proposals: Vec<HedgeProposal>,
+    /// Strategies that ran but failed for this group's profile (same
+    /// semantics as [`ProposeHedgesOutput::skipped_strategies`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_strategies: Vec<SkippedStrategy>,
+}
+
+/// `propose_book_hedges` output.
+#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct ProposeBookHedgesOutput {
+    pub groups: Vec<GroupProposals>,
 }
 
 /// `compare_hedges` parameters.
@@ -1239,8 +1297,40 @@ impl ConvexMcpServer {
         let (curve, curve_id) = self.resolve_curve(&params.curve)?;
         let curve_id_str = curve_id.unwrap_or_else(|| "<inline>".into());
         let constraints = params.constraints.unwrap_or_default();
-        let settlement = params.risk.settlement;
+        let (proposals, skipped) = self.run_strategies(
+            &params.risk,
+            &curve,
+            &curve_id_str,
+            &constraints,
+            &params.basket_overrides,
+        )?;
+        if proposals.is_empty() {
+            return Err(McpToolError::InvalidInput(format!(
+                "propose_hedges: no strategy produced a proposal (allowed_strategies = {:?}, \
+                 skipped = {:?})",
+                constraints.allowed_strategies,
+                skipped.iter().map(|s| &s.strategy).collect::<Vec<_>>()
+            ))
+            .into());
+        }
+        Self::json_result(&ProposeHedgesOutput {
+            proposals,
+            skipped_strategies: skipped,
+        })
+    }
 
+    /// Run every allowed strategy against `risk`, partitioning results into
+    /// (proposals, silently-skipped). Strategies the caller named explicitly
+    /// in `constraints.allowed_strategies` hard-error on failure; unrequested
+    /// strategies that fail land in `skipped` so the caller can audit.
+    fn run_strategies(
+        &self,
+        risk: &RiskProfile,
+        curve: &RateCurve<DiscreteCurve>,
+        curve_id: &str,
+        constraints: &Constraints,
+        basket_overrides: &[BondFuture],
+    ) -> Result<(Vec<HedgeProposal>, Vec<SkippedStrategy>), McpError> {
         let allow = |name: &str| {
             constraints.allowed_strategies.is_empty()
                 || constraints.allowed_strategies.iter().any(|s| s == name)
@@ -1248,6 +1338,7 @@ impl ConvexMcpServer {
         let was_explicitly_requested =
             |name: &str| constraints.allowed_strategies.iter().any(|s| s == name);
 
+        let settlement = risk.settlement;
         let mut proposals: Vec<HedgeProposal> = Vec::new();
         let mut skipped: Vec<SkippedStrategy> = Vec::new();
 
@@ -1274,12 +1365,12 @@ impl ConvexMcpServer {
             try_run(
                 "DurationFutures",
                 duration_futures(
-                    &params.risk,
-                    &constraints,
-                    &curve,
-                    &curve_id_str,
+                    risk,
+                    constraints,
+                    curve,
+                    curve_id,
                     settlement,
-                    &params.basket_overrides,
+                    basket_overrides,
                     None,
                 ),
             )?;
@@ -1288,12 +1379,12 @@ impl ConvexMcpServer {
             try_run(
                 "BarbellFutures",
                 barbell_futures(
-                    &params.risk,
-                    &constraints,
-                    &curve,
-                    &curve_id_str,
+                    risk,
+                    constraints,
+                    curve,
+                    curve_id,
                     settlement,
-                    &params.basket_overrides,
+                    basket_overrides,
                     None,
                 ),
             )?;
@@ -1302,12 +1393,12 @@ impl ConvexMcpServer {
             try_run(
                 "KeyRateFutures",
                 key_rate_futures(
-                    &params.risk,
-                    &constraints,
-                    &curve,
-                    &curve_id_str,
+                    risk,
+                    constraints,
+                    curve,
+                    curve_id,
                     settlement,
-                    &params.basket_overrides,
+                    basket_overrides,
                     None,
                 ),
             )?;
@@ -1315,42 +1406,80 @@ impl ConvexMcpServer {
         if allow("CashBondPair") {
             try_run(
                 "CashBondPair",
-                cash_bond_pair(
-                    &params.risk,
-                    &constraints,
-                    &curve,
-                    &curve_id_str,
-                    settlement,
-                    None,
-                ),
+                cash_bond_pair(risk, constraints, curve, curve_id, settlement, None),
             )?;
         }
         if allow("InterestRateSwap") {
             try_run(
                 "InterestRateSwap",
-                interest_rate_swap(
-                    &params.risk,
-                    &constraints,
-                    &curve,
-                    &curve_id_str,
-                    settlement,
-                    None,
-                ),
+                interest_rate_swap(risk, constraints, curve, curve_id, settlement, None),
             )?;
         }
-        if proposals.is_empty() {
-            return Err(McpToolError::InvalidInput(format!(
-                "propose_hedges: no strategy produced a proposal (allowed_strategies = {:?}, \
-                 skipped = {:?})",
-                constraints.allowed_strategies,
-                skipped.iter().map(|s| &s.strategy).collect::<Vec<_>>()
-            ))
+        Ok((proposals, skipped))
+    }
+
+    #[tool(
+        description = "Per-sleeve book hedge. Each `BookGroup` carries its own positions, \
+        curve, constraints, and basket overrides; groups are aggregated and hedged \
+        independently. Output per group: aggregate RiskProfile, per-position contribution \
+        decomposition (signed DV01 + share of gross), proposals, skipped strategies."
+    )]
+    pub async fn propose_book_hedges(
+        &self,
+        Parameters(params): Parameters<ProposeBookHedgesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        if params.groups.is_empty() {
+            return Err(McpToolError::InvalidInput(
+                "propose_book_hedges: groups list is empty".into(),
+            )
             .into());
         }
-        Self::json_result(&ProposeHedgesOutput {
-            proposals,
-            skipped_strategies: skipped,
-        })
+        let mut out_groups = Vec::with_capacity(params.groups.len());
+        for group in &params.groups {
+            if group.positions.is_empty() {
+                return Err(McpToolError::InvalidInput(format!(
+                    "propose_book_hedges: group '{}' has no positions",
+                    group.name,
+                ))
+                .into());
+            }
+            let mut profiles = Vec::with_capacity(group.positions.len());
+            for pos in &group.positions {
+                profiles.push(self.position_risk(pos)?);
+            }
+            let book_id = group.book_id.clone().unwrap_or_else(|| group.name.clone());
+            let aggregate =
+                aggregate_risk_profiles(&profiles, Some(book_id)).map_err(McpToolError::from)?;
+            let contributions = position_contributions(&profiles);
+            let (curve, curve_id) = self.resolve_curve(&group.curve)?;
+            let curve_id_str = curve_id.unwrap_or_else(|| "<inline>".into());
+            let constraints = group.constraints.clone().unwrap_or_default();
+            let (proposals, skipped) = self.run_strategies(
+                &aggregate,
+                &curve,
+                &curve_id_str,
+                &constraints,
+                &group.basket_overrides,
+            )?;
+            if proposals.is_empty() {
+                return Err(McpToolError::InvalidInput(format!(
+                    "propose_book_hedges: group '{}' produced no proposals \
+                     (allowed_strategies = {:?}, skipped = {:?})",
+                    group.name,
+                    constraints.allowed_strategies,
+                    skipped.iter().map(|s| &s.strategy).collect::<Vec<_>>(),
+                ))
+                .into());
+            }
+            out_groups.push(GroupProposals {
+                group_name: group.name.clone(),
+                aggregate_risk: aggregate,
+                contributions,
+                proposals,
+                skipped_strategies: skipped,
+            });
+        }
+        Self::json_result(&ProposeBookHedgesOutput { groups: out_groups })
     }
 
     #[tool(
@@ -2341,5 +2470,282 @@ mod tests {
             }))
             .await;
         assert!(err.is_err());
+    }
+
+    // ---- propose_book_hedges -----------------------------------------------
+
+    #[tokio::test]
+    async fn propose_book_hedges_two_groups_with_independent_constraints() {
+        // A rates sleeve allowed only DurationFutures; a credit sleeve
+        // allowed only CashBondPair. Output must reflect each group's policy.
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        let out: ProposeBookHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_book_hedges(Parameters(ProposeBookHedgesParams {
+                    groups: vec![
+                        BookGroup {
+                            name: "rates".into(),
+                            positions: vec![pos_10y.clone()],
+                            curve: CurveRef::Spec(curve.clone()),
+                            constraints: Some(Constraints {
+                                allowed_strategies: vec!["DurationFutures".into()],
+                                ..Default::default()
+                            }),
+                            basket_overrides: vec![],
+                            book_id: None,
+                        },
+                        BookGroup {
+                            name: "credit".into(),
+                            positions: vec![pos_5y.clone()],
+                            curve: CurveRef::Spec(curve.clone()),
+                            constraints: Some(Constraints {
+                                allowed_strategies: vec!["CashBondPair".into()],
+                                ..Default::default()
+                            }),
+                            basket_overrides: vec![],
+                            book_id: None,
+                        },
+                    ],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        assert_eq!(out.groups.len(), 2);
+        let rates = &out.groups[0];
+        let credit = &out.groups[1];
+        assert_eq!(rates.group_name, "rates");
+        assert_eq!(credit.group_name, "credit");
+        // Each sleeve gets exactly the strategy named in its allow-list.
+        assert_eq!(rates.proposals.len(), 1);
+        assert_eq!(rates.proposals[0].strategy, "DurationFutures");
+        assert_eq!(credit.proposals.len(), 1);
+        assert_eq!(credit.proposals[0].strategy, "CashBondPair");
+        // Aggregate.position_id defaults to the group name.
+        assert_eq!(rates.aggregate_risk.position_id.as_deref(), Some("rates"));
+        assert_eq!(credit.aggregate_risk.position_id.as_deref(), Some("credit"));
+    }
+
+    #[tokio::test]
+    async fn propose_book_hedges_one_group_matches_aggregate_then_propose_chain() {
+        // A single group with both legs should produce the same aggregate
+        // and proposals as the aggregate_book_risk → propose_hedges chain.
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        // Chain.
+        let chain_book: RiskProfile = serde_json::from_str(&response_text(
+            server
+                .aggregate_book_risk(Parameters(AggregateBookRiskParams {
+                    positions: vec![pos_10y.clone(), pos_5y.clone()],
+                    book_id: Some("USD_BOOK".into()),
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+        let chain_proposals: ProposeHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_hedges(Parameters(ProposeHedgesParams {
+                    risk: chain_book.clone(),
+                    curve: CurveRef::Spec(curve.clone()),
+                    constraints: Some(Constraints {
+                        allowed_strategies: vec!["DurationFutures".into()],
+                        ..Default::default()
+                    }),
+                    basket_overrides: vec![],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        // Single-group variant.
+        let book_out: ProposeBookHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_book_hedges(Parameters(ProposeBookHedgesParams {
+                    groups: vec![BookGroup {
+                        name: "USD_BOOK".into(),
+                        positions: vec![pos_10y, pos_5y],
+                        curve: CurveRef::Spec(curve),
+                        constraints: Some(Constraints {
+                            allowed_strategies: vec!["DurationFutures".into()],
+                            ..Default::default()
+                        }),
+                        basket_overrides: vec![],
+                        book_id: Some("USD_BOOK".into()),
+                    }],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        assert_eq!(book_out.groups.len(), 1);
+        let g = &book_out.groups[0];
+        // Aggregates match (same currency, same DV01 within float tolerance).
+        assert_eq!(g.aggregate_risk.currency, chain_book.currency);
+        assert!((g.aggregate_risk.dv01 - chain_book.dv01).abs() < 1e-6);
+        // Same proposal set.
+        assert_eq!(g.proposals.len(), chain_proposals.proposals.len());
+        assert_eq!(
+            g.proposals[0].strategy,
+            chain_proposals.proposals[0].strategy
+        );
+        // Hedge sizing matches within float tolerance.
+        assert!(
+            (g.proposals[0].residual.residual_dv01
+                - chain_proposals.proposals[0].residual.residual_dv01)
+                .abs()
+                < 1e-6
+        );
+    }
+
+    #[tokio::test]
+    async fn propose_book_hedges_contributions_sum_to_aggregate_dv01() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, pos_5y) = usd_book_fixture(&curve);
+
+        let out: ProposeBookHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_book_hedges(Parameters(ProposeBookHedgesParams {
+                    groups: vec![BookGroup {
+                        name: "USD".into(),
+                        positions: vec![pos_10y, pos_5y],
+                        curve: CurveRef::Spec(curve),
+                        constraints: None,
+                        basket_overrides: vec![],
+                        book_id: None,
+                    }],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        let g = &out.groups[0];
+        assert_eq!(g.contributions.len(), 2);
+        // Σ signed DV01 across positions == aggregate DV01.
+        let summed: f64 = g.contributions.iter().map(|c| c.dv01).sum();
+        assert!((summed - g.aggregate_risk.dv01).abs() < 1e-6);
+        // Σ gross shares = 100%.
+        let shares: f64 = g.contributions.iter().map(|c| c.gross_dv01_share_pct).sum();
+        assert!((shares - 100.0).abs() < 1e-9);
+        // Position ids preserved.
+        assert_eq!(g.contributions[0].position_id.as_deref(), Some("LEG_10Y"));
+        assert_eq!(g.contributions[1].position_id.as_deref(), Some("LEG_5Y"));
+    }
+
+    #[tokio::test]
+    async fn propose_book_hedges_rejects_empty_input() {
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+
+        // Empty top-level groups list.
+        assert!(server
+            .propose_book_hedges(Parameters(ProposeBookHedgesParams { groups: vec![] }))
+            .await
+            .is_err());
+
+        // Group with no positions.
+        assert!(server
+            .propose_book_hedges(Parameters(ProposeBookHedgesParams {
+                groups: vec![BookGroup {
+                    name: "empty".into(),
+                    positions: vec![],
+                    curve: CurveRef::Spec(curve),
+                    constraints: None,
+                    basket_overrides: vec![],
+                    book_id: None,
+                }],
+            }))
+            .await
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn propose_book_hedges_per_group_basket_overrides_are_independent() {
+        // Two groups sharing one underlying position spec but each with its
+        // own basket override. The override is only used by futures
+        // strategies; we just verify both groups produce a proposal and the
+        // first (DurationFutures) consumes the override.
+        let server = ConvexMcpServer::new();
+        let curve = flat_curve_spec(4.5);
+        let (pos_10y, _) = usd_book_fixture(&curve);
+
+        // Two distinct override TY-style baskets — slightly different
+        // conversion factors so we can tell which one was used.
+        let ty_a = BondFuture {
+            contract_code: "TY".into(),
+            underlying_tenor_years: 10.0,
+            deliverable_basket: vec![convex::Deliverable {
+                name: Some("BASKET_A".into()),
+                coupon_rate_decimal: 0.04,
+                maturity: Date::from_ymd(2036, 1, 15).unwrap(),
+                conversion_factor: 0.85,
+            }],
+            delivery_months: 3,
+            repo_rate_decimal: 0.043,
+            futures_price: None,
+            contract_size_face: dec!(100_000),
+            currency: Currency::USD,
+        };
+        let mut ty_b = ty_a.clone();
+        ty_b.deliverable_basket[0].name = Some("BASKET_B".into());
+        ty_b.deliverable_basket[0].conversion_factor = 0.90;
+
+        let out: ProposeBookHedgesOutput = serde_json::from_str(&response_text(
+            server
+                .propose_book_hedges(Parameters(ProposeBookHedgesParams {
+                    groups: vec![
+                        BookGroup {
+                            name: "g_a".into(),
+                            positions: vec![pos_10y.clone()],
+                            curve: CurveRef::Spec(curve.clone()),
+                            constraints: Some(Constraints {
+                                allowed_strategies: vec!["DurationFutures".into()],
+                                ..Default::default()
+                            }),
+                            basket_overrides: vec![ty_a],
+                            book_id: None,
+                        },
+                        BookGroup {
+                            name: "g_b".into(),
+                            positions: vec![pos_10y],
+                            curve: CurveRef::Spec(curve),
+                            constraints: Some(Constraints {
+                                allowed_strategies: vec!["DurationFutures".into()],
+                                ..Default::default()
+                            }),
+                            basket_overrides: vec![ty_b],
+                            book_id: None,
+                        },
+                    ],
+                }))
+                .await
+                .unwrap(),
+        ))
+        .unwrap();
+
+        assert_eq!(out.groups.len(), 2);
+        // Both produce a DurationFutures proposal.
+        assert_eq!(out.groups[0].proposals[0].strategy, "DurationFutures");
+        assert_eq!(out.groups[1].proposals[0].strategy, "DurationFutures");
+        // DV01-matching always lands at hedge_dv01 == -position_dv01, so the
+        // observable difference is the contract count (quantity scales with
+        // 1/CF). Different CF (0.85 vs 0.90) → different quantity.
+        let qty_a = out.groups[0].proposals[0].trades[0].quantity;
+        let qty_b = out.groups[1].proposals[0].trades[0].quantity;
+        assert!(
+            (qty_a - qty_b).abs() > 1e-3,
+            "expected per-group basket overrides (CF 0.85 vs 0.90) to size differently, \
+             got qty_a={qty_a}, qty_b={qty_b}"
+        );
     }
 }

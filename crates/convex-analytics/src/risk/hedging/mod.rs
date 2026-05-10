@@ -6,6 +6,7 @@
 //!   ratios for callers that want raw numbers.
 
 pub mod compare;
+pub mod contribution;
 pub mod cost;
 pub mod ctd;
 mod hedge_ratio;
@@ -16,6 +17,7 @@ pub mod strategies;
 pub mod types;
 
 pub use compare::compare_hedges;
+pub use contribution::{position_contributions, PositionContribution};
 pub use cost::{hedge_cost_bps, CostFeed, HeuristicCostFeed, COST_MODEL_NAME};
 pub use ctd::{approximate_cme_cf, deliverable_to_bond, select_ctd, CtdSelection, Deliverable};
 pub use hedge_ratio::{duration_hedge_ratio, dv01_hedge_ratio};
