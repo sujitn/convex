@@ -109,7 +109,7 @@ fn japan_holidays_for_year(year: i32) -> Vec<NaiveDate> {
         if let Some(d) = NaiveDate::from_ymd_opt(year, 2, 23) {
             holidays.push(d);
         }
-    } else if year >= 1989 && year <= 2018 {
+    } else if (1989..=2018).contains(&year) {
         // December 23 (Emperor Akihito)
         if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 23) {
             holidays.push(d);
@@ -252,27 +252,24 @@ fn calculate_autumnal_equinox(year: i32) -> u32 {
 
 /// Add special one-off holidays.
 fn add_special_holidays(holidays: &mut Vec<NaiveDate>, year: i32) {
-    match year {
-        // 2019: Emperor Akihito's abdication day and Emperor Naruhito's enthronement
-        2019 => {
-            // April 30: Showa day bridge
-            if let Some(d) = NaiveDate::from_ymd_opt(2019, 4, 30) {
-                holidays.push(d);
-            }
-            // May 1: New Emperor's first day
-            if let Some(d) = NaiveDate::from_ymd_opt(2019, 5, 1) {
-                holidays.push(d);
-            }
-            // May 2: Bridge day
-            if let Some(d) = NaiveDate::from_ymd_opt(2019, 5, 2) {
-                holidays.push(d);
-            }
-            // October 22: Emperor's enthronement ceremony
-            if let Some(d) = NaiveDate::from_ymd_opt(2019, 10, 22) {
-                holidays.push(d);
-            }
+    // 2019: Emperor Akihito's abdication day and Emperor Naruhito's enthronement
+    if year == 2019 {
+        // April 30: Showa day bridge
+        if let Some(d) = NaiveDate::from_ymd_opt(2019, 4, 30) {
+            holidays.push(d);
         }
-        _ => {}
+        // May 1: New Emperor's first day
+        if let Some(d) = NaiveDate::from_ymd_opt(2019, 5, 1) {
+            holidays.push(d);
+        }
+        // May 2: Bridge day
+        if let Some(d) = NaiveDate::from_ymd_opt(2019, 5, 2) {
+            holidays.push(d);
+        }
+        // October 22: Emperor's enthronement ceremony
+        if let Some(d) = NaiveDate::from_ymd_opt(2019, 10, 22) {
+            holidays.push(d);
+        }
     }
 }
 
