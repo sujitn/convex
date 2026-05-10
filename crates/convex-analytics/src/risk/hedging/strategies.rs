@@ -1995,7 +1995,11 @@ mod tests {
             panic!("expected BondFuture");
         };
         assert_eq!(f.delivery_months, 6, "override flowed through");
-        assert_eq!(f.deliverable_basket.len(), 4, "override basket, not synthetic");
+        assert_eq!(
+            f.deliverable_basket.len(),
+            4,
+            "override basket, not synthetic"
+        );
     }
 
     #[test]

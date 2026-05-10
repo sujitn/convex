@@ -1,10 +1,9 @@
 //! Cheapest-to-deliver (CTD) selection for bond futures. Net basis =
 //! `(P_spot − F·CF) − Carry`; min net basis ≡ max implied repo ≡ CTD.
-//! [`select_ctd`] is the public entry. [`approximate_cme_cf`] is the
-//! flat-6% YTM clean-price formula — close to but not identical to the
-//! exact CME formula (which rounds maturity to a contract-specific
-//! quantum); supply `Deliverable.conversion_factor` directly when you
-//! need the exchange's published number.
+//! [`select_ctd`] is the public entry; supply `Deliverable.conversion_factor`
+//! directly when you need exchange-exact numbers (the crate-internal
+//! 6%-YTM approximation used for synthetic baskets is close but not
+//! identical to the published CF).
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
