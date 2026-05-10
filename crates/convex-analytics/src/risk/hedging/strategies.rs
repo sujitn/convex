@@ -895,16 +895,11 @@ fn pick_swap_tenor(
             })
             .sum();
         let l2 = l2_sq.sqrt();
-        best = match best {
-            None => Some((candidate, l2)),
-            Some((cur_t, cur_l2)) => {
-                if l2 < cur_l2 || (l2 == cur_l2 && candidate > cur_t) {
-                    Some((candidate, l2))
-                } else {
-                    Some((cur_t, cur_l2))
-                }
-            }
-        };
+        // `<=` with ascending iteration preserves "ties → longer" without
+        // a separate equality branch; on a real curve ties don't occur.
+        if best.map_or(true, |(_, cur)| l2 <= cur) {
+            best = Some((candidate, l2));
+        }
     }
 
     Ok(best
