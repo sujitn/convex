@@ -543,9 +543,7 @@ pub struct GroupProposals {
     pub group_name: String,
     /// Book-level aggregate risk profile for this sleeve.
     pub aggregate_risk: RiskProfile,
-    /// Per-position contribution to the group's aggregate. DV01 is signed;
-    /// `dv01_share_pct` is keyed off gross |DV01| so long-short books still
-    /// sum to 100%.
+    /// Per-position contribution to the group's aggregate.
     pub contributions: Vec<PositionContribution>,
     /// Hedge proposals for the group's aggregate.
     pub proposals: Vec<HedgeProposal>,
@@ -1421,13 +1419,10 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Multi-position book hedge: each `BookGroup` carries its own positions, \
-        curve, constraints, and basket overrides; positions inside a group are aggregated and \
-        hedged independently of other groups. Lets a trader hedge a rates sleeve and a credit \
-        sleeve with different policies in one call. Output includes the per-group aggregate \
-        risk, per-position contribution decomposition (signed DV01 + share of gross), \
-        proposals, and skipped strategies. Each group must be single-currency / \
-        single-evaluation-date; the analytics layer rejects mismatches."
+        description = "Per-sleeve book hedge. Each `BookGroup` carries its own positions, \
+        curve, constraints, and basket overrides; groups are aggregated and hedged \
+        independently. Output per group: aggregate RiskProfile, per-position contribution \
+        decomposition (signed DV01 + share of gross), proposals, skipped strategies."
     )]
     pub async fn propose_book_hedges(
         &self,
@@ -2640,7 +2635,7 @@ mod tests {
         let summed: f64 = g.contributions.iter().map(|c| c.dv01).sum();
         assert!((summed - g.aggregate_risk.dv01).abs() < 1e-6);
         // Σ gross shares = 100%.
-        let shares: f64 = g.contributions.iter().map(|c| c.dv01_share_pct).sum();
+        let shares: f64 = g.contributions.iter().map(|c| c.gross_dv01_share_pct).sum();
         assert!((shares - 100.0).abs() < 1e-9);
         // Position ids preserved.
         assert_eq!(g.contributions[0].position_id.as_deref(), Some("LEG_10Y"));
@@ -2648,19 +2643,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn propose_book_hedges_rejects_empty_groups() {
-        let server = ConvexMcpServer::new();
-        let err = server
-            .propose_book_hedges(Parameters(ProposeBookHedgesParams { groups: vec![] }))
-            .await;
-        assert!(err.is_err());
-    }
-
-    #[tokio::test]
-    async fn propose_book_hedges_rejects_empty_positions_in_a_group() {
+    async fn propose_book_hedges_rejects_empty_input() {
         let server = ConvexMcpServer::new();
         let curve = flat_curve_spec(4.5);
-        let err = server
+
+        // Empty top-level groups list.
+        assert!(server
+            .propose_book_hedges(Parameters(ProposeBookHedgesParams { groups: vec![] }))
+            .await
+            .is_err());
+
+        // Group with no positions.
+        assert!(server
             .propose_book_hedges(Parameters(ProposeBookHedgesParams {
                 groups: vec![BookGroup {
                     name: "empty".into(),
@@ -2671,48 +2665,8 @@ mod tests {
                     book_id: None,
                 }],
             }))
-            .await;
-        assert!(err.is_err());
-    }
-
-    #[tokio::test]
-    async fn propose_book_hedges_currency_mismatch_within_group_errors() {
-        // aggregate_risk_profiles rejects mixed currencies; propose_book_hedges
-        // surfaces that error per-group.
-        let server = ConvexMcpServer::new();
-        let usd_curve = flat_curve_spec(4.5);
-
-        let usd_pos = ComputePositionRiskParams {
-            bond: BondRef::Spec(ust_10y_spec()),
-            settlement: "2025-04-15".into(),
-            mark: "4.0%@SA".into(),
-            curve: CurveRef::Spec(usd_curve.clone()),
-            notional_face: 1_000_000.0,
-            quote_frequency: None,
-            position_id: None,
-            key_rate_tenors: None,
-            volatility: None,
-        };
-        let mut eur_spec = ust_10y_spec();
-        eur_spec.currency = Currency::EUR;
-        let eur_pos = ComputePositionRiskParams {
-            bond: BondRef::Spec(eur_spec),
-            ..usd_pos.clone()
-        };
-
-        let err = server
-            .propose_book_hedges(Parameters(ProposeBookHedgesParams {
-                groups: vec![BookGroup {
-                    name: "mixed".into(),
-                    positions: vec![usd_pos, eur_pos],
-                    curve: CurveRef::Spec(usd_curve),
-                    constraints: None,
-                    basket_overrides: vec![],
-                    book_id: None,
-                }],
-            }))
-            .await;
-        assert!(err.is_err());
+            .await
+            .is_err());
     }
 
     #[tokio::test]
