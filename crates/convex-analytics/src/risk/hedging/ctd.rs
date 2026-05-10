@@ -1,10 +1,9 @@
 //! Cheapest-to-deliver (CTD) selection for bond futures. Net basis =
 //! `(P_spot − F·CF) − Carry`; min net basis ≡ max implied repo ≡ CTD.
-//! [`select_ctd`] is the public entry. [`approximate_cme_cf`] is the
-//! flat-6% YTM clean-price formula — close to but not identical to the
-//! exact CME formula (which rounds maturity to a contract-specific
-//! quantum); supply `Deliverable.conversion_factor` directly when you
-//! need the exchange's published number.
+//! [`select_ctd`] is the public entry; supply `Deliverable.conversion_factor`
+//! directly when you need exchange-exact numbers (the crate-internal
+//! 6%-YTM approximation used for synthetic baskets is close but not
+//! identical to the published CF).
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -50,7 +49,7 @@ pub struct CtdSelection {
 /// frequency and day count. The synthetic issue date is back-stepped from
 /// maturity in coupon periods so the schedule is grid-aligned (no stub at
 /// maturity).
-pub fn deliverable_to_bond(
+pub(crate) fn deliverable_to_bond(
     deliverable: &Deliverable,
     currency: Currency,
     settlement: Date,
@@ -122,7 +121,7 @@ fn aligned_issue_date(
 /// rounds the maturity-at-first-delivery to a contract-specific quantum
 /// (3 months for TY/US, 1 month for TU/FV); supply an explicit
 /// `Deliverable.conversion_factor` when you need CME-exact numbers.
-pub fn approximate_cme_cf(
+pub(crate) fn approximate_cme_cf(
     deliverable: &Deliverable,
     currency: Currency,
     first_delivery: Date,

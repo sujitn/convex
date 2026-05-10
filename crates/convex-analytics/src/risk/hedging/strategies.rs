@@ -277,7 +277,7 @@ pub fn cash_bond_pair(
 ) -> AnalyticsResult<HedgeProposal> {
     let heuristic = HeuristicCostFeed;
     let cost_feed = cost_feed.unwrap_or(&heuristic);
-    let tenor_years = pick_swap_tenor(position);
+    let tenor_years = pick_swap_tenor(position, discount_curve, discount_curve_id, settlement)?;
     let coupon = otr_par_coupon(discount_curve, settlement, tenor_years)?;
 
     // Probe with a unit face to learn DV01 per unit face; scale linearly.
@@ -377,7 +377,7 @@ pub fn interest_rate_swap(
 ) -> AnalyticsResult<HedgeProposal> {
     let heuristic = HeuristicCostFeed;
     let cost_feed = cost_feed.unwrap_or(&heuristic);
-    let tenor_years = pick_swap_tenor(position);
+    let tenor_years = pick_swap_tenor(position, discount_curve, discount_curve_id, settlement)?;
     let side = if position.dv01 >= 0.0 {
         SwapSide::PayFixed
     } else {
@@ -705,25 +705,19 @@ fn repo_rate(curve: &RateCurve<DiscreteCurve>) -> AnalyticsResult<f64> {
         .map_err(|e| AnalyticsError::CurveError(format!("repo proxy at 3M: {e}")))
 }
 
-/// Default first-delivery offset for synthetic deliverables and override
-/// matching. Front-month quarterly futures (e.g. CME TYM6 vs settlement in
-/// March is 3 months out). A back-month override (`delivery_months != 3`)
-/// won't match — strategies pick the front-month per CME convention.
+/// First-delivery offset stamped on synthetic deliverables (front-month
+/// quarterly = 3 months from a quarter-start settle).
 const DEFAULT_DELIVERY_MONTHS: u32 = 3;
 
-/// Find a basket override matching `(contract_code, delivery_months)`.
-/// Errors on a code match with mismatched currency — that's the user keying
-/// real data under a code from a different market. Empty-basket and
-/// per-deliverable invariants are enforced downstream in `bond_future_risk`.
+/// Match by `(contract_code, currency)`. On multiple matches, prefer
+/// `delivery_months == DEFAULT_DELIVERY_MONTHS`, then the smallest.
+/// Currency mismatch on a code-match is a hard error.
 fn lookup_basket_override<'a>(
     contract_code: &str,
     currency: Currency,
-    delivery_months: u32,
     basket_overrides: &'a [BondFuture],
 ) -> AnalyticsResult<Option<&'a BondFuture>> {
-    // Currency mismatch on any code-match is loud — a back-month-only
-    // override flagged with the wrong currency should still complain rather
-    // than fall through to the synthetic.
+    let mut matches: Vec<&BondFuture> = Vec::new();
     for spec in basket_overrides
         .iter()
         .filter(|f| f.contract_code == contract_code)
@@ -734,11 +728,14 @@ fn lookup_basket_override<'a>(
                 spec.currency
             )));
         }
-        if spec.delivery_months == delivery_months {
-            return Ok(Some(spec));
-        }
+        matches.push(spec);
     }
-    Ok(None)
+    let chosen = matches
+        .iter()
+        .find(|m| m.delivery_months == DEFAULT_DELIVERY_MONTHS)
+        .copied()
+        .or_else(|| matches.iter().min_by_key(|m| m.delivery_months).copied());
+    Ok(chosen)
 }
 
 /// Reject duplicate `(contract_code, delivery_months)` keys. Front + back
@@ -759,8 +756,8 @@ fn check_no_duplicate_keys(basket_overrides: &[BondFuture]) -> AnalyticsResult<(
     Ok(())
 }
 
-/// `basket_overrides` short-circuits this synthetic path on
-/// `(contract_code, currency, delivery_months=DEFAULT_DELIVERY_MONTHS)` match.
+/// `basket_overrides` short-circuits this synthetic path on any
+/// `(contract_code, currency)` match (see `lookup_basket_override`).
 fn make_default_future(
     contract_code: &str,
     underlying_tenor_years: f64,
@@ -769,12 +766,7 @@ fn make_default_future(
     settlement: Date,
     basket_overrides: &[BondFuture],
 ) -> AnalyticsResult<BondFuture> {
-    if let Some(real) = lookup_basket_override(
-        contract_code,
-        currency,
-        DEFAULT_DELIVERY_MONTHS,
-        basket_overrides,
-    )? {
+    if let Some(real) = lookup_basket_override(contract_code, currency, basket_overrides)? {
         return Ok(real.clone());
     }
     let tenor_months = (underlying_tenor_years * 12.0).round() as i32;
@@ -810,21 +802,109 @@ fn make_default_future(
     })
 }
 
-fn pick_swap_tenor(position: &RiskProfile) -> f64 {
-    // Bucket modified duration into standard liquid swap tenors. NaN falls
-    // through every comparison and lands in the final branch (30Y).
-    let d = position.modified_duration_years;
-    if d < 3.5 {
-        2.0
-    } else if d < 7.5 {
-        5.0
-    } else if d < 15.0 {
-        10.0
-    } else if d < 25.0 {
-        20.0
-    } else {
-        30.0
+const LIQUID_SWAP_TENORS: [f64; 5] = [2.0, 5.0, 10.0, 20.0, 30.0];
+
+/// Snap to `LIQUID_SWAP_TENORS` by absolute distance; ties → longer.
+/// Non-finite returns the longest tenor.
+fn snap_to_liquid_swap_tenor(t: f64) -> f64 {
+    if !t.is_finite() {
+        return *LIQUID_SWAP_TENORS.last().expect("non-empty const");
     }
+    *LIQUID_SWAP_TENORS
+        .iter()
+        .min_by(|a, b| {
+            let da = (**a - t).abs();
+            let db = (**b - t).abs();
+            da.partial_cmp(&db)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
+        })
+        .expect("non-empty const")
+}
+
+/// Pick the liquid swap tenor that minimizes residual KRD L2 norm after
+/// DV01-neutral sizing; ties → longer. Falls back to MD-snap when the
+/// position has no usable KRD ladder. Shared by `cash_bond_pair` — the
+/// OIS-swap KRD is a fine probe for cash-bond hedging at the same tenor.
+fn pick_swap_tenor(
+    position: &RiskProfile,
+    discount_curve: &RateCurve<DiscreteCurve>,
+    discount_curve_id: &str,
+    settlement: Date,
+) -> AnalyticsResult<f64> {
+    let krd_threshold = position.dv01.abs() * 1e-9;
+    let usable_krd = !position.key_rate_buckets.is_empty()
+        && position
+            .key_rate_buckets
+            .iter()
+            .any(|b| b.partial_dv01.abs() > krd_threshold);
+    if !usable_krd || !position.dv01.is_finite() || position.dv01 == 0.0 {
+        return Ok(snap_to_liquid_swap_tenor(position.modified_duration_years));
+    }
+
+    let (frequency, day_count, idx) = swap_conventions_for(position.currency)?;
+    let tenor_grid: Vec<f64> = position
+        .key_rate_buckets
+        .iter()
+        .map(|b| b.tenor_years)
+        .collect();
+    let curve_t = curve_tenor_to(discount_curve, settlement);
+
+    let mut best: Option<(f64, f64)> = None;
+    for &candidate in LIQUID_SWAP_TENORS.iter() {
+        let par = RateCurveDyn::par_swap_rate(
+            discount_curve,
+            curve_t + candidate,
+            frequency.periods_per_year(),
+        )
+        .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+        let unit = InterestRateSwap {
+            tenor_years: candidate,
+            fixed_rate_decimal: par,
+            fixed_frequency: frequency,
+            fixed_day_count: day_count,
+            floating_index: idx.into(),
+            // Direction is irrelevant; sign cancels in DV01-neutral sizing.
+            side: SwapSide::PayFixed,
+            notional: Decimal::ONE,
+            currency: position.currency,
+        };
+        let unit_risk = interest_rate_swap_risk(
+            &unit,
+            discount_curve,
+            discount_curve_id,
+            settlement,
+            Some(&tenor_grid),
+        )?;
+        if unit_risk.dv01.abs() < 1e-12 {
+            continue;
+        }
+        let scale = -position.dv01 / unit_risk.dv01;
+        let l2_sq: f64 = position
+            .key_rate_buckets
+            .iter()
+            .map(|pb| {
+                let unit_at = unit_risk
+                    .buckets
+                    .iter()
+                    .find(|ub| (ub.tenor_years - pb.tenor_years).abs() < 1e-9)
+                    .map(|ub| ub.partial_dv01)
+                    .unwrap_or(0.0);
+                let residual = pb.partial_dv01 + scale * unit_at;
+                residual * residual
+            })
+            .sum();
+        let l2 = l2_sq.sqrt();
+        // `<=` with ascending iteration preserves "ties → longer" without
+        // a separate equality branch; on a real curve ties don't occur.
+        if best.map_or(true, |(_, cur)| l2 <= cur) {
+            best = Some((candidate, l2));
+        }
+    }
+
+    Ok(best
+        .map(|(t, _)| t)
+        .unwrap_or_else(|| snap_to_liquid_swap_tenor(position.modified_duration_years)))
 }
 
 fn swap_conventions_for(
@@ -1291,10 +1371,61 @@ mod tests {
 
     #[test]
     fn nan_duration_does_not_panic_in_pick_swap_tenor() {
-        let mut p = long_10y_corporate().0;
+        let (mut p, curve) = long_10y_corporate();
         p.modified_duration_years = f64::NAN;
-        // Just assert no panic; result is the >25 fallback.
-        assert_eq!(pick_swap_tenor(&p), 30.0);
+        p.key_rate_buckets.clear();
+        p.dv01 = 0.0;
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 30.0);
+    }
+
+    #[test]
+    fn pick_swap_tenor_uses_krd_projection_not_md_bucket() {
+        // MD ≈ 7.5y but KRD heavy at 10Y → projection picks 10Y.
+        let (mut p, curve) = long_10y_corporate();
+        p.modified_duration_years = 7.499;
+        p.key_rate_buckets = vec![
+            KeyRateBucket {
+                tenor_years: 2.0,
+                partial_dv01: 50.0,
+            },
+            KeyRateBucket {
+                tenor_years: 5.0,
+                partial_dv01: 100.0,
+            },
+            KeyRateBucket {
+                tenor_years: 10.0,
+                partial_dv01: 850.0,
+            },
+            KeyRateBucket {
+                tenor_years: 30.0,
+                partial_dv01: 100.0,
+            },
+        ];
+        p.dv01 = p.key_rate_buckets.iter().map(|b| b.partial_dv01).sum();
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 10.0);
+    }
+
+    #[test]
+    fn pick_swap_tenor_falls_back_to_md_snap_when_ladder_empty() {
+        // Empty KRD → MD-snap; 7.5 ties to longer (10Y).
+        let (mut p, curve) = long_10y_corporate();
+        p.key_rate_buckets.clear();
+        p.modified_duration_years = 7.5;
+        let t = pick_swap_tenor(&p, &curve, "usd_sofr", d(2026, 1, 15)).unwrap();
+        assert_eq!(t, 10.0);
+    }
+
+    #[test]
+    fn snap_to_liquid_swap_tenor_round_up_at_midpoints() {
+        assert_eq!(snap_to_liquid_swap_tenor(3.5), 5.0);
+        assert_eq!(snap_to_liquid_swap_tenor(7.5), 10.0);
+        assert_eq!(snap_to_liquid_swap_tenor(15.0), 20.0);
+        assert_eq!(snap_to_liquid_swap_tenor(25.0), 30.0);
+        assert_eq!(snap_to_liquid_swap_tenor(0.5), 2.0);
+        assert_eq!(snap_to_liquid_swap_tenor(40.0), 30.0);
+        assert_eq!(snap_to_liquid_swap_tenor(f64::NAN), 30.0);
     }
 
     // ---- KeyRateFutures ---------------------------------------------------
@@ -1842,9 +1973,11 @@ mod tests {
     }
 
     #[test]
-    fn back_month_only_override_falls_back_to_synthetic() {
-        // Trader supplies only the back-month TY. Strategies want front;
-        // synthetic 3-month TY is built (single-deliverable basket).
+    fn back_month_only_override_is_used() {
+        // Trader supplies only the back-month TY. The matcher keys on
+        // (contract_code, currency) — `delivery_months` is a tiebreaker, not
+        // a gate — so this back-month override is adopted rather than
+        // falling through to a synthetic.
         let (pos, curve) = long_10y_corporate();
         let mut back = ty_basket_override(Currency::USD);
         back.delivery_months = 6;
@@ -1861,8 +1994,12 @@ mod tests {
         let HedgeInstrument::BondFuture(f) = &p.trades[0].instrument else {
             panic!("expected BondFuture");
         };
-        assert_eq!(f.delivery_months, 3);
-        assert_eq!(f.deliverable_basket.len(), 1, "synthetic, not the override");
+        assert_eq!(f.delivery_months, 6, "override flowed through");
+        assert_eq!(
+            f.deliverable_basket.len(),
+            4,
+            "override basket, not synthetic"
+        );
     }
 
     #[test]
