@@ -162,43 +162,40 @@ fn uk_christmas(year: i32) -> Vec<NaiveDate> {
     let christmas = NaiveDate::from_ymd_opt(year, 12, 25);
     let boxing_day = NaiveDate::from_ymd_opt(year, 12, 26);
 
-    match (christmas, boxing_day) {
-        (Some(xmas), Some(box_day)) => {
-            match xmas.weekday() {
-                chrono::Weekday::Sat => {
-                    // Christmas on Sat: substitute Mon Dec 27
-                    // Boxing Day on Sun: substitute Tue Dec 28
-                    if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 27) {
-                        holidays.push(d);
-                    }
-                    if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 28) {
-                        holidays.push(d);
-                    }
+    if let (Some(xmas), Some(box_day)) = (christmas, boxing_day) {
+        match xmas.weekday() {
+            chrono::Weekday::Sat => {
+                // Christmas on Sat: substitute Mon Dec 27
+                // Boxing Day on Sun: substitute Tue Dec 28
+                if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 27) {
+                    holidays.push(d);
                 }
-                chrono::Weekday::Sun => {
-                    // Christmas on Sun: substitute Mon Dec 27
-                    // Boxing Day on Mon: as-is
-                    if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 27) {
-                        holidays.push(d);
-                    }
-                    holidays.push(box_day);
-                }
-                chrono::Weekday::Fri => {
-                    // Christmas on Fri: as-is
-                    // Boxing Day on Sat: substitute Mon Dec 28
-                    holidays.push(xmas);
-                    if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 28) {
-                        holidays.push(d);
-                    }
-                }
-                _ => {
-                    // Both fall on weekdays
-                    holidays.push(xmas);
-                    holidays.push(box_day);
+                if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 28) {
+                    holidays.push(d);
                 }
             }
+            chrono::Weekday::Sun => {
+                // Christmas on Sun: substitute Mon Dec 27
+                // Boxing Day on Mon: as-is
+                if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 27) {
+                    holidays.push(d);
+                }
+                holidays.push(box_day);
+            }
+            chrono::Weekday::Fri => {
+                // Christmas on Fri: as-is
+                // Boxing Day on Sat: substitute Mon Dec 28
+                holidays.push(xmas);
+                if let Some(d) = NaiveDate::from_ymd_opt(year, 12, 28) {
+                    holidays.push(d);
+                }
+            }
+            _ => {
+                // Both fall on weekdays
+                holidays.push(xmas);
+                holidays.push(box_day);
+            }
         }
-        _ => {}
     }
 
     holidays

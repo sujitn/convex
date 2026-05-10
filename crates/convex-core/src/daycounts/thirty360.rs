@@ -60,6 +60,10 @@ impl DayCount for Thirty360US {
         Decimal::from(days) / Decimal::from(360)
     }
 
+    // ISDA 30/360 US states four numbered rules (D1 Rule 1/2, D2 Rule 3/4); the
+    // if-arms share the assignment body but conditions document distinct rules,
+    // so they are kept split.
+    #[allow(clippy::if_same_then_else)]
     fn day_count(&self, start: Date, end: Date) -> i64 {
         let y1 = start.year() as i64;
         let y2 = end.year() as i64;
@@ -240,7 +244,7 @@ impl DayCount for Thirty360EIsda {
 
         // Rule 2: If D2 is the last day of the month AND
         // (no termination date specified OR end != termination date), change D2 to 30
-        let is_maturity = self.termination_date.map_or(false, |term| end == term);
+        let is_maturity = self.termination_date == Some(end);
         if end.is_end_of_month() && !is_maturity {
             d2 = 30;
         }

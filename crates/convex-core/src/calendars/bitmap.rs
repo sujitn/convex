@@ -22,7 +22,7 @@ const MAX_DAYS_PER_YEAR: usize = 366;
 const TOTAL_BITS: usize = YEAR_COUNT * MAX_DAYS_PER_YEAR;
 
 /// Number of u64 words needed to store all bits.
-const WORD_COUNT: usize = (TOTAL_BITS + 63) / 64;
+const WORD_COUNT: usize = TOTAL_BITS.div_ceil(64);
 
 /// Weekend types for different markets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -180,7 +180,7 @@ impl HolidayBitmap {
     #[inline]
     fn date_to_indices(date: NaiveDate) -> Option<(usize, usize)> {
         let year = date.year();
-        if year < MIN_YEAR || year > MAX_YEAR {
+        if !(MIN_YEAR..=MAX_YEAR).contains(&year) {
             return None;
         }
 
