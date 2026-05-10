@@ -26,13 +26,12 @@ thiserror = { workspace = true }
 
 # Mathematical dependencies
 nalgebra = { workspace = true }
-argmin = { workspace = true }
-approx = { workspace = true }
 
 # Performance
 rayon = { workspace = true }
 
 [dev-dependencies]
+approx = { workspace = true }
 criterion = { workspace = true }
 proptest = { workspace = true }
 
