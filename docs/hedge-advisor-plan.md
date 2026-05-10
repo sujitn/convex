@@ -120,6 +120,13 @@ correctness gain.
   default in `risk::hedging::cost`. Strategies take `Option<&dyn CostFeed>`;
   `Provenance.cost_model` reflects whatever feed is passed. Phase 2 plugs a
   `QuoteSource`-backed adapter when one is wired.
+- **Book-level risk.** `aggregate_risk_profiles(profiles, book_id)` sums
+  DV01, unions KRD by tenor, MV-weights durations / convexity / YTM, and
+  validates currency / settlement match. New MCP tool `aggregate_book_risk`
+  prices each position via the same path as `compute_position_risk`, then
+  returns a single `RiskProfile` ready to feed into `propose_hedges`.
+  Single-currency hedge-against-net-DV01 semantics. Per-position hedging
+  policy and FX delta remain deferred.
 
 ### What's genuinely deferred to a future PR
 
