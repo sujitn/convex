@@ -19,7 +19,7 @@ pub mod types;
 pub use compare::compare_hedges;
 pub use contribution::{position_contributions, PositionContribution};
 pub use cost::{hedge_cost_bps, CostFeed, HeuristicCostFeed, COST_MODEL_NAME};
-pub use ctd::{approximate_cme_cf, deliverable_to_bond, select_ctd, CtdSelection, Deliverable};
+pub use ctd::{select_ctd, CtdSelection, Deliverable};
 pub use hedge_ratio::{duration_hedge_ratio, dv01_hedge_ratio};
 pub use instruments::{
     bond_future_risk, cash_bond_risk, interest_rate_swap_risk, BondFutureRisk, LegRisk,

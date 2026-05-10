@@ -50,7 +50,7 @@ pub struct CtdSelection {
 /// frequency and day count. The synthetic issue date is back-stepped from
 /// maturity in coupon periods so the schedule is grid-aligned (no stub at
 /// maturity).
-pub fn deliverable_to_bond(
+pub(crate) fn deliverable_to_bond(
     deliverable: &Deliverable,
     currency: Currency,
     settlement: Date,
@@ -122,7 +122,7 @@ fn aligned_issue_date(
 /// rounds the maturity-at-first-delivery to a contract-specific quantum
 /// (3 months for TY/US, 1 month for TU/FV); supply an explicit
 /// `Deliverable.conversion_factor` when you need CME-exact numbers.
-pub fn approximate_cme_cf(
+pub(crate) fn approximate_cme_cf(
     deliverable: &Deliverable,
     currency: Currency,
     first_delivery: Date,
