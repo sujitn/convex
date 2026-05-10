@@ -144,7 +144,7 @@ returns a profile whose `dv01` is within 1% of the spread-mark version
 
 ### Contributions
 - [ ] Each group has `contributions.len() ==` its position count.
-- [ ] `Σ contributions[i].dv01_share_pct == 100.0` (gross-share basis).
+- [ ] `Σ contributions[i].gross_dv01_share_pct == 100.0` (gross-share basis).
 - [ ] `Σ contributions[i].dv01 ≈ aggregate_risk.dv01` within 1e-6.
 
 ### Independence

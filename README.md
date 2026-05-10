@@ -133,7 +133,7 @@ DV01-neutral hedge proposals with structured tradeoffs. Strategies:
 
 ### MCP tools
 
-```
+```text
 compute_position_risk(bond, settlement, mark, notional_face, curve, [key_rate_tenors])
   -> RiskProfile { dv01, modified_duration, key_rate_buckets, …, provenance }
 
