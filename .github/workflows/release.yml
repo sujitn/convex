@@ -132,7 +132,7 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Download Excel Add-in
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: convex-excel-addin
           path: ./artifacts
