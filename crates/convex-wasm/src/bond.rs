@@ -16,10 +16,9 @@ use convex_curves::{
 };
 
 use crate::convert::{
-    decimal_to_f64, f64_to_decimal, format_compounding, format_instrument_type,
-    format_market_name, format_yield_convention, log, parse_compounding, parse_currency,
-    parse_date, parse_day_count, parse_frequency, parse_instrument_type, parse_market,
-    parse_yield_convention,
+    decimal_to_f64, f64_to_decimal, format_compounding, format_instrument_type, format_market_name,
+    format_yield_convention, log, parse_compounding, parse_currency, parse_date, parse_day_count,
+    parse_frequency, parse_instrument_type, parse_market, parse_yield_convention,
 };
 use crate::dto::{AnalysisResult, BondParams, CurvePoint};
 

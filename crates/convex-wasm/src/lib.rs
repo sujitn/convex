@@ -15,12 +15,12 @@
 
 use wasm_bindgen::prelude::*;
 
-mod analyze;
-mod bond;
-mod conventions;
-mod convert;
-mod dto;
-mod pricing;
+pub mod analyze;
+pub mod bond;
+pub mod conventions;
+pub mod convert;
+pub mod dto;
+pub mod pricing;
 
 pub use analyze::{analyze_bond, calculate_accrued, calculate_simple_metrics, get_cash_flows};
 pub use conventions::{get_convention_options, get_default_conventions};
