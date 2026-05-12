@@ -16,7 +16,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use convex_traits::error::TraitError;
 use convex_traits::ids::{CurveId, InstrumentId};
@@ -877,8 +877,11 @@ pub fn create_memory_storage() -> Result<StorageAdapter, TraitError> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
     let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    let pid = std::process::id();
     let temp_dir = std::env::temp_dir();
-    let db_path = temp_dir.join(format!("convex_test_{}.redb", id));
+    let db_path = temp_dir.join(format!("convex_test_{}_{}.redb", pid, id));
+    // Stale leftover from a prior run (possibly older redb format) would fail to open.
+    let _ = std::fs::remove_file(&db_path);
 
     create_redb_storage(&db_path)
 }

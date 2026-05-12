@@ -1512,22 +1512,17 @@ impl ConvexMcpServer {
 #[tool_handler]
 impl ServerHandler for ConvexMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation {
-                name: SERVER_NAME.to_string(),
-                version: SERVER_VERSION.to_string(),
-                title: Some("Convex Fixed Income Analytics".to_string()),
-                icons: None,
-                website_url: Some("https://github.com/sujitn/convex".to_string()),
-            },
-            instructions: Some(
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_protocol_version(ProtocolVersion::LATEST)
+            .with_server_info(
+                Implementation::new(SERVER_NAME, SERVER_VERSION)
+                    .with_title("Convex Fixed Income Analytics")
+                    .with_website_url("https://github.com/sujitn/convex"),
+            )
+            .with_instructions(
                 "Convex MCP Server — fixed income analytics. Create bonds and curves, \
-                 then call price_bond or compute_spread."
-                    .to_string(),
-            ),
-        }
+                 then call price_bond or compute_spread.",
+            )
     }
 }
 

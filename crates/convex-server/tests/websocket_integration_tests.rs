@@ -181,7 +181,7 @@ async fn test_websocket_subscribe_bonds() {
         "instrument_ids": ["US912828ZT09", "US912828ZQ69"]
     });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -209,7 +209,7 @@ async fn test_websocket_subscribe_all_bonds() {
     // Subscribe to all bonds
     let subscribe_msg = json!({ "type": "subscribe_all_bonds" });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -239,7 +239,7 @@ async fn test_websocket_subscribe_etfs() {
         "etf_ids": ["LQD", "HYG"]
     });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -268,7 +268,7 @@ async fn test_websocket_subscribe_portfolios() {
         "portfolio_ids": ["PORT001", "PORT002"]
     });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -297,7 +297,7 @@ async fn test_websocket_unsubscribe_bonds() {
         "instrument_ids": ["BOND1", "BOND2"]
     });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
     let _ = recv_json_skip_heartbeats(&mut read).await;
@@ -308,7 +308,7 @@ async fn test_websocket_unsubscribe_bonds() {
         "instrument_ids": ["BOND1"]
     });
     write
-        .send(Message::Text(unsubscribe_msg.to_string()))
+        .send(Message::Text(unsubscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -334,7 +334,7 @@ async fn test_websocket_unsubscribe_all_bonds() {
     // Subscribe to all bonds first
     let subscribe_msg = json!({ "type": "subscribe_all_bonds" });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
     let _ = recv_json_skip_heartbeats(&mut read).await;
@@ -342,7 +342,7 @@ async fn test_websocket_unsubscribe_all_bonds() {
     // Unsubscribe from all bonds
     let unsubscribe_msg = json!({ "type": "unsubscribe_all_bonds" });
     write
-        .send(Message::Text(unsubscribe_msg.to_string()))
+        .send(Message::Text(unsubscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -376,7 +376,7 @@ async fn test_websocket_ping_pong() {
         "timestamp": timestamp
     });
     write
-        .send(Message::Text(ping_msg.to_string()))
+        .send(Message::Text(ping_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -408,7 +408,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
     // Subscribe to all bonds to receive broadcasts
     let subscribe_msg = json!({ "type": "subscribe_all_bonds" });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
     let _ = recv_json_skip_heartbeats(&mut read).await;
@@ -496,7 +496,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
         "instrument_ids": ["US912828ZT09"]
     });
     write
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
     let _ = recv_json_skip_heartbeats(&mut read).await;
@@ -595,11 +595,11 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
     // Both subscribe to all bonds
     let subscribe_msg = json!({ "type": "subscribe_all_bonds" });
     write1
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
     write2
-        .send(Message::Text(subscribe_msg.to_string()))
+        .send(Message::Text(subscribe_msg.to_string().into()))
         .await
         .unwrap();
 
@@ -690,7 +690,7 @@ async fn test_websocket_invalid_message_format() {
 
     // Send invalid JSON
     write
-        .send(Message::Text("not valid json".to_string()))
+        .send(Message::Text("not valid json".to_string().into()))
         .await
         .unwrap();
 
@@ -720,7 +720,7 @@ async fn test_websocket_unknown_message_type() {
         "data": "test"
     });
     write
-        .send(Message::Text(unknown_msg.to_string()))
+        .send(Message::Text(unknown_msg.to_string().into()))
         .await
         .unwrap();
 
