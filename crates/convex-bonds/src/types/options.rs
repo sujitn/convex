@@ -116,7 +116,7 @@ impl CallEntry {
     /// Returns true if this call entry is active on the given date.
     #[must_use]
     pub fn is_active_on(&self, date: Date) -> bool {
-        date >= self.start_date && self.end_date.map_or(true, |end| date <= end)
+        date >= self.start_date && self.end_date.is_none_or(|end| date <= end)
     }
 
     /// Returns the call price as a decimal (e.g., 1.02 for 102%).
@@ -168,7 +168,7 @@ impl PutEntry {
     /// Returns true if this put entry is active on the given date.
     #[must_use]
     pub fn is_active_on(&self, date: Date) -> bool {
-        date >= self.start_date && self.end_date.map_or(true, |end| date <= end)
+        date >= self.start_date && self.end_date.is_none_or(|end| date <= end)
     }
 
     /// Returns the put price as a decimal.

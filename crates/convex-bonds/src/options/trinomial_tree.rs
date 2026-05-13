@@ -13,6 +13,7 @@ struct Branching {
 /// Branching from `(j, dx_in)` at layer i to layer i+1 (spacing `dx_out`),
 /// with mean-reversion factor `m = exp(-a·dt[i])`. Boundaries at ±j_max use
 /// the alternative {k+1, k, k-1} layout to keep probabilities non-negative.
+#[allow(clippy::manual_midpoint)] // polynomial probability formulas, not midpoints
 fn branching_at(j: i32, j_max: i32, m: f64, dx_in: f64, dx_out: f64) -> Branching {
     let target = j as f64 * (dx_in / dx_out) * m;
     if j == j_max {

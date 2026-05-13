@@ -141,7 +141,7 @@ impl PricingInput {
             if self
                 .bid_ask_config
                 .as_ref()
-                .map_or(true, |c| c.prefer_market_spread)
+                .is_none_or(|c| c.prefer_market_spread)
             {
                 return Some(bid);
             }
@@ -170,7 +170,7 @@ impl PricingInput {
             if self
                 .bid_ask_config
                 .as_ref()
-                .map_or(true, |c| c.prefer_market_spread)
+                .is_none_or(|c| c.prefer_market_spread)
             {
                 return Some(ask);
             }

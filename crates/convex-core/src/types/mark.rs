@@ -115,7 +115,7 @@ impl FromStr for Mark {
         if let Some(at_pos) = raw.rfind('@') {
             // Heuristic: if '@' appears AFTER a '%', it's a yield with frequency suffix.
             let percent_pos = raw.find('%');
-            if percent_pos.map_or(true, |p| at_pos < p) {
+            if percent_pos.is_none_or(|p| at_pos < p) {
                 return parse_spread(raw, at_pos);
             }
         }

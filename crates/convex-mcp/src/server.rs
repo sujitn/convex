@@ -1111,9 +1111,8 @@ impl ConvexMcpServer {
         let tenors_years = result.curve.tenors().to_vec();
         let zero_rates_pct: Vec<f64> = result.curve.values().iter().map(|r| r * 100.0).collect();
         let stored = RateCurve::new(result.curve);
-        let curve_id = params.store_as.map(|id| {
+        let curve_id = params.store_as.inspect(|id| {
             self.store_curve(id.clone(), stored);
-            id
         });
 
         Self::json_result(&BootstrapCurveOutput {

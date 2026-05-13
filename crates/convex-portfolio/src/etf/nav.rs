@@ -294,8 +294,8 @@ pub fn calculate_premium_discount_stats(history: &[PremiumDiscountPoint]) -> Pre
     // Median
     let mut sorted = values.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = if count % 2 == 0 {
-        (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0
+    let median = if count.is_multiple_of(2) {
+        f64::midpoint(sorted[count / 2 - 1], sorted[count / 2])
     } else {
         sorted[count / 2]
     };

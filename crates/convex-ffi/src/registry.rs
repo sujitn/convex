@@ -169,7 +169,7 @@ pub fn list(filter: Option<ObjectKind>) -> Vec<(Handle, ObjectKind, Option<Strin
         .unwrap()
         .objects
         .iter()
-        .filter(|(_, e)| filter.map_or(true, |f| f == e.kind))
+        .filter(|(_, e)| filter.is_none_or(|f| f == e.kind))
         .map(|(&h, e)| (h, e.kind, e.name.clone()))
         .collect()
 }
