@@ -29,7 +29,7 @@ resolver = "2"
 [workspace.package]
 version = "0.13.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.95"
 authors = ["Sujit Nair"]
 license = "MIT"
 repository = "https://github.com/sujitn/convex"
@@ -91,7 +91,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Storage backends
-redb = "2"
+redb = "4"
 
 # File formats
 csv = "1"

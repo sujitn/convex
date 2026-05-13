@@ -312,7 +312,7 @@ mod tests {
 
         // With upward sloping curve, rates should generally increase
         let initial = tree.rate_at(0, 0);
-        let mid_avg = (tree.rate_at(4, 0) + tree.rate_at(4, 4)) / 2.0;
+        let mid_avg = f64::midpoint(tree.rate_at(4, 0), tree.rate_at(4, 4));
 
         // Average rate should be higher later in upward sloping curve
         assert!(mid_avg > initial - 0.02);
