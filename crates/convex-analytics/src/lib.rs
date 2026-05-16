@@ -107,11 +107,11 @@ pub mod prelude {
         AttributionConfig, AttributionProvenance, BondFuture, BondRiskCalculator, BondRiskMetrics,
         ComparisonReport, ComparisonRow, Constraints, Convexity, CurveBreakdown, Duration,
         EffectiveDurationCalculator, FactorPnl, HedgeInstrument, HedgeProposal, HedgeTrade,
-        InterestRateSwap, KeyRateBucket, KeyRateDuration, KeyRateDurationCalculator,
-        KeyRateDurations, PnlFactor, PortfolioRisk, Position, PositionAttribution, Provenance,
-        Recommendation, RecommendationReason, ResidualRisk, RiskProfile, SwapPnlSpec, SwapSide,
-        TradeoffNotes, VaRMethod, VaRResult, ADVISOR_KEY_RATE_TENORS, DEFAULT_BUMP_SIZE,
-        DEFAULT_PIVOT_TENOR_YEARS, DV01, FACTOR_MODEL_NAME, SMALL_BUMP_SIZE,
+        InterestRateSwap, InterestRateSwapPnlSpec, KeyRateBucket, KeyRateDuration,
+        KeyRateDurationCalculator, KeyRateDurations, PnlFactor, PortfolioRisk, Position,
+        PositionAttribution, Provenance, Recommendation, RecommendationReason, ResidualRisk,
+        RiskProfile, SwapSide, TradeoffNotes, VaRMethod, VaRResult, ADVISOR_KEY_RATE_TENORS,
+        DEFAULT_BUMP_SIZE, DEFAULT_PIVOT_TENOR_YEARS, DV01, FACTOR_MODEL_NAME, SMALL_BUMP_SIZE,
         STANDARD_KEY_RATE_TENORS,
     };
 

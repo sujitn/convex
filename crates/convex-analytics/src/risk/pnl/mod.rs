@@ -19,6 +19,7 @@
 mod types;
 
 pub use types::{
-    Attribution, AttributionConfig, AttributionProvenance, CurveBreakdown, FactorPnl, PnlFactor,
-    PositionAttribution, SwapPnlSpec, DEFAULT_PIVOT_TENOR_YEARS, FACTOR_MODEL_NAME,
+    Attribution, AttributionConfig, AttributionProvenance, CurveBreakdown, FactorPnl,
+    InterestRateSwapPnlSpec, PnlFactor, PositionAttribution, DEFAULT_PIVOT_TENOR_YEARS,
+    FACTOR_MODEL_NAME,
 };

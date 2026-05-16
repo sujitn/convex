@@ -33,7 +33,7 @@ pub const DEFAULT_PIVOT_TENOR_YEARS: f64 = 2.0;
 /// it has `maturity − t1` left, not the original tenor.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct SwapPnlSpec {
+pub struct InterestRateSwapPnlSpec {
     /// Trade / effective date (the synthetic fixed leg's issue date).
     pub trade_date: Date,
     /// Fixed maturity — does **not** move with the valuation date.
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn swap_spec_round_trips_via_json() {
-        let s = SwapPnlSpec {
+        let s = InterestRateSwapPnlSpec {
             trade_date: d(2026, 5, 1),
             maturity: d(2036, 5, 1),
             fixed_rate_decimal: 0.0285,
@@ -278,7 +278,7 @@ mod tests {
             notional: dec!(10_000_000),
             currency: Currency::EUR,
         };
-        let parsed: SwapPnlSpec =
+        let parsed: InterestRateSwapPnlSpec =
             serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
         assert_eq!(s, parsed);
     }
@@ -312,7 +312,7 @@ mod tests {
     fn json_schema_is_derived() {
         let a = serde_json::to_string(&schemars::schema_for!(Attribution)).unwrap();
         assert!(a.contains("positions") && a.contains("provenance") && a.contains("factors"));
-        let b = serde_json::to_string(&schemars::schema_for!(SwapPnlSpec)).unwrap();
+        let b = serde_json::to_string(&schemars::schema_for!(InterestRateSwapPnlSpec)).unwrap();
         assert!(b.contains("maturity") && b.contains("fixed_rate_decimal"));
     }
 }
