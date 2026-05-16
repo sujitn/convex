@@ -19,10 +19,12 @@
 // sibling `pnl` modules.
 mod decompose;
 mod engine;
+mod narrate;
 mod types;
 
 pub use decompose::{decompose_curve_move, CurveComponent, CurveDecomposition};
 pub use engine::{attribute_pnl, ResolvedBook, ResolvedPosition};
+pub use narrate::narrate_attribution;
 pub use types::{
     Attribution, AttributionConfig, AttributionProvenance, CurveBreakdown, FactorPnl,
     InterestRateSwapPnlSpec, PnlFactor, PositionAttribution, DEFAULT_PIVOT_TENOR_YEARS,
