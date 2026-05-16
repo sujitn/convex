@@ -17,6 +17,7 @@ Convex is a production-grade fixed income analytics library providing comprehens
 - **Spread Analytics**: Z-spread, G-spread, I-spread, Asset Swap spreads, OAS
 - **Risk Metrics**: Duration (Macaulay, Modified, Effective, Key Rate), Convexity, DV01
 - **Hedge Advisor**: AI-friendly proposal layer — DV01-neutral hedges via bond futures or IRS, with structured tradeoffs and a deterministic narrator (research tool, not an execution recommender)
+- **PnL Narrator**: two-date book attribution — carry, roll-down, curve (parallel/slope/curvature), spread (per benchmark), residual — by full revaluation, with a deterministic narrator (research tool)
 - **Day Count Conventions**: ACT/360, ACT/365, 30/360, ACT/ACT (ICMA, ISDA)
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing
@@ -179,6 +180,56 @@ cost feed (heuristic table only); FX delta / cross-currency hedging;
 LLM narrator (deterministic template only); CDS / credit DV01;
 inflation-linked instruments; ETF-proxy strategy; per-benchmark partial
 spread DV01.
+
+## PnL Narrator
+
+> **Research tool.** Two-date, single-currency, static-book attribution
+> by full revaluation. The pricing core is reused unchanged
+> (`price_from_mark` already takes the valuation date). The closing
+> `residual` is reported, never hidden — machine-zero for Z-spread
+> marks, ≤0.5 bp of the mark-vs-model gap for price/yield marks.
+
+Decomposes a book's `t0 → t1` value change with a path-ordered
+waterfall: **carry → roll-down → curve (parallel/slope/curvature/
+residual) → spread (per benchmark) → residual**. The observed curve
+move is projected onto a level/slope/curvature basis by least squares;
+each component is repriced (not approximated by sensitivities). A
+fixed-maturity swap model (maturity & rate pinned at trade) lets last
+week's hedge show up in this week's PnL.
+
+### MCP tools
+
+```text
+attribute_pnl(positions, base_currency, t0, t1, curve_t0, curve_t1, [config])
+  -> Attribution { total_pnl_ccy/_bps, factors[…], positions[…], provenance }
+  # positions: tagged { bond { bond, notional_face, mark_t0, mark_t1 }
+  #                    | swap { spec: InterestRateSwapPnlSpec } }
+
+narrate_attribution(attribution)
+  -> { text }   # deterministic template; no LLM call
+```
+
+Per-position **and** book-level factor breakdowns; full provenance
+(both curve ids, factor model, pivot). The narrator states total PnL
+(ccy + bp), the biggest driver, the curve decomposition, per-benchmark
+spread moves, and the pay-fixed swap's offsetting contribution — the
+closed loop with the hedge advisor's recommendation.
+
+End-to-end test:
+
+```bash
+cargo test -p convex-mcp --lib pnl_narrator_e2e
+```
+
+See `docs/pnl-narrator-{investigation,gaps,plan}.md` for design and
+`docs/perf-baselines.md` for benchmark numbers.
+
+### Deferred
+
+Multi-period chained attribution; position changes mid-period; FX /
+cross-currency attribution; performance vs benchmark; issue-level
+spread beyond benchmark category; LLM narrator (deterministic template
+only).
 
 ## Architecture
 

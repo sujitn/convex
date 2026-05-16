@@ -16,6 +16,29 @@ demo continuity requirement (same book + the swap from the hedge).
 > revaluation + factor decomposition, template narrator. Everything else is
 > explicitly deferred.
 
+> **v1 status (post-implementation).** Shipped on `feat/pnl-narrator` in 6
+> commits. All blocker gaps closed; the PnL narrator runs end-to-end via the
+> `attribute_pnl` → `narrate_attribution` MCP tools. The 4-position demo book
+> (OAT + BTP + Bund + the pay-fixed EUR swap, May 7 → May 8 2026)
+> round-trips: the swap absorbs ~42% of the bonds' rate-move loss — last
+> week's hedge in this week's PnL. Closed since this audit:
+> - **§1.3 ❌→✅** `risk::pnl::decompose` projects the observed move onto
+>   level/slope/curvature by least squares (curvature basis = a closure over
+>   `ScenarioBump::custom`; `convex-curves` untouched).
+> - **§1.4 ⚠️/❌→✅** `ResolvedBook`/`ResolvedPosition` (tagged bond|swap);
+>   `InterestRateSwapPnlSpec` is the **fixed-maturity** swap (gap-4 fix), so
+>   the static swap ages correctly over the period.
+> - **§1.5 ⚠️→✅** held spread taken exactly from a Z-spread mark (machine-zero
+>   residual); per-benchmark spread attribution.
+> - **§1.6/1.7/1.8 →✅** `narrate_attribution` clones the hedge-advisor
+>   narrator pattern; two `#[tool]` methods added; tagged-enum book input.
+> - **Gap 0 confirmed:** the pricing core was **not** modified —
+>   `price_from_mark` already takes the valuation date. `risk_profile_apple_10y`
+>   is flat at ~22 µs; `attribute_pnl` on the demo book ≈ 128 µs.
+>
+> Items deferred by design remain ❌ (multi-period, FX, perf-vs-benchmark,
+> issue-level spread, LLM narrator) — see `docs/pnl-narrator-gaps.md` §11.
+
 ---
 
 ## 1.1 Pricing primitives for historical valuation
