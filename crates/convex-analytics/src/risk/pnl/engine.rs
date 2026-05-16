@@ -787,4 +787,135 @@ mod tests {
             Err(AnalyticsError::InvalidInput(_))
         ));
     }
+
+    // ---- canonical demo fixture (gate sanity + regression guard) ---------
+
+    fn eur_curve(ref_date: Date, base: &[f64]) -> RateCurve<DiscreteCurve> {
+        let dc = DiscreteCurve::new(
+            ref_date,
+            PILLARS.to_vec(),
+            base.to_vec(),
+            ValueType::ZeroRate {
+                compounding: Compounding::Continuous,
+                day_count: DayCountConvention::Act365Fixed,
+            },
+            InterpolationMethod::Linear,
+        )
+        .unwrap();
+        RateCurve::new(dc)
+    }
+
+    fn sov(cusip: &str, coupon: f64, mat: Date) -> FixedRateBond {
+        FixedRateBond::builder()
+            .cusip_unchecked(cusip)
+            .coupon_rate(Decimal::from_f64_retain(coupon).unwrap())
+            .maturity(mat)
+            .issue_date(d(2024, 2, 15))
+            .frequency(Frequency::Annual)
+            .day_count(DayCountConvention::ActActIsda)
+            .currency(Currency::EUR)
+            .face_value(dec!(100))
+            .build()
+            .unwrap()
+    }
+
+    fn bmk(bps: f64, b: &str) -> Mark {
+        Mark::Spread {
+            value: Spread::new(Decimal::from_f64_retain(bps).unwrap(), SpreadType::ZSpread),
+            benchmark: b.into(),
+        }
+    }
+
+    /// The hedge-advisor book + the swap, May 7 → May 8 2026. Rates up ~6bp
+    /// with mild steepening; BTP-Bund and OAT-Bund widen a touch.
+    #[test]
+    fn demo_book_attribution_shape() {
+        // EUR govt (Bund) curve t0, then a +6bp parallel / slight steepener.
+        let r0: Vec<f64> = PILLARS.iter().map(|t| 0.022 + 0.0010 * t.sqrt()).collect();
+        let r1: Vec<f64> = PILLARS
+            .iter()
+            .zip(&r0)
+            .map(|(&t, r)| r + 0.0006 + 0.00004 * (t - 2.0).max(0.0))
+            .collect();
+        let c0 = eur_curve(d(2026, 5, 7), &r0);
+        let c1 = eur_curve(d(2026, 5, 8), &r1);
+
+        let b = book(vec![
+            ResolvedPosition::Bond {
+                position_id: Some("OAT_2.75_2034".into()),
+                bond: Box::new(sov("OAT10Y", 0.0275, d(2034, 5, 25))),
+                notional_face: dec!(10_000_000),
+                mark_t0: bmk(12.0, "FR.OAT-DE.BUND"),
+                mark_t1: bmk(14.0, "FR.OAT-DE.BUND"),
+            },
+            ResolvedPosition::Bond {
+                position_id: Some("BTP_4.0_2035".into()),
+                bond: Box::new(sov("BTP10Y", 0.04, d(2035, 2, 1))),
+                notional_face: dec!(5_000_000),
+                mark_t0: bmk(135.0, "IT.BTP-DE.BUND"),
+                mark_t1: bmk(141.0, "IT.BTP-DE.BUND"), // BTP-Bund widens 6bp
+            },
+            ResolvedPosition::Bond {
+                position_id: Some("BUND_2.5_2034".into()),
+                bond: Box::new(sov("BUND10Y", 0.025, d(2034, 8, 15))),
+                notional_face: dec!(10_000_000),
+                mark_t0: bmk(0.0, "DE.BUND"), // Bund ~ the benchmark itself
+                mark_t1: bmk(0.0, "DE.BUND"),
+            },
+            ResolvedPosition::Swap {
+                position_id: Some("EUR_SWAP_10Y_PAYFIXED".into()),
+                spec: InterestRateSwapPnlSpec {
+                    trade_date: d(2026, 5, 1),
+                    maturity: d(2036, 5, 1),
+                    fixed_rate_decimal: 0.0265,
+                    fixed_frequency: Frequency::Annual,
+                    fixed_day_count: DayCountConvention::Thirty360E,
+                    side: SwapSide::PayFixed,
+                    notional: dec!(10_000_000),
+                    currency: Currency::EUR,
+                },
+            },
+        ]);
+
+        let a = attribute_pnl(
+            &b,
+            d(2026, 5, 7),
+            d(2026, 5, 8),
+            &c0,
+            "eur_govt_2026_05_07",
+            &c1,
+            "eur_govt_2026_05_08",
+            &AttributionConfig::default(),
+        )
+        .unwrap();
+
+        // Structural: 4 positions, full provenance, factor identity closes.
+        assert_eq!(a.positions.len(), 4);
+        assert_eq!(a.provenance.factor_model, FACTOR_MODEL_NAME);
+        let bf_sum: Decimal = a.factors.iter().map(|f| f.pnl_ccy).sum();
+        assert!((bf_sum - a.total_pnl_ccy).abs() < dec!(0.05));
+
+        // Economics: long sovereigns lose on +6bp; pay-fixed swap gains and
+        // partially offsets (the hero moment).
+        let oat = &a.positions[0].total_pnl_ccy;
+        let swap = &a.positions[3];
+        assert!(*oat < dec!(0), "long OAT loses on +6bp: {oat}");
+        assert!(
+            swap.total_pnl_ccy > dec!(0),
+            "pay-fixed swap gains on +6bp: {}",
+            swap.total_pnl_ccy
+        );
+        assert_eq!(swap.kind, "swap");
+        // Swap is ~pure curve: spread factor ~ 0.
+        let swap_spread = swap
+            .factors
+            .iter()
+            .find(|f| f.factor == PnlFactor::Spread)
+            .unwrap();
+        assert!(swap_spread.pnl_ccy.abs() < dec!(0.01));
+
+        if std::env::var("PNL_DUMP").is_ok() {
+            println!("{}", serde_json::to_string_pretty(&a).unwrap());
+        }
+    }
 }
