@@ -1,32 +1,15 @@
-//! Sequential-repricing attribution engine.
+//! Sequential-repricing PnL attribution.
 //!
-//! Values each position at `t0` and `t1` and splits the change with a
-//! **path-ordered waterfall**: carry → roll-down → curve
-//! (parallel / slope / curvature / residual) → spread → residual. The
-//! pricing core is reused unchanged (`price_from_mark` already takes the
-//! valuation date); held-spread reprices use
-//! [`ZSpreadCalculator::price_with_spread`] — no root-find.
+//! Per position, a path-ordered waterfall — carry → roll-down → curve
+//! (parallel/slope/curvature/residual) → spread → residual — by full
+//! revaluation. Reuses the pricing core unchanged: `price_from_mark` for the
+//! end marks, `ZSpreadCalculator::{calculate, price_with_spread}` for the
+//! implied spread held fixed across the curve/time reprices. The closing
+//! residual absorbs path-order cross terms and is reported, not hidden.
 //!
-//! ## Held spread, exactly
-//!
-//! [`ZSpreadCalculator::calculate`] rounds the implied Z-spread to integer
-//! bp. Carrying that through the held-spread reprices would dump a
-//! multi-thousand-currency rounding artifact into the residual. So for a
-//! **Z-spread mark** the held spread is taken *exactly from the mark* (no
-//! solve, no rounding) — `price_from_mark` and `price_with_spread` then use
-//! the identical Z, and the residual is machine-zero. For price/yield marks
-//! we fall back to the (rounded) solve; the ≤0.5 bp gap lands in the reported
-//! residual and is documented, not hidden. The demo marks sovereigns with
-//! Z-spreads, so the hero numbers are clean.
-//!
-//! ## Swap (the hero moment)
-//!
-//! A swap is its fixed leg, priced Z-flat to the curve (same convention as
-//! `interest_rate_swap_risk`), run through the *identical* bond waterfall,
-//! then signed: `PayFixed` is short the fixed leg (negate), `ReceiveFixed`
-//! is long it. Floating ≈ par at reset (the documented post-LIBOR≈0
-//! approximation already shipped in the hedge advisor). So a pay-fixed swap
-//! gains when rates rise — offsetting the long bonds.
+//! A swap is valued as its fixed leg (Z-flat to the curve, like
+//! `interest_rate_swap_risk`) run through the same bond waterfall, signed by
+//! side (`PayFixed` is short the fixed leg). Floating ≈ par at reset.
 
 use std::collections::BTreeMap;
 
@@ -113,8 +96,9 @@ fn bps(pnl_ccy: f64, base_ccy: f64) -> f64 {
     }
 }
 
-/// Held spread (decimal), exactly from a Z-spread mark; otherwise the
-/// (integer-bp) implied Z-spread solve. See module docs.
+/// Implied Z-spread (decimal) that reprices the mark against `curve` at
+/// `date`. Held fixed across the carry/curve reprices so only the deliberate
+/// quantity moves in each waterfall step.
 fn held_spread<B: Bond + FixedCouponBond>(
     bond: &B,
     date: Date,
@@ -122,11 +106,6 @@ fn held_spread<B: Bond + FixedCouponBond>(
     curve: &RateCurve<DiscreteCurve>,
     freq: Frequency,
 ) -> AnalyticsResult<f64> {
-    if let Mark::Spread { value, .. } = mark {
-        if value.spread_type() == SpreadType::ZSpread {
-            return to_f64(value.as_decimal(), "z-spread mark");
-        }
-    }
     let priced = price_from_mark(bond, date, mark, Some(curve), freq)?;
     let dirty = dec_of(priced.dirty_price_per_100, "dirty")?;
     let z = ZSpreadCalculator::new(curve).calculate(bond, dirty, date)?;
@@ -184,8 +163,7 @@ fn attribute_fixed_bond<B: Bond + FixedCouponBond>(
     mark_t0: &Mark,
     mark_t1: &Mark,
     freq: Frequency,
-    analysis_tenors: &[f64],
-    pivot: f64,
+    decomp: &CurveDecomposition,
 ) -> AnalyticsResult<Waterfall> {
     let p0 = price_from_mark(bond, t0, mark_t0, Some(curve_t0), freq)?;
     let p1 = price_from_mark(bond, t1, mark_t1, Some(curve_t1), freq)?;
@@ -212,23 +190,18 @@ fn attribute_fixed_bond<B: Bond + FixedCouponBond>(
     let carry = (v_carry - big_p0) + coupon;
     let roll_down = time - carry;
 
-    // Curve: swap the curve, hold date & spread. Decompose into factors.
+    // Curve: swap the curve, hold date & spread. `decomp` is computed once
+    // per book (it is bond-independent) and passed in.
     let v_t1_c1_s0 = z1.price_with_spread(bond, s0, t1);
     let curve_total = v_t1_c1_s0 - v_t1_c0_s0;
-    let decomp = decompose_curve_move(curve_t0, curve_t1, analysis_tenors, pivot)?;
     let base_inner = curve_t0.inner().clone();
-    let parallel = price_on_component(bond, &base_inner, &decomp, CurveComponent::Parallel, s0, t1)
+    let parallel = price_on_component(bond, &base_inner, decomp, CurveComponent::Parallel, s0, t1)
         - v_t1_c0_s0;
     let slope =
-        price_on_component(bond, &base_inner, &decomp, CurveComponent::Slope, s0, t1) - v_t1_c0_s0;
-    let curvature = price_on_component(
-        bond,
-        &base_inner,
-        &decomp,
-        CurveComponent::Curvature,
-        s0,
-        t1,
-    ) - v_t1_c0_s0;
+        price_on_component(bond, &base_inner, decomp, CurveComponent::Slope, s0, t1) - v_t1_c0_s0;
+    let curvature =
+        price_on_component(bond, &base_inner, decomp, CurveComponent::Curvature, s0, t1)
+            - v_t1_c0_s0;
     let curve_residual = curve_total - (parallel + slope + curvature);
 
     // Spread: move to the t1 spread, curve & date fixed.
@@ -254,7 +227,7 @@ fn attribute_fixed_bond<B: Bond + FixedCouponBond>(
             parallel_bps: decomp.parallel_bps,
             slope_bps: decomp.slope_bps,
             curvature_bps: decomp.curvature_bps,
-            pivot_tenor_years: pivot,
+            pivot_tenor_years: decomp.pivot_tenor_years,
             fit_residual_l1_bps: decomp.fit_residual_l1_bps(),
         },
         total_per_100: total,
@@ -308,13 +281,12 @@ pub fn attribute_pnl(
             "attribute_pnl: t1 ({t1}) precedes t0 ({t0})"
         )));
     }
+    // The curve move is bond-independent — decompose it once for the book,
+    // on curve_t0's own pillars (decompose where the move was observed).
     let pivot = config
         .pivot_tenor_years
         .unwrap_or(DEFAULT_PIVOT_TENOR_YEARS);
-    let analysis_tenors: Vec<f64> = match &config.analysis_tenors {
-        Some(v) => v.clone(),
-        None => curve_t0.inner().tenors().to_vec(),
-    };
+    let decomp = decompose_curve_move(curve_t0, curve_t1, curve_t0.inner().tenors(), pivot)?;
 
     let mut positions: Vec<PositionAttribution> = Vec::with_capacity(book.positions.len());
     // (factor, benchmark) → summed pnl_ccy, for the book roll-up.
@@ -342,16 +314,7 @@ pub fn attribute_pnl(
                 }
                 let freq = bond.frequency();
                 let wf = attribute_fixed_bond(
-                    bond,
-                    t0,
-                    t1,
-                    curve_t0,
-                    curve_t1,
-                    mark_t0,
-                    mark_t1,
-                    freq,
-                    &analysis_tenors,
-                    pivot,
+                    bond, t0, t1, curve_t0, curve_t1, mark_t0, mark_t1, freq, &decomp,
                 )?;
                 let notional = to_f64(*notional_face, "notional_face")?;
                 let p0 =
@@ -393,8 +356,7 @@ pub fn attribute_pnl(
                     &zflat(curve_t0_id),
                     &zflat(curve_t1_id),
                     freq,
-                    &analysis_tenors,
-                    pivot,
+                    &decomp,
                 )?;
                 let notional = to_f64(spec.notional, "swap notional")?;
                 // PayFixed is short the fixed leg → negate.
@@ -687,8 +649,8 @@ mod tests {
 
     #[test]
     fn pay_fixed_swap_offsets_long_bond_when_rates_rise() {
-        // The hero-moment guard: rates rise → long bond loses, pay-fixed
-        // swap gains, partially offsetting.
+        // Sign guard: rates rise → long bond loses, pay-fixed swap gains,
+        // partially offsetting.
         let c0 = flat_curve(d(2026, 5, 7), 0.025);
         let c1 = shifted_flat(d(2026, 5, 8), 0.025, 15.0); // +15bp
         let b = book(vec![
@@ -896,7 +858,7 @@ mod tests {
         assert!((bf_sum - a.total_pnl_ccy).abs() < dec!(0.05));
 
         // Economics: long sovereigns lose on +6bp; pay-fixed swap gains and
-        // partially offsets (the hero moment).
+        // partially offsets.
         let oat = &a.positions[0].total_pnl_ccy;
         let swap = &a.positions[3];
         assert!(*oat < dec!(0), "long OAT loses on +6bp: {oat}");
@@ -913,9 +875,5 @@ mod tests {
             .find(|f| f.factor == PnlFactor::Spread)
             .unwrap();
         assert!(swap_spread.pnl_ccy.abs() < dec!(0.01));
-
-        if std::env::var("PNL_DUMP").is_ok() {
-            println!("{}", serde_json::to_string_pretty(&a).unwrap());
-        }
     }
 }

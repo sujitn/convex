@@ -1,23 +1,18 @@
-//! Observed curve-move decomposition.
+//! Observed curve-move decomposition: least-squares projection (SVD) of the
+//! pillar-wise change `Δr(τ) = r_t1(τ) − r_t0(τ)` onto a {level, slope,
+//! curvature} basis. The unexplained part per tenor is the reported fit
+//! residual. Component curves for repricing are rebuilt from the loadings via
+//! the same basis ([`CurveDecomposition::component_shift_decimal`]) so the fit
+//! and the reconstruction cannot drift.
 //!
-//! Projects the realised pillar-wise change `Δr(τ) = r_t1(τ) − r_t0(τ)` onto
-//! a three-factor {level, slope, curvature} basis by least squares. The part
-//! the basis does not explain is the per-tenor **fit residual** (a first-class
-//! reported quantity, never hidden).
+//! Basis (pivot `p`, span `[τ_min, τ_max]`): `b_L = 1`;
+//! `b_S = (τ − p)/(τ_max − τ_min)`; `b_C = 1 − 2|τ − p|/max(|τ_min−p|,|τ_max−p|)`
+//! (a tent: +1 at the pivot, −1 at the far wing).
 //!
-//! This is the *inverse* of the forward shock primitives in
-//! `convex_curves::bumping` — those only apply a known shock; here we recover
-//! the loadings from an observed move. Component curves for repricing are
-//! rebuilt from these loadings via the **same** basis functions
-//! ([`CurveDecomposition::component_shift_decimal`]), so decomposition and
-//! reconstruction can never drift.
-//!
-//! Basis (pivot `p`, span over the analysis grid `[τ_min, τ_max]`):
-//! - level     `b_L(τ) = 1`
-//! - slope     `b_S(τ) = (τ − p) / (τ_max − τ_min)` — linear about the pivot;
-//!   a `slope_bps` loading means that much steepening over the full span
-//! - curvature `b_C(τ) = 1 − 2·|τ − p| / max(|τ_min − p|, |τ_max − p|)` — a
-//!   tent peaked `+1` at the pivot (belly) falling to `−1` at the far wing
+//! This is a deliberate *reporting* parameterization, not a canonical model.
+//! Bucketed KRD attribution (reusing `key_rate_profile`) is the more standard
+//! desk approach and is the documented v2 alternative; the parametric view is
+//! used here because the brief asked for parallel/slope/curvature.
 
 use convex_core::types::Compounding;
 use convex_curves::{DiscreteCurve, RateCurve};
@@ -54,8 +49,10 @@ pub struct CurveDecomposition {
     pub pivot_tenor_years: f64,
     tenor_min: f64,
     tenor_max: f64,
-    /// `(tenor_years, unexplained Δr in bp)` at each analysis tenor.
-    pub residual_by_tenor: Vec<(f64, f64)>,
+    // Per-tenor unexplained Δr (bp). Internal: the surfaced diagnostic is
+    // the L1 norm via `fit_residual_l1_bps()`; this feeds it and the
+    // exactness check.
+    residual_by_tenor: Vec<(f64, f64)>,
 }
 
 impl CurveDecomposition {
@@ -152,13 +149,11 @@ pub fn decompose_curve_move(
         b[(i, 2)] = b_c;
     }
 
-    // Normal equations (BᵀB) a = Bᵀy — the same pattern key_rate_futures uses.
-    let bt = b.transpose();
-    let btb = &bt * &b;
-    let bty = &bt * &y;
-    let a = convex_math::linear_algebra::solve_linear_system(&btb, &bty).map_err(|e| {
+    // Least squares via SVD (not normal equations — BᵀB squares the
+    // condition number). Over-determined: n pillars, 3 basis columns.
+    let a = b.clone().svd(true, true).solve(&y, 1e-12).map_err(|e| {
         AnalyticsError::CalculationFailed(format!(
-            "decompose_curve_move: 3×3 normal equations singular ({n} tenors): {e}"
+            "decompose_curve_move: SVD least-squares failed ({n} tenors): {e}"
         ))
     })?;
     let (parallel_bps, slope_bps, curvature_bps) = (a[0], a[1], a[2]);

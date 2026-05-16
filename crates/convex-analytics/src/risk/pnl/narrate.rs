@@ -1,15 +1,10 @@
-//! Template narrator (no LLM). Renders a trader-brief paragraph from an
-//! [`Attribution`] — same input → same bytes.
+//! Deterministic template narrator (no LLM): renders an [`Attribution`] into
+//! a trader-brief paragraph of measured facts. Same input → same bytes.
+//! Mirrors `risk::hedging::narrate`'s style.
 //!
-//! Mirrors `risk::hedging::narrate::narrate` verbatim in style: pre-sized
-//! `String`, `std::fmt::Write`, `Currency::code()`, bp `{:.2}` / ccy `{:.0}`,
-//! a provenance disclosure tail. Single style — exactly like the shipped
-//! hedge-advisor narrator (a one-variant style enum would be speculative
-//! generality; add it the day a second style is real).
-//!
-//! The "hero moment" — the pay-fixed swap absorbing the curve move — is a
-//! deterministic clause, not a heuristic: it fires whenever the book holds a
-//! swap whose PnL sign opposes the bonds'.
+//! It states only what is measured (totals, the largest factor, spread moves,
+//! the net swap-vs-bond offset). It does not assert intent — it cannot know a
+//! swap was placed as a hedge, when, or why.
 
 use rust_decimal::prelude::ToPrimitive;
 
@@ -98,7 +93,8 @@ pub fn narrate_attribution(a: &Attribution) -> String {
         out.push('.');
     }
 
-    // Hero moment: a swap whose PnL opposes the bonds' aggregate.
+    // Measured swap-vs-bond offset (a fact, not an inferred intent): report
+    // it only when the swap PnL opposes the bond PnL.
     let swap_pnl: f64 = a
         .positions
         .iter()
@@ -115,7 +111,7 @@ pub fn narrate_attribution(a: &Attribution) -> String {
         let offset_pct = (swap_pnl.abs() / bond_pnl.abs() * 100.0).min(100.0);
         let _ = write!(
             out,
-            " The pay-fixed swap contributed {} {:.0}, absorbing {:.0}% of the bonds' {} {:.0} move — last week's hedge working as designed.",
+            " Swap positions contributed {} {:.0}, offsetting {:.0}% of the bonds' {} {:.0} rate-driven move.",
             ccy, swap_pnl, offset_pct, ccy, bond_pnl,
         );
     }
@@ -237,15 +233,16 @@ mod tests {
     }
 
     #[test]
-    fn fires_hero_moment_when_swap_offsets() {
+    fn reports_swap_offset_as_fact_without_editorializing() {
         let s = narrate_attribution(&demo());
         assert!(
-            s.contains("pay-fixed swap contributed EUR 80083"),
+            s.contains("Swap positions contributed EUR 80083"),
             "got: {s}"
         );
-        assert!(s.contains("working as designed"));
-        // bonds total = -192069; offset ≈ 41–42%.
-        assert!(s.contains("absorbing 4"), "got: {s}");
+        assert!(s.contains("offsetting") && s.contains("rate-driven move"));
+        // Must NOT assert intent it cannot know.
+        assert!(!s.contains("working as designed"), "got: {s}");
+        assert!(!s.contains("last week"), "got: {s}");
     }
 
     #[test]
@@ -253,15 +250,8 @@ mod tests {
         let mut a = demo();
         a.positions.retain(|p| p.kind != "swap");
         let s = narrate_attribution(&a);
-        assert!(!s.contains("pay-fixed swap"));
-        assert!(!s.contains("working as designed"));
+        assert!(!s.contains("Swap positions contributed"));
         assert!(s.contains("Book PnL"));
-    }
-
-    #[test]
-    fn deterministic_same_bytes() {
-        let a = demo();
-        assert_eq!(narrate_attribution(&a), narrate_attribution(&a));
     }
 
     #[test]
@@ -270,12 +260,5 @@ mod tests {
         a.positions.clear();
         let s = narrate_attribution(&a);
         assert!(s.contains("No positions"));
-    }
-
-    #[test]
-    fn discloses_provenance() {
-        let s = narrate_attribution(&demo());
-        assert!(s.contains("curves eur_govt_t0 → eur_govt_t1"));
-        assert!(s.contains(FACTOR_MODEL_NAME));
     }
 }

@@ -2153,8 +2153,8 @@ mod tests {
         let n: NarrationOutput = serde_json::from_str(&narration_text).unwrap();
         assert!(n.text.contains("Book PnL"), "got: {}", n.text);
         assert!(
-            n.text.contains("pay-fixed swap") && n.text.contains("working as designed"),
-            "narration must surface the hero moment; got: {}",
+            n.text.contains("Swap positions contributed") && n.text.contains("offsetting"),
+            "narration must report the measured swap offset; got: {}",
             n.text
         );
     }

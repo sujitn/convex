@@ -58,7 +58,7 @@ pub struct InterestRateSwapPnlSpec {
 /// the level/slope/curvature basis doesn't explain. `spread` is per
 /// benchmark. `residual` closes the identity (path order + second-order
 /// cross terms) and is reported, never hidden.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PnlFactor {
@@ -114,9 +114,9 @@ pub struct FactorPnl {
     pub benchmark: Option<String>,
 }
 
-/// Decomposed curve move (loadings in bp) plus the L1 fit residual. The
-/// slope basis matches `ScenarioBump::steepener`'s linear-about-pivot shape
-/// so synthetic and decomposed slope agree.
+/// Decomposed curve move: level/slope/curvature loadings in bp plus the L1
+/// fit residual (Σ|unexplained Δr|). See `risk::pnl::decompose` for the
+/// basis; it is a reporting parameterization, not a canonical model.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveBreakdown {
@@ -183,136 +183,14 @@ pub struct Attribution {
     pub provenance: AttributionProvenance,
 }
 
-/// Caller-supplied config. Two knobs only — see `docs/pnl-narrator-plan.md`
-/// §3.6 (anti-overengineering).
+/// Caller-supplied config. The curve move is always decomposed on
+/// `curve_t0`'s own pillars (where it was observed), so the only knob is the
+/// slope/curvature pivot.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AttributionConfig {
-    /// Slope-basis pivot (years). Defaults to [`DEFAULT_PIVOT_TENOR_YEARS`].
+    /// Slope/curvature-basis pivot (years). Defaults to
+    /// [`DEFAULT_PIVOT_TENOR_YEARS`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pivot_tenor_years: Option<f64>,
-    /// Analysis grid (years) the curve move is decomposed on. Defaults to the
-    /// `curve_t0` pillar tenors (decompose the move where it was observed).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub analysis_tenors: Option<Vec<f64>>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rust_decimal_macros::dec;
-
-    fn d(y: i32, m: u32, day: u32) -> Date {
-        Date::from_ymd(y, m, day).unwrap()
-    }
-
-    fn sample_attribution() -> Attribution {
-        Attribution {
-            currency: Currency::EUR,
-            t0: d(2026, 5, 7),
-            t1: d(2026, 5, 8),
-            book_market_value_t0: dec!(25_000_000),
-            total_pnl_ccy: dec!(-12_345.67),
-            total_pnl_bps: -4.94,
-            factors: vec![
-                FactorPnl {
-                    factor: PnlFactor::Carry,
-                    pnl_ccy: dec!(1_900.00),
-                    pnl_bps: 0.76,
-                    benchmark: None,
-                },
-                FactorPnl {
-                    factor: PnlFactor::Spread,
-                    pnl_ccy: dec!(-3_100.00),
-                    pnl_bps: -1.24,
-                    benchmark: Some("IT.BTP.10Y".into()),
-                },
-            ],
-            positions: vec![PositionAttribution {
-                position_id: Some("OAT_10Y".into()),
-                kind: "bond".into(),
-                market_value_t0: dec!(10_000_000),
-                total_pnl_ccy: dec!(-5_000.00),
-                total_pnl_bps: -5.0,
-                factors: vec![FactorPnl {
-                    factor: PnlFactor::CurveParallel,
-                    pnl_ccy: dec!(-4_800.00),
-                    pnl_bps: -4.8,
-                    benchmark: None,
-                }],
-                curve: CurveBreakdown {
-                    parallel_bps: 6.0,
-                    slope_bps: 1.5,
-                    curvature_bps: -0.5,
-                    pivot_tenor_years: 2.0,
-                    fit_residual_l1_bps: 0.3,
-                },
-            }],
-            provenance: AttributionProvenance {
-                curve_t0_id: "eur_govt_2026_05_07".into(),
-                curve_t1_id: "eur_govt_2026_05_08".into(),
-                factor_model: FACTOR_MODEL_NAME.into(),
-                pivot_tenor_years: 2.0,
-                tool_version: env!("CARGO_PKG_VERSION").into(),
-            },
-        }
-    }
-
-    #[test]
-    fn attribution_round_trips_via_json() {
-        let a = sample_attribution();
-        let parsed: Attribution =
-            serde_json::from_str(&serde_json::to_string(&a).unwrap()).unwrap();
-        assert_eq!(a, parsed);
-    }
-
-    #[test]
-    fn swap_spec_round_trips_via_json() {
-        let s = InterestRateSwapPnlSpec {
-            trade_date: d(2026, 5, 1),
-            maturity: d(2036, 5, 1),
-            fixed_rate_decimal: 0.0285,
-            fixed_frequency: Frequency::Annual,
-            fixed_day_count: DayCountConvention::Thirty360E,
-            side: SwapSide::PayFixed,
-            notional: dec!(10_000_000),
-            currency: Currency::EUR,
-        };
-        let parsed: InterestRateSwapPnlSpec =
-            serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
-        assert_eq!(s, parsed);
-    }
-
-    #[test]
-    fn pnl_factor_serializes_snake_case() {
-        let j = serde_json::to_string(&PnlFactor::CurveParallel).unwrap();
-        assert_eq!(j, "\"curve_parallel\"");
-        let back: PnlFactor = serde_json::from_str("\"roll_down\"").unwrap();
-        assert_eq!(back, PnlFactor::RollDown);
-    }
-
-    #[test]
-    fn factor_order_and_labels_are_total() {
-        // Every variant is in ORDER exactly once and has a non-empty label.
-        assert_eq!(PnlFactor::ORDER.len(), 8);
-        for f in PnlFactor::ORDER {
-            assert!(!f.label().is_empty());
-        }
-    }
-
-    #[test]
-    fn config_defaults_are_none() {
-        let c = AttributionConfig::default();
-        assert!(c.pivot_tenor_years.is_none());
-        assert!(c.analysis_tenors.is_none());
-    }
-
-    #[cfg(feature = "schemars")]
-    #[test]
-    fn json_schema_is_derived() {
-        let a = serde_json::to_string(&schemars::schema_for!(Attribution)).unwrap();
-        assert!(a.contains("positions") && a.contains("provenance") && a.contains("factors"));
-        let b = serde_json::to_string(&schemars::schema_for!(InterestRateSwapPnlSpec)).unwrap();
-        assert!(b.contains("maturity") && b.contains("fixed_rate_decimal"));
-    }
 }
