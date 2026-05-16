@@ -16,14 +16,16 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use convex::{
-    aggregate_risk_profiles, barbell_futures, cash_bond_pair, compare_hedges,
+    aggregate_risk_profiles, attribute_pnl, barbell_futures, cash_bond_pair, compare_hedges,
     compute_callable_position_risk, compute_position_risk, duration_futures, interest_rate_swap,
-    key_rate_futures, narrate, position_contributions, price_callable_from_mark, price_from_mark,
-    yield_to_maturity, Bond, BondFuture, CallSchedule, CallableBond, ComparisonReport, Compounding,
-    Constraints, Currency, Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond,
-    FloatingRateNote, Frequency, GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet,
-    InterpolationMethod, Mark, Ois, PositionContribution, RateCurve, RateCurveDyn, RiskProfile,
-    SpreadType, Swap, ValueType, Yield, ZSpreadCalculator, ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
+    key_rate_futures, narrate, narrate_attribution, position_contributions,
+    price_callable_from_mark, price_from_mark, yield_to_maturity, Attribution, AttributionConfig,
+    Bond, BondFuture, CallSchedule, CallableBond, ComparisonReport, Compounding, Constraints,
+    Currency, Date, DayCountConvention, Deposit, DiscreteCurve, FixedRateBond, FloatingRateNote,
+    Frequency, GlobalFitter, HedgeProposal, ISpreadCalculator, InstrumentSet,
+    InterestRateSwapPnlSpec, InterpolationMethod, Mark, Ois, PositionContribution, RateCurve,
+    RateCurveDyn, ResolvedBook, ResolvedPosition, RiskProfile, SpreadType, Swap, SwapSide,
+    ValueType, Yield, ZSpreadCalculator, ZeroCouponBond, ADVISOR_KEY_RATE_TENORS,
 };
 
 use crate::error::McpToolError;
@@ -579,11 +581,65 @@ pub struct NarrateRecommendationParams {
     pub comparison: ComparisonReport,
 }
 
-/// `narrate_recommendation` output.
+/// `narrate_recommendation` / `narrate_attribution` output.
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct NarrationOutput {
     pub text: String,
+}
+
+/// One PnL book position. Tagged like `HedgeInstrument` — adding a kind is a
+/// new variant, no engine rewrite.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[allow(missing_docs)]
+pub enum PnlPositionParams {
+    /// Cash bond carrying its own t0 and t1 trader marks.
+    Bond {
+        #[serde(default)]
+        position_id: Option<String>,
+        /// Inline spec recommended; an id requires an earlier create call.
+        bond: BondRef,
+        /// Signed face notional (positive = long).
+        notional_face: f64,
+        /// Trader mark at t0 (e.g. `"+12bps@FR.OAT"`, `"99.5C"`, `"2.85%@A"`).
+        mark_t0: String,
+        /// Trader mark at t1.
+        mark_t1: String,
+    },
+    /// Fixed-maturity vanilla swap (maturity & rate pinned at trade).
+    Swap {
+        #[serde(default)]
+        position_id: Option<String>,
+        spec: InterestRateSwapPnlSpec,
+    },
+}
+
+/// `attribute_pnl` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct AttributePnlParams {
+    /// Book positions (bonds and/or swaps). Single base currency.
+    pub positions: Vec<PnlPositionParams>,
+    /// Book base currency; every position must match it (v1: single-ccy).
+    pub base_currency: Currency,
+    /// Period start, ISO-8601 (`"YYYY-MM-DD"`).
+    pub t0: String,
+    /// Period end, ISO-8601 (`"YYYY-MM-DD"`).
+    pub t1: String,
+    /// Curve at t0 — inline spec recommended for stateless calls.
+    pub curve_t0: CurveRef,
+    /// Curve at t1.
+    pub curve_t1: CurveRef,
+    /// Optional pivot tenor + analysis grid (defaults documented on the type).
+    #[serde(default)]
+    pub config: Option<AttributionConfig>,
+}
+
+/// `narrate_attribution` parameters.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[allow(missing_docs)]
+pub struct NarrateAttributionParams {
+    pub attribution: Attribution,
 }
 
 /// `compute_spread` parameters.
@@ -1506,6 +1562,107 @@ impl ConvexMcpServer {
         let text = narrate(&params.comparison);
         Self::json_result(&NarrationOutput { text })
     }
+
+    #[tool(description = "Attribute a book's PnL between two dates by full \
+        revaluation: carry, roll-down, curve (parallel/slope/curvature/\
+        residual), spread (per benchmark), and a closing residual. Positions \
+        are cash bonds (with t0/t1 marks) and/or fixed-maturity swaps. \
+        Returns per-position and book-level breakdowns with full provenance \
+        (both curve ids, factor model, pivot). Inline bond/curve specs work \
+        statelessly; the residual is machine-zero for Z-spread marks.")]
+    pub async fn attribute_pnl(
+        &self,
+        Parameters(params): Parameters<AttributePnlParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let attribution = self.run_attribute_pnl(&params)?;
+        Self::json_result(&attribution)
+    }
+
+    #[tool(
+        description = "Render an Attribution into a deterministic trader-brief \
+        paragraph: total PnL (ccy + bp), biggest driver, curve decomposition, \
+        per-benchmark spread moves, and the swap's offsetting contribution. \
+        Template only, no LLM."
+    )]
+    pub async fn narrate_attribution(
+        &self,
+        Parameters(params): Parameters<NarrateAttributionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let text = convex::narrate_attribution(&params.attribution);
+        Self::json_result(&NarrationOutput { text })
+    }
+
+    /// Resolve refs/marks/dates and run the attribution engine.
+    fn run_attribute_pnl(&self, params: &AttributePnlParams) -> Result<Attribution, McpError> {
+        if params.positions.is_empty() {
+            return Err(McpToolError::InvalidInput(
+                "attribute_pnl: positions list is empty".into(),
+            )
+            .into());
+        }
+        let t0 = Date::parse(&params.t0)
+            .map_err(|e| McpToolError::InvalidInput(format!("t0 '{}': {e}", params.t0)))?;
+        let t1 = Date::parse(&params.t1)
+            .map_err(|e| McpToolError::InvalidInput(format!("t1 '{}': {e}", params.t1)))?;
+        let (curve_t0, c0_id) = self.resolve_curve(&params.curve_t0)?;
+        let (curve_t1, c1_id) = self.resolve_curve(&params.curve_t1)?;
+        let c0_id = c0_id.unwrap_or_else(|| "<inline_t0>".into());
+        let c1_id = c1_id.unwrap_or_else(|| "<inline_t1>".into());
+
+        let mut positions = Vec::with_capacity(params.positions.len());
+        for p in &params.positions {
+            match p {
+                PnlPositionParams::Bond {
+                    position_id,
+                    bond,
+                    notional_face,
+                    mark_t0,
+                    mark_t1,
+                } => {
+                    let (stored, _id) = self.resolve_bond(bond)?;
+                    let fb: FixedRateBond = match stored {
+                        StoredBond::Fixed(b) => b,
+                        StoredBond::Callable(c) => c.base_bond().clone(),
+                        other => {
+                            return Err(McpToolError::InvalidInput(format!(
+                                "attribute_pnl: position {position_id:?} requires a \
+                                 Fixed/Callable bond, got {}",
+                                other.type_name()
+                            ))
+                            .into())
+                        }
+                    };
+                    let mark_t0: Mark = mark_t0.parse().map_err(|e| {
+                        McpToolError::InvalidInput(format!("mark_t0 '{mark_t0}': {e}"))
+                    })?;
+                    let mark_t1: Mark = mark_t1.parse().map_err(|e| {
+                        McpToolError::InvalidInput(format!("mark_t1 '{mark_t1}': {e}"))
+                    })?;
+                    positions.push(ResolvedPosition::Bond {
+                        position_id: position_id.clone(),
+                        bond: Box::new(fb),
+                        notional_face: finite_decimal(*notional_face, "notional_face")?,
+                        mark_t0,
+                        mark_t1,
+                    });
+                }
+                PnlPositionParams::Swap { position_id, spec } => {
+                    positions.push(ResolvedPosition::Swap {
+                        position_id: position_id.clone(),
+                        spec: spec.clone(),
+                    });
+                }
+            }
+        }
+
+        let book = ResolvedBook {
+            base_currency: params.base_currency,
+            positions,
+        };
+        let config = params.config.clone().unwrap_or_default();
+        convex::attribute_pnl(&book, t0, t1, &curve_t0, &c0_id, &curve_t1, &c1_id, &config)
+            .map_err(|e| McpToolError::from(e).into())
+    }
 }
 
 #[tool_handler]
@@ -1876,6 +2033,130 @@ mod tests {
         assert!(narration.text.contains("DurationFutures"));
         assert!(narration.text.contains("InterestRateSwap"));
         assert!(narration.text.contains("Recommend "));
+    }
+
+    fn eur_curve_spec(ref_date: DateInput, bump_bps: f64) -> CurveSpec {
+        let tenors = vec![0.5, 1.0, 2.0, 5.0, 10.0, 30.0];
+        let base = [2.40, 2.50, 2.60, 2.80, 3.00, 3.30];
+        CurveSpec {
+            reference_date: ref_date,
+            tenors_years: tenors,
+            zero_rates_pct: base.iter().map(|r| r + bump_bps / 100.0).collect(),
+        }
+    }
+
+    fn eur_sov_spec(coupon_pct: f64, maturity: DateInput) -> BondSpec {
+        BondSpec {
+            coupon_rate_pct: coupon_pct,
+            maturity,
+            issue_date: date(2024, 2, 15),
+            frequency: Frequency::Annual,
+            day_count: DayCountConvention::ActActIcma,
+            currency: Currency::EUR,
+            face_value: 100.0,
+            make_whole_spread_bps: None,
+        }
+    }
+
+    /// Demo scenario: the hedge-advisor book + the pay-fixed EUR swap,
+    /// May 7 → May 8 2026, rates +6bp. attribute_pnl → narrate_attribution.
+    #[tokio::test]
+    async fn pnl_narrator_e2e_oat_book() {
+        let server = ConvexMcpServer::new();
+
+        let params = AttributePnlParams {
+            base_currency: Currency::EUR,
+            t0: "2026-05-07".into(),
+            t1: "2026-05-08".into(),
+            curve_t0: CurveRef::Spec(eur_curve_spec(date(2026, 5, 7), 0.0)),
+            curve_t1: CurveRef::Spec(eur_curve_spec(date(2026, 5, 8), 6.0)),
+            config: None,
+            positions: vec![
+                PnlPositionParams::Bond {
+                    position_id: Some("OAT_2.75_2034".into()),
+                    bond: BondRef::Spec(eur_sov_spec(2.75, date(2034, 5, 25))),
+                    notional_face: 10_000_000.0,
+                    mark_t0: "+12bps@FR.OAT-DE.BUND".into(),
+                    mark_t1: "+14bps@FR.OAT-DE.BUND".into(),
+                },
+                PnlPositionParams::Bond {
+                    position_id: Some("BTP_4.0_2035".into()),
+                    bond: BondRef::Spec(eur_sov_spec(4.0, date(2035, 2, 1))),
+                    notional_face: 5_000_000.0,
+                    mark_t0: "+135bps@IT.BTP-DE.BUND".into(),
+                    mark_t1: "+141bps@IT.BTP-DE.BUND".into(),
+                },
+                PnlPositionParams::Bond {
+                    position_id: Some("BUND_2.5_2034".into()),
+                    bond: BondRef::Spec(eur_sov_spec(2.5, date(2034, 8, 15))),
+                    notional_face: 10_000_000.0,
+                    mark_t0: "+1bps@DE.BUND".into(),
+                    mark_t1: "+1bps@DE.BUND".into(),
+                },
+                PnlPositionParams::Swap {
+                    position_id: Some("EUR_SWAP_10Y_PAYFIXED".into()),
+                    spec: InterestRateSwapPnlSpec {
+                        trade_date: Date::parse("2026-05-01").unwrap(),
+                        maturity: Date::parse("2036-05-01").unwrap(),
+                        fixed_rate_decimal: 0.0265,
+                        fixed_frequency: Frequency::Annual,
+                        fixed_day_count: DayCountConvention::Thirty360E,
+                        side: SwapSide::PayFixed,
+                        notional: dec!(10_000_000),
+                        currency: Currency::EUR,
+                    },
+                },
+            ],
+        };
+
+        let attribution_text =
+            response_text(server.attribute_pnl(Parameters(params)).await.unwrap());
+        let a: Attribution = serde_json::from_str(&attribution_text).unwrap();
+
+        // Structural.
+        assert_eq!(a.positions.len(), 4);
+        assert_eq!(a.provenance.factor_model, "level_slope_curv_v1");
+        assert_eq!(a.provenance.curve_t0_id, "<inline_t0>");
+        assert_eq!(a.provenance.curve_t1_id, "<inline_t1>");
+        let bf_sum: rust_decimal::Decimal = a.factors.iter().map(|f| f.pnl_ccy).sum();
+        assert!((bf_sum - a.total_pnl_ccy).abs() < dec!(0.5));
+
+        // Economics: long sovereigns lose on +6bp; pay-fixed swap gains and
+        // offsets (the hero moment).
+        let by = |id: &str| {
+            a.positions
+                .iter()
+                .find(|p| p.position_id.as_deref() == Some(id))
+                .unwrap()
+                .total_pnl_ccy
+        };
+        assert!(by("OAT_2.75_2034") < dec!(0));
+        assert!(by("BTP_4.0_2035") < dec!(0));
+        assert!(by("BUND_2.5_2034") < dec!(0));
+        let swap = by("EUR_SWAP_10Y_PAYFIXED");
+        assert!(swap > dec!(0), "pay-fixed swap should gain: {swap}");
+        let bond_sum = by("OAT_2.75_2034") + by("BTP_4.0_2035") + by("BUND_2.5_2034");
+        assert!(
+            a.total_pnl_ccy > bond_sum,
+            "swap must offset: book {} vs bonds {}",
+            a.total_pnl_ccy,
+            bond_sum
+        );
+
+        // Tool 2: narrate_attribution.
+        let narration_text = response_text(
+            server
+                .narrate_attribution(Parameters(NarrateAttributionParams { attribution: a }))
+                .await
+                .unwrap(),
+        );
+        let n: NarrationOutput = serde_json::from_str(&narration_text).unwrap();
+        assert!(n.text.contains("Book PnL"), "got: {}", n.text);
+        assert!(
+            n.text.contains("pay-fixed swap") && n.text.contains("working as designed"),
+            "narration must surface the hero moment; got: {}",
+            n.text
+        );
     }
 
     fn response_text(result: CallToolResult) -> String {

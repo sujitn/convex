@@ -33,13 +33,15 @@ pub use convex_analytics::functions::{
 };
 pub use convex_analytics::pricing::{price_callable_from_mark, price_from_mark, PricingResult};
 pub use convex_analytics::risk::{
-    aggregate_risk_profiles, barbell_futures, cash_bond_pair, compare_hedges,
+    aggregate_risk_profiles, attribute_pnl, barbell_futures, cash_bond_pair, compare_hedges,
     compute_callable_position_risk, compute_position_risk, duration_futures, hedge_cost_bps,
-    interest_rate_swap, key_rate_futures, narrate, position_contributions, select_ctd, BondFuture,
-    CashBondLeg, ComparisonReport, ComparisonRow, Constraints, CostFeed, CtdSelection, Deliverable,
-    HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucket,
-    KeyRateBucketLimit, PositionContribution, Provenance, Recommendation, RecommendationReason,
-    ResidualRisk, RiskProfile, SwapSide, TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
+    interest_rate_swap, key_rate_futures, narrate, narrate_attribution, position_contributions,
+    select_ctd, Attribution, AttributionConfig, AttributionProvenance, BondFuture, CashBondLeg,
+    ComparisonReport, ComparisonRow, Constraints, CostFeed, CtdSelection, CurveBreakdown,
+    Deliverable, FactorPnl, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap,
+    InterestRateSwapPnlSpec, KeyRateBucket, KeyRateBucketLimit, PnlFactor, PositionAttribution,
+    PositionContribution, Provenance, Recommendation, RecommendationReason, ResidualRisk,
+    ResolvedBook, ResolvedPosition, RiskProfile, SwapSide, TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
 };
 pub use convex_analytics::spreads::{
     GSpreadCalculator, ISpreadCalculator, OASCalculator, ZSpreadCalculator,

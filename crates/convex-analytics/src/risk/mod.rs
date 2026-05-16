@@ -33,9 +33,9 @@ pub use hedging::{
     ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
 pub use pnl::{
-    Attribution, AttributionConfig, AttributionProvenance, CurveBreakdown, FactorPnl,
-    InterestRateSwapPnlSpec, PnlFactor, PositionAttribution, DEFAULT_PIVOT_TENOR_YEARS,
-    FACTOR_MODEL_NAME,
+    attribute_pnl, narrate_attribution, Attribution, AttributionConfig, AttributionProvenance,
+    CurveBreakdown, FactorPnl, InterestRateSwapPnlSpec, PnlFactor, PositionAttribution,
+    ResolvedBook, ResolvedPosition, DEFAULT_PIVOT_TENOR_YEARS, FACTOR_MODEL_NAME,
 };
 pub use profile::{
     aggregate_risk_profiles, compute_callable_position_risk, compute_position_risk, KeyRateBucket,
