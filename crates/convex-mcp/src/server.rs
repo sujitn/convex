@@ -1620,13 +1620,16 @@ impl ConvexMcpServer {
                     mark_t1,
                 } => {
                     let (stored, _id) = self.resolve_bond(bond)?;
+                    // v1 prices fixed-coupon bullets only. A callable priced
+                    // as its bullet would silently drop the optionality and
+                    // misstate PnL — fail fast instead (the OAS path is the
+                    // hedge advisor's `compute_callable_position_risk`).
                     let fb: FixedRateBond = match stored {
                         StoredBond::Fixed(b) => b,
-                        StoredBond::Callable(c) => c.base_bond().clone(),
                         other => {
                             return Err(McpToolError::InvalidInput(format!(
                                 "attribute_pnl: position {position_id:?} requires a \
-                                 Fixed/Callable bond, got {}",
+                                 fixed-coupon (non-callable) bond, got {}",
                                 other.type_name()
                             ))
                             .into())

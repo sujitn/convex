@@ -76,17 +76,18 @@ pub fn narrate_attribution(a: &Attribution) -> String {
         })
         .collect();
     if !spreads.is_empty() {
+        // Report the spread *PnL contribution* — not "widened/tightened":
+        // the move's direction can't be inferred from the PnL sign (it flips
+        // with position direction, and there is no Δspread on FactorPnl).
         out.push_str(" Spread:");
         for (i, f) in spreads.iter().enumerate() {
-            let v = f.pnl_ccy.to_f64().unwrap_or(0.0);
-            let dir = if v < 0.0 { "widened" } else { "tightened" };
             let _ = write!(
                 out,
-                "{} {} {dir} ({} {:.0}, {:.2} bp)",
+                "{} {} contributed {} {:.0} ({:.2} bp)",
                 if i == 0 { "" } else { ";" },
                 f.benchmark.as_deref().unwrap_or(""),
                 ccy,
-                v,
+                f.pnl_ccy.to_f64().unwrap_or(0.0),
                 f.pnl_bps,
             );
         }
@@ -111,7 +112,7 @@ pub fn narrate_attribution(a: &Attribution) -> String {
         let offset_pct = (swap_pnl.abs() / bond_pnl.abs() * 100.0).min(100.0);
         let _ = write!(
             out,
-            " Swap positions contributed {} {:.0}, offsetting {:.0}% of the bonds' {} {:.0} rate-driven move.",
+            " Swap positions contributed {} {:.0}, offsetting {:.0}% of the bonds' {} {:.0} total move.",
             ccy, swap_pnl, offset_pct, ccy, bond_pnl,
         );
     }
@@ -222,14 +223,18 @@ mod tests {
     }
 
     #[test]
-    fn reports_btp_bund_widening() {
+    fn reports_per_benchmark_spread_contribution_neutrally() {
         let s = narrate_attribution(&demo());
-        assert!(s.contains("IT.BTP-DE.BUND widened"), "got: {s}");
-        assert!(s.contains("FR.OAT-DE.BUND widened"), "got: {s}");
-        // Exactly the two non-zero benchmark rows are narrated; the zero
-        // DE.BUND and None rows the engine keeps for completeness are not.
-        assert_eq!(s.matches("widened").count(), 2, "got: {s}");
-        assert!(!s.contains(" DE.BUND widened"), "got: {s}");
+        assert!(s.contains("IT.BTP-DE.BUND contributed"), "got: {s}");
+        assert!(s.contains("FR.OAT-DE.BUND contributed"), "got: {s}");
+        // The zero DE.BUND / None spread rows the engine keeps for
+        // completeness are not narrated (leading space ⇒ standalone row).
+        assert!(!s.contains(" DE.BUND contributed"), "got: {s}");
+        // Direction is not inferred from the PnL sign.
+        assert!(
+            !s.contains("widened") && !s.contains("tightened"),
+            "got: {s}"
+        );
     }
 
     #[test]
@@ -239,7 +244,7 @@ mod tests {
             s.contains("Swap positions contributed EUR 80083"),
             "got: {s}"
         );
-        assert!(s.contains("offsetting") && s.contains("rate-driven move"));
+        assert!(s.contains("offsetting") && s.contains("total move"));
         // Must NOT assert intent it cannot know.
         assert!(!s.contains("working as designed"), "got: {s}");
         assert!(!s.contains("last week"), "got: {s}");

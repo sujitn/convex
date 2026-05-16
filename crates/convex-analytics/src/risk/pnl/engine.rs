@@ -88,11 +88,16 @@ fn dec_of(x: f64, what: &str) -> AnalyticsResult<Decimal> {
         .ok_or_else(|| AnalyticsError::InvalidInput(format!("{what}: non-finite f64")))
 }
 
+/// PnL in bp of the position/book economic size. Uses the **absolute** base
+/// so a gain is `+bp` and a loss `−bp` regardless of long/short (a signed
+/// base would invert the sign for shorts). A vanishing base (par swap, fully
+/// netted book) has no meaningful bp, so report 0 rather than divide.
 fn bps(pnl_ccy: f64, base_ccy: f64) -> f64 {
-    if base_ccy.abs() < 1e-9 {
+    let base = base_ccy.abs();
+    if base < 1e-9 {
         0.0
     } else {
-        pnl_ccy / base_ccy * 1.0e4
+        pnl_ccy / base * 1.0e4
     }
 }
 

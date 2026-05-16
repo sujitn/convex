@@ -50,7 +50,7 @@ demo continuity requirement (same book + the swap from the hedge).
 | No global state / no leakage across two valuations | ✅ | `price_from_mark` is a pure function of its arguments. No statics, no thread-locals, no "system clock" anywhere on the path (grep `Utc::now`/`SystemTime` in `convex-analytics` → none on the pricing path). |
 | Curve carries its own valuation date | ✅ | `convex-curves/src/curves/discrete.rs:92` `DiscreteCurve::new(reference_date, …)`; `wrappers/rate_curve.rs:53` `RateCurve::reference_date()`. `curve_t0` and `curve_t1` are independent objects. |
 | "Hold spread fixed, vary curve/date" reprice primitive | ✅ | `profile.rs:126` computes implied Z-spread, then `profile.rs:139` `ZSpreadCalculator::price_with_spread(bond, z_decimal, settlement)` reprices at that fixed spread against any (bumped) curve. This is exactly the kernel sequential repricing needs. |
-| Price at an off-market spread on a govt curve (G/I) | ✅ | `pricing.rs:108` `SpreadType::ISpread | GSpread` path: `bond_yield = curve_par_rate@maturity + spread`. Lets us value a sovereign at a Bund-relative spread. |
+| Price at an off-market spread on a govt curve (G/I) | ✅ | `pricing.rs:108` `SpreadType::ISpread \| GSpread` path: `bond_yield = curve_par_rate@maturity + spread`. Lets us value a sovereign at a Bund-relative spread. |
 | Spread-mark variants beyond Z/I/G/OAS | ⚠️ | `pricing.rs:120` rejects other `SpreadType`s. v1 uses Z (or G for sovereign-vs-Bund) — sufficient. |
 
 **Synthesis.** Historical valuation is **orchestration, not missing math**.
@@ -77,7 +77,7 @@ calls all exist; the *decomposition recipe* is the new logic (§1.3).
 | Item | Status | Evidence |
 | --- | --- | --- |
 | Curve construction from a pillar set | ✅ | `convex-mcp/src/server.rs:164` `build_curve(spec)` → `DiscreteCurve::new(ref_date, tenors_years, rates_decimal, ZeroRate{Continuous,Act365}, MonotoneConvex)` → `RateCurve::new`. |
-| Inline (stateless) curve input | ✅ | `server.rs:280` `CurveSpec { reference_date, tenors_years, zero_rates_pct }`; `server.rs:311` `CurveRef = untagged(Id(String) | Spec(CurveSpec))`. Inline spec is the recommended paste-block form. |
+| Inline (stateless) curve input | ✅ | `server.rs:280` `CurveSpec { reference_date, tenors_years, zero_rates_pct }`; `server.rs:311` `CurveRef = untagged(Id(String) \| Spec(CurveSpec))`. Inline spec is the recommended paste-block form. |
 | Multiple curves identified by valuation date | ⚠️ | No "curve-by-date" registry. Not needed: each curve is passed inline carrying its own `reference_date`. Two-date attribution = two `CurveRef` arguments (`curve_t0`, `curve_t1`). |
 | Demo data shape compatibility | ✅ | `demo/data/treasury-curve-live.json` is `{ "asOfDate", "curve": {tenor: rate_pct}, "tenorsYears": {…} }` — maps 1:1 onto `CurveSpec { reference_date, tenors_years, zero_rates_pct }`. The agent pastes two such blocks. |
 | Read a zero rate at an arbitrary tenor | ✅ | `rate_curve.rs:141` `zero_rate_at_tenor(t, compounding)`; `:135` `zero_rate(date, …)`. Needed to sample `curve_t0`/`curve_t1` on a common grid for decomposition. |
@@ -204,7 +204,7 @@ into the existing `Provenance` echo pattern — extend it, don't reinvent it.
 | Item | Status | Evidence |
 | --- | --- | --- |
 | Two curves as input | ✅ | Two `CurveRef` (inline `CurveSpec`) — already the paste-block format (§1.2). |
-| Book of mixed instruments | ⚠️ | Bonds fit `BondRef`. The **EUR swap does not** — it is not a `BondSpec`. Need a position spec that is a tagged enum `{ bond | swap }` (mirrors `HedgeInstrument`'s tagged-enum convention, `types.rs:25`). |
+| Book of mixed instruments | ⚠️ | Bonds fit `BondRef`. The **EUR swap does not** — it is not a `BondSpec`. Need a position spec that is a tagged enum `{ bond \| swap }` (mirrors `HedgeInstrument`'s tagged-enum convention, `types.rs:25`). |
 | Two marks / spread snapshots per position | ⚠️ | `ComputePositionRiskParams` carries one `mark`. PnL needs (t0 mark, t1 mark) per position. Additive field, not a new mechanism. |
 | Dates on the wire | ⚠️ | The prompt says `t0: NaiveDate` / `t1: NaiveDate`, but the entire MCP surface uses `convex_core::types::Date` as an **ISO-8601 string** (`settlement: String`, `Date::parse`). Recommend matching the codebase (`"2026-05-07"` strings) rather than introducing `chrono::NaiveDate` into the schema — see *Contradictions to surface*. |
 | A `MarketSnapshot`-style wrapper | ⚠️ | Not strictly needed: `attribute_pnl(book, t0, t1, curve_t0, curve_t1, [config])` with per-position (t0,t1) marks subsumes the "two curves + two spread snapshots" the demo pastes. A `MarketSnapshot` newtype is optional sugar, decided in Phase 2/3. |

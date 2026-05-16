@@ -42,6 +42,7 @@ pub use convex_analytics::risk::{
     InterestRateSwapPnlSpec, KeyRateBucket, KeyRateBucketLimit, PnlFactor, PositionAttribution,
     PositionContribution, Provenance, Recommendation, RecommendationReason, ResidualRisk,
     ResolvedBook, ResolvedPosition, RiskProfile, SwapSide, TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
+    DEFAULT_PIVOT_TENOR_YEARS, FACTOR_MODEL_NAME,
 };
 pub use convex_analytics::spreads::{
     GSpreadCalculator, ISpreadCalculator, OASCalculator, ZSpreadCalculator,

@@ -112,24 +112,43 @@ pub fn decompose_curve_move(
     analysis_tenors: &[f64],
     pivot_tenor_years: f64,
 ) -> AnalyticsResult<CurveDecomposition> {
+    // A 3-factor fit needs ≥3 *distinct* tenors; fewer makes the design
+    // matrix rank-deficient and the SVD returns a non-unique minimum-norm
+    // solution (meaningless factor loadings). Fail fast instead.
     let n = analysis_tenors.len();
-    if n < 3 {
+    let mut sorted: Vec<f64> = analysis_tenors.to_vec();
+    sorted.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+    let distinct = if sorted.is_empty() {
+        0
+    } else {
+        1 + sorted
+            .windows(2)
+            .filter(|w| (w[1] - w[0]).abs() > 1e-9)
+            .count()
+    };
+    if distinct < 3 {
         return Err(AnalyticsError::InvalidInput(format!(
-            "decompose_curve_move: need ≥3 analysis tenors for a 3-factor fit (got {n})"
+            "decompose_curve_move: need ≥3 distinct analysis tenors for a \
+             3-factor fit (got {distinct} distinct of {n})"
         )));
     }
-    let tmin = analysis_tenors
-        .iter()
-        .copied()
-        .fold(f64::INFINITY, f64::min);
-    let tmax = analysis_tenors
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
+    let tmin = sorted[0];
+    let tmax = sorted[sorted.len() - 1];
     if tmax <= tmin {
         return Err(AnalyticsError::InvalidInput(
             "decompose_curve_move: analysis tenors must span a positive range".into(),
         ));
+    }
+    // The curvature basis is `1 − 2|τ−p|/half`. If the pivot is on or outside
+    // the span, |τ−p| is monotone across the grid and b_C collapses to an
+    // affine function — collinear with level/slope, so the loadings are no
+    // longer separable. Require a strictly interior pivot.
+    if pivot_tenor_years <= tmin || pivot_tenor_years >= tmax {
+        return Err(AnalyticsError::InvalidInput(format!(
+            "decompose_curve_move: pivot {pivot_tenor_years} must lie strictly \
+             inside the tenor span ({tmin}, {tmax}); a pivot on/outside the \
+             bounds makes the curvature basis affine and the fit non-unique"
+        )));
     }
 
     // y_i = Δr(τ_i) in bp; B_i = [b_L, b_S, b_C].
@@ -339,5 +358,27 @@ mod tests {
         };
         let err = decompose_curve_move(&c, &c, &[1.0, 2.0], PIVOT);
         assert!(matches!(err, Err(AnalyticsError::InvalidInput(_))));
+        // Non-distinct tenors (len ≥ 3 but rank-deficient) also rejected.
+        let dup = decompose_curve_move(
+            &curve(&base_rates()),
+            &curve(&base_rates()),
+            &[2.0, 2.0, 2.0],
+            PIVOT,
+        );
+        assert!(matches!(dup, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn pivot_outside_span_errors() {
+        let r0 = base_rates();
+        // PILLARS span [0.25, 30]; a pivot on/outside the bounds makes the
+        // curvature basis affine → non-unique loadings.
+        for bad_pivot in [0.25, 30.0, 0.0, 50.0] {
+            let err = decompose_curve_move(&curve(&r0), &curve(&r0), PILLARS, bad_pivot);
+            assert!(
+                matches!(err, Err(AnalyticsError::InvalidInput(_))),
+                "pivot {bad_pivot} should be rejected"
+            );
+        }
     }
 }
