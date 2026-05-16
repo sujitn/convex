@@ -18,9 +18,11 @@
 // `hedging::types`) while staying reachable as `crate::risk::pnl::<m>` from
 // sibling `pnl` modules.
 mod decompose;
+mod engine;
 mod types;
 
 pub use decompose::{decompose_curve_move, CurveComponent, CurveDecomposition};
+pub use engine::{attribute_pnl, ResolvedBook, ResolvedPosition};
 pub use types::{
     Attribution, AttributionConfig, AttributionProvenance, CurveBreakdown, FactorPnl,
     InterestRateSwapPnlSpec, PnlFactor, PositionAttribution, DEFAULT_PIVOT_TENOR_YEARS,
