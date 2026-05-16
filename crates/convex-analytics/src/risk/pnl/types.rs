@@ -5,8 +5,7 @@
 //! base currency; `*_bps` figures are relative to the **t0** market value of
 //! the relevant scope (book or position).
 //!
-//! These are JSON wire types — the field name is the doc, surfaced through
-//! schemars to the MCP schema. Conventions mirror `risk::hedging::types`.
+//! JSON wire types (schemars-derived); the field name is the doc.
 
 #![allow(missing_docs)]
 
@@ -23,20 +22,15 @@ pub const FACTOR_MODEL_NAME: &str = "level_slope_curv_v1";
 /// Default slope-basis pivot tenor (years) when the caller doesn't set one.
 pub const DEFAULT_PIVOT_TENOR_YEARS: f64 = 2.0;
 
-/// Vanilla single-currency IRS valued for PnL at a **fixed** maturity and
-/// fixed rate, both pinned at trade.
-///
-/// Distinct from [`crate::risk::hedging::types::InterestRateSwap`], whose
-/// synthetic fixed leg re-derives its maturity from the valuation date
-/// (constant-maturity) — correct for a risk snapshot but wrong for the value
-/// change of a static swap over a period. PnL needs the swap to age: at `t1`
-/// it has `maturity − t1` left, not the original tenor.
+/// Vanilla single-currency IRS valued for PnL with maturity and rate pinned
+/// at trade — so the swap ages over the period. (The hedge advisor's
+/// [`crate::risk::hedging::types::InterestRateSwap`] is constant-maturity:
+/// correct for a risk snapshot, wrong for a static swap's period PnL.)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct InterestRateSwapPnlSpec {
     /// Trade / effective date (the synthetic fixed leg's issue date).
     pub trade_date: Date,
-    /// Fixed maturity — does **not** move with the valuation date.
     pub maturity: Date,
     pub fixed_rate_decimal: f64,
     pub fixed_frequency: Frequency,
@@ -124,7 +118,6 @@ pub struct CurveBreakdown {
     pub slope_bps: f64,
     pub curvature_bps: f64,
     pub pivot_tenor_years: f64,
-    /// Σ|unexplained Δr| across the analysis tenors, in bp.
     pub fit_residual_l1_bps: f64,
 }
 
