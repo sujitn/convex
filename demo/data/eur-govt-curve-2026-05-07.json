@@ -1,0 +1,23 @@
+{
+  "source": "Illustrative / estimated — NOT live market data",
+  "purpose": "PnL narrator demo, t0 leg (see docs/pnl-narrator-smoke.md)",
+  "asOfDate": "2026-05-07",
+  "currency": "EUR",
+  "benchmark": "DE.BUND",
+  "curve": {
+    "6M": 2.40,
+    "1Y": 2.50,
+    "2Y": 2.60,
+    "5Y": 2.80,
+    "10Y": 3.00,
+    "30Y": 3.30
+  },
+  "tenorsYears": {
+    "6M": 0.5,
+    "1Y": 1.0,
+    "2Y": 2.0,
+    "5Y": 5.0,
+    "10Y": 10.0,
+    "30Y": 30.0
+  }
+}

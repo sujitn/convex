@@ -221,7 +221,8 @@ End-to-end test:
 cargo test -p convex-mcp --lib pnl_narrator_e2e
 ```
 
-See `docs/pnl-narrator-{investigation,gaps,plan}.md` for design and
+See `docs/pnl-narrator-{investigation,gaps,plan}.md` for design,
+`docs/pnl-narrator-smoke.md` for the Claude Desktop demo flow, and
 `docs/perf-baselines.md` for benchmark numbers.
 
 ### Deferred
