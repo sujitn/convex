@@ -22,7 +22,7 @@ convex-traits = { path = "../convex-traits" }
 
 # Runtime (allowed here - this is the engine)
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
-rayon = "1.10"
+rayon = "1.12"
 dashmap = "6"
 tracing = "0.1"
 parking_lot = "0.12"
