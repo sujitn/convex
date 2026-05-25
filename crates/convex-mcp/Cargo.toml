@@ -25,7 +25,7 @@ path = "src/main.rs"
 convex = { workspace = true, features = ["schemars"] }
 
 # MCP SDK
-rmcp = { version = "1.6", features = ["server", "macros"] }
+rmcp = { version = "1.7", features = ["server", "macros"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
