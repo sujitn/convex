@@ -7,6 +7,10 @@ on:
       - 'bindings/java/**'
       - 'crates/convex-ffi/**'
       - 'crates/convex-analytics/**'
+      - 'crates/convex-bonds/**'
+      - 'crates/convex-core/**'
+      - 'crates/convex-curves/**'
+      - 'crates/convex-math/**'
       - '.github/workflows/java.yml'
   pull_request:
     branches: [main]
@@ -14,7 +18,15 @@ on:
       - 'bindings/java/**'
       - 'crates/convex-ffi/**'
       - 'crates/convex-analytics/**'
+      - 'crates/convex-bonds/**'
+      - 'crates/convex-core/**'
+      - 'crates/convex-curves/**'
+      - 'crates/convex-math/**'
       - '.github/workflows/java.yml'
+
+# Build + test only; no repo writes.
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always

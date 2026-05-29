@@ -348,7 +348,7 @@ fn asw_par_returns_a_finite_spread() {
 fn zero_coupon_5y() -> Value {
     json!({
         "type": "zero_coupon",
-        "cusip": "TESTZ0005",
+        "cusip": uid("ZC"),
         "maturity": "2030-01-15",
         "issue": "2025-01-15",
         "compounding": "SemiAnnual",
@@ -396,7 +396,7 @@ fn zero_risk_closed_form() {
 fn frn_5y() -> Value {
     json!({
         "type": "floating_rate",
-        "cusip": "TESTFR005",
+        "cusip": uid("FRN"),
         "spread_bps": 75,
         "maturity": "2030-01-15",
         "issue": "2025-01-15",
@@ -708,7 +708,10 @@ fn duration_futures_proposes_a_hedge() {
             "strategy label = {strategy}"
         );
         let trades = proposal["trades"].as_array().unwrap();
-        assert!(!trades.is_empty(), "expected at least one trade: {proposal}");
+        assert!(
+            !trades.is_empty(),
+            "expected at least one trade: {proposal}"
+        );
         // A duration hedge should shrink |residual DV01| well below the
         // position's own DV01.
         let pos_dv01 = position["dv01"].as_f64().unwrap().abs();
@@ -829,9 +832,8 @@ fn registry_key_scopes_eviction_per_cell() {
                 "face_value": 100
             })
         };
-        let req = |h: u64| {
-            json!({"bond": h, "settlement": "2025-04-15", "mark": "99.5C"}).to_string()
-        };
+        let req =
+            |h: u64| json!({"bond": h, "settlement": "2025-04-15", "mark": "99.5C"}).to_string();
 
         let a = build_handle(spec(&key_a));
         let b = build_handle(spec(&key_b));
@@ -845,10 +847,15 @@ fn registry_key_scopes_eviction_per_cell() {
         let a2 = build_handle(spec(&key_a));
         assert_ne!(a2, a);
         assert_eq!(
-            rpc(convex_ffi::convex_price, &req(a))["ok"], "false",
+            rpc(convex_ffi::convex_price, &req(a))["ok"],
+            "false",
             "A's old handle must be evicted by its own cell's rebuild"
         );
-        assert_eq!(rpc(convex_ffi::convex_price, &req(b))["ok"], "true", "B untouched");
+        assert_eq!(
+            rpc(convex_ffi::convex_price, &req(b))["ok"],
+            "true",
+            "B untouched"
+        );
         assert_eq!(rpc(convex_ffi::convex_price, &req(a2))["ok"], "true");
     }
 }

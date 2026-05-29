@@ -22,8 +22,11 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "MakeWholeRequest" => MAKE_WHOLE_REQUEST,
         "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
         "RiskProfileRequest" => RISK_PROFILE_REQUEST,
+        "RiskProfile" => RISK_PROFILE_RESPONSE,
         "HedgeRequest" => HEDGE_REQUEST,
+        "HedgeProposal" => HEDGE_PROPOSAL_RESPONSE,
         "CompareRequest" => COMPARE_REQUEST,
+        "CompareResponse" => COMPARE_RESPONSE,
         other => return Err(format!("unknown schema name {other:?}")),
     };
     Ok(body.to_string())
@@ -269,5 +272,56 @@ const COMPARE_REQUEST: &str = r##"{
     "proposals": {"type": "array", "items": {"type": "object"}, "description": "HedgeProposal[]"},
     "constraints": {"type": "object"},
     "narrate": {"type": "boolean", "description": "Include a deterministic text narrative (default false)"}
+  }
+}"##;
+
+const RISK_PROFILE_RESPONSE: &str = r##"{
+  "title": "RiskProfile",
+  "description": "Position risk profile returned by convex_risk_profile; round-trips into HedgeRequest/CompareRequest.",
+  "type": "object",
+  "required": ["currency","settlement","notional_face","market_value","dv01"],
+  "properties": {
+    "position_id": {"type": ["string","null"]},
+    "currency": {"type": "string"},
+    "settlement": {"type": "string", "format": "date"},
+    "notional_face": {"type": "number"},
+    "clean_price_per_100": {"type": "number"},
+    "dirty_price_per_100": {"type": "number"},
+    "accrued_per_100": {"type": "number"},
+    "market_value": {"type": "number"},
+    "ytm_decimal": {"type": "number"},
+    "modified_duration_years": {"type": "number"},
+    "macaulay_duration_years": {"type": "number"},
+    "convexity": {"type": "number"},
+    "dv01": {"type": "number"},
+    "key_rate_buckets": {"type": "array", "items": {"type":"object","properties":{"tenor_years":{"type":"number"},"partial_dv01":{"type":"number"}}}},
+    "provenance": {"type": "object", "description": "{curves_used[], cost_model, advisor_version, oas_volatility?}"}
+  }
+}"##;
+
+const HEDGE_PROPOSAL_RESPONSE: &str = r##"{
+  "title": "HedgeProposal",
+  "description": "Proposed hedge returned by convex_hedge; feeds back into CompareRequest.proposals.",
+  "type": "object",
+  "required": ["strategy","trades","residual","cost_bps"],
+  "properties": {
+    "strategy": {"type": "string"},
+    "trades": {"type": "array", "items": {"type": "object"}, "description": "HedgeTrade {instrument, quantity, dv01, key_rate_buckets?}"},
+    "residual": {"type": "object", "description": "ResidualRisk {residual_dv01, residual_buckets?, residual_krd_l1_norm}"},
+    "cost_bps": {"type": "number", "description": "Round-trip cost as bps of position market value"},
+    "cost_total": {"type": "number"},
+    "tradeoffs": {"type": "object", "description": "{strengths[], weaknesses[]}"},
+    "provenance": {"type": "object"}
+  }
+}"##;
+
+const COMPARE_RESPONSE: &str = r##"{
+  "title": "CompareResponse",
+  "description": "Result of convex_compare: a ComparisonReport plus an optional narrative.",
+  "type": "object",
+  "required": ["report"],
+  "properties": {
+    "report": {"type": "object", "description": "ComparisonReport {currency, position_market_value, position_dv01, rows:[ComparisonRow], recommendation:{strategy,row_index,reasons[]}}"},
+    "narrative": {"type": ["string","null"]}
   }
 }"##;

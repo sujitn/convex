@@ -24,6 +24,10 @@ final class Specs {
         require(couponRate, "couponRate");
         require(issue, "issue");
         require(maturity, "maturity");
+        require(frequency, "frequency");
+        require(dayCount, "dayCount");
+        require(currency, "currency");
+        require(faceValue, "faceValue");
 
         ObjectNode n = Json.object();
         n.put("type", type);

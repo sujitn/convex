@@ -6,6 +6,11 @@ on:
     tags:
       - 'java-v*'
 
+# Deploy goes to Maven Central via the Sonatype plugin (repo secrets), so the
+# job needs no write scope on the GitHub token — only read to check out.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 

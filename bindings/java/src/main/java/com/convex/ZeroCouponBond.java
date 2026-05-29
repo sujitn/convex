@@ -42,6 +42,10 @@ public final class ZeroCouponBond {
         public Bond build() {
             Specs.require(issue, "issue");
             Specs.require(maturity, "maturity");
+            Specs.require(compounding, "compounding");
+            Specs.require(dayCount, "dayCount");
+            Specs.require(currency, "currency");
+            Specs.require(faceValue, "faceValue");
 
             ObjectNode spec = Json.object();
             spec.put("type", "zero_coupon");

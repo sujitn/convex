@@ -3,7 +3,7 @@
 This directory is populated at build time with the `convex-ffi` cdylib for each
 supported platform, one subdirectory per classifier:
 
-```
+```text
 native/
   linux-x86_64/libconvex_ffi.so
   linux-aarch64/libconvex_ffi.so
@@ -14,7 +14,7 @@ native/
 
 Build one with, e.g.:
 
-```
+```sh
 cargo build -p convex-ffi --release
 cp target/release/libconvex_ffi.so \
    bindings/java/src/main/resources/native/linux-x86_64/

@@ -54,6 +54,11 @@ public final class FloatingRateNote {
             Specs.require(spreadBps, "spreadBps");
             Specs.require(issue, "issue");
             Specs.require(maturity, "maturity");
+            Specs.require(rateIndex, "rateIndex");
+            Specs.require(frequency, "frequency");
+            Specs.require(dayCount, "dayCount");
+            Specs.require(currency, "currency");
+            Specs.require(faceValue, "faceValue");
 
             ObjectNode spec = Json.object();
             spec.put("type", "floating_rate");
