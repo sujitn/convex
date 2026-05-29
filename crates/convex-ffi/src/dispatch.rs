@@ -15,11 +15,17 @@
 use std::sync::Arc;
 
 use convex_analytics::dto::{
-    CashflowEntry, CashflowRequest, CashflowResponse, CurveQueryKind, CurveQueryRequest,
-    CurveQueryResponse, KeyRate, MakeWholeRequest, MakeWholeResponse, MarkInput, PricingRequest,
-    PricingResponse, RiskRequest, RiskResponse, SpreadRequest, SpreadResponse,
+    CashflowEntry, CashflowRequest, CashflowResponse, CompareRequest, CompareResponse,
+    CurveQueryKind, CurveQueryRequest, CurveQueryResponse, HedgeRequest, HedgeStrategyKind, KeyRate,
+    MakeWholeRequest, MakeWholeResponse, MarkInput, PricingRequest, PricingResponse,
+    RiskProfileRequest, RiskRequest, RiskResponse, SpreadRequest, SpreadResponse,
 };
 use convex_analytics::pricing::price_from_mark;
+use convex_analytics::risk::{
+    barbell_futures, cash_bond_pair, compare_hedges, compute_callable_position_risk,
+    compute_position_risk, duration_futures, interest_rate_swap, key_rate_futures, narrate,
+    HedgeProposal, RiskProfile,
+};
 use convex_analytics::spreads::{
     DiscountMarginCalculator, GSpreadCalculator, ISpreadCalculator, OASCalculator, ParParAssetSwap,
     ProceedsAssetSwap, ZSpreadCalculator,
@@ -763,6 +769,147 @@ fn make_whole_inner(request_json: &str) -> Result<MakeWholeResponse, DispatchErr
             spread_bps,
         })
     })?
+}
+
+// ---- risk profile / hedge advisor ----------------------------------------
+
+/// Build a position `RiskProfile`. Response is the profile JSON itself.
+pub fn risk_profile(request_json: &str) -> String {
+    to_envelope(risk_profile_inner(request_json))
+}
+
+fn risk_profile_inner(request_json: &str) -> Result<RiskProfile, DispatchError> {
+    let req: RiskProfileRequest = serde_json::from_str(request_json)
+        .map_err(|e| DispatchError::input(format!("RiskProfileRequest: {e}")))?;
+    let mark = parse_mark(&req.mark)?;
+    let curve = clone_typed_curve(req.curve)?;
+    let tenors: Option<&[f64]> = if req.key_rate_tenors.is_empty() {
+        None
+    } else {
+        Some(&req.key_rate_tenors)
+    };
+
+    match registry::kind_of(req.bond) {
+        Some(ObjectKind::Bond(BondKind::Callable)) => {
+            let vol = req.volatility.ok_or_else(|| {
+                DispatchError::input_field(
+                    "volatility",
+                    "callable position risk requires short-rate volatility (decimal)",
+                )
+            })?;
+            with_callable(req.bond, |cb| {
+                compute_callable_position_risk(
+                    cb,
+                    req.settlement,
+                    &mark,
+                    req.notional_face,
+                    &curve,
+                    &req.curve_id,
+                    req.quote_frequency,
+                    tenors,
+                    req.position_id.clone(),
+                    vol,
+                )
+                .map_err(DispatchError::from)
+            })?
+        }
+        Some(ObjectKind::Bond(BondKind::FloatingRate)) => Err(DispatchError::input(
+            "position risk is not defined for FRNs (no YTM); use convex_risk for DM-space metrics",
+        )),
+        Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => Err(DispatchError::input(
+            "position risk is not yet wired for zero-coupon bonds",
+        )),
+        // FixedRate + SinkingFund (bullet leg). Curve/None handled by the macro.
+        _ => with_fixed_bond!(req.bond, bond, {
+            compute_position_risk(
+                bond,
+                req.settlement,
+                &mark,
+                req.notional_face,
+                &curve,
+                &req.curve_id,
+                req.quote_frequency,
+                tenors,
+                req.position_id.clone(),
+            )
+            .map_err(DispatchError::from)
+        }),
+    }
+}
+
+/// Propose a hedge for a position profile. Response is a `HedgeProposal`.
+pub fn hedge(request_json: &str) -> String {
+    to_envelope(hedge_inner(request_json))
+}
+
+fn hedge_inner(request_json: &str) -> Result<HedgeProposal, DispatchError> {
+    let req: HedgeRequest = serde_json::from_str(request_json)
+        .map_err(|e| DispatchError::input(format!("HedgeRequest: {e}")))?;
+    let curve = clone_typed_curve(req.curve)?;
+    // cost_feed = None → strategies fall back to the built-in heuristic model.
+    let proposal = match req.strategy {
+        HedgeStrategyKind::DurationFutures => duration_futures(
+            &req.position,
+            &req.constraints,
+            &curve,
+            &req.curve_id,
+            req.settlement,
+            &req.basket_overrides,
+            None,
+        ),
+        HedgeStrategyKind::BarbellFutures => barbell_futures(
+            &req.position,
+            &req.constraints,
+            &curve,
+            &req.curve_id,
+            req.settlement,
+            &req.basket_overrides,
+            None,
+        ),
+        HedgeStrategyKind::KeyRateFutures => key_rate_futures(
+            &req.position,
+            &req.constraints,
+            &curve,
+            &req.curve_id,
+            req.settlement,
+            &req.basket_overrides,
+            None,
+        ),
+        HedgeStrategyKind::CashBondPair => cash_bond_pair(
+            &req.position,
+            &req.constraints,
+            &curve,
+            &req.curve_id,
+            req.settlement,
+            None,
+        ),
+        HedgeStrategyKind::InterestRateSwap => interest_rate_swap(
+            &req.position,
+            &req.constraints,
+            &curve,
+            &req.curve_id,
+            req.settlement,
+            None,
+        ),
+    }?;
+    Ok(proposal)
+}
+
+/// Compare proposals against a position. Response is a `CompareResponse`.
+pub fn compare(request_json: &str) -> String {
+    to_envelope(compare_inner(request_json))
+}
+
+fn compare_inner(request_json: &str) -> Result<CompareResponse, DispatchError> {
+    let req: CompareRequest = serde_json::from_str(request_json)
+        .map_err(|e| DispatchError::input(format!("CompareRequest: {e}")))?;
+    let report = compare_hedges(&req.position, &req.proposals, &req.constraints)?;
+    let narrative = if req.narrate {
+        Some(narrate(&report))
+    } else {
+        None
+    };
+    Ok(CompareResponse { report, narrative })
 }
 
 // ---- curve_query --------------------------------------------------------

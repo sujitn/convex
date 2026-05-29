@@ -7,7 +7,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use once_cell::sync::Lazy;
 
@@ -60,7 +60,11 @@ impl ObjectKind {
 struct Entry {
     kind: ObjectKind,
     name: Option<String>,
-    object: Box<dyn Any + Send + Sync>,
+    /// `Arc` so [`with_object`] can clone it out and drop the read lock before
+    /// running the closure — holding the lock across analytics that look up a
+    /// second object nests a read lock, which `std::sync::RwLock` deadlocks on
+    /// once a writer is queued.
+    object: Arc<dyn Any + Send + Sync>,
 }
 
 /// Single lock over both maps so name↔handle updates stay atomic.
@@ -101,7 +105,7 @@ pub fn register<T: Any + Send + Sync>(object: T, kind: ObjectKind, name: Option<
         Entry {
             kind,
             name: name.clone(),
-            object: Box::new(object),
+            object: Arc::new(object),
         },
     );
     if let Some(n) = name {
@@ -112,12 +116,17 @@ pub fn register<T: Any + Send + Sync>(object: T, kind: ObjectKind, name: Option<
 
 /// Run `f` against the typed object behind `handle`, returning `None` if
 /// the handle is unknown or the type doesn't match.
+///
+/// The registry read lock is held only long enough to clone the object's
+/// `Arc`; `f` runs after the lock is released. This is what makes nested
+/// lookups (and concurrent multi-threaded analytics from the bindings) safe —
+/// see [`Entry::object`].
 pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(handle: Handle, f: F) -> Option<R> {
-    let t = REGISTRY.tables.read().unwrap();
-    t.objects
-        .get(&handle)
-        .and_then(|e| e.object.downcast_ref::<T>())
-        .map(f)
+    let object = {
+        let t = REGISTRY.tables.read().unwrap();
+        Arc::clone(&t.objects.get(&handle)?.object)
+    };
+    object.downcast_ref::<T>().map(f)
 }
 
 /// Returns the kind/tag of an object, or `None` if the handle is unknown.

@@ -21,6 +21,9 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "CurveQueryResponse" => CURVE_QUERY_RESPONSE,
         "MakeWholeRequest" => MAKE_WHOLE_REQUEST,
         "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
+        "RiskProfileRequest" => RISK_PROFILE_REQUEST,
+        "HedgeRequest" => HEDGE_REQUEST,
+        "CompareRequest" => COMPARE_REQUEST,
         other => return Err(format!("unknown schema name {other:?}")),
     };
     Ok(body.to_string())
@@ -218,5 +221,53 @@ const MAKE_WHOLE_RESPONSE: &str = r##"{
     "price": {"type": "number", "description": "Per 100 face, floored at first call entry's price"},
     "discount_rate": {"type": "number", "description": "treasury_rate + spread/10000"},
     "spread_bps": {"type": "number"}
+  }
+}"##;
+
+const RISK_PROFILE_REQUEST: &str = r##"{
+  "title": "RiskProfileRequest",
+  "description": "Build a position RiskProfile from a bond + discount curve. Response is the RiskProfile itself (round-trips into HedgeRequest/CompareRequest).",
+  "type": "object",
+  "required": ["bond","settlement","mark","notional_face","curve"],
+  "properties": {
+    "bond": {"type": "integer"},
+    "settlement": {"type": "string", "format": "date"},
+    "mark": {"$ref": "#/definitions/Mark"},
+    "notional_face": {"type": "number", "description": "Position face amount, e.g. 10000000"},
+    "curve": {"type": "integer", "description": "Discount curve handle"},
+    "curve_id": {"type": "string", "description": "Stable id recorded in provenance (default 'discount')"},
+    "quote_frequency": {"$ref": "#/definitions/Frequency"},
+    "key_rate_tenors": {"type": "array", "items": {"type": "number"}, "description": "KRD ladder (years); empty → advisor default [2,5,10,30]"},
+    "position_id": {"type": ["string","null"]},
+    "volatility": {"type": ["number","null"], "description": "Short-rate vol (decimal); required for callable positions"}
+  }
+}"##;
+
+const HEDGE_REQUEST: &str = r##"{
+  "title": "HedgeRequest",
+  "description": "Propose a hedge for a RiskProfile. Response is a HedgeProposal.",
+  "type": "object",
+  "required": ["strategy","position","curve","settlement"],
+  "properties": {
+    "strategy": {"enum": ["duration_futures","barbell_futures","cash_bond_pair","interest_rate_swap","key_rate_futures"]},
+    "position": {"description": "RiskProfile from convex_risk_profile"},
+    "constraints": {"type": "object", "description": "Constraints {max_residual_dv01?, max_cost_bps?, allowed_strategies?, max_residual_per_bucket?}"},
+    "curve": {"type": "integer"},
+    "curve_id": {"type": "string"},
+    "settlement": {"type": "string", "format": "date"},
+    "basket_overrides": {"type": "array", "items": {"type": "object"}, "description": "BondFuture[] for futures strategies; ignored by cash_bond_pair / interest_rate_swap"}
+  }
+}"##;
+
+const COMPARE_REQUEST: &str = r##"{
+  "title": "CompareRequest",
+  "description": "Compare proposals against a position. Response is {report: ComparisonReport, narrative?: string}.",
+  "type": "object",
+  "required": ["position","proposals"],
+  "properties": {
+    "position": {"description": "RiskProfile"},
+    "proposals": {"type": "array", "items": {"type": "object"}, "description": "HedgeProposal[]"},
+    "constraints": {"type": "object"},
+    "narrate": {"type": "boolean", "description": "Include a deterministic text narrative (default false)"}
   }
 }"##;
