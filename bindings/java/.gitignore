@@ -1,0 +1,7 @@
+# Maven build output
+target/
+
+# Native libraries are built/staged by CI, not committed.
+src/main/resources/native/**/*.so
+src/main/resources/native/**/*.dylib
+src/main/resources/native/**/*.dll
