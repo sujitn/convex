@@ -17,8 +17,8 @@ fn main() {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let config = cbindgen::Config::from_root_or_default(&crate_dir);
 
-    // Only the lib's own source defines the ABI; re-run when it changes.
-    println!("cargo:rerun-if-changed=src/lib.rs");
+    // cbindgen parses the whole crate, so re-run on any source change.
+    println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 
     match cbindgen::Builder::new()

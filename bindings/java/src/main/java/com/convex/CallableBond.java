@@ -45,7 +45,6 @@ public final class CallableBond {
         private CallStyle callStyle = CallStyle.AMERICAN;
         private Double makeWholeSpreadBps;
         private final List<CallEntry> calls = new ArrayList<>();
-        private final List<CallEntry> puts = new ArrayList<>();
 
         public Builder cusip(String v) { this.cusip = v; return this; }
         public Builder isin(String v) { this.isin = v; return this; }
@@ -70,14 +69,14 @@ public final class CallableBond {
             return this;
         }
 
-        public Builder put(LocalDate date, double pricePer100) {
-            puts.add(new CallEntry(date, pricePer100));
-            return this;
-        }
-
         public Bond build() {
+            // The FFI's callable builder consumes only the call schedule (puts
+            // are not yet wired), so at least one call entry is required.
             if (calls.isEmpty()) {
                 throw new IllegalArgumentException("callable bond requires at least one call entry");
+            }
+            if (callStyle == CallStyle.MAKE_WHOLE && makeWholeSpreadBps == null) {
+                throw new IllegalArgumentException("make-whole call style requires makeWholeSpreadBps");
             }
             ObjectNode spec = Specs.fixedRate(
                     "callable", cusip, isin, name, couponRate, frequency,
@@ -87,9 +86,6 @@ public final class CallableBond {
                 spec.put("make_whole_spread_bps", makeWholeSpreadBps);
             }
             spec.set("call_schedule", entries(calls));
-            if (!puts.isEmpty()) {
-                spec.set("put_schedule", entries(puts));
-            }
             return Bond.fromSpecJson(Json.write(spec));
         }
 

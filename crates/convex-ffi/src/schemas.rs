@@ -253,7 +253,7 @@ const HEDGE_REQUEST: &str = r##"{
   "required": ["strategy","position","curve","settlement"],
   "properties": {
     "strategy": {"enum": ["duration_futures","barbell_futures","cash_bond_pair","interest_rate_swap","key_rate_futures"]},
-    "position": {"description": "RiskProfile from convex_risk_profile"},
+    "position": {"type": "object", "description": "RiskProfile from convex_risk_profile"},
     "constraints": {"type": "object", "description": "Constraints {max_residual_dv01?, max_cost_bps?, allowed_strategies?, max_residual_per_bucket?}"},
     "curve": {"type": "integer"},
     "curve_id": {"type": "string"},
@@ -268,7 +268,7 @@ const COMPARE_REQUEST: &str = r##"{
   "type": "object",
   "required": ["position","proposals"],
   "properties": {
-    "position": {"description": "RiskProfile"},
+    "position": {"type": "object", "description": "RiskProfile"},
     "proposals": {"type": "array", "items": {"type": "object"}, "description": "HedgeProposal[]"},
     "constraints": {"type": "object"},
     "narrate": {"type": "boolean", "description": "Include a deterministic text narrative (default false)"}

@@ -115,12 +115,18 @@ public final class HedgeAdvisor {
         req.put("strategy", kind);
         req.set("position", p.node());
         req.put("curve", curve.handle());
-        req.put("curve_id", "discount");
+        req.put("curve_id", curveIdOf(p));
         req.put("settlement", settlement.toString());
         if (c != null) {
             req.set("constraints", c.toJson());
         }
         return new HedgeProposal(Json.unwrap(ConvexFfi.hedge(Json.write(req))));
+    }
+
+    /** The curve id the position was built with, so provenance stays consistent. */
+    private static String curveIdOf(RiskProfile p) {
+        JsonNode used = p.node().path("provenance").path("curves_used");
+        return used.isArray() && !used.isEmpty() ? used.get(0).asText("discount") : "discount";
     }
 
     // ---- compare ------------------------------------------------------------
@@ -140,6 +146,9 @@ public final class HedgeAdvisor {
 
         JsonNode result = Json.unwrap(ConvexFfi.compare(Json.write(req)));
         JsonNode report = result.get("report");
+        if (report == null || report.isNull()) {
+            throw new ConvexException("compare response missing 'report'");
+        }
         String narrative = result.hasNonNull("narrative") ? result.get("narrative").asText() : null;
         return new ComparisonReport(report, narrative);
     }

@@ -59,6 +59,9 @@ public final class FloatingRateNote {
             Specs.require(dayCount, "dayCount");
             Specs.require(currency, "currency");
             Specs.require(faceValue, "faceValue");
+            if (cap != null && floor != null && cap.compareTo(floor) < 0) {
+                throw new IllegalArgumentException("FRN cap (" + cap + ") must be >= floor (" + floor + ")");
+            }
 
             ObjectNode spec = Json.object();
             spec.put("type", "floating_rate");

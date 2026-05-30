@@ -49,6 +49,9 @@ final class NativeLoader {
             loaded = true;
         } catch (IOException e) {
             throw new ConvexException("error", "failed to extract native library: " + e.getMessage(), null);
+        } catch (UnsatisfiedLinkError | SecurityException e) {
+            throw new ConvexException(
+                    "error", "failed to load native library " + resource + ": " + e.getMessage(), null);
         }
     }
 
