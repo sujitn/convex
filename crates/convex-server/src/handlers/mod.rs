@@ -89,7 +89,6 @@ use convex_traits::reference_data::{
 
 /// Application state.
 
-
 pub struct AppState {
     /// The pricing engine
     pub engine: Arc<PricingEngine>,
@@ -157,7 +156,8 @@ pub async fn get_bond_quote(
                     Json(serde_json::json!({
                         "error": format!("Bond not found: {}", instrument_id)
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
             Err(e) => {
                 return (
@@ -165,7 +165,8 @@ pub async fn get_bond_quote(
                     Json(serde_json::json!({
                         "error": format!("Failed to look up bond in reference data: {}", e)
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         },
         Err(e) => {
@@ -174,7 +175,8 @@ pub async fn get_bond_quote(
                 Json(serde_json::json!({
                     "error": format!("Failed to look up bond in store: {}", e)
                 })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -186,7 +188,8 @@ pub async fn get_bond_quote(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "error": e })),
-                ).into_response();
+                )
+                    .into_response();
             }
         },
         None => {
@@ -221,7 +224,8 @@ pub async fn get_bond_quote(
             Json(serde_json::json!({
                 "error": format!("Pricing failed: {}", e)
             })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -338,7 +342,8 @@ pub async fn delete_curve(
         (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "Curve not found" })),
-        ).into_response()
+        )
+            .into_response()
     }
 }
 
@@ -358,7 +363,8 @@ pub async fn get_curve_zero_rate(
             return (
                 StatusCode::NOT_FOUND,
                 Json(serde_json::json!({ "error": "Curve not found" })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -376,7 +382,8 @@ pub async fn get_curve_zero_rate(
                 Json(serde_json::json!({
                     "error": format!("Unsupported compounding value: '{}'", query.compounding)
                 })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -399,11 +406,13 @@ pub async fn get_curve_zero_rate(
                 "zero_rate": rate,
                 "compounding": compounding_str
             })),
-        ).into_response(),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -600,7 +609,8 @@ pub async fn create_bond(
                 Json(serde_json::json!({
                     "error": format!("Bond already exists: {}", bond.instrument_id.as_str())
                 })),
-            ).into_response();
+            )
+                .into_response();
         }
         Ok(None) => {}
         Err(e) => {
@@ -609,7 +619,8 @@ pub async fn create_bond(
                 Json(serde_json::json!({
                     "error": format!("Database read error: {}", e)
                 })),
-            ).into_response();
+            )
+                .into_response();
         }
     }
 
@@ -627,7 +638,8 @@ pub async fn create_bond(
     (
         StatusCode::CREATED,
         Json(serde_json::to_value(created).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// Update an existing bond.
@@ -681,7 +693,8 @@ pub async fn delete_bond(
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Bond not found: {}", instrument_id) })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -708,7 +721,8 @@ pub async fn batch_create_bonds(
                     Json(serde_json::json!({
                         "error": format!("Failed to verify bond existence: {}", e)
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
 
@@ -733,7 +747,8 @@ pub async fn batch_create_bonds(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// Get bond by ISIN.
@@ -909,7 +924,8 @@ pub async fn delete_portfolio(
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 

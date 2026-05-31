@@ -489,6 +489,4 @@ mod tests {
         assert!(graph.is_dirty(&curve_node));
         assert!(graph.is_dirty(&bond_node));
     }
-
-
 }

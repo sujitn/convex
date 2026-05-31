@@ -88,7 +88,6 @@ use convex_traits::reference_data::{
 };
 
 /// Application state.
-
 use super::*;
 
 /// Query parameters for single bond quote.
@@ -137,7 +136,8 @@ pub async fn price_single_bond(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -235,7 +235,8 @@ pub async fn price_single_bond(
             Json(serde_json::json!({
                 "error": format!("Pricing failed: {}", e)
             })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -597,7 +598,8 @@ pub async fn batch_price(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -674,7 +676,8 @@ pub async fn batch_price(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 // =============================================================================
@@ -747,7 +750,8 @@ pub async fn calculate_inav(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -757,7 +761,8 @@ pub async fn calculate_inav(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": format!("Invalid as_of_date: {}", e) })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -767,7 +772,8 @@ pub async fn calculate_inav(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e.to_string() })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -811,7 +817,8 @@ pub async fn calculate_inav(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -856,7 +863,8 @@ pub async fn batch_calculate_inav(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -874,7 +882,8 @@ pub async fn batch_calculate_inav(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "error": e.to_string() })),
-                ).into_response();
+                )
+                    .into_response();
             }
         };
 
@@ -938,7 +947,8 @@ pub async fn batch_calculate_inav(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 // =============================================================================
@@ -999,7 +1009,8 @@ pub async fn calculate_portfolio_analytics(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -1014,7 +1025,8 @@ pub async fn calculate_portfolio_analytics(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ).into_response(),
+        )
+            .into_response(),
     }
 }
 
@@ -1059,7 +1071,8 @@ pub async fn batch_calculate_portfolio_analytics(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "error": e })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     }
@@ -1095,7 +1108,8 @@ pub async fn batch_calculate_portfolio_analytics(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 /// Request for duration contribution analysis.
@@ -1138,7 +1152,8 @@ pub async fn calculate_duration_contribution(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -1166,7 +1181,8 @@ pub async fn calculate_duration_contribution(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    ).into_response()
+    )
+        .into_response()
 }
 
 // =============================================================================
@@ -4751,5 +4767,3 @@ fn convert_key_rate_positions(positions: &[KeyRatePosition]) -> Vec<Holding> {
         })
         .collect()
 }
-
-
