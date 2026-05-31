@@ -6,6 +6,7 @@ pub mod convexity;
 pub mod duration;
 pub mod dv01;
 pub mod hedging;
+pub mod pnl;
 pub mod profile;
 pub mod var;
 
@@ -31,6 +32,11 @@ pub use hedging::{
     PortfolioRisk, Position, PositionContribution, Recommendation, RecommendationReason,
     ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
+pub use pnl::{
+    attribute_pnl, narrate_attribution, Attribution, AttributionConfig, AttributionProvenance,
+    CurveBreakdown, FactorPnl, InterestRateSwapPnlSpec, PnlFactor, PositionAttribution,
+    ResolvedBook, ResolvedPosition, DEFAULT_PIVOT_TENOR_YEARS, FACTOR_MODEL_NAME,
+};
 pub use profile::{
     aggregate_risk_profiles, compute_callable_position_risk, compute_position_risk, KeyRateBucket,
     Provenance, RiskProfile, ADVISOR_KEY_RATE_TENORS,
@@ -44,5 +50,6 @@ pub mod prelude {
     pub use super::duration::*;
     pub use super::dv01::*;
     pub use super::hedging::*;
+    pub use super::pnl::*;
     pub use super::var::*;
 }

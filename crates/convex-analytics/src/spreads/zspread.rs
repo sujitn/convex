@@ -172,8 +172,10 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // Full-precision bps. Rounding here silently loses sub-bp accuracy
+        // for every consumer (KRD held-spread, PnL attribution); callers
+        // that want an integer display round explicitly.
+        let z_spread_bps = result.root * 10_000.0;
         Ok(Spread::new(
             Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,
@@ -293,8 +295,10 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // Full-precision bps. Rounding here silently loses sub-bp accuracy
+        // for every consumer (KRD held-spread, PnL attribution); callers
+        // that want an integer display round explicitly.
+        let z_spread_bps = result.root * 10_000.0;
         Ok(Spread::new(
             Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,

@@ -1,0 +1,31 @@
+{
+  "source": "Illustrative / estimated — NOT live market data",
+  "purpose": "PnL narrator demo, t1 leg (bear steepener vs t0)",
+  "asOfDate": "2026-05-08",
+  "currency": "EUR",
+  "benchmark": "DE.BUND",
+  "moveVsT0Bps": {
+    "6M": 4,
+    "1Y": 5,
+    "2Y": 6,
+    "5Y": 8,
+    "10Y": 10,
+    "30Y": 12
+  },
+  "curve": {
+    "6M": 2.44,
+    "1Y": 2.55,
+    "2Y": 2.66,
+    "5Y": 2.88,
+    "10Y": 3.10,
+    "30Y": 3.42
+  },
+  "tenorsYears": {
+    "6M": 0.5,
+    "1Y": 1.0,
+    "2Y": 2.0,
+    "5Y": 5.0,
+    "10Y": 10.0,
+    "30Y": 30.0
+  }
+}

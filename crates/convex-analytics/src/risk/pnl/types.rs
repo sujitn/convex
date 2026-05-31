@@ -1,0 +1,189 @@
+//! PnL attribution wire types, config, and provenance.
+//!
+//! Sign convention: a long bond gains when its price rises; a pay-fixed swap
+//! gains when rates rise (it is short the fixed leg). PnL is in the book's
+//! base currency; `*_bps` figures are relative to the **t0** market value of
+//! the relevant scope (book or position).
+//!
+//! JSON wire types (schemars-derived); the field name is the doc.
+
+#![allow(missing_docs)]
+
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+
+use convex_core::daycounts::DayCountConvention;
+use convex_core::types::{Currency, Date, Frequency};
+
+use crate::risk::hedging::types::SwapSide;
+
+/// Factor-model id stamped on every attribution's provenance.
+pub const FACTOR_MODEL_NAME: &str = "level_slope_curv_v1";
+/// Default slope-basis pivot tenor (years) when the caller doesn't set one.
+pub const DEFAULT_PIVOT_TENOR_YEARS: f64 = 2.0;
+
+/// Vanilla single-currency IRS valued for PnL with maturity and rate pinned
+/// at trade — so the swap ages over the period. (The hedge advisor's
+/// [`crate::risk::hedging::types::InterestRateSwap`] is constant-maturity:
+/// correct for a risk snapshot, wrong for a static swap's period PnL.)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct InterestRateSwapPnlSpec {
+    /// Trade / effective date (the synthetic fixed leg's issue date).
+    pub trade_date: Date,
+    pub maturity: Date,
+    pub fixed_rate_decimal: f64,
+    pub fixed_frequency: Frequency,
+    pub fixed_day_count: DayCountConvention,
+    /// `PayFixed` → gains when rates rise (short the fixed leg).
+    pub side: SwapSide,
+    /// Strictly positive; direction lives on `side`.
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub notional: Decimal,
+    pub currency: Currency,
+}
+
+/// One attribution factor.
+///
+/// `carry`/`roll_down` are the time effects on the **static t0 curve** at the
+/// held t0 spread (carry = coupon + pull-to-par at constant yield; roll-down
+/// = slide along the unchanged curve). The four `curve_*` factors decompose
+/// the **observed** `curve_t1 − curve_t0` move; `curve_residual` is the part
+/// the level/slope/curvature basis doesn't explain. `spread` is per
+/// benchmark. `residual` closes the identity (path order + second-order
+/// cross terms) and is reported, never hidden.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PnlFactor {
+    Carry,
+    RollDown,
+    CurveParallel,
+    CurveSlope,
+    CurveCurvature,
+    CurveResidual,
+    Spread,
+    Residual,
+}
+
+impl PnlFactor {
+    /// Stable display order for narration and book aggregation.
+    pub const ORDER: [PnlFactor; 8] = [
+        PnlFactor::Carry,
+        PnlFactor::RollDown,
+        PnlFactor::CurveParallel,
+        PnlFactor::CurveSlope,
+        PnlFactor::CurveCurvature,
+        PnlFactor::CurveResidual,
+        PnlFactor::Spread,
+        PnlFactor::Residual,
+    ];
+
+    /// Human-readable label for the narrator.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            PnlFactor::Carry => "carry",
+            PnlFactor::RollDown => "roll-down",
+            PnlFactor::CurveParallel => "curve parallel",
+            PnlFactor::CurveSlope => "curve slope",
+            PnlFactor::CurveCurvature => "curve curvature",
+            PnlFactor::CurveResidual => "curve residual",
+            PnlFactor::Spread => "spread",
+            PnlFactor::Residual => "residual",
+        }
+    }
+}
+
+/// One factor's PnL contribution. `benchmark` is `Some` only for
+/// [`PnlFactor::Spread`] (the mark's benchmark id, e.g. `"DE.BUND.10Y"`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct FactorPnl {
+    pub factor: PnlFactor,
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub pnl_ccy: Decimal,
+    pub pnl_bps: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub benchmark: Option<String>,
+}
+
+/// Decomposed curve move: level/slope/curvature loadings in bp plus the L1
+/// fit residual (Σ|unexplained Δr|). See `risk::pnl::decompose` for the
+/// basis; it is a reporting parameterization, not a canonical model.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct CurveBreakdown {
+    pub parallel_bps: f64,
+    pub slope_bps: f64,
+    pub curvature_bps: f64,
+    pub pivot_tenor_years: f64,
+    pub fit_residual_l1_bps: f64,
+}
+
+/// Per-position attribution. `kind` is `"bond"` or `"swap"`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct PositionAttribution {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_id: Option<String>,
+    pub kind: String,
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub market_value_t0: Decimal,
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub total_pnl_ccy: Decimal,
+    pub total_pnl_bps: f64,
+    #[serde(default)]
+    pub factors: Vec<FactorPnl>,
+    pub curve: CurveBreakdown,
+}
+
+/// Audit metadata stamped on every attribution.
+///
+/// Deterministic by design — **no timestamp**: provenance is the set of
+/// inputs that determine the result, not wall-clock. This keeps
+/// same-input → same-bytes for reproducible demos.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct AttributionProvenance {
+    pub curve_t0_id: String,
+    pub curve_t1_id: String,
+    pub factor_model: String,
+    pub pivot_tenor_years: f64,
+    pub tool_version: String,
+}
+
+/// Book-level attribution: totals + per-factor + per-position.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct Attribution {
+    pub currency: Currency,
+    pub t0: Date,
+    pub t1: Date,
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub book_market_value_t0: Decimal,
+    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    pub total_pnl_ccy: Decimal,
+    pub total_pnl_bps: f64,
+    /// Book factors, summed across positions, in [`PnlFactor::ORDER`]; one
+    /// extra `spread` row per distinct benchmark.
+    #[serde(default)]
+    pub factors: Vec<FactorPnl>,
+    /// Per-position, input order preserved.
+    #[serde(default)]
+    pub positions: Vec<PositionAttribution>,
+    #[serde(default)]
+    pub provenance: AttributionProvenance,
+}
+
+/// Caller-supplied config. The curve move is always decomposed on
+/// `curve_t0`'s own pillars (where it was observed), so the only knob is the
+/// slope/curvature pivot.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct AttributionConfig {
+    /// Slope/curvature-basis pivot (years). Defaults to
+    /// [`DEFAULT_PIVOT_TENOR_YEARS`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot_tenor_years: Option<f64>,
+}

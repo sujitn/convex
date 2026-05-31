@@ -99,18 +99,20 @@ pub mod prelude {
 
     // Risk
     pub use crate::risk::{
-        aggregate_portfolio_risk, analytical_convexity, compute_position_risk,
+        aggregate_portfolio_risk, analytical_convexity, attribute_pnl, compute_position_risk,
         duration_hedge_ratio, dv01_from_duration, dv01_from_prices, dv01_hedge_ratio,
         dv01_per_100_face, historical_var, key_rate_duration_at_tenor, modified_from_macaulay,
-        notional_from_dv01, parametric_var, parametric_var_from_dv01, price_change_from_duration,
-        price_change_with_convexity, residual_from, spread_duration, BondFuture,
-        BondRiskCalculator, BondRiskMetrics, ComparisonReport, ComparisonRow, Constraints,
-        Convexity, Duration, EffectiveDurationCalculator, HedgeInstrument, HedgeProposal,
-        HedgeTrade, InterestRateSwap, KeyRateBucket, KeyRateDuration, KeyRateDurationCalculator,
-        KeyRateDurations, PortfolioRisk, Position, Provenance, Recommendation,
-        RecommendationReason, ResidualRisk, RiskProfile, SwapSide, TradeoffNotes, VaRMethod,
-        VaRResult, ADVISOR_KEY_RATE_TENORS, DEFAULT_BUMP_SIZE, DV01, SMALL_BUMP_SIZE,
-        STANDARD_KEY_RATE_TENORS,
+        narrate_attribution, notional_from_dv01, parametric_var, parametric_var_from_dv01,
+        price_change_from_duration, price_change_with_convexity, residual_from, spread_duration,
+        Attribution, AttributionConfig, AttributionProvenance, BondFuture, BondRiskCalculator,
+        BondRiskMetrics, ComparisonReport, ComparisonRow, Constraints, Convexity, CurveBreakdown,
+        Duration, EffectiveDurationCalculator, FactorPnl, HedgeInstrument, HedgeProposal,
+        HedgeTrade, InterestRateSwap, InterestRateSwapPnlSpec, KeyRateBucket, KeyRateDuration,
+        KeyRateDurationCalculator, KeyRateDurations, PnlFactor, PortfolioRisk, Position,
+        PositionAttribution, Provenance, Recommendation, RecommendationReason, ResidualRisk,
+        ResolvedBook, ResolvedPosition, RiskProfile, SwapSide, TradeoffNotes, VaRMethod, VaRResult,
+        ADVISOR_KEY_RATE_TENORS, DEFAULT_BUMP_SIZE, DEFAULT_PIVOT_TENOR_YEARS, DV01,
+        FACTOR_MODEL_NAME, SMALL_BUMP_SIZE, STANDARD_KEY_RATE_TENORS,
     };
 
     // Spreads
