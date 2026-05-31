@@ -131,13 +131,13 @@ pub async fn price_single_bond(
     use rust_decimal::prelude::FromPrimitive;
 
     // Parse settlement date
-    let settlement_date = match parse_date(&request.settlement_date) {
+    let settlement_date = match super::parse_date(&request.settlement_date) {
         Ok(d) => d,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            );
+            ).into_response();
         }
     };
 
@@ -228,14 +228,14 @@ pub async fn price_single_bond(
         Ok(quote) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_bond_quote(quote.clone());
-            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap()))
+            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap())).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "error": format!("Pricing failed: {}", e)
             })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -591,13 +591,13 @@ pub async fn batch_price(
     use std::time::Instant;
 
     // Parse settlement date
-    let settlement_date = match parse_date(&request.settlement_date) {
+    let settlement_date = match super::parse_date(&request.settlement_date) {
         Ok(d) => d,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            );
+            ).into_response();
         }
     };
 
@@ -674,7 +674,7 @@ pub async fn batch_price(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    )
+    ).into_response()
 }
 
 // =============================================================================
@@ -741,23 +741,33 @@ pub async fn calculate_inav(
     Json(request): Json<EtfInavRequest>,
 ) -> impl IntoResponse {
     // Parse dates
-    let settlement_date = match parse_date(&request.settlement_date) {
+    let settlement_date = match super::parse_date(&request.settlement_date) {
         Ok(d) => d,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            );
+            ).into_response();
         }
     };
 
-    let as_of_date = match parse_date(&request.holdings.as_of_date) {
+    let as_of_date = match super::parse_date(&request.holdings.as_of_date) {
         Ok(d) => d,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": format!("Invalid as_of_date: {}", e) })),
-            );
+            ).into_response();
+        }
+    };
+
+    let currency = match super::parse_currency(&request.holdings.currency) {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            ).into_response();
         }
     };
 
@@ -765,7 +775,7 @@ pub async fn calculate_inav(
     let holdings = EtfHoldings {
         etf_id: EtfId::new(&request.holdings.etf_id),
         name: request.holdings.name,
-        currency: parse_currency(&request.holdings.currency),
+        currency,
         as_of_date,
         holdings: request
             .holdings
@@ -796,12 +806,12 @@ pub async fn calculate_inav(
         Ok(output) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_etf_quote(output.clone());
-            (StatusCode::OK, Json(serde_json::json!(output)))
+            (StatusCode::OK, Json(serde_json::json!(output))).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -840,28 +850,38 @@ pub async fn batch_calculate_inav(
     Json(request): Json<BatchEtfInavRequest>,
 ) -> impl IntoResponse {
     // Parse settlement date
-    let settlement_date = match parse_date(&request.settlement_date) {
+    let settlement_date = match super::parse_date(&request.settlement_date) {
         Ok(d) => d,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({ "error": e })),
-            );
+            ).into_response();
         }
     };
 
     // Convert all holdings
     let mut holdings_list = Vec::new();
     for etf_input in request.etfs {
-        let as_of_date = match parse_date(&etf_input.as_of_date) {
+        let as_of_date = match super::parse_date(&etf_input.as_of_date) {
             Ok(d) => d,
             Err(_) => settlement_date, // Default to settlement
+        };
+
+        let currency = match super::parse_currency(&etf_input.currency) {
+            Ok(c) => c,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e.to_string() })),
+                ).into_response();
+            }
         };
 
         holdings_list.push(EtfHoldings {
             etf_id: EtfId::new(&etf_input.etf_id),
             name: etf_input.name,
-            currency: parse_currency(&etf_input.currency),
+            currency,
             as_of_date,
             holdings: etf_input
                 .holdings
@@ -918,7 +938,7 @@ pub async fn batch_calculate_inav(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    )
+    ).into_response()
 }
 
 // =============================================================================
@@ -973,7 +993,15 @@ pub async fn calculate_portfolio_analytics(
     Json(request): Json<PortfolioAnalyticsRequest>,
 ) -> impl IntoResponse {
     // Convert to internal types
-    let portfolio = convert_portfolio_input(&request.portfolio);
+    let portfolio = match convert_portfolio_input(&request.portfolio) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e })),
+            ).into_response();
+        }
+    };
 
     let analyzer = state.engine.portfolio_analyzer();
 
@@ -981,12 +1009,12 @@ pub async fn calculate_portfolio_analytics(
         Ok(output) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_portfolio_analytics(output.clone());
-            (StatusCode::OK, Json(serde_json::to_value(output).unwrap()))
+            (StatusCode::OK, Json(serde_json::to_value(output).unwrap())).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -1023,11 +1051,18 @@ pub async fn batch_calculate_portfolio_analytics(
     Json(request): Json<BatchPortfolioAnalyticsRequest>,
 ) -> impl IntoResponse {
     // Convert all portfolios
-    let portfolios: Vec<Portfolio> = request
-        .portfolios
-        .iter()
-        .map(convert_portfolio_input)
-        .collect();
+    let mut portfolios = Vec::new();
+    for p_input in request.portfolios {
+        match convert_portfolio_input(&p_input) {
+            Ok(p) => portfolios.push(p),
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ).into_response();
+            }
+        }
+    }
 
     let analyzer = state.engine.portfolio_analyzer();
     let results = analyzer.calculate_batch(&portfolios, &request.bond_prices);
@@ -1060,7 +1095,7 @@ pub async fn batch_calculate_portfolio_analytics(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    )
+    ).into_response()
 }
 
 /// Request for duration contribution analysis.
@@ -1097,7 +1132,15 @@ pub async fn calculate_duration_contribution(
     State(state): State<Arc<AppState>>,
     Json(request): Json<DurationContributionRequest>,
 ) -> impl IntoResponse {
-    let portfolio = convert_portfolio_input(&request.portfolio);
+    let portfolio = match convert_portfolio_input(&request.portfolio) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": e })),
+            ).into_response();
+        }
+    };
 
     let analyzer = state.engine.portfolio_analyzer();
     let contributions = analyzer.duration_contribution(&portfolio, &request.bond_prices);
@@ -1123,7 +1166,7 @@ pub async fn calculate_duration_contribution(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    )
+    ).into_response()
 }
 
 // =============================================================================
@@ -2273,18 +2316,10 @@ fn convert_bucket_metrics(m: &BucketMetrics) -> ApiBucketMetrics {
 }
 
 /// Convert API portfolio input to internal Portfolio type.
-fn convert_portfolio_input(input: &PortfolioInput) -> Portfolio {
-    let currency = match input.currency.to_uppercase().as_str() {
-        "EUR" => Currency::EUR,
-        "GBP" => Currency::GBP,
-        "JPY" => Currency::JPY,
-        "CHF" => Currency::CHF,
-        "CAD" => Currency::CAD,
-        "AUD" => Currency::AUD,
-        _ => Currency::USD,
-    };
+fn convert_portfolio_input(input: &PortfolioInput) -> Result<Portfolio, String> {
+    let currency = super::parse_currency(&input.currency).map_err(|e| e.to_string())?;
 
-    Portfolio {
+    Ok(Portfolio {
         portfolio_id: PortfolioId::new(&input.portfolio_id),
         name: input.name.clone(),
         currency,
@@ -2298,7 +2333,7 @@ fn convert_portfolio_input(input: &PortfolioInput) -> Portfolio {
                 rating: p.rating.clone(),
             })
             .collect(),
-    }
+    })
 }
 
 // =============================================================================
@@ -4278,7 +4313,7 @@ pub async fn calculate_sec_yield_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<SecYieldRequest>,
 ) -> impl IntoResponse {
-    let as_of_date = match parse_date(&request.as_of_date) {
+    let as_of_date = match super::parse_date(&request.as_of_date) {
         Ok(d) => d,
         Err(e) => {
             return (
@@ -4717,26 +4752,4 @@ fn convert_key_rate_positions(positions: &[KeyRatePosition]) -> Vec<Holding> {
         .collect()
 }
 
-// =============================================================================
-// HELPERS
-// =============================================================================
 
-/// Parse a date string (YYYY-MM-DD) into a Date.
-fn parse_date(s: &str) -> Result<Date, String> {
-    let parts: Vec<&str> = s.split('-').collect();
-    if parts.len() != 3 {
-        return Err(format!("Invalid date format: {} (expected YYYY-MM-DD)", s));
-    }
-
-    let year = parts[0]
-        .parse::<i32>()
-        .map_err(|_| format!("Invalid year: {}", parts[0]))?;
-    let month = parts[1]
-        .parse::<u32>()
-        .map_err(|_| format!("Invalid month: {}", parts[1]))?;
-    let day = parts[2]
-        .parse::<u32>()
-        .map_err(|_| format!("Invalid day: {}", parts[2]))?;
-
-    Date::from_ymd(year, month, day).map_err(|e| format!("Invalid date: {}", e))
-}

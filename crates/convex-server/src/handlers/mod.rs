@@ -147,23 +147,34 @@ pub async fn get_bond_quote(
     let id = InstrumentId::new(&instrument_id);
 
     // Look up bond reference data
-    let bond = match state.engine.reference_data().bonds.get_by_id(&id).await {
+    let bond = match state.bond_store.get_by_id(&id).await {
         Ok(Some(bond)) => bond,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({
-                    "error": format!("Bond not found: {}", instrument_id)
-                })),
-            );
-        }
+        Ok(None) => match state.engine.reference_data().bonds.get_by_id(&id).await {
+            Ok(Some(bond)) => bond,
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "error": format!("Bond not found: {}", instrument_id)
+                    })),
+                ).into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": format!("Failed to look up bond in reference data: {}", e)
+                    })),
+                ).into_response();
+            }
+        },
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
-                    "error": format!("Failed to look up bond: {}", e)
+                    "error": format!("Failed to look up bond in store: {}", e)
                 })),
-            );
+            ).into_response();
         }
     };
 
@@ -175,7 +186,7 @@ pub async fn get_bond_quote(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "error": e })),
-                );
+                ).into_response();
             }
         },
         None => {
@@ -203,14 +214,14 @@ pub async fn get_bond_quote(
         Ok(quote) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_bond_quote(quote.clone());
-            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap()))
+            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap())).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "error": format!("Pricing failed: {}", e)
             })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -322,12 +333,12 @@ pub async fn delete_curve(
     let id = CurveId::new(&curve_id);
 
     if state.engine.curve_builder().delete(&id) {
-        (StatusCode::NO_CONTENT, Json(serde_json::json!({})))
+        StatusCode::NO_CONTENT.into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "Curve not found" })),
-        )
+        ).into_response()
     }
 }
 
@@ -347,7 +358,7 @@ pub async fn get_curve_zero_rate(
             return (
                 StatusCode::NOT_FOUND,
                 Json(serde_json::json!({ "error": "Curve not found" })),
-            );
+            ).into_response();
         }
     };
 
@@ -358,7 +369,25 @@ pub async fn get_curve_zero_rate(
         "quarterly" => Compounding::Quarterly,
         "monthly" => Compounding::Monthly,
         "daily" => Compounding::Daily,
-        _ => Compounding::Continuous,
+        "continuous" => Compounding::Continuous,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!("Unsupported compounding value: '{}'", query.compounding)
+                })),
+            ).into_response();
+        }
+    };
+
+    let compounding_str = match compounding {
+        Compounding::Simple => "simple",
+        Compounding::Annual => "annual",
+        Compounding::SemiAnnual => "semiannual",
+        Compounding::Quarterly => "quarterly",
+        Compounding::Monthly => "monthly",
+        Compounding::Daily => "daily",
+        Compounding::Continuous => "continuous",
     };
 
     match curve.zero_rate(tenor, compounding) {
@@ -368,13 +397,13 @@ pub async fn get_curve_zero_rate(
                 "curve_id": curve_id,
                 "tenor": tenor,
                 "zero_rate": rate,
-                "compounding": query.compounding
+                "compounding": compounding_str
             })),
-        ),
+        ).into_response(),
         Err(e) => (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": e.to_string() })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -564,13 +593,24 @@ pub async fn create_bond(
     Json(bond): Json<BondReferenceData>,
 ) -> impl IntoResponse {
     // Check if bond already exists
-    if let Ok(Some(_)) = state.bond_store.get_by_id(&bond.instrument_id).await {
-        return (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "error": format!("Bond already exists: {}", bond.instrument_id.as_str())
-            })),
-        );
+    match state.bond_store.get_by_id(&bond.instrument_id).await {
+        Ok(Some(_)) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({
+                    "error": format!("Bond already exists: {}", bond.instrument_id.as_str())
+                })),
+            ).into_response();
+        }
+        Ok(None) => {}
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Database read error: {}", e)
+                })),
+            ).into_response();
+        }
     }
 
     // Set timestamp if not provided
@@ -587,7 +627,7 @@ pub async fn create_bond(
     (
         StatusCode::CREATED,
         Json(serde_json::to_value(created).unwrap()),
-    )
+    ).into_response()
 }
 
 /// Update an existing bond.
@@ -637,11 +677,11 @@ pub async fn delete_bond(
     let id = InstrumentId::new(&instrument_id);
 
     match state.bond_store.delete(&id) {
-        Some(_) => (StatusCode::NO_CONTENT, Json(serde_json::json!({}))),
+        Some(_) => StatusCode::NO_CONTENT.into_response(),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Bond not found: {}", instrument_id) })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -656,9 +696,20 @@ pub async fn batch_create_bonds(
 
     for mut bond in request.bonds {
         // Check if bond already exists
-        if let Ok(Some(_)) = state.bond_store.get_by_id(&bond.instrument_id).await {
-            skipped += 1;
-            continue;
+        match state.bond_store.get_by_id(&bond.instrument_id).await {
+            Ok(Some(_)) => {
+                skipped += 1;
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": format!("Failed to verify bond existence: {}", e)
+                    })),
+                ).into_response();
+            }
         }
 
         // Set timestamp if not provided
@@ -682,7 +733,7 @@ pub async fn batch_create_bonds(
     (
         StatusCode::OK,
         Json(serde_json::to_value(response).unwrap()),
-    )
+    ).into_response()
 }
 
 /// Get bond by ISIN.
@@ -854,11 +905,11 @@ pub async fn delete_portfolio(
     Path(portfolio_id): Path<String>,
 ) -> impl IntoResponse {
     match state.portfolio_store.delete(&portfolio_id) {
-        Some(_) => (StatusCode::NO_CONTENT, Json(serde_json::json!({}))),
+        Some(_) => StatusCode::NO_CONTENT.into_response(),
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ),
+        ).into_response(),
     }
 }
 
@@ -973,26 +1024,38 @@ pub(crate) fn parse_date(s: &str) -> Result<Date, String> {
     Date::parse(s).map_err(|e| e.to_string())
 }
 
-pub(crate) fn parse_currency(s: &str) -> Currency {
+/// Error returned when currency parsing fails.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseCurrencyError(pub String);
+
+impl std::fmt::Display for ParseCurrencyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unsupported currency: {}", self.0)
+    }
+}
+
+impl std::error::Error for ParseCurrencyError {}
+
+pub(crate) fn parse_currency(s: &str) -> Result<Currency, ParseCurrencyError> {
     match s.to_uppercase().as_str() {
-        "USD" => Currency::USD,
-        "EUR" => Currency::EUR,
-        "GBP" => Currency::GBP,
-        "JPY" => Currency::JPY,
-        "CHF" => Currency::CHF,
-        "CAD" => Currency::CAD,
-        "AUD" => Currency::AUD,
-        "NZD" => Currency::NZD,
-        "SEK" => Currency::SEK,
-        "NOK" => Currency::NOK,
-        "DKK" => Currency::DKK,
-        "HKD" => Currency::HKD,
-        "SGD" => Currency::SGD,
-        "CNY" => Currency::CNY,
-        "INR" => Currency::INR,
-        "BRL" => Currency::BRL,
-        "MXN" => Currency::MXN,
-        "ZAR" => Currency::ZAR,
-        _ => Currency::USD, // Default to USD for unknown currencies
+        "USD" => Ok(Currency::USD),
+        "EUR" => Ok(Currency::EUR),
+        "GBP" => Ok(Currency::GBP),
+        "JPY" => Ok(Currency::JPY),
+        "CHF" => Ok(Currency::CHF),
+        "CAD" => Ok(Currency::CAD),
+        "AUD" => Ok(Currency::AUD),
+        "NZD" => Ok(Currency::NZD),
+        "SEK" => Ok(Currency::SEK),
+        "NOK" => Ok(Currency::NOK),
+        "DKK" => Ok(Currency::DKK),
+        "HKD" => Ok(Currency::HKD),
+        "SGD" => Ok(Currency::SGD),
+        "CNY" => Ok(Currency::CNY),
+        "INR" => Ok(Currency::INR),
+        "BRL" => Ok(Currency::BRL),
+        "MXN" => Ok(Currency::MXN),
+        "ZAR" => Ok(Currency::ZAR),
+        _ => Err(ParseCurrencyError(s.to_string())),
     }
 }
