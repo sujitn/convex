@@ -71,41 +71,7 @@ pub fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> MathResu
     Ok(x)
 }
 
-/// Performs LU decomposition of a square matrix.
-///
-/// Returns matrices L and U such that A = L * U, where L is lower
-/// triangular and U is upper triangular.
-pub fn lu_decomposition(matrix: &DMatrix<f64>) -> MathResult<(DMatrix<f64>, DMatrix<f64>)> {
-    let n = matrix.nrows();
-    if n != matrix.ncols() {
-        return Err(MathError::invalid_input(
-            "Matrix must be square for LU decomposition",
-        ));
-    }
-
-    let mut l = DMatrix::identity(n, n);
-    let mut u = matrix.clone();
-
-    for k in 0..n {
-        if u[(k, k)].abs() < 1e-15 {
-            return Err(MathError::SingularMatrix);
-        }
-
-        for i in k + 1..n {
-            let factor = u[(i, k)] / u[(k, k)];
-            l[(i, k)] = factor;
-
-            for j in k..n {
-                u[(i, j)] -= factor * u[(k, j)];
-            }
-        }
-    }
-
-    Ok((l, u))
-}
-
 /// Solves a linear system Ax = b using LU decomposition.
-#[allow(clippy::many_single_char_names)]
 pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVector<f64>> {
     let n = a.nrows();
     if n != a.ncols() {
@@ -120,32 +86,8 @@ pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVe
         });
     }
 
-    let (l, u) = lu_decomposition(a)?;
-
-    // Solve Ly = b (forward substitution)
-    let mut y = DVector::zeros(n);
-    for i in 0..n {
-        let mut sum = b[i];
-        for j in 0..i {
-            sum -= l[(i, j)] * y[j];
-        }
-        y[i] = sum / l[(i, i)];
-    }
-
-    // Solve Ux = y (back substitution)
-    let mut x = DVector::zeros(n);
-    for i in (0..n).rev() {
-        let mut sum = y[i];
-        for j in i + 1..n {
-            sum -= u[(i, j)] * x[j];
-        }
-        if u[(i, i)].abs() < 1e-15 {
-            return Err(MathError::SingularMatrix);
-        }
-        x[i] = sum / u[(i, i)];
-    }
-
-    Ok(x)
+    let lu = a.clone().lu();
+    lu.solve(b).ok_or(MathError::SingularMatrix)
 }
 
 #[cfg(test)]
@@ -171,21 +113,6 @@ mod tests {
             epsilon = 1e-10
         );
         assert_relative_eq!(a[1] * x[1] + b[2] * x[2], d[2], epsilon = 1e-10);
-    }
-
-    #[test]
-    fn test_lu_decomposition() {
-        let a = DMatrix::from_row_slice(3, 3, &[2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0]);
-
-        let (l, u) = lu_decomposition(&a).unwrap();
-
-        // Verify L * U = A
-        let product = &l * &u;
-        for i in 0..3 {
-            for j in 0..3 {
-                assert_relative_eq!(product[(i, j)], a[(i, j)], epsilon = 1e-10);
-            }
-        }
     }
 
     #[test]
