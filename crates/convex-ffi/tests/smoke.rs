@@ -5,8 +5,18 @@
 //! with a textual mark, call `convex_price`, parse the envelope.
 
 use std::ffi::{CStr, CString};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{json, Value};
+
+/// Per-build unique id. The FFI registry evicts any prior object sharing a
+/// name (spreadsheet-cell semantics), so tests that reused a fixed CUSIP would
+/// evict each other's handles when run in parallel. A unique id per build
+/// keeps every test's handles independent.
+static SEQ: AtomicU64 = AtomicU64::new(0);
+fn uid(prefix: &str) -> String {
+    format!("{prefix}{:07}", SEQ.fetch_add(1, Ordering::SeqCst))
+}
 
 unsafe fn rpc(f: unsafe extern "C" fn(*const i8) -> *mut i8, req: &str) -> Value {
     let req_c = CString::new(req).unwrap();
@@ -35,7 +45,7 @@ unsafe fn build_handle(spec: Value) -> u64 {
 fn fixed_rate_5pct() -> Value {
     json!({
         "type": "fixed_rate",
-        "cusip": "TEST10Y5",
+        "cusip": uid("FX"),
         "coupon_rate": 0.05,
         "frequency": "SemiAnnual",
         "maturity": "2035-01-15",
@@ -338,7 +348,7 @@ fn asw_par_returns_a_finite_spread() {
 fn zero_coupon_5y() -> Value {
     json!({
         "type": "zero_coupon",
-        "cusip": "TESTZ0005",
+        "cusip": uid("ZC"),
         "maturity": "2030-01-15",
         "issue": "2025-01-15",
         "compounding": "SemiAnnual",
@@ -386,7 +396,7 @@ fn zero_risk_closed_form() {
 fn frn_5y() -> Value {
     json!({
         "type": "floating_rate",
-        "cusip": "TESTFR005",
+        "cusip": uid("FRN"),
         "spread_bps": 75,
         "maturity": "2030-01-15",
         "issue": "2025-01-15",
@@ -630,5 +640,222 @@ fn mark_parse_round_trip() {
         assert_eq!(v["ok"], "true");
         assert_eq!(v["result"]["mark"], "spread");
         assert_eq!(v["result"]["benchmark"], "USD.SOFR");
+    }
+}
+
+// ---- hedge advisor -------------------------------------------------------
+
+/// Build a $10mm fixed-rate position and return its `RiskProfile` JSON.
+unsafe fn build_position_profile() -> Value {
+    let bond = build_handle(fixed_rate_5pct());
+    let curve = build_curve(flat_curve(0.04));
+    let resp = rpc(
+        convex_ffi::convex_risk_profile,
+        &json!({
+            "bond": bond,
+            "settlement": "2025-04-15",
+            "mark": "99.5C",
+            "notional_face": 10_000_000.0,
+            "curve": curve,
+            "curve_id": "USD.SOFR",
+            // Pin the advisor's 4-tenor ladder so KRD buckets are deterministic.
+            "key_rate_tenors": [2.0, 5.0, 10.0, 30.0]
+        })
+        .to_string(),
+    );
+    assert_eq!(resp["ok"], "true", "risk_profile: {resp}");
+    resp["result"].clone()
+}
+
+#[test]
+fn risk_profile_has_dv01_and_buckets() {
+    unsafe {
+        let p = build_position_profile();
+        let dv01 = p["dv01"].as_f64().unwrap();
+        let md = p["modified_duration_years"].as_f64().unwrap();
+        assert!(dv01.abs() > 0.0, "dv01 should be non-zero: {p}");
+        assert!(md > 0.0 && md < 30.0, "modified duration = {md}");
+        // Default KRD ladder is [2,5,10,30] → four buckets.
+        let buckets = p["key_rate_buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 4, "expected 4 default key-rate buckets: {p}");
+        // The market value of a ~par $10mm position is on the order of $10mm.
+        let mv = p["market_value"].as_f64().unwrap();
+        assert!(mv > 9_000_000.0 && mv < 11_000_000.0, "market_value = {mv}");
+    }
+}
+
+#[test]
+fn duration_futures_proposes_a_hedge() {
+    unsafe {
+        let position = build_position_profile();
+        let curve = build_curve(flat_curve(0.04));
+        let resp = rpc(
+            convex_ffi::convex_hedge,
+            &json!({
+                "strategy": "duration_futures",
+                "position": position,
+                "curve": curve,
+                "curve_id": "USD.SOFR",
+                "settlement": "2025-04-15"
+            })
+            .to_string(),
+        );
+        assert_eq!(resp["ok"], "true", "hedge: {resp}");
+        let proposal = &resp["result"];
+        let strategy = proposal["strategy"].as_str().unwrap();
+        assert!(
+            strategy.to_lowercase().contains("duration"),
+            "strategy label = {strategy}"
+        );
+        let trades = proposal["trades"].as_array().unwrap();
+        assert!(
+            !trades.is_empty(),
+            "expected at least one trade: {proposal}"
+        );
+        // A duration hedge should shrink |residual DV01| well below the
+        // position's own DV01.
+        let pos_dv01 = position["dv01"].as_f64().unwrap().abs();
+        let residual = proposal["residual"]["residual_dv01"]
+            .as_f64()
+            .unwrap()
+            .abs();
+        assert!(
+            residual < pos_dv01,
+            "residual {residual} should be < position dv01 {pos_dv01}"
+        );
+    }
+}
+
+#[test]
+fn compare_ranks_proposals_and_narrates() {
+    unsafe {
+        let position = build_position_profile();
+        let curve = build_curve(flat_curve(0.04));
+
+        // Two candidate strategies.
+        let mut proposals = Vec::new();
+        for strategy in ["duration_futures", "interest_rate_swap"] {
+            let r = rpc(
+                convex_ffi::convex_hedge,
+                &json!({
+                    "strategy": strategy,
+                    "position": position,
+                    "curve": curve,
+                    "curve_id": "USD.SOFR",
+                    "settlement": "2025-04-15"
+                })
+                .to_string(),
+            );
+            assert_eq!(r["ok"], "true", "{strategy}: {r}");
+            proposals.push(r["result"].clone());
+        }
+
+        let resp = rpc(
+            convex_ffi::convex_compare,
+            &json!({
+                "position": position,
+                "proposals": proposals,
+                "narrate": true
+            })
+            .to_string(),
+        );
+        assert_eq!(resp["ok"], "true", "compare: {resp}");
+        let result = &resp["result"];
+        let rows = result["report"]["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 2, "one row per proposal: {result}");
+        // A recommendation must point at a valid row.
+        let idx = result["report"]["recommendation"]["row_index"]
+            .as_u64()
+            .unwrap();
+        assert!((idx as usize) < rows.len());
+        // Narrative requested → present and non-empty.
+        let narrative = result["narrative"].as_str().unwrap();
+        assert!(!narrative.is_empty(), "narrative should be non-empty");
+    }
+}
+
+#[test]
+fn callable_position_risk_requires_volatility() {
+    unsafe {
+        // A callable bond with no volatility → clear invalid_input error.
+        let callable = build_handle(json!({
+            "type": "callable",
+            "cusip": uid("CALL"),
+            "coupon_rate": 0.05,
+            "frequency": "SemiAnnual",
+            "maturity": "2035-01-15",
+            "issue": "2025-01-15",
+            "day_count": "Thirty360US",
+            "currency": "USD",
+            "face_value": 100,
+            "call_schedule": [{"date": "2030-01-15", "price": 100.0}],
+            "call_style": "american"
+        }));
+        let curve = build_curve(flat_curve(0.04));
+        let resp = rpc(
+            convex_ffi::convex_risk_profile,
+            &json!({
+                "bond": callable,
+                "settlement": "2025-04-15",
+                "mark": "99.5C",
+                "notional_face": 10_000_000.0,
+                "curve": curve
+            })
+            .to_string(),
+        );
+        assert_eq!(resp["ok"], "false", "expected error: {resp}");
+        assert_eq!(resp["error"]["code"], "invalid_input");
+        assert_eq!(resp["error"]["field"], "volatility");
+    }
+}
+
+// Regression: two cells referencing the SAME security must not evict each
+// other. `registry_key` (the owning cell) scopes the registry slot, so a
+// shared CUSIP no longer aliases handles — the Excel "random data on recalc"
+// bug. Parallel-safe: unique keys, no clear_all, no global-count assertions.
+#[test]
+fn registry_key_scopes_eviction_per_cell() {
+    unsafe {
+        let key_a = uid("cell");
+        let key_b = uid("cell");
+        let spec = |rk: &str| {
+            json!({
+                "type": "fixed_rate",
+                "cusip": "DUP000000",            // same security in both cells
+                "registry_key": rk,              // distinct owning cell
+                "coupon_rate": 0.05,
+                "frequency": "SemiAnnual",
+                "maturity": "2035-01-15",
+                "issue": "2025-01-15",
+                "day_count": "Thirty360US",
+                "currency": "USD",
+                "face_value": 100
+            })
+        };
+        let req =
+            |h: u64| json!({"bond": h, "settlement": "2025-04-15", "mark": "99.5C"}).to_string();
+
+        let a = build_handle(spec(&key_a));
+        let b = build_handle(spec(&key_b));
+        assert_ne!(a, b);
+
+        // Same CUSIP, different cells → neither evicted the other.
+        assert_eq!(rpc(convex_ffi::convex_price, &req(a))["ok"], "true");
+        assert_eq!(rpc(convex_ffi::convex_price, &req(b))["ok"], "true");
+
+        // Rebuilding cell A (same key) evicts only A's prior object; B survives.
+        let a2 = build_handle(spec(&key_a));
+        assert_ne!(a2, a);
+        assert_eq!(
+            rpc(convex_ffi::convex_price, &req(a))["ok"],
+            "false",
+            "A's old handle must be evicted by its own cell's rebuild"
+        );
+        assert_eq!(
+            rpc(convex_ffi::convex_price, &req(b))["ok"],
+            "true",
+            "B untouched"
+        );
+        assert_eq!(rpc(convex_ffi::convex_price, &req(a2))["ok"], "true");
     }
 }

@@ -1,0 +1,95 @@
+name: Java release
+
+# Cut a release by pushing a tag, e.g.:  git tag java-v0.13.0 && git push origin java-v0.13.0
+on:
+  push:
+    tags:
+      - 'java-v*'
+
+# Deploy goes to Maven Central via the Sonatype plugin (repo secrets), so the
+# job needs no write scope on the GitHub token — only read to check out.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Build the convex-ffi cdylib for every platform classifier.
+  natives:
+    name: cdylib (${{ matrix.classifier }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { runner: ubuntu-latest,  target: x86_64-unknown-linux-gnu,  classifier: linux-x86_64,   lib: libconvex_ffi.so }
+          - { runner: ubuntu-latest,  target: aarch64-unknown-linux-gnu, classifier: linux-aarch64,  lib: libconvex_ffi.so,   cross: true }
+          - { runner: macos-latest,   target: x86_64-apple-darwin,       classifier: darwin-x86_64,  lib: libconvex_ffi.dylib }
+          - { runner: macos-latest,   target: aarch64-apple-darwin,      classifier: darwin-aarch64, lib: libconvex_ffi.dylib }
+          - { runner: windows-latest, target: x86_64-pc-windows-msvc,    classifier: windows-x86_64, lib: convex_ffi.dll }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install aarch64 cross linker
+        if: matrix.cross
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Build cdylib
+        run: cargo build -p convex-ffi --release --target ${{ matrix.target }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.classifier }}
+          path: target/${{ matrix.target }}/release/${{ matrix.lib }}
+          if-no-files-found: error
+
+  # Stage every cdylib into the jar resources and publish to Maven Central.
+  deploy:
+    name: Publish to Maven Central
+    needs: natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download native libraries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: staging
+
+      - name: Stage natives into resources
+        # download-artifact lays out staging/<classifier>/<lib>; mirror that
+        # straight into the resources/native tree the loader reads.
+        run: |
+          mkdir -p bindings/java/src/main/resources/native
+          cp -r staging/* bindings/java/src/main/resources/native/
+
+      - name: Set up JDK 22
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '22'
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Deploy
+        working-directory: bindings/java
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: mvn -B -Prelease deploy

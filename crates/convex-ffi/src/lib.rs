@@ -1,13 +1,17 @@
 //! # Convex FFI — JSON-RPC boundary
 //!
-//! Twelve C functions cover the entire surface. Five are stateful (build,
-//! describe, release, count, clear). Five are stateless analytics RPCs that
-//! consume one JSON request and return one JSON response. Two are utilities
-//! (schema introspection, mark text parser).
+//! A small set of C functions covers the entire surface. Some are stateful
+//! (build, describe, release, count, clear). The rest are stateless analytics
+//! RPCs that consume one JSON request and return one JSON response — pricing,
+//! risk, spreads, cashflows, curve queries, make-whole, and the hedge advisor
+//! (risk profile, propose, compare). Two are utilities (schema introspection,
+//! mark text parser).
 //!
-//! Adding a new bond shape, a new spread family, or a new analytic does not
-//! add a new C symbol. It is a serde enum variant in `convex_analytics::dto`
-//! plus a dispatch arm in `dispatch`.
+//! Adding a new bond shape, a new spread family, or a new analytic on an
+//! existing request shape does not add a new C symbol — it is a serde enum
+//! variant in `convex_analytics::dto` plus a dispatch arm in `dispatch`. A
+//! genuinely new request/response verb (like the advisor) adds one thin
+//! `#[no_mangle]` symbol that delegates to a `dispatch` handler.
 //!
 //! ## Memory model
 //!
@@ -175,6 +179,34 @@ pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut
 #[no_mangle]
 pub unsafe extern "C" fn convex_make_whole(request_json: *const c_char) -> *mut c_char {
     rpc(request_json, dispatch::make_whole)
+}
+
+// ============================================================================
+// Hedge advisor (JSON in, JSON out)
+// ============================================================================
+
+/// Build a position risk profile. Request: `RiskProfileRequest`. Response:
+/// `RiskProfile` (modified/Macaulay duration, convexity, DV01, key-rate
+/// buckets, market value, provenance). The profile round-trips back into
+/// [`convex_hedge`] and [`convex_compare`].
+#[no_mangle]
+pub unsafe extern "C" fn convex_risk_profile(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::risk_profile)
+}
+
+/// Propose a hedge for a position profile. Request: `HedgeRequest` (carries a
+/// `strategy` tag + the `RiskProfile` from [`convex_risk_profile`]). Response:
+/// `HedgeProposal` (trades, residual risk, cost bps, tradeoff notes).
+#[no_mangle]
+pub unsafe extern "C" fn convex_hedge(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::hedge)
+}
+
+/// Compare hedge proposals against a position. Request: `CompareRequest`.
+/// Response: `CompareResponse` (`ComparisonReport` + optional narrative).
+#[no_mangle]
+pub unsafe extern "C" fn convex_compare(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::compare)
 }
 
 // ============================================================================

@@ -18,6 +18,12 @@ namespace Convex.Excel
     // Adding a new bond shape, spread family, or pricing convention does not
     // touch this file. The Rust DTO enum picks it up; the existing UDFs route
     // it.
+    //
+    // Threading: the stateless analytics (PRICE/RISK/SPREAD/CASHFLOWS/MW/
+    // CURVE.QUERY) are IsThreadSafe so Excel's multi-threaded recalc runs them in
+    // parallel — the native registry guards reads with a lock and clones objects
+    // out before computing. Builders mutate the registry and use xlfCaller, so
+    // they stay on the main calc thread.
     public static class Functions
     {
         // ===================================================================
@@ -189,7 +195,7 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.PRICE",
             Description = "Prices a bond against a trader mark and returns clean/dirty/accrued/ytm.",
-            Category = "Convex Pricing")]
+            Category = "Convex Pricing", IsThreadSafe = true)]
         public static object CxPrice(
             [ExcelArgument("Bond handle")] object bondRef,
             [ExcelArgument("Settlement date")] DateTime settlement,
@@ -215,7 +221,7 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.RISK",
             Description = "Returns risk metrics. Default returns a 2D grid; pass a metric name for a scalar.",
-            Category = "Convex Risk")]
+            Category = "Convex Risk", IsThreadSafe = true)]
         public static object CxRisk(
             object bondRef,
             DateTime settlement,
@@ -250,7 +256,7 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.SPREAD",
             Description = "Computes a spread (Z, G, I, ASW, OAS, DM, …) at the given mark.",
-            Category = "Convex Spreads")]
+            Category = "Convex Spreads", IsThreadSafe = true)]
         public static object CxSpread(
             object bondRef,
             object curveRef,
@@ -278,7 +284,7 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.CASHFLOWS",
             Description = "Bond cashflow schedule on or after settlement.",
-            Category = "Convex Bonds")]
+            Category = "Convex Bonds", IsThreadSafe = true)]
         public static object CxCashflows(object bondRef, DateTime settlement) =>
             Safe(() =>
             {
@@ -294,7 +300,7 @@ namespace Convex.Excel
         [ExcelFunction(Name = "CX.MW",
             Description = "Make-whole call price for a callable bond carrying a make-whole spread. " +
                           "Returns price (default), discount_rate, or spread_bps.",
-            Category = "Convex Bonds")]
+            Category = "Convex Bonds", IsThreadSafe = true)]
         public static object CxMakeWhole(
             object bondRef,
             [ExcelArgument("Hypothetical call date")] DateTime callDate,
@@ -321,7 +327,7 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.CURVE.QUERY",
             Description = "Read a curve point: zero rate (default), discount factor, or forward rate.",
-            Category = "Convex Curves")]
+            Category = "Convex Curves", IsThreadSafe = true)]
         public static object CxCurveQuery(
             object curveRef,
             [ExcelArgument("Tenor in years")] double tenor,

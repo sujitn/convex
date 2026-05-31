@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using ExcelDna.Integration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -73,6 +74,7 @@ namespace Convex.Excel
 
         public static ulong BuildBond(JObject spec)
         {
+            ApplyCallerKey(spec);
             ulong h = convex_bond_from_json(spec.ToString(Formatting.None));
             if (h == InvalidHandle)
                 throw new ConvexException(LastError() ?? "bond build failed");
@@ -81,10 +83,32 @@ namespace Convex.Excel
 
         public static ulong BuildCurve(JObject spec)
         {
+            ApplyCallerKey(spec);
             ulong h = convex_curve_from_json(spec.ToString(Formatting.None));
             if (h == InvalidHandle)
                 throw new ConvexException(LastError() ?? "curve build failed");
             return h;
+        }
+
+        // Scope the registry slot to the calling cell so two cells that
+        // reference the same CUSIP / curve name don't evict each other's handle
+        // on recalc (Excel's calc order is nondeterministic). No-op outside a
+        // cell calculation (ribbon/forms) — there the spec's own id is the key.
+        private static void ApplyCallerKey(JObject spec)
+        {
+            if (spec["registry_key"] != null) return;
+            try
+            {
+                if (XlCall.Excel(XlCall.xlfCaller) is ExcelReference r)
+                {
+                    var sheet = XlCall.Excel(XlCall.xlSheetNm, r) as string ?? "";
+                    spec["registry_key"] = $"{sheet}!R{r.RowFirst}C{r.ColumnFirst}";
+                }
+            }
+            catch
+            {
+                // xlfCaller is only valid during cell calculation; ignore otherwise.
+            }
         }
 
         public static void Release(ulong handle) => convex_release(handle);

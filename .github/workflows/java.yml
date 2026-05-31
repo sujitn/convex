@@ -1,0 +1,68 @@
+name: Java bindings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bindings/java/**'
+      - 'crates/convex-ffi/**'
+      - 'crates/convex-analytics/**'
+      - 'crates/convex-bonds/**'
+      - 'crates/convex-core/**'
+      - 'crates/convex-curves/**'
+      - 'crates/convex-math/**'
+      - '.github/workflows/java.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bindings/java/**'
+      - 'crates/convex-ffi/**'
+      - 'crates/convex-analytics/**'
+      - 'crates/convex-bonds/**'
+      - 'crates/convex-core/**'
+      - 'crates/convex-curves/**'
+      - 'crates/convex-math/**'
+      - '.github/workflows/java.yml'
+
+# Build + test only; no repo writes.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Linux x86_64 build + test. The release workflow extends this into a full
+  # OS/arch matrix and assembles every cdylib into the natives jar.
+  verify:
+    name: Build native + mvn verify (linux-x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build convex-ffi cdylib
+        run: cargo build -p convex-ffi --release
+
+      - name: Stage native library
+        run: |
+          dest=bindings/java/src/main/resources/native/linux-x86_64
+          mkdir -p "$dest"
+          cp target/release/libconvex_ffi.so "$dest/"
+
+      - name: Set up JDK 22
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '22'
+          cache: maven
+
+      - name: Maven verify
+        run: mvn -B -f bindings/java/pom.xml verify

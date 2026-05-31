@@ -62,8 +62,11 @@ pub fn curve_from_json(json: &str) -> Handle {
 // ---- Bond builders --------------------------------------------------------
 
 fn name_from_id(id: &BondIdentifier) -> Option<String> {
-    id.cusip
+    // `registry_key` (e.g. an Excel cell ref) wins so the eviction slot is
+    // scoped to the owning cell, not the shared security identifier.
+    id.registry_key
         .clone()
+        .or_else(|| id.cusip.clone())
         .or_else(|| id.isin.clone())
         .or_else(|| id.name.clone())
 }
@@ -366,7 +369,8 @@ fn build_discrete_curve(spec: DiscreteCurveSpec) -> Handle {
             return INVALID_HANDLE;
         }
     };
-    registry::register(RateCurve::new(curve), ObjectKind::Curve, spec.name)
+    let reg_name = spec.registry_key.or(spec.name);
+    registry::register(RateCurve::new(curve), ObjectKind::Curve, reg_name)
 }
 
 fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
@@ -376,6 +380,7 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
         set_last_error("bootstrap requires at least one instrument");
         return INVALID_HANDLE;
     }
+    let reg_name = spec.registry_key.clone().or_else(|| spec.name.clone());
 
     let mut set = InstrumentSet::new();
     for inst in &spec.instruments {
@@ -419,7 +424,7 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
             let fitter = GlobalFitter::new().interpolation(map_interp(spec.interpolation));
             match fitter.fit(spec.ref_date, &set) {
                 Ok(result) => {
-                    registry::register(RateCurve::new(result.curve), ObjectKind::Curve, spec.name)
+                    registry::register(RateCurve::new(result.curve), ObjectKind::Curve, reg_name)
                 }
                 Err(e) => {
                     set_last_error(format!("GlobalFit error: {e}"));

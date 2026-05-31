@@ -30,13 +30,18 @@ pub enum BondSpec {
     SinkingFund(SinkingFundSpec),
 }
 
-/// Any one of CUSIP, ISIN, or free-form name suffices. The first non-empty
-/// field is used as the registry key.
+/// Any one of CUSIP, ISIN, or free-form name identifies the security. When
+/// `registry_key` is set it (not the identifier) becomes the registry's
+/// eviction slot — a host like Excel passes its owning cell so two cells that
+/// reference the same CUSIP don't evict each other. Falls back to
+/// cusip → isin → name when absent.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BondIdentifier {
     pub cusip: Option<String>,
     pub isin: Option<String>,
     pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_key: Option<String>,
 }
 
 /// Fields shared across coupon-bearing bond shapes.
@@ -241,6 +246,9 @@ pub enum CurveSpec {
 pub struct DiscreteCurveSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Registry eviction slot (e.g. owning cell). Falls back to `name`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_key: Option<String>,
     pub ref_date: Date,
     pub tenors: Vec<f64>,
     pub values: Vec<f64>,
@@ -298,6 +306,9 @@ pub enum CurveInstrument {
 pub struct BootstrapSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Registry eviction slot (e.g. owning cell). Falls back to `name`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_key: Option<String>,
     pub ref_date: Date,
     #[serde(default)]
     pub method: BootstrapMethod,
@@ -509,6 +520,107 @@ pub struct CurveQueryRequest {
 pub struct CurveQueryResponse {
     /// Rate as decimal, or DF in [0, 1].
     pub value: f64,
+}
+
+// ---- Risk profile / hedge advisor -----------------------------------------
+//
+// `convex_risk_profile` returns a `RiskProfile`; being a serializable value it
+// round-trips back into `convex_hedge` / `convex_compare` with no server-side
+// handle. The `crate::risk` types already derive Serialize/Deserialize, so they
+// are reused on the wire directly rather than mirrored.
+
+use crate::risk::{BondFuture, ComparisonReport, Constraints, HedgeProposal, RiskProfile};
+
+fn default_curve_id() -> String {
+    "discount".to_string()
+}
+
+/// Build a position `RiskProfile` from a registered bond + discount curve.
+///
+/// Fixed-coupon bonds (fixed-rate, sinking-fund, and the bullet leg of a
+/// callable) use the YTM-driven path; a callable additionally requires
+/// `volatility` and is routed through the OAS-aware risk path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskProfileRequest {
+    pub bond: Handle,
+    pub settlement: Date,
+    pub mark: MarkInput,
+    /// Position face amount (e.g. 10000000 for $10mm). Per-100 metrics are
+    /// scaled to market value by the analytics layer.
+    pub notional_face: Decimal,
+    /// Discount curve handle (required).
+    pub curve: Handle,
+    /// Stable curve identifier recorded in `RiskProfile::provenance`.
+    #[serde(default = "default_curve_id")]
+    pub curve_id: String,
+    /// Compounding for the derived YTM. Defaults to the bond's frequency.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quote_frequency: Option<Frequency>,
+    /// KRD ladder in years. Empty → advisor default (`ADVISOR_KEY_RATE_TENORS`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub key_rate_tenors: Vec<f64>,
+    /// Optional position label echoed back on the profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_id: Option<String>,
+    /// Short-rate volatility (decimal). Required for callable positions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volatility: Option<f64>,
+}
+
+/// Which hedge construction to run. Each maps to a `crate::risk` strategy fn.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HedgeStrategyKind {
+    /// Single liquid future sized to neutralise position DV01.
+    DurationFutures,
+    /// Two futures (front/back tenor) matching level + slope.
+    BarbellFutures,
+    /// On-the-run cash sovereign offset.
+    CashBondPair,
+    /// Vanilla single-currency interest-rate swap.
+    InterestRateSwap,
+    /// Futures ladder matching the full key-rate bucket vector.
+    KeyRateFutures,
+}
+
+/// Propose a hedge for a previously-computed `RiskProfile`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HedgeRequest {
+    pub strategy: HedgeStrategyKind,
+    /// The position to hedge — round-tripped from `convex_risk_profile`.
+    pub position: RiskProfile,
+    #[serde(default)]
+    pub constraints: Constraints,
+    /// Discount curve handle (used for instrument risk + carry).
+    pub curve: Handle,
+    #[serde(default = "default_curve_id")]
+    pub curve_id: String,
+    pub settlement: Date,
+    /// Futures basket overrides for futures strategies. Empty → strategy
+    /// default (a synthetic at-current-coupon deliverable). Ignored by the
+    /// cash-bond and swap strategies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub basket_overrides: Vec<BondFuture>,
+}
+
+/// Compare proposals against a position, optionally with a text narrative.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompareRequest {
+    pub position: RiskProfile,
+    pub proposals: Vec<HedgeProposal>,
+    #[serde(default)]
+    pub constraints: Constraints,
+    /// When true, include the deterministic narrative in the response.
+    #[serde(default)]
+    pub narrate: bool,
+}
+
+/// Comparison report plus an optional human-readable narrative.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompareResponse {
+    pub report: ComparisonReport,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub narrative: Option<String>,
 }
 
 // ---- Top-level envelopes --------------------------------------------------
