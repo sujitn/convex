@@ -56,7 +56,7 @@ mod context;
 // Re-exports
 pub use builder::PricingEngineBuilder;
 pub use calc_graph::{
-    CalculationGraph, NodeId, NodeValue, ShardAssignment, ShardConfig, ShardStrategy,
+    CalculationGraph, NodeId, NodeValue,
 };
 pub use curve_builder::{BuiltCurve, CurveBuilder};
 pub use error::EngineError;
