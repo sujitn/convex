@@ -27,6 +27,15 @@ use crate::error::{ConvexError, ConvexResult};
 #[serde(transparent)]
 pub struct Date(NaiveDate);
 
+impl std::ops::Deref for Date {
+    type Target = NaiveDate;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl Date {
     /// Creates a new date from year, month, and day.
     ///
