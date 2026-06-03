@@ -65,7 +65,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 
 # Mathematical dependencies
-nalgebra = "0.34"
+nalgebra = "0.35"
 approx = "0.5"
 
 # Performance dependencies
