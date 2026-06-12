@@ -101,6 +101,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn coupon_year_fraction_uses_day_count_for_accrual_period() {
+        use convex_bonds::traits::CashFlowType;
+        use convex_core::types::Date;
+        use rust_decimal::Decimal;
+
+        // A coupon carrying explicit accrual boundaries must use the day-count
+        // convention, not the nominal 1/frequency fallback the test fixtures hit.
+        let start = Date::from_ymd(2024, 1, 15).unwrap();
+        let end = Date::from_ymd(2024, 7, 17).unwrap();
+        let cf = BondCashFlow {
+            date: end,
+            amount: Decimal::ONE,
+            flow_type: CashFlowType::Coupon,
+            accrual_start: Some(start),
+            accrual_end: Some(end),
+            factor: Decimal::ONE,
+            reference_rate: None,
+        };
+
+        let dc = day_counter("ACT/360");
+        let yf = coupon_year_fraction(dc.as_deref(), &cf, 2);
+
+        // ACT/360 == actual days / 360, and crucially not the nominal 0.5.
+        let expected = start.days_between(&end) as f64 / 360.0;
+        assert!(
+            (yf - expected).abs() < 1e-9,
+            "ACT/360 year fraction, got {yf}"
+        );
+        assert!(
+            (yf - 0.5).abs() > 1e-6,
+            "must not fall back to nominal 1/freq"
+        );
+    }
+
+    #[test]
     fn test_asw_type_description() {
         assert_eq!(ASWType::ParPar.description(), "Par-Par Asset Swap");
         assert_eq!(
