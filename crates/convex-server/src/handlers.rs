@@ -277,6 +277,7 @@ pub async fn price_single_bond(
         ],
         built_at: 0,
         inputs_hash: "demo".to_string(),
+        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
         inner: None,
     };
     discount_curve.rebuild_inner();
@@ -298,6 +299,7 @@ pub async fn price_single_bond(
         ],
         built_at: 0,
         inputs_hash: "demo".to_string(),
+        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
         inner: None,
     };
     benchmark_curve.rebuild_inner();

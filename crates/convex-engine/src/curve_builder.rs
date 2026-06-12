@@ -29,7 +29,10 @@ pub struct BuiltCurve {
     pub built_at: i64,
     /// Hash of inputs (for change detection)
     pub inputs_hash: String,
-    
+
+    /// Long-end extrapolation used when (re)building [`BuiltCurve::inner`].
+    pub extrapolation: ExtrapolationMethod,
+
     /// The proper math curve underlying this
     pub inner: Option<std::sync::Arc<DiscreteCurve>>,
 }
@@ -59,36 +62,41 @@ impl BuiltCurve {
         self.points.last().unwrap().1
     }
     
-    /// Helper to rebuild the internal math curve from points
+    /// Rebuilds the internal math curve from `points`, using this curve's
+    /// [`BuiltCurve::extrapolation`] for the long end.
+    ///
+    /// Points are sorted by tenor and exact-duplicate tenors are collapsed
+    /// (keeping the latest rate); distinct points are never dropped. The curve is
+    /// only built when at least two distinct pillars remain.
     pub fn rebuild_inner(&mut self) {
-        if self.points.is_empty() {
-            self.inner = None;
-            return;
-        }
-        let tenors: Vec<f64> = self.points.iter().map(|(t, _)| *t).collect();
-        let rates: Vec<f64> = self.points.iter().map(|(_, r)| *r).collect();
-        
-        let mut clean_tenors = Vec::new();
-        let mut clean_rates = Vec::new();
-        for i in 0..tenors.len() {
-            if clean_tenors.is_empty() || tenors[i] > *clean_tenors.last().unwrap() {
-                clean_tenors.push(tenors[i]);
-                clean_rates.push(rates[i]);
+        let mut sorted = self.points.clone();
+        sorted.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut tenors: Vec<f64> = Vec::with_capacity(sorted.len());
+        let mut rates: Vec<f64> = Vec::with_capacity(sorted.len());
+        for (t, r) in sorted {
+            if tenors.last() == Some(&t) {
+                *rates.last_mut().unwrap() = r;
+            } else {
+                tenors.push(t);
+                rates.push(r);
             }
         }
-        
-        if clean_tenors.len() >= 2 {
-            if let Ok(c) = DiscreteCurve::with_extrapolation(
+
+        self.inner = if tenors.len() >= 2 {
+            DiscreteCurve::with_extrapolation(
                 self.reference_date,
-                clean_tenors,
-                clean_rates,
+                tenors,
+                rates,
                 ValueType::continuous_zero(DayCountConvention::Act365Fixed),
                 InterpolationMethod::MonotoneConvex,
-                ExtrapolationMethod::UfrConvergence { ufr: 0.042, alpha: 0.1 },
-            ) {
-                self.inner = Some(std::sync::Arc::new(c));
-            }
-        }
+                self.extrapolation,
+            )
+            .ok()
+            .map(std::sync::Arc::new)
+        } else {
+            None
+        };
     }
 
     /// Get max tenor in years.
@@ -127,6 +135,9 @@ impl BuiltCurve {
             points: curve_points,
             built_at: chrono::Utc::now().timestamp(),
             inputs_hash: String::new(),
+            // Reconstruction from cached points does not know the original
+            // extrapolation; flat-forward is the neutral default.
+            extrapolation: ExtrapolationMethod::FlatForward,
             inner: None,
         };
         built.rebuild_inner();
@@ -231,6 +242,11 @@ pub struct CurveBuilder {
 
     /// Built curves cache
     curves: DashMap<CurveId, BuiltCurve>,
+
+    /// Long-end extrapolation for built curves. Flat-forward by default; set a
+    /// `UfrConvergence` (with the appropriate per-currency UFR) explicitly for
+    /// liability curves rather than baking one in for every currency.
+    extrapolation: ExtrapolationMethod,
 }
 
 impl CurveBuilder {
@@ -240,7 +256,15 @@ impl CurveBuilder {
             market_data,
             calc_graph,
             curves: DashMap::new(),
+            extrapolation: ExtrapolationMethod::FlatForward,
         }
+    }
+
+    /// Sets the long-end extrapolation method used when building curves.
+    #[must_use]
+    pub fn with_extrapolation(mut self, extrapolation: ExtrapolationMethod) -> Self {
+        self.extrapolation = extrapolation;
+        self
     }
 
     /// Build a curve from current market data.
@@ -299,6 +323,7 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            extrapolation: self.extrapolation,
             inner: None,
         };
         built.rebuild_inner();
@@ -358,6 +383,7 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            extrapolation: self.extrapolation,
             inner: None,
         };
         built.rebuild_inner();
