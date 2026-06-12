@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::ports::market_data::MarketDataProvider;
 use convex_core::daycounts::DayCountConvention;
@@ -75,6 +75,10 @@ impl BuiltCurve {
     /// Points are sorted by tenor and exact-duplicate tenors are collapsed
     /// (keeping the latest rate); distinct points are never dropped. The curve is
     /// only built when at least two distinct pillars remain.
+    ///
+    /// If reconstruction fails, the previously-built curve is kept rather than
+    /// discarded -- dropping it would silently fall back to linear interpolation
+    /// (e.g. on a bumped curve during KRD/PV01), corrupting the result.
     pub fn rebuild_inner(&mut self) {
         let mut sorted = self.points.clone();
         sorted.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
@@ -90,20 +94,25 @@ impl BuiltCurve {
             }
         }
 
-        self.inner = if tenors.len() >= 2 {
-            DiscreteCurve::with_extrapolation(
-                self.reference_date,
-                tenors,
-                rates,
-                ValueType::continuous_zero(DayCountConvention::Act365Fixed),
-                InterpolationMethod::MonotoneConvex,
-                self.extrapolation,
-            )
-            .ok()
-            .map(std::sync::Arc::new)
-        } else {
-            None
-        };
+        if tenors.len() < 2 {
+            self.inner = None;
+            return;
+        }
+
+        match DiscreteCurve::with_extrapolation(
+            self.reference_date,
+            tenors,
+            rates,
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            InterpolationMethod::MonotoneConvex,
+            self.extrapolation,
+        ) {
+            Ok(curve) => self.inner = Some(std::sync::Arc::new(curve)),
+            Err(e) => warn!(
+                "Curve {} inner rebuild failed; keeping previous curve: {}",
+                self.curve_id, e
+            ),
+        }
     }
 
     /// Get max tenor in years.
