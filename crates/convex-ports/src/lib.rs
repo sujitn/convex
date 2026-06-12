@@ -9,12 +9,12 @@
 //!
 //! ## Modules
 //!
-//! - [`market_data`]: market data sources (quotes, curves, vol, FX, inflation)
-//! - [`reference_data`]: reference data sources (bonds, issuers, ratings, ETFs)
-//! - [`storage`]: persistence (bonds, curves, configs, overrides, audit)
-//! - [`output`]: output publishing
-//! - [`config`]: engine / node configuration value types
-//! - [`error`]: the shared [`error::TraitError`]
+//! - [`market_data`] — market data sources (quotes, curves, vol, FX, inflation)
+//! - [`reference_data`] — reference data sources (bonds, issuers, ratings, ETFs)
+//! - [`storage`] — persistence (bonds, curves, configs, overrides, audit)
+//! - [`output`] — output publishing
+//! - [`config`] — engine / node configuration value types
+//! - [`error`] — the shared [`error::TraitError`]
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]

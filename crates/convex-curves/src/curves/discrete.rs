@@ -294,8 +294,13 @@ impl DiscreteCurve {
                     let last_value = *self.values.last().unwrap();
                     let last_derivative = self.interpolator.derivative(llp).unwrap_or(0.0);
                     let ext = convex_math::extrapolation::UfrConvergence::new(ufr, alpha, llp);
-                    use convex_math::extrapolation::Extrapolator;
-                    ext.extrapolate(t, llp, last_value, last_derivative)
+                    convex_math::extrapolation::Extrapolator::extrapolate(
+                        &ext,
+                        t,
+                        llp,
+                        last_value,
+                        last_derivative,
+                    )
                 }
             }
         }
