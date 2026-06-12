@@ -21,7 +21,6 @@ name = "convex-mcp-server"
 path = "src/main.rs"
 
 [dependencies]
-convex-engine = { workspace = true }
 # Internal crates
 convex = { workspace = true, features = ["schemars"] }
 

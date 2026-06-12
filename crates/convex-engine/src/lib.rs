@@ -509,4 +509,8 @@ impl PricingEngine {
         )
     }
 }
-pub mod ports;
+
+/// Hexagonal port traits, re-exported from the [`convex_ports`] crate so that
+/// `convex_engine::ports::*` paths keep working while adapters depend only on
+/// the lightweight ports crate (not the whole engine).
+pub use convex_ports as ports;

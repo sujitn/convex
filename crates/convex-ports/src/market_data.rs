@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::ports::error::TraitError;
+use crate::error::TraitError;
 use convex_core::ids::*;
 use convex_core::Date;
 
@@ -616,8 +616,8 @@ impl BondQuote {
     }
 
     /// Get price for the specified side.
-    pub fn price_for_side(&self, side: crate::ports::storage::QuoteSide) -> Option<Decimal> {
-        use crate::ports::storage::QuoteSide;
+    pub fn price_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
         match side {
             QuoteSide::Bid => self.bid_price,
             QuoteSide::Mid => self.mid_price,
@@ -626,8 +626,8 @@ impl BondQuote {
     }
 
     /// Get yield for the specified side.
-    pub fn yield_for_side(&self, side: crate::ports::storage::QuoteSide) -> Option<Decimal> {
-        use crate::ports::storage::QuoteSide;
+    pub fn yield_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
         match side {
             QuoteSide::Bid => self.bid_yield,
             QuoteSide::Mid => self.mid_yield,

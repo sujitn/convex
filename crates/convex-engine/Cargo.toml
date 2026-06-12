@@ -17,7 +17,8 @@ convex-bonds = { workspace = true }
 convex-curves = { workspace = true }
 convex-analytics = { workspace = true }
 
-# Trait definitions
+# Port trait definitions (re-exported as `convex_engine::ports`)
+convex-ports = { workspace = true }
 
 # Runtime (allowed here - this is the engine)
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
@@ -33,13 +34,11 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = "0.4"
 cron = "0.16"
-async-trait = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 convex-ext-file = { workspace = true }
-mockall = "0.14.0"
 
 [[bench]]
 name = "pricing_benchmarks"

@@ -11,8 +11,8 @@ keywords = ["finance", "bonds", "storage", "redb", "embedded"]
 categories = ["finance", "database"]
 
 [dependencies]
-convex-engine = { workspace = true }
-# Trait definitions
+# Port traits implemented by this adapter
+convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # Storage backend
@@ -32,4 +32,3 @@ thiserror = { workspace = true }
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 tempfile = "3"
-convex-engine = { workspace = true }

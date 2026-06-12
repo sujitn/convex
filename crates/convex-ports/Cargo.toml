@@ -1,0 +1,24 @@
+[package]
+name = "convex-ports"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hexagonal port traits (market data, reference data, storage, output) for the Convex pricing engine"
+keywords = ["finance", "bonds", "traits", "pricing", "quantitative"]
+categories = ["finance"]
+
+[dependencies]
+convex-core = { workspace = true }
+
+# Trait definitions only - NO runtime deps (no reqwest, sqlx, redis, ...)
+async-trait = "0.1"
+serde = { workspace = true }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+tokio = { version = "1", features = ["sync"] } # broadcast::Receiver in the *Receiver types
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
