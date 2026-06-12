@@ -8,7 +8,7 @@ use convex_core::types::{Date, Price, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::spreads::asw::coupon_year_fraction;
+use crate::spreads::asw::{coupon_year_fraction, day_counter};
 
 /// Par-par asset swap spread calculator.
 #[derive(Debug, Clone)]
@@ -119,7 +119,7 @@ impl<'a> ParParAssetSwap<'a> {
         }
 
         let coupon = bond.coupon_rate().to_f64().unwrap();
-        let day_count = bond.day_count_convention();
+        let day_count = day_counter(bond.day_count_convention());
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;
@@ -138,7 +138,7 @@ impl<'a> ParParAssetSwap<'a> {
                 .discount_factor(cf.date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-            let tau = coupon_year_fraction(day_count, cf, payments_per_year);
+            let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
 
             let fwd = (prev_df / df - 1.0) / tau;
             annuity += tau * df;

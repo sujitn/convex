@@ -7,7 +7,7 @@ use convex_core::types::{Date, Price, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::spreads::asw::coupon_year_fraction;
+use crate::spreads::asw::{coupon_year_fraction, day_counter};
 
 /// Proceeds asset swap spread calculator.
 #[derive(Debug, Clone)]
@@ -141,7 +141,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let day_count = bond.day_count_convention();
+        let day_count = day_counter(bond.day_count_convention());
         let mut annuity = Decimal::ZERO;
 
         for cf in &cash_flows {
@@ -155,9 +155,12 @@ impl<'a> ProceedsAssetSwap<'a> {
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
 
-            let tau =
-                Decimal::from_f64_retain(coupon_year_fraction(day_count, cf, payments_per_year))
-                    .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
+            let tau = Decimal::from_f64_retain(coupon_year_fraction(
+                day_count.as_deref(),
+                cf,
+                payments_per_year,
+            ))
+            .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
 
             annuity += tau * df;
         }
