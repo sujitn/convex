@@ -56,25 +56,6 @@ pub trait Extrapolator: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
-/// Configuration for extrapolation beyond curve boundaries.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum ExtrapolationMethod {
-    /// No extrapolation - return error outside range
-    None,
-    /// Constant value from boundary
-    #[default]
-    Flat,
-    /// Linear continuation with boundary slope
-    Linear,
-    /// Forward rate converging to an Ultimate Forward Rate (see [`UfrConvergence`])
-    UfrConvergence {
-        /// Ultimate forward rate
-        ufr: f64,
-        /// Convergence speed (alpha)
-        alpha: f64,
-    },
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

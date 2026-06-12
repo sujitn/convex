@@ -31,7 +31,7 @@ pub mod stats;
 pub mod prelude {
     pub use crate::error::{MathError, MathResult};
     pub use crate::extrapolation::{
-        ExtrapolationMethod, Extrapolator, FlatExtrapolator, LinearExtrapolator, UfrConvergence,
+        Extrapolator, FlatExtrapolator, LinearExtrapolator, UfrConvergence,
     };
     pub use crate::interpolation::{
         CubicSpline, Interpolator, LinearInterpolator, LogLinearInterpolator, MonotoneConvex,
