@@ -139,6 +139,24 @@ impl DiscreteCurve {
             }
         }
 
+        // UFR-convergence reads the tail value/derivative as a continuously
+        // compounded zero rate (f_LLP = z + t·z'); reject value types where that
+        // identity does not hold rather than producing silently wrong rates.
+        if matches!(extrapolation, ExtrapolationMethod::UfrConvergence { .. })
+            && !matches!(
+                value_type,
+                ValueType::ZeroRate {
+                    compounding: convex_core::types::Compounding::Continuous,
+                    ..
+                }
+            )
+        {
+            return Err(CurveError::builder_error(
+                "UfrConvergence extrapolation requires continuously-compounded zero rates"
+                    .to_string(),
+            ));
+        }
+
         let max_tenor = *tenors.last().unwrap();
 
         // Create interpolator
@@ -443,6 +461,37 @@ mod tests {
         // Slope = (0.06 - 0.05) / (3 - 2) = 0.01
         // At t=4: 0.06 + 0.01 * (4 - 3) = 0.07
         assert_relative_eq!(curve.value_at(4.0), 0.07, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_ufr_convergence_requires_continuous_zero() {
+        let today = Date::from_ymd(2024, 1, 1).unwrap();
+        let ufr = ExtrapolationMethod::UfrConvergence {
+            ufr: 0.042,
+            alpha: 0.1,
+        };
+
+        // Rejected on a non-zero-rate (here discount-factor) value type.
+        assert!(DiscreteCurve::with_extrapolation(
+            today,
+            vec![1.0, 2.0],
+            vec![0.99, 0.97],
+            ValueType::DiscountFactor,
+            InterpolationMethod::Linear,
+            ufr,
+        )
+        .is_err());
+
+        // Accepted on a continuously-compounded zero-rate curve.
+        assert!(DiscreteCurve::with_extrapolation(
+            today,
+            vec![1.0, 2.0],
+            vec![0.04, 0.05],
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            InterpolationMethod::Linear,
+            ufr,
+        )
+        .is_ok());
     }
 
     #[test]
