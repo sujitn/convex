@@ -409,6 +409,12 @@ impl MarketDataListener {
 // MARKET DATA PUBLISHER
 // =============================================================================
 
+/// Result of publishing a market data update.
+///
+/// The send error carries the un-delivered [`MarketDataUpdate`], which is large,
+/// so it is boxed to keep the success path cheap (and satisfy `result_large_err`).
+pub type PublishResult = Result<(), Box<broadcast::error::SendError<MarketDataUpdate>>>;
+
 /// Publisher for market data updates.
 ///
 /// Use this to inject market data updates into the system.
@@ -430,73 +436,43 @@ impl MarketDataPublisher {
     }
 
     /// Publish a quote update.
-    pub fn publish_quote(
-        &self,
-        update: QuoteUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::Quote(update))
-            .map(|_| ())
+    pub fn publish_quote(&self, update: QuoteUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::Quote(update))
     }
 
     /// Publish a curve update.
-    pub fn publish_curve(
-        &self,
-        update: CurveUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::Curve(update))
-            .map(|_| ())
+    pub fn publish_curve(&self, update: CurveUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::Curve(update))
     }
 
     /// Publish a curve input update.
-    pub fn publish_curve_input(
-        &self,
-        update: CurveInputUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::CurveInput(update))
-            .map(|_| ())
+    pub fn publish_curve_input(&self, update: CurveInputUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::CurveInput(update))
     }
 
     /// Publish an index fixing.
-    pub fn publish_index_fixing(
-        &self,
-        update: IndexFixingUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::IndexFixing(update))
-            .map(|_| ())
+    pub fn publish_index_fixing(&self, update: IndexFixingUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::IndexFixing(update))
     }
 
     /// Publish an inflation fixing.
-    pub fn publish_inflation_fixing(
-        &self,
-        update: InflationFixingUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::InflationFixing(update))
-            .map(|_| ())
+    pub fn publish_inflation_fixing(&self, update: InflationFixingUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::InflationFixing(update))
     }
 
     /// Publish an FX rate update.
-    pub fn publish_fx_rate(
-        &self,
-        update: FxRateUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::FxRate(update))
-            .map(|_| ())
+    pub fn publish_fx_rate(&self, update: FxRateUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::FxRate(update))
     }
 
     /// Publish a volatility surface update.
-    pub fn publish_vol_surface(
-        &self,
-        update: VolSurfaceUpdate,
-    ) -> Result<(), broadcast::error::SendError<MarketDataUpdate>> {
-        self.update_tx
-            .send(MarketDataUpdate::VolSurface(update))
-            .map(|_| ())
+    pub fn publish_vol_surface(&self, update: VolSurfaceUpdate) -> PublishResult {
+        self.publish(MarketDataUpdate::VolSurface(update))
+    }
+
+    /// Broadcasts a market data update, boxing the (large) send error.
+    fn publish(&self, update: MarketDataUpdate) -> PublishResult {
+        self.update_tx.send(update).map(|_| ()).map_err(Box::new)
     }
 }
 
