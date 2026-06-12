@@ -7,16 +7,7 @@ use convex_core::types::{Date, Price, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-
-/// Converts coupon frequency to months between payments.
-fn frequency_to_months(frequency: u32) -> i32 {
-    match frequency {
-        1 => 12,
-        4 => 3,
-        12 => 1,
-        _ => 6,
-    }
-}
+use crate::spreads::asw::coupon_year_fraction;
 
 /// Proceeds asset swap spread calculator.
 #[derive(Debug, Clone)]
@@ -153,31 +144,22 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
+        let day_count = bond.day_count_convention();
         let mut annuity = Decimal::ZERO;
 
         for cf in &cash_flows {
             if !cf.is_coupon() {
                 continue;
             }
-            
+
             let df_f64 = self
                 .swap_curve
                 .discount_factor(cf.date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
-                
-            let tau = match (cf.accrual_start, cf.accrual_end) {
-                (Some(start), Some(end)) => {
-                    let days = start.days_between(&end).abs() as f64;
-                    let regular_days = 365.0 / payments_per_year as f64;
-                    if (days - regular_days).abs() > 15.0 {
-                        Decimal::from_f64_retain(days / 365.0).unwrap_or(Decimal::ONE / Decimal::from(payments_per_year))
-                    } else {
-                        Decimal::ONE / Decimal::from(payments_per_year)
-                    }
-                }
-                _ => Decimal::ONE / Decimal::from(payments_per_year),
-            };
+
+            let tau = Decimal::from_f64_retain(coupon_year_fraction(day_count, cf, payments_per_year))
+                .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
 
             annuity += tau * df;
         }

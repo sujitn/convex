@@ -8,16 +8,7 @@ use convex_core::types::{Date, Price, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-
-/// Converts coupon frequency to months between payments.
-fn frequency_to_months(frequency: u32) -> i32 {
-    match frequency {
-        1 => 12,
-        4 => 3,
-        12 => 1,
-        _ => 6,
-    }
-}
+use crate::spreads::asw::coupon_year_fraction;
 
 /// Par-par asset swap spread calculator.
 #[derive(Debug, Clone)]
@@ -130,8 +121,8 @@ impl<'a> ParParAssetSwap<'a> {
             ));
         }
 
-        let tau = 1.0 / payments_per_year as f64;
         let coupon = bond.coupon_rate().to_f64().unwrap();
+        let day_count = bond.day_count_convention();
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;
@@ -144,24 +135,13 @@ impl<'a> ParParAssetSwap<'a> {
             if !cf.is_coupon() {
                 continue;
             }
-            
+
             let df = self
                 .swap_curve
                 .discount_factor(cf.date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-                
-            let tau = match (cf.accrual_start, cf.accrual_end) {
-                (Some(start), Some(end)) => {
-                    let days = start.days_between(&end).abs() as f64;
-                    let regular_days = 365.0 / payments_per_year as f64;
-                    if (days - regular_days).abs() > 15.0 {
-                        days / 365.0
-                    } else {
-                        1.0 / payments_per_year as f64
-                    }
-                }
-                _ => 1.0 / payments_per_year as f64,
-            };
+
+            let tau = coupon_year_fraction(day_count, cf, payments_per_year);
 
             let fwd = (prev_df / df - 1.0) / tau;
             annuity += tau * df;
@@ -219,14 +199,12 @@ impl<'a> ParParAssetSwap<'a> {
         bond: &B,
         settlement: Date,
     ) -> AnalyticsResult<Decimal> {
-        let maturity = bond.maturity().ok_or_else(|| {
+        // Reject perpetuals up front; the value itself is unused.
+        bond.maturity().ok_or_else(|| {
             AnalyticsError::InvalidInput("Bond has no maturity (perpetual)".to_string())
         })?;
 
-        self.calculate_annuity(
-            bond,
-            settlement,
-        )
+        self.calculate_annuity(bond, settlement)
     }
 
     /// Calculates the implied bond price from a given ASW spread.

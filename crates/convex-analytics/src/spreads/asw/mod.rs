@@ -12,7 +12,34 @@ mod proceeds;
 pub use par_par::ParParAssetSwap;
 pub use proceeds::ProceedsAssetSwap;
 
+use convex_bonds::traits::BondCashFlow;
+use convex_core::daycounts::DayCountConvention;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
+
+/// Year fraction for a single coupon period.
+///
+/// When the cash flow carries accrual boundaries, the year fraction is computed
+/// with the bond's own day-count convention (parsed from its string form);
+/// otherwise it falls back to the nominal `1 / payments_per_year`. This prices
+/// regular periods at the nominal fraction and stubs on their actual accrual
+/// length, instead of guessing "regular vs stub" from a day-count threshold.
+pub(crate) fn coupon_year_fraction(
+    day_count: &str,
+    cf: &BondCashFlow,
+    payments_per_year: u32,
+) -> f64 {
+    let nominal = 1.0 / payments_per_year as f64;
+    match (cf.accrual_start, cf.accrual_end) {
+        (Some(start), Some(end)) => day_count
+            .parse::<DayCountConvention>()
+            .ok()
+            .and_then(|conv| conv.to_day_count().year_fraction(start, end).to_f64())
+            .filter(|yf| *yf > 0.0)
+            .unwrap_or(nominal),
+        _ => nominal,
+    }
+}
 
 /// Asset swap spread types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
