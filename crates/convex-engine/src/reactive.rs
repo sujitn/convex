@@ -14,10 +14,10 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, warn};
 
-use convex_core::Date;
 use crate::ports::config::{NodeConfig, UpdateFrequency};
-use convex_core::ids::*;
 use crate::ports::reference_data::ReferenceDataProvider;
+use convex_core::ids::*;
+use convex_core::Date;
 
 use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
 use crate::curve_builder::{BuiltCurve, CurveBuilder};
@@ -440,8 +440,8 @@ impl ReactiveEngine {
         bond_ref: &crate::ports::reference_data::BondReferenceData,
         curve_builder: &Arc<CurveBuilder>,
     ) -> Option<BuiltCurve> {
-        use convex_core::Currency;
         use crate::ports::reference_data::IssuerType;
+        use convex_core::Currency;
 
         let currency_code = match bond_ref.currency {
             Currency::USD => "USD",
@@ -724,12 +724,12 @@ impl Default for ReactiveEngineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::market_data::MarketDataProvider;
     use convex_ext_file::{
         EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
         EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
         EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
     };
-    use crate::ports::market_data::MarketDataProvider;
     use std::sync::Arc;
 
     fn create_test_engine() -> ReactiveEngine {
@@ -790,8 +790,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_market_data_update_triggers_repricing() {
-        use convex_core::Currency;
         use crate::ports::reference_data::{BondReferenceData, BondType, IssuerType};
+        use convex_core::Currency;
         use rust_decimal_macros::dec;
 
         let engine = create_test_engine();

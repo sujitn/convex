@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use convex_core::ids::{CurveId, InstrumentId};
 use crate::ports::market_data::RawQuote;
+use convex_core::ids::{CurveId, InstrumentId};
 
 use crate::cache::QuoteCache;
 use crate::curve_builder::{BuiltCurve, CurveBuilder};

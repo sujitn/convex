@@ -338,9 +338,10 @@ pub fn z_spread<B: Bond + FixedCouponBond>(
     curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
-    let compounding = convex_core::types::Compounding::try_from_periods_per_year(bond.coupon_frequency())
-        .unwrap_or(convex_core::types::Compounding::Continuous);
-        
+    let compounding =
+        convex_core::types::Compounding::try_from_periods_per_year(bond.coupon_frequency())
+            .unwrap_or(convex_core::types::Compounding::Continuous);
+
     ZSpreadCalculator::new(curve)
         .with_compounding(compounding)
         .calculate(bond, dirty_price, settlement)

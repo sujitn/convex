@@ -5,11 +5,14 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use tracing::info;
 
-use convex_core::Date;
-use convex_curves::{Compounding, CurveError, CurveResult, RateCurveDyn, DiscreteCurve, InterpolationMethod, ValueType, ExtrapolationMethod};
+use crate::ports::market_data::MarketDataProvider;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::ids::CurveId;
-use crate::ports::market_data::MarketDataProvider;
+use convex_core::Date;
+use convex_curves::{
+    Compounding, CurveError, CurveResult, DiscreteCurve, ExtrapolationMethod, InterpolationMethod,
+    RateCurveDyn, ValueType,
+};
 
 use crate::calc_graph::{CalculationGraph, NodeId};
 use crate::error::EngineError;
@@ -49,8 +52,12 @@ impl BuiltCurve {
             return 0.0;
         }
         // Find surrounding points and interpolate linearly
-        if tenor_years <= self.points[0].0 { return self.points[0].1; }
-        if tenor_years >= self.points.last().unwrap().0 { return self.points.last().unwrap().1; }
+        if tenor_years <= self.points[0].0 {
+            return self.points[0].1;
+        }
+        if tenor_years >= self.points.last().unwrap().0 {
+            return self.points.last().unwrap().1;
+        }
         for i in 1..self.points.len() {
             if self.points[i].0 >= tenor_years {
                 let (t0, r0) = self.points[i - 1];
@@ -61,7 +68,7 @@ impl BuiltCurve {
         }
         self.points.last().unwrap().1
     }
-    
+
     /// Rebuilds the internal math curve from `points`, using this curve's
     /// [`BuiltCurve::extrapolation`] for the long end.
     ///

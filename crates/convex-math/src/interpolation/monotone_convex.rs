@@ -156,8 +156,6 @@ impl MonotoneConvex {
         })
     }
 
-
-
     /// Returns the instantaneous forward rate at time t.
     ///
     /// The forward rate f(t) satisfies:
@@ -206,10 +204,10 @@ impl MonotoneConvex {
 
         let x = (t - t_lo) / (t_hi - t_lo);
         let f_discrete = self.discrete_forwards[i];
-        
-        let f = f_discrete 
-              + (f_lo - f_discrete) * (1.0 - 4.0 * x + 3.0 * x * x) 
-              + (f_hi - f_discrete) * (-2.0 * x + 3.0 * x * x);
+
+        let f = f_discrete
+            + (f_lo - f_discrete) * (1.0 - 4.0 * x + 3.0 * x * x)
+            + (f_hi - f_discrete) * (-2.0 * x + 3.0 * x * x);
 
         Ok(f.max(0.0)) // Ensure non-negative
     }
@@ -295,14 +293,14 @@ impl Interpolator for MonotoneConvex {
         let f_hi = self.f_inst[i];
 
         let x = (t - t_lo) / (t_hi - t_lo);
-        
+
         // Exact integral of the Hagan-West quadratic forward rate
         let integral_x = (x - 2.0 * x * x + x * x * x) * f_lo
-                       + (-x * x + x * x * x) * f_hi
-                       + (3.0 * x * x - 2.0 * x * x * x) * f_discrete;
-                       
+            + (-x * x + x * x * x) * f_hi
+            + (3.0 * x * x - 2.0 * x * x * x) * f_discrete;
+
         let zt_product = z_lo * t_lo + (t_hi - t_lo) * integral_x;
-        
+
         Ok(zt_product / t)
     }
 

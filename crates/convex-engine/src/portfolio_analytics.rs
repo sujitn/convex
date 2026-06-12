@@ -9,9 +9,9 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use tracing::{debug, info, warn};
 
-use convex_core::Currency;
-use convex_core::ids::{InstrumentId, PortfolioId};
 use crate::ports::output::{BondQuoteOutput, PortfolioAnalyticsOutput};
+use convex_core::ids::{InstrumentId, PortfolioId};
+use convex_core::Currency;
 
 use crate::error::EngineError;
 

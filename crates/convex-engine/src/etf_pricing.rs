@@ -8,9 +8,9 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use tracing::{debug, info};
 
-use convex_core::Date;
 use crate::ports::output::{BondQuoteOutput, EtfQuoteOutput};
 use crate::ports::reference_data::EtfHoldings;
+use convex_core::Date;
 
 use crate::error::EngineError;
 
@@ -189,8 +189,8 @@ impl Default for EtfPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_core::ids::{EtfId, InstrumentId};
     use crate::ports::reference_data::EtfHoldingEntry;
+    use convex_core::ids::{EtfId, InstrumentId};
     use rust_decimal_macros::dec;
 
     fn date(y: i32, m: u32, d: u32) -> Date {

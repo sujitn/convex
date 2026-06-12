@@ -1608,8 +1608,8 @@ impl Default for PricingRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_core::ids::InstrumentId;
     use crate::ports::reference_data::IssuerType;
+    use convex_core::ids::InstrumentId;
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> BondReferenceData {
@@ -2182,8 +2182,8 @@ mod tests {
     }
 
     fn create_frn_test_bond() -> BondReferenceData {
-        use convex_core::ids::FloatingRateIndex;
         use crate::ports::reference_data::FloatingRateTerms;
+        use convex_core::ids::FloatingRateIndex;
 
         BondReferenceData {
             instrument_id: InstrumentId::new("FRN001"),

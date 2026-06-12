@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 
-use convex_core::ids::InstrumentId;
 use crate::ports::market_data::RawQuote;
+use convex_core::ids::InstrumentId;
 
 /// Quote cache with staleness tracking.
 pub struct QuoteCache {

@@ -55,10 +55,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let annuity = self.calculate_annuity(
-            bond,
-            settlement,
-        )?;
+        let annuity = self.calculate_annuity(bond, settlement)?;
 
         if annuity.is_zero() {
             return Err(AnalyticsError::InvalidInput(
@@ -158,8 +155,9 @@ impl<'a> ProceedsAssetSwap<'a> {
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
 
-            let tau = Decimal::from_f64_retain(coupon_year_fraction(day_count, cf, payments_per_year))
-                .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
+            let tau =
+                Decimal::from_f64_retain(coupon_year_fraction(day_count, cf, payments_per_year))
+                    .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
 
             annuity += tau * df;
         }
@@ -270,16 +268,17 @@ mod tests {
                 12 => 1,
                 _ => 6,
             };
-            
+
             let mut current_date = self.maturity;
             while current_date > from {
                 payment_dates.push(current_date);
                 current_date = current_date.add_months(-months_between).unwrap();
             }
             payment_dates.reverse();
-            
-            payment_dates.into_iter().map(|d| {
-                convex_bonds::traits::BondCashFlow {
+
+            payment_dates
+                .into_iter()
+                .map(|d| convex_bonds::traits::BondCashFlow {
                     date: d,
                     amount: Decimal::ONE,
                     flow_type: convex_bonds::traits::CashFlowType::Coupon,
@@ -287,8 +286,8 @@ mod tests {
                     accrual_end: None,
                     factor: Decimal::ONE,
                     reference_rate: None,
-                }
-            }).collect()
+                })
+                .collect()
         }
 
         fn next_coupon_date(&self, _after: Date) -> Option<Date> {

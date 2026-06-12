@@ -53,10 +53,7 @@ impl<'a> ParParAssetSwap<'a> {
 
         let upfront = Decimal::ONE_HUNDRED - dirty_price;
 
-        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
-            bond,
-            settlement,
-        )?;
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(bond, settlement)?;
 
         if annuity.is_zero() {
             return Err(AnalyticsError::InvalidInput(
@@ -229,10 +226,7 @@ impl<'a> ParParAssetSwap<'a> {
         //   spread_bps = ((100 − dirty) + mismatch_pct) / annuity · 100
         // (the `× 100` converts %-per-year to bps), so the inverse is
         //   dirty = 100 + mismatch_pct − (spread_bps / 100) · annuity.
-        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
-            bond,
-            settlement,
-        )?;
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(bond, settlement)?;
 
         let spread_pct = asw_spread.as_bps() / Decimal::from(100);
         let dirty_price = Decimal::ONE_HUNDRED + mismatch_pct - spread_pct * annuity;
@@ -327,16 +321,17 @@ mod tests {
                 12 => 1,
                 _ => 6,
             };
-            
+
             let mut current_date = self.maturity;
             while current_date > from {
                 payment_dates.push(current_date);
                 current_date = current_date.add_months(-months_between).unwrap();
             }
             payment_dates.reverse();
-            
-            payment_dates.into_iter().map(|d| {
-                convex_bonds::traits::BondCashFlow {
+
+            payment_dates
+                .into_iter()
+                .map(|d| convex_bonds::traits::BondCashFlow {
                     date: d,
                     amount: Decimal::ONE,
                     flow_type: convex_bonds::traits::CashFlowType::Coupon,
@@ -344,8 +339,8 @@ mod tests {
                     accrual_end: None,
                     factor: Decimal::ONE,
                     reference_rate: None,
-                }
-            }).collect()
+                })
+                .collect()
         }
 
         fn next_coupon_date(&self, _after: Date) -> Option<Date> {
