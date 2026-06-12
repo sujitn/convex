@@ -188,8 +188,13 @@ pub enum ExtrapolationMethod {
     Linear,
     /// Flat forward - constant instantaneous forward rate.
     FlatForward,
-    /// Smith-Wilson extrapolation (ufr, alpha)
-    SmithWilson(f64, f64),
+    /// Forward rate converging to an Ultimate Forward Rate.
+    UfrConvergence {
+        /// Ultimate forward rate.
+        ufr: f64,
+        /// Convergence speed (alpha).
+        alpha: f64,
+    },
 }
 
 /// Interpolation method selection for curve construction.

@@ -84,7 +84,7 @@ impl BuiltCurve {
                 clean_rates,
                 ValueType::continuous_zero(DayCountConvention::Act365Fixed),
                 InterpolationMethod::MonotoneConvex,
-                ExtrapolationMethod::SmithWilson(0.042, 0.1)
+                ExtrapolationMethod::UfrConvergence { ufr: 0.042, alpha: 0.1 },
             ) {
                 self.inner = Some(std::sync::Arc::new(c));
             }

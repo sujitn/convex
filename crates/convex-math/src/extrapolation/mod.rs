@@ -5,7 +5,7 @@
 //!
 //! - [`FlatExtrapolator`]: Constant extension from last point
 //! - [`LinearExtrapolator`]: Linear slope continuation
-//! - [`SmithWilson`]: Regulatory standard (EIOPA) with Ultimate Forward Rate
+//! - [`UfrConvergence`]: Forward rate converging to an Ultimate Forward Rate
 //!
 //! # Choosing an Extrapolation Method
 //!
@@ -13,34 +13,30 @@
 //! |--------|----------|------------|
 //! | Flat | Simple, conservative | Constant forward rate |
 //! | Linear | Trend continuation | May go negative |
-//! | Smith-Wilson | **Regulatory (Solvency II)** | Converges to UFR |
+//! | UFR-convergence | Long-end / liability curves | Forward converges to UFR |
 //!
-//! # Regulatory Context
-//!
-//! For European insurance regulation (Solvency II), [`SmithWilson`] is required.
-//! It ensures smooth convergence to the Ultimate Forward Rate (UFR) beyond the
-//! Last Liquid Point (LLP), typically 20 years for EUR.
+//! [`UfrConvergence`] is a heuristic tail extrapolator, not the EIOPA / Solvency
+//! II Smith-Wilson method; see its module docs for the distinction.
 //!
 //! # Example
 //!
 //! ```rust
-//! use convex_math::extrapolation::{SmithWilson, Extrapolator};
+//! use convex_math::extrapolation::{UfrConvergence, Extrapolator};
 //!
-//! // Create Smith-Wilson extrapolator for EUR (EIOPA parameters)
-//! let sw = SmithWilson::eiopa_eur();
+//! // Forward converges to a 4.2% UFR beyond the 20Y last liquid point.
+//! let ext = UfrConvergence::new(0.042, 0.1, 20.0);
 //!
-//! // Extrapolate from a 20Y rate to 60Y
-//! let rate_20y = 0.035;
-//! let rate_60y = sw.extrapolate(60.0, 20.0, rate_20y, 0.001);
+//! // Extrapolate from a 20Y rate to 60Y.
+//! let rate_60y = ext.extrapolate(60.0, 20.0, 0.035, 0.001);
 //! ```
 
 mod flat;
 mod linear;
-mod smith_wilson;
+mod ufr_convergence;
 
 pub use flat::FlatExtrapolator;
 pub use linear::LinearExtrapolator;
-pub use smith_wilson::SmithWilson;
+pub use ufr_convergence::UfrConvergence;
 
 /// Trait for extrapolation methods.
 ///
@@ -70,8 +66,8 @@ pub enum ExtrapolationMethod {
     Flat,
     /// Linear continuation with boundary slope
     Linear,
-    /// Smith-Wilson with UFR convergence
-    SmithWilson {
+    /// Forward rate converging to an Ultimate Forward Rate (see [`UfrConvergence`])
+    UfrConvergence {
         /// Ultimate forward rate
         ufr: f64,
         /// Convergence speed (alpha)
@@ -112,24 +108,5 @@ mod tests {
         let value = extrap.extrapolate(15.0, last_t, last_value, last_deriv);
         let expected = last_value + last_deriv * (15.0 - last_t);
         assert_relative_eq!(value, expected, epsilon = 1e-10);
-    }
-
-    #[test]
-    fn test_smith_wilson_convergence() {
-        let sw = SmithWilson::new(0.042, 0.1, 20.0);
-
-        let last_t = 20.0;
-        let last_value = 0.035;
-        let last_deriv = 0.0005;
-
-        // Should converge towards UFR at long maturities
-        let value_30 = sw.extrapolate(30.0, last_t, last_value, last_deriv);
-        let value_60 = sw.extrapolate(60.0, last_t, last_value, last_deriv);
-        let value_100 = sw.extrapolate(100.0, last_t, last_value, last_deriv);
-
-        // Values should approach UFR (0.042)
-        assert!(value_30 > last_value); // Moving towards UFR
-        assert!(value_60 > value_30);
-        assert!((value_100 - 0.042).abs() < (value_60 - 0.042).abs());
     }
 }

@@ -286,16 +286,16 @@ impl DiscreteCurve {
                     *self.values.last().unwrap()
                 }
             }
-            ExtrapolationMethod::SmithWilson(ufr, alpha) => {
+            ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
                 if t < min_t {
                     self.values[0]
                 } else {
                     let llp = self.max_tenor;
                     let last_value = *self.values.last().unwrap();
                     let last_derivative = self.interpolator.derivative(llp).unwrap_or(0.0);
-                    let sw = convex_math::extrapolation::SmithWilson::new(ufr, alpha, llp);
+                    let ext = convex_math::extrapolation::UfrConvergence::new(ufr, alpha, llp);
                     use convex_math::extrapolation::Extrapolator;
-                    sw.extrapolate(t, llp, last_value, last_derivative)
+                    ext.extrapolate(t, llp, last_value, last_derivative)
                 }
             }
         }
