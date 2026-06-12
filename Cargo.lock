@@ -666,7 +666,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "convex-ext-file",
- "convex-traits",
+ "convex-ports",
  "criterion 0.5.1",
  "cron",
  "dashmap",
@@ -686,7 +686,7 @@ version = "0.13.0"
 dependencies = [
  "async-trait",
  "convex-core",
- "convex-traits",
+ "convex-ports",
  "csv",
  "dashmap",
  "rust_decimal",
@@ -703,7 +703,7 @@ version = "0.13.0"
 dependencies = [
  "async-trait",
  "convex-core",
- "convex-traits",
+ "convex-ports",
  "redb",
  "serde",
  "serde_json",
@@ -789,6 +789,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex-ports"
+version = "0.13.0"
+dependencies = [
+ "async-trait",
+ "convex-core",
+ "rust_decimal",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "convex-server"
 version = "0.13.0"
 dependencies = [
@@ -802,7 +814,6 @@ dependencies = [
  "convex-ext-file",
  "convex-ext-redb",
  "convex-portfolio",
- "convex-traits",
  "dashmap",
  "futures",
  "futures-util",
@@ -820,20 +831,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "convex-traits"
-version = "0.13.0"
-dependencies = [
- "async-trait",
- "convex-core",
- "futures-core",
- "rust_decimal",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]

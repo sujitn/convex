@@ -30,9 +30,9 @@ use convex_bonds::traits::BondCashFlow;
 use convex_core::types::Price;
 use convex_curves::curves::{ForwardCurve, ZeroCurve, ZeroCurveBuilder};
 
-use convex_traits::output::BondQuoteOutput;
-use convex_traits::reference_data::{BondReferenceData, BondType};
-use convex_traits::storage::BidAskSpreadConfig;
+use crate::ports::output::BondQuoteOutput;
+use crate::ports::reference_data::{BondReferenceData, BondType};
+use crate::ports::storage::BidAskSpreadConfig;
 
 use crate::curve_builder::BuiltCurve;
 use crate::error::EngineError;
@@ -98,8 +98,8 @@ pub struct PricingInput {
 
 impl PricingInput {
     /// Get market price for a specific side.
-    pub fn market_price(&self, side: convex_traits::storage::QuoteSide) -> Option<Decimal> {
-        use convex_traits::storage::QuoteSide;
+    pub fn market_price(&self, side: crate::ports::storage::QuoteSide) -> Option<Decimal> {
+        use crate::ports::storage::QuoteSide;
         match side {
             QuoteSide::Bid => self.market_price_bid,
             QuoteSide::Mid => self.market_price_mid,
@@ -252,7 +252,7 @@ impl PricingRouter {
             .day_count(day_count);
 
         // Add CUSIP identifier if available
-        if let Some(ref cusip) = ref_data.cusip {
+        if let Some(cusip) = ref_data.cusip.as_deref() {
             builder = builder.cusip_unchecked(cusip);
         }
 
@@ -296,7 +296,7 @@ impl PricingRouter {
         &self,
         ref_data: &BondReferenceData,
     ) -> Result<FloatingRateNote, EngineError> {
-        use convex_traits::ids::FloatingRateIndex as TraitIndex;
+        use convex_core::ids::FloatingRateIndex as TraitIndex;
 
         // Get floating rate terms
         let floating_terms = ref_data.floating_terms.as_ref().ok_or_else(|| {
@@ -338,7 +338,7 @@ impl PricingRouter {
             .face_value(ref_data.face_value);
 
         // Add CUSIP if available
-        if let Some(ref cusip) = ref_data.cusip {
+        if let Some(cusip) = ref_data.cusip.as_deref() {
             builder = builder.cusip_unchecked(cusip);
         }
 
@@ -693,6 +693,7 @@ impl PricingRouter {
             *rate += bump * weight;
         }
 
+        bumped.rebuild_inner();
         bumped
     }
 
@@ -758,6 +759,7 @@ impl PricingRouter {
             *rate += bump;
         }
 
+        bumped.rebuild_inner();
         bumped
     }
 
@@ -1606,8 +1608,8 @@ impl Default for PricingRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_traits::ids::InstrumentId;
-    use convex_traits::reference_data::IssuerType;
+    use crate::ports::reference_data::IssuerType;
+    use convex_core::ids::InstrumentId;
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> BondReferenceData {
@@ -1649,9 +1651,9 @@ mod tests {
 
     fn create_test_curve(ref_date: Date) -> BuiltCurve {
         // Create a simple upward-sloping curve: 3% to 5% over 10 years
-        use convex_traits::ids::CurveId;
+        use convex_core::ids::CurveId;
 
-        BuiltCurve {
+        let mut built = BuiltCurve {
             curve_id: CurveId::new("USD_SOFR"),
             reference_date: ref_date,
             points: vec![
@@ -1666,8 +1668,12 @@ mod tests {
                 (30.0, 0.055), // 30Y: 5.5%
             ],
             built_at: 0,
-            inputs_hash: "test".to_string(),
-        }
+            inputs_hash: "".to_string(),
+            extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
+            inner: None,
+        };
+        built.rebuild_inner();
+        built
     }
 
     #[test]
@@ -1971,7 +1977,7 @@ mod tests {
     }
 
     fn create_callable_test_bond() -> BondReferenceData {
-        use convex_traits::reference_data::CallScheduleEntry;
+        use crate::ports::reference_data::CallScheduleEntry;
 
         BondReferenceData {
             instrument_id: InstrumentId::new("CALLABLE001"),
@@ -2176,8 +2182,8 @@ mod tests {
     }
 
     fn create_frn_test_bond() -> BondReferenceData {
-        use convex_traits::ids::FloatingRateIndex;
-        use convex_traits::reference_data::FloatingRateTerms;
+        use crate::ports::reference_data::FloatingRateTerms;
+        use convex_core::ids::FloatingRateIndex;
 
         BondReferenceData {
             instrument_id: InstrumentId::new("FRN001"),

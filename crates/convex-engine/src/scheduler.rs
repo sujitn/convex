@@ -652,7 +652,7 @@ impl CronScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_traits::ids::*;
+    use convex_core::ids::*;
 
     #[tokio::test]
     async fn test_interval_scheduler_registration() {

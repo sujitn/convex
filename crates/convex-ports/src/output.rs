@@ -14,7 +14,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::error::TraitError;
-use crate::ids::*;
+use convex_core::ids::*;
 use convex_core::{Currency, Date};
 
 // =============================================================================

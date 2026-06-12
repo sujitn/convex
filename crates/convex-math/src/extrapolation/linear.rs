@@ -21,8 +21,8 @@ use super::Extrapolator;
 /// # Warning
 ///
 /// Linear extrapolation can produce unrealistic results (negative rates)
-/// for long maturities. For regulatory or production use, consider
-/// [`SmithWilson`](super::SmithWilson) instead.
+/// for long maturities. For long-end / liability curves, consider
+/// [`UfrConvergence`](super::UfrConvergence) instead.
 ///
 /// # Example
 ///

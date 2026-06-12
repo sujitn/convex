@@ -66,6 +66,8 @@ pub struct ZSpreadCalculator<'a> {
     curve: &'a dyn RateCurveDyn,
     /// Solver configuration.
     config: SolverConfig,
+    /// Compounding convention for the Z-spread.
+    compounding: convex_core::types::Compounding,
 }
 
 impl std::fmt::Debug for ZSpreadCalculator<'_> {
@@ -87,7 +89,15 @@ impl<'a> ZSpreadCalculator<'a> {
         Self {
             curve,
             config: SolverConfig::new(1e-10, 100),
+            compounding: convex_core::types::Compounding::Continuous,
         }
+    }
+
+    /// Sets the compounding frequency for the Z-spread.
+    #[must_use]
+    pub fn with_compounding(mut self, compounding: convex_core::types::Compounding) -> Self {
+        self.compounding = compounding;
+        self
     }
 
     /// Sets the solver tolerance.
@@ -104,6 +114,21 @@ impl<'a> ZSpreadCalculator<'a> {
     pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
         self.config = SolverConfig::new(self.config.tolerance, max_iterations);
         self
+    }
+
+    /// Discount factor applied to a spread `z` over `dt` years under the
+    /// calculator's compounding convention (see [`with_compounding`]).
+    ///
+    /// [`with_compounding`]: Self::with_compounding
+    fn spread_df(&self, z: f64, dt: f64) -> f64 {
+        match self.compounding {
+            convex_core::types::Compounding::Continuous => (-z * dt).exp(),
+            convex_core::types::Compounding::Simple => 1.0 / (1.0 + z * dt),
+            comp => {
+                let k = comp.periods_per_year() as f64;
+                (1.0 + z / k).powf(-k * dt)
+            }
+        }
     }
 
     /// Calculates the Z-spread for a fixed rate bond.
@@ -158,7 +183,7 @@ impl<'a> ZSpreadCalculator<'a> {
         let objective = |z: f64| {
             let mut pv = 0.0;
             for (dt, fwd_df, amount) in &cf_data {
-                pv += amount * fwd_df * (-z * dt).exp();
+                pv += amount * fwd_df * self.spread_df(z, *dt);
             }
             pv / face * 100.0 - target_price
         };
@@ -211,7 +236,7 @@ impl<'a> ZSpreadCalculator<'a> {
         let face = bond.face_value().to_f64().unwrap_or(100.0);
         let pv: f64 = cf_data
             .iter()
-            .map(|(dt, fwd_df, amt)| amt * fwd_df * (-z_spread * dt).exp())
+            .map(|(dt, fwd_df, amt)| amt * fwd_df * self.spread_df(z_spread, *dt))
             .sum();
         pv / face * 100.0
     }
@@ -279,7 +304,7 @@ impl<'a> ZSpreadCalculator<'a> {
         let objective = |z: f64| {
             let pv: f64 = cf_data
                 .iter()
-                .map(|(dt, fwd_df, amt)| amt * fwd_df * (-z * dt).exp())
+                .map(|(dt, fwd_df, amt)| amt * fwd_df * self.spread_df(z, *dt))
                 .sum();
             pv - target
         };
@@ -320,7 +345,13 @@ pub fn z_spread<B: Bond + FixedCouponBond>(
     curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
-    ZSpreadCalculator::new(curve).calculate(bond, dirty_price, settlement)
+    let compounding =
+        convex_core::types::Compounding::try_from_periods_per_year(bond.coupon_frequency())
+            .unwrap_or(convex_core::types::Compounding::Continuous);
+
+    ZSpreadCalculator::new(curve)
+        .with_compounding(compounding)
+        .calculate(bond, dirty_price, settlement)
 }
 
 /// Calculate Z-spread from a pre-built curve.
@@ -551,6 +582,30 @@ mod tests {
         assert!(
             diff < dec!(1),
             "Expected ~50 bps, got {} bps",
+            spread.as_bps()
+        );
+    }
+
+    #[test]
+    fn test_z_spread_roundtrip_semiannual() {
+        // price_with_spread and calculate must agree under a non-continuous
+        // compounding convention, not just the continuous default.
+        let curve = create_flat_curve(0.05);
+        let calc = ZSpreadCalculator::new(&curve)
+            .with_compounding(convex_core::types::Compounding::SemiAnnual);
+
+        let bond = MockBond::new(date(2029, 1, 15), dec!(0.05));
+        let settlement = date(2024, 1, 17);
+
+        let price = calc.price_with_spread(&bond, 0.005, settlement);
+        let spread = calc
+            .calculate(&bond, Decimal::from_f64_retain(price).unwrap(), settlement)
+            .unwrap();
+
+        let diff = (spread.as_bps() - dec!(50)).abs();
+        assert!(
+            diff < dec!(1),
+            "Expected ~50 bps under semi-annual, got {}",
             spread.as_bps()
         );
     }

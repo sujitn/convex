@@ -8,7 +8,7 @@
 //! - **Optimization**: Function optimization (Levenberg-Marquardt, BFGS)
 //! - **Linear Algebra**: Matrix operations and decompositions
 //! - **Interpolation**: Numerical interpolation methods
-//! - **Extrapolation**: Curve extrapolation (Flat, Linear, Smith-Wilson)
+//! - **Extrapolation**: Curve extrapolation (Flat, Linear, UFR-convergence)
 //!
 //! ## Design Philosophy
 //!
@@ -31,7 +31,7 @@ pub mod stats;
 pub mod prelude {
     pub use crate::error::{MathError, MathResult};
     pub use crate::extrapolation::{
-        ExtrapolationMethod, Extrapolator, FlatExtrapolator, LinearExtrapolator, SmithWilson,
+        Extrapolator, FlatExtrapolator, LinearExtrapolator, UfrConvergence,
     };
     pub use crate::interpolation::{
         CubicSpline, Interpolator, LinearInterpolator, LogLinearInterpolator, MonotoneConvex,

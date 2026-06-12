@@ -6,23 +6,23 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
+use convex_core::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
 use convex_core::{Currency, Date};
 use convex_engine::curve_builder::BuiltCurve;
 use convex_engine::etf_pricing::EtfPricer;
 use convex_engine::portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
-use convex_engine::pricing_router::{PricingInput, PricingRouter};
-use convex_traits::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
-use convex_traits::output::BondQuoteOutput;
-use convex_traits::reference_data::{
+use convex_engine::ports::output::BondQuoteOutput;
+use convex_engine::ports::reference_data::{
     BondReferenceData, BondType, EtfHoldingEntry, EtfHoldings, IssuerType,
 };
+use convex_engine::pricing_router::{PricingInput, PricingRouter};
 
 // =============================================================================
 // TEST DATA GENERATORS
 // =============================================================================
 
 fn create_test_curve(ref_date: Date) -> BuiltCurve {
-    BuiltCurve {
+    let mut built = BuiltCurve {
         curve_id: CurveId::new("USD_SOFR"),
         reference_date: ref_date,
         points: vec![
@@ -38,7 +38,11 @@ fn create_test_curve(ref_date: Date) -> BuiltCurve {
         ],
         built_at: 0,
         inputs_hash: "bench".to_string(),
-    }
+        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
+        inner: None,
+    };
+    built.rebuild_inner();
+    built
 }
 
 fn create_test_bond(id: usize) -> BondReferenceData {

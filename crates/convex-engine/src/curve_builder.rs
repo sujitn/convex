@@ -3,12 +3,16 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use tracing::info;
+use tracing::{info, warn};
 
+use crate::ports::market_data::MarketDataProvider;
+use convex_core::daycounts::DayCountConvention;
+use convex_core::ids::CurveId;
 use convex_core::Date;
-use convex_curves::{Compounding, CurveError, CurveResult, RateCurveDyn};
-use convex_traits::ids::CurveId;
-use convex_traits::market_data::MarketDataProvider;
+use convex_curves::{
+    Compounding, CurveError, CurveResult, DiscreteCurve, ExtrapolationMethod, InterpolationMethod,
+    RateCurveDyn, ValueType,
+};
 
 use crate::calc_graph::{CalculationGraph, NodeId};
 use crate::error::EngineError;
@@ -28,24 +32,32 @@ pub struct BuiltCurve {
     pub built_at: i64,
     /// Hash of inputs (for change detection)
     pub inputs_hash: String,
+
+    /// Long-end extrapolation used when (re)building [`BuiltCurve::inner`].
+    pub extrapolation: ExtrapolationMethod,
+
+    /// The proper math curve underlying this
+    pub inner: Option<std::sync::Arc<DiscreteCurve>>,
 }
 
 impl BuiltCurve {
     /// Get zero rate for a tenor (in years) using linear interpolation.
     pub fn interpolate_rate(&self, tenor_years: f64) -> f64 {
+        if let Some(inner) = &self.inner {
+            use convex_curves::TermStructure;
+            return inner.value_at(tenor_years);
+        }
+        // Fallback for tests if inner not populated
         if self.points.is_empty() {
             return 0.0;
         }
-
-        // Handle edge cases
+        // Find surrounding points and interpolate linearly
         if tenor_years <= self.points[0].0 {
             return self.points[0].1;
         }
         if tenor_years >= self.points.last().unwrap().0 {
             return self.points.last().unwrap().1;
         }
-
-        // Find surrounding points and interpolate
         for i in 1..self.points.len() {
             if self.points[i].0 >= tenor_years {
                 let (t0, r0) = self.points[i - 1];
@@ -54,8 +66,53 @@ impl BuiltCurve {
                 return r0 + weight * (r1 - r0);
             }
         }
-
         self.points.last().unwrap().1
+    }
+
+    /// Rebuilds the internal math curve from `points`, using this curve's
+    /// [`BuiltCurve::extrapolation`] for the long end.
+    ///
+    /// Points are sorted by tenor and exact-duplicate tenors are collapsed
+    /// (keeping the latest rate); distinct points are never dropped. The curve is
+    /// only built when at least two distinct pillars remain.
+    ///
+    /// If reconstruction fails, the previously-built curve is kept rather than
+    /// discarded -- dropping it would silently fall back to linear interpolation
+    /// (e.g. on a bumped curve during KRD/PV01), corrupting the result.
+    pub fn rebuild_inner(&mut self) {
+        let mut sorted = self.points.clone();
+        sorted.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut tenors: Vec<f64> = Vec::with_capacity(sorted.len());
+        let mut rates: Vec<f64> = Vec::with_capacity(sorted.len());
+        for (t, r) in sorted {
+            if tenors.last() == Some(&t) {
+                *rates.last_mut().unwrap() = r;
+            } else {
+                tenors.push(t);
+                rates.push(r);
+            }
+        }
+
+        if tenors.len() < 2 {
+            self.inner = None;
+            return;
+        }
+
+        match DiscreteCurve::with_extrapolation(
+            self.reference_date,
+            tenors,
+            rates,
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            InterpolationMethod::MonotoneConvex,
+            self.extrapolation,
+        ) {
+            Ok(curve) => self.inner = Some(std::sync::Arc::new(curve)),
+            Err(e) => warn!(
+                "Curve {} inner rebuild failed; keeping previous curve: {}",
+                self.curve_id, e
+            ),
+        }
     }
 
     /// Get max tenor in years.
@@ -88,13 +145,19 @@ impl BuiltCurve {
             })
             .collect();
 
-        Self {
+        let mut built = Self {
             curve_id: CurveId::new(curve_id),
             reference_date: Date::today(),
             points: curve_points,
             built_at: chrono::Utc::now().timestamp(),
             inputs_hash: String::new(),
-        }
+            // Reconstruction from cached points does not know the original
+            // extrapolation; flat-forward is the neutral default.
+            extrapolation: ExtrapolationMethod::FlatForward,
+            inner: None,
+        };
+        built.rebuild_inner();
+        built
     }
 }
 
@@ -195,6 +258,11 @@ pub struct CurveBuilder {
 
     /// Built curves cache
     curves: DashMap<CurveId, BuiltCurve>,
+
+    /// Long-end extrapolation for built curves. Flat-forward by default; set a
+    /// `UfrConvergence` (with the appropriate per-currency UFR) explicitly for
+    /// liability curves rather than baking one in for every currency.
+    extrapolation: ExtrapolationMethod,
 }
 
 impl CurveBuilder {
@@ -204,7 +272,15 @@ impl CurveBuilder {
             market_data,
             calc_graph,
             curves: DashMap::new(),
+            extrapolation: ExtrapolationMethod::FlatForward,
         }
+    }
+
+    /// Sets the long-end extrapolation method used when building curves.
+    #[must_use]
+    pub fn with_extrapolation(mut self, extrapolation: ExtrapolationMethod) -> Self {
+        self.extrapolation = extrapolation;
+        self
     }
 
     /// Build a curve from current market data.
@@ -254,7 +330,7 @@ impl CurveBuilder {
                 .len()
         );
 
-        let built = BuiltCurve {
+        let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
             reference_date: ref_date,
             points,
@@ -263,7 +339,10 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            extrapolation: self.extrapolation,
+            inner: None,
         };
+        built.rebuild_inner();
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());
@@ -311,7 +390,7 @@ impl CurveBuilder {
                 .len()
         );
 
-        let built = BuiltCurve {
+        let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
             reference_date,
             points,
@@ -320,7 +399,10 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            extrapolation: self.extrapolation,
+            inner: None,
         };
+        built.rebuild_inner();
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());

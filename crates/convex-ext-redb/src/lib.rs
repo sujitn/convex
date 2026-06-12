@@ -18,10 +18,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition};
 
-use convex_traits::error::TraitError;
-use convex_traits::ids::{CurveId, InstrumentId};
-use convex_traits::reference_data::BondReferenceData;
-use convex_traits::storage::{
+use convex_core::ids::{CurveId, InstrumentId};
+use convex_ports::error::TraitError;
+use convex_ports::reference_data::BondReferenceData;
+use convex_ports::storage::{
     AuditEntry, AuditFilter, AuditStore, BondFilter, BondPricingConfig, BondStore, ConfigStore,
     ConfigVersion, CurveConfig, CurveSnapshot, CurveStore, OverrideAudit, OverrideStore, Page,
     Pagination, PriceOverride, StorageAdapter,

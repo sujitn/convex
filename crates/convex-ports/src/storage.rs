@@ -13,8 +13,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::error::TraitError;
-use crate::ids::*;
 use crate::reference_data::BondReferenceData;
+use convex_core::ids::*;
 
 // =============================================================================
 // PAGINATION

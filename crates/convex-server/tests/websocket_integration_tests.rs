@@ -16,6 +16,9 @@ use tokio::net::TcpListener;
 use tokio::time::timeout;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+use convex_engine::ports::config::EngineConfig;
+use convex_engine::ports::market_data::MarketDataProvider;
+use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
     create_empty_output, EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
@@ -23,9 +26,6 @@ use convex_ext_file::{
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 use convex_server::routes::create_router;
-use convex_traits::config::EngineConfig;
-use convex_traits::market_data::MarketDataProvider;
-use convex_traits::reference_data::ReferenceDataProvider;
 
 /// Create a test engine with empty providers.
 fn create_test_engine() -> Arc<convex_engine::PricingEngine> {

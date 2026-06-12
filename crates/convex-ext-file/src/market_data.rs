@@ -7,10 +7,10 @@ use dashmap::DashMap;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use convex_core::ids::*;
 use convex_core::Date;
-use convex_traits::error::TraitError;
-use convex_traits::ids::*;
-use convex_traits::market_data::*;
+use convex_ports::error::TraitError;
+use convex_ports::market_data::*;
 
 // =============================================================================
 // CSV QUOTE SOURCE

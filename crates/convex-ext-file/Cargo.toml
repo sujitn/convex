@@ -11,8 +11,8 @@ keywords = ["finance", "bonds", "csv", "json", "data"]
 categories = ["finance"]
 
 [dependencies]
-# Trait definitions
-convex-traits = { path = "../convex-traits" }
+# Port traits implemented by this adapter
+convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # File parsing
