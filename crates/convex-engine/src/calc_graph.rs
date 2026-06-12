@@ -37,8 +37,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use convex_core::Date;
-use convex_traits::config::{NodeConfig, UpdateFrequency};
-use convex_traits::ids::*;
+use crate::ports::config::{NodeConfig, UpdateFrequency};
+use convex_core::ids::*;
 
 /// Node identifier in the calculation graph.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

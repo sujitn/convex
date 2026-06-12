@@ -14,7 +14,6 @@ members = [
     "crates/convex-wasm",
     "crates/convex-mcp",
     # Pricing engine crates
-    "crates/convex-traits",
     "crates/convex-engine",
     "crates/convex-ext-redb",
     "crates/convex-ext-file",
@@ -49,7 +48,7 @@ convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
 convex-wasm = { path = "crates/convex-wasm" }
 # Pricing engine crates
-convex-traits = { path = "crates/convex-traits" }
+
 convex-engine = { path = "crates/convex-engine" }
 convex-ext-redb = { path = "crates/convex-ext-redb" }
 convex-ext-file = { path = "crates/convex-ext-file" }

@@ -8,9 +8,9 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use convex_core::{Currency, Date};
-use convex_traits::error::TraitError;
-use convex_traits::ids::*;
-use convex_traits::reference_data::*;
+use convex_engine::ports::error::TraitError;
+use convex_core::ids::*;
+use convex_engine::ports::reference_data::*;
 
 // =============================================================================
 // CSV BOND REFERENCE SOURCE

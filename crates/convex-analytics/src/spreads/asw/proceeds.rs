@@ -64,12 +64,9 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let months_between = frequency_to_months(bond.coupon_frequency());
         let annuity = self.calculate_annuity(
+            bond,
             settlement,
-            maturity,
-            months_between,
-            bond.coupon_frequency(),
         )?;
 
         if annuity.is_zero() {
@@ -137,45 +134,52 @@ impl<'a> ProceedsAssetSwap<'a> {
         Ok(Spread::new(spread_bps, SpreadType::AssetSwapProceeds))
     }
 
-    fn calculate_annuity(
+    fn calculate_annuity<B: Bond + FixedCouponBond>(
         &self,
+        bond: &B,
         settlement: Date,
-        maturity: Date,
-        months_between: i32,
-        payments_per_year: u32,
     ) -> AnalyticsResult<Decimal> {
+        let payments_per_year = bond.coupon_frequency();
         if payments_per_year == 0 {
             return Err(AnalyticsError::InvalidInput(
                 "Invalid payment frequency".to_string(),
             ));
         }
 
-        let mut payment_dates = Vec::new();
-        let mut current_date = maturity;
-
-        while current_date > settlement {
-            payment_dates.push(current_date);
-            current_date = current_date
-                .add_months(-months_between)
-                .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
-        }
-
-        if payment_dates.is_empty() {
+        let cash_flows = bond.cash_flows(settlement);
+        if cash_flows.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "No payment dates after settlement".to_string(),
             ));
         }
 
-        let year_fraction = Decimal::ONE / Decimal::from(payments_per_year);
         let mut annuity = Decimal::ZERO;
 
-        for payment_date in &payment_dates {
+        for cf in &cash_flows {
+            if !cf.is_coupon() {
+                continue;
+            }
+            
             let df_f64 = self
                 .swap_curve
-                .discount_factor(*payment_date)
+                .discount_factor(cf.date)
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
-            annuity += df * year_fraction;
+                
+            let tau = match (cf.accrual_start, cf.accrual_end) {
+                (Some(start), Some(end)) => {
+                    let days = start.days_between(&end).abs() as f64;
+                    let regular_days = 365.0 / payments_per_year as f64;
+                    if (days - regular_days).abs() > 15.0 {
+                        Decimal::from_f64_retain(days / 365.0).unwrap_or(Decimal::ONE / Decimal::from(payments_per_year))
+                    } else {
+                        Decimal::ONE / Decimal::from(payments_per_year)
+                    }
+                }
+                _ => Decimal::ONE / Decimal::from(payments_per_year),
+            };
+
+            annuity += tau * df;
         }
 
         Ok(annuity)
@@ -276,8 +280,33 @@ mod tests {
             convex_core::types::Frequency::SemiAnnual
         }
 
-        fn cash_flows(&self, _from: Date) -> Vec<convex_bonds::traits::BondCashFlow> {
-            Vec::new()
+        fn cash_flows(&self, from: Date) -> Vec<convex_bonds::traits::BondCashFlow> {
+            let mut payment_dates = Vec::new();
+            let months_between = match self.frequency {
+                1 => 12,
+                4 => 3,
+                12 => 1,
+                _ => 6,
+            };
+            
+            let mut current_date = self.maturity;
+            while current_date > from {
+                payment_dates.push(current_date);
+                current_date = current_date.add_months(-months_between).unwrap();
+            }
+            payment_dates.reverse();
+            
+            payment_dates.into_iter().map(|d| {
+                convex_bonds::traits::BondCashFlow {
+                    date: d,
+                    amount: Decimal::ONE,
+                    flow_type: convex_bonds::traits::CashFlowType::Coupon,
+                    accrual_start: None,
+                    accrual_end: None,
+                    factor: Decimal::ONE,
+                    reference_rate: None,
+                }
+            }).collect()
         }
 
         fn next_coupon_date(&self, _after: Date) -> Option<Date> {

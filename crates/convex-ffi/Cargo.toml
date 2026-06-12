@@ -14,6 +14,7 @@ categories = ["finance", "api-bindings"]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
+convex-engine = { workspace = true }
 # Internal crates
 convex-core = { workspace = true }
 convex-math = { workspace = true }

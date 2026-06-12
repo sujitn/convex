@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::error::TraitError;
-use crate::ids::*;
+use crate::ports::error::TraitError;
+use convex_core::ids::*;
 use convex_core::{Currency, Date};
 
 // =============================================================================

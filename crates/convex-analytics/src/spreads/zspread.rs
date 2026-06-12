@@ -66,6 +66,8 @@ pub struct ZSpreadCalculator<'a> {
     curve: &'a dyn RateCurveDyn,
     /// Solver configuration.
     config: SolverConfig,
+    /// Compounding convention for the Z-spread.
+    compounding: convex_core::types::Compounding,
 }
 
 impl std::fmt::Debug for ZSpreadCalculator<'_> {
@@ -87,7 +89,15 @@ impl<'a> ZSpreadCalculator<'a> {
         Self {
             curve,
             config: SolverConfig::new(1e-10, 100),
+            compounding: convex_core::types::Compounding::Continuous,
         }
+    }
+
+    /// Sets the compounding frequency for the Z-spread.
+    #[must_use]
+    pub fn with_compounding(mut self, compounding: convex_core::types::Compounding) -> Self {
+        self.compounding = compounding;
+        self
     }
 
     /// Sets the solver tolerance.
@@ -158,7 +168,15 @@ impl<'a> ZSpreadCalculator<'a> {
         let objective = |z: f64| {
             let mut pv = 0.0;
             for (dt, fwd_df, amount) in &cf_data {
-                pv += amount * fwd_df * (-z * dt).exp();
+                let spread_df = match self.compounding {
+                    convex_core::types::Compounding::Continuous => (-z * dt).exp(),
+                    convex_core::types::Compounding::Simple => 1.0 / (1.0 + z * dt),
+                    comp => {
+                        let k = comp.periods_per_year() as f64;
+                        (1.0 + z / k).powf(-k * dt)
+                    }
+                };
+                pv += amount * fwd_df * spread_df;
             }
             pv / face * 100.0 - target_price
         };
@@ -320,7 +338,12 @@ pub fn z_spread<B: Bond + FixedCouponBond>(
     curve: &dyn RateCurveDyn,
     settlement: Date,
 ) -> AnalyticsResult<Spread> {
-    ZSpreadCalculator::new(curve).calculate(bond, dirty_price, settlement)
+    let compounding = convex_core::types::Compounding::try_from_periods_per_year(bond.coupon_frequency())
+        .unwrap_or(convex_core::types::Compounding::Continuous);
+        
+    ZSpreadCalculator::new(curve)
+        .with_compounding(compounding)
+        .calculate(bond, dirty_price, settlement)
 }
 
 /// Calculate Z-spread from a pre-built curve.

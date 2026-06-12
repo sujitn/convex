@@ -1,7 +1,12 @@
 //! Currency type with ISO 4217 codes.
 
+use crate::calendars::{
+    Calendar, JapanCalendar, SIFMACalendar, Target2Calendar, UKCalendar, USCalendar,
+    WeekendCalendar,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::sync::Arc;
 
 /// ISO 4217 currency codes.
 ///
@@ -194,6 +199,19 @@ impl Currency {
             Currency::GBP => 1, // UK Gilts T+1
             Currency::EUR | Currency::CHF | Currency::CAD | Currency::AUD => 2,
             _ => 2,
+        }
+    }
+
+    /// Returns the default calendar for this currency.
+    #[must_use]
+    pub fn default_calendar(&self) -> Arc<dyn Calendar> {
+        match self {
+            Currency::USD => Arc::new(SIFMACalendar::new()),
+            Currency::EUR => Arc::new(Target2Calendar::new()),
+            Currency::GBP => Arc::new(UKCalendar::new()),
+            Currency::JPY => Arc::new(JapanCalendar::new()),
+            // Default fallback for other currencies
+            _ => Arc::new(WeekendCalendar),
         }
     }
 

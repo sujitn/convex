@@ -81,9 +81,9 @@ use convex_portfolio::{
 };
 
 use crate::websocket::WebSocketState;
-use convex_traits::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
-use convex_traits::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
-use convex_traits::reference_data::{
+use convex_core::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
+use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
+use convex_engine::ports::reference_data::{
     BondFilter, BondReferenceData, BondReferenceSource, EtfHoldingEntry, EtfHoldings,
 };
 
@@ -245,7 +245,7 @@ pub async fn price_single_bond(
     use convex_core::types::{Compounding, Yield};
     use convex_engine::curve_builder::BuiltCurve;
     use convex_engine::pricing_router::PricingInput;
-    use convex_traits::ids::CurveId;
+    use convex_core::ids::CurveId;
     use rust_decimal::prelude::FromPrimitive;
 
     // Parse settlement date
@@ -261,7 +261,7 @@ pub async fn price_single_bond(
 
     // Create default demo curves for spread calculations
     // USD SOFR OIS curve (for Z-spread and discount)
-    let discount_curve = BuiltCurve {
+    let mut discount_curve = BuiltCurve {
         curve_id: CurveId::new("USD_SOFR_DEMO"),
         reference_date: settlement_date,
         points: vec![
@@ -277,10 +277,12 @@ pub async fn price_single_bond(
         ],
         built_at: 0,
         inputs_hash: "demo".to_string(),
+        inner: None,
     };
+    discount_curve.rebuild_inner();
 
     // Swap curve for I-spread (slightly higher than OIS)
-    let benchmark_curve = BuiltCurve {
+    let mut benchmark_curve = BuiltCurve {
         curve_id: CurveId::new("USD_SWAP_DEMO"),
         reference_date: settlement_date,
         points: vec![
@@ -296,7 +298,9 @@ pub async fn price_single_bond(
         ],
         built_at: 0,
         inputs_hash: "demo".to_string(),
+        inner: None,
     };
+    benchmark_curve.rebuild_inner();
 
     // Treasury curve for G-spread
     let coupon = Decimal::from_f64(0.04).unwrap();
@@ -2711,7 +2715,7 @@ pub async fn list_bonds(
     State(state): State<Arc<AppState>>,
     axum::extract::Query(query): axum::extract::Query<BondListQuery>,
 ) -> impl IntoResponse {
-    use convex_traits::reference_data::{BondType, IssuerType};
+    use convex_engine::ports::reference_data::{BondType, IssuerType};
 
     // Build filter from query params
     let filter = BondFilter {

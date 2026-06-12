@@ -10,7 +10,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use convex_core::Date;
-use convex_traits::ids::*;
+use convex_core::ids::*;
 
 use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
 use crate::curve_builder::{BuiltCurve, CurveBuilder};

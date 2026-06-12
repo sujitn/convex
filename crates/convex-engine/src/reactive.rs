@@ -15,9 +15,9 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, info, warn};
 
 use convex_core::Date;
-use convex_traits::config::{NodeConfig, UpdateFrequency};
-use convex_traits::ids::*;
-use convex_traits::reference_data::ReferenceDataProvider;
+use crate::ports::config::{NodeConfig, UpdateFrequency};
+use convex_core::ids::*;
+use crate::ports::reference_data::ReferenceDataProvider;
 
 use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
 use crate::curve_builder::{BuiltCurve, CurveBuilder};
@@ -48,7 +48,7 @@ pub struct ReactiveEngine {
 
     /// Local cache of bond reference data for sync access in calc loop
     bond_cache:
-        Arc<dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>>,
+        Arc<dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>>,
 
     /// Interval scheduler
     interval_scheduler: Arc<IntervalScheduler>,
@@ -130,7 +130,7 @@ impl ReactiveEngine {
     ///
     /// This should be called when registering a bond to ensure
     /// the reference data is available for sync calculations.
-    pub fn cache_bond_reference(&self, bond: convex_traits::reference_data::BondReferenceData) {
+    pub fn cache_bond_reference(&self, bond: crate::ports::reference_data::BondReferenceData) {
         self.bond_cache.insert(bond.instrument_id.clone(), bond);
     }
 
@@ -138,7 +138,7 @@ impl ReactiveEngine {
     pub fn get_bond_reference(
         &self,
         instrument_id: &InstrumentId,
-    ) -> Option<convex_traits::reference_data::BondReferenceData> {
+    ) -> Option<crate::ports::reference_data::BondReferenceData> {
         self.bond_cache.get(instrument_id).map(|r| r.clone())
     }
 
@@ -299,7 +299,7 @@ impl ReactiveEngine {
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
         bond_cache: &Arc<
-            dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>,
+            dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>,
         >,
         settlement_date: Date,
     ) -> NodeValue {
@@ -354,7 +354,7 @@ impl ReactiveEngine {
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
         bond_cache: &Arc<
-            dashmap::DashMap<InstrumentId, convex_traits::reference_data::BondReferenceData>,
+            dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>,
         >,
         settlement_date: Date,
     ) -> NodeValue {
@@ -437,11 +437,11 @@ impl ReactiveEngine {
     /// - Sovereign bonds: Use government curve (e.g., "USD_GOVT", "EUR_GOVT")
     /// - Corporate/Financial: Use OIS or swap curve (e.g., "USD_OIS", "EUR_OIS")
     fn lookup_discount_curve(
-        bond_ref: &convex_traits::reference_data::BondReferenceData,
+        bond_ref: &crate::ports::reference_data::BondReferenceData,
         curve_builder: &Arc<CurveBuilder>,
     ) -> Option<BuiltCurve> {
         use convex_core::Currency;
-        use convex_traits::reference_data::IssuerType;
+        use crate::ports::reference_data::IssuerType;
 
         let currency_code = match bond_ref.currency {
             Currency::USD => "USD",
@@ -490,7 +490,7 @@ impl ReactiveEngine {
     /// Used to calculate I-spread (spread over swap/benchmark curve).
     /// Typically uses OIS or swap curves as the benchmark.
     fn lookup_benchmark_curve(
-        bond_ref: &convex_traits::reference_data::BondReferenceData,
+        bond_ref: &crate::ports::reference_data::BondReferenceData,
         curve_builder: &Arc<CurveBuilder>,
     ) -> Option<BuiltCurve> {
         use convex_core::Currency;
@@ -724,12 +724,12 @@ impl Default for ReactiveEngineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use convex_ext_file::{
+    use crate::ports::mock::{
         EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
         EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
         EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
     };
-    use convex_traits::market_data::MarketDataProvider;
+    use crate::ports::market_data::MarketDataProvider;
     use std::sync::Arc;
 
     fn create_test_engine() -> ReactiveEngine {
@@ -791,7 +791,7 @@ mod tests {
     #[tokio::test]
     async fn test_market_data_update_triggers_repricing() {
         use convex_core::Currency;
-        use convex_traits::reference_data::{BondReferenceData, BondType, IssuerType};
+        use crate::ports::reference_data::{BondReferenceData, BondType, IssuerType};
         use rust_decimal_macros::dec;
 
         let engine = create_test_engine();

@@ -76,11 +76,11 @@ use tokio::sync::broadcast;
 use tokio::time::interval;
 use tracing::{debug, info, warn};
 
-use convex_traits::config::EngineConfig;
-use convex_traits::market_data::MarketDataProvider;
-use convex_traits::output::OutputPublisher;
-use convex_traits::reference_data::ReferenceDataProvider;
-use convex_traits::storage::StorageAdapter;
+use crate::ports::config::EngineConfig;
+use crate::ports::market_data::MarketDataProvider;
+use crate::ports::output::OutputPublisher;
+use crate::ports::reference_data::ReferenceDataProvider;
+use crate::ports::storage::StorageAdapter;
 
 /// The main pricing engine.
 pub struct PricingEngine {
@@ -292,7 +292,7 @@ impl PricingEngine {
     /// to dependent bond price nodes.
     pub fn on_quote_update(
         &self,
-        instrument_id: &convex_traits::ids::InstrumentId,
+        instrument_id: &convex_core::ids::InstrumentId,
         bid: Option<rust_decimal::Decimal>,
         ask: Option<rust_decimal::Decimal>,
     ) {
@@ -325,7 +325,7 @@ impl PricingEngine {
     /// This method is called when a curve is rebuilt.
     /// It invalidates the curve node, which propagates to all bonds
     /// that depend on this curve.
-    pub fn on_curve_update(&self, curve_id: &convex_traits::ids::CurveId, curve: &BuiltCurve) {
+    pub fn on_curve_update(&self, curve_id: &convex_core::ids::CurveId, curve: &BuiltCurve) {
         let node_id = NodeId::Curve {
             curve_id: curve_id.clone(),
         };
@@ -351,7 +351,7 @@ impl PricingEngine {
     /// that reference this index.
     pub fn on_index_fixing(
         &self,
-        index: &convex_traits::ids::FloatingRateIndex,
+        index: &convex_core::ids::FloatingRateIndex,
         date: convex_core::Date,
         rate: rust_decimal::Decimal,
     ) {
@@ -376,8 +376,8 @@ impl PricingEngine {
     /// It invalidates the inflation fixing node, which propagates to all ILBs.
     pub fn on_inflation_fixing(
         &self,
-        index: &convex_traits::ids::InflationIndex,
-        month: convex_traits::ids::YearMonth,
+        index: &convex_core::ids::InflationIndex,
+        month: convex_core::ids::YearMonth,
         value: rust_decimal::Decimal,
     ) {
         let node_id = NodeId::InflationFixing {
@@ -402,7 +402,7 @@ impl PricingEngine {
     /// portfolio calculations.
     pub fn on_fx_rate_update(
         &self,
-        pair: &convex_traits::ids::CurrencyPair,
+        pair: &convex_core::ids::CurrencyPair,
         mid: rust_decimal::Decimal,
     ) {
         let node_id = NodeId::FxRate { pair: pair.clone() };
@@ -423,10 +423,10 @@ impl PricingEngine {
     /// the relevant curves and quote.
     pub fn register_bond(
         &self,
-        instrument_id: convex_traits::ids::InstrumentId,
-        discount_curve: convex_traits::ids::CurveId,
-        benchmark_curve: Option<convex_traits::ids::CurveId>,
-        config: convex_traits::config::NodeConfig,
+        instrument_id: convex_core::ids::InstrumentId,
+        discount_curve: convex_core::ids::CurveId,
+        benchmark_curve: Option<convex_core::ids::CurveId>,
+        config: crate::ports::config::NodeConfig,
     ) {
         let bond_node = NodeId::BondPrice {
             instrument_id: instrument_id.clone(),
@@ -456,7 +456,7 @@ impl PricingEngine {
     }
 
     /// Register an ETF for iNAV calculations.
-    pub fn register_etf_inav(&self, etf_id: convex_traits::ids::EtfId) {
+    pub fn register_etf_inav(&self, etf_id: convex_core::ids::EtfId) {
         let node_id = NodeId::EtfInav {
             etf_id: etf_id.clone(),
         };
@@ -467,11 +467,11 @@ impl PricingEngine {
 
         // Use iNAV config (15 second interval)
         self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::etf_inav());
+            .set_node_config(node_id, crate::ports::config::NodeConfig::etf_inav());
     }
 
     /// Register an ETF for NAV calculations.
-    pub fn register_etf_nav(&self, etf_id: convex_traits::ids::EtfId) {
+    pub fn register_etf_nav(&self, etf_id: convex_core::ids::EtfId) {
         let node_id = NodeId::EtfNav {
             etf_id: etf_id.clone(),
         };
@@ -480,11 +480,11 @@ impl PricingEngine {
 
         // Use NAV config (end of day)
         self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::etf_nav());
+            .set_node_config(node_id, crate::ports::config::NodeConfig::etf_nav());
     }
 
     /// Register a portfolio for analytics.
-    pub fn register_portfolio(&self, portfolio_id: convex_traits::ids::PortfolioId) {
+    pub fn register_portfolio(&self, portfolio_id: convex_core::ids::PortfolioId) {
         let node_id = NodeId::Portfolio {
             portfolio_id: portfolio_id.clone(),
         };
@@ -493,7 +493,7 @@ impl PricingEngine {
 
         // Use portfolio config (5 second throttle)
         self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::portfolio());
+            .set_node_config(node_id, crate::ports::config::NodeConfig::portfolio());
     }
 
     /// Create a reactive engine from this pricing engine.
@@ -509,3 +509,4 @@ impl PricingEngine {
         )
     }
 }
+pub mod ports;

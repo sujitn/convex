@@ -12,9 +12,9 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::error::TraitError;
-use crate::ids::*;
-use crate::reference_data::BondReferenceData;
+use crate::ports::error::TraitError;
+use convex_core::ids::*;
+use crate::ports::reference_data::BondReferenceData;
 
 // =============================================================================
 // PAGINATION
@@ -320,10 +320,10 @@ pub struct BondFilter {
     pub currency: Option<convex_core::Currency>,
 
     /// Bond type filter.
-    pub bond_type: Option<crate::reference_data::BondType>,
+    pub bond_type: Option<crate::ports::reference_data::BondType>,
 
     /// Issuer type filter.
-    pub issuer_type: Option<crate::reference_data::IssuerType>,
+    pub issuer_type: Option<crate::ports::reference_data::IssuerType>,
 
     /// Is callable filter.
     pub is_callable: Option<bool>,
@@ -374,7 +374,7 @@ impl BondFilter {
     }
 
     /// Create filter for issuer type.
-    pub fn by_issuer_type(issuer_type: crate::reference_data::IssuerType) -> Self {
+    pub fn by_issuer_type(issuer_type: crate::ports::reference_data::IssuerType) -> Self {
         Self {
             issuer_type: Some(issuer_type),
             ..Default::default()

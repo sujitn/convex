@@ -230,30 +230,30 @@ impl fmt::Display for YearMonth {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyPair {
     /// Base currency (e.g., EUR in EUR/USD)
-    pub base: convex_core::Currency,
+    pub base: crate::Currency,
     /// Quote currency (e.g., USD in EUR/USD)
-    pub quote: convex_core::Currency,
+    pub quote: crate::Currency,
 }
 
 impl CurrencyPair {
     /// Create a new currency pair.
-    pub fn new(base: convex_core::Currency, quote: convex_core::Currency) -> Self {
+    pub fn new(base: crate::Currency, quote: crate::Currency) -> Self {
         Self { base, quote }
     }
 
     /// EUR/USD pair.
     pub fn eurusd() -> Self {
-        Self::new(convex_core::Currency::EUR, convex_core::Currency::USD)
+        Self::new(crate::Currency::EUR, crate::Currency::USD)
     }
 
     /// GBP/USD pair.
     pub fn gbpusd() -> Self {
-        Self::new(convex_core::Currency::GBP, convex_core::Currency::USD)
+        Self::new(crate::Currency::GBP, crate::Currency::USD)
     }
 
     /// USD/JPY pair.
     pub fn usdjpy() -> Self {
-        Self::new(convex_core::Currency::USD, convex_core::Currency::JPY)
+        Self::new(crate::Currency::USD, crate::Currency::JPY)
     }
 }
 

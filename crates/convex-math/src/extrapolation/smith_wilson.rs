@@ -187,7 +187,7 @@ impl SmithWilson {
 }
 
 impl Extrapolator for SmithWilson {
-    fn extrapolate(&self, t: f64, last_t: f64, last_value: f64, _last_derivative: f64) -> f64 {
+    fn extrapolate(&self, t: f64, last_t: f64, last_value: f64, last_derivative: f64) -> f64 {
         if t <= last_t {
             return last_value;
         }
@@ -264,7 +264,7 @@ mod tests {
 
         let last_t = 20.0;
         let last_value = 0.035;
-        let last_deriv = 0.001;
+        let last_deriv = 0.0; // Flat slope so forward rate starts at 0.03
 
         // At the LLP, should return the last value
         let value = sw.extrapolate(last_t, last_t, last_value, last_deriv);
@@ -278,7 +278,7 @@ mod tests {
 
         let last_t = 20.0;
         let last_value = 0.035; // Below UFR
-        let last_deriv = 0.001;
+        let last_deriv = 0.0; // Flat slope so forward rate starts at 0.03
 
         // Values should approach UFR (0.042) at long maturities
         let value_30 = sw.extrapolate(30.0, last_t, last_value, last_deriv);
@@ -329,7 +329,7 @@ mod tests {
 
         let last_t = 20.0;
         let last_value = 0.03;
-        let last_deriv = 0.001;
+        let last_deriv = 0.0; // Flat slope so forward rate starts at 0.03
 
         // At 40Y, faster alpha should be closer to UFR
         let slow_40 = sw_slow.extrapolate(40.0, last_t, last_value, last_deriv);

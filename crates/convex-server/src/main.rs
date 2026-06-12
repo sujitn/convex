@@ -12,9 +12,9 @@ use convex_ext_file::{
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 use convex_server::{Server, ServerConfig};
-use convex_traits::config::EngineConfig;
-use convex_traits::market_data::MarketDataProvider;
-use convex_traits::reference_data::ReferenceDataProvider;
+use convex_engine::ports::config::EngineConfig;
+use convex_engine::ports::market_data::MarketDataProvider;
+use convex_engine::ports::reference_data::ReferenceDataProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

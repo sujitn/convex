@@ -56,8 +56,6 @@ pub struct MonotoneConvex {
     discrete_forwards: Vec<f64>,
     /// Instantaneous forward rate estimates at each pillar
     f_inst: Vec<f64>,
-    /// Monotonicity adjustment factors
-    g: Vec<f64>,
     allow_extrapolation: bool,
 }
 
@@ -149,40 +147,16 @@ impl MonotoneConvex {
         // Last point: use last discrete forward
         f_inst.push(discrete_forwards[n - 1]);
 
-        // Apply monotonicity constraints (Hagan-West conditions)
-        let g = Self::compute_monotonicity_factors(&discrete_forwards, &f_inst);
-
         Ok(Self {
             times,
             zero_rates,
             discrete_forwards,
             f_inst,
-            g,
             allow_extrapolation: false,
         })
     }
 
-    /// Computes monotonicity adjustment factors to ensure positive forwards.
-    fn compute_monotonicity_factors(discrete_forwards: &[f64], f_inst: &[f64]) -> Vec<f64> {
-        let n = f_inst.len();
-        let mut g = vec![0.0; n];
 
-        // For each interval, compute adjustment factor
-        for i in 0..n {
-            let f_d = discrete_forwards[i.min(discrete_forwards.len() - 1)];
-            let f_i = f_inst[i];
-
-            // g_i controls the shape of the forward curve in interval i
-            // We use a simple monotonicity-preserving approach
-            if f_d > 0.0 {
-                g[i] = (f_i / f_d).clamp(0.0, 2.0);
-            } else {
-                g[i] = 1.0;
-            }
-        }
-
-        g
-    }
 
     /// Returns the instantaneous forward rate at time t.
     ///
@@ -230,10 +204,12 @@ impl MonotoneConvex {
             )
         };
 
-        // Linear interpolation of instantaneous forward
-        // (This is a simplified version; full Hagan-West uses more complex shape)
         let x = (t - t_lo) / (t_hi - t_lo);
-        let f = f_lo + x * (f_hi - f_lo);
+        let f_discrete = self.discrete_forwards[i];
+        
+        let f = f_discrete 
+              + (f_lo - f_discrete) * (1.0 - 4.0 * x + 3.0 * x * x) 
+              + (f_hi - f_discrete) * (-2.0 * x + 3.0 * x * x);
 
         Ok(f.max(0.0)) // Ensure non-negative
     }
@@ -312,25 +288,22 @@ impl Interpolator for MonotoneConvex {
         let t_lo = self.times[i - 1];
         let t_hi = self.times[i];
         let z_lo = self.zero_rates[i - 1];
-        let z_hi = self.zero_rates[i];
 
         // The discrete forward for this interval
         let f_discrete = self.discrete_forwards[i];
+        let f_lo = self.f_inst[i - 1];
+        let f_hi = self.f_inst[i];
 
-        // Linear interpolation that preserves the forward rate
-        // z(t) * t = z_lo * t_lo + f_discrete * (t - t_lo)
-        let zt_product = z_lo * t_lo + f_discrete * (t - t_lo);
-        let z = zt_product / t;
-
-        // Apply monotonicity adjustment for smoother curve
         let x = (t - t_lo) / (t_hi - t_lo);
-        let g_factor = self.g[i];
-
-        // Blend between simple linear and forward-preserving
-        let z_linear = z_lo + x * (z_hi - z_lo);
-        let z_final = (1.0 - g_factor * 0.1) * z + g_factor * 0.1 * z_linear;
-
-        Ok(z_final)
+        
+        // Exact integral of the Hagan-West quadratic forward rate
+        let integral_x = (x - 2.0 * x * x + x * x * x) * f_lo
+                       + (-x * x + x * x * x) * f_hi
+                       + (3.0 * x * x - 2.0 * x * x * x) * f_discrete;
+                       
+        let zt_product = z_lo * t_lo + (t_hi - t_lo) * integral_x;
+        
+        Ok(zt_product / t)
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {

@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use convex_traits::config::EngineConfig;
-use convex_traits::market_data::MarketDataProvider;
-use convex_traits::output::OutputPublisher;
-use convex_traits::reference_data::ReferenceDataProvider;
-use convex_traits::storage::StorageAdapter;
+use crate::ports::config::EngineConfig;
+use crate::ports::market_data::MarketDataProvider;
+use crate::ports::output::OutputPublisher;
+use crate::ports::reference_data::ReferenceDataProvider;
+use crate::ports::storage::StorageAdapter;
 
 use crate::error::EngineError;
 use crate::PricingEngine;

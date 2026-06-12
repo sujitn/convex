@@ -11,8 +11,8 @@ keywords = ["finance", "bonds", "csv", "json", "data"]
 categories = ["finance"]
 
 [dependencies]
+convex-engine = { workspace = true }
 # Trait definitions
-convex-traits = { path = "../convex-traits" }
 convex-core = { workspace = true }
 
 # File parsing

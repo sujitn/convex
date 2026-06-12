@@ -6,9 +6,10 @@ use dashmap::DashMap;
 use tracing::info;
 
 use convex_core::Date;
-use convex_curves::{Compounding, CurveError, CurveResult, RateCurveDyn};
-use convex_traits::ids::CurveId;
-use convex_traits::market_data::MarketDataProvider;
+use convex_curves::{Compounding, CurveError, CurveResult, RateCurveDyn, DiscreteCurve, InterpolationMethod, ValueType, ExtrapolationMethod};
+use convex_core::daycounts::DayCountConvention;
+use convex_core::ids::CurveId;
+use crate::ports::market_data::MarketDataProvider;
 
 use crate::calc_graph::{CalculationGraph, NodeId};
 use crate::error::EngineError;
@@ -28,24 +29,25 @@ pub struct BuiltCurve {
     pub built_at: i64,
     /// Hash of inputs (for change detection)
     pub inputs_hash: String,
+    
+    /// The proper math curve underlying this
+    pub inner: Option<std::sync::Arc<DiscreteCurve>>,
 }
 
 impl BuiltCurve {
     /// Get zero rate for a tenor (in years) using linear interpolation.
     pub fn interpolate_rate(&self, tenor_years: f64) -> f64 {
+        if let Some(inner) = &self.inner {
+            use convex_curves::TermStructure;
+            return inner.value_at(tenor_years);
+        }
+        // Fallback for tests if inner not populated
         if self.points.is_empty() {
             return 0.0;
         }
-
-        // Handle edge cases
-        if tenor_years <= self.points[0].0 {
-            return self.points[0].1;
-        }
-        if tenor_years >= self.points.last().unwrap().0 {
-            return self.points.last().unwrap().1;
-        }
-
-        // Find surrounding points and interpolate
+        // Find surrounding points and interpolate linearly
+        if tenor_years <= self.points[0].0 { return self.points[0].1; }
+        if tenor_years >= self.points.last().unwrap().0 { return self.points.last().unwrap().1; }
         for i in 1..self.points.len() {
             if self.points[i].0 >= tenor_years {
                 let (t0, r0) = self.points[i - 1];
@@ -54,8 +56,39 @@ impl BuiltCurve {
                 return r0 + weight * (r1 - r0);
             }
         }
-
         self.points.last().unwrap().1
+    }
+    
+    /// Helper to rebuild the internal math curve from points
+    pub fn rebuild_inner(&mut self) {
+        if self.points.is_empty() {
+            self.inner = None;
+            return;
+        }
+        let tenors: Vec<f64> = self.points.iter().map(|(t, _)| *t).collect();
+        let rates: Vec<f64> = self.points.iter().map(|(_, r)| *r).collect();
+        
+        let mut clean_tenors = Vec::new();
+        let mut clean_rates = Vec::new();
+        for i in 0..tenors.len() {
+            if clean_tenors.is_empty() || tenors[i] > *clean_tenors.last().unwrap() {
+                clean_tenors.push(tenors[i]);
+                clean_rates.push(rates[i]);
+            }
+        }
+        
+        if clean_tenors.len() >= 2 {
+            if let Ok(c) = DiscreteCurve::with_extrapolation(
+                self.reference_date,
+                clean_tenors,
+                clean_rates,
+                ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+                InterpolationMethod::MonotoneConvex,
+                ExtrapolationMethod::SmithWilson(0.042, 0.1)
+            ) {
+                self.inner = Some(std::sync::Arc::new(c));
+            }
+        }
     }
 
     /// Get max tenor in years.
@@ -88,13 +121,16 @@ impl BuiltCurve {
             })
             .collect();
 
-        Self {
+        let mut built = Self {
             curve_id: CurveId::new(curve_id),
             reference_date: Date::today(),
             points: curve_points,
             built_at: chrono::Utc::now().timestamp(),
             inputs_hash: String::new(),
-        }
+            inner: None,
+        };
+        built.rebuild_inner();
+        built
     }
 }
 
@@ -254,7 +290,7 @@ impl CurveBuilder {
                 .len()
         );
 
-        let built = BuiltCurve {
+        let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
             reference_date: ref_date,
             points,
@@ -263,7 +299,9 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            inner: None,
         };
+        built.rebuild_inner();
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());
@@ -311,7 +349,7 @@ impl CurveBuilder {
                 .len()
         );
 
-        let built = BuiltCurve {
+        let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
             reference_date,
             points,
@@ -320,7 +358,9 @@ impl CurveBuilder {
                 .unwrap()
                 .as_millis() as i64,
             inputs_hash,
+            inner: None,
         };
+        built.rebuild_inner();
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());

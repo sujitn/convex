@@ -26,8 +26,8 @@ pub enum EngineError {
     Internal(String),
 }
 
-impl From<convex_traits::TraitError> for EngineError {
-    fn from(e: convex_traits::TraitError) -> Self {
+impl From<crate::ports::error::TraitError> for EngineError {
+    fn from(e: crate::ports::error::TraitError) -> Self {
         EngineError::Internal(e.to_string())
     }
 }

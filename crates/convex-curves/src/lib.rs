@@ -177,7 +177,7 @@ pub mod interpolation {
 }
 
 /// Extrapolation methods for curve extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum ExtrapolationMethod {
     /// No extrapolation - error if outside range.
     #[default]
@@ -188,6 +188,8 @@ pub enum ExtrapolationMethod {
     Linear,
     /// Flat forward - constant instantaneous forward rate.
     FlatForward,
+    /// Smith-Wilson extrapolation (ufr, alpha)
+    SmithWilson(f64, f64),
 }
 
 /// Interpolation method selection for curve construction.
