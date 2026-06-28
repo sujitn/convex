@@ -58,7 +58,7 @@ jobs:
           cp target/release/libconvex_ffi.so "$dest/"
 
       - name: Set up JDK 22
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '22'
