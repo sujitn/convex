@@ -119,10 +119,56 @@ jobs:
           path: convex-excel-addin-v*.zip
           retention-days: 5
 
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      # Publish the five library crates in dependency order. cargo publish
+      # waits for each version to land in the index before returning, so the
+      # next crate can resolve it. The remaining workspace crates are
+      # publish = false and are skipped automatically.
+      #
+      # crates.io versions are immutable, so a crate already at this version is
+      # skipped (HTTP 200 from the per-version API) rather than erroring. This
+      # makes the job safe to re-run after a mid-list failure.
+      - name: Publish library crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          ua="convex-release (https://github.com/sujitn/convex)"
+          for crate in convex-core convex-math convex-curves convex-bonds convex-analytics; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "User-Agent: $ua" \
+              "https://crates.io/api/v1/crates/$crate/$VERSION")
+            if [ "$status" = "200" ]; then
+              echo "✓ $crate@$VERSION already on crates.io — skipping"
+              continue
+            elif [ "$status" != "404" ]; then
+              echo "Unexpected HTTP $status checking $crate@$VERSION on crates.io" >&2
+              exit 1
+            fi
+            echo "::group::cargo publish -p $crate ($VERSION)"
+            cargo publish -p "$crate"
+            echo "::endgroup::"
+          done
+
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate, build-excel-addin]
+    needs: [validate, build-excel-addin, publish-crates]
     permissions:
       contents: write
     steps:
@@ -145,8 +191,17 @@ jobs:
           body: |
             ## Installation
 
-            Internal workspace — not published to crates.io. Clone the repo
-            and depend on the crates via path.
+            The core library crates are published to crates.io. Depend on the
+            unified analytics crate (it pulls in core, math, curves and bonds):
+
+            ```toml
+            convex-analytics = "${{ needs.validate.outputs.version }}"
+            ```
+
+            Individually published crates: `convex-core`, `convex-math`,
+            `convex-curves`, `convex-bonds`, `convex-analytics`. The `convex`
+            umbrella plus the FFI / WASM / MCP / server crates are internal —
+            consume them via a git or path dependency.
 
             ### Excel Add-in
             Download the `convex-excel-addin` zip from assets below, extract,

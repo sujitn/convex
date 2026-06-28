@@ -1,6 +1,8 @@
 [package]
 name = "convex"
 description = "Convex fixed income analytics — single-import facade."
+# Not published: the `convex` name on crates.io belongs to an unrelated project.
+publish = false
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "convex-ffi"
+publish = false  # internal; not published to crates.io
 description = "C FFI bindings for the Convex fixed income analytics library"
 version.workspace = true
 edition.workspace = true

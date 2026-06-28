@@ -38,13 +38,22 @@ keywords = ["finance", "bonds", "fixed-income", "pricing", "quantitative"]
 categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
-# Internal crates — path-only; this workspace is not published to crates.io.
+# Internal crates.
+#
+# The five library crates (core, math, curves, bonds, analytics) are published
+# to crates.io, so they carry both `path` and `version`: cargo uses the path for
+# local builds and rewrites it to the version on `cargo publish`. Keep `version`
+# in sync with `workspace.package.version` above.
+#
+# Everything else is `publish = false` (set in each crate's Cargo.toml) and stays
+# path-only — the facade `convex` name is taken on crates.io by an unrelated
+# project, and the engine/server/bindings crates are applications, not libraries.
 convex = { path = "crates/convex" }
-convex-core = { path = "crates/convex-core" }
-convex-math = { path = "crates/convex-math" }
-convex-curves = { path = "crates/convex-curves" }
-convex-bonds = { path = "crates/convex-bonds" }
-convex-analytics = { path = "crates/convex-analytics" }
+convex-core = { path = "crates/convex-core", version = "0.13.0" }
+convex-math = { path = "crates/convex-math", version = "0.13.0" }
+convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
+convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
+convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
 convex-wasm = { path = "crates/convex-wasm" }
