@@ -12,6 +12,7 @@
 
 [package]
 name = "convex-portfolio"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
