@@ -38,7 +38,7 @@ jobs:
     name: Build native + mvn verify (linux-x86_64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
