@@ -916,7 +916,10 @@ fn scenario_ladder_reprices_under_bumps() {
         // Rates down → price up; zero shift reproduces the base price.
         assert!(down > base, "down {down} vs base {base}");
         assert!(up < base, "up {up} vs base {base}");
-        assert!((base - 99.5).abs() < 1e-6, "zero-shift row must match base, got {base}");
+        assert!(
+            (base - 99.5).abs() < 1e-6,
+            "zero-shift row must match base, got {base}"
+        );
         assert!((rows[1]["delta_clean"].as_f64().unwrap()).abs() < 1e-6);
     }
 }

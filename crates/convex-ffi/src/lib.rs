@@ -438,7 +438,10 @@ mod panic_guard_tests {
         let v: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(v["ok"], "false");
         assert_eq!(v["error"]["code"], "panic");
-        assert!(v["error"]["message"].as_str().unwrap().contains("boom in rpc"));
+        assert!(v["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("boom in rpc"));
     }
 
     #[test]

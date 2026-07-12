@@ -439,8 +439,7 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec, hash: u64) 
         set_last_error("bootstrap requires at least one instrument");
         return INVALID_HANDLE;
     }
-    let (reg_name, aliases) =
-        curve_name_and_aliases(spec.registry_key.clone(), spec.name.clone());
+    let (reg_name, aliases) = curve_name_and_aliases(spec.registry_key.clone(), spec.name.clone());
 
     let mut set = InstrumentSet::new();
     for inst in &spec.instruments {

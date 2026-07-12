@@ -286,7 +286,11 @@ mod tests {
         let gen_before = generation();
         let h2 = reg("idem-cell", 42);
         assert_eq!(h1, h2);
-        assert_eq!(generation(), gen_before, "idempotent re-register must not bump generation");
+        assert_eq!(
+            generation(),
+            gen_before,
+            "idempotent re-register must not bump generation"
+        );
         release(h1);
     }
 

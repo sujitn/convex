@@ -142,10 +142,7 @@ fn field_mut<'a>(
 /// Parse the request once, rewriting string references at `paths` to
 /// resolved handles; the value feeds the handler via `from_value`, so a
 /// request costs one parse.
-fn resolve_refs(
-    request_json: &str,
-    paths: &[&[&str]],
-) -> Result<serde_json::Value, DispatchError> {
+fn resolve_refs(request_json: &str, paths: &[&[&str]]) -> Result<serde_json::Value, DispatchError> {
     let mut v: serde_json::Value = serde_json::from_str(request_json)
         .map_err(|e| DispatchError::input(format!("request: {e}")))?;
     for path in paths {
@@ -1012,7 +1009,13 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
     };
 
     with_fixed_bond!(req.bond, bond, {
-        let priced = price_from_mark(bond, req.settlement, &mark, Some(&spot), req.quote_frequency)?;
+        let priced = price_from_mark(
+            bond,
+            req.settlement,
+            &mark,
+            Some(&spot),
+            req.quote_frequency,
+        )?;
         let clean = Decimal::from_f64_retain(priced.clean_price_per_100)
             .ok_or_else(|| DispatchError::analytics("non-finite clean price"))?;
 
@@ -1075,10 +1078,9 @@ fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, Dispat
         ));
     }
     let mark = parse_mark(&req.mark)?;
-    let base_inner = registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| {
-        c.inner().clone()
-    })
-    .ok_or_else(|| DispatchError::handle(format!("curve handle {} not found", req.curve)))?;
+    let base_inner =
+        registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| c.inner().clone())
+            .ok_or_else(|| DispatchError::handle(format!("curve handle {} not found", req.curve)))?;
     let base_wrapper = RateCurve::new(base_inner.clone());
 
     with_fixed_bond!(req.bond, bond, {
@@ -1097,8 +1099,11 @@ fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, Dispat
 
         // Anchor the ladder at the mark: absorb the sub-cent Z-solve residual
         // so the zero-shift row reproduces the marked price exactly.
-        let dirty0 =
-            ZSpreadCalculator::new(&base_wrapper).price_with_spread(bond, z_decimal, req.settlement);
+        let dirty0 = ZSpreadCalculator::new(&base_wrapper).price_with_spread(
+            bond,
+            z_decimal,
+            req.settlement,
+        );
         let basis = priced.dirty_price_per_100 - dirty0;
 
         let mut rows = Vec::with_capacity(req.scenarios.len());
@@ -1130,9 +1135,9 @@ fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, Dispat
                 });
             }
             let bumped = RateCurve::new(sc.apply(&base_inner));
-            let dirty_s = ZSpreadCalculator::new(&bumped)
-                .price_with_spread(bond, z_decimal, req.settlement)
-                + basis;
+            let dirty_s =
+                ZSpreadCalculator::new(&bumped).price_with_spread(bond, z_decimal, req.settlement)
+                    + basis;
             let clean_s = dirty_s - accrued;
             // Yield at the scenario price, for the ladder display.
             let ytm_s = price_from_mark(
