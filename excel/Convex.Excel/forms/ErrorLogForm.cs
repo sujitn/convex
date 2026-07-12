@@ -72,7 +72,12 @@ namespace Convex.Excel.Forms
                 return;
             try
             {
-                ((dynamic)ExcelDnaUtil.Application).Goto("'" + address.Replace("!", "'!"), true);
+                // Quote the sheet and escape embedded apostrophes so
+                // "O'Brien!B2" resolves as 'O''Brien'!B2.
+                int sep = address!.LastIndexOf('!');
+                var sheet = address.Substring(0, sep).Replace("'", "''");
+                var cell = address.Substring(sep + 1);
+                ((dynamic)ExcelDnaUtil.Application).Goto($"'{sheet}'!{cell}", true);
             }
             catch
             {

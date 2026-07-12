@@ -71,22 +71,50 @@ namespace Convex.Excel.Tests
         }
 
         [Fact]
-        public void Mutation_racing_the_insert_evicts_the_entry()
+        public void Concurrent_identical_requests_share_one_compute()
         {
-            // Interleaving: the pre-insert generation check passes, then a
-            // mutation lands while TryAdd runs. The post-add re-validation
-            // must evict the entry. Reads per cache miss: gate, pre-insert,
-            // post-add — return 1, 1, 2 to model the race, then freeze the
-            // source back at 1 so the generation gate can NOT rescue the
-            // probe: only the post-add eviction makes it recompute.
-            var reads = 0;
-            CxCache.GenerationSource = () => ++reads == 3 ? 2 : 1;
-            CxCache.GetOrCompute("price", "{\"bond\":\"T7\"}", Compute);
-            Assert.Equal(1, _computes);
+            // Single-flight: the second caller must block on the first's
+            // in-flight Lazy instead of invoking the engine again.
+            var started = new System.Threading.ManualResetEventSlim();
+            var release = new System.Threading.ManualResetEventSlim();
+            int computes = 0;
+            string SlowCompute()
+            {
+                System.Threading.Interlocked.Increment(ref computes);
+                started.Set();
+                release.Wait(5000);
+                return "r";
+            }
+            var t1 = System.Threading.Tasks.Task.Run(
+                () => CxCache.GetOrCompute("price", "{\"bond\":100}", SlowCompute));
+            started.Wait(5000);
+            var t2 = System.Threading.Tasks.Task.Run(
+                () => CxCache.GetOrCompute("price", "{\"bond\":100}", SlowCompute));
+            release.Set();
+            Assert.Equal("r", t1.Result);
+            Assert.Equal("r", t2.Result);
+            Assert.Equal(1, computes);
+        }
 
-            CxCache.GenerationSource = () => 1;
+        [Fact]
+        public void Entry_from_an_older_generation_is_rejected_on_hit()
+        {
+            // A straggler computed under gen 1 must not be served to a gen-2
+            // reader even if the wholesale clear has not run for it: entries
+            // are tagged and validated on every hit.
+            CxCache.GetOrCompute("price", "{\"bond\":\"T7\"}", Compute); // tag: gen 1
+            _generation = 2;
             CxCache.GetOrCompute("price", "{\"bond\":\"T7\"}", Compute);
             Assert.Equal(2, _computes);
+        }
+
+        [Fact]
+        public void Compute_exceptions_are_not_cached()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                CxCache.GetOrCompute("price", "{}", () => throw new InvalidOperationException()));
+            CxCache.GetOrCompute("price", "{}", Compute);
+            Assert.Equal(1, _computes);
         }
 
         [Fact]

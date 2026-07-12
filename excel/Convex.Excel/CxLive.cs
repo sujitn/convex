@@ -16,21 +16,13 @@ namespace Convex.Excel
         public static object Observe(string verb, JObject request, Func<JToken, object> select)
         {
             string requestJson = request.ToString(Newtonsoft.Json.Formatting.None);
+            // Capture the owning cell now: Observe runs during cell calc,
+            // but later pushes fire on a timer thread with no caller context.
+            var caller = CxCaller.TryGetCaller();
+            var key = caller == null ? null : CxCaller.StableKey(caller);
+            var address = caller == null ? null : CxCaller.Describe(caller);
             return ExcelAsyncUtil.Observe("CX.LIVE:" + verb, requestJson,
-                () => new RpcObservable(verb, requestJson, select));
-        }
-
-        private static object Compute(string verb, string requestJson, Func<JToken, object> select)
-        {
-            try
-            {
-                return select(Cx.ParseEnvelope(Cx.RawRpc(verb, requestJson)));
-            }
-            catch (Exception ex)
-            {
-                CxErrorStore.Record(ex);
-                return ErrorMapper.ToExcelError(ex);
-            }
+                () => new RpcObservable(verb, requestJson, select, key, address));
         }
 
         private sealed class RpcObservable : IExcelObservable
@@ -38,12 +30,30 @@ namespace Convex.Excel
             private readonly string _verb;
             private readonly string _requestJson;
             private readonly Func<JToken, object> _select;
+            private readonly string? _cellKey;
+            private readonly string? _cellAddress;
 
-            public RpcObservable(string verb, string requestJson, Func<JToken, object> select)
+            public RpcObservable(string verb, string requestJson, Func<JToken, object> select,
+                string? cellKey, string? cellAddress)
             {
                 _verb = verb;
                 _requestJson = requestJson;
                 _select = select;
+                _cellKey = cellKey;
+                _cellAddress = cellAddress;
+            }
+
+            private object Compute()
+            {
+                try
+                {
+                    return _select(Cx.ParseEnvelope(Cx.RawRpc(_verb, _requestJson)));
+                }
+                catch (Exception ex)
+                {
+                    CxErrorStore.Record(ex, _cellKey, _cellAddress);
+                    return ErrorMapper.ToExcelError(ex);
+                }
             }
 
             public IDisposable Subscribe(IExcelObserver observer)
@@ -69,13 +79,13 @@ namespace Convex.Excel
                 {
                     try
                     {
-                        _observer.OnNext(Compute(_owner._verb, _owner._requestJson, _owner._select));
+                        _observer.OnNext(_owner.Compute());
                     }
                     catch (Exception ex)
                     {
                         // OnNext can race RTD topic teardown; an unhandled
                         // throw on a timer thread kills the process.
-                        CxErrorStore.Record(ex);
+                        CxErrorStore.Record(ex, _owner._cellKey, _owner._cellAddress);
                     }
                 }
 

@@ -5,14 +5,23 @@ using System.Threading;
 namespace Convex.Excel
 {
     // Response cache for the stateless RPCs: identical (verb, request) is
-    // deterministic within one registry generation, so entries live until
-    // convex_generation() changes. Error envelopes cache like successes.
+    // deterministic within one registry generation. Entries are tagged with
+    // the generation they were computed under and rejected on mismatch, so a
+    // racing mutation can never surface a stale hit; Lazy values give
+    // single-flight (N concurrent identical calls share one engine call).
     internal static class CxCache
     {
         // Safety valve only; the generation gate is the invalidation path.
         private const int HardCap = 50_000;
 
-        private static readonly ConcurrentDictionary<string, string> _cache = new();
+        private readonly struct Entry
+        {
+            public readonly long Gen;
+            public readonly string Raw;
+            public Entry(long gen, string raw) { Gen = gen; Raw = raw; }
+        }
+
+        private static readonly ConcurrentDictionary<string, Lazy<Entry>> _cache = new();
         private static long _generation = -1;
         private static readonly object _genLock = new();
 
@@ -38,26 +47,25 @@ namespace Convex.Excel
             }
 
             var key = verb + "" + requestJson;
-            if (_cache.TryGetValue(key, out var hit)) return hit;
 
-            var raw = compute();
-
-            try
+            // Two attempts: the first can lose to a straggler entry from an
+            // older generation; evict it and re-add for this generation.
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                // Re-validate after the insert too: a mutation between the
-                // pre-check and TryAdd would strand a stale entry otherwise.
-                if (GenerationSource() == gen)
+                if (_cache.Count >= HardCap) _cache.Clear();
+                var lazy = _cache.GetOrAdd(key,
+                    _ => new Lazy<Entry>(() => new Entry(gen, compute())));
+                Entry e;
+                try { e = lazy.Value; }
+                catch
                 {
-                    if (_cache.Count >= HardCap) _cache.Clear();
-                    _cache.TryAdd(key, raw);
-                    if (GenerationSource() != gen) _cache.TryRemove(key, out _);
+                    _cache.TryRemove(key, out _); // don't cache exceptions
+                    throw;
                 }
+                if (e.Gen == gen) return e.Raw;
+                _cache.TryRemove(key, out _);
             }
-            catch
-            {
-                // Generation unreadable — skip caching.
-            }
-            return raw;
+            return compute();
         }
 
         public static void Clear() => _cache.Clear();

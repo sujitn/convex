@@ -1008,12 +1008,27 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
         _ => None,
     };
 
+    // A spread mark is quoted over its own benchmark: G over the government
+    // curve, I over the swap curve (falling back to spot when not supplied,
+    // matching the YasRequest::curve doc).
+    let price_curve: &dyn RateCurveDyn = match &mark {
+        Mark::Spread { value, .. } if value.spread_type() == SpreadType::GSpread => govt
+            .as_ref()
+            .map(|g| g as &dyn RateCurveDyn)
+            .unwrap_or(&spot),
+        Mark::Spread { value, .. } if value.spread_type() == SpreadType::ISpread => swap
+            .as_ref()
+            .map(|s| s as &dyn RateCurveDyn)
+            .unwrap_or(&spot),
+        _ => &spot,
+    };
+
     with_fixed_bond!(req.bond, bond, {
         let priced = price_from_mark(
             bond,
             req.settlement,
             &mark,
-            Some(&spot),
+            Some(price_curve),
             req.quote_frequency,
         )?;
         let clean = Decimal::from_f64_retain(priced.clean_price_per_100)

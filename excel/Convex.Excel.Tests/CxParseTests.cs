@@ -177,7 +177,6 @@ namespace Convex.Excel.Tests
         {
             Assert.Equal(101UL, CxParse.AsHandleRef("#CX#101").ToObject<ulong>());
             Assert.Equal(101UL, CxParse.AsHandleRef(101.0).ToObject<ulong>());
-            Assert.Equal(101UL, CxParse.AsHandleRef("101").ToObject<ulong>());
         }
 
         [Fact]
@@ -185,6 +184,9 @@ namespace Convex.Excel.Tests
         {
             Assert.Equal("912828YK0", CxParse.AsHandleRef(" 912828YK0 ").ToObject<string>());
             Assert.Equal("USD.SOFR", CxParse.AsHandleRef("USD.SOFR").ToObject<string>());
+            // All-digit CUSIPs are names, not handles — handles only reach
+            // cells as numbers or "#CX#N" strings.
+            Assert.Equal("037833100", CxParse.AsHandleRef("037833100").ToObject<string>());
         }
 
         [Fact]
@@ -193,6 +195,24 @@ namespace Convex.Excel.Tests
             Assert.Null(CxParse.AsHandleRefOrNull(ExcelMissing.Value));
             Assert.Null(CxParse.AsHandleRefOrNull(""));
             Assert.NotNull(CxParse.AsHandleRefOrNull("USD.SOFR"));
+        }
+    }
+
+    public class ComboLabelTests
+    {
+        [Fact]
+        public void NameOf_returns_full_name_even_when_it_contains_the_separator()
+        {
+            Assert.Equal("T 5s35", Helpers.ComboReload.NameOf("#CX#101  ·  fixed_rate  ·  T 5s35"));
+            Assert.Equal("A  ·  B", Helpers.ComboReload.NameOf("#CX#101  ·  curve  ·  A  ·  B"));
+            Assert.Null(Helpers.ComboReload.NameOf("#CX#101  ·  fixed_rate"));
+        }
+
+        [Fact]
+        public void TokenOf_returns_leading_handle_token()
+        {
+            Assert.Equal("#CX#101", Helpers.ComboReload.TokenOf("#CX#101  ·  fixed_rate  ·  T 5s35"));
+            Assert.Null(Helpers.ComboReload.TokenOf(null));
         }
     }
 

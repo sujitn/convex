@@ -17,6 +17,11 @@ namespace Convex.Excel.Forms
         private readonly ComboBox _bond = new() { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly ComboBox _curve = new() { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly ComboBox _kind = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+        private readonly NumericUpDown _pivot = new()
+        {
+            Minimum = 0.25M, Maximum = 50, DecimalPlaces = 2, Value = 5,
+            Increment = 0.25M, Width = 90,
+        };
         private readonly DateTimePicker _settle = new() { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
         private readonly TextBox _baseMark = new() { Text = "99.5C" };
         private readonly TextBox _shifts = new() { Text = "-50, -25, -10, 0, 10, 25, 50" };
@@ -42,23 +47,24 @@ namespace Convex.Excel.Forms
             _result.Columns.Add("dirty", "Dirty");
             _result.Columns.Add("dpnl", "ΔP (clean)");
 
-            _kind.Items.AddRange(new object[] { "parallel", "steepener", "flattener", "credit" });
+            _kind.Items.AddRange(new object[] { "parallel", "steepener", "flattener", "key_rate", "credit" });
             _kind.SelectedIndex = 0;
 
             var inputs = new TableLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 236,
-                ColumnCount = 2, RowCount = 6, Padding = new Padding(10),
+                Dock = DockStyle.Top, Height = 272,
+                ColumnCount = 2, RowCount = 7, Padding = new Padding(10),
             };
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 6; i++) inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            for (int i = 0; i < 7; i++) inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             AddRow(inputs, 0, "Bond:", _bond);
             AddRow(inputs, 1, "Curve:", _curve);
             AddRow(inputs, 2, "Settlement:", _settle);
             AddRow(inputs, 3, "Base mark:", _baseMark);
             AddRow(inputs, 4, "Shift kind:", _kind);
-            AddRow(inputs, 5, "Shifts (bps, csv):", _shifts);
+            AddRow(inputs, 5, "Pivot/key tenor (yrs):", _pivot);
+            AddRow(inputs, 6, "Shifts (bps, csv):", _shifts);
 
             var bottom = new FlowLayoutPanel
             {
@@ -168,7 +174,7 @@ namespace Convex.Excel.Forms
                 ["settlement"] = CxParse.AsIsoDate(_settle.Value.Date),
                 ["mark"] = new JValue(_baseMark.Text.Trim()),
                 ["scenarios"] = Functions.BuildScenarioLadder(
-                    ParseShifts(_shifts.Text), (string)_kind.SelectedItem!, 5.0),
+                    ParseShifts(_shifts.Text), (string)_kind.SelectedItem!, (double)_pivot.Value),
                 ["quote_frequency"] = "SemiAnnual",
             };
 

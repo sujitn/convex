@@ -33,12 +33,19 @@ namespace Convex.Excel
 
         public static void Record(Exception ex)
         {
-            var code = ex is ConvexException cx ? cx.Code : CodeFor(ex);
             var caller = CxCaller.TryGetCaller();
-            var key = caller == null ? "(non-cell)" : CxCaller.StableKey(caller);
-            var address = caller == null ? "(non-cell)" : CxCaller.Describe(caller);
+            Record(ex,
+                caller == null ? null : CxCaller.StableKey(caller),
+                caller == null ? null : CxCaller.Describe(caller));
+        }
+
+        // Overload for contexts with no live caller (timer-driven .LIVE
+        // pushes): the subscription passes the cell captured at Observe time.
+        public static void Record(Exception ex, string? key, string? address)
+        {
+            var code = ex is ConvexException cx ? cx.Code : CodeFor(ex);
             if (_byCell.Count >= Cap) _byCell.Clear();
-            _byCell[key] = new CxErrorDetail(code, ex.Message, address);
+            _byCell[key ?? "(non-cell)"] = new CxErrorDetail(code, ex.Message, address ?? "(non-cell)");
         }
 
         public static CxErrorDetail? Lookup(string stableKey) =>

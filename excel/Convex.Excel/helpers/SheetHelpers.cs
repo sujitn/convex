@@ -33,6 +33,26 @@ namespace Convex.Excel.Helpers
             return anchor.Address;
         }
 
+        // Array-result variant: on pre-dynamic-array Excel a plain formula
+        // shows only the top-left value, so fall back to a legacy CSE array
+        // formula over the known result shape.
+        public static string WriteFormulaAtSelection(string formula, int spillRows, int spillCols)
+        {
+            var app = ExcelDnaUtil.Application;
+            dynamic selection = ((dynamic)app).Selection;
+            dynamic anchor = selection.Cells[1, 1];
+            try
+            {
+                anchor.Formula2 = formula;
+            }
+            catch
+            {
+                dynamic range = anchor.Resize(spillRows, spillCols);
+                range.FormulaArray = formula;
+            }
+            return anchor.Address;
+        }
+
         // Read the active selection as either a scalar or 2D array of objects.
         public static object ReadSelection()
         {

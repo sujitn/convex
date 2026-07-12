@@ -188,7 +188,8 @@ namespace Convex.Excel.Forms
             {
                 // Validate the inputs by pricing once before stamping.
                 Cx.Price(BuildRequest());
-                var addr = SheetHelpers.WriteFormulaAtSelection(BuildFormula());
+                // The "grid" field always spills 5×2.
+                var addr = SheetHelpers.WriteFormulaAtSelection(BuildFormula(), 5, 2);
                 _status.Text = $"Stamped =CX.PRICE grid at {addr}";
             }
             catch (Exception ex)

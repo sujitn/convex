@@ -38,9 +38,11 @@ namespace Convex.Excel
                         ulong.TryParse(t.Substring(HandlePrefix.Length), NumberStyles.Integer,
                             CultureInfo.InvariantCulture, out var h))
                         return new JValue(h);
-                    if (ulong.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
-                        return new JValue(n);
-                    return new JValue(t); // ticker/name — resolved engine-side
+                    // Any other string is a ticker/name, resolved engine-side —
+                    // including all-digit ones: CUSIPs can be fully numeric
+                    // ("037833100"), and handles only ever reach cells as
+                    // numbers or "#CX#N" strings.
+                    return new JValue(t);
                 default:
                     return new JValue(Convert.ToUInt64(value, CultureInfo.InvariantCulture));
             }

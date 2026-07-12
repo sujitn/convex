@@ -41,12 +41,14 @@ namespace Convex.Excel.Helpers
         }
 
         // Name segment of the label, or null without a human identifier.
+        // Split only the two structural separators: a name that itself
+        // contains "  ·  " must come back whole.
         public static string? NameOf(object? item)
         {
             var t = item?.ToString();
             if (string.IsNullOrEmpty(t)) return null;
-            var parts = t!.Split(Separator, StringSplitOptions.None);
-            return parts.Length >= 3 ? parts[parts.Length - 1].Trim() : null;
+            var parts = t!.Split(Separator, 3, StringSplitOptions.None);
+            return parts.Length == 3 ? parts[2].Trim() : null;
         }
     }
 }

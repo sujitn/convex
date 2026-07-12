@@ -103,12 +103,15 @@ namespace Convex.Excel.Forms
         {
             try
             {
+                // Invalidate any in-flight sweep even when nothing will be
+                // drawn, so it can't repaint a cleared viewer.
+                int seq = System.Threading.Interlocked.Increment(ref _renderSeq);
+
                 if (_curve.SelectedItem is null) { _chart.Series.Clear(); _grid.Rows.Clear(); return; }
                 var handle = Convex.Excel.Helpers.ComboReload.HandleOf(_curve, "curve");
 
                 double max = (double)_maxTenor.Value;
                 double step = max <= 5 ? 0.25 : (max <= 15 ? 0.5 : 1.0);
-                int seq = ++_renderSeq;
                 _status.Text = "computing…";
 
                 // ~2 FFI calls per point — keep the sweep off the UI thread.
@@ -117,6 +120,8 @@ namespace Convex.Excel.Forms
                     var points = new System.Collections.Generic.List<(double t, double zero, double fwd)>();
                     for (double t = step; t <= max + 1e-9; t += step)
                     {
+                        // Obsolete sweeps stop instead of loading the engine.
+                        if (seq != System.Threading.Volatile.Read(ref _renderSeq)) return points;
                         var zero = Query(handle, "zero", t, null);
                         var fwd = Query(handle, "forward", t, t + 1.0);
                         points.Add((t, zero, fwd));
@@ -124,9 +129,11 @@ namespace Convex.Excel.Forms
                     return points;
                 }).ContinueWith(task =>
                 {
-                    if (IsDisposed || seq != _renderSeq) return;
-                    BeginInvoke(new Action(() =>
+                    if (IsDisposed || !IsHandleCreated || seq != _renderSeq) return;
+                    try
                     {
+                        BeginInvoke(new Action(() =>
+                        {
                         if (seq != _renderSeq) return;
                         try
                         {
@@ -166,7 +173,13 @@ namespace Convex.Excel.Forms
                         {
                             _status.Text = "ERROR: " + ex.Message;
                         }
-                    }));
+                        }));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Handle destroyed between the check and the post
+                        // (covers ObjectDisposedException too).
+                    }
                 });
             }
             catch (Exception ex)

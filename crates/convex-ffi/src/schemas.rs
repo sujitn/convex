@@ -23,6 +23,8 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
         "YasRequest" => YAS_REQUEST,
         "YasResponse" => YAS_RESPONSE,
+        "ScenarioRequest" => SCENARIO_REQUEST,
+        "ScenarioResponse" => SCENARIO_RESPONSE,
         "RiskProfileRequest" => RISK_PROFILE_REQUEST,
         "RiskProfile" => RISK_PROFILE_RESPONSE,
         "HedgeRequest" => HEDGE_REQUEST,
@@ -272,6 +274,61 @@ const YAS_RESPONSE: &str = r##"{
     "principal_amount": {"type": "number"},
     "accrued_amount": {"type": "number"},
     "settlement_amount": {"type": "number"}
+  }
+}"##;
+
+const SCENARIO_REQUEST: &str = r##"{
+  "title": "ScenarioRequest",
+  "description": "Run N curve scenarios against one bond in a single call; each reprices holding the mark-implied Z-spread fixed. References may be numeric handles or registered names.",
+  "type": "object",
+  "required": ["bond","curve","settlement","mark","scenarios"],
+  "properties": {
+    "bond": {"type": ["integer","string"]},
+    "curve": {"type": ["integer","string"]},
+    "settlement": {"type": "string", "format": "date"},
+    "mark": {"$ref": "#/definitions/Mark"},
+    "scenarios": {"type": "array", "items": {
+      "type": "object",
+      "required": ["bumps"],
+      "properties": {
+        "name": {"type": ["string","null"]},
+        "bumps": {"type": "array", "items": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {"enum": ["parallel","steepener","flattener","key_rate","credit_spread"]},
+            "shift_bps": {"type": "number"},
+            "short_shift_bps": {"type": "number"},
+            "long_shift_bps": {"type": "number"},
+            "pivot_tenor": {"type": "number", "description": "Years; default 5"},
+            "tenor": {"type": "number", "description": "key_rate only"}
+          }
+        }}
+      }
+    }},
+    "quote_frequency": {"$ref": "#/definitions/Frequency"}
+  }
+}"##;
+
+const SCENARIO_RESPONSE: &str = r##"{
+  "title": "ScenarioResponse",
+  "type": "object",
+  "required": ["base_clean","base_ytm_decimal","z_spread_bps","rows"],
+  "properties": {
+    "base_clean": {"type": "number"},
+    "base_ytm_decimal": {"type": "number"},
+    "z_spread_bps": {"type": "number"},
+    "rows": {"type": "array", "items": {
+      "type": "object",
+      "required": ["name","clean_price","dirty_price","delta_clean","ytm_decimal"],
+      "properties": {
+        "name": {"type": "string"},
+        "clean_price": {"type": "number"},
+        "dirty_price": {"type": "number"},
+        "delta_clean": {"type": "number", "description": "vs the base mark"},
+        "ytm_decimal": {"type": "number"}
+      }
+    }}
   }
 }"##;
 

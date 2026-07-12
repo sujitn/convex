@@ -40,7 +40,7 @@ Paste into `A1:A8` on a fresh sheet. Replace `A1` first; the rest reference it.
 | `A3` | `=CX.PRICE(A1, DATE(2025,4,15), "99.5C", , , "ytm")` | YTM (%) ≈ `5.07` | yield from clean price, percent units |
 | `A4` | `=CX.PRICE(A1, DATE(2025,4,15), "99-16+")` | clean ≈ `99.515625` | 32nds parser |
 | `A5` | `=CX.PRICE(A1, DATE(2025,4,15), "abc")` | `#VALUE!` | invalid mark → native Excel error |
-| `A6` | `=CX.PRICE("BAD_HANDLE", DATE(2025,4,15), "99.5C")` | `#VALUE!` (`#REF!` once ticker lookup lands) | bad handle text |
+| `A6` | `=CX.PRICE("BAD_HANDLE", DATE(2025,4,15), "99.5C")` | `#REF!` | unknown ticker resolves engine-side to invalid_handle |
 | `A7` | `=CX.OBJECTS()` | integer ≥ 1 | registry alive |
 | `A8` | `=CX.RELEASE(A1)` then `=CX.OBJECTS()` | drops by 1 | release path |
 

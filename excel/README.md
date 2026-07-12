@@ -294,7 +294,7 @@ The cell UDFs surface these as **native Excel errors** so `IFERROR` /
 
 | Excel error | Meaning |
 |---|---|
-| `#VALUE!` | malformed input — bad mark, unparseable cell, misaligned parallel ranges |
+| `#VALUE!` | malformed input — bad mark, unparseable cell, misaligned parallel ranges — or a caught engine `panic` |
 | `#NAME?`  | unknown keyword — frequency, day count, spread type, field/metric name |
 | `#REF!`   | handle (or ticker) not registered, or wrong object kind |
 | `#NUM!`   | solver non-convergence or domain error |
