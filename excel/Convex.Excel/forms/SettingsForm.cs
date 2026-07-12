@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -12,6 +13,15 @@ namespace Convex.Excel.Forms
         private readonly ComboBox _dayCount = new() { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly ComboBox _spreadType = new() { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly ComboBox _currency = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+        private readonly CheckBox _autoRebuild = new()
+        {
+            Text = "Rebuild handles when the add-in loads",
+            AutoSize = true,
+        };
+        private readonly NumericUpDown _liveRefresh = new()
+        {
+            Minimum = 100, Maximum = 10_000, Increment = 50, Width = 90,
+        };
         private readonly Label _status = new() { AutoSize = true, ForeColor = Color.Gray };
 
         public SettingsForm()
@@ -32,19 +42,23 @@ namespace Convex.Excel.Forms
             _dayCount.SelectedItem = s.DefaultDayCount;
             _spreadType.SelectedItem = s.DefaultSpreadType;
             _currency.SelectedItem = s.DefaultCurrency;
+            _autoRebuild.Checked = s.AutoRebuildOnOpen;
+            _liveRefresh.Value = Math.Min(Math.Max(s.LiveRefreshMs, 100), 10_000);
 
             var grid = new TableLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 180,
-                ColumnCount = 2, RowCount = 4, Padding = new Padding(12),
+                Dock = DockStyle.Top, Height = 252,
+                ColumnCount = 2, RowCount = 6, Padding = new Padding(12),
             };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            for (int i = 0; i < 6; i++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             AddRow(grid, 0, "Default frequency:", _frequency);
             AddRow(grid, 1, "Default day count:", _dayCount);
             AddRow(grid, 2, "Default spread:", _spreadType);
             AddRow(grid, 3, "Default currency:", _currency);
+            AddRow(grid, 4, "On load:", _autoRebuild);
+            AddRow(grid, 5, "LIVE poll (ms):", _liveRefresh);
 
             var bottom = new FlowLayoutPanel
             {
@@ -72,6 +86,8 @@ namespace Convex.Excel.Forms
                     DefaultDayCount = (string)_dayCount.SelectedItem!,
                     DefaultSpreadType = (string)_spreadType.SelectedItem!,
                     DefaultCurrency = (string)_currency.SelectedItem!,
+                    AutoRebuildOnOpen = _autoRebuild.Checked,
+                    LiveRefreshMs = (int)_liveRefresh.Value,
                 });
                 _status.Text = "Saved";
             }
@@ -85,6 +101,8 @@ namespace Convex.Excel.Forms
             _dayCount.SelectedItem = d.DefaultDayCount;
             _spreadType.SelectedItem = d.DefaultSpreadType;
             _currency.SelectedItem = d.DefaultCurrency;
+            _autoRebuild.Checked = d.AutoRebuildOnOpen;
+            _liveRefresh.Value = d.LiveRefreshMs;
             _status.Text = "Reset (not saved)";
         }
 
@@ -95,13 +113,6 @@ namespace Convex.Excel.Forms
                 0, row);
             control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             grid.Controls.Add(control, 1, row);
-        }
-
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
         }
     }
 }

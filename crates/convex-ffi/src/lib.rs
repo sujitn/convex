@@ -42,6 +42,59 @@ use libc::c_char;
 pub use registry::{Handle, INVALID_HANDLE};
 
 // ============================================================================
+// Panic guards
+// ============================================================================
+//
+// Every export runs inside `catch_unwind` so a stray panic becomes an error
+// envelope / INVALID_HANDLE instead of killing the host process (Excel/JVM).
+// Only effective under panic=unwind — ship cdylibs with `[profile.excel]`
+// (see the root Cargo.toml). Handlers are still written to never panic; this
+// is the backstop, not the error path.
+
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "unknown panic".to_string()
+    }
+}
+
+/// Run `f`, converting a panic into `INVALID_HANDLE` + last-error.
+fn guard_handle(f: impl FnOnce() -> Handle) -> Handle {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(h) => h,
+        Err(p) => {
+            error::set_last_error(format!("panic: {}", panic_message(&*p)));
+            INVALID_HANDLE
+        }
+    }
+}
+
+/// Run `f`, converting a panic into a `{"ok":"false",...}` error envelope.
+fn guard_envelope(f: impl FnOnce() -> *mut c_char) -> *mut c_char {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(p) => p,
+        Err(p) => to_owned_c(err_envelope(
+            "panic",
+            &format!("internal error: {}", panic_message(&*p)),
+        )),
+    }
+}
+
+/// Run `f`, swallowing a panic and returning `default`.
+fn guard_value<R>(default: R, f: impl FnOnce() -> R) -> R {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(r) => r,
+        Err(p) => {
+            error::set_last_error(format!("panic: {}", panic_message(&*p)));
+            default
+        }
+    }
+}
+
+// ============================================================================
 // Boundary helpers
 // ============================================================================
 
@@ -83,13 +136,13 @@ pub extern "C" fn convex_version() -> *const c_char {
 /// Build a bond from a `BondSpec` JSON. Returns `0` on failure.
 #[no_mangle]
 pub unsafe extern "C" fn convex_bond_from_json(spec_json: *const c_char) -> Handle {
-    with_str(spec_json, build::bond_from_json)
+    guard_handle(|| with_str(spec_json, build::bond_from_json))
 }
 
 /// Build a curve from a `CurveSpec` JSON. Returns `0` on failure.
 #[no_mangle]
 pub unsafe extern "C" fn convex_curve_from_json(spec_json: *const c_char) -> Handle {
-    with_str(spec_json, build::curve_from_json)
+    guard_handle(|| with_str(spec_json, build::curve_from_json))
 }
 
 /// Returns a JSON description of the registered object.
@@ -97,25 +150,31 @@ pub unsafe extern "C" fn convex_curve_from_json(spec_json: *const c_char) -> Han
 /// Free the returned pointer with [`convex_string_free`].
 #[no_mangle]
 pub extern "C" fn convex_describe(handle: Handle) -> *mut c_char {
-    to_owned_c(dispatch::describe(handle))
+    guard_envelope(|| to_owned_c(dispatch::describe(handle)))
 }
 
 /// Releases an object by handle. No-op on invalid handle.
 #[no_mangle]
 pub extern "C" fn convex_release(handle: Handle) {
-    registry::release(handle);
+    guard_value((), || {
+        registry::release(handle);
+    });
 }
 
 /// Number of registered objects.
 #[no_mangle]
 pub extern "C" fn convex_object_count() -> i32 {
-    registry::object_count() as i32
+    guard_value(-1, || registry::object_count() as i32)
 }
 
 /// Returns a JSON array of `{handle,kind,name?}` entries for every registered
 /// object. Caller frees with [`convex_string_free`].
 #[no_mangle]
 pub extern "C" fn convex_list_objects() -> *mut c_char {
+    guard_envelope(convex_list_objects_inner)
+}
+
+fn convex_list_objects_inner() -> *mut c_char {
     let entries: Vec<_> = registry::list(None)
         .into_iter()
         .map(|(h, kind, name)| {
@@ -133,7 +192,15 @@ pub extern "C" fn convex_list_objects() -> *mut c_char {
 /// Clears all registered objects.
 #[no_mangle]
 pub extern "C" fn convex_clear_all() {
-    registry::clear_all()
+    guard_value((), registry::clear_all)
+}
+
+/// Registry mutation counter (idempotent re-registers do not bump it).
+/// Same value across two reads ⇒ every handle resolves to the same object;
+/// callers key response caches on it.
+#[no_mangle]
+pub extern "C" fn convex_generation() -> u64 {
+    guard_value(0, registry::generation)
 }
 
 // ============================================================================
@@ -181,6 +248,24 @@ pub unsafe extern "C" fn convex_make_whole(request_json: *const c_char) -> *mut 
     rpc(request_json, dispatch::make_whole)
 }
 
+/// One-call yield & spread analysis (Bloomberg-YAS style). Request:
+/// `YasRequest`. Response: `YasResponse` — every yield convention, G/Z/
+/// benchmark/ASW spreads, risk metrics, and the settlement invoice from a
+/// single computation.
+#[no_mangle]
+pub unsafe extern "C" fn convex_yas(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::yas)
+}
+
+/// Curve scenario ladder in one call. Request: `ScenarioRequest` (N named
+/// scenarios of parallel/steepener/flattener/key-rate/credit bumps).
+/// Response: `ScenarioResponse` — base pricing + one repriced row per
+/// scenario, holding the mark-implied Z-spread fixed.
+#[no_mangle]
+pub unsafe extern "C" fn convex_scenario(request_json: *const c_char) -> *mut c_char {
+    rpc(request_json, dispatch::scenario)
+}
+
 // ============================================================================
 // Hedge advisor (JSON in, JSON out)
 // ============================================================================
@@ -221,10 +306,12 @@ pub unsafe extern "C" fn convex_compare(request_json: *const c_char) -> *mut c_c
 /// `CurveQueryRequest`, `CurveQueryResponse`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char {
-    let result = with_str_owned(type_name, schemas::lookup);
-    to_owned_c(match result {
-        Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
-        Err(msg) => err_envelope("schema", &msg),
+    guard_envelope(|| {
+        let result = with_str_owned(type_name, schemas::lookup);
+        to_owned_c(match result {
+            Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
+            Err(msg) => err_envelope("schema", &msg),
+        })
     })
 }
 
@@ -233,16 +320,18 @@ pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char 
 /// Returns a JSON envelope; on success, `result` is the canonical `Mark` JSON.
 #[no_mangle]
 pub unsafe extern "C" fn convex_mark_parse(text: *const c_char) -> *mut c_char {
-    let payload = with_str_owned(text, |s| {
-        s.parse::<convex_core::types::Mark>()
-            .map_err(|e| e.to_string())
-    });
-    to_owned_c(match payload {
-        Ok(mark) => match serde_json::to_string(&mark) {
-            Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
-            Err(e) => err_envelope("serialize", &e.to_string()),
-        },
-        Err(e) => err_envelope("invalid_input", &e),
+    guard_envelope(|| {
+        let payload = with_str_owned(text, |s| {
+            s.parse::<convex_core::types::Mark>()
+                .map_err(|e| e.to_string())
+        });
+        to_owned_c(match payload {
+            Ok(mark) => match serde_json::to_string(&mark) {
+                Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
+                Err(e) => err_envelope("serialize", &e.to_string()),
+            },
+            Err(e) => err_envelope("invalid_input", &e),
+        })
     })
 }
 
@@ -282,11 +371,13 @@ where
 }
 
 unsafe fn rpc(request_json: *const c_char, handler: fn(&str) -> String) -> *mut c_char {
-    let response = match with_str_owned(request_json, |s| Ok::<String, String>(handler(s))) {
-        Ok(r) => r,
-        Err(e) => err_envelope("invalid_input", &e),
-    };
-    to_owned_c(response)
+    guard_envelope(|| {
+        let response = match with_str_owned(request_json, |s| Ok::<String, String>(handler(s))) {
+            Ok(r) => r,
+            Err(e) => err_envelope("invalid_input", &e),
+        };
+        to_owned_c(response)
+    })
 }
 
 fn to_owned_c(s: String) -> *mut c_char {
@@ -316,5 +407,52 @@ pub(crate) fn ok_envelope<T: serde::Serialize>(result: &T) -> String {
     match serde_json::to_value(result) {
         Ok(v) => serde_json::json!({"ok":"true","result": v}).to_string(),
         Err(e) => err_envelope("serialize", &e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod panic_guard_tests {
+    use super::*;
+    use std::ffi::CStr;
+
+    // These run under the test profile (panic = "unwind", the cargo default),
+    // the same strategy `[profile.excel]` uses for the shipped DLL.
+
+    #[test]
+    fn guard_handle_converts_panic_to_invalid_handle_and_last_error() {
+        error::clear_error();
+        let h = guard_handle(|| panic!("boom in builder"));
+        assert_eq!(h, INVALID_HANDLE);
+        let msg = unsafe { CStr::from_ptr(error::last_error_message()) }
+            .to_str()
+            .unwrap();
+        assert!(msg.contains("boom in builder"), "got: {msg}");
+    }
+
+    #[test]
+    fn guard_envelope_converts_panic_to_error_envelope() {
+        let ptr = guard_envelope(|| panic!("boom in rpc"));
+        assert!(!ptr.is_null());
+        let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        unsafe { convex_string_free(ptr) };
+        let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], "false");
+        assert_eq!(v["error"]["code"], "panic");
+        assert!(v["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("boom in rpc"));
+    }
+
+    #[test]
+    fn guard_value_returns_default_on_panic() {
+        let n = guard_value(-1, || -> i32 { panic!("boom") });
+        assert_eq!(n, -1);
+    }
+
+    #[test]
+    fn guard_passes_through_on_success() {
+        assert_eq!(guard_handle(|| 42), 42);
+        assert_eq!(guard_value(-1, || 7), 7);
     }
 }

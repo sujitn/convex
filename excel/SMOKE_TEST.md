@@ -18,7 +18,7 @@ counterpart for the Excel side.
 Build artifacts:
 
 ```bash
-cargo build --release -p convex-ffi
+cargo build --profile excel -p convex-ffi
 cd excel/Convex.Excel && dotnet build --configuration Release
 ```
 
@@ -39,14 +39,18 @@ Paste into `A1:A8` on a fresh sheet. Replace `A1` first; the rest reference it.
 | `A2` | `=CX.PRICE(A1, DATE(2025,4,15), "99.5C")` | clean ≈ `99.5` | mark-driven pricing, default field |
 | `A3` | `=CX.PRICE(A1, DATE(2025,4,15), "99.5C", , , "ytm")` | YTM (%) ≈ `5.07` | yield from clean price, percent units |
 | `A4` | `=CX.PRICE(A1, DATE(2025,4,15), "99-16+")` | clean ≈ `99.515625` | 32nds parser |
-| `A5` | `=CX.PRICE(A1, DATE(2025,4,15), "abc")` | `#ERROR: invalid_input (mark): ...` | typed envelope reaches the cell |
-| `A6` | `=CX.PRICE("BAD_HANDLE", DATE(2025,4,15), "99.5C")` | `#ERROR: invalid_input (handle): ...` | bad handle text |
+| `A5` | `=CX.PRICE(A1, DATE(2025,4,15), "abc")` | `#VALUE!` | invalid mark → native Excel error |
+| `A6` | `=CX.PRICE("BAD_HANDLE", DATE(2025,4,15), "99.5C")` | `#REF!` | unknown ticker resolves engine-side to invalid_handle |
 | `A7` | `=CX.OBJECTS()` | integer ≥ 1 | registry alive |
 | `A8` | `=CX.RELEASE(A1)` then `=CX.OBJECTS()` | drops by 1 | release path |
 
-**Load-bearing assertion (A5/A6)**: the cell contains a *text string*
-starting `#ERROR: <code>`, not a native `#VALUE!` / `#REF!`. A native
-Excel error means an exception bypassed the safe-call wrapper.
+**Load-bearing assertion (A5/A6)**: the cell contains a *native Excel
+error* (`ISERROR(A5)` is TRUE, `IFERROR(A5,"x")` catches it), and
+`=CX.LASTERROR(A5)` returns the structured `[code] message` detail.
+The error taxonomy: `#VALUE!` malformed input · `#NAME?` unknown keyword
+(frequency/day count/spread type/field) · `#REF!` unknown handle ·
+`#NUM!` solver/analytics failure · `#N/A` native library not loaded
+(diagnose with `=CX.DIAG()`).
 
 ## Spread sanity checks
 
@@ -54,12 +58,13 @@ Excel error means an exception bypassed the safe-call wrapper.
 B1: =CX.CURVE("USD.SOFR", DATE(2025,1,15), {0.5,1,2,5,10,30}, {0.04,0.04,0.04,0.04,0.04,0.04}, "zero_rate", "linear")
 B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")            ' ~80–120 bps
 B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "I")            ' I-spread bps, finite
-B4: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")            ' #ERROR: invalid_input (params.govt_curve)
+B4: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")            ' #VALUE!; CX.LASTERROR(B4) names params.govt_curve
 ```
 
-`B4` must be the structured error — G-spread only computes against an
-explicitly-supplied government curve. Use the **Spread Ticket** ribbon
-form, which threads `params.govt_curve` through, for the positive path.
+`B4` must error — G-spread only computes against an explicitly-supplied
+government curve; `=CX.LASTERROR(B4)` must name `params.govt_curve`. Use
+the **Spread Ticket** ribbon form, which threads `params.govt_curve`
+through, for the positive path.
 
 ## Risk + KRD
 
@@ -79,12 +84,52 @@ D2: =CX.SCHEMA("PricingRequest")                                 ' includes forw
 D3: =CX.SCHEMA("SpreadRequest")                                  ' includes params.govt_curve, params.volatility, ...
 ```
 
-If any of these returns `#ERROR: invalid_input ...` the schemas table in
-`crates/convex-ffi/src/schemas.rs` is out of sync with the DTOs.
+If any of these errors (`#VALUE!` with `CX.LASTERROR` naming the type)
+the schemas table in `crates/convex-ffi/src/schemas.rs` is out of sync
+with the DTOs.
+
+## Ticker referencing
+
+```excel
+E1: =CX.PRICE("TEST10Y5", DATE(2025,4,15), "99.5C")   ' by name — matches A2
+E2: =CX.PRICE("NO_SUCH", DATE(2025,4,15), "99.5C")    ' #REF!; CX.LASTERROR(E2) names it
+```
+
+## One-call grids
+
+```excel
+F1: =CX.YAS(A1, DATE(2025,4,15), "99.5C", B1)                      ' spills ~18 rows: yields, G/Z/benchmark/ASW, risk, invoice
+F2: =CX.SCENARIO(A1, B1, DATE(2025,4,15), "99.5C", {-50,0,50})     ' ladder; the 0bp row reproduces the base price exactly
+```
+
+## Live cells (RTD)
+
+1. `G1: =CX.PRICE.LIVE(A1, DATE(2025,4,15), "99.5C")` — shows the price.
+2. Rebuild the same bond from the ribbon (New Bond, same ID, different
+   coupon) — `G1` updates within the poll interval with **no manual recalc**.
+3. `=CX.RELEASE(...)` the bond — `G1` flips to an error; rebuild — it heals.
+
+## Recalc-cascade cutoff (idempotent handles)
+
+1. Build a builder cell + 10 dependent `CX.PRICE` cells.
+2. Force-recalc the builder (F2+Enter) with unchanged inputs: the handle
+   string must NOT change and dependents must not visibly recompute.
+3. Edit the coupon: the handle changes and dependents recompute once.
+
+## Workbook reopen
+
+1. Build bonds/curves from cells, add analytics referencing them by name,
+   save, quit Excel entirely.
+2. Reopen the workbook (add-in loaded): the auto rebuild re-registers
+   everything; no `#REF!` remains without touching a key. With
+   Settings → "Rebuild handles on open" off, ribbon **Rebuild** does it.
 
 ## Ribbon
 
-Open the **Convex** tab. Smoke each form once:
+Open the **Convex** tab. Smoke each form once. Pricing/Spread/Curve
+Viewer/Scenario/Objects/Error Log are MODELESS — verify Excel stays
+interactive (select cells, type) while each is open, and that re-clicking
+the button focuses the existing window instead of duplicating it:
 
 - **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`.
 - **Pricing Ticket** → Refresh objects → pick the bond → mark `99.5C` →
@@ -105,6 +150,6 @@ JSON RPC layer — that's a regression.
 `excel/ConvexDemo.xlsx` is regenerated by `excel/build_demo.py` (openpyxl).
 Open it with the add-in loaded for an end-to-end tour: every sheet
 (Bonds, Curves, Spreads, Scenarios, Schemas) exercises a different slice
-of the surface. If any cell shows `#NAME?` the add-in is not loaded; if
-you see structured `#ERROR: <code>: <message>` strings, that's the
-intended JSON envelope reaching the worksheet.
+of the surface. If every CX cell shows `#NAME?` the add-in is not loaded;
+individual `#VALUE!`/`#REF!`/`#NUM!` errors carry per-cell detail readable
+via `=CX.LASTERROR(cell)` or the ribbon Diagnostics button.

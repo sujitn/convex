@@ -104,8 +104,9 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
+      # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi
-        run: cargo build --release -p convex-ffi
+        run: cargo build --profile excel -p convex-ffi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -115,8 +116,11 @@ jobs:
       - name: Build Excel Add-in
         run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
 
+      - name: Test Excel Add-in (headless)
+        run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
+
       - name: Copy native DLL
-        run: copy target\release\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
+        run: copy target\excel\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
 
       - name: Create Add-in Package
         shell: pwsh

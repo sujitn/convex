@@ -21,6 +21,10 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "CurveQueryResponse" => CURVE_QUERY_RESPONSE,
         "MakeWholeRequest" => MAKE_WHOLE_REQUEST,
         "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
+        "YasRequest" => YAS_REQUEST,
+        "YasResponse" => YAS_RESPONSE,
+        "ScenarioRequest" => SCENARIO_REQUEST,
+        "ScenarioResponse" => SCENARIO_RESPONSE,
         "RiskProfileRequest" => RISK_PROFILE_REQUEST,
         "RiskProfile" => RISK_PROFILE_RESPONSE,
         "HedgeRequest" => HEDGE_REQUEST,
@@ -224,6 +228,107 @@ const MAKE_WHOLE_RESPONSE: &str = r##"{
     "price": {"type": "number", "description": "Per 100 face, floored at first call entry's price"},
     "discount_rate": {"type": "number", "description": "treasury_rate + spread/10000"},
     "spread_bps": {"type": "number"}
+  }
+}"##;
+
+const YAS_REQUEST: &str = r##"{
+  "title": "YasRequest",
+  "description": "One-call yield & spread analysis (Bloomberg-YAS style). References may be numeric handles or registered names (CUSIP/ISIN/curve name).",
+  "type": "object",
+  "required": ["bond","settlement","mark","curve"],
+  "properties": {
+    "bond": {"type": ["integer","string"], "description": "Fixed-coupon bond handle or ticker"},
+    "settlement": {"type": "string", "format": "date"},
+    "mark": {"$ref": "#/definitions/Mark"},
+    "curve": {"type": ["integer","string"], "description": "Spot/discount curve (Z-spread; G-spread too unless govt_curve set)"},
+    "govt_curve": {"type": ["integer","string","null"], "description": "Government curve for G/benchmark spreads"},
+    "swap_curve": {"type": ["integer","string","null"], "description": "Swap curve for I-spread"},
+    "quote_frequency": {"$ref": "#/definitions/Frequency"}
+  }
+}"##;
+
+const YAS_RESPONSE: &str = r##"{
+  "title": "YasResponse",
+  "description": "Yields in percent, spreads in basis points, prices/amounts per 100 face.",
+  "type": "object",
+  "required": ["clean_price","dirty_price","accrued","accrued_days","ytm_pct","current_yield_pct","simple_yield_pct","g_spread_bps","z_spread_bps","benchmark_spread_bps","benchmark_tenor","modified_duration","macaulay_duration","convexity","dv01_per_100","principal_amount","accrued_amount","settlement_amount"],
+  "properties": {
+    "clean_price": {"type": "number"},
+    "dirty_price": {"type": "number"},
+    "accrued": {"type": "number"},
+    "accrued_days": {"type": "integer"},
+    "ytm_pct": {"type": "number"},
+    "current_yield_pct": {"type": "number"},
+    "simple_yield_pct": {"type": "number"},
+    "money_market_yield_pct": {"type": ["number","null"]},
+    "g_spread_bps": {"type": "number"},
+    "z_spread_bps": {"type": "number"},
+    "benchmark_spread_bps": {"type": "number"},
+    "benchmark_tenor": {"type": "string"},
+    "asw_spread_bps": {"type": ["number","null"]},
+    "oas_bps": {"type": ["number","null"]},
+    "modified_duration": {"type": "number"},
+    "macaulay_duration": {"type": "number"},
+    "convexity": {"type": "number"},
+    "dv01_per_100": {"type": "number"},
+    "principal_amount": {"type": "number"},
+    "accrued_amount": {"type": "number"},
+    "settlement_amount": {"type": "number"}
+  }
+}"##;
+
+const SCENARIO_REQUEST: &str = r##"{
+  "title": "ScenarioRequest",
+  "description": "Run N curve scenarios against one bond in a single call; each reprices holding the mark-implied Z-spread fixed. References may be numeric handles or registered names.",
+  "type": "object",
+  "required": ["bond","curve","settlement","mark","scenarios"],
+  "properties": {
+    "bond": {"type": ["integer","string"]},
+    "curve": {"type": ["integer","string"]},
+    "settlement": {"type": "string", "format": "date"},
+    "mark": {"$ref": "#/definitions/Mark"},
+    "scenarios": {"type": "array", "items": {
+      "type": "object",
+      "required": ["bumps"],
+      "properties": {
+        "name": {"type": ["string","null"]},
+        "bumps": {"type": "array", "items": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {"enum": ["parallel","steepener","flattener","key_rate","credit_spread"]},
+            "shift_bps": {"type": "number"},
+            "short_shift_bps": {"type": "number"},
+            "long_shift_bps": {"type": "number"},
+            "pivot_tenor": {"type": "number", "description": "Years; default 5"},
+            "tenor": {"type": "number", "description": "key_rate only"}
+          }
+        }}
+      }
+    }},
+    "quote_frequency": {"$ref": "#/definitions/Frequency"}
+  }
+}"##;
+
+const SCENARIO_RESPONSE: &str = r##"{
+  "title": "ScenarioResponse",
+  "type": "object",
+  "required": ["base_clean","base_ytm_decimal","z_spread_bps","rows"],
+  "properties": {
+    "base_clean": {"type": "number"},
+    "base_ytm_decimal": {"type": "number"},
+    "z_spread_bps": {"type": "number"},
+    "rows": {"type": "array", "items": {
+      "type": "object",
+      "required": ["name","clean_price","dirty_price","delta_clean","ytm_decimal"],
+      "properties": {
+        "name": {"type": "string"},
+        "clean_price": {"type": "number"},
+        "dirty_price": {"type": "number"},
+        "delta_clean": {"type": "number", "description": "vs the base mark"},
+        "ytm_decimal": {"type": "number"}
+      }
+    }}
   }
 }"##;
 

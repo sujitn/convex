@@ -8,22 +8,14 @@ using ExcelDna.Integration;
 
 namespace Convex.Excel
 {
-    // The entire user-facing UDF surface.
+    // The entire user-facing UDF surface. Adding a new bond shape or spread
+    // family doesn't touch this file — the Rust DTO enum picks it up.
     //
-    // Stateful (handles): CX.BOND, CX.BOND.CALLABLE, CX.BOND.FRN, CX.BOND.ZERO,
-    //                     CX.CURVE, CX.CURVE.BOOTSTRAP, CX.RELEASE, CX.OBJECTS, CX.CLEAR.
-    // Stateless:          CX.PRICE, CX.RISK, CX.SPREAD, CX.CASHFLOWS, CX.CURVE.QUERY.
-    // Diagnostic:         CX.SCHEMA, CX.MARK, CX.VERSION.
-    //
-    // Adding a new bond shape, spread family, or pricing convention does not
-    // touch this file. The Rust DTO enum picks it up; the existing UDFs route
-    // it.
-    //
-    // Threading: the stateless analytics (PRICE/RISK/SPREAD/CASHFLOWS/MW/
-    // CURVE.QUERY) are IsThreadSafe so Excel's multi-threaded recalc runs them in
-    // parallel — the native registry guards reads with a lock and clones objects
-    // out before computing. Builders mutate the registry and use xlfCaller, so
-    // they stay on the main calc thread.
+    // Threading: stateless analytics are IsThreadSafe (the native registry
+    // clones objects out under a short read lock); builders mutate the
+    // registry and use xlfCaller, so they stay on the main calc thread.
+    // .LIVE variants go through ExcelAsyncUtil.Observe (RTD) and must NOT
+    // be IsThreadSafe.
     public static class Functions
     {
         // ===================================================================
@@ -66,10 +58,13 @@ namespace Convex.Excel
             [ExcelArgument("Make-whole spread, basis points (only for make_whole)")] object makeWholeSpreadBps) =>
             Safe(() =>
             {
-                var dates = ExtractDates(callDates);
-                var prices = CxParse.AsDoubles(callPrices);
-                if (dates.Length == 0 || dates.Length != prices.Length)
-                    throw new ConvexException("call dates and prices must be parallel non-empty ranges");
+                var dates = CxParse.AsDatesStrict(callDates, "call dates");
+                var prices = CxParse.AsDoublesStrict(callPrices, "call prices");
+                if (dates.Length == 0)
+                    throw new ConvexException("call dates range is empty");
+                if (dates.Length != prices.Length)
+                    throw new ConvexException(
+                        $"call dates ({dates.Length}) and call prices ({prices.Length}) must be the same length");
                 var schedule = new JArray();
                 for (int i = 0; i < dates.Length; i++)
                     schedule.Add(new JObject
@@ -141,10 +136,13 @@ namespace Convex.Excel
             [ExcelArgument("Compounding (default Continuous)")] object compounding) =>
             Safe(() =>
             {
-                var t = CxParse.AsDoubles(tenors);
-                var v = CxParse.AsDoubles(values);
-                if (t.Length == 0 || t.Length != v.Length)
-                    throw new ConvexException("tenors and values must be parallel non-empty ranges");
+                var t = CxParse.AsDoublesStrict(tenors, "tenors");
+                var v = CxParse.AsDoublesStrict(values, "values");
+                if (t.Length == 0)
+                    throw new ConvexException("tenors range is empty");
+                if (t.Length != v.Length)
+                    throw new ConvexException(
+                        $"tenors ({t.Length}) and values ({v.Length}) must be the same length");
                 return CxParse.FormatHandle(Cx.BuildCurve(CurveSpecs.Discrete(
                     AsString(name, ""), refDate,
                     ToJsonArray(t), ToJsonArray(v),
@@ -168,11 +166,14 @@ namespace Convex.Excel
             [ExcelArgument("Day count, default Act360")] object dayCount) =>
             Safe(() =>
             {
-                var ks = ExtractStrings(kinds);
-                var ts = CxParse.AsDoubles(tenors);
-                var rs = CxParse.AsDoubles(rates);
-                if (ks.Length == 0 || ks.Length != ts.Length || ts.Length != rs.Length)
-                    throw new ConvexException("kinds, tenors, and rates must be parallel non-empty ranges");
+                var ks = CxParse.AsStringsStrict(kinds, "kinds");
+                var ts = CxParse.AsDoublesStrict(tenors, "tenors");
+                var rs = CxParse.AsDoublesStrict(rates, "rates");
+                if (ks.Length == 0)
+                    throw new ConvexException("kinds range is empty");
+                if (ks.Length != ts.Length || ts.Length != rs.Length)
+                    throw new ConvexException(
+                        $"kinds ({ks.Length}), tenors ({ts.Length}) and rates ({rs.Length}) must be the same length");
                 var insts = new JArray();
                 for (int i = 0; i < ks.Length; i++)
                     insts.Add(new JObject
@@ -197,100 +198,176 @@ namespace Convex.Excel
             Description = "Prices a bond against a trader mark and returns clean/dirty/accrued/ytm.",
             Category = "Convex Pricing", IsThreadSafe = true)]
         public static object CxPrice(
-            [ExcelArgument("Bond handle")] object bondRef,
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
             [ExcelArgument("Settlement date")] DateTime settlement,
             [ExcelArgument("Mark: 99.5C, 99.5D, 4.65%, 4.65%@SA, +125bps@USD.SOFR, 99-16+")] object mark,
-            [ExcelArgument("Curve handle (only required for spread marks)")] object curveRef,
+            [ExcelArgument("Curve handle or name (only required for spread marks)")] object curveRef,
             [ExcelArgument("Quote frequency for derived YTM, default SA")] object quoteFrequency,
             [ExcelArgument("Field: clean (default) | dirty | accrued | ytm | z_spread | grid")] object field) =>
             Safe(() =>
             {
-                var req = new JObject
-                {
-                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
-                    ["settlement"] = CxParse.AsIsoDate(settlement),
-                    ["mark"] = CxParse.AsMark(mark),
-                    ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
-                };
-                var curveHandle = CxParse.AsHandleOrNull(curveRef);
-                if (curveHandle is ulong c) req["curve"] = c;
-
+                var req = BuildPriceRequest(bondRef, settlement, mark, curveRef, quoteFrequency);
                 var result = Cx.Price(req);
                 return SelectPriceField(result, AsString(field, "clean").ToLowerInvariant());
             });
+
+        [ExcelFunction(Name = "CX.PRICE.LIVE",
+            Description = "Live CX.PRICE: the cell updates automatically whenever any referenced " +
+                          "bond or curve is rebuilt (RTD subscription, like BDP).",
+            Category = "Convex Pricing")]
+        public static object CxPriceLive(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Settlement date")] DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Curve handle or name (only required for spread marks)")] object curveRef,
+            [ExcelArgument("Quote frequency for derived YTM, default SA")] object quoteFrequency,
+            [ExcelArgument("Field: clean (default) | dirty | accrued | ytm | z_spread | grid")] object field) =>
+            Safe(() =>
+            {
+                var req = BuildPriceRequest(bondRef, settlement, mark, curveRef, quoteFrequency);
+                var f = AsString(field, "clean").ToLowerInvariant();
+                return CxLive.Observe("price", req, env => SelectPriceField(env, f));
+            });
+
+        private static JObject BuildPriceRequest(
+            object bondRef, DateTime settlement, object mark, object curveRef, object quoteFrequency)
+        {
+            var req = new JObject
+            {
+                ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                ["settlement"] = CxParse.AsIsoDate(settlement),
+                ["mark"] = CxParse.AsMark(mark),
+                ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
+            };
+            var curve = CxParse.AsHandleRefOrNull(curveRef);
+            if (curve != null) req["curve"] = curve;
+            return req;
+        }
 
         [ExcelFunction(Name = "CX.RISK",
             Description = "Returns risk metrics. Default returns a 2D grid; pass a metric name for a scalar.",
             Category = "Convex Risk", IsThreadSafe = true)]
         public static object CxRisk(
-            object bondRef,
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
             DateTime settlement,
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
-            [ExcelArgument("Curve handle (spread marks + KRD only)")] object curveRef,
+            [ExcelArgument("Curve handle or name (spread marks + KRD only)")] object curveRef,
             [ExcelArgument("Metric: grid (default) | mod_dur | mac_dur | convexity | dv01 | spread_dur | krd")] object metric,
             [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
             [ExcelArgument("Key-rate tenors (years) for KRD; range or csv string")] object keyRateTenors) =>
             Safe(() =>
             {
-                var req = new JObject
-                {
-                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
-                    ["settlement"] = CxParse.AsIsoDate(settlement),
-                    ["mark"] = CxParse.AsMark(mark),
-                    ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
-                };
-                var curveHandle = CxParse.AsHandleOrNull(curveRef);
-                if (curveHandle is ulong c) req["curve"] = c;
-
-                var tenors = ParseTenors(keyRateTenors);
-                if (tenors.Length > 0)
-                {
-                    var arr = new JArray();
-                    foreach (var t in tenors) arr.Add(t);
-                    req["key_rate_tenors"] = arr;
-                }
-
+                var req = BuildRiskRequest(bondRef, settlement, mark, curveRef, quoteFrequency, keyRateTenors);
                 var result = Cx.Risk(req);
                 return SelectRiskField(result, AsString(metric, "grid").ToLowerInvariant());
             });
+
+        [ExcelFunction(Name = "CX.RISK.LIVE",
+            Description = "Live CX.RISK: updates automatically when referenced objects change (RTD).",
+            Category = "Convex Risk")]
+        public static object CxRiskLive(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Curve handle or name (spread marks + KRD only)")] object curveRef,
+            [ExcelArgument("Metric: grid (default) | mod_dur | mac_dur | convexity | dv01 | spread_dur | krd")] object metric,
+            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
+            [ExcelArgument("Key-rate tenors (years) for KRD; range or csv string")] object keyRateTenors) =>
+            Safe(() =>
+            {
+                var req = BuildRiskRequest(bondRef, settlement, mark, curveRef, quoteFrequency, keyRateTenors);
+                var m = AsString(metric, "grid").ToLowerInvariant();
+                return CxLive.Observe("risk", req, env => SelectRiskField(env, m));
+            });
+
+        private static JObject BuildRiskRequest(
+            object bondRef, DateTime settlement, object mark, object curveRef,
+            object quoteFrequency, object keyRateTenors)
+        {
+            var req = new JObject
+            {
+                ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                ["settlement"] = CxParse.AsIsoDate(settlement),
+                ["mark"] = CxParse.AsMark(mark),
+                ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
+            };
+            var curve = CxParse.AsHandleRefOrNull(curveRef);
+            if (curve != null) req["curve"] = curve;
+
+            var tenors = ParseTenors(keyRateTenors);
+            if (tenors.Length > 0)
+            {
+                var arr = new JArray();
+                foreach (var t in tenors) arr.Add(t);
+                req["key_rate_tenors"] = arr;
+            }
+            return req;
+        }
 
         [ExcelFunction(Name = "CX.SPREAD",
             Description = "Computes a spread (Z, G, I, ASW, OAS, DM, …) at the given mark.",
             Category = "Convex Spreads", IsThreadSafe = true)]
         public static object CxSpread(
-            object bondRef,
-            object curveRef,
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Curve handle or name")] object curveRef,
             DateTime settlement,
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Spread: Z (default) | G | I | OAS | DM | ASW | ASW_PROC | CREDIT")] object spreadType,
-            [ExcelArgument("Optional volatility for OAS, default 1%")] object volatility,
+            [ExcelArgument("OAS volatility in percent (1 = 1% = 0.01 decimal vol); default 1")] object volatility,
             [ExcelArgument("Field: bps (default) | grid")] object field) =>
             Safe(() =>
             {
-                var req = new JObject
-                {
-                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
-                    ["curve"] = CxParse.AsHandle(curveRef, "curve"),
-                    ["settlement"] = CxParse.AsIsoDate(settlement),
-                    ["mark"] = CxParse.AsMark(mark),
-                    ["spread_type"] = CxParse.AsSpreadType(AsString(spreadType, "Z")),
-                };
-                if (!IsBlank(volatility))
-                    req["params"] = new JObject { ["volatility"] = AsDouble(volatility, 0.01) / 100.0 };
-
+                var req = BuildSpreadRequest(bondRef, curveRef, settlement, mark, spreadType, volatility);
                 var result = Cx.Spread(req);
                 return SelectSpreadField(result, AsString(field, "bps").ToLowerInvariant());
             });
 
+        [ExcelFunction(Name = "CX.SPREAD.LIVE",
+            Description = "Live CX.SPREAD: updates automatically when referenced objects change (RTD).",
+            Category = "Convex Spreads")]
+        public static object CxSpreadLive(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Curve handle or name")] object curveRef,
+            DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Spread: Z (default) | G | I | OAS | DM | ASW | ASW_PROC | CREDIT")] object spreadType,
+            [ExcelArgument("OAS volatility in percent (1 = 1% = 0.01 decimal vol); default 1")] object volatility,
+            [ExcelArgument("Field: bps (default) | grid")] object field) =>
+            Safe(() =>
+            {
+                var req = BuildSpreadRequest(bondRef, curveRef, settlement, mark, spreadType, volatility);
+                var f = AsString(field, "bps").ToLowerInvariant();
+                return CxLive.Observe("spread", req, env => SelectSpreadField(env, f));
+            });
+
+        private static JObject BuildSpreadRequest(
+            object bondRef, object curveRef, DateTime settlement, object mark,
+            object spreadType, object volatility)
+        {
+            var req = new JObject
+            {
+                ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
+                ["settlement"] = CxParse.AsIsoDate(settlement),
+                ["mark"] = CxParse.AsMark(mark),
+                ["spread_type"] = CxParse.AsSpreadType(AsString(spreadType, "Z")),
+            };
+            if (!IsBlank(volatility))
+                req["params"] = new JObject { ["volatility"] = AsDouble(volatility, 0.01) / 100.0 };
+            return req;
+        }
+
         [ExcelFunction(Name = "CX.CASHFLOWS",
             Description = "Bond cashflow schedule on or after settlement.",
             Category = "Convex Bonds", IsThreadSafe = true)]
-        public static object CxCashflows(object bondRef, DateTime settlement) =>
+        public static object CxCashflows(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            DateTime settlement) =>
             Safe(() =>
             {
                 var req = new JObject
                 {
-                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
+                    ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
                     ["settlement"] = CxParse.AsIsoDate(settlement),
                 };
                 var result = Cx.Cashflows(req);
@@ -310,7 +387,7 @@ namespace Convex.Excel
             {
                 var req = new JObject
                 {
-                    ["bond"] = CxParse.AsHandle(bondRef, "bond"),
+                    ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
                     ["call_date"] = CxParse.AsIsoDate(callDate),
                     ["treasury_rate"] = treasuryRate,
                 };
@@ -321,15 +398,107 @@ namespace Convex.Excel
                     "price" => (double?)result["price"] ?? throw new ConvexException("missing price"),
                     "discount_rate" => (double?)result["discount_rate"] ?? throw new ConvexException("missing discount_rate"),
                     "spread_bps" => (double?)result["spread_bps"] ?? throw new ConvexException("missing spread_bps"),
-                    _ => throw new ConvexException($"unknown MW field: {f}"),
+                    _ => throw new ConvexException($"unknown MW field: {f}", ErrorCodes.UnknownToken),
                 };
             });
+
+        [ExcelFunction(Name = "CX.YAS",
+            Description = "One-call yield & spread analysis (Bloomberg-YAS style): every yield convention, " +
+                          "G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice as one spilled grid.",
+            Category = "Convex Pricing", IsThreadSafe = true)]
+        public static object CxYas(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Settlement date")] DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Spot/discount curve handle or name")] object curveRef,
+            [ExcelArgument("Government curve for G-spread (optional; defaults to the spot curve)")] object govtCurveRef,
+            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
+            [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef) =>
+            Safe(() =>
+            {
+                var req = BuildYasRequest(bondRef, settlement, mark, curveRef, govtCurveRef,
+                    quoteFrequency, swapCurveRef);
+                return YasToGrid(Cx.Yas(req));
+            });
+
+        [ExcelFunction(Name = "CX.YAS.LIVE",
+            Description = "Live CX.YAS: the analysis grid refreshes automatically when referenced " +
+                          "objects change (RTD).",
+            Category = "Convex Pricing")]
+        public static object CxYasLive(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Settlement date")] DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Spot/discount curve handle or name")] object curveRef,
+            [ExcelArgument("Government curve for G-spread (optional; defaults to the spot curve)")] object govtCurveRef,
+            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
+            [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef) =>
+            Safe(() =>
+            {
+                var req = BuildYasRequest(bondRef, settlement, mark, curveRef, govtCurveRef,
+                    quoteFrequency, swapCurveRef);
+                return CxLive.Observe("yas", req, YasToGrid);
+            });
+
+        private static JObject BuildYasRequest(
+            object bondRef, DateTime settlement, object mark, object curveRef,
+            object govtCurveRef, object quoteFrequency, object swapCurveRef)
+        {
+            var req = new JObject
+            {
+                ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                ["settlement"] = CxParse.AsIsoDate(settlement),
+                ["mark"] = CxParse.AsMark(mark),
+                ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
+                ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
+            };
+            var govt = CxParse.AsHandleRefOrNull(govtCurveRef);
+            if (govt != null) req["govt_curve"] = govt;
+            var swap = CxParse.AsHandleRefOrNull(swapCurveRef);
+            if (swap != null) req["swap_curve"] = swap;
+            return req;
+        }
+
+        private static object YasToGrid(JToken r)
+        {
+                var rows = new System.Collections.Generic.List<(string, object)>
+                {
+                    ("Clean", (double?)r["clean_price"] ?? double.NaN),
+                    ("Dirty", (double?)r["dirty_price"] ?? double.NaN),
+                    ("Accrued", (double?)r["accrued"] ?? double.NaN),
+                    ("Accrued Days", (double?)r["accrued_days"] ?? double.NaN),
+                    ("YTM (%)", (double?)r["ytm_pct"] ?? double.NaN),
+                    ("Current Yield (%)", (double?)r["current_yield_pct"] ?? double.NaN),
+                    ("Simple Yield (%)", (double?)r["simple_yield_pct"] ?? double.NaN),
+                };
+                var mmy = (double?)r["money_market_yield_pct"];
+                if (mmy.HasValue) rows.Add(("MM Yield (%)", mmy.Value));
+                rows.Add(("G-Spread (bps)", (double?)r["g_spread_bps"] ?? double.NaN));
+                rows.Add(("Z-Spread (bps)", (double?)r["z_spread_bps"] ?? double.NaN));
+                rows.Add(($"Benchmark {(string?)r["benchmark_tenor"] ?? "?"} (bps)",
+                    (double?)r["benchmark_spread_bps"] ?? double.NaN));
+                var asw = (double?)r["asw_spread_bps"];
+                if (asw.HasValue) rows.Add(("ASW (bps)", asw.Value));
+                var oas = (double?)r["oas_bps"];
+                if (oas.HasValue) rows.Add(("OAS (bps)", oas.Value));
+                rows.Add(("Modified Duration", (double?)r["modified_duration"] ?? double.NaN));
+                rows.Add(("Macaulay Duration", (double?)r["macaulay_duration"] ?? double.NaN));
+                rows.Add(("Convexity", (double?)r["convexity"] ?? double.NaN));
+                rows.Add(("DV01", (double?)r["dv01_per_100"] ?? double.NaN));
+                rows.Add(("Principal", (double?)r["principal_amount"] ?? double.NaN));
+                rows.Add(("Accrued Amt", (double?)r["accrued_amount"] ?? double.NaN));
+                rows.Add(("Settlement Total", (double?)r["settlement_amount"] ?? double.NaN));
+
+                var g = new object[rows.Count, 2];
+                for (int i = 0; i < rows.Count; i++) { g[i, 0] = rows[i].Item1; g[i, 1] = rows[i].Item2; }
+                return g;
+        }
 
         [ExcelFunction(Name = "CX.CURVE.QUERY",
             Description = "Read a curve point: zero rate (default), discount factor, or forward rate.",
             Category = "Convex Curves", IsThreadSafe = true)]
         public static object CxCurveQuery(
-            object curveRef,
+            [ExcelArgument("Curve handle or name")] object curveRef,
             [ExcelArgument("Tenor in years")] double tenor,
             [ExcelArgument("Query: zero (default) | df | forward")] object query,
             [ExcelArgument("End tenor (forward only)")] object tenorEnd) =>
@@ -337,13 +506,129 @@ namespace Convex.Excel
             {
                 var req = new JObject
                 {
-                    ["curve"] = CxParse.AsHandle(curveRef, "curve"),
+                    ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
                     ["query"] = AsString(query, "zero").ToLowerInvariant(),
                     ["tenor"] = tenor,
                 };
                 if (!IsBlank(tenorEnd)) req["tenor_end"] = AsDouble(tenorEnd, tenor + 0.25);
                 var result = Cx.CurveQuery(req);
                 return (double?)result["value"] ?? throw new ConvexException("missing value");
+            });
+
+        [ExcelFunction(Name = "CX.SCENARIO",
+            Description = "Curve scenario ladder in one call: reprices the bond under each shift " +
+                          "holding the mark-implied Z-spread fixed. Spills one row per scenario.",
+            Category = "Convex Risk", IsThreadSafe = true)]
+        public static object CxScenario(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Curve handle or name")] object curveRef,
+            [ExcelArgument("Settlement date")] DateTime settlement,
+            [ExcelArgument("Base mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Shifts in bps (range or csv), one scenario per value")] object shifts,
+            [ExcelArgument("Kind: parallel (default) | steepener | flattener | key_rate | credit")] object kind,
+            [ExcelArgument("Pivot tenor (steepener/flattener) or key tenor (key_rate), years; default 5")] object pivotOrTenor,
+            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency) =>
+            Safe(() =>
+            {
+                var shiftValues = ParseShifts(shifts, "shifts");
+                if (shiftValues.Length == 0)
+                    throw new ConvexException("shifts: at least one bps value is required");
+
+                var req = new JObject
+                {
+                    ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                    ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
+                    ["settlement"] = CxParse.AsIsoDate(settlement),
+                    ["mark"] = CxParse.AsMark(mark),
+                    ["scenarios"] = BuildScenarioLadder(
+                        shiftValues,
+                        AsString(kind, "parallel").ToLowerInvariant(),
+                        AsDouble(pivotOrTenor, 5.0)),
+                    ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
+                };
+
+                var result = Cx.Scenario(req);
+                var rows = result["rows"] as JArray ?? new JArray();
+                var g = new object[rows.Count + 1, 5];
+                g[0, 0] = "Scenario"; g[0, 1] = "Clean"; g[0, 2] = "Dirty";
+                g[0, 3] = "ΔClean"; g[0, 4] = "YTM (%)";
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var row = rows[i];
+                    g[i + 1, 0] = (string?)row["name"] ?? "";
+                    g[i + 1, 1] = (double?)row["clean_price"] ?? double.NaN;
+                    g[i + 1, 2] = (double?)row["dirty_price"] ?? double.NaN;
+                    g[i + 1, 3] = (double?)row["delta_clean"] ?? double.NaN;
+                    g[i + 1, 4] = ((double?)row["ytm_decimal"] ?? double.NaN) * 100.0;
+                }
+                return g;
+            });
+
+        // ===================================================================
+        // Hedge advisor
+        // ===================================================================
+
+        [ExcelFunction(Name = "CX.RISKPROFILE",
+            Description = "Builds a position risk profile (DV01, KRD buckets, market value) and returns " +
+                          "its JSON — feed it to CX.HEDGE.",
+            Category = "Convex Risk", IsThreadSafe = true)]
+        public static object CxRiskProfile(
+            [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
+            [ExcelArgument("Discount curve handle or name")] object curveRef,
+            [ExcelArgument("Settlement date")] DateTime settlement,
+            [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
+            [ExcelArgument("Position face amount, e.g. 10000000")] double notionalFace,
+            [ExcelArgument("Short-rate vol, decimal (callables only)")] object volatility) =>
+            Safe(() =>
+            {
+                var req = new JObject
+                {
+                    ["bond"] = CxParse.AsHandleRef(bondRef, "bond"),
+                    ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
+                    ["settlement"] = CxParse.AsIsoDate(settlement),
+                    ["mark"] = CxParse.AsMark(mark),
+                    ["notional_face"] = notionalFace,
+                };
+                if (!IsBlank(volatility)) req["volatility"] = AsDouble(volatility, 0.01);
+                return Cx.RiskProfile(req).ToString(Formatting.None);
+            });
+
+        [ExcelFunction(Name = "CX.HEDGE",
+            Description = "Proposes a hedge for a CX.RISKPROFILE position. Returns a grid of trades + " +
+                          "residual DV01 + cost.",
+            Category = "Convex Risk", IsThreadSafe = true)]
+        public static object CxHedge(
+            [ExcelArgument("Strategy: duration_futures | barbell_futures | cash_bond_pair | interest_rate_swap | key_rate_futures")] string strategy,
+            [ExcelArgument("Position profile JSON from CX.RISKPROFILE")] string profileJson,
+            [ExcelArgument("Discount curve handle or name")] object curveRef,
+            [ExcelArgument("Settlement date")] DateTime settlement) =>
+            Safe(() =>
+            {
+                var req = new JObject
+                {
+                    ["strategy"] = strategy.Trim().ToLowerInvariant(),
+                    ["position"] = JToken.Parse(profileJson),
+                    ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
+                    ["settlement"] = CxParse.AsIsoDate(settlement),
+                };
+                var r = Cx.Hedge(req);
+                var trades = r["trades"] as JArray ?? new JArray();
+                var g = new object[trades.Count + 3, 3];
+                g[0, 0] = "Trade"; g[0, 1] = "Quantity"; g[0, 2] = "DV01";
+                for (int i = 0; i < trades.Count; i++)
+                {
+                    var t = trades[i];
+                    g[i + 1, 0] = t?["instrument"]?.ToString(Formatting.None) ?? "?";
+                    g[i + 1, 1] = (double?)t?["quantity"] ?? double.NaN;
+                    g[i + 1, 2] = (double?)t?["dv01"] ?? double.NaN;
+                }
+                g[trades.Count + 1, 0] = "Residual DV01";
+                g[trades.Count + 1, 1] = (double?)r["residual"]?["residual_dv01"] ?? double.NaN;
+                g[trades.Count + 1, 2] = "";
+                g[trades.Count + 2, 0] = "Cost (bps)";
+                g[trades.Count + 2, 1] = (double?)r["cost_bps"] ?? double.NaN;
+                g[trades.Count + 2, 2] = "";
+                return g;
             });
 
         // ===================================================================
@@ -375,22 +660,63 @@ namespace Convex.Excel
 
         [ExcelFunction(Name = "CX.CLEAR", Description = "Releases all registered objects.",
             Category = "Convex Utilities")]
-        public static string CxClear() { try { Cx.ClearAll(); return "OK"; } catch (Exception ex) { return "ERROR: " + ex.Message; } }
+        public static object CxClear() =>
+            Safe(() => { Cx.ClearAll(); CxErrorStore.Clear(); return "OK"; });
 
         [ExcelFunction(Name = "CX.DESCRIBE", Description = "JSON description of a registered object.",
             Category = "Convex Utilities")]
         public static object CxDescribe(object handle) =>
             Safe(() => Cx.Describe(CxParse.AsHandle(handle, "handle")));
 
+        [ExcelFunction(Name = "CX.LASTERROR",
+            Description = "Detail behind a CX.* error value. Point it at the failing cell: =CX.LASTERROR(B2).",
+            Category = "Convex Utilities", IsVolatile = true, IsMacroType = true)]
+        public static object CxLastError(
+            [ExcelArgument(AllowReference = true, Description = "Reference to the failing cell")] object cellRef)
+        {
+            if (cellRef is ExcelReference r)
+            {
+                var d = CxErrorStore.Lookup(CxCaller.StableKey(r));
+                return d == null
+                    ? "(no error recorded for that cell)"
+                    : $"[{d.Code}] {d.Message}";
+            }
+            return "(pass a cell reference, e.g. =CX.LASTERROR(B2))";
+        }
+
+        [ExcelFunction(Name = "CX.DIAG",
+            Description = "Add-in diagnostics: native library status, version, object count.",
+            Category = "Convex Utilities", IsVolatile = true)]
+        public static object CxDiag()
+        {
+            string version;
+            try { version = Cx.Version(); }
+            catch (Exception ex) { version = "unavailable: " + ex.Message; }
+            int objects;
+            try { objects = Cx.ObjectCount(); }
+            catch { objects = -1; }
+            var grid = new object[4, 2];
+            grid[0, 0] = "Native load";   grid[0, 1] = NativeLoader.GetLoadError();
+            grid[1, 0] = "Engine";        grid[1, 1] = version;
+            grid[2, 0] = "Objects";       grid[2, 1] = objects;
+            grid[3, 0] = "Add-in";        grid[3, 1] = typeof(Functions).Assembly.GetName().Version?.ToString() ?? "?";
+            return grid;
+        }
+
         // ===================================================================
         // Helpers
         // ===================================================================
 
+        // Failures become native Excel errors (see ErrorMapper) with the full
+        // message recorded per cell for =CX.LASTERROR / the ribbon error log.
         private static object Safe(Func<object> body)
         {
             try { return body(); }
-            catch (ConvexException ex) { return "#ERROR: " + ex.Message; }
-            catch (Exception ex) { return "#ERROR: " + ex.Message; }
+            catch (Exception ex)
+            {
+                CxErrorStore.Record(ex);
+                return ErrorMapper.ToExcelError(ex);
+            }
         }
 
         private static bool IsBlank(object value) => value is null or ExcelMissing or ExcelEmpty;
@@ -410,42 +736,6 @@ namespace Convex.Excel
                 string s when double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var p) => p,
                 _ => Convert.ToDouble(value, CultureInfo.InvariantCulture),
             };
-        }
-
-        private static DateTime[] ExtractDates(object range)
-        {
-            if (range is double d) return new[] { DateTime.FromOADate(d) };
-            if (range is object[,] grid)
-            {
-                int rows = grid.GetLength(0), cols = grid.GetLength(1);
-                var list = new System.Collections.Generic.List<DateTime>(rows * cols);
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < cols; c++)
-                    {
-                        var cell = grid[r, c];
-                        if (cell is double dd) list.Add(DateTime.FromOADate(dd));
-                        else if (cell is DateTime dt) list.Add(dt);
-                        else if (cell is string ss && DateTime.TryParse(ss, out var parsed)) list.Add(parsed);
-                    }
-                return list.ToArray();
-            }
-            return Array.Empty<DateTime>();
-        }
-
-        private static string[] ExtractStrings(object range)
-        {
-            if (range is string s) return new[] { s };
-            if (range is object[,] grid)
-            {
-                int rows = grid.GetLength(0), cols = grid.GetLength(1);
-                var list = new System.Collections.Generic.List<string>(rows * cols);
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < cols; c++)
-                        if (grid[r, c] is string ss) list.Add(ss);
-                        else if (grid[r, c] is not null) list.Add(grid[r, c]!.ToString()!);
-                return list.ToArray();
-            }
-            return Array.Empty<string>();
         }
 
         private static JArray ToJsonArray(double[] values)
@@ -478,21 +768,71 @@ namespace Convex.Excel
                     grid[3, 0] = "YTM (%)";  grid[3, 1] = ((double?)result["ytm_decimal"] ?? 0.0) * 100.0;
                     grid[4, 0] = "Z (bps)";  grid[4, 1] = (object?)((double?)result["z_spread_bps"]) ?? "n/a";
                     return grid;
-                default: throw new ConvexException("unknown CX.PRICE field " + field);
+                default: throw new ConvexException("unknown CX.PRICE field " + field, ErrorCodes.UnknownToken);
             }
         }
 
-        private static double[] ParseTenors(object cell)
+        private static double[] ParseTenors(object cell) => ParseShifts(cell, "key-rate tenors");
+
+        // Range of numbers, or a csv/space-separated string of them.
+        private static double[] ParseShifts(object cell, string fieldName)
         {
             if (IsBlank(cell)) return Array.Empty<double>();
             if (cell is string s)
             {
                 return s.Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(t =>
-                        double.Parse(t.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture))
+                    .Select(t => double.TryParse(t.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v)
+                        ? v
+                        : throw new ConvexException($"{fieldName}: '{t}' is not a number"))
                     .ToArray();
             }
-            return CxParse.AsDoubles(cell);
+            return CxParse.AsDoublesStrict(cell, fieldName);
+        }
+
+        // One named single-bump scenario per shift; also used by the ribbon
+        // Scenario form.
+        internal static JArray BuildScenarioLadder(double[] shiftsBps, string kind, double pivotOrTenor)
+        {
+            var scenarios = new JArray();
+            foreach (var s in shiftsBps)
+            {
+                JObject bump = kind switch
+                {
+                    "parallel" => new JObject { ["kind"] = "parallel", ["shift_bps"] = s },
+                    "steepener" => new JObject
+                    {
+                        ["kind"] = "steepener",
+                        ["short_shift_bps"] = s,
+                        ["long_shift_bps"] = s,
+                        ["pivot_tenor"] = pivotOrTenor,
+                    },
+                    "flattener" => new JObject
+                    {
+                        ["kind"] = "flattener",
+                        ["short_shift_bps"] = s,
+                        ["long_shift_bps"] = s,
+                        ["pivot_tenor"] = pivotOrTenor,
+                    },
+                    "key_rate" or "krd" => new JObject
+                    {
+                        ["kind"] = "key_rate",
+                        ["tenor"] = pivotOrTenor,
+                        ["shift_bps"] = s,
+                    },
+                    "credit" or "credit_spread" => new JObject
+                    {
+                        ["kind"] = "credit_spread",
+                        ["shift_bps"] = s,
+                    },
+                    _ => throw new ConvexException($"unknown scenario kind {kind}", ErrorCodes.UnknownToken),
+                };
+                scenarios.Add(new JObject
+                {
+                    ["name"] = $"{(s >= 0 ? "+" : "")}{s:0.#}bp {kind}",
+                    ["bumps"] = new JArray { bump },
+                });
+            }
+            return scenarios;
         }
 
         private static object SelectRiskField(JToken result, string metric)
@@ -534,7 +874,7 @@ namespace Convex.Excel
                     grid[2, 0] = "Convexity"; grid[2, 1] = (double?)result["convexity"] ?? double.NaN;
                     grid[3, 0] = "DV01"; grid[3, 1] = (double?)result["dv01"] ?? double.NaN;
                     return grid;
-                default: throw new ConvexException("unknown CX.RISK metric " + metric);
+                default: throw new ConvexException("unknown CX.RISK metric " + metric, ErrorCodes.UnknownToken);
             }
         }
 
@@ -561,7 +901,7 @@ namespace Convex.Excel
                     var g = new object[rows.Count, 2];
                     for (int i = 0; i < rows.Count; i++) { g[i, 0] = rows[i].Item1; g[i, 1] = rows[i].Item2; }
                     return g;
-                default: throw new ConvexException("unknown CX.SPREAD field " + field);
+                default: throw new ConvexException("unknown CX.SPREAD field " + field, ErrorCodes.UnknownToken);
             }
         }
 

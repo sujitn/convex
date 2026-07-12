@@ -56,6 +56,20 @@ namespace Convex.Excel
         private static extern IntPtr convex_make_whole([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
 
         [DllImport(Dll)]
+        private static extern IntPtr convex_yas([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        [DllImport(Dll)]
+        private static extern IntPtr convex_scenario([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        [DllImport(Dll)]
+        private static extern IntPtr convex_risk_profile([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        // convex_compare has no Excel surface yet (multi-document input —
+        // a form job, not a cell one); P/Invoke it when that form exists.
+        [DllImport(Dll)]
+        private static extern IntPtr convex_hedge([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        [DllImport(Dll)]
         private static extern IntPtr convex_schema([MarshalAs(UnmanagedType.LPUTF8Str)] string typeName);
 
         [DllImport(Dll)]
@@ -69,6 +83,9 @@ namespace Convex.Excel
 
         [DllImport(Dll)]
         private static extern void convex_string_free(IntPtr s);
+
+        [DllImport(Dll)]
+        private static extern ulong convex_generation();
 
         // ---- Construction --------------------------------------------------
 
@@ -97,23 +114,16 @@ namespace Convex.Excel
         private static void ApplyCallerKey(JObject spec)
         {
             if (spec["registry_key"] != null) return;
-            try
-            {
-                if (XlCall.Excel(XlCall.xlfCaller) is ExcelReference r)
-                {
-                    var sheet = XlCall.Excel(XlCall.xlSheetNm, r) as string ?? "";
-                    spec["registry_key"] = $"{sheet}!R{r.RowFirst}C{r.ColumnFirst}";
-                }
-            }
-            catch
-            {
-                // xlfCaller is only valid during cell calculation; ignore otherwise.
-            }
+            var key = CxCaller.TryGetPrettyKey();
+            if (key != null) spec["registry_key"] = key;
         }
 
         public static void Release(ulong handle) => convex_release(handle);
         public static int ObjectCount() => convex_object_count();
         public static void ClearAll() => convex_clear_all();
+
+        /// Registry mutation counter (stable across idempotent rebuilds).
+        public static ulong Generation() => convex_generation();
 
         public readonly struct ObjectEntry
         {
@@ -144,12 +154,16 @@ namespace Convex.Excel
 
         // ---- Stateless RPCs ------------------------------------------------
 
-        public static JToken Price(JObject request) => Rpc(convex_price, request);
-        public static JToken Risk(JObject request) => Rpc(convex_risk, request);
-        public static JToken Spread(JObject request) => Rpc(convex_spread, request);
-        public static JToken Cashflows(JObject request) => Rpc(convex_cashflows, request);
-        public static JToken CurveQuery(JObject request) => Rpc(convex_curve_query, request);
-        public static JToken MakeWhole(JObject request) => Rpc(convex_make_whole, request);
+        public static JToken Price(JObject request) => Rpc("price", request);
+        public static JToken Risk(JObject request) => Rpc("risk", request);
+        public static JToken Spread(JObject request) => Rpc("spread", request);
+        public static JToken Cashflows(JObject request) => Rpc("cashflows", request);
+        public static JToken CurveQuery(JObject request) => Rpc("curve_query", request);
+        public static JToken MakeWhole(JObject request) => Rpc("make_whole", request);
+        public static JToken Yas(JObject request) => Rpc("yas", request);
+        public static JToken Scenario(JObject request) => Rpc("scenario", request);
+        public static JToken RiskProfile(JObject request) => Rpc("risk_profile", request);
+        public static JToken Hedge(JObject request) => Rpc("hedge", request);
 
         // ---- Introspection -------------------------------------------------
 
@@ -187,20 +201,46 @@ namespace Convex.Excel
 
         private delegate IntPtr RpcFn(string requestJson);
 
-        private static JToken Rpc(RpcFn fn, JObject request)
+        private static readonly Dictionary<string, RpcFn> RpcByVerb = new()
         {
-            string raw = ConsumeString(fn(request.ToString(Formatting.None)));
+            ["price"] = convex_price,
+            ["risk"] = convex_risk,
+            ["spread"] = convex_spread,
+            ["cashflows"] = convex_cashflows,
+            ["curve_query"] = convex_curve_query,
+            ["make_whole"] = convex_make_whole,
+            ["yas"] = convex_yas,
+            ["scenario"] = convex_scenario,
+            ["risk_profile"] = convex_risk_profile,
+            ["hedge"] = convex_hedge,
+        };
+
+        /// Raw (cached) envelope for a verb + request JSON — the same key
+        /// shape CxLive topics use, so live and static cells share compute.
+        internal static string RawRpc(string verb, string requestJson)
+        {
+            if (!RpcByVerb.TryGetValue(verb, out var fn))
+                throw new ConvexException($"unknown RPC verb {verb}");
+            return CxCache.GetOrCompute(verb, requestJson, () => ConsumeString(fn(requestJson)));
+        }
+
+        /// Result token from an `{"ok":...}` envelope; coded throw on error.
+        internal static JToken ParseEnvelope(string raw)
+        {
             var env = JToken.Parse(raw) ?? throw new ConvexException("empty RPC response");
             if ((string?)env["ok"] != "true")
             {
                 var err = env["error"];
-                var code = (string?)err?["code"] ?? "error";
+                var code = (string?)err?["code"] ?? ErrorCodes.InvalidInput;
                 var msg = (string?)err?["message"] ?? "(no message)";
                 var field = (string?)err?["field"];
-                throw new ConvexException(field == null ? $"{code}: {msg}" : $"{code} ({field}): {msg}");
+                throw new ConvexException(field == null ? msg : $"{msg} (field: {field})", code);
             }
             return env["result"]!;
         }
+
+        private static JToken Rpc(string verb, JObject request) =>
+            ParseEnvelope(RawRpc(verb, request.ToString(Formatting.None)));
 
         private static string ConsumeString(IntPtr ptr)
         {
@@ -210,23 +250,35 @@ namespace Convex.Excel
         }
     }
 
+    // `Code` mirrors the FFI envelope codes plus the C#-side "unknown_token";
+    // ErrorMapper turns it into the native Excel error a failing UDF returns.
     internal sealed class ConvexException : Exception
     {
-        public ConvexException(string message) : base(message) { }
+        public string Code { get; }
+
+        public ConvexException(string message, string code = ErrorCodes.InvalidInput)
+            : base(message) => Code = code;
+    }
+
+    internal static class ErrorCodes
+    {
+        public const string InvalidInput = "invalid_input";
+        public const string InvalidHandle = "invalid_handle";
+        public const string Analytics = "analytics";
+        public const string UnknownToken = "unknown_token";
+        public const string Panic = "panic";
     }
 
     // PtrToStringUTF8 only exists on .NET Core+; net472 needs a manual reader.
     internal static class Utf8Helper
     {
-        public static string? PtrToString(IntPtr ptr)
+        public static unsafe string? PtrToString(IntPtr ptr)
         {
             if (ptr == IntPtr.Zero) return null;
+            byte* p = (byte*)ptr;
             int len = 0;
-            while (Marshal.ReadByte(ptr, len) != 0) len++;
-            if (len == 0) return string.Empty;
-            var bytes = new byte[len];
-            Marshal.Copy(ptr, bytes, 0, len);
-            return System.Text.Encoding.UTF8.GetString(bytes);
+            while (p[len] != 0) len++;
+            return len == 0 ? string.Empty : System.Text.Encoding.UTF8.GetString(p, len);
         }
     }
 }

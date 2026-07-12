@@ -197,10 +197,14 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // 1e-4 bp rounding: suppresses solver float noise without the
+        // DV01-scale round-trip price gap that whole-bp rounding caused.
+        let z_spread_bps = (result.root * 10_000.0 * 10_000.0).round() / 10_000.0;
+        // from_f64 (not from_f64_retain): the division is not exactly
+        // representable in binary, and retain would carry that noise into
+        // the Decimal (51.2346000000000001…).
         Ok(Spread::new(
-            Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
+            Decimal::from_f64(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,
         ))
     }
@@ -318,10 +322,14 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // 1e-4 bp rounding: suppresses solver float noise without the
+        // DV01-scale round-trip price gap that whole-bp rounding caused.
+        let z_spread_bps = (result.root * 10_000.0 * 10_000.0).round() / 10_000.0;
+        // from_f64 (not from_f64_retain): the division is not exactly
+        // representable in binary, and retain would carry that noise into
+        // the Decimal (51.2346000000000001…).
         Ok(Spread::new(
-            Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
+            Decimal::from_f64(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,
         ))
     }

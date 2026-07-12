@@ -61,6 +61,8 @@ www/pkg/
 npm-debug.log*
 /excel/Convex.Excel/bin
 /excel/Convex.Excel/obj
+/excel/Convex.Excel.Tests/bin
+/excel/Convex.Excel.Tests/obj
 __pycache__/
 *.pyc
 /data
