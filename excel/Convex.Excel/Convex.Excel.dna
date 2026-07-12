@@ -9,10 +9,8 @@
   <!-- In-grid function tooltips for CX.* UDFs. -->
   <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
 
-  <!-- convex_ffi.dll (Rust engine) ships SIDE-BY-SIDE with the .xll — it is
-       loaded explicitly by NativeLoader at AutoOpen. ExcelDna 1.7's .dna
-       schema has no native-library packing; keep the DLL next to the .xll
-       when deploying. Status: =CX.DIAG(). -->
+  <!-- convex_ffi.dll ships next to the .xll (ExcelDna 1.7 cannot pack native
+       libraries); NativeLoader binds it at AutoOpen. Status: =CX.DIAG(). -->
 
 
   <CustomUI>

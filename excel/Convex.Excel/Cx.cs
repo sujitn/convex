@@ -64,9 +64,8 @@ namespace Convex.Excel
         [DllImport(Dll)]
         private static extern IntPtr convex_risk_profile([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
 
-        // convex_compare exists in the FFI but has no Excel surface yet
-        // (comparing proposals takes multiple JSON documents — a form job,
-        // not a cell one). P/Invoke it when that form exists.
+        // convex_compare has no Excel surface yet (multi-document input —
+        // a form job, not a cell one); P/Invoke it when that form exists.
         [DllImport(Dll)]
         private static extern IntPtr convex_hedge([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
 
@@ -123,8 +122,7 @@ namespace Convex.Excel
         public static int ObjectCount() => convex_object_count();
         public static void ClearAll() => convex_clear_all();
 
-        /// Registry mutation counter; see CxCache. Stable across idempotent
-        /// rebuilds, bumped by any real registry change.
+        /// Registry mutation counter (stable across idempotent rebuilds).
         public static ulong Generation() => convex_generation();
 
         public readonly struct ObjectEntry
@@ -217,9 +215,8 @@ namespace Convex.Excel
             ["hedge"] = convex_hedge,
         };
 
-        /// Raw (cached) envelope for a verb + request JSON. The live/RTD layer
-        /// keys its topics on exactly this pair, so live cells and static
-        /// cells share one computation per unique request per generation.
+        /// Raw (cached) envelope for a verb + request JSON — the same key
+        /// shape CxLive topics use, so live and static cells share compute.
         internal static string RawRpc(string verb, string requestJson)
         {
             if (!RpcByVerb.TryGetValue(verb, out var fn))
@@ -227,8 +224,7 @@ namespace Convex.Excel
             return CxCache.GetOrCompute(verb, requestJson, () => ConsumeString(fn(requestJson)));
         }
 
-        /// Unwrap `{"ok":...}` — returns the result token or throws a coded
-        /// ConvexException from the error body.
+        /// Result token from an `{"ok":...}` envelope; coded throw on error.
         internal static JToken ParseEnvelope(string raw)
         {
             var env = JToken.Parse(raw) ?? throw new ConvexException("empty RPC response");
@@ -254,11 +250,8 @@ namespace Convex.Excel
         }
     }
 
-    // Structured add-in exception. `Code` mirrors the FFI envelope codes
-    // (invalid_input | invalid_handle | analytics | serialize | schema |
-    // panic) plus the C#-side "unknown_token" for bad enum keywords; the
-    // code decides which native Excel error a failing UDF returns
-    // (see ErrorMapper).
+    // `Code` mirrors the FFI envelope codes plus the C#-side "unknown_token";
+    // ErrorMapper turns it into the native Excel error a failing UDF returns.
     internal sealed class ConvexException : Exception
     {
         public string Code { get; }
@@ -277,8 +270,6 @@ namespace Convex.Excel
     }
 
     // PtrToStringUTF8 only exists on .NET Core+; net472 needs a manual reader.
-    // Raw-pointer scan + single decode: the old per-byte Marshal.ReadByte loop
-    // paid interop overhead on every byte of every response.
     internal static class Utf8Helper
     {
         public static unsafe string? PtrToString(IntPtr ptr)

@@ -106,12 +106,10 @@ fn to_envelope<T: serde::Serialize>(r: Result<T, DispatchError>) -> String {
 
 // ---- Ticker-style reference resolution -------------------------------------
 //
-// Requests may reference bonds/curves by numeric handle (`"bond": 101`) or by
-// human identifier (`"bond": "912828YK0"`, `"curve": "USD.SOFR"`). Only this
-// crate owns the registry, so string references are resolved here — in the
-// request JSON, before deserialization — keeping the DTOs' `Handle` fields
-// and every downstream helper untouched. An unknown name maps to
-// `invalid_handle`, the same error class as a dangling numeric handle.
+// Requests may reference bonds/curves by handle (`"bond": 101`) or by name
+// (`"bond": "912828YK0"`). Only this crate owns the registry, so names are
+// resolved in the request JSON before deserialization, keeping the DTOs'
+// `Handle` fields untouched. Unknown names map to `invalid_handle`.
 
 /// Field paths that carry registry references, per request shape.
 const PRICE_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["forward_curve"]];
@@ -141,10 +139,9 @@ fn field_mut<'a>(
     Some(cur)
 }
 
-/// Parse the request once, rewriting string references at `paths` to their
-/// resolved numeric handles. Numeric fields and absent optional fields pass
-/// through untouched. The parsed value feeds the handler via `from_value`,
-/// so the common all-numeric request costs one parse and no re-serialization.
+/// Parse the request once, rewriting string references at `paths` to
+/// resolved handles; the value feeds the handler via `from_value`, so a
+/// request costs one parse.
 fn resolve_refs(
     request_json: &str,
     paths: &[&[&str]],
@@ -994,11 +991,9 @@ pub fn yas(request_json: &str) -> String {
     with_resolved_refs(request_json, YAS_REFS, yas_inner)
 }
 
-/// One-call Bloomberg-YAS-style analysis. The mark is resolved to a clean
-/// price via the same `price_from_mark` path `convex_price` uses (so any mark
-/// grammar works), then the YAS engine produces every yield convention,
-/// G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice —
-/// replacing what would otherwise be a dozen separate per-cell recomputations.
+/// One-call YAS analysis: the mark resolves to a clean price via the same
+/// `price_from_mark` path `convex_price` uses, then the YAS engine produces
+/// yields, spreads, risk, and the settlement invoice in one computation.
 fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
     use convex_analytics::yas::YASCalculator;
 
@@ -1066,10 +1061,8 @@ pub fn scenario(request_json: &str) -> String {
     with_resolved_refs(request_json, SCENARIO_REFS, scenario_inner)
 }
 
-/// Run every scenario in one call: one base pricing + Z-spread solve, then
-/// one reprice per scenario against the bumped curve holding Z fixed — the
-/// same methodology as key-rate durations, generalized to arbitrary curve
-/// shapes (parallel/steepener/flattener/key-rate/credit).
+/// One base pricing + Z solve, then one reprice per scenario against the
+/// bumped curve holding Z fixed (the KRD methodology, generalized).
 fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, DispatchError> {
     use convex_curves::bumping::{Scenario, ScenarioBump};
 
@@ -1102,10 +1095,8 @@ fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, Dispat
         let z_decimal = dec_to_f64(z.as_decimal());
         let accrued = priced.dirty_price_per_100 - priced.clean_price_per_100;
 
-        // Anchor the ladder at the mark: absorb the (sub-cent, now that the
-        // Z-solve returns an unrounded-to-the-bp spread) residual between the
-        // marked dirty price and repricing at the solved spread, so the
-        // zero-shift row reproduces the marked price exactly.
+        // Anchor the ladder at the mark: absorb the sub-cent Z-solve residual
+        // so the zero-shift row reproduces the marked price exactly.
         let dirty0 =
             ZSpreadCalculator::new(&base_wrapper).price_with_spread(bond, z_decimal, req.settlement);
         let basis = priced.dirty_price_per_100 - dirty0;

@@ -15,12 +15,9 @@ namespace Convex.Excel
             public string DefaultDayCount { get; set; } = "Thirty360US";
             public string DefaultSpreadType { get; set; } = "Z";
             public string DefaultCurrency { get; set; } = "USD";
-            /// Queue a CalculateFullRebuild when the add-in loads, so builder
-            /// cells re-register and stale handles heal after reopening a
-            /// workbook. The ribbon Rebuild button is the manual equivalent.
+            /// CalculateFullRebuild at add-in load, healing reopened workbooks.
             public bool AutoRebuildOnOpen { get; set; } = true;
-            /// Poll interval for .LIVE cells watching the registry generation
-            /// (milliseconds, min 100).
+            /// .LIVE generation poll interval (ms, min 100).
             public int LiveRefreshMs { get; set; } = 250;
         }
 

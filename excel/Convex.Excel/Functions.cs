@@ -8,22 +8,14 @@ using ExcelDna.Integration;
 
 namespace Convex.Excel
 {
-    // The entire user-facing UDF surface.
+    // The entire user-facing UDF surface. Adding a new bond shape or spread
+    // family doesn't touch this file — the Rust DTO enum picks it up.
     //
-    // Stateful (handles): CX.BOND, CX.BOND.CALLABLE, CX.BOND.FRN, CX.BOND.ZERO,
-    //                     CX.CURVE, CX.CURVE.BOOTSTRAP, CX.RELEASE, CX.OBJECTS, CX.CLEAR.
-    // Stateless:          CX.PRICE, CX.RISK, CX.SPREAD, CX.CASHFLOWS, CX.CURVE.QUERY.
-    // Diagnostic:         CX.SCHEMA, CX.MARK, CX.VERSION.
-    //
-    // Adding a new bond shape, spread family, or pricing convention does not
-    // touch this file. The Rust DTO enum picks it up; the existing UDFs route
-    // it.
-    //
-    // Threading: the stateless analytics (PRICE/RISK/SPREAD/CASHFLOWS/MW/
-    // CURVE.QUERY) are IsThreadSafe so Excel's multi-threaded recalc runs them in
-    // parallel — the native registry guards reads with a lock and clones objects
-    // out before computing. Builders mutate the registry and use xlfCaller, so
-    // they stay on the main calc thread.
+    // Threading: stateless analytics are IsThreadSafe (the native registry
+    // clones objects out under a short read lock); builders mutate the
+    // registry and use xlfCaller, so they stay on the main calc thread.
+    // .LIVE variants go through ExcelAsyncUtil.Observe (RTD) and must NOT
+    // be IsThreadSafe.
     public static class Functions
     {
         // ===================================================================
@@ -715,11 +707,8 @@ namespace Convex.Excel
         // Helpers
         // ===================================================================
 
-        // Failures surface as native Excel errors (#VALUE!, #REF!, #NUM!,
-        // #NAME?, #N/A — see ErrorMapper) so IFERROR/ISERROR work and errors
-        // propagate through dependents as errors, not as text. The full
-        // message is recorded per cell; read it with =CX.LASTERROR(cell) or
-        // the ribbon error log.
+        // Failures become native Excel errors (see ErrorMapper) with the full
+        // message recorded per cell for =CX.LASTERROR / the ribbon error log.
         private static object Safe(Func<object> body)
         {
             try { return body(); }
@@ -800,8 +789,8 @@ namespace Convex.Excel
             return CxParse.AsDoublesStrict(cell, fieldName);
         }
 
-        // One named single-bump scenario per shift, shared by =CX.SCENARIO and
-        // the ribbon Scenario form so the two can't drift.
+        // One named single-bump scenario per shift; also used by the ribbon
+        // Scenario form.
         internal static JArray BuildScenarioLadder(double[] shiftsBps, string kind, double pivotOrTenor)
         {
             var scenarios = new JArray();

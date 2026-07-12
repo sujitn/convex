@@ -14,10 +14,8 @@ namespace Convex.Excel
     {
         public override object LoadImage(string imageId) => IconAtlas.Get(imageId);
 
-        // Tickets and browsers are MODELESS (Excel stays interactive while
-        // they're open — a modal pricing ticket would lock the whole app,
-        // which no terminal user tolerates). One instance per form type;
-        // re-clicking the ribbon button brings the open one to front.
+        // Tickets and browsers are modeless (Excel stays interactive), one
+        // instance per form type; re-clicking focuses the open one.
         public void OnPricingTicket(IRibbonControl _) => ShowModeless(() => new PricingTicketForm());
         public void OnSpreadTicket(IRibbonControl _) => ShowModeless(() => new SpreadTicketForm());
         public void OnCurveViewer(IRibbonControl _) => ShowModeless(() => new CurveViewerForm());
@@ -104,9 +102,8 @@ namespace Convex.Excel
                     existing.Activate();
                     return;
                 }
+                // NOT `using` — a modeless form must outlive this handler.
                 var form = factory();
-                // NOT `using` — a modeless form must outlive this handler;
-                // it disposes itself on close.
                 form.StartPosition = FormStartPosition.CenterScreen;
                 form.FormClosed += (_, _) => _open.Remove(typeof(T));
                 _open[typeof(T)] = form;
@@ -118,8 +115,7 @@ namespace Convex.Excel
             }
         }
 
-        // Owning the forms to Excel's main window keeps them above the grid
-        // (never buried behind it) without being topmost system-wide.
+        // Excel-owned forms stay above the grid without being topmost.
         private static IWin32Window? ExcelOwner
         {
             get

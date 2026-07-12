@@ -59,16 +59,12 @@ impl ObjectKind {
 
 struct Entry {
     kind: ObjectKind,
-    /// Eviction-slot name (the owning Excel cell's registry key, or the
-    /// spec's own identifier when built outside a cell).
+    /// Eviction-slot name (owning cell's registry key, or the spec's own id).
     name: Option<String>,
-    /// Human identifiers (CUSIP / ISIN / free name) that resolve to this
-    /// handle via [`resolve_alias`]. Kept on the entry so eviction can clean
-    /// the alias map in O(aliases) instead of scanning it.
+    /// Human identifiers for [`resolve_alias`]; kept here so eviction can
+    /// clean the alias map without scanning it.
     aliases: Vec<String>,
-    /// Hash of the canonicalized spec JSON that produced this object. Lets
-    /// [`register`] return the existing handle when a cell re-registers an
-    /// identical spec, so Excel's dependency cutoff stops recalc cascades.
+    /// Hash of the canonicalized spec JSON, for idempotent re-registration.
     content_hash: u64,
     /// `Arc` so [`with_object`] can clone it out and drop the read lock before
     /// running the closure — holding the lock across analytics that look up a
@@ -82,16 +78,13 @@ struct Entry {
 struct Tables {
     objects: HashMap<Handle, Entry>,
     names: HashMap<String, Handle>,
-    /// CUSIP/ISIN/free-name → handle. Last write wins on collision (two cells
-    /// building the same CUSIP): the alias follows the most recent build, like
-    /// a ticker resolving to the most recently defined instance.
+    /// CUSIP/ISIN/free-name → handle; last write wins on collision.
     aliases: HashMap<String, Handle>,
 }
 
 struct Inner {
     next_handle: AtomicU64,
-    /// Bumped on every mutation (register of new content, release, clear) and
-    /// NOT on idempotent re-registration. Callers key caches on this: same
+    /// Bumped on every mutation, NOT on idempotent re-registration. Same
     /// generation ⇒ every handle resolves to the same object it did before.
     generation: AtomicU64,
     tables: RwLock<Tables>,
@@ -114,17 +107,11 @@ pub fn generation() -> u64 {
     REGISTRY.generation.load(Ordering::SeqCst)
 }
 
-/// Register an object.
-///
-/// Idempotent per eviction slot: if `name` already holds an object built from
-/// the same `content_hash`, the existing handle is returned unchanged — no
-/// eviction, no new handle, no generation bump. A builder cell recalculating
-/// with unchanged inputs therefore keeps its output value stable and Excel
-/// does not cascade recalculation through its dependents.
-///
-/// If the slot holds *different* content, the prior object is evicted (with
-/// its aliases) and a fresh handle is minted, so dependent cells see a change
-/// and recompute — the behaviour real edits rely on.
+/// Register an object. Idempotent per eviction slot: an unchanged
+/// `content_hash` returns the existing handle with no generation bump (so
+/// Excel's dependency cutoff stops recalc cascades); changed content evicts
+/// the prior object plus its aliases and mints a fresh handle so dependents
+/// recompute.
 pub fn register<T: Any + Send + Sync>(
     object: T,
     kind: ObjectKind,
@@ -138,7 +125,7 @@ pub fn register<T: Any + Send + Sync>(
         if let Some(&existing) = t.names.get(n) {
             match t.objects.get(&existing) {
                 Some(e) if e.content_hash == content_hash && e.kind == kind => {
-                    return existing; // unchanged rebuild — reuse
+                    return existing;
                 }
                 _ => {
                     if let Some(old) = t.objects.remove(&existing) {
@@ -169,7 +156,7 @@ pub fn register<T: Any + Send + Sync>(
         t.names.insert(n, handle);
     }
     for a in aliases {
-        t.aliases.insert(a.clone(), handle); // last write wins
+        t.aliases.insert(a.clone(), handle);
     }
     REGISTRY.generation.fetch_add(1, Ordering::SeqCst);
     handle

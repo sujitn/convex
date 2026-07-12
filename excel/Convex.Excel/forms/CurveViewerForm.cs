@@ -75,8 +75,7 @@ namespace Convex.Excel.Forms
             Controls.Add(top);
             Controls.Add(bottom);
 
-            // After handle creation — the async render marshals back with
-            // BeginInvoke, which needs a live window handle.
+            // BeginInvoke in the async render needs a live window handle.
             Load += (_, _) => ReloadCurves();
         }
 
@@ -97,8 +96,7 @@ namespace Convex.Excel.Forms
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; }
         }
 
-        // Monotonic render id so a slow background sweep can't paint over a
-        // newer selection.
+        // Stops a slow background sweep painting over a newer selection.
         private int _renderSeq;
 
         private void Render()
@@ -113,9 +111,7 @@ namespace Convex.Excel.Forms
                 int seq = ++_renderSeq;
                 _status.Text = "computing…";
 
-                // The sweep is ~2 FFI calls per point — run it off the UI
-                // thread so a modeless viewer never freezes Excel's message
-                // pump, then marshal the points back.
+                // ~2 FFI calls per point — keep the sweep off the UI thread.
                 System.Threading.Tasks.Task.Run(() =>
                 {
                     var points = new System.Collections.Generic.List<(double t, double zero, double fwd)>();

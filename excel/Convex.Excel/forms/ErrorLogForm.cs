@@ -6,10 +6,8 @@ using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
-    // Read-only view over CxErrorStore: every CX.* error recorded this
-    // session, newest first. Double-click a row to jump to the failing cell.
-    // Entries persist after a cell is fixed (success paths don't touch the
-    // store) — the timestamp column makes stale entries recognizable.
+    // CX.* errors recorded this session, newest first; double-click jumps to
+    // the cell. Entries persist after a cell is fixed — check the timestamp.
     internal sealed class ErrorLogForm : Form
     {
         private readonly DataGridView _grid = new()
@@ -78,8 +76,7 @@ namespace Convex.Excel.Forms
             }
             catch
             {
-                // Address may be a stable key (worker-thread capture) that
-                // Goto can't parse — nothing to jump to.
+                // Worker-thread captures store a stable key Goto can't parse.
             }
         }
     }

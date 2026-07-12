@@ -4,15 +4,12 @@ using System.Threading;
 
 namespace Convex.Excel
 {
-    // Response cache for the stateless RPCs, keyed (verb + request JSON) and
-    // valid for exactly one registry generation: results depend only on the
-    // request and the registry state, and convex_generation() bumps on every
-    // mutation. Cleared wholesale on generation change; error envelopes are
-    // cached like successes (equally deterministic).
+    // Response cache for the stateless RPCs: identical (verb, request) is
+    // deterministic within one registry generation, so entries live until
+    // convex_generation() changes. Error envelopes cache like successes.
     internal static class CxCache
     {
-        // Safety valve for pathological sheets (unique mark per cell per
-        // recalc); the generation gate is the primary invalidation path.
+        // Safety valve only; the generation gate is the invalidation path.
         private const int HardCap = 50_000;
 
         private static readonly ConcurrentDictionary<string, string> _cache = new();
@@ -47,11 +44,8 @@ namespace Convex.Excel
 
             try
             {
-                // Cache only when the registry did not mutate during the
-                // compute, and re-validate AFTER the insert: a mutation can
-                // land (and another thread can clear the cache) between the
-                // pre-insert check and TryAdd, which would otherwise strand
-                // this pre-mutation result in the post-mutation cache.
+                // Re-validate after the insert too: a mutation between the
+                // pre-check and TryAdd would strand a stale entry otherwise.
                 if (GenerationSource() == gen)
                 {
                     if (_cache.Count >= HardCap) _cache.Clear();

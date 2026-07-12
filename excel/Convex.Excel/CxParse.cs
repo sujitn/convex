@@ -16,10 +16,8 @@ namespace Convex.Excel
 
         public static string FormatHandle(ulong h) => HandlePrefix + h.ToString(CultureInfo.InvariantCulture);
 
-        // A registry reference for a REQUEST: numeric handle, "#CX#101" handle
-        // string, or a ticker/name (CUSIP, ISIN, curve name) which the engine
-        // resolves against its alias table. Returned as the JSON token to
-        // embed in the request.
+        // Request reference: numeric handle, "#CX#101" string, or a
+        // ticker/name the engine resolves against its alias table.
         public static JToken AsHandleRef(object value, string fieldName = "handle")
         {
             switch (value)
@@ -55,9 +53,8 @@ namespace Convex.Excel
             return AsHandleRef(value);
         }
 
-        // Strictly numeric handle ("#CX#101" or a number) for registry
-        // operations (release/describe) that address a specific instance,
-        // never a name.
+        // Strictly numeric handle — registry ops (release/describe) address a
+        // specific instance, never a name.
         public static ulong AsHandle(object value, string fieldName = "handle")
         {
             switch (value)
@@ -95,8 +92,8 @@ namespace Convex.Excel
                 return new JValue(trimmed); // text — Rust side parses
             }
             if (value is double d)
-                // Fixed-notation format: default ToString can emit "1E-06",
-                // which the Rust mark grammar rejects.
+                // Fixed notation: default ToString can emit "1E-06", which
+                // the mark grammar rejects.
                 return new JValue(d.ToString("0.################", CultureInfo.InvariantCulture))!;
             throw new ConvexException("mark must be a textual mark or JSON object");
         }
@@ -205,14 +202,11 @@ namespace Convex.Excel
         }
 
         // ===================================================================
-        // Strict range extraction
+        // Strict range extraction — required wherever two ranges must stay
+        // parallel: trailing blanks trim, but an embedded blank or
+        // unparseable cell throws with its position (the lenient AsDoubles
+        // above silently drops cells, which misaligns parallel ranges).
         // ===================================================================
-        //
-        // The lenient AsDoubles above silently drops any cell it can't read,
-        // which lets two "parallel" ranges (call dates vs prices, tenors vs
-        // rates) misalign without a whisper. Everywhere ranges must stay
-        // parallel, use these instead: trailing blanks are trimmed, but an
-        // embedded blank or unparseable cell throws with its position.
 
         public static double[] AsDoublesStrict(object range, string fieldName) =>
             ExtractStrict(range, fieldName, "a number", cell =>
@@ -233,8 +227,7 @@ namespace Convex.Excel
                     case DateTime dt: return (true, dt);
                     case string s:
                         var t = s.Trim();
-                        // ISO first, then invariant general — never the machine
-                        // locale (dd/MM vs MM/dd silently swaps dates).
+                        // Never the machine locale: dd/MM vs MM/dd swaps dates.
                         if (DateTime.TryParseExact(t, "yyyy-MM-dd", CultureInfo.InvariantCulture,
                                 DateTimeStyles.None, out var iso))
                             return (true, iso);

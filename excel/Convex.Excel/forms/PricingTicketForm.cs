@@ -209,8 +209,7 @@ namespace Convex.Excel.Forms
                    $"\"{mark}\", {curve}, \"{freq}\", \"grid\")";
         }
 
-        // Stamp the human identifier when there is one: names re-resolve via
-        // the alias table after the object is rebuilt, while a raw #CX# handle
+        // Prefer the name: it re-resolves after a rebuild; a raw #CX# handle
         // dies with the next edit to its builder.
         private static string StampRef(ComboBox combo, string field)
         {

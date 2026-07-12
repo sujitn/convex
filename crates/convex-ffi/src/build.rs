@@ -61,14 +61,10 @@ pub fn curve_from_json(json: &str) -> Handle {
     }
 }
 
-/// Hash of the spec that produced an object, for idempotent registration.
-///
-/// Hashes the canonicalized `serde_json::Value` re-serialization, not the raw
-/// string: serde_json (without `preserve_order`) stores objects in a BTreeMap,
-/// so keys re-serialize sorted and two logically-identical specs hash equal
-/// even if the caller emitted fields in a different order. Hashing the raw
-/// bytes instead would silently re-mint handles on every recalc — the exact
-/// cascade bug idempotency exists to fix.
+/// Idempotency hash over the canonicalized `serde_json::Value`
+/// re-serialization (BTreeMap-backed, so keys sort): logically-identical
+/// specs hash equal regardless of field order, which raw-byte hashing
+/// would not guarantee.
 fn content_hash(json: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -411,9 +407,8 @@ fn build_discrete_curve(spec: DiscreteCurveSpec, hash: u64) -> Handle {
             return INVALID_HANDLE;
         }
     };
-    // The cell key stays the eviction slot; the curve's own name (USD.SOFR)
-    // is an alias so it remains resolvable instead of being lost to the
-    // cell address.
+    // The cell key is the eviction slot; the curve's own name stays
+    // resolvable as an alias.
     let (reg_name, aliases) = curve_name_and_aliases(spec.registry_key, spec.name);
     registry::register(
         RateCurve::new(curve),

@@ -6,14 +6,9 @@ using ExcelDna.Integration;
 namespace Convex.Excel
 {
     /// <summary>
-    /// Loads convex_ffi.dll from the directory the .xll runs from.
-    ///
-    /// ExcelDna 1.7 cannot pack native libraries into the .xll (its .dna
-    /// schema has no such element), so the DLL ships side-by-side with the
-    /// add-in and this loader binds it explicitly by absolute path before any
-    /// P/Invoke fires. Once loaded, later [DllImport("convex_ffi.dll")] calls
-    /// resolve to the already-loaded module by name. Load status is surfaced
-    /// via =CX.DIAG() and the ribbon Diagnostics button.
+    /// Binds convex_ffi.dll by absolute path before any P/Invoke fires —
+    /// ExcelDna 1.7 cannot pack native libraries, so the DLL ships next to
+    /// the .xll. Load status: =CX.DIAG() / ribbon Diagnostics.
     /// </summary>
     public class NativeLoader : IExcelAddIn
     {
@@ -30,17 +25,13 @@ namespace Convex.Excel
         {
             Initialize();
 
-            // In-grid function tooltips (argument help while typing =CX.…),
-            // the same affordance the Bloomberg add-in gives for BDP/BDH.
             try { ExcelDna.IntelliSense.IntelliSenseServer.Install(); }
-            catch { /* IntelliSense is best-effort — never block the add-in */ }
+            catch { /* best-effort — never block the add-in */ }
 
-            // Registry handles are process-lifetime: a saved workbook's cached
-            // #CX# strings are stale in a fresh Excel. Builder cells only
-            // re-register on a full rebuild, so queue one at load time (runs
-            // after Excel finishes opening the workbook that launched it).
-            // Workbooks opened later in the session use the ribbon Rebuild
-            // button. Off-switch: Settings → "Rebuild handles on open".
+            // Handles are process-lifetime, so a reopened workbook's cached
+            // #CX# strings are stale until builder cells re-register. The
+            // queued rebuild runs after the launching workbook has opened;
+            // workbooks opened later in the session use the ribbon Rebuild.
             if (CxSettings.Current.AutoRebuildOnOpen)
             {
                 ExcelAsyncUtil.QueueAsMacro(() =>
@@ -74,9 +65,8 @@ namespace Convex.Excel
                     return;
                 }
 
-                // Absolute-path load; deliberately NOT SetDllDirectory, which
-                // mutates the process-wide search path and can break other
-                // add-ins' native loads.
+                // NOT SetDllDirectory — that mutates the process-wide search
+                // path and can break other add-ins' native loads.
                 IntPtr handle = LoadLibraryEx(dllPath, IntPtr.Zero, LoadWithAlteredSearchPath);
                 if (handle == IntPtr.Zero)
                 {

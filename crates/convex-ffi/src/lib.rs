@@ -195,10 +195,9 @@ pub extern "C" fn convex_clear_all() {
     guard_value((), registry::clear_all)
 }
 
-/// Registry mutation counter. Bumped whenever an object is registered with
-/// new content, released, or cleared — and NOT on an idempotent re-register
-/// of identical content. While two reads return the same value, every handle
-/// resolves to the same object; callers key response caches on it.
+/// Registry mutation counter (idempotent re-registers do not bump it).
+/// Same value across two reads ⇒ every handle resolves to the same object;
+/// callers key response caches on it.
 #[no_mangle]
 pub extern "C" fn convex_generation() -> u64 {
     guard_value(0, registry::generation)

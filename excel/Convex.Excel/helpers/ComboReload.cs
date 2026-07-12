@@ -3,10 +3,9 @@ using System.Windows.Forms;
 
 namespace Convex.Excel.Helpers
 {
-    // Picker-combo helpers. Labels follow one format everywhere:
-    // "#CX#101  ·  kind  ·  name" (name segment absent when the object has
-    // no human identifier). Reload preserves selection by the handle token,
-    // not by index (indices shift whenever objects are added or released).
+    // Picker-combo helpers over the shared "#CX#101  ·  kind  ·  name" label
+    // format. Reload preserves selection by handle token, not index (indices
+    // shift whenever objects are added or released).
     internal static class ComboReload
     {
         private static readonly string[] Separator = { "  ·  " };
@@ -34,7 +33,6 @@ namespace Convex.Excel.Helpers
             return sep < 0 ? t : t.Substring(0, sep);
         }
 
-        // Selected handle, or a coded error naming the picker.
         public static ulong HandleOf(ComboBox combo, string field)
         {
             var token = TokenOf(combo.SelectedItem)
@@ -42,8 +40,7 @@ namespace Convex.Excel.Helpers
             return CxParse.AsHandle(token, field);
         }
 
-        // Display-name segment of a "#CX#N  ·  kind  ·  name" label, or null
-        // when the object has no human identifier.
+        // Name segment of the label, or null without a human identifier.
         public static string? NameOf(object? item)
         {
             var t = item?.ToString();

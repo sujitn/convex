@@ -22,17 +22,12 @@ namespace Convex.Excel
         }
     }
 
-    // Cell-keyed error details behind the native Excel errors that UDFs
-    // return. Written only on the error path (the caller lookup costs a
-    // callback; successful recalcs shouldn't pay it), so a fixed cell keeps
-    // its stale entry until overwritten or cleared — the viewer shows
-    // timestamps so stale entries are recognizable.
+    // Cell-keyed detail behind the Excel errors UDFs return. Written only on
+    // the error path (success recalcs must not pay the caller lookup), so a
+    // fixed cell keeps its stale entry — the viewer shows timestamps.
     internal static class CxErrorStore
     {
-        // Wholesale clear at the cap (same policy as CxCache): simpler and
-        // fairer than tracking insertion order, and 20k entries is already
-        // beyond any workbook that a human is debugging cell-by-cell.
-        private const int Cap = 20_000;
+        private const int Cap = 20_000; // wholesale clear at the cap
 
         private static readonly ConcurrentDictionary<string, CxErrorDetail> _byCell = new();
 

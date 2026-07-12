@@ -10,10 +10,8 @@ using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
-    // Bump-style scenarios on a bond. With a curve selected, one
-    // convex_scenario call runs the whole ladder (same verb as =CX.SCENARIO,
-    // so form and cell always agree); with no curve, falls back to a plain
-    // parallel yield-shift ladder so bond-only workflows still work.
+    // Scenario ladders: curve scenarios via convex_scenario (the =CX.SCENARIO
+    // verb), or a plain yield-shift ladder when no curve exists.
     internal sealed class ScenarioForm : Form
     {
         private readonly ComboBox _bond = new() { DropDownStyle = ComboBoxStyle.DropDownList };
@@ -116,16 +114,14 @@ namespace Convex.Excel.Forms
             {
                 _result.Rows.Clear();
                 if (_curve.SelectedIndex <= 0)
-                    RunYieldLadder();      // no curve: shift the base YTM directly
+                    RunYieldLadder();
                 else
-                    RunCurveScenarios();   // curve scenarios via convex_scenario
+                    RunCurveScenarios();
             }
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; _result.Rows.Clear(); }
         }
 
-        // Curveless mode — the pre-curve-scenario behavior: bump the
-        // mark-implied YTM by each shift and reprice, no curve required.
-        // Only a parallel shift is meaningful here.
+        // Bump the mark-implied YTM and reprice; only parallel is meaningful.
         private void RunYieldLadder()
         {
             var kind = (string)_kind.SelectedItem!;
@@ -206,9 +202,7 @@ namespace Convex.Excel.Forms
                 if (_result.Rows.Count == 0)
                 {
                     Run();
-                    // Run() reports its own failure in _status; don't stamp a
-                    // header-only grid over it with a false success message.
-                    if (_result.Rows.Count == 0) return;
+                    if (_result.Rows.Count == 0) return; // Run() failed; keep its status
                 }
                 var rows = _result.Rows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).ToList();
                 var grid = new object[rows.Count + 1, 5];

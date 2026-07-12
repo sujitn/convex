@@ -7,16 +7,10 @@ using Newtonsoft.Json.Linq;
 
 namespace Convex.Excel
 {
-    // RTD-backed live layer: a .LIVE cell subscribes to the registry
-    // generation and recomputes whenever any bond/curve is (re)built or
-    // released. Built on ExcelAsyncUtil.Observe (RTD underneath), which also
-    // re-subscribes topics when a workbook reopens. Topics share CxCache's
-    // (verb, requestJson) key, so N cells asking the same question cost one
-    // engine call per generation.
-    //
-    // Invalidation is recompute-all on any mutation (a generation poll — no
-    // dependency graph to get wrong). Fine at hundreds of live cells; add
-    // handle-intersection filtering only if real usage shows otherwise.
+    // RTD-backed live layer: .LIVE cells recompute when the registry
+    // generation changes (recompute-all, no dependency graph; fine at
+    // hundreds of live cells). Topics share CxCache's (verb, requestJson)
+    // key; ExcelAsyncUtil.Observe re-subscribes topics on workbook reopen.
     internal static class CxLive
     {
         public static object Observe(string verb, JObject request, Func<JToken, object> select)
@@ -75,14 +69,12 @@ namespace Convex.Excel
                 {
                     try
                     {
-                        // Compute maps its own failures to Excel error values;
-                        // only OnNext itself can throw (e.g. racing an RTD
-                        // topic teardown) — and an unhandled throw on a timer
-                        // thread would kill Excel, so record it instead.
                         _observer.OnNext(Compute(_owner._verb, _owner._requestJson, _owner._select));
                     }
                     catch (Exception ex)
                     {
+                        // OnNext can race RTD topic teardown; an unhandled
+                        // throw on a timer thread kills the process.
                         CxErrorStore.Record(ex);
                     }
                 }
@@ -91,9 +83,8 @@ namespace Convex.Excel
             }
         }
 
-        // Polls convex_generation while any subscription exists. Single-flight:
-        // the timer fires once and is re-armed only after the tick finishes,
-        // so a slow batch of pushes can never overlap the next tick.
+        // Polls convex_generation while subscriptions exist. Single-flight:
+        // re-armed only after the tick finishes, so ticks never overlap.
         private static class GenerationWatcher
         {
             private static readonly object _lock = new();
