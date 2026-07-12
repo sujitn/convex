@@ -16,7 +16,48 @@ namespace Convex.Excel
 
         public static string FormatHandle(ulong h) => HandlePrefix + h.ToString(CultureInfo.InvariantCulture);
 
-        // Accepts: "#CX#101", numeric handle, or named lookup by registry name.
+        // A registry reference for a REQUEST: numeric handle, "#CX#101" handle
+        // string, or a ticker/name (CUSIP, ISIN, curve name) which the engine
+        // resolves against its alias table. Returned as the JSON token to
+        // embed in the request.
+        public static JToken AsHandleRef(object value, string fieldName = "handle")
+        {
+            switch (value)
+            {
+                case null:
+                case ExcelMissing:
+                case ExcelEmpty:
+                    throw new ConvexException($"{fieldName} is missing");
+                case double d:
+                    if (d < 0 || d > ulong.MaxValue || Math.Floor(d) != d)
+                        throw new ConvexException($"{fieldName} {d}: not a non-negative integer handle");
+                    return new JValue((ulong)d);
+                case string s:
+                    var t = s.Trim();
+                    if (t.Length == 0)
+                        throw new ConvexException($"{fieldName} is empty");
+                    if (t.StartsWith(HandlePrefix, StringComparison.OrdinalIgnoreCase) &&
+                        ulong.TryParse(t.Substring(HandlePrefix.Length), NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out var h))
+                        return new JValue(h);
+                    if (ulong.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+                        return new JValue(n);
+                    return new JValue(t); // ticker/name — resolved engine-side
+                default:
+                    return new JValue(Convert.ToUInt64(value, CultureInfo.InvariantCulture));
+            }
+        }
+
+        public static JToken? AsHandleRefOrNull(object value)
+        {
+            if (value is null or ExcelMissing or ExcelEmpty) return null;
+            if (value is string s && string.IsNullOrWhiteSpace(s)) return null;
+            return AsHandleRef(value);
+        }
+
+        // Strictly numeric handle ("#CX#101" or a number) for registry
+        // operations (release/describe) that address a specific instance,
+        // never a name.
         public static ulong AsHandle(object value, string fieldName = "handle")
         {
             switch (value)
@@ -42,12 +83,6 @@ namespace Convex.Excel
             }
         }
 
-        public static ulong? AsHandleOrNull(object value)
-        {
-            if (value is null or ExcelMissing or ExcelEmpty) return null;
-            return AsHandle(value);
-        }
-
         // Mark cell semantics — accept either a textual mark (forwarded to
         // the Rust parser) or a parsed JSON object (rare; user pasted JSON).
         public static JToken AsMark(object value)
@@ -60,7 +95,9 @@ namespace Convex.Excel
                 return new JValue(trimmed); // text — Rust side parses
             }
             if (value is double d)
-                return new JValue(d.ToString(CultureInfo.InvariantCulture))!;
+                // Fixed-notation format: default ToString can emit "1E-06",
+                // which the Rust mark grammar rejects.
+                return new JValue(d.ToString("0.################", CultureInfo.InvariantCulture))!;
             throw new ConvexException("mark must be a textual mark or JSON object");
         }
 
@@ -81,12 +118,15 @@ namespace Convex.Excel
                         "Q" or "QUARTERLY" => "Quarterly",
                         "M" or "MONTHLY" => "Monthly",
                         "Z" or "ZERO" => "Zero",
-                        _ => throw new ConvexException($"unknown frequency {s}"),
+                        _ => throw new ConvexException($"unknown frequency {s}", ErrorCodes.UnknownToken),
                     };
                 case double d when (int)d == 1: return "Annual";
                 case double d when (int)d == 2: return "SemiAnnual";
                 case double d when (int)d == 4: return "Quarterly";
                 case double d when (int)d == 12: return "Monthly";
+                case double d:
+                    throw new ConvexException(
+                        $"unknown frequency {d} (use 1, 2, 4 or 12)", ErrorCodes.UnknownToken);
             }
             return defaultFreq;
         }
@@ -134,7 +174,7 @@ namespace Convex.Excel
                 "ASW" or "ASW_PAR" or "ASW-PAR" => "AssetSwapPar",
                 "ASW_PROC" or "ASW_PROCEEDS" => "AssetSwapProceeds",
                 "CREDIT" => "Credit",
-                _ => throw new ConvexException($"unknown spread type {s}"),
+                _ => throw new ConvexException($"unknown spread type {s}", ErrorCodes.UnknownToken),
             };
         }
 
@@ -163,5 +203,123 @@ namespace Convex.Excel
                 default: return Array.Empty<double>();
             }
         }
+
+        // ===================================================================
+        // Strict range extraction
+        // ===================================================================
+        //
+        // The lenient AsDoubles above silently drops any cell it can't read,
+        // which lets two "parallel" ranges (call dates vs prices, tenors vs
+        // rates) misalign without a whisper. Everywhere ranges must stay
+        // parallel, use these instead: trailing blanks are trimmed, but an
+        // embedded blank or unparseable cell throws with its position.
+
+        public static double[] AsDoublesStrict(object range, string fieldName) =>
+            ExtractStrict(range, fieldName, "a number", cell =>
+            {
+                if (cell is double v) return (true, v);
+                if (cell is string s &&
+                    double.TryParse(s.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var p))
+                    return (true, p);
+                return (false, 0.0);
+            });
+
+        public static DateTime[] AsDatesStrict(object range, string fieldName) =>
+            ExtractStrict(range, fieldName, "a date", cell =>
+            {
+                switch (cell)
+                {
+                    case double oa: return (true, DateTime.FromOADate(oa));
+                    case DateTime dt: return (true, dt);
+                    case string s:
+                        var t = s.Trim();
+                        // ISO first, then invariant general — never the machine
+                        // locale (dd/MM vs MM/dd silently swaps dates).
+                        if (DateTime.TryParseExact(t, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                                DateTimeStyles.None, out var iso))
+                            return (true, iso);
+                        if (DateTime.TryParse(t, CultureInfo.InvariantCulture,
+                                DateTimeStyles.None, out var inv))
+                            return (true, inv);
+                        return (false, default);
+                    default: return (false, default);
+                }
+            });
+
+        public static string[] AsStringsStrict(object range, string fieldName) =>
+            ExtractStrict(range, fieldName, "text", cell =>
+            {
+                var s = cell as string ?? cell.ToString();
+                return string.IsNullOrWhiteSpace(s) ? (false, "") : (true, s!.Trim());
+            });
+
+        private static T[] ExtractStrict<T>(
+            object range, string fieldName, string expected,
+            Func<object, (bool ok, T value)> convert)
+        {
+            if (IsBlankCell(range)) return Array.Empty<T>();
+
+            if (range is object[,] grid)
+            {
+                int rows = grid.GetLength(0), cols = grid.GetLength(1);
+                var list = new List<T>(rows * cols);
+                bool seenBlank = false;
+                int blankRow = 0, blankCol = 0;
+                for (int r = 0; r < rows; r++)
+                    for (int c = 0; c < cols; c++)
+                    {
+                        var cell = grid[r, c];
+                        if (IsBlankCell(cell))
+                        {
+                            if (!seenBlank) { seenBlank = true; blankRow = r; blankCol = c; }
+                            continue;
+                        }
+                        if (seenBlank)
+                            throw new ConvexException(
+                                $"{fieldName}: empty cell at row {blankRow + 1}, column {blankCol + 1} " +
+                                "inside the range — parallel ranges must be contiguous");
+                        list.Add(ConvertStrict(cell, fieldName, expected, convert,
+                            $" at row {r + 1}, column {c + 1}"));
+                    }
+                return list.ToArray();
+            }
+
+            if (range is object[] arr)
+            {
+                var list = new List<T>(arr.Length);
+                bool seenBlank = false;
+                int blankAt = 0;
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (IsBlankCell(arr[i]))
+                    {
+                        if (!seenBlank) { seenBlank = true; blankAt = i; }
+                        continue;
+                    }
+                    if (seenBlank)
+                        throw new ConvexException(
+                            $"{fieldName}: empty cell at position {blankAt + 1} inside the range " +
+                            "— parallel ranges must be contiguous");
+                    list.Add(ConvertStrict(arr[i], fieldName, expected, convert, $" at position {i + 1}"));
+                }
+                return list.ToArray();
+            }
+
+            return new[] { ConvertStrict(range, fieldName, expected, convert, "") };
+        }
+
+        private static T ConvertStrict<T>(
+            object cell, string fieldName, string expected,
+            Func<object, (bool ok, T value)> convert, string where)
+        {
+            var (ok, value) = convert(cell);
+            if (!ok)
+                throw new ConvexException($"{fieldName}: '{cell}'{where} is not {expected}");
+            return value;
+        }
+
+        private static bool IsBlankCell(object? cell) =>
+            cell is null or ExcelMissing or ExcelEmpty ||
+            (cell is string s && s.Trim().Length == 0);
     }
 }

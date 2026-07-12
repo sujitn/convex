@@ -197,8 +197,11 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // Basis points, rounded to 1e-4 bp: enough precision that repricing
+        // at the returned spread reproduces the input price to well under a
+        // cent (whole-bp rounding used to shift long-duration prices by
+        // DV01-scale cents), while still suppressing solver float noise.
+        let z_spread_bps = (result.root * 10_000.0 * 10_000.0).round() / 10_000.0;
         Ok(Spread::new(
             Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,
@@ -318,8 +321,11 @@ impl<'a> ZSpreadCalculator<'a> {
             }
         })?;
 
-        // Convert to basis points
-        let z_spread_bps = (result.root * 10_000.0).round();
+        // Basis points, rounded to 1e-4 bp: enough precision that repricing
+        // at the returned spread reproduces the input price to well under a
+        // cent (whole-bp rounding used to shift long-duration prices by
+        // DV01-scale cents), while still suppressing solver float noise.
+        let z_spread_bps = (result.root * 10_000.0 * 10_000.0).round() / 10_000.0;
         Ok(Spread::new(
             Decimal::from_f64_retain(z_spread_bps).unwrap_or_default(),
             SpreadType::ZSpread,

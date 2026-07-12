@@ -141,6 +141,14 @@ inherits = "release"
 lto = "thin"
 codegen-units = 4
 
+# Host-embedded cdylib profile (Excel add-in, JVM bindings): panics must
+# unwind so convex-ffi's catch_unwind guards can turn them into error
+# envelopes instead of aborting the host process (Excel/JVM). Build with:
+#   cargo build --profile excel -p convex-ffi
+[profile.excel]
+inherits = "release"
+panic = "unwind"
+
 # Distribution profile for binaries
 [profile.dist]
 inherits = "release"

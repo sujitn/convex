@@ -43,13 +43,14 @@ jobs:
           sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
 
+      # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build cdylib
-        run: cargo build -p convex-ffi --release --target ${{ matrix.target }}
+        run: cargo build -p convex-ffi --profile excel --target ${{ matrix.target }}
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.classifier }}
-          path: target/${{ matrix.target }}/release/${{ matrix.lib }}
+          path: target/${{ matrix.target }}/excel/${{ matrix.lib }}
           if-no-files-found: error
 
   # Stage every cdylib into the jar resources and publish to Maven Central.

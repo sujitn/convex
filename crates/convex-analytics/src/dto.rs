@@ -522,6 +522,133 @@ pub struct CurveQueryResponse {
     pub value: f64,
 }
 
+// ---- YAS (one-call yield & spread analysis) --------------------------------
+
+/// Bloomberg-YAS-style analysis in one request: every yield convention,
+/// G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice.
+/// Backed by `crate::yas::YASCalculator`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YasRequest {
+    pub bond: Handle,
+    pub settlement: Date,
+    pub mark: MarkInput,
+    /// Spot/discount curve (Z-spread; also G-spread unless `govt_curve` set).
+    pub curve: Handle,
+    /// Government curve for G-spread and the benchmark spread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub govt_curve: Option<Handle>,
+    /// Swap curve for I-spread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swap_curve: Option<Handle>,
+    #[serde(default)]
+    pub quote_frequency: Frequency,
+}
+
+/// Yields in percent, spreads in basis points, prices/amounts per 100 face.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YasResponse {
+    pub clean_price: f64,
+    pub dirty_price: f64,
+    pub accrued: f64,
+    pub accrued_days: i32,
+    pub ytm_pct: f64,
+    pub current_yield_pct: f64,
+    pub simple_yield_pct: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub money_market_yield_pct: Option<f64>,
+    pub g_spread_bps: f64,
+    pub z_spread_bps: f64,
+    pub benchmark_spread_bps: f64,
+    pub benchmark_tenor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asw_spread_bps: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oas_bps: Option<f64>,
+    pub modified_duration: f64,
+    pub macaulay_duration: f64,
+    pub convexity: f64,
+    pub dv01_per_100: f64,
+    pub principal_amount: f64,
+    pub accrued_amount: f64,
+    pub settlement_amount: f64,
+}
+
+// ---- Scenario analysis ------------------------------------------------------
+
+/// One bump component. Tagged JSON: `{ "kind": "parallel" | "steepener" |
+/// "flattener" | "key_rate" | "credit_spread", ... }`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ScenarioBumpSpec {
+    Parallel {
+        shift_bps: f64,
+    },
+    Steepener {
+        short_shift_bps: f64,
+        long_shift_bps: f64,
+        #[serde(default = "default_pivot_tenor")]
+        pivot_tenor: f64,
+    },
+    Flattener {
+        short_shift_bps: f64,
+        long_shift_bps: f64,
+        #[serde(default = "default_pivot_tenor")]
+        pivot_tenor: f64,
+    },
+    KeyRate {
+        tenor: f64,
+        shift_bps: f64,
+    },
+    CreditSpread {
+        shift_bps: f64,
+    },
+}
+
+fn default_pivot_tenor() -> f64 {
+    5.0
+}
+
+/// One named scenario = a list of bumps applied together.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenarioSpec {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub bumps: Vec<ScenarioBumpSpec>,
+}
+
+/// Run N curve scenarios against one bond in a single call. Methodology:
+/// the mark implies a Z-spread over the base curve; each scenario bumps the
+/// curve and reprices holding that Z-spread fixed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenarioRequest {
+    pub bond: Handle,
+    pub curve: Handle,
+    pub settlement: Date,
+    pub mark: MarkInput,
+    pub scenarios: Vec<ScenarioSpec>,
+    #[serde(default)]
+    pub quote_frequency: Frequency,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenarioRow {
+    pub name: String,
+    pub clean_price: f64,
+    pub dirty_price: f64,
+    /// Clean price change vs the base mark.
+    pub delta_clean: f64,
+    /// YTM at the scenario price, decimal.
+    pub ytm_decimal: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenarioResponse {
+    pub base_clean: f64,
+    pub base_ytm_decimal: f64,
+    pub z_spread_bps: f64,
+    pub rows: Vec<ScenarioRow>,
+}
+
 // ---- Risk profile / hedge advisor -----------------------------------------
 //
 // `convex_risk_profile` returns a `RiskProfile`; being a serializable value it

@@ -34,13 +34,14 @@ pub fn bond_from_json(json: &str) -> Handle {
             return INVALID_HANDLE;
         }
     };
+    let hash = content_hash(json);
 
     match spec {
-        BondSpec::FixedRate(s) => build_fixed_rate(s),
-        BondSpec::Callable(s) => build_callable(s),
-        BondSpec::FloatingRate(s) => build_floating_rate(s),
-        BondSpec::ZeroCoupon(s) => build_zero_coupon(s),
-        BondSpec::SinkingFund(s) => build_sinking_fund(s),
+        BondSpec::FixedRate(s) => build_fixed_rate(s, hash),
+        BondSpec::Callable(s) => build_callable(s, hash),
+        BondSpec::FloatingRate(s) => build_floating_rate(s, hash),
+        BondSpec::ZeroCoupon(s) => build_zero_coupon(s, hash),
+        BondSpec::SinkingFund(s) => build_sinking_fund(s, hash),
     }
 }
 
@@ -52,11 +53,30 @@ pub fn curve_from_json(json: &str) -> Handle {
             return INVALID_HANDLE;
         }
     };
+    let hash = content_hash(json);
 
     match spec {
-        CurveSpec::Discrete(s) => build_discrete_curve(s),
-        CurveSpec::Bootstrap(s) => build_bootstrap_curve(s),
+        CurveSpec::Discrete(s) => build_discrete_curve(s, hash),
+        CurveSpec::Bootstrap(s) => build_bootstrap_curve(s, hash),
     }
+}
+
+/// Hash of the spec that produced an object, for idempotent registration.
+///
+/// Hashes the canonicalized `serde_json::Value` re-serialization, not the raw
+/// string: serde_json (without `preserve_order`) stores objects in a BTreeMap,
+/// so keys re-serialize sorted and two logically-identical specs hash equal
+/// even if the caller emitted fields in a different order. Hashing the raw
+/// bytes instead would silently re-mint handles on every recalc — the exact
+/// cascade bug idempotency exists to fix.
+fn content_hash(json: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    match serde_json::from_str::<serde_json::Value>(json) {
+        Ok(v) => v.to_string().hash(&mut h),
+        Err(_) => json.hash(&mut h),
+    }
+    h.finish()
 }
 
 // ---- Bond builders --------------------------------------------------------
@@ -69,6 +89,18 @@ fn name_from_id(id: &BondIdentifier) -> Option<String> {
         .or_else(|| id.cusip.clone())
         .or_else(|| id.isin.clone())
         .or_else(|| id.name.clone())
+}
+
+/// Human identifiers to register as lookup aliases (ticker-style referencing).
+fn aliases_from_id(id: &BondIdentifier) -> Vec<String> {
+    let mut out = Vec::new();
+    for s in [&id.cusip, &id.isin, &id.name].into_iter().flatten() {
+        let s = s.trim();
+        if !s.is_empty() && !out.iter().any(|e| e == s) {
+            out.push(s.to_string());
+        }
+    }
+    out
 }
 
 /// Attaches whichever identifier the spec carries to a `FixedRateBondBuilder`.
@@ -147,7 +179,7 @@ impl CouponBuilder for convex_bonds::instruments::FixedRateBondBuilder {
     }
 }
 
-fn build_fixed_rate(spec: FixedRateSpec) -> Handle {
+fn build_fixed_rate(spec: FixedRateSpec, hash: u64) -> Handle {
     let mut b = FixedRateBond::builder();
     b = apply_identifier_fixed(b, &spec.id);
     b = apply_coupon(b, &spec.coupon);
@@ -162,10 +194,12 @@ fn build_fixed_rate(spec: FixedRateSpec) -> Handle {
         bond,
         ObjectKind::Bond(BondKind::FixedRate),
         name_from_id(&spec.id),
+        &aliases_from_id(&spec.id),
+        hash,
     )
 }
 
-fn build_callable(spec: CallableSpec) -> Handle {
+fn build_callable(spec: CallableSpec, hash: u64) -> Handle {
     // Build the underlying fixed bond first, then attach the schedule.
     let mut fb = FixedRateBond::builder();
     fb = apply_identifier_fixed(fb, &spec.id);
@@ -204,10 +238,12 @@ fn build_callable(spec: CallableSpec) -> Handle {
         bond,
         ObjectKind::Bond(BondKind::Callable),
         name_from_id(&spec.id),
+        &aliases_from_id(&spec.id),
+        hash,
     )
 }
 
-fn build_floating_rate(spec: FloatingRateSpec) -> Handle {
+fn build_floating_rate(spec: FloatingRateSpec, hash: u64) -> Handle {
     use convex_curves::multicurve::RateIndex;
     let index = match spec.rate_index {
         RateIndexCode::Sofr => RateIndex::Sofr,
@@ -254,10 +290,12 @@ fn build_floating_rate(spec: FloatingRateSpec) -> Handle {
         bond,
         ObjectKind::Bond(BondKind::FloatingRate),
         name_from_id(&spec.id),
+        &aliases_from_id(&spec.id),
+        hash,
     )
 }
 
-fn build_zero_coupon(spec: ZeroCouponSpec) -> Handle {
+fn build_zero_coupon(spec: ZeroCouponSpec, hash: u64) -> Handle {
     use convex_bonds::instruments::Compounding as ZcbComp;
     use convex_core::types::Compounding as CoreComp;
     let comp = match spec.compounding {
@@ -289,6 +327,8 @@ fn build_zero_coupon(spec: ZeroCouponSpec) -> Handle {
             bond,
             ObjectKind::Bond(BondKind::ZeroCoupon),
             name_from_id(&spec.id),
+            &aliases_from_id(&spec.id),
+            hash,
         ),
         Err(e) => {
             set_last_error(format!("ZeroCouponBond build failed: {e}"));
@@ -297,7 +337,7 @@ fn build_zero_coupon(spec: ZeroCouponSpec) -> Handle {
     }
 }
 
-fn build_sinking_fund(spec: SinkingFundSpec) -> Handle {
+fn build_sinking_fund(spec: SinkingFundSpec, hash: u64) -> Handle {
     if spec.schedule.is_empty() {
         set_last_error("sinking_fund schedule must have at least one payment");
         return INVALID_HANDLE;
@@ -330,6 +370,8 @@ fn build_sinking_fund(spec: SinkingFundSpec) -> Handle {
         bond,
         ObjectKind::Bond(BondKind::SinkingFund),
         name_from_id(&spec.id),
+        &aliases_from_id(&spec.id),
+        hash,
     )
 }
 
@@ -344,7 +386,7 @@ fn map_interp(code: InterpolationMethodCode) -> InterpolationMethod {
     }
 }
 
-fn build_discrete_curve(spec: DiscreteCurveSpec) -> Handle {
+fn build_discrete_curve(spec: DiscreteCurveSpec, hash: u64) -> Handle {
     if spec.tenors.len() != spec.values.len() {
         set_last_error("tenors and values must have the same length");
         return INVALID_HANDLE;
@@ -369,18 +411,41 @@ fn build_discrete_curve(spec: DiscreteCurveSpec) -> Handle {
             return INVALID_HANDLE;
         }
     };
-    let reg_name = spec.registry_key.or(spec.name);
-    registry::register(RateCurve::new(curve), ObjectKind::Curve, reg_name)
+    // The cell key stays the eviction slot; the curve's own name (USD.SOFR)
+    // is an alias so it remains resolvable instead of being lost to the
+    // cell address.
+    let (reg_name, aliases) = curve_name_and_aliases(spec.registry_key, spec.name);
+    registry::register(
+        RateCurve::new(curve),
+        ObjectKind::Curve,
+        reg_name,
+        &aliases,
+        hash,
+    )
 }
 
-fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
+fn curve_name_and_aliases(
+    registry_key: Option<String>,
+    name: Option<String>,
+) -> (Option<String>, Vec<String>) {
+    let aliases: Vec<String> = name
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let reg_name = registry_key.or(name);
+    (reg_name, aliases)
+}
+
+fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec, hash: u64) -> Handle {
     use convex_analytics::dto::BootstrapMethod;
 
     if spec.instruments.is_empty() {
         set_last_error("bootstrap requires at least one instrument");
         return INVALID_HANDLE;
     }
-    let reg_name = spec.registry_key.clone().or_else(|| spec.name.clone());
+    let (reg_name, aliases) =
+        curve_name_and_aliases(spec.registry_key.clone(), spec.name.clone());
 
     let mut set = InstrumentSet::new();
     for inst in &spec.instruments {
@@ -423,9 +488,13 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec) -> Handle {
         BootstrapMethod::GlobalFit => {
             let fitter = GlobalFitter::new().interpolation(map_interp(spec.interpolation));
             match fitter.fit(spec.ref_date, &set) {
-                Ok(result) => {
-                    registry::register(RateCurve::new(result.curve), ObjectKind::Curve, reg_name)
-                }
+                Ok(result) => registry::register(
+                    RateCurve::new(result.curve),
+                    ObjectKind::Curve,
+                    reg_name,
+                    &aliases,
+                    hash,
+                ),
                 Err(e) => {
                     set_last_error(format!("GlobalFit error: {e}"));
                     INVALID_HANDLE

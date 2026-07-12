@@ -15,6 +15,13 @@ namespace Convex.Excel
             public string DefaultDayCount { get; set; } = "Thirty360US";
             public string DefaultSpreadType { get; set; } = "Z";
             public string DefaultCurrency { get; set; } = "USD";
+            /// Queue a CalculateFullRebuild when the add-in loads, so builder
+            /// cells re-register and stale handles heal after reopening a
+            /// workbook. The ribbon Rebuild button is the manual equivalent.
+            public bool AutoRebuildOnOpen { get; set; } = true;
+            /// Poll interval for .LIVE cells watching the registry generation
+            /// (milliseconds, min 100).
+            public int LiveRefreshMs { get; set; } = 250;
         }
 
         private static readonly object _lock = new();
@@ -58,6 +65,8 @@ namespace Convex.Excel
                     DefaultDayCount = (string?)node["DefaultDayCount"] ?? "Thirty360US",
                     DefaultSpreadType = (string?)node["DefaultSpreadType"] ?? "Z",
                     DefaultCurrency = (string?)node["DefaultCurrency"] ?? "USD",
+                    AutoRebuildOnOpen = (bool?)node["AutoRebuildOnOpen"] ?? true,
+                    LiveRefreshMs = (int?)node["LiveRefreshMs"] ?? 250,
                 };
             }
             catch { return null; }
@@ -73,6 +82,8 @@ namespace Convex.Excel
                     ["DefaultDayCount"] = snap.DefaultDayCount,
                     ["DefaultSpreadType"] = snap.DefaultSpreadType,
                     ["DefaultCurrency"] = snap.DefaultCurrency,
+                    ["AutoRebuildOnOpen"] = snap.AutoRebuildOnOpen,
+                    ["LiveRefreshMs"] = snap.LiveRefreshMs,
                 };
                 File.WriteAllText(Path, node.ToString(Formatting.None));
                 _cached = snap;

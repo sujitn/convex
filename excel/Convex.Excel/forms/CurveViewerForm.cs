@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -74,67 +75,103 @@ namespace Convex.Excel.Forms
             Controls.Add(top);
             Controls.Add(bottom);
 
-            ReloadCurves();
+            // After handle creation — the async render marshals back with
+            // BeginInvoke, which needs a live window handle.
+            Load += (_, _) => ReloadCurves();
         }
 
         private void ReloadCurves()
         {
             try
             {
-                _curve.Items.Clear();
-                foreach (var e in Cx.ListObjects().Where(o => o.Kind == "curve").OrderBy(o => o.Handle))
-                {
-                    var label = e.Name is { Length: > 0 }
+                var items = Cx.ListObjects()
+                    .Where(o => o.Kind == "curve")
+                    .OrderBy(o => o.Handle)
+                    .Select(e => (object)(e.Name is { Length: > 0 }
                         ? $"{CxParse.FormatHandle(e.Handle)}  ·  {e.Name}"
-                        : CxParse.FormatHandle(e.Handle);
-                    _curve.Items.Add(label);
-                }
-                if (_curve.Items.Count > 0) _curve.SelectedIndex = 0;
+                        : CxParse.FormatHandle(e.Handle)))
+                    .ToArray();
+                Convex.Excel.Helpers.ComboReload.Reload(_curve, items);
                 Render();
             }
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; }
         }
+
+        // Monotonic render id so a slow background sweep can't paint over a
+        // newer selection.
+        private int _renderSeq;
 
         private void Render()
         {
             try
             {
                 if (_curve.SelectedItem is null) { _chart.Series.Clear(); _grid.Rows.Clear(); return; }
-                var label = _curve.SelectedItem!.ToString()!;
-                int sep = label.IndexOf(' ');
-                var token = sep < 0 ? label : label.Substring(0, sep);
-                var handle = CxParse.AsHandle(token, "curve");
-
-                _chart.Series.Clear();
-                var zSeries = new Series("Zero rate")
-                {
-                    ChartType = SeriesChartType.Line,
-                    BorderWidth = 2,
-                    Color = Color.FromArgb(0, 120, 215),
-                };
-                var fSeries = new Series("1Y forward")
-                {
-                    ChartType = SeriesChartType.Line,
-                    BorderWidth = 2,
-                    Color = Color.FromArgb(220, 60, 60),
-                };
-                _grid.Rows.Clear();
+                var handle = Convex.Excel.Helpers.ComboReload.HandleOf(_curve, "curve");
 
                 double max = (double)_maxTenor.Value;
                 double step = max <= 5 ? 0.25 : (max <= 15 ? 0.5 : 1.0);
-                for (double t = step; t <= max + 1e-9; t += step)
+                int seq = ++_renderSeq;
+                _status.Text = "computing…";
+
+                // The sweep is ~2 FFI calls per point — run it off the UI
+                // thread so a modeless viewer never freezes Excel's message
+                // pump, then marshal the points back.
+                System.Threading.Tasks.Task.Run(() =>
                 {
-                    var zero = Query(handle, "zero", t, null);
-                    var fwd = Query(handle, "forward", t, t + 1.0);
-                    zSeries.Points.AddXY(t, zero * 100.0);
-                    fSeries.Points.AddXY(t, fwd * 100.0);
-                    _grid.Rows.Add(t.ToString("F2", CultureInfo.InvariantCulture),
-                        (zero * 100.0).ToString("F4", CultureInfo.InvariantCulture),
-                        (fwd * 100.0).ToString("F4", CultureInfo.InvariantCulture));
-                }
-                _chart.Series.Add(zSeries);
-                _chart.Series.Add(fSeries);
-                _status.Text = "OK";
+                    var points = new System.Collections.Generic.List<(double t, double zero, double fwd)>();
+                    for (double t = step; t <= max + 1e-9; t += step)
+                    {
+                        var zero = Query(handle, "zero", t, null);
+                        var fwd = Query(handle, "forward", t, t + 1.0);
+                        points.Add((t, zero, fwd));
+                    }
+                    return points;
+                }).ContinueWith(task =>
+                {
+                    if (IsDisposed || seq != _renderSeq) return;
+                    BeginInvoke(new Action(() =>
+                    {
+                        if (seq != _renderSeq) return;
+                        try
+                        {
+                            if (task.IsFaulted)
+                            {
+                                _status.Text = "ERROR: " +
+                                    (task.Exception?.GetBaseException().Message ?? "sweep failed");
+                                return;
+                            }
+                            _chart.Series.Clear();
+                            var zSeries = new Series("Zero rate")
+                            {
+                                ChartType = SeriesChartType.Line,
+                                BorderWidth = 2,
+                                Color = Color.FromArgb(0, 120, 215),
+                            };
+                            var fSeries = new Series("1Y forward")
+                            {
+                                ChartType = SeriesChartType.Line,
+                                BorderWidth = 2,
+                                Color = Color.FromArgb(220, 60, 60),
+                            };
+                            _grid.Rows.Clear();
+                            foreach (var (t, zero, fwd) in task.Result)
+                            {
+                                zSeries.Points.AddXY(t, zero * 100.0);
+                                fSeries.Points.AddXY(t, fwd * 100.0);
+                                _grid.Rows.Add(t.ToString("F2", CultureInfo.InvariantCulture),
+                                    (zero * 100.0).ToString("F4", CultureInfo.InvariantCulture),
+                                    (fwd * 100.0).ToString("F4", CultureInfo.InvariantCulture));
+                            }
+                            _chart.Series.Add(zSeries);
+                            _chart.Series.Add(fSeries);
+                            _status.Text = "OK";
+                        }
+                        catch (Exception ex)
+                        {
+                            _status.Text = "ERROR: " + ex.Message;
+                        }
+                    }));
+                });
             }
             catch (Exception ex)
             {
@@ -153,13 +190,6 @@ namespace Convex.Excel.Forms
             if (tenorEnd.HasValue) req["tenor_end"] = tenorEnd.Value;
             var resp = Cx.CurveQuery(req);
             return (double?)resp["value"] ?? throw new ConvexException("missing value");
-        }
-
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
         }
     }
 }

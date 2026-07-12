@@ -6,7 +6,14 @@
        DLL with no transitive dependencies. Packed into the .xll. -->
   <Reference Path="Newtonsoft.Json.dll" Pack="true" />
 
-  <NativeLibrary Name="convex_ffi" Path="convex_ffi.dll" />
+  <!-- In-grid function tooltips for CX.* UDFs. -->
+  <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
+
+  <!-- convex_ffi.dll (Rust engine) ships SIDE-BY-SIDE with the .xll — it is
+       loaded explicitly by NativeLoader at AutoOpen. ExcelDna 1.7's .dna
+       schema has no native-library packing; keep the DLL next to the .xll
+       when deploying. Status: =CX.DIAG(). -->
+
 
   <CustomUI>
     <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" loadImage="LoadImage">
@@ -27,8 +34,11 @@
             </group>
             <group id="ToolsGroup" label="Tools">
               <button id="btnObjects"      label="Objects"        size="large" image="objects"  onAction="OnObjectBrowser" screentip="Browse, paste, describe, or release registered handles." />
+              <button id="btnRebuild"      label="Rebuild"        size="large" image="bootstrap" onAction="OnRebuild"      screentip="Full recalculation — re-registers every bond/curve built from cells (use after reopening a workbook)." />
               <button id="btnSchema"       label="Schemas"        size="normal" image="about"   onAction="OnSchemaBrowser" screentip="Inspect the JSON wire format for any DTO." />
               <button id="btnSettings"     label="Settings"       size="normal" image="about"   onAction="OnSettings"      screentip="Default frequency, day count, and spread family." />
+              <button id="btnDiagnostics"  label="Diagnostics"    size="normal" image="about"   onAction="OnDiagnostics"   screentip="Native library load status, engine version, object count." />
+              <button id="btnErrorLog"     label="Error Log"      size="normal" image="about"   onAction="OnErrorLog"      screentip="Every CX.* error this session, with full messages; double-click to jump to the cell." />
               <button id="btnClearAll"     label="Clear All"      size="normal" image="clear"   onAction="OnClearAll"      screentip="Release every registered Convex object." />
             </group>
             <group id="HelpGroup" label="Help">

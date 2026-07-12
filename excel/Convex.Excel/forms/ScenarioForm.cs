@@ -6,16 +6,19 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Windows.Forms;
 using Convex.Excel.Helpers;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
-    // Bump-style scenarios on a bond: parallel shift (bps), KRD across a tenor
-    // ladder, or a custom yield-shift list. Each row reprices via convex_price
-    // with a yield mark derived from the base YTM plus the shift, so the
-    // engine path is identical to =CX.PRICE.
+    // Bump-style scenarios on a bond. With a curve selected, one
+    // convex_scenario call runs the whole ladder (same verb as =CX.SCENARIO,
+    // so form and cell always agree); with no curve, falls back to a plain
+    // parallel yield-shift ladder so bond-only workflows still work.
     internal sealed class ScenarioForm : Form
     {
         private readonly ComboBox _bond = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+        private readonly ComboBox _curve = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+        private readonly ComboBox _kind = new() { DropDownStyle = ComboBoxStyle.DropDownList };
         private readonly DateTimePicker _settle = new() { Format = DateTimePickerFormat.Short, Value = DateTime.Today };
         private readonly TextBox _baseMark = new() { Text = "99.5C" };
         private readonly TextBox _shifts = new() { Text = "-50, -25, -10, 0, 10, 25, 50" };
@@ -35,24 +38,29 @@ namespace Convex.Excel.Forms
             MinimumSize = new Size(620, 400);
             StartPosition = FormStartPosition.CenterParent;
 
-            _result.Columns.Add("shift", "Shift (bps)");
+            _result.Columns.Add("name", "Scenario");
             _result.Columns.Add("yield", "Yield (%)");
             _result.Columns.Add("clean", "Clean");
             _result.Columns.Add("dirty", "Dirty");
             _result.Columns.Add("dpnl", "ΔP (clean)");
 
+            _kind.Items.AddRange(new object[] { "parallel", "steepener", "flattener", "credit" });
+            _kind.SelectedIndex = 0;
+
             var inputs = new TableLayoutPanel
             {
-                Dock = DockStyle.Top, Height = 170,
-                ColumnCount = 2, RowCount = 4, Padding = new Padding(10),
+                Dock = DockStyle.Top, Height = 236,
+                ColumnCount = 2, RowCount = 6, Padding = new Padding(10),
             };
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 4; i++) inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            for (int i = 0; i < 6; i++) inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             AddRow(inputs, 0, "Bond:", _bond);
-            AddRow(inputs, 1, "Settlement:", _settle);
-            AddRow(inputs, 2, "Base mark:", _baseMark);
-            AddRow(inputs, 3, "Shifts (bps, csv):", _shifts);
+            AddRow(inputs, 1, "Curve:", _curve);
+            AddRow(inputs, 2, "Settlement:", _settle);
+            AddRow(inputs, 3, "Base mark:", _baseMark);
+            AddRow(inputs, 4, "Shift kind:", _kind);
+            AddRow(inputs, 5, "Shifts (bps, csv):", _shifts);
 
             var bottom = new FlowLayoutPanel
             {
@@ -74,15 +82,25 @@ namespace Convex.Excel.Forms
             ReloadBonds();
         }
 
+        private const string NoCurve = "(none — parallel yield shift)";
+
         private void ReloadBonds()
         {
             try
             {
-                _bond.Items.Clear();
-                foreach (var e in Cx.ListObjects().Where(o => o.Kind != "curve").OrderBy(o => o.Handle))
-                    _bond.Items.Add(Format(e));
-                if (_bond.Items.Count > 0) _bond.SelectedIndex = 0;
-                _status.Text = $"{_bond.Items.Count} bond(s)";
+                var entries = Cx.ListObjects();
+                ComboReload.Reload(_bond, entries
+                    .Where(o => o.Kind != "curve")
+                    .OrderBy(o => o.Handle)
+                    .Select(e => (object)Format(e))
+                    .ToArray());
+                ComboReload.Reload(_curve, new object[] { NoCurve }
+                    .Concat(entries
+                        .Where(o => o.Kind == "curve")
+                        .OrderBy(o => o.Handle)
+                        .Select(e => (object)Format(e)))
+                    .ToArray());
+                _status.Text = $"{_bond.Items.Count} bond(s), {_curve.Items.Count - 1} curve(s)";
             }
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; }
         }
@@ -92,68 +110,109 @@ namespace Convex.Excel.Forms
                 ? $"{CxParse.FormatHandle(e.Handle)}  ·  {e.Kind}  ·  {e.Name}"
                 : $"{CxParse.FormatHandle(e.Handle)}  ·  {e.Kind}";
 
-        private ulong BondHandle()
-        {
-            if (_bond.SelectedItem is null) throw new ConvexException("select a bond");
-            var t = _bond.SelectedItem!.ToString()!;
-            int sep = t.IndexOf(' ');
-            return CxParse.AsHandle(sep < 0 ? t : t.Substring(0, sep), "bond");
-        }
-
         private void Run()
         {
             try
             {
-                var handle = BondHandle();
-                var settle = CxParse.AsIsoDate(_settle.Value.Date);
-
-                // 1. Compute base from the user's mark (gives us YTM and clean baseline).
-                var baseReq = new JObject
-                {
-                    ["bond"] = handle,
-                    ["settlement"] = settle,
-                    ["mark"] = new JValue(_baseMark.Text.Trim()),
-                    ["quote_frequency"] = "SemiAnnual",
-                };
-                var baseResult = Cx.Price(baseReq);
-                var baseYtm = (double)baseResult["ytm_decimal"]!;
-                var baseClean = (double)baseResult["clean_price"]!;
-
                 _result.Rows.Clear();
-                foreach (var shiftBps in ParseShifts(_shifts.Text))
-                {
-                    var bumpedYield = baseYtm + shiftBps / 10_000.0;
-                    var markText = (bumpedYield * 100.0).ToString("F8", CultureInfo.InvariantCulture) + "%@SA";
-                    var req = new JObject
-                    {
-                        ["bond"] = handle,
-                        ["settlement"] = settle,
-                        ["mark"] = new JValue(markText),
-                        ["quote_frequency"] = "SemiAnnual",
-                    };
-                    var r = Cx.Price(req);
-                    var clean = (double)r["clean_price"]!;
-                    var dirty = (double)r["dirty_price"]!;
-                    _result.Rows.Add(
-                        shiftBps.ToString("F1", CultureInfo.InvariantCulture),
-                        (bumpedYield * 100.0).ToString("F4", CultureInfo.InvariantCulture),
-                        clean.ToString("F6", CultureInfo.InvariantCulture),
-                        dirty.ToString("F6", CultureInfo.InvariantCulture),
-                        (clean - baseClean).ToString("F6", CultureInfo.InvariantCulture));
-                }
-                _status.Text = "OK — base YTM " + (baseYtm * 100.0).ToString("F4", CultureInfo.InvariantCulture) + "%";
+                if (_curve.SelectedIndex <= 0)
+                    RunYieldLadder();      // no curve: shift the base YTM directly
+                else
+                    RunCurveScenarios();   // curve scenarios via convex_scenario
             }
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; _result.Rows.Clear(); }
         }
+
+        // Curveless mode — the pre-curve-scenario behavior: bump the
+        // mark-implied YTM by each shift and reprice, no curve required.
+        // Only a parallel shift is meaningful here.
+        private void RunYieldLadder()
+        {
+            var kind = (string)_kind.SelectedItem!;
+            if (kind != "parallel")
+                throw new ConvexException($"{kind} scenarios need a curve — pick one, or use parallel");
+
+            var handle = ComboReload.HandleOf(_bond, "bond");
+            var settle = CxParse.AsIsoDate(_settle.Value.Date);
+            var baseReq = new JObject
+            {
+                ["bond"] = handle,
+                ["settlement"] = settle,
+                ["mark"] = new JValue(_baseMark.Text.Trim()),
+                ["quote_frequency"] = "SemiAnnual",
+            };
+            var baseResult = Cx.Price(baseReq);
+            var baseYtm = (double)baseResult["ytm_decimal"]!;
+            var baseClean = (double)baseResult["clean_price"]!;
+
+            foreach (var shiftBps in ParseShifts(_shifts.Text))
+            {
+                var bumpedYield = baseYtm + shiftBps / 10_000.0;
+                var markText = (bumpedYield * 100.0).ToString("F8", CultureInfo.InvariantCulture) + "%@SA";
+                var r = Cx.Price(new JObject
+                {
+                    ["bond"] = handle,
+                    ["settlement"] = settle,
+                    ["mark"] = new JValue(markText),
+                    ["quote_frequency"] = "SemiAnnual",
+                });
+                var clean = (double)r["clean_price"]!;
+                AddRow($"{(shiftBps >= 0 ? "+" : "")}{shiftBps:0.#}bp yield",
+                    bumpedYield * 100.0, clean, (double)r["dirty_price"]!, clean - baseClean);
+            }
+            _status.Text = "OK — base YTM " + (baseYtm * 100.0).ToString("F4", CultureInfo.InvariantCulture) + "%";
+        }
+
+        private void RunCurveScenarios()
+        {
+            var req = new JObject
+            {
+                ["bond"] = ComboReload.HandleOf(_bond, "bond"),
+                ["curve"] = ComboReload.HandleOf(_curve, "curve"),
+                ["settlement"] = CxParse.AsIsoDate(_settle.Value.Date),
+                ["mark"] = new JValue(_baseMark.Text.Trim()),
+                ["scenarios"] = Functions.BuildScenarioLadder(
+                    ParseShifts(_shifts.Text), (string)_kind.SelectedItem!, 5.0),
+                ["quote_frequency"] = "SemiAnnual",
+            };
+
+            var result = Cx.Scenario(req);
+            foreach (var row in result["rows"] as JArray ?? new JArray())
+            {
+                AddRow((string?)row["name"] ?? "",
+                    ((double?)row["ytm_decimal"] ?? double.NaN) * 100.0,
+                    (double?)row["clean_price"] ?? double.NaN,
+                    (double?)row["dirty_price"] ?? double.NaN,
+                    (double?)row["delta_clean"] ?? double.NaN);
+            }
+            var baseYtm = ((double?)result["base_ytm_decimal"] ?? double.NaN) * 100.0;
+            var z = (double?)result["z_spread_bps"] ?? double.NaN;
+            _status.Text = "OK — base YTM " + baseYtm.ToString("F4", CultureInfo.InvariantCulture) +
+                           "%, Z " + z.ToString("F1", CultureInfo.InvariantCulture) + "bp";
+        }
+
+        private void AddRow(string name, double ytmPct, double clean, double dirty, double delta) =>
+            _result.Rows.Add(
+                name,
+                ytmPct.ToString("F4", CultureInfo.InvariantCulture),
+                clean.ToString("F6", CultureInfo.InvariantCulture),
+                dirty.ToString("F6", CultureInfo.InvariantCulture),
+                delta.ToString("F6", CultureInfo.InvariantCulture));
 
         private void StampToSheet()
         {
             try
             {
-                if (_result.Rows.Count == 0) Run();
+                if (_result.Rows.Count == 0)
+                {
+                    Run();
+                    // Run() reports its own failure in _status; don't stamp a
+                    // header-only grid over it with a false success message.
+                    if (_result.Rows.Count == 0) return;
+                }
                 var rows = _result.Rows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).ToList();
                 var grid = new object[rows.Count + 1, 5];
-                grid[0, 0] = "Shift (bps)";
+                grid[0, 0] = "Scenario";
                 grid[0, 1] = "Yield (%)";
                 grid[0, 2] = "Clean";
                 grid[0, 3] = "Dirty";
@@ -180,13 +239,6 @@ namespace Convex.Excel.Forms
                 new Label { Text = label, Anchor = AnchorStyles.Left, AutoSize = true, Padding = new Padding(0, 6, 0, 0) }, 0, row);
             control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             grid.Controls.Add(control, 1, row);
-        }
-
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
         }
     }
 }

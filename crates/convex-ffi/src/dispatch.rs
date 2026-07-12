@@ -18,7 +18,8 @@ use convex_analytics::dto::{
     CashflowEntry, CashflowRequest, CashflowResponse, CompareRequest, CompareResponse,
     CurveQueryKind, CurveQueryRequest, CurveQueryResponse, HedgeRequest, HedgeStrategyKind,
     KeyRate, MakeWholeRequest, MakeWholeResponse, MarkInput, PricingRequest, PricingResponse,
-    RiskProfileRequest, RiskRequest, RiskResponse, SpreadRequest, SpreadResponse,
+    RiskProfileRequest, RiskRequest, RiskResponse, ScenarioBumpSpec, ScenarioRequest,
+    ScenarioResponse, ScenarioRow, SpreadRequest, SpreadResponse, YasRequest, YasResponse,
 };
 use convex_analytics::pricing::price_from_mark;
 use convex_analytics::risk::{
@@ -103,6 +104,79 @@ fn to_envelope<T: serde::Serialize>(r: Result<T, DispatchError>) -> String {
     }
 }
 
+// ---- Ticker-style reference resolution -------------------------------------
+//
+// Requests may reference bonds/curves by numeric handle (`"bond": 101`) or by
+// human identifier (`"bond": "912828YK0"`, `"curve": "USD.SOFR"`). Only this
+// crate owns the registry, so string references are resolved here — in the
+// request JSON, before deserialization — keeping the DTOs' `Handle` fields
+// and every downstream helper untouched. An unknown name maps to
+// `invalid_handle`, the same error class as a dangling numeric handle.
+
+/// Field paths that carry registry references, per request shape.
+const PRICE_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["forward_curve"]];
+const RISK_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["forward_curve"]];
+const SPREAD_REFS: &[&[&str]] = &[
+    &["bond"],
+    &["curve"],
+    &["params", "forward_curve"],
+    &["params", "govt_curve"],
+];
+const CASHFLOWS_REFS: &[&[&str]] = &[&["bond"]];
+const CURVE_QUERY_REFS: &[&[&str]] = &[&["curve"]];
+const MAKE_WHOLE_REFS: &[&[&str]] = &[&["bond"]];
+const RISK_PROFILE_REFS: &[&[&str]] = &[&["bond"], &["curve"]];
+const HEDGE_REFS: &[&[&str]] = &[&["curve"]];
+const YAS_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["govt_curve"], &["swap_curve"]];
+const SCENARIO_REFS: &[&[&str]] = &[&["bond"], &["curve"]];
+
+fn field_mut<'a>(
+    value: &'a mut serde_json::Value,
+    path: &[&str],
+) -> Option<&'a mut serde_json::Value> {
+    let mut cur = value;
+    for seg in path {
+        cur = cur.get_mut(*seg)?;
+    }
+    Some(cur)
+}
+
+/// Parse the request once, rewriting string references at `paths` to their
+/// resolved numeric handles. Numeric fields and absent optional fields pass
+/// through untouched. The parsed value feeds the handler via `from_value`,
+/// so the common all-numeric request costs one parse and no re-serialization.
+fn resolve_refs(
+    request_json: &str,
+    paths: &[&[&str]],
+) -> Result<serde_json::Value, DispatchError> {
+    let mut v: serde_json::Value = serde_json::from_str(request_json)
+        .map_err(|e| DispatchError::input(format!("request: {e}")))?;
+    for path in paths {
+        if let Some(slot) = field_mut(&mut v, path) {
+            if let serde_json::Value::String(name) = &*slot {
+                match registry::resolve_alias(name) {
+                    Some(h) => *slot = serde_json::Value::from(h),
+                    None => {
+                        return Err(DispatchError::handle(format!(
+                            "no bond or curve registered under '{name}' — build it first \
+                             or check the identifier"
+                        )))
+                    }
+                }
+            }
+        }
+    }
+    Ok(v)
+}
+
+fn with_resolved_refs<T: serde::Serialize>(
+    request_json: &str,
+    paths: &[&[&str]],
+    inner: impl FnOnce(serde_json::Value) -> Result<T, DispatchError>,
+) -> String {
+    to_envelope(resolve_refs(request_json, paths).and_then(inner))
+}
+
 // ---- describe ------------------------------------------------------------
 
 /// Returns enough JSON for an Object Browser to actually inform the user:
@@ -183,11 +257,11 @@ fn extend_fixed(payload: &mut serde_json::Value, b: &FixedRateBond) {
 // ---- price ---------------------------------------------------------------
 
 pub fn price(request_json: &str) -> String {
-    to_envelope(price_inner(request_json))
+    with_resolved_refs(request_json, PRICE_REFS, price_inner)
 }
 
-fn price_inner(request_json: &str) -> Result<PricingResponse, DispatchError> {
-    let req: PricingRequest = serde_json::from_str(request_json)
+fn price_inner(request: serde_json::Value) -> Result<PricingResponse, DispatchError> {
+    let req: PricingRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("PricingRequest: {e}")))?;
     let mark = parse_mark(&req.mark)?;
 
@@ -304,11 +378,11 @@ fn price_zero(req: &PricingRequest, mark: &Mark) -> Result<PricingResponse, Disp
 // ---- risk ----------------------------------------------------------------
 
 pub fn risk(request_json: &str) -> String {
-    to_envelope(risk_inner(request_json))
+    with_resolved_refs(request_json, RISK_REFS, risk_inner)
 }
 
-fn risk_inner(request_json: &str) -> Result<RiskResponse, DispatchError> {
-    let req: RiskRequest = serde_json::from_str(request_json)
+fn risk_inner(request: serde_json::Value) -> Result<RiskResponse, DispatchError> {
+    let req: RiskRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("RiskRequest: {e}")))?;
     let mark = parse_mark(&req.mark)?;
 
@@ -489,11 +563,11 @@ fn compute_krd<B: Bond + FixedCouponBond>(
 // ---- spread --------------------------------------------------------------
 
 pub fn spread(request_json: &str) -> String {
-    to_envelope(spread_inner(request_json))
+    with_resolved_refs(request_json, SPREAD_REFS, spread_inner)
 }
 
-fn spread_inner(request_json: &str) -> Result<SpreadResponse, DispatchError> {
-    let req: SpreadRequest = serde_json::from_str(request_json)
+fn spread_inner(request: serde_json::Value) -> Result<SpreadResponse, DispatchError> {
+    let req: SpreadRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("SpreadRequest: {e}")))?;
     let mark = parse_mark(&req.mark)?;
 
@@ -701,11 +775,11 @@ fn mark_to_frn_dirty(req: &SpreadRequest, frn: &FloatingRateNote) -> Result<f64,
 // ---- cashflows -----------------------------------------------------------
 
 pub fn cashflows(request_json: &str) -> String {
-    to_envelope(cashflows_inner(request_json))
+    with_resolved_refs(request_json, CASHFLOWS_REFS, cashflows_inner)
 }
 
-fn cashflows_inner(request_json: &str) -> Result<CashflowResponse, DispatchError> {
-    let req: CashflowRequest = serde_json::from_str(request_json)
+fn cashflows_inner(request: serde_json::Value) -> Result<CashflowResponse, DispatchError> {
+    let req: CashflowRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("CashflowRequest: {e}")))?;
 
     let to_entries = |bond: &dyn Bond| -> CashflowResponse {
@@ -732,11 +806,11 @@ fn cashflows_inner(request_json: &str) -> Result<CashflowResponse, DispatchError
 // ---- make_whole ---------------------------------------------------------
 
 pub fn make_whole(request_json: &str) -> String {
-    to_envelope(make_whole_inner(request_json))
+    with_resolved_refs(request_json, MAKE_WHOLE_REFS, make_whole_inner)
 }
 
-fn make_whole_inner(request_json: &str) -> Result<MakeWholeResponse, DispatchError> {
-    let req: MakeWholeRequest = serde_json::from_str(request_json)
+fn make_whole_inner(request: serde_json::Value) -> Result<MakeWholeResponse, DispatchError> {
+    let req: MakeWholeRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("MakeWholeRequest: {e}")))?;
 
     if !req.treasury_rate.is_finite() {
@@ -775,11 +849,11 @@ fn make_whole_inner(request_json: &str) -> Result<MakeWholeResponse, DispatchErr
 
 /// Build a position `RiskProfile`. Response is the profile JSON itself.
 pub fn risk_profile(request_json: &str) -> String {
-    to_envelope(risk_profile_inner(request_json))
+    with_resolved_refs(request_json, RISK_PROFILE_REFS, risk_profile_inner)
 }
 
-fn risk_profile_inner(request_json: &str) -> Result<RiskProfile, DispatchError> {
-    let req: RiskProfileRequest = serde_json::from_str(request_json)
+fn risk_profile_inner(request: serde_json::Value) -> Result<RiskProfile, DispatchError> {
+    let req: RiskProfileRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("RiskProfileRequest: {e}")))?;
     let mark = parse_mark(&req.mark)?;
     let curve = clone_typed_curve(req.curve)?;
@@ -839,11 +913,11 @@ fn risk_profile_inner(request_json: &str) -> Result<RiskProfile, DispatchError> 
 
 /// Propose a hedge for a position profile. Response is a `HedgeProposal`.
 pub fn hedge(request_json: &str) -> String {
-    to_envelope(hedge_inner(request_json))
+    with_resolved_refs(request_json, HEDGE_REFS, hedge_inner)
 }
 
-fn hedge_inner(request_json: &str) -> Result<HedgeProposal, DispatchError> {
-    let req: HedgeRequest = serde_json::from_str(request_json)
+fn hedge_inner(request: serde_json::Value) -> Result<HedgeProposal, DispatchError> {
+    let req: HedgeRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("HedgeRequest: {e}")))?;
     let curve = clone_typed_curve(req.curve)?;
     // cost_feed = None → strategies fall back to the built-in heuristic model.
@@ -914,12 +988,199 @@ fn compare_inner(request_json: &str) -> Result<CompareResponse, DispatchError> {
 
 // ---- curve_query --------------------------------------------------------
 
-pub fn curve_query(request_json: &str) -> String {
-    to_envelope(curve_query_inner(request_json))
+// ---- YAS -------------------------------------------------------------------
+
+pub fn yas(request_json: &str) -> String {
+    with_resolved_refs(request_json, YAS_REFS, yas_inner)
 }
 
-fn curve_query_inner(request_json: &str) -> Result<CurveQueryResponse, DispatchError> {
-    let req: CurveQueryRequest = serde_json::from_str(request_json)
+/// One-call Bloomberg-YAS-style analysis. The mark is resolved to a clean
+/// price via the same `price_from_mark` path `convex_price` uses (so any mark
+/// grammar works), then the YAS engine produces every yield convention,
+/// G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice —
+/// replacing what would otherwise be a dozen separate per-cell recomputations.
+fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
+    use convex_analytics::yas::YASCalculator;
+
+    let req: YasRequest = serde_json::from_value(request)
+        .map_err(|e| DispatchError::input(format!("YasRequest: {e}")))?;
+    let mark = parse_mark(&req.mark)?;
+
+    let spot = clone_typed_curve(req.curve)?;
+    let govt = match req.govt_curve {
+        Some(h) if h != 0 => Some(clone_typed_curve(h)?),
+        _ => None,
+    };
+    let swap = match req.swap_curve {
+        Some(h) if h != 0 => Some(clone_typed_curve(h)?),
+        _ => None,
+    };
+
+    with_fixed_bond!(req.bond, bond, {
+        let priced = price_from_mark(bond, req.settlement, &mark, Some(&spot), req.quote_frequency)?;
+        let clean = Decimal::from_f64_retain(priced.clean_price_per_100)
+            .ok_or_else(|| DispatchError::analytics("non-finite clean price"))?;
+
+        let mut calc = match &govt {
+            Some(g) => YASCalculator::with_curves(g, &spot),
+            None => YASCalculator::new(&spot),
+        };
+        if let Some(s) = &swap {
+            calc = calc.with_swap_curve(s);
+        }
+        calc = calc.with_frequency(req.quote_frequency.periods_per_year());
+
+        let r = calc
+            .analyze(bond, req.settlement.into(), clean)
+            .map_err(|e| DispatchError::analytics(format!("YAS: {e}")))?;
+
+        Ok(YasResponse {
+            clean_price: priced.clean_price_per_100,
+            dirty_price: dec_to_f64(r.invoice.dirty_price),
+            accrued: dec_to_f64(r.invoice.accrued_interest),
+            accrued_days: r.invoice.accrued_days,
+            ytm_pct: dec_to_f64(r.ytm),
+            current_yield_pct: dec_to_f64(r.current_yield),
+            simple_yield_pct: dec_to_f64(r.simple_yield),
+            money_market_yield_pct: r.money_market_yield.map(dec_to_f64),
+            g_spread_bps: dec_to_f64(r.g_spread.as_bps()),
+            z_spread_bps: dec_to_f64(r.z_spread.as_bps()),
+            benchmark_spread_bps: dec_to_f64(r.benchmark_spread.as_bps()),
+            benchmark_tenor: r.benchmark_tenor.clone(),
+            asw_spread_bps: r.asw_spread.map(|s| dec_to_f64(s.as_bps())),
+            oas_bps: r.oas.map(|s| dec_to_f64(s.as_bps())),
+            modified_duration: dec_to_f64(r.risk.modified_duration.years()),
+            macaulay_duration: dec_to_f64(r.risk.macaulay_duration.years()),
+            convexity: dec_to_f64(r.risk.convexity.value()),
+            dv01_per_100: dec_to_f64(r.risk.dv01_per_100.value()),
+            principal_amount: dec_to_f64(r.invoice.principal_amount),
+            accrued_amount: dec_to_f64(r.invoice.accrued_amount),
+            settlement_amount: dec_to_f64(r.invoice.settlement_amount),
+        })
+    })
+}
+
+// ---- Scenarios --------------------------------------------------------------
+
+pub fn scenario(request_json: &str) -> String {
+    with_resolved_refs(request_json, SCENARIO_REFS, scenario_inner)
+}
+
+/// Run every scenario in one call: one base pricing + Z-spread solve, then
+/// one reprice per scenario against the bumped curve holding Z fixed — the
+/// same methodology as key-rate durations, generalized to arbitrary curve
+/// shapes (parallel/steepener/flattener/key-rate/credit).
+fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, DispatchError> {
+    use convex_curves::bumping::{Scenario, ScenarioBump};
+
+    let req: ScenarioRequest = serde_json::from_value(request)
+        .map_err(|e| DispatchError::input(format!("ScenarioRequest: {e}")))?;
+    if req.scenarios.is_empty() {
+        return Err(DispatchError::input_field(
+            "scenarios",
+            "at least one scenario is required",
+        ));
+    }
+    let mark = parse_mark(&req.mark)?;
+    let base_inner = registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| {
+        c.inner().clone()
+    })
+    .ok_or_else(|| DispatchError::handle(format!("curve handle {} not found", req.curve)))?;
+    let base_wrapper = RateCurve::new(base_inner.clone());
+
+    with_fixed_bond!(req.bond, bond, {
+        let priced = price_from_mark(
+            bond,
+            req.settlement,
+            &mark,
+            Some(&base_wrapper),
+            req.quote_frequency,
+        )?;
+        let dirty = Decimal::from_f64_retain(priced.dirty_price_per_100)
+            .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
+        let z = ZSpreadCalculator::new(&base_wrapper).calculate(bond, dirty, req.settlement)?;
+        let z_decimal = dec_to_f64(z.as_decimal());
+        let accrued = priced.dirty_price_per_100 - priced.clean_price_per_100;
+
+        // Anchor the ladder at the mark: absorb the (sub-cent, now that the
+        // Z-solve returns an unrounded-to-the-bp spread) residual between the
+        // marked dirty price and repricing at the solved spread, so the
+        // zero-shift row reproduces the marked price exactly.
+        let dirty0 =
+            ZSpreadCalculator::new(&base_wrapper).price_with_spread(bond, z_decimal, req.settlement);
+        let basis = priced.dirty_price_per_100 - dirty0;
+
+        let mut rows = Vec::with_capacity(req.scenarios.len());
+        for (i, spec) in req.scenarios.iter().enumerate() {
+            let mut sc = Scenario::new(
+                spec.name
+                    .clone()
+                    .unwrap_or_else(|| format!("scenario {}", i + 1)),
+            );
+            for b in &spec.bumps {
+                sc = sc.with_bump(match *b {
+                    ScenarioBumpSpec::Parallel { shift_bps } => ScenarioBump::parallel(shift_bps),
+                    ScenarioBumpSpec::Steepener {
+                        short_shift_bps,
+                        long_shift_bps,
+                        pivot_tenor,
+                    } => ScenarioBump::steepener(short_shift_bps, long_shift_bps, pivot_tenor),
+                    ScenarioBumpSpec::Flattener {
+                        short_shift_bps,
+                        long_shift_bps,
+                        pivot_tenor,
+                    } => ScenarioBump::flattener(short_shift_bps, long_shift_bps, pivot_tenor),
+                    ScenarioBumpSpec::KeyRate { tenor, shift_bps } => {
+                        ScenarioBump::key_rate(tenor, shift_bps)
+                    }
+                    ScenarioBumpSpec::CreditSpread { shift_bps } => {
+                        ScenarioBump::credit_spread(shift_bps)
+                    }
+                });
+            }
+            let bumped = RateCurve::new(sc.apply(&base_inner));
+            let dirty_s = ZSpreadCalculator::new(&bumped)
+                .price_with_spread(bond, z_decimal, req.settlement)
+                + basis;
+            let clean_s = dirty_s - accrued;
+            // Yield at the scenario price, for the ladder display.
+            let ytm_s = price_from_mark(
+                bond,
+                req.settlement,
+                &Mark::Price {
+                    value: Decimal::from_f64_retain(clean_s)
+                        .ok_or_else(|| DispatchError::analytics("non-finite scenario price"))?,
+                    kind: convex_core::types::PriceKind::Clean,
+                },
+                None,
+                req.quote_frequency,
+            )
+            .map(|p| p.ytm_decimal)
+            .unwrap_or(f64::NAN);
+            rows.push(ScenarioRow {
+                name: sc.name().to_string(),
+                clean_price: clean_s,
+                dirty_price: dirty_s,
+                delta_clean: clean_s - priced.clean_price_per_100,
+                ytm_decimal: ytm_s,
+            });
+        }
+
+        Ok(ScenarioResponse {
+            base_clean: priced.clean_price_per_100,
+            base_ytm_decimal: priced.ytm_decimal,
+            z_spread_bps: dec_to_f64(z.as_bps()),
+            rows,
+        })
+    })
+}
+
+pub fn curve_query(request_json: &str) -> String {
+    with_resolved_refs(request_json, CURVE_QUERY_REFS, curve_query_inner)
+}
+
+fn curve_query_inner(request: serde_json::Value) -> Result<CurveQueryResponse, DispatchError> {
+    let req: CurveQueryRequest = serde_json::from_value(request)
         .map_err(|e| DispatchError::input(format!("CurveQueryRequest: {e}")))?;
 
     let result = registry::with_object::<RateCurve<DiscreteCurve>, _, _>(req.curve, |c| match req

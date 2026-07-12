@@ -21,6 +21,8 @@ pub fn lookup(name: &str) -> Result<String, String> {
         "CurveQueryResponse" => CURVE_QUERY_RESPONSE,
         "MakeWholeRequest" => MAKE_WHOLE_REQUEST,
         "MakeWholeResponse" => MAKE_WHOLE_RESPONSE,
+        "YasRequest" => YAS_REQUEST,
+        "YasResponse" => YAS_RESPONSE,
         "RiskProfileRequest" => RISK_PROFILE_REQUEST,
         "RiskProfile" => RISK_PROFILE_RESPONSE,
         "HedgeRequest" => HEDGE_REQUEST,
@@ -224,6 +226,52 @@ const MAKE_WHOLE_RESPONSE: &str = r##"{
     "price": {"type": "number", "description": "Per 100 face, floored at first call entry's price"},
     "discount_rate": {"type": "number", "description": "treasury_rate + spread/10000"},
     "spread_bps": {"type": "number"}
+  }
+}"##;
+
+const YAS_REQUEST: &str = r##"{
+  "title": "YasRequest",
+  "description": "One-call yield & spread analysis (Bloomberg-YAS style). References may be numeric handles or registered names (CUSIP/ISIN/curve name).",
+  "type": "object",
+  "required": ["bond","settlement","mark","curve"],
+  "properties": {
+    "bond": {"type": ["integer","string"], "description": "Fixed-coupon bond handle or ticker"},
+    "settlement": {"type": "string", "format": "date"},
+    "mark": {"$ref": "#/definitions/Mark"},
+    "curve": {"type": ["integer","string"], "description": "Spot/discount curve (Z-spread; G-spread too unless govt_curve set)"},
+    "govt_curve": {"type": ["integer","string","null"], "description": "Government curve for G/benchmark spreads"},
+    "swap_curve": {"type": ["integer","string","null"], "description": "Swap curve for I-spread"},
+    "quote_frequency": {"$ref": "#/definitions/Frequency"}
+  }
+}"##;
+
+const YAS_RESPONSE: &str = r##"{
+  "title": "YasResponse",
+  "description": "Yields in percent, spreads in basis points, prices/amounts per 100 face.",
+  "type": "object",
+  "required": ["clean_price","dirty_price","accrued","accrued_days","ytm_pct","current_yield_pct","simple_yield_pct","g_spread_bps","z_spread_bps","benchmark_spread_bps","benchmark_tenor","modified_duration","macaulay_duration","convexity","dv01_per_100","principal_amount","accrued_amount","settlement_amount"],
+  "properties": {
+    "clean_price": {"type": "number"},
+    "dirty_price": {"type": "number"},
+    "accrued": {"type": "number"},
+    "accrued_days": {"type": "integer"},
+    "ytm_pct": {"type": "number"},
+    "current_yield_pct": {"type": "number"},
+    "simple_yield_pct": {"type": "number"},
+    "money_market_yield_pct": {"type": ["number","null"]},
+    "g_spread_bps": {"type": "number"},
+    "z_spread_bps": {"type": "number"},
+    "benchmark_spread_bps": {"type": "number"},
+    "benchmark_tenor": {"type": "string"},
+    "asw_spread_bps": {"type": ["number","null"]},
+    "oas_bps": {"type": ["number","null"]},
+    "modified_duration": {"type": "number"},
+    "macaulay_duration": {"type": "number"},
+    "convexity": {"type": "number"},
+    "dv01_per_100": {"type": "number"},
+    "principal_amount": {"type": "number"},
+    "accrued_amount": {"type": "number"},
+    "settlement_amount": {"type": "number"}
   }
 }"##;
 

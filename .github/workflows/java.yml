@@ -48,14 +48,15 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi cdylib
-        run: cargo build -p convex-ffi --release
+        run: cargo build -p convex-ffi --profile excel
 
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
           mkdir -p "$dest"
-          cp target/release/libconvex_ffi.so "$dest/"
+          cp target/excel/libconvex_ffi.so "$dest/"
 
       - name: Set up JDK 22
         uses: actions/setup-java@v4

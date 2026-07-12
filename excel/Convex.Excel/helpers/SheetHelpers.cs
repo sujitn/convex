@@ -28,7 +28,8 @@ namespace Convex.Excel.Helpers
             var app = ExcelDnaUtil.Application;
             dynamic selection = ((dynamic)app).Selection;
             dynamic anchor = selection.Cells[1, 1];
-            anchor.Formula2 = formula;
+            try { anchor.Formula2 = formula; }        // dynamic-array Excel: spills
+            catch { anchor.Formula = formula; }       // pre-365 fallback
             return anchor.Address;
         }
 

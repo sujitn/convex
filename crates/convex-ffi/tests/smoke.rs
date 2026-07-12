@@ -843,13 +843,24 @@ fn registry_key_scopes_eviction_per_cell() {
         assert_eq!(rpc(convex_ffi::convex_price, &req(a))["ok"], "true");
         assert_eq!(rpc(convex_ffi::convex_price, &req(b))["ok"], "true");
 
-        // Rebuilding cell A (same key) evicts only A's prior object; B survives.
-        let a2 = build_handle(spec(&key_a));
+        // Rebuilding cell A with an UNCHANGED spec is idempotent: same handle
+        // back — Excel dependents see no change. (The matching "no generation
+        // bump" property is asserted in registry.rs's serialized unit tests;
+        // this integration test runs in parallel with others that legitimately
+        // bump the global generation, so it can't be asserted here.)
+        let a_same = build_handle(spec(&key_a));
+        assert_eq!(a_same, a, "unchanged rebuild must reuse the handle");
+
+        // Rebuilding cell A with an EDITED spec (different coupon) evicts only
+        // A's prior object and mints a new handle; B survives.
+        let mut edited = spec(&key_a);
+        edited["coupon_rate"] = json!(0.06);
+        let a2 = build_handle(edited);
         assert_ne!(a2, a);
         assert_eq!(
             rpc(convex_ffi::convex_price, &req(a))["ok"],
             "false",
-            "A's old handle must be evicted by its own cell's rebuild"
+            "A's old handle must be evicted by its own cell's edited rebuild"
         );
         assert_eq!(
             rpc(convex_ffi::convex_price, &req(b))["ok"],
@@ -857,5 +868,197 @@ fn registry_key_scopes_eviction_per_cell() {
             "B untouched"
         );
         assert_eq!(rpc(convex_ffi::convex_price, &req(a2))["ok"], "true");
+    }
+}
+
+// CX.SCENARIO backing verb: whole ladder in one call, Z held fixed.
+#[test]
+fn scenario_ladder_reprices_under_bumps() {
+    unsafe {
+        let h = build_handle(fixed_rate_5pct());
+        let curve_spec = json!({
+            "type": "discrete",
+            "name": uid("SCNCRV."),
+            "ref_date": "2025-01-15",
+            "tenors": [0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+            "values": [0.04, 0.04, 0.04, 0.04, 0.04, 0.04],
+            "value_kind": "zero_rate",
+            "interpolation": "linear",
+            "day_count": "Act365Fixed",
+            "compounding": "Continuous"
+        });
+        let cs = CString::new(curve_spec.to_string()).unwrap();
+        let ch = convex_ffi::convex_curve_from_json(cs.as_ptr());
+        assert_ne!(ch, convex_ffi::INVALID_HANDLE);
+
+        let req = json!({
+            "bond": h,
+            "curve": ch,
+            "settlement": "2025-04-15",
+            "mark": "99.5C",
+            "scenarios": [
+                {"name": "-50bp", "bumps": [{"kind": "parallel", "shift_bps": -50.0}]},
+                {"name": "base",  "bumps": [{"kind": "parallel", "shift_bps": 0.0}]},
+                {"name": "+50bp", "bumps": [{"kind": "parallel", "shift_bps": 50.0}]},
+                {"name": "steep", "bumps": [{"kind": "steepener", "short_shift_bps": 25.0, "long_shift_bps": 25.0}]}
+            ]
+        })
+        .to_string();
+        let resp = rpc(convex_ffi::convex_scenario, &req);
+        assert_eq!(resp["ok"], "true", "resp: {resp}");
+        let r = &resp["result"];
+        assert!((r["base_clean"].as_f64().unwrap() - 99.5).abs() < 1e-9);
+        let rows = r["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 4);
+        let down = rows[0]["clean_price"].as_f64().unwrap();
+        let base = rows[1]["clean_price"].as_f64().unwrap();
+        let up = rows[2]["clean_price"].as_f64().unwrap();
+        // Rates down → price up; zero shift reproduces the base price.
+        assert!(down > base, "down {down} vs base {base}");
+        assert!(up < base, "up {up} vs base {base}");
+        assert!((base - 99.5).abs() < 1e-6, "zero-shift row must match base, got {base}");
+        assert!((rows[1]["delta_clean"].as_f64().unwrap()).abs() < 1e-6);
+    }
+}
+
+// CX.YAS backing verb: one call returns yields, spreads, risk and invoice.
+#[test]
+fn yas_returns_full_analysis_in_one_call() {
+    unsafe {
+        let h = build_handle(fixed_rate_5pct());
+        let curve_spec = json!({
+            "type": "discrete",
+            "name": uid("YASCRV."),
+            "ref_date": "2025-01-15",
+            "tenors": [0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+            "values": [0.040, 0.040, 0.041, 0.042, 0.043, 0.044, 0.045],
+            "value_kind": "zero_rate",
+            "interpolation": "linear",
+            "day_count": "Act365Fixed",
+            "compounding": "Continuous"
+        });
+        let cs = CString::new(curve_spec.to_string()).unwrap();
+        let ch = convex_ffi::convex_curve_from_json(cs.as_ptr());
+        assert_ne!(ch, convex_ffi::INVALID_HANDLE);
+
+        let req = json!({
+            "bond": h,
+            "settlement": "2025-04-15",
+            "mark": "99.5C",
+            "curve": ch
+        })
+        .to_string();
+        let resp = rpc(convex_ffi::convex_yas, &req);
+        assert_eq!(resp["ok"], "true", "resp: {resp}");
+        let r = &resp["result"];
+        assert!((r["clean_price"].as_f64().unwrap() - 99.5).abs() < 1e-9);
+        let ytm = r["ytm_pct"].as_f64().unwrap();
+        assert!(ytm > 4.0 && ytm < 6.5, "ytm_pct = {ytm}");
+        assert!(r["z_spread_bps"].as_f64().unwrap().is_finite());
+        assert!(r["g_spread_bps"].as_f64().unwrap().is_finite());
+        assert!(r["modified_duration"].as_f64().unwrap() > 0.0);
+        assert!(r["dv01_per_100"].as_f64().unwrap() > 0.0);
+        assert!(r["benchmark_tenor"].as_str().unwrap().len() >= 2);
+        assert!(r["settlement_amount"].as_f64().unwrap() > 0.0);
+    }
+}
+
+// Ticker-style referencing: a request may name a bond by CUSIP (or a curve by
+// its name) instead of a numeric handle; dispatch resolves it via the alias
+// table. Unknown names come back as invalid_handle.
+#[test]
+fn requests_resolve_ticker_references() {
+    unsafe {
+        let cusip = uid("TCK");
+        let curve_name = uid("CRV.");
+        let bond = json!({
+            "type": "fixed_rate",
+            "cusip": cusip,
+            "registry_key": uid("cell"),
+            "coupon_rate": 0.05,
+            "frequency": "SemiAnnual",
+            "maturity": "2035-01-15",
+            "issue": "2025-01-15",
+            "day_count": "Thirty360US",
+            "currency": "USD",
+            "face_value": 100
+        });
+        let _bh = build_handle(bond);
+        let curve_spec = json!({
+            "type": "discrete",
+            "name": curve_name,
+            "registry_key": uid("cell"),
+            "ref_date": "2025-01-15",
+            "tenors": [0.5, 1.0, 5.0, 10.0, 30.0],
+            "values": [0.04, 0.04, 0.04, 0.04, 0.04],
+            "value_kind": "zero_rate",
+            "interpolation": "linear",
+            "day_count": "Act365Fixed",
+            "compounding": "Continuous"
+        });
+        let cs = CString::new(curve_spec.to_string()).unwrap();
+        let ch = convex_ffi::convex_curve_from_json(cs.as_ptr());
+        assert_ne!(ch, convex_ffi::INVALID_HANDLE);
+
+        // Price by CUSIP string instead of a handle.
+        let req = json!({
+            "bond": cusip,
+            "settlement": "2025-04-15",
+            "mark": "99.5C"
+        })
+        .to_string();
+        let resp = rpc(convex_ffi::convex_price, &req);
+        assert_eq!(resp["ok"], "true", "resp: {resp}");
+
+        // Spread with both references as strings.
+        let req = json!({
+            "bond": cusip,
+            "curve": curve_name,
+            "settlement": "2025-04-15",
+            "mark": "99.5C",
+            "spread_type": "ZSpread"
+        })
+        .to_string();
+        let resp = rpc(convex_ffi::convex_spread, &req);
+        assert_eq!(resp["ok"], "true", "resp: {resp}");
+
+        // Unknown ticker → invalid_handle.
+        let req = json!({
+            "bond": "NO_SUCH_BOND_XYZ",
+            "settlement": "2025-04-15",
+            "mark": "99.5C"
+        })
+        .to_string();
+        let resp = rpc(convex_ffi::convex_price, &req);
+        assert_eq!(resp["ok"], "false");
+        assert_eq!(resp["error"]["code"], "invalid_handle");
+    }
+}
+
+// Field order must not affect the idempotency hash: the content hash is over
+// the canonicalized (key-sorted) JSON value, not the raw request bytes. Send
+// raw strings straight to the FFI so no client-side re-serialization hides
+// an ordering bug.
+#[test]
+fn idempotency_hash_ignores_json_field_order() {
+    unsafe {
+        let key = uid("cell");
+        let spec_a = format!(
+            "{{\"type\":\"fixed_rate\",\"registry_key\":\"{key}\",\"coupon_rate\":0.05,\
+             \"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\
+             \"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100.0}}"
+        );
+        let spec_b = format!(
+            "{{\"face_value\":100.0,\"currency\":\"USD\",\"day_count\":\"Thirty360US\",\
+             \"issue\":\"2025-01-15\",\"maturity\":\"2035-01-15\",\"frequency\":\"SemiAnnual\",\
+             \"coupon_rate\":0.05,\"registry_key\":\"{key}\",\"type\":\"fixed_rate\"}}"
+        );
+        let a = CString::new(spec_a).unwrap();
+        let b = CString::new(spec_b).unwrap();
+        let h1 = convex_ffi::convex_bond_from_json(a.as_ptr());
+        let h2 = convex_ffi::convex_bond_from_json(b.as_ptr());
+        assert_ne!(h1, convex_ffi::INVALID_HANDLE);
+        assert_eq!(h1, h2, "reordered fields must hash identically");
+        convex_ffi::convex_release(h1);
     }
 }
