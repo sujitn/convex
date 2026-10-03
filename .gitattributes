@@ -17,7 +17,6 @@
 *.html      text eol=lf
 *.lock      text eol=lf
 Cargo.lock  text eol=lf
-
 # --------------------------------------------------------- CRLF (.NET / Windows tooling)
 *.cs        text eol=crlf
 *.sln       text eol=crlf
@@ -27,7 +26,6 @@ Cargo.lock  text eol=lf
 *.bat       text eol=crlf
 *.cmd       text eol=crlf
 *.ps1       text eol=crlf
-
 # --------------------------------------------------------- Binary
 *.xll       binary
 *.dll       binary
@@ -42,3 +40,10 @@ Cargo.lock  text eol=lf
 *.zip       binary
 *.xlsx      binary
 *.xls       binary
+tests/fixtures/library/causal-pnl-reference.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/concurrent-claims-pnl-complete.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/concurrent-claims-pnl-owned.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/concurrent-claims-pnl-reference.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/settled-claims-pnl-admitted.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/settled-claims-pnl-complete.json filter=lfs diff=lfs merge=lfs -text
+tests/fixtures/library/settled-claims-pnl-reference.json filter=lfs diff=lfs merge=lfs -text
