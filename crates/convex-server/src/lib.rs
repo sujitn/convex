@@ -23,6 +23,7 @@
 
 pub mod config;
 pub mod handlers;
+mod reference;
 pub mod routes;
 pub mod websocket;
 
@@ -74,6 +75,8 @@ impl Server {
             .expose_headers([
                 HeaderName::from_static("x-convex-profile"),
                 HeaderName::from_static("x-convex-data-quality"),
+                HeaderName::from_static("x-convex-reference-version"),
+                HeaderName::from_static("etag"),
             ]);
 
         let profile = self.config.profile;

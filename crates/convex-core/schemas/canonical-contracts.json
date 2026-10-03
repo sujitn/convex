@@ -765,7 +765,7 @@
         ]
       },
       "ModelDecimalRate": {
-        "description": "Finite model decimal rate, preserving binary bits across legacy adapters.",
+        "description": "Finite model decimal rate, preserving binary bits across DTO boundaries.",
         "type": "object",
         "properties": {
           "unit": {
@@ -2262,7 +2262,7 @@
         ]
       },
       "ModelDecimalRate": {
-        "description": "Finite model decimal rate, preserving binary bits across legacy adapters.",
+        "description": "Finite model decimal rate, preserving binary bits across DTO boundaries.",
         "type": "object",
         "properties": {
           "unit": {

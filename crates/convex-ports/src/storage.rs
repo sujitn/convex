@@ -1,7 +1,7 @@
 //! Storage traits for persistence.
 //!
 //! These traits define interfaces for storage backends:
-//! - [`BondStore`]: Bond reference data storage
+//! Bond transactions use [`crate::reference_repository::ReferenceRepository`].
 //! - [`CurveStore`]: Curve config and snapshot storage
 //! - [`ConfigStore`]: Pricing configuration storage
 //! - [`OverrideStore`]: Price override storage with audit
@@ -325,6 +325,12 @@ pub struct BondFilter {
     /// Issuer type filter.
     pub issuer_type: Option<crate::reference_data::IssuerType>,
 
+    /// Floating-rate classification filter.
+    pub is_floating: Option<bool>,
+
+    /// Inflation-linked classification filter.
+    pub is_inflation_linked: Option<bool>,
+
     /// Is callable filter.
     pub is_callable: Option<bool>,
 
@@ -432,6 +438,36 @@ impl BondFilter {
             }
         }
 
+        if self
+            .issuer_id
+            .as_ref()
+            .is_some_and(|id| id != &bond.issuer_id)
+            || self.is_floating.is_some_and(|value| {
+                value != (bond.bond_type == crate::reference_data::BondType::FloatingRate)
+            })
+            || self.is_inflation_linked.is_some_and(|value| {
+                value != (bond.bond_type == crate::reference_data::BondType::InflationLinked)
+            })
+        {
+            return false;
+        }
+        if let Some(query) = &self.text_search {
+            let query = query.to_lowercase();
+            if ![
+                Some(bond.description.as_str()),
+                Some(bond.issuer_name.as_str()),
+                Some(bond.instrument_id.as_str()),
+                bond.isin.as_deref(),
+                bond.cusip.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|value| value.to_lowercase().contains(&query))
+            {
+                return false;
+            }
+        }
+
         // Sector match
         if let Some(ref sector) = self.sector {
             if &bond.sector != sector {
@@ -459,6 +495,32 @@ impl BondFilter {
         }
 
         true
+    }
+
+    /// Validate bounded query fields without silently dropping a supplied constraint.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if [
+            &self.isin,
+            &self.cusip,
+            &self.issuer_id,
+            &self.sector,
+            &self.country,
+            &self.text_search,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| value.len() > 1024 || value.chars().any(char::is_control))
+        {
+            return Err("invalid or oversized reference filter");
+        }
+        if self
+            .maturity_from
+            .zip(self.maturity_to)
+            .is_some_and(|(a, b)| a > b)
+        {
+            return Err("inverted maturity range");
+        }
+        Ok(())
     }
 
     /// Calculate specificity score (higher = more specific).
@@ -516,39 +578,6 @@ impl BondFilter {
 
         score
     }
-}
-
-/// Bond reference data storage.
-#[async_trait]
-pub trait BondStore: Send + Sync {
-    /// Get bond by ID.
-    async fn get(&self, id: &InstrumentId) -> Result<Option<BondReferenceData>, TraitError>;
-
-    /// Get multiple bonds by ID.
-    async fn get_many(&self, ids: &[InstrumentId]) -> Result<Vec<BondReferenceData>, TraitError>;
-
-    /// Save a bond.
-    async fn save(&self, bond: &BondReferenceData) -> Result<(), TraitError>;
-
-    /// Save multiple bonds.
-    async fn save_batch(&self, bonds: &[BondReferenceData]) -> Result<(), TraitError>;
-
-    /// Delete a bond.
-    async fn delete(&self, id: &InstrumentId) -> Result<bool, TraitError>;
-
-    /// List bonds with filter and pagination.
-    async fn list(
-        &self,
-        filter: &BondFilter,
-        pagination: &Pagination,
-    ) -> Result<Page<BondReferenceData>, TraitError>;
-
-    /// Count bonds matching filter.
-    async fn count(&self, filter: &BondFilter) -> Result<u64, TraitError>;
-
-    /// Search bonds by text query.
-    async fn search(&self, query: &str, limit: usize)
-        -> Result<Vec<BondReferenceData>, TraitError>;
 }
 
 // =============================================================================
@@ -851,7 +880,7 @@ use std::sync::Arc;
 /// Combined storage adapter.
 pub struct StorageAdapter {
     /// Bond store
-    pub bonds: Arc<dyn BondStore>,
+    pub bonds: Arc<dyn crate::reference_repository::ReferenceRepository>,
     /// Curve store
     pub curves: Arc<dyn CurveStore>,
     /// Config store

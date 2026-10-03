@@ -15,7 +15,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, info, warn};
 
 use crate::ports::config::{NodeConfig, UpdateFrequency};
-use crate::ports::reference_data::ReferenceDataProvider;
+use crate::ports::reference_repository::ReferenceRepository;
 use convex_core::ids::*;
 use convex_core::Date;
 
@@ -42,13 +42,8 @@ pub struct ReactiveEngine {
     /// Pricing router for bond calculations
     pricing_router: Arc<PricingRouter>,
 
-    /// Reference data provider for bond metadata
-    #[allow(dead_code)]
-    reference_data: Arc<ReferenceDataProvider>,
-
-    /// Local cache of bond reference data for sync access in calc loop
-    bond_cache:
-        Arc<dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>>,
+    /// Authoritative reference repository shared with API mutations.
+    references: Arc<dyn ReferenceRepository>,
 
     /// Interval scheduler
     interval_scheduler: Arc<IntervalScheduler>,
@@ -81,7 +76,7 @@ impl ReactiveEngine {
         calc_graph: Arc<CalculationGraph>,
         curve_builder: Arc<CurveBuilder>,
         pricing_router: Arc<PricingRouter>,
-        reference_data: Arc<ReferenceDataProvider>,
+        references: Arc<dyn ReferenceRepository>,
     ) -> Self {
         let interval_scheduler = Arc::new(IntervalScheduler::new(calc_graph.clone()));
         let eod_scheduler = Arc::new(parking_lot::RwLock::new(EodScheduler::new(
@@ -94,7 +89,6 @@ impl ReactiveEngine {
         let (market_data_publisher, _) = MarketDataPublisher::new();
         let (node_update_tx, _) = broadcast::channel(10000);
         let (shutdown_tx, _) = broadcast::channel(1);
-        let bond_cache = Arc::new(dashmap::DashMap::new());
 
         // Default settlement date to today
         let today = Date::today();
@@ -103,8 +97,7 @@ impl ReactiveEngine {
             calc_graph,
             curve_builder,
             pricing_router,
-            reference_data,
-            bond_cache,
+            references,
             interval_scheduler,
             eod_scheduler,
             cron_scheduler,
@@ -124,22 +117,6 @@ impl ReactiveEngine {
     /// Get the current settlement date.
     pub fn settlement_date(&self) -> Date {
         *self.settlement_date.read()
-    }
-
-    /// Cache bond reference data for reactive pricing.
-    ///
-    /// This should be called when registering a bond to ensure
-    /// the reference data is available for sync calculations.
-    pub fn cache_bond_reference(&self, bond: crate::ports::reference_data::BondReferenceData) {
-        self.bond_cache.insert(bond.instrument_id.clone(), bond);
-    }
-
-    /// Get cached bond reference data.
-    pub fn get_bond_reference(
-        &self,
-        instrument_id: &InstrumentId,
-    ) -> Option<crate::ports::reference_data::BondReferenceData> {
-        self.bond_cache.get(instrument_id).map(|r| r.clone())
     }
 
     /// Start the reactive engine.
@@ -199,7 +176,7 @@ impl ReactiveEngine {
         let calc_graph = self.calc_graph.clone();
         let curve_builder = self.curve_builder.clone();
         let pricing_router = self.pricing_router.clone();
-        let bond_cache = self.bond_cache.clone();
+        let references = self.references.clone();
         let throttle_manager = self.throttle_manager.clone();
         let node_update_tx = self.node_update_tx.clone();
         let settlement_date = *self.settlement_date.read();
@@ -266,9 +243,9 @@ impl ReactiveEngine {
                                     &calc_graph,
                                     &curve_builder,
                                     &pricing_router,
-                                    &bond_cache,
+                                    &references,
                                     settlement_date,
-                                );
+                                ).await;
 
                                 // Store calculated value
                                 calc_graph.update_cache(&node_id, node_value);
@@ -293,25 +270,26 @@ impl ReactiveEngine {
     }
 
     /// Calculate a node's value based on its type.
-    fn calculate_node(
+    async fn calculate_node(
         node_id: &NodeId,
         calc_graph: &Arc<CalculationGraph>,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
-        bond_cache: &Arc<
-            dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>,
-        >,
+        references: &Arc<dyn ReferenceRepository>,
         settlement_date: Date,
     ) -> NodeValue {
         match node_id {
-            NodeId::BondPrice { instrument_id } => Self::calculate_bond_price(
-                instrument_id,
-                calc_graph,
-                curve_builder,
-                pricing_router,
-                bond_cache,
-                settlement_date,
-            ),
+            NodeId::BondPrice { instrument_id } => {
+                Self::calculate_bond_price(
+                    instrument_id,
+                    calc_graph,
+                    curve_builder,
+                    pricing_router,
+                    references,
+                    settlement_date,
+                )
+                .await
+            }
             NodeId::Curve { curve_id } => Self::calculate_curve(curve_id, curve_builder),
             NodeId::EtfInav { etf_id: _ } => {
                 // ETF iNAV calculation - aggregate constituent prices
@@ -348,26 +326,24 @@ impl ReactiveEngine {
     }
 
     /// Calculate bond price using PricingRouter.
-    fn calculate_bond_price(
+    async fn calculate_bond_price(
         instrument_id: &InstrumentId,
         calc_graph: &Arc<CalculationGraph>,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
-        bond_cache: &Arc<
-            dashmap::DashMap<InstrumentId, crate::ports::reference_data::BondReferenceData>,
-        >,
+        references: &Arc<dyn ReferenceRepository>,
         settlement_date: Date,
     ) -> NodeValue {
-        // Get bond reference data from local cache
-        let bond_ref = match bond_cache.get(instrument_id) {
-            Some(bond) => bond.clone(),
-            None => {
-                warn!(
-                    "Bond reference data not found in cache for {}",
-                    instrument_id
-                );
+        let reference = match references.get(instrument_id).await {
+            Ok(reference) => reference,
+            Err(error) => {
+                warn!("Reference unavailable for {}: {}", instrument_id, error);
                 return NodeValue::Empty;
             }
+        };
+        let Some(bond_ref) = reference.and_then(|record| record.bond) else {
+            warn!("Reference missing or deleted for {}", instrument_id);
+            return NodeValue::Empty;
         };
 
         // Get market quote from cache
@@ -657,7 +633,7 @@ pub struct ReactiveEngineBuilder {
     calc_graph: Option<Arc<CalculationGraph>>,
     curve_builder: Option<Arc<CurveBuilder>>,
     pricing_router: Option<Arc<PricingRouter>>,
-    reference_data: Option<Arc<ReferenceDataProvider>>,
+    references: Option<Arc<dyn ReferenceRepository>>,
 }
 
 impl ReactiveEngineBuilder {
@@ -667,7 +643,7 @@ impl ReactiveEngineBuilder {
             calc_graph: None,
             curve_builder: None,
             pricing_router: None,
-            reference_data: None,
+            references: None,
         }
     }
 
@@ -690,8 +666,8 @@ impl ReactiveEngineBuilder {
     }
 
     /// Set the reference data provider.
-    pub fn with_reference_data(mut self, reference_data: Arc<ReferenceDataProvider>) -> Self {
-        self.reference_data = Some(reference_data);
+    pub fn with_reference_repository(mut self, references: Arc<dyn ReferenceRepository>) -> Self {
+        self.references = Some(references);
         self
     }
 
@@ -700,13 +676,13 @@ impl ReactiveEngineBuilder {
         let calc_graph = self.calc_graph.ok_or("calc_graph is required")?;
         let curve_builder = self.curve_builder.ok_or("curve_builder is required")?;
         let pricing_router = self.pricing_router.ok_or("pricing_router is required")?;
-        let reference_data = self.reference_data.ok_or("reference_data is required")?;
+        let references = self.references.ok_or("reference repository is required")?;
 
         Ok(ReactiveEngine::new(
             calc_graph,
             curve_builder,
             pricing_router,
-            reference_data,
+            references,
         ))
     }
 }
@@ -726,9 +702,8 @@ mod tests {
     use super::*;
     use crate::ports::market_data::MarketDataProvider;
     use convex_ext_file::{
-        EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
-        EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
-        EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
+        EmptyCurveInputSource, EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource,
+        EmptyInflationFixingSource, EmptyQuoteSource, EmptyVolatilitySource,
     };
     use std::sync::Arc;
 
@@ -745,17 +720,12 @@ mod tests {
             etf_quotes: Arc::new(EmptyEtfQuoteSource),
         });
 
-        let reference_data = Arc::new(ReferenceDataProvider {
-            bonds: Arc::new(EmptyBondReferenceSource),
-            issuers: Arc::new(EmptyIssuerReferenceSource),
-            ratings: Arc::new(EmptyRatingSource),
-            etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-        });
+        let references = Arc::new(convex_ext_file::MemoryReferenceRepository::default());
 
         let curve_builder = Arc::new(CurveBuilder::new(market_data, calc_graph.clone()));
         let pricing_router = Arc::new(PricingRouter::new());
 
-        ReactiveEngine::new(calc_graph, curve_builder, pricing_router, reference_data)
+        ReactiveEngine::new(calc_graph, curve_builder, pricing_router, references)
     }
 
     #[test]
@@ -797,7 +767,7 @@ mod tests {
         let engine = create_test_engine();
         let instrument_id = InstrumentId::new("TEST_BOND_001");
 
-        // Create and cache bond reference data
+        // Commit bond reference data to the shared repository
         let bond_ref = BondReferenceData {
             instrument_id: instrument_id.clone(),
             isin: Some("US912810TD00".to_string()),
@@ -833,7 +803,22 @@ mod tests {
             source: "test".to_string(),
         };
 
-        engine.cache_bond_reference(bond_ref);
+        engine
+            .references
+            .commit(
+                &crate::ports::reference_repository::ReferenceCommand {
+                    idempotency_key: convex_core::contracts::RequestId::new("reactive-test")
+                        .unwrap(),
+                    changes: vec![
+                        crate::ports::reference_repository::ReferenceChange::Create {
+                            bond: Box::new(bond_ref),
+                        },
+                    ],
+                },
+                convex_core::contracts::UtcTimestamp::parse("2024-01-15T00:00:00Z").unwrap(),
+            )
+            .await
+            .unwrap();
 
         // Register the bond for reactive pricing
         engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
@@ -869,7 +854,7 @@ mod tests {
         );
 
         // Manually trigger calculation (simulating what the processing loop does)
-        let bond_cache = engine.bond_cache.clone();
+        let references = engine.references.clone();
         let calc_graph = engine.calc_graph().clone();
         let curve_builder = engine.curve_builder.clone();
         let pricing_router = engine.pricing_router.clone();
@@ -880,9 +865,10 @@ mod tests {
             &calc_graph,
             &curve_builder,
             &pricing_router,
-            &bond_cache,
+            &references,
             settlement_date,
-        );
+        )
+        .await;
 
         // Verify we got a calculated result (not Empty)
         match result {

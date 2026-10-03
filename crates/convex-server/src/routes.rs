@@ -6,9 +6,10 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use convex_engine::PricingEngine;
-use convex_ext_file::{InMemoryBondStore, InMemoryPortfolioStore};
+use convex_ext_file::InMemoryPortfolioStore;
 
 use crate::handlers::{self, AppState};
+use crate::reference;
 use crate::websocket::{self, WebSocketState};
 
 /// Create the API router.
@@ -21,50 +22,25 @@ pub fn create_router(engine: Arc<PricingEngine>) -> Router {
 
 /// Create the API router with optional WebSocket routes on the HTTP listener.
 pub fn create_router_with_websocket(engine: Arc<PricingEngine>, enabled: bool) -> Router {
-    create_router_with_options(
-        engine,
-        Arc::new(InMemoryBondStore::new()),
-        Arc::new(InMemoryPortfolioStore::new()),
-        enabled,
-    )
+    create_router_with_options(engine, Arc::new(InMemoryPortfolioStore::new()), enabled)
 }
 
-/// Create the API router with a specific bond store.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-pub fn create_router_with_bond_store(
+/// Create the API router with a supplied portfolio fixture. Bond references come from the engine.
+pub fn create_router_with_portfolio_store(
     engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
-) -> Router {
-    create_router_with_stores(engine, bond_store, Arc::new(InMemoryPortfolioStore::new()))
-}
-
-/// Create the API router with all stores.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-/// * `portfolio_store` - The portfolio store for CRUD operations
-pub fn create_router_with_stores(
-    engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
     portfolio_store: Arc<InMemoryPortfolioStore>,
 ) -> Router {
-    create_router_with_options(engine, bond_store, portfolio_store, true)
+    create_router_with_options(engine, portfolio_store, true)
 }
 
 fn create_router_with_options(
     engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
     portfolio_store: Arc<InMemoryPortfolioStore>,
     websocket_enabled: bool,
 ) -> Router {
     let state = Arc::new(AppState {
         engine,
         ws_state: WebSocketState::new(),
-        bond_store,
         portfolio_store,
     });
 
@@ -75,19 +51,27 @@ fn create_router_with_options(
         // Bond Reference Data CRUD
         .route(
             "/api/v1/bonds",
-            get(handlers::list_bonds).post(handlers::create_bond),
+            get(reference::list_bonds).post(reference::create_bond),
         )
-        .route("/api/v1/bonds/batch", post(handlers::batch_create_bonds))
-        .route("/api/v1/bonds/isin/:isin", get(handlers::get_bond_by_isin))
+        .route("/api/v1/bonds/batch", post(reference::batch_create_bonds))
+        .route("/api/v1/bonds/isin/:isin", get(reference::get_bond_by_isin))
         .route(
             "/api/v1/bonds/cusip/:cusip",
-            get(handlers::get_bond_by_cusip),
+            get(reference::get_bond_by_cusip),
         )
         .route(
             "/api/v1/bonds/:instrument_id",
-            get(handlers::get_bond)
-                .put(handlers::update_bond)
-                .delete(handlers::delete_bond),
+            get(reference::get_bond)
+                .put(reference::update_bond)
+                .delete(reference::delete_bond),
+        )
+        .route(
+            "/api/v1/bonds/:instrument_id/versions/:version",
+            get(reference::get_bond_version),
+        )
+        .route(
+            "/api/v1/reference/commits/:key",
+            get(reference::get_reference_commit),
         )
         // Quotes (Pricing)
         .route(

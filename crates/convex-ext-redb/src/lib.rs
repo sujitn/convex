@@ -16,219 +16,26 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 
 use convex_core::ids::{CurveId, InstrumentId};
 use convex_ports::error::TraitError;
-use convex_ports::reference_data::BondReferenceData;
 use convex_ports::storage::{
-    AuditEntry, AuditFilter, AuditStore, BondFilter, BondPricingConfig, BondStore, ConfigStore,
-    ConfigVersion, CurveConfig, CurveSnapshot, CurveStore, OverrideAudit, OverrideStore, Page,
-    Pagination, PriceOverride, StorageAdapter,
+    AuditEntry, AuditFilter, AuditStore, BondPricingConfig, ConfigStore, ConfigVersion,
+    CurveConfig, CurveSnapshot, CurveStore, OverrideAudit, OverrideStore, Page, Pagination,
+    PriceOverride, StorageAdapter,
 };
 
+mod reference_repository;
+pub use reference_repository::RedbReferenceRepository;
+
 // Table definitions
-const BONDS: TableDefinition<&str, &[u8]> = TableDefinition::new("bonds");
 const CURVE_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("curve_configs");
 const CURVE_SNAPSHOTS: TableDefinition<(&str, i64), &[u8]> =
     TableDefinition::new("curve_snapshots");
 const PRICING_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("pricing_configs");
 const OVERRIDES: TableDefinition<&str, &[u8]> = TableDefinition::new("overrides");
 const AUDIT: TableDefinition<u64, &[u8]> = TableDefinition::new("audit");
-
-/// Redb-based bond store.
-pub struct RedbBondStore {
-    db: Arc<Database>,
-}
-
-impl RedbBondStore {
-    /// Create a new redb bond store.
-    pub fn new(db: Arc<Database>) -> Self {
-        Self { db }
-    }
-}
-
-#[async_trait]
-impl BondStore for RedbBondStore {
-    async fn get(&self, id: &InstrumentId) -> Result<Option<BondReferenceData>, TraitError> {
-        let read_txn = self
-            .db
-            .begin_read()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-
-        let table = match read_txn.open_table(BONDS) {
-            Ok(t) => t,
-            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
-            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
-        };
-
-        match table.get(id.as_str()) {
-            Ok(Some(data)) => {
-                let bond: BondReferenceData = serde_json::from_slice(data.value())
-                    .map_err(|e| TraitError::ParseError(e.to_string()))?;
-                Ok(Some(bond))
-            }
-            Ok(None) => Ok(None),
-            Err(e) => Err(TraitError::DatabaseError(e.to_string())),
-        }
-    }
-
-    async fn get_many(&self, ids: &[InstrumentId]) -> Result<Vec<BondReferenceData>, TraitError> {
-        let mut results = Vec::new();
-        for id in ids {
-            if let Some(bond) = self.get(id).await? {
-                results.push(bond);
-            }
-        }
-        Ok(results)
-    }
-
-    async fn save(&self, bond: &BondReferenceData) -> Result<(), TraitError> {
-        let write_txn = self
-            .db
-            .begin_write()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        {
-            let mut table = write_txn
-                .open_table(BONDS)
-                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-
-            let bytes = serde_json::to_vec(bond)
-                .map_err(|e| TraitError::SerializationError(e.to_string()))?;
-
-            table
-                .insert(bond.instrument_id.as_str(), bytes.as_slice())
-                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        }
-        write_txn
-            .commit()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        Ok(())
-    }
-
-    async fn save_batch(&self, bonds: &[BondReferenceData]) -> Result<(), TraitError> {
-        let write_txn = self
-            .db
-            .begin_write()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        {
-            let mut table = write_txn
-                .open_table(BONDS)
-                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-
-            for bond in bonds {
-                let bytes = serde_json::to_vec(bond)
-                    .map_err(|e| TraitError::SerializationError(e.to_string()))?;
-                table
-                    .insert(bond.instrument_id.as_str(), bytes.as_slice())
-                    .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-            }
-        }
-        write_txn
-            .commit()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        Ok(())
-    }
-
-    async fn delete(&self, id: &InstrumentId) -> Result<bool, TraitError> {
-        let write_txn = self
-            .db
-            .begin_write()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        let deleted = {
-            let mut table = write_txn
-                .open_table(BONDS)
-                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-            let result = table
-                .remove(id.as_str())
-                .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-            result.is_some()
-        };
-        write_txn
-            .commit()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        Ok(deleted)
-    }
-
-    async fn list(
-        &self,
-        _filter: &BondFilter,
-        pagination: &Pagination,
-    ) -> Result<Page<BondReferenceData>, TraitError> {
-        // Simple implementation - would need index for filtering
-        let read_txn = self
-            .db
-            .begin_read()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-
-        let table = match read_txn.open_table(BONDS) {
-            Ok(t) => t,
-            Err(redb::TableError::TableDoesNotExist(_)) => {
-                return Ok(Page {
-                    items: vec![],
-                    total: 0,
-                    offset: pagination.offset,
-                    limit: pagination.limit,
-                })
-            }
-            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
-        };
-
-        let mut items = Vec::new();
-        let mut total = 0u64;
-
-        for result in table
-            .iter()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?
-        {
-            let (_, value) = result.map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-            total += 1;
-
-            if total > pagination.offset as u64 && items.len() < pagination.limit {
-                let bond: BondReferenceData = serde_json::from_slice(value.value())
-                    .map_err(|e| TraitError::ParseError(e.to_string()))?;
-                items.push(bond);
-            }
-        }
-
-        Ok(Page {
-            items,
-            total,
-            offset: pagination.offset,
-            limit: pagination.limit,
-        })
-    }
-
-    async fn count(&self, _filter: &BondFilter) -> Result<u64, TraitError> {
-        let read_txn = self
-            .db
-            .begin_read()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-
-        let table = match read_txn.open_table(BONDS) {
-            Ok(t) => t,
-            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(0),
-            Err(e) => return Err(TraitError::DatabaseError(e.to_string())),
-        };
-
-        let count = table
-            .len()
-            .map_err(|e| TraitError::DatabaseError(e.to_string()))?;
-        Ok(count)
-    }
-
-    async fn search(
-        &self,
-        _query: &str,
-        limit: usize,
-    ) -> Result<Vec<BondReferenceData>, TraitError> {
-        // Simple implementation - would need full-text index
-        let page = self
-            .list(&BondFilter::default(), &Pagination::new(0, limit))
-            .await?;
-        Ok(page.items)
-    }
-}
 
 /// Redb-based curve store.
 pub struct RedbCurveStore {
@@ -861,7 +668,10 @@ pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, Tra
         Arc::new(Database::create(path).map_err(|e| TraitError::DatabaseError(e.to_string()))?);
 
     Ok(StorageAdapter {
-        bonds: Arc::new(RedbBondStore::new(db.clone())),
+        bonds: Arc::new(
+            RedbReferenceRepository::new(db.clone())
+                .map_err(|e| TraitError::DatabaseError(e.to_string()))?,
+        ),
         curves: Arc::new(RedbCurveStore::new(db.clone())),
         configs: Arc::new(RedbConfigStore::new(db.clone())),
         overrides: Arc::new(RedbOverrideStore::new(db.clone())),
@@ -869,10 +679,11 @@ pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, Tra
     })
 }
 
-/// Create an in-memory storage adapter for testing.
+/// Create a file-backed storage adapter for testing.
 ///
-/// Uses a temporary file that will be cleaned up when the process exits.
-pub fn create_memory_storage() -> Result<StorageAdapter, TraitError> {
+/// Uses a uniquely named redb file in the system temporary directory.
+/// Callers needing deterministic cleanup should use create_redb_storage with an owned temporary directory.
+pub fn create_test_storage() -> Result<StorageAdapter, TraitError> {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 

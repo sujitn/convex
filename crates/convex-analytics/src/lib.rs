@@ -73,7 +73,7 @@ pub mod pricing;
 // JSON-wire DTOs for FFI / MCP / WASM boundaries.
 pub mod dto;
 
-/// Explicit bridges from legacy DTOs into validated shared contracts.
+/// Explicit bridges from public DTOs into validated shared contracts.
 pub mod contracts;
 
 // Phase 7: Short-rate model calibration (HW1F single-σ via co-terminal swaptions)

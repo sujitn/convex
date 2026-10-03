@@ -1,7 +1,7 @@
 //! Reference data source traits.
 //!
 //! These traits define interfaces for reference data providers:
-//! - [`BondReferenceSource`]: Bond terms and attributes
+//! Bond terms are persisted through [`crate::reference_repository::ReferenceRepository`].
 //! - [`IssuerReferenceSource`]: Issuer information
 //! - [`RatingSource`]: Credit ratings
 //! - [`EtfHoldingsSource`]: ETF holdings and constituents
@@ -61,33 +61,40 @@ pub enum IssuerType {
 }
 
 /// Call schedule entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CallScheduleEntry {
     /// Call date
     pub call_date: Date,
     /// Call price (typically par or premium)
+    #[serde(with = "exact_decimal")]
     pub call_price: Decimal,
     /// Is make-whole call
     pub is_make_whole: bool,
 }
 
 /// Floating rate terms.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FloatingRateTerms {
     /// Rate index
     pub index: FloatingRateIndex,
     /// Spread over index (in bps)
+    #[serde(with = "exact_decimal")]
     pub spread: Decimal,
     /// Reset frequency
     pub reset_frequency: u32,
     /// Rate cap (if any)
+    #[serde(default, with = "optional_exact_decimal")]
     pub cap: Option<Decimal>,
     /// Rate floor (if any)
+    #[serde(default, with = "optional_exact_decimal")]
     pub floor: Option<Decimal>,
 }
 
 /// Bond reference data (static attributes).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondReferenceData {
     /// Internal identifier
     pub instrument_id: InstrumentId,
@@ -108,12 +115,14 @@ pub struct BondReferenceData {
     /// Maturity date
     pub maturity_date: Date,
     /// Coupon rate (for fixed rate bonds, as decimal)
+    #[serde(default, with = "optional_exact_decimal")]
     pub coupon_rate: Option<Decimal>,
     /// Payment frequency (times per year)
     pub frequency: u32,
     /// Day count convention code
     pub day_count: String,
     /// Face value
+    #[serde(with = "exact_decimal")]
     pub face_value: Decimal,
     /// Bond type
     pub bond_type: BondType,
@@ -138,6 +147,7 @@ pub struct BondReferenceData {
     /// Inflation index (if inflation-linked)
     pub inflation_index: Option<InflationIndex>,
     /// Inflation base index value (if inflation-linked)
+    #[serde(default, with = "optional_exact_decimal")]
     pub inflation_base_index: Option<Decimal>,
     /// Has deflation floor (TIPS)
     pub has_deflation_floor: bool,
@@ -146,6 +156,7 @@ pub struct BondReferenceData {
     /// Sector
     pub sector: String,
     /// Amount outstanding (in currency)
+    #[serde(default, with = "optional_exact_decimal")]
     pub amount_outstanding: Option<Decimal>,
     /// First coupon date
     pub first_coupon_date: Option<Date>,
@@ -155,7 +166,40 @@ pub struct BondReferenceData {
     pub source: String,
 }
 
-/// Validated identity and units at a legacy reference-data boundary.
+// Exact reference terms must survive every dependency feature combination and
+// durable retry. The workspace's serde-float feature cannot change these fields.
+mod exact_decimal {
+    use super::*;
+    use convex_core::contracts::ExactDecimal;
+    pub fn serialize<S: serde::Serializer>(
+        value: &Decimal,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        ExactDecimal::new(*value).serialize(serializer)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Decimal, D::Error> {
+        ExactDecimal::deserialize(deserializer).map(|value| value.decimal())
+    }
+}
+mod optional_exact_decimal {
+    use super::*;
+    use convex_core::contracts::ExactDecimal;
+    pub fn serialize<S: serde::Serializer>(
+        value: &Option<Decimal>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        value.map(ExactDecimal::new).serialize(serializer)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Decimal>, D::Error> {
+        Option::<ExactDecimal>::deserialize(deserializer).map(|value| value.map(|v| v.decimal()))
+    }
+}
+
+/// Validated identity and units at the reference-data boundary.
 /// Supplier fields stay on BondReferenceData; this does not resolve mappings or versions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -175,7 +219,7 @@ pub struct BondReferenceBoundary {
 }
 
 impl BondReferenceData {
-    /// Validate legacy reference identity/dates/face and expose explicit units.
+    /// Validate reference identity/dates/face and expose explicit units.
     /// Does not certify schedules, optionality or unsupported product terms.
     pub fn canonical_boundary(
         &self,
@@ -202,85 +246,6 @@ impl BondReferenceData {
                 .as_ref()
                 .map(|terms| BasisPoints::new(ExactDecimal::new(terms.spread))),
         })
-    }
-}
-
-/// Filter for bond queries.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BondFilter {
-    /// Currency filter
-    pub currency: Option<Currency>,
-    /// Issuer type filter
-    pub issuer_type: Option<IssuerType>,
-    /// Bond type filter
-    pub bond_type: Option<BondType>,
-    /// Maturity from
-    pub maturity_from: Option<Date>,
-    /// Maturity to
-    pub maturity_to: Option<Date>,
-    /// Country of risk
-    pub country: Option<String>,
-    /// Sector
-    pub sector: Option<String>,
-    /// Is callable
-    pub is_callable: Option<bool>,
-    /// Is floating rate
-    pub is_floating: Option<bool>,
-    /// Is inflation-linked
-    pub is_inflation_linked: Option<bool>,
-    /// Issuer ID
-    pub issuer_id: Option<String>,
-    /// Text search query
-    pub text_search: Option<String>,
-}
-
-/// Trait for bond reference data providers.
-#[async_trait]
-pub trait BondReferenceSource: Send + Sync {
-    /// Get bond by ISIN.
-    async fn get_by_isin(&self, isin: &str) -> Result<Option<BondReferenceData>, TraitError>;
-
-    /// Get bond by CUSIP.
-    async fn get_by_cusip(&self, cusip: &str) -> Result<Option<BondReferenceData>, TraitError>;
-
-    /// Get bond by internal ID.
-    async fn get_by_id(
-        &self,
-        instrument_id: &InstrumentId,
-    ) -> Result<Option<BondReferenceData>, TraitError>;
-
-    /// Get multiple bonds by ISIN.
-    async fn get_many_by_isin(&self, isins: &[&str]) -> Result<Vec<BondReferenceData>, TraitError>;
-
-    /// Search bonds by filter.
-    async fn search(
-        &self,
-        filter: &BondFilter,
-        limit: usize,
-        offset: usize,
-    ) -> Result<Vec<BondReferenceData>, TraitError>;
-
-    /// Count bonds matching filter.
-    async fn count(&self, filter: &BondFilter) -> Result<u64, TraitError>;
-
-    /// Subscribe to bond reference data changes.
-    async fn subscribe(&self, filter: &BondFilter) -> Result<BondRefDataReceiver, TraitError>;
-}
-
-/// Receiver for bond reference data updates.
-pub struct BondRefDataReceiver {
-    rx: tokio::sync::broadcast::Receiver<BondReferenceData>,
-}
-
-impl BondRefDataReceiver {
-    /// Create a new bond ref data receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<BondReferenceData>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next update.
-    pub async fn recv(&mut self) -> Option<BondReferenceData> {
-        self.rx.recv().await.ok()
     }
 }
 
@@ -494,8 +459,6 @@ use std::sync::Arc;
 
 /// Combined reference data provider.
 pub struct ReferenceDataProvider {
-    /// Bond reference source
-    pub bonds: Arc<dyn BondReferenceSource>,
     /// Issuer reference source
     pub issuers: Arc<dyn IssuerReferenceSource>,
     /// Rating source

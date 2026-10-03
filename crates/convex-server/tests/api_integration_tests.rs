@@ -10,6 +10,7 @@ use rust_decimal_macros::dec;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::{Currency, Date};
 use convex_engine::ports::config::EngineConfig;
@@ -18,16 +19,403 @@ use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::{
     BondReferenceData, BondType, IssuerType, ReferenceDataProvider,
 };
+use convex_engine::ports::reference_repository::{
+    ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceIdentifier, ReferenceRecord,
+    ReferenceRepository,
+};
+use convex_engine::ports::storage::{BondFilter, Page, Pagination};
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
-    create_empty_output, EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
-    EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
+    create_empty_output, EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource,
+    EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
-    InMemoryBondStore, InMemoryPortfolioStore,
+    InMemoryPortfolioStore,
 };
-use convex_server::routes::{
-    create_router, create_router_with_bond_store, create_router_with_stores,
-};
+use convex_server::routes::{create_router, create_router_with_portfolio_store};
+
+async fn reference_request(
+    app: axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+    headers: &[(&str, &str)],
+) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json");
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let body = body
+        .map(|value| Body::from(serde_json::to_vec(&value).unwrap()))
+        .unwrap_or_else(Body::empty);
+    let response = app.oneshot(request.body(body).unwrap()).await.unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        headers,
+        if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        },
+    )
+}
+
+#[tokio::test]
+async fn authoritative_reference_version_matches_api_and_pricing() {
+    let engine = create_test_engine();
+    let app = create_router(engine.clone());
+    let bond = create_test_bond("SHARED-VERSION", dec!(0.05), 2030);
+    let (status, headers, created) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "create-version")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(headers["etag"], "\"1\"");
+    let reference = engine
+        .reference_for_pricing(&bond.instrument_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(reference.version.get(), 1);
+    assert_eq!(json!(reference.bond.unwrap()), created);
+    let quote_uri = "/api/v1/quotes/SHARED-VERSION?settlement_date=2026-10-02&market_price=100";
+    let (status, headers, first_quote) =
+        reference_request(app.clone(), "GET", quote_uri, None, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{first_quote}");
+    assert_eq!(headers["x-convex-reference-version"], "1");
+    assert!(
+        !headers.contains_key("etag"),
+        "reference version is not a quote cache identity"
+    );
+    let mut revised = bond.clone();
+    revised.coupon_rate = Some(dec!(0.06));
+    let (status, headers, _) = reference_request(
+        app.clone(),
+        "PUT",
+        "/api/v1/bonds/SHARED-VERSION",
+        Some(json!(revised)),
+        &[("idempotency-key", "update-version"), ("if-match", "\"1\"")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["etag"], "\"2\"");
+    let (status, headers, second_quote) =
+        reference_request(app.clone(), "GET", quote_uri, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["x-convex-reference-version"], "2");
+    assert!(!headers.contains_key("etag"));
+    assert_ne!(first_quote["ytm_mid"], second_quote["ytm_mid"]);
+    let (status, _, history) = reference_request(
+        app,
+        "GET",
+        "/api/v1/bonds/SHARED-VERSION/versions/1",
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(history["version"], 1);
+    assert_eq!(history["bond"], json!(bond));
+}
+
+#[tokio::test]
+async fn reference_mutation_headers_and_path_identity_fail_closed() {
+    let engine = create_test_engine();
+    let app = create_router(engine.clone());
+    let bond = create_test_bond("HEADERS", dec!(0.05), 2030);
+    let (status, _, body) =
+        reference_request(app.clone(), "POST", "/api/v1/bonds", Some(json!(bond)), &[]).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "INVALID_INPUT");
+    assert!(engine
+        .reference_for_pricing(&bond.instrument_id)
+        .await
+        .unwrap()
+        .is_none());
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "seed-headers")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    for headers in [
+        vec![("idempotency-key", "edit")],
+        vec![("idempotency-key", "edit"), ("if-match", "0")],
+        vec![("idempotency-key", "edit"), ("if-match", "*")],
+        vec![("idempotency-key", "edit"), ("if-match", "W/\"1\"")],
+        vec![("idempotency-key", "edit"), ("if-match", "01")],
+        vec![
+            ("idempotency-key", "edit"),
+            ("idempotency-key", "another"),
+            ("if-match", "1"),
+        ],
+    ] {
+        let (status, _, _) = reference_request(
+            app.clone(),
+            "PUT",
+            "/api/v1/bonds/HEADERS",
+            Some(json!(bond)),
+            &headers,
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+    let mut mismatch = bond.clone();
+    mismatch.instrument_id = InstrumentId::new("OTHER");
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "PUT",
+        "/api/v1/bonds/HEADERS",
+        Some(json!(mismatch)),
+        &[("idempotency-key", "mismatch"), ("if-match", "1")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    for query in [
+        "currency=UNKNOWN",
+        "issuer_type=UNKNOWN",
+        "bond_type=UNKNOWN",
+        "limit=0",
+        "limit=1001",
+        "typo=USD",
+    ] {
+        let (status, _, _) = reference_request(
+            app.clone(),
+            "GET",
+            &format!("/api/v1/bonds?{query}"),
+            None,
+            &[],
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+    assert_eq!(
+        engine
+            .reference_for_pricing(&bond.instrument_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .version
+            .get(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn api_stale_version_and_batch_conflict_do_not_mutate() {
+    let engine = create_test_engine();
+    let app = create_router(engine.clone());
+    let bond = create_test_bond("CAS", dec!(0.05), 2030);
+    reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "cas-create")],
+    )
+    .await;
+    let mut revised = bond.clone();
+    revised.description = "must not persist".into();
+    let (status, _, body) = reference_request(
+        app.clone(),
+        "PUT",
+        "/api/v1/bonds/CAS",
+        Some(json!(revised)),
+        &[("idempotency-key", "cas-conflict"), ("if-match", "2")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["code"], "VERSION_CONFLICT");
+    assert_eq!(
+        json!(engine
+            .reference_for_pricing(&bond.instrument_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .bond
+            .unwrap()),
+        json!(bond)
+    );
+    let new_bond = create_test_bond("CAS-NEW", dec!(0.05), 2030);
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds/batch",
+        Some(json!({"bonds":[new_bond,bond]})),
+        &[("idempotency-key", "cas-batch")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(engine
+        .reference_for_pricing(&InstrumentId::new("CAS-NEW"))
+        .await
+        .unwrap()
+        .is_none());
+    let (status, _, _) =
+        reference_request(app, "GET", "/api/v1/reference/commits/cas-batch", None, &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+struct LoseFirstCommitReply {
+    inner: Arc<dyn ReferenceRepository>,
+    lose: std::sync::atomic::AtomicBool,
+}
+
+#[async_trait::async_trait]
+impl ReferenceRepository for LoseFirstCommitReply {
+    async fn get(&self, id: &InstrumentId) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.get(id).await
+    }
+    async fn get_version(
+        &self,
+        id: &InstrumentId,
+        version: Version,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.get_version(id, version).await
+    }
+    async fn list(
+        &self,
+        filter: &BondFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<ReferenceRecord>, ReferenceError> {
+        self.inner.list(filter, pagination).await
+    }
+    async fn resolve(
+        &self,
+        id: &ReferenceIdentifier,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.resolve(id).await
+    }
+    async fn commit(
+        &self,
+        command: &ReferenceCommand,
+        time: UtcTimestamp,
+    ) -> Result<ReferenceCommit, ReferenceError> {
+        let committed = self.inner.commit(command, time).await?;
+        if self.lose.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            Err(ReferenceError::UnknownOutcome)
+        } else {
+            Ok(committed)
+        }
+    }
+    async fn get_commit(&self, key: &RequestId) -> Result<Option<ReferenceCommit>, ReferenceError> {
+        self.inner.get_commit(key).await
+    }
+}
+
+#[tokio::test]
+async fn api_unknown_outcome_recovery_and_durable_restart_preserve_retry() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("api.redb");
+    let mut storage = convex_ext_redb::create_redb_storage(&path).unwrap();
+    storage.bonds = Arc::new(LoseFirstCommitReply {
+        inner: storage.bonds.clone(),
+        lose: std::sync::atomic::AtomicBool::new(true),
+    });
+    let engine = create_test_engine_with_storage(storage);
+    let app = create_router(engine.clone());
+    let bond = create_test_bond("LOST-REPLY", dec!(0.05), 2030);
+    let (status, _, body) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "lost-api-reply")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["code"], "UNKNOWN_OUTCOME");
+    assert_eq!(body["retryable"], false);
+    let (status, _, receipt) = reference_request(
+        app.clone(),
+        "GET",
+        "/api/v1/reference/commits/lost-api-reply",
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(receipt["records"][0]["version"], 1);
+    let (status, headers, created) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "lost-api-reply")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(headers["etag"], "\"1\"");
+    assert_eq!(created, json!(bond));
+    drop(app);
+    drop(engine);
+    let engine =
+        create_test_engine_with_storage(convex_ext_redb::create_redb_storage(&path).unwrap());
+    let app = create_router(engine.clone());
+    let (status, _, recovered) = reference_request(
+        app.clone(),
+        "GET",
+        "/api/v1/reference/commits/lost-api-reply",
+        None,
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(recovered, receipt);
+    let (status, headers, retried) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "lost-api-reply")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(headers["etag"], "\"1\"");
+    assert_eq!(retried, created);
+    let mut changed = bond.clone();
+    changed.coupon_rate = Some(dec!(0.06));
+    let (status, _, body) = reference_request(
+        app,
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(changed)),
+        &[("idempotency-key", "lost-api-reply")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["code"], "VERSION_CONFLICT");
+    assert_eq!(
+        engine
+            .reference_for_pricing(&bond.instrument_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .version
+            .get(),
+        1
+    );
+}
+
+fn next_test_key() -> String {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    format!(
+        "api-fixture-{}",
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
 
 // =============================================================================
 // PRODUCTION READINESS REGRESSIONS (CVX-001)
@@ -36,7 +424,7 @@ use convex_server::routes::{
 // cargo test --locked -p convex-server --test api_integration_tests \
 //   production_readiness_ -- --include-ignored --test-threads=1
 // The separate CI gate runs this command without continue-on-error. Ignore
-// annotations keep the legacy baseline separately measurable while each owning
+// annotations keep the baseline separately measurable while each owning
 // task is implemented; they are not evidence of production readiness. Remove an
 // annotation when its owning task fixes the behavior.
 
@@ -119,7 +507,6 @@ async fn production_readiness_no_synthetic_curves_without_demo_opt_in() {
 }
 
 #[tokio::test]
-#[ignore = "G05 / CVX-003: API CRUD and pricing use disconnected reference stores"]
 async fn production_readiness_api_create_is_visible_to_pricing_reference() {
     let engine = create_test_engine();
     let app = create_router(engine.clone());
@@ -135,9 +522,7 @@ async fn production_readiness_api_create_is_visible_to_pricing_reference() {
         .unwrap();
     assert_eq!(app.oneshot(request).await.unwrap().status(), StatusCode::OK);
     let priced_reference = engine
-        .reference_data()
-        .bonds
-        .get_by_id(&bond.instrument_id)
+        .reference_for_pricing(&bond.instrument_id)
         .await
         .unwrap();
     assert!(
@@ -145,7 +530,7 @@ async fn production_readiness_api_create_is_visible_to_pricing_reference() {
         "G05: API committed {created}, but the pricing reference provider returned None"
     );
     assert_eq!(
-        serde_json::to_value(priced_reference.unwrap()).unwrap(),
+        serde_json::to_value(priced_reference.unwrap().bond.unwrap()).unwrap(),
         created
     );
 }
@@ -214,15 +599,16 @@ fn production_readiness_environment_only_binary_startup() {
     );
 }
 
-/// Create test resources (engine + bond store) for tests that need shared state.
-fn create_test_resources() -> (Arc<convex_engine::PricingEngine>, Arc<InMemoryBondStore>) {
-    let engine = create_test_engine();
-    let bond_store = Arc::new(InMemoryBondStore::new());
-    (engine, bond_store)
-}
-
 /// Create a test engine with empty providers.
 fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
+    create_test_engine_with_storage(
+        convex_ext_redb::create_test_storage().expect("Failed to create test storage"),
+    )
+}
+
+fn create_test_engine_with_storage(
+    storage: convex_engine::ports::storage::StorageAdapter,
+) -> Arc<convex_engine::PricingEngine> {
     let market_data = MarketDataProvider {
         quotes: Arc::new(EmptyQuoteSource),
         curve_inputs: Arc::new(EmptyCurveInputSource),
@@ -234,17 +620,12 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     };
 
     let reference_data = ReferenceDataProvider {
-        bonds: Arc::new(EmptyBondReferenceSource),
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
     };
 
     let output = create_empty_output();
-
-    // Use in-memory storage for tests
-    let storage =
-        convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
@@ -365,6 +746,7 @@ async fn post_json(app: axum::Router, uri: &str, body: Value) -> (StatusCode, Va
     let request = Request::builder()
         .method("POST")
         .uri(uri)
+        .header("Idempotency-Key", next_test_key())
         .header("Content-Type", "application/json")
         .body(Body::from(serde_json::to_string(&body).unwrap()))
         .unwrap();
@@ -1095,6 +1477,8 @@ async fn test_delete_curve() {
     let app2 = create_router(engine.clone());
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/curves/TO_DELETE")
         .body(Body::empty())
         .unwrap();
@@ -1120,6 +1504,8 @@ async fn test_delete_curve_not_found() {
 
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/curves/NONEXISTENT")
         .body(Body::empty())
         .unwrap();
@@ -1290,16 +1676,16 @@ async fn test_create_bond() {
 
 #[tokio::test]
 async fn test_create_and_get_bond() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bond
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("US037833DV24", dec!(0.04), 2028);
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Get bond
-    let app2 = create_router_with_bond_store(engine, bond_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/bonds/US037833DV24")
         .body(Body::empty())
@@ -1329,16 +1715,16 @@ async fn test_get_bond_not_found() {
 
 #[tokio::test]
 async fn test_create_bond_duplicate() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bond
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("DUPE001", dec!(0.05), 2030);
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Try to create duplicate
-    let app2 = create_router_with_bond_store(engine, bond_store);
+    let app2 = create_router(engine);
     let (status, json) =
         post_json(app2, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -1347,21 +1733,23 @@ async fn test_create_bond_duplicate() {
 
 #[tokio::test]
 async fn test_update_bond() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bond
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("UPDATE001", dec!(0.05), 2030);
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Update bond
-    let app2 = create_router_with_bond_store(engine, bond_store);
+    let app2 = create_router(engine);
     let mut updated_bond = bond.clone();
     updated_bond.description = "Updated Description".to_string();
 
     let request = Request::builder()
         .method("PUT")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/bonds/UPDATE001")
         .header("Content-Type", "application/json")
         .body(Body::from(serde_json::to_string(&updated_bond).unwrap()))
@@ -1384,6 +1772,8 @@ async fn test_update_bond_not_found() {
 
     let request = Request::builder()
         .method("PUT")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/bonds/NONEXISTENT")
         .header("Content-Type", "application/json")
         .body(Body::from(serde_json::to_string(&bond).unwrap()))
@@ -1395,18 +1785,20 @@ async fn test_update_bond_not_found() {
 
 #[tokio::test]
 async fn test_delete_bond() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bond
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("DELETE001", dec!(0.05), 2030);
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Delete bond
-    let app2 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app2 = create_router(engine.clone());
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/bonds/DELETE001")
         .body(Body::empty())
         .unwrap();
@@ -1415,7 +1807,7 @@ async fn test_delete_bond() {
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // Verify deleted
-    let app3 = create_router_with_bond_store(engine, bond_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/bonds/DELETE001")
         .body(Body::empty())
@@ -1432,6 +1824,8 @@ async fn test_delete_bond_not_found() {
 
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/bonds/NONEXISTENT")
         .body(Body::empty())
         .unwrap();
@@ -1442,11 +1836,11 @@ async fn test_delete_bond_not_found() {
 
 #[tokio::test]
 async fn test_list_bonds_with_pagination() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create multiple bonds
     for i in 0..5 {
-        let app = create_router_with_bond_store(engine.clone(), bond_store.clone());
+        let app = create_router(engine.clone());
         let bond = create_test_bond(
             &format!("PAGE{:03}", i),
             dec!(0.04) + Decimal::from(i) * dec!(0.001),
@@ -1458,7 +1852,7 @@ async fn test_list_bonds_with_pagination() {
     }
 
     // Get first page
-    let app = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app = create_router(engine.clone());
     let request = Request::builder()
         .uri("/api/v1/bonds?limit=2&offset=0")
         .body(Body::empty())
@@ -1475,7 +1869,7 @@ async fn test_list_bonds_with_pagination() {
     assert_eq!(json["offset"].as_u64().unwrap(), 0);
 
     // Get second page
-    let app = create_router_with_bond_store(engine, bond_store);
+    let app = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/bonds?limit=2&offset=2")
         .body(Body::empty())
@@ -1492,23 +1886,23 @@ async fn test_list_bonds_with_pagination() {
 
 #[tokio::test]
 async fn test_list_bonds_with_filter() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bonds with different sectors
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let mut bond1 = create_test_bond("SECTOR001", dec!(0.05), 2030);
     bond1.sector = "Technology".to_string();
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond1).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app2 = create_router(engine.clone());
     let mut bond2 = create_test_bond("SECTOR002", dec!(0.05), 2030);
     bond2.sector = "Financials".to_string();
     let (status, _) = post_json(app2, "/api/v1/bonds", serde_json::to_value(&bond2).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Filter by sector
-    let app3 = create_router_with_bond_store(engine, bond_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/bonds?sector=Technology")
         .body(Body::empty())
@@ -1542,21 +1936,21 @@ async fn test_batch_create_bonds() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["created"].as_u64().unwrap(), 3);
-    assert_eq!(json["skipped"].as_u64().unwrap(), 0);
+    assert_eq!(json["commit"]["records"].as_array().unwrap().len(), 3);
 }
 
 #[tokio::test]
 async fn test_batch_create_bonds_with_duplicates() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create one bond first
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("BATCHDUPE001", dec!(0.05), 2030);
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Batch create with duplicate
-    let app2 = create_router_with_bond_store(engine, bond_store);
+    let app2 = create_router(engine);
     let bonds = vec![
         create_test_bond("BATCHDUPE001", dec!(0.04), 2028), // duplicate
         create_test_bond("BATCHDUPE002", dec!(0.045), 2029),
@@ -1568,24 +1962,23 @@ async fn test_batch_create_bonds_with_duplicates() {
 
     let (status, json) = post_json(app2, "/api/v1/bonds/batch", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["created"].as_u64().unwrap(), 1);
-    assert_eq!(json["skipped"].as_u64().unwrap(), 1);
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(json["code"], "VERSION_CONFLICT");
 }
 
 #[tokio::test]
 async fn test_get_bond_by_isin() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bond
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let bond = create_test_bond("ISINTEST001", dec!(0.05), 2030);
     let isin = bond.isin.clone().unwrap();
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Get by ISIN
-    let app2 = create_router_with_bond_store(engine, bond_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .uri(format!("/api/v1/bonds/isin/{}", isin))
         .body(Body::empty())
@@ -1615,17 +2008,17 @@ async fn test_get_bond_by_isin_not_found() {
 
 #[tokio::test]
 async fn test_text_search_bonds() {
-    let (engine, bond_store) = create_test_resources();
+    let engine = create_test_engine();
 
     // Create bonds with specific descriptions
-    let app1 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app1 = create_router(engine.clone());
     let mut bond1 = create_test_bond("SEARCH001", dec!(0.05), 2030);
     bond1.description = "Apple Inc 5% 2030".to_string();
     bond1.issuer_name = "Apple Inc".to_string();
     let (status, _) = post_json(app1, "/api/v1/bonds", serde_json::to_value(&bond1).unwrap()).await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_bond_store(engine.clone(), bond_store.clone());
+    let app2 = create_router(engine.clone());
     let mut bond2 = create_test_bond("SEARCH002", dec!(0.04), 2028);
     bond2.description = "Microsoft Corp 4% 2028".to_string();
     bond2.issuer_name = "Microsoft Corp".to_string();
@@ -1633,7 +2026,7 @@ async fn test_text_search_bonds() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Search for Apple
-    let app3 = create_router_with_bond_store(engine, bond_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/bonds?q=Apple")
         .body(Body::empty())
@@ -1697,16 +2090,14 @@ async fn test_websocket_upgrade_request() {
 // PORTFOLIO CRUD TESTS
 // =============================================================================
 
-/// Create test resources with all stores (engine + bond store + portfolio store).
+/// Create test resources with all stores (engine + portfolio store).
 fn create_all_test_resources() -> (
     Arc<convex_engine::PricingEngine>,
-    Arc<InMemoryBondStore>,
     Arc<InMemoryPortfolioStore>,
 ) {
     let engine = create_test_engine();
-    let bond_store = Arc::new(InMemoryBondStore::new());
     let portfolio_store = Arc::new(InMemoryPortfolioStore::new());
-    (engine, bond_store, portfolio_store)
+    (engine, portfolio_store)
 }
 
 #[tokio::test]
@@ -1755,11 +2146,10 @@ async fn test_create_portfolio() {
 
 #[tokio::test]
 async fn test_create_and_get_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "PORT002",
         "name": "Investment Portfolio",
@@ -1769,7 +2159,7 @@ async fn test_create_and_get_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Get portfolio
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .uri("/api/v1/portfolios/PORT002")
         .body(Body::empty())
@@ -1801,11 +2191,10 @@ async fn test_get_portfolio_not_found() {
 
 #[tokio::test]
 async fn test_create_portfolio_duplicate() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "DUPE_PORT",
         "name": "First Portfolio"
@@ -1814,7 +2203,7 @@ async fn test_create_portfolio_duplicate() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Try to create duplicate
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request_body = json!({
         "portfolio_id": "DUPE_PORT",
         "name": "Second Portfolio"
@@ -1826,11 +2215,10 @@ async fn test_create_portfolio_duplicate() {
 
 #[tokio::test]
 async fn test_update_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "UPDATE_PORT",
         "name": "Original Name",
@@ -1840,9 +2228,11 @@ async fn test_update_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Update portfolio
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .method("PUT")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/UPDATE_PORT")
         .header("Content-Type", "application/json")
         .body(Body::from(
@@ -1871,6 +2261,8 @@ async fn test_update_portfolio_not_found() {
 
     let request = Request::builder()
         .method("PUT")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/NONEXISTENT")
         .header("Content-Type", "application/json")
         .body(Body::from(
@@ -1887,11 +2279,10 @@ async fn test_update_portfolio_not_found() {
 
 #[tokio::test]
 async fn test_delete_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "DELETE_PORT",
         "name": "To Delete"
@@ -1900,10 +2291,11 @@ async fn test_delete_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Delete portfolio
-    let app2 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/DELETE_PORT")
         .body(Body::empty())
         .unwrap();
@@ -1912,7 +2304,7 @@ async fn test_delete_portfolio() {
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // Verify deleted
-    let app3 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .uri("/api/v1/portfolios/DELETE_PORT")
         .body(Body::empty())
@@ -1929,6 +2321,8 @@ async fn test_delete_portfolio_not_found() {
 
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/NONEXISTENT")
         .body(Body::empty())
         .unwrap();
@@ -1971,11 +2365,10 @@ async fn test_create_portfolio_with_positions() {
 
 #[tokio::test]
 async fn test_add_position_to_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "ADDPOS_PORT",
         "name": "Add Position Test",
@@ -1985,7 +2378,7 @@ async fn test_add_position_to_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Add position
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let position = json!({
         "instrument_id": "BOND003",
         "notional": "2000000",
@@ -2001,11 +2394,10 @@ async fn test_add_position_to_portfolio() {
 
 #[tokio::test]
 async fn test_remove_position_from_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio with positions
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "REMPOS_PORT",
         "name": "Remove Position Test",
@@ -2018,9 +2410,11 @@ async fn test_remove_position_from_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Remove position
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .method("DELETE")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/REMPOS_PORT/positions/BOND_A")
         .body(Body::empty())
         .unwrap();
@@ -2036,11 +2430,10 @@ async fn test_remove_position_from_portfolio() {
 
 #[tokio::test]
 async fn test_update_position_in_portfolio() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolio with position
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request_body = json!({
         "portfolio_id": "UPDPOS_PORT",
         "name": "Update Position Test",
@@ -2052,9 +2445,11 @@ async fn test_update_position_in_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Update position
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .method("PUT")
+        .header("Idempotency-Key", next_test_key())
+        .header("If-Match", "1")
         .uri("/api/v1/portfolios/UPDPOS_PORT/positions/BOND_X")
         .header("Content-Type", "application/json")
         .body(Body::from(
@@ -2080,12 +2475,11 @@ async fn test_update_position_in_portfolio() {
 
 #[tokio::test]
 async fn test_list_portfolios_with_pagination() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create multiple portfolios
     for i in 0..5 {
-        let app =
-            create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+        let app = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
         let request_body = json!({
             "portfolio_id": format!("PAGE_PORT{:03}", i),
             "name": format!("Portfolio {}", i),
@@ -2096,8 +2490,7 @@ async fn test_list_portfolios_with_pagination() {
     }
 
     // Get first page
-    let app =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let request = Request::builder()
         .uri("/api/v1/portfolios?limit=2&offset=0")
         .body(Body::empty())
@@ -2116,11 +2509,10 @@ async fn test_list_portfolios_with_pagination() {
 
 #[tokio::test]
 async fn test_list_portfolios_with_currency_filter() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolios with different currencies
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2133,8 +2525,7 @@ async fn test_list_portfolios_with_currency_filter() {
     .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let (status, _) = post_json(
         app2,
         "/api/v1/portfolios",
@@ -2148,7 +2539,7 @@ async fn test_list_portfolios_with_currency_filter() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Filter by currency
-    let app3 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .uri("/api/v1/portfolios?currency=EUR")
         .body(Body::empty())
@@ -2165,11 +2556,10 @@ async fn test_list_portfolios_with_currency_filter() {
 
 #[tokio::test]
 async fn test_text_search_portfolios() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create portfolios with specific names
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2182,8 +2572,7 @@ async fn test_text_search_portfolios() {
     .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let (status, _) = post_json(
         app2,
         "/api/v1/portfolios",
@@ -2197,7 +2586,7 @@ async fn test_text_search_portfolios() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Search for "Equity"
-    let app3 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
     let request = Request::builder()
         .uri("/api/v1/portfolios?q=Equity")
         .body(Body::empty())
@@ -2237,11 +2626,10 @@ async fn test_batch_create_portfolios() {
 
 #[tokio::test]
 async fn test_batch_create_portfolios_with_duplicates() {
-    let (engine, bond_store, portfolio_store) = create_all_test_resources();
+    let (engine, portfolio_store) = create_all_test_resources();
 
     // Create one portfolio first
-    let app1 =
-        create_router_with_stores(engine.clone(), bond_store.clone(), portfolio_store.clone());
+    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2254,7 +2642,7 @@ async fn test_batch_create_portfolios_with_duplicates() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Batch create with duplicate
-    let app2 = create_router_with_stores(engine, bond_store, portfolio_store);
+    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
     let request_body = json!({
         "portfolios": [
             { "portfolio_id": "BATCH_DUPE", "name": "Duplicate" },

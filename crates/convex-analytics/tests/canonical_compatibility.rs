@@ -1,7 +1,7 @@
-//! Legacy economic units and signs survive explicit canonical adapters.
+//! Public economic units and signs survive explicit canonical adapters.
 
 use convex_analytics::{
-    contracts::{CanonicalPricingValues, ValidatedBondSpec, ValidatedLegacyRisk},
+    contracts::{CanonicalPricingValues, ValidatedBondSpec, ValidatedRiskResponse},
     dto::*,
 };
 use convex_core::contracts::{ExactDecimal, FiniteF64};
@@ -9,16 +9,16 @@ use proptest::prelude::*;
 use serde_json::{json, Value};
 
 fn fixture() -> Value {
-    serde_json::from_str(include_str!("fixtures/legacy_contracts.json")).unwrap()
+    serde_json::from_str(include_str!("fixtures/public_contracts.json")).unwrap()
 }
 
 #[test]
-fn all_legacy_bond_shapes_roundtrip_without_rate_conversion_or_term_loss() {
+fn all_bond_shapes_roundtrip_without_rate_conversion_or_term_loss() {
     for raw in fixture()["bonds"].as_array().unwrap() {
-        let legacy: BondSpec = serde_json::from_value(raw.clone()).unwrap();
-        // Compare the existing DTO's serialization, including its legacy defaults.
-        let expected = serde_json::to_value(&legacy).unwrap();
-        let validated = ValidatedBondSpec::try_from(legacy).unwrap();
+        let spec: BondSpec = serde_json::from_value(raw.clone()).unwrap();
+        // Compare the existing DTO's serialization, including its DTO defaults.
+        let expected = serde_json::to_value(&spec).unwrap();
+        let validated = ValidatedBondSpec::try_from(spec).unwrap();
         if let Some(coupon) = validated.coupon_rate() {
             assert_eq!(
                 coupon.value().decimal().to_string(),
@@ -73,14 +73,14 @@ fn pricing_roundtrip_preserves_bits_negative_yield_spread_and_optional_absence()
 }
 
 #[test]
-fn legacy_risk_retains_original_dv01_sign_and_basis() {
+fn risk_response_retains_original_dv01_sign_and_basis() {
     let expected: RiskResponse = serde_json::from_value(fixture()["risk"].clone()).unwrap();
-    let validated = ValidatedLegacyRisk::try_from(expected.clone()).unwrap();
+    let validated = ValidatedRiskResponse::try_from(expected.clone()).unwrap();
     let wire = serde_json::to_value(&validated).unwrap();
     assert_eq!(wire, serde_json::to_value(&expected).unwrap());
     assert!(!wire.as_object().unwrap().contains_key("pv01_signed"));
     let recovered =
-        RiskResponse::from(serde_json::from_value::<ValidatedLegacyRisk>(wire).unwrap());
+        RiskResponse::from(serde_json::from_value::<ValidatedRiskResponse>(wire).unwrap());
     assert_eq!(recovered.dv01.to_bits(), expected.dv01.to_bits());
     assert_eq!(
         recovered.key_rates[0].duration.to_bits(),
@@ -111,7 +111,7 @@ fn compatibility_ingress_rejects_invalid_dates_quantities_and_model_numbers() {
         assert!(CanonicalPricingValues::try_from(pricing).is_err());
         let mut risk: RiskResponse = serde_json::from_value(fixture()["risk"].clone()).unwrap();
         risk.dv01 = number;
-        assert!(ValidatedLegacyRisk::try_from(risk).is_err());
+        assert!(ValidatedRiskResponse::try_from(risk).is_err());
     }
     let mut wire = serde_json::to_value(
         CanonicalPricingValues::try_from(

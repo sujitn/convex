@@ -12,8 +12,8 @@ use convex_engine::ports::market_data::MarketDataProvider;
 use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
-    create_empty_output, EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
-    EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
+    create_empty_output, EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource,
+    EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 use convex_server::{ConfigError, Server, ServerConfig};
@@ -73,7 +73,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let reference_data = ReferenceDataProvider {
-        bonds: Arc::new(EmptyBondReferenceSource),
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),

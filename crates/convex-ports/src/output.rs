@@ -143,7 +143,7 @@ pub struct BondQuoteOutput {
 impl BondQuoteOutput {
     /// Expose mid pricing in explicit canonical units without inventing risk lineage.
     /// Missing accrued remains missing; dirty price is unavailable in that case.
-    /// Legacy DV01/PV01 are excluded because their factor and notional bases differ.
+    /// Duration-based DV01/PV01 are excluded because their factor and notional bases differ.
     pub fn canonical_mid_values(
         &self,
     ) -> Result<BondMidValues, convex_core::contracts::ContractError> {
@@ -228,7 +228,7 @@ impl BondQuoteOutput {
     }
 }
 
-/// Explicit mid pricing values at the legacy publishing boundary.
+/// Explicit mid pricing values at the publishing boundary.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BondMidValues {

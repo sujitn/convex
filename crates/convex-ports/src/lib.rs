@@ -5,17 +5,18 @@
 //! exchange (configs and their constructors, bond filters and their matching
 //! logic, and the channel-receiver wrappers used by the streaming ports).
 //!
-//! The crate stays deliberately lightweight: beyond `convex-core` its only
-//! dependency is `tokio`, used solely for the `sync::broadcast` receiver types in
-//! the streaming ports -- there is no async executor, no I/O, and no storage
-//! backend here. Adapters (e.g. `convex-ext-file`, `convex-ext-redb`) and the
+//! The crate has value/serialization dependencies and uses `tokio` solely for
+//! the `sync::broadcast` receiver types in streaming ports. There is no async
+//! executor, I/O implementation or storage backend here. Adapters
+//! (e.g. `convex-ext-file`, `convex-ext-redb`) and the
 //! engine both depend *down* on this crate, so an adapter never has to pull in
 //! the engine to implement a port.
 //!
 //! ## Modules
 //!
 //! - [`market_data`] — market data sources (quotes, curves, vol, FX, inflation)
-//! - [`reference_data`] — reference data sources (bonds, issuers, ratings, ETFs)
+//! - [`reference_data`] — reference terms and issuer, rating and ETF sources
+//! - [`reference_repository`] — atomic versioned reference commits
 //! - [`storage`] — persistence (bonds, curves, configs, overrides, audit)
 //! - [`output`] — output publishing
 //! - [`config`] — engine / node configuration value types
@@ -29,6 +30,7 @@ pub mod error;
 pub mod market_data;
 pub mod output;
 pub mod reference_data;
+pub mod reference_repository;
 pub mod storage;
 
 pub use error::TraitError;

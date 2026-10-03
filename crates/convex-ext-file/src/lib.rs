@@ -14,9 +14,11 @@
 
 mod market_data;
 mod reference_data;
+mod reference_repository;
 
 pub use market_data::*;
 pub use reference_data::*;
+pub use reference_repository::*;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -47,16 +49,14 @@ pub fn create_file_market_data(
     })
 }
 
-/// Create a file-based reference data provider.
-pub fn create_file_reference_data(
-    bonds_csv: impl AsRef<Path>,
-) -> Result<ReferenceDataProvider, TraitError> {
-    Ok(ReferenceDataProvider {
-        bonds: Arc::new(CsvBondReferenceSource::new(bonds_csv)?),
+/// Create empty auxiliary reference sources for explicit demo/test composition.
+/// Bond reference terms always come from the configured repository.
+pub fn create_empty_reference_data() -> ReferenceDataProvider {
+    ReferenceDataProvider {
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    })
+    }
 }
 
 /// Create an empty output publisher (for testing/development).

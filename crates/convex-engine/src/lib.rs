@@ -106,12 +106,10 @@ pub struct PricingEngine {
     #[allow(dead_code)]
     market_data: Arc<MarketDataProvider>,
 
-    /// Reference data provider
-    #[allow(dead_code)]
+    /// Auxiliary issuer, rating and ETF sources; bond terms come from storage.
     reference_data: Arc<ReferenceDataProvider>,
 
-    /// Storage adapter
-    #[allow(dead_code)]
+    /// Storage adapter, including the authoritative reference repository.
     storage: Arc<StorageAdapter>,
 
     /// Output publisher
@@ -276,9 +274,50 @@ impl PricingEngine {
         &self.config
     }
 
-    /// Get the reference data provider.
+    /// Get auxiliary issuer, rating and ETF sources.
     pub fn reference_data(&self) -> &Arc<ReferenceDataProvider> {
         &self.reference_data
+    }
+
+    /// The sole authoritative source for reference reads and mutations.
+    pub fn reference_repository(
+        &self,
+    ) -> &Arc<dyn ports::reference_repository::ReferenceRepository> {
+        &self.storage.bonds
+    }
+
+    /// Read full reference terms and the exact version consumed by a pricing request.
+    pub async fn reference_for_pricing(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+    ) -> Result<
+        Option<ports::reference_repository::ReferenceRecord>,
+        ports::reference_repository::ReferenceError,
+    > {
+        Ok(self
+            .storage
+            .bonds
+            .get(id)
+            .await?
+            .filter(|record| record.bond.is_some()))
+    }
+
+    /// Commit a reference use case before invalidating dependent pricing work.
+    pub async fn commit_reference(
+        &self,
+        command: &ports::reference_repository::ReferenceCommand,
+        recorded_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<
+        ports::reference_repository::ReferenceCommit,
+        ports::reference_repository::ReferenceError,
+    > {
+        let result = self.storage.bonds.commit(command, recorded_at).await?;
+        for record in &result.records {
+            self.calc_graph.invalidate(&NodeId::BondPrice {
+                instrument_id: record.instrument_id.clone(),
+            });
+        }
+        Ok(result)
     }
 
     // =========================================================================
@@ -505,7 +544,7 @@ impl PricingEngine {
             self.calc_graph.clone(),
             self.curve_builder.clone(),
             self.pricing_router.clone(),
-            self.reference_data.clone(),
+            self.storage.bonds.clone(),
         )
     }
 }

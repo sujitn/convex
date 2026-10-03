@@ -1,6 +1,6 @@
 //! Validated, provider-neutral contracts for new analytics and application boundaries.
 //!
-//! Legacy types remain available in [`crate::ids`] and [`crate::types`]. Conversion
+//! Domain types are available in [`crate::ids`] and [`crate::types`]. Conversion
 //! into this module is explicit and fallible. Exact values carry units on the wire;
 //! model values are finite. No constructor consults a clock or an external service.
 //!

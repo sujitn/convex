@@ -273,7 +273,7 @@ tagged_value!(
     ModelRateUnit,
     FiniteF64,
     "decimal_rate",
-    "Finite model decimal rate, preserving binary bits across legacy adapters."
+    "Finite model decimal rate, preserving binary bits across DTO boundaries."
 );
 tagged_value!(
     ModelBasisPoints,

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::dto::{BondSpec, CouponSpec, PricingResponse, RiskResponse};
 
-/// Legacy BondSpec accepted only after date/quantity/model-number validation.
+/// BondSpec accepted only after date/quantity/model-number validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "BondSpec", into = "BondSpec")]
 pub struct ValidatedBondSpec {
@@ -23,7 +23,7 @@ pub struct ValidatedBondSpec {
     face: FaceAmount,
 }
 impl ValidatedBondSpec {
-    /// Inspect complete legacy terms, preserved without normalization or defaults added here.
+    /// Inspect complete supplied terms, preserved without normalization or defaults added here.
     pub fn spec(&self) -> &BondSpec {
         &self.spec
     }
@@ -52,7 +52,7 @@ impl ValidatedBondSpec {
 }
 
 // Keep validated face alongside the DTO so accessors cannot panic or revalidate.
-// The wire remains the legacy BondSpec; this state is reconstructed at ingress.
+// The wire remains the BondSpec; this state is reconstructed at ingress.
 
 fn validate_terms(
     issue: convex_core::Date,
@@ -122,7 +122,7 @@ impl From<ValidatedBondSpec> for BondSpec {
     }
 }
 
-/// Pricing values with canonical units, preserving each legacy model bit and sign.
+/// Pricing values with canonical units, preserving each supplied model bit and sign.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -166,20 +166,20 @@ impl From<CanonicalPricingValues> for PricingResponse {
     }
 }
 
-/// Validated legacy risk, retaining its original sign and notional/price basis.
+/// Validated risk response, retaining its original sign and notional/price basis.
 ///
-/// This is deliberately not a conversion to RiskSensitivity: legacy DV01 alone
+/// This is deliberately not a conversion to RiskSensitivity: duration-based DV01 alone
 /// does not supply a factor key, reporting currency, quantity, bump or snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "RiskResponse", into = "RiskResponse")]
-pub struct ValidatedLegacyRisk(RiskResponse);
-impl ValidatedLegacyRisk {
-    /// Read the unchanged legacy risk representation.
+pub struct ValidatedRiskResponse(RiskResponse);
+impl ValidatedRiskResponse {
+    /// Read the unchanged risk response representation.
     pub fn response(&self) -> &RiskResponse {
         &self.0
     }
 }
-impl TryFrom<RiskResponse> for ValidatedLegacyRisk {
+impl TryFrom<RiskResponse> for ValidatedRiskResponse {
     type Error = ContractError;
     fn try_from(value: RiskResponse) -> Result<Self, Self::Error> {
         for (number, field) in [
@@ -206,8 +206,8 @@ impl TryFrom<RiskResponse> for ValidatedLegacyRisk {
         Ok(Self(value))
     }
 }
-impl From<ValidatedLegacyRisk> for RiskResponse {
-    fn from(value: ValidatedLegacyRisk) -> Self {
+impl From<ValidatedRiskResponse> for RiskResponse {
+    fn from(value: ValidatedRiskResponse) -> Self {
         value.0
     }
 }

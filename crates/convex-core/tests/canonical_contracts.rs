@@ -301,8 +301,8 @@ fn dates_utc_precision_and_id_versions_fail_closed() {
     assert!(InstrumentId::new("x".repeat(129)).is_err());
     assert!(InstrumentId::try_from(convex_core::ids::InstrumentId::new("")).is_err());
     let id = InstrumentId::new("internal-bond-1").unwrap();
-    let legacy: convex_core::ids::InstrumentId = id.clone().into();
-    assert_eq!(InstrumentId::try_from(legacy).unwrap(), id);
+    let public_id: convex_core::ids::InstrumentId = id.clone().into();
+    assert_eq!(InstrumentId::try_from(public_id).unwrap(), id);
     assert!(serde_json::from_str::<Version>("0").is_err());
     assert!(serde_json::from_str::<SchemaVersion>("\"1.0\"").is_err());
     assert!(serde_json::from_str::<ValuationSubject>(

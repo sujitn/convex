@@ -52,6 +52,8 @@ name = "convex-server"
 path = "src/main.rs"
 
 [dev-dependencies]
+async-trait = "0.1"
+tempfile = "3"
 reqwest = { version = "0.13", features = ["json"] }
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }

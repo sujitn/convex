@@ -16,9 +16,7 @@ use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
 use convex_engine::{Portfolio, Position, PricingEngine};
-use convex_ext_file::{
-    InMemoryBondStore, InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, StoredPosition,
-};
+use convex_ext_file::{InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, StoredPosition};
 use convex_portfolio::{
     active_weights,
     // Key rate duration
@@ -83,9 +81,7 @@ use convex_portfolio::{
 use crate::websocket::WebSocketState;
 use convex_core::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
 use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
-use convex_engine::ports::reference_data::{
-    BondFilter, BondReferenceData, BondReferenceSource, EtfHoldingEntry, EtfHoldings,
-};
+use convex_engine::ports::reference_data::{BondReferenceData, EtfHoldingEntry, EtfHoldings};
 
 /// Application state.
 pub struct AppState {
@@ -93,8 +89,6 @@ pub struct AppState {
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
     pub ws_state: WebSocketState,
-    /// Bond reference data store (for CRUD operations)
-    pub bond_store: Arc<InMemoryBondStore>,
     /// Portfolio store (for CRUD operations)
     pub portfolio_store: Arc<InMemoryPortfolioStore>,
 }
@@ -145,29 +139,33 @@ pub async fn get_bond_quote(
     State(state): State<Arc<AppState>>,
     Path(instrument_id): Path<String>,
     axum::extract::Query(query): axum::extract::Query<BondQuoteQuery>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
     use convex_engine::pricing_router::PricingInput;
 
     let id = InstrumentId::new(&instrument_id);
 
     // Look up bond reference data
-    let bond = match state.engine.reference_data().bonds.get_by_id(&id).await {
-        Ok(Some(bond)) => bond,
+    let reference = match state.engine.reference_for_pricing(&id).await {
+        Ok(Some(reference)) => reference,
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
                 Json(serde_json::json!({
                     "error": format!("Bond not found: {}", instrument_id)
                 })),
-            );
+            )
+                .into_response();
         }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "error": format!("Failed to look up bond: {}", e)
-                })),
-            );
+        Err(error) => return crate::reference::reference_error(error),
+    };
+
+    let version = reference.version;
+    let bond = match reference.bond {
+        Some(bond) => bond,
+        None => {
+            return crate::reference::reference_error(
+                convex_engine::ports::reference_repository::ReferenceError::NotFound,
+            )
         }
     };
 
@@ -179,14 +177,21 @@ pub async fn get_bond_quote(
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({ "error": e })),
-                );
+                )
+                    .into_response();
             }
         },
         None => {
             // Default to today
             let now = chrono::Utc::now();
-            Date::from_ymd(now.year(), now.month(), now.day())
-                .unwrap_or_else(|_| Date::from_ymd(2024, 1, 15).unwrap())
+            match Date::from_ymd(now.year(), now.month(), now.day()) {
+                Ok(date) => date,
+                Err(_) => {
+                    return crate::reference::reference_error(
+                        convex_engine::ports::reference_repository::ReferenceError::Unavailable,
+                    )
+                }
+            }
         }
     };
 
@@ -207,14 +212,15 @@ pub async fn get_bond_quote(
         Ok(quote) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_bond_quote(quote.clone());
-            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap()))
+            crate::reference::with_consumed_reference_version(Json(quote).into_response(), version)
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "error": format!("Pricing failed: {}", e)
             })),
-        ),
+        )
+            .into_response(),
     }
 }
 
@@ -2660,346 +2666,8 @@ fn convert_portfolio_input(input: &PortfolioInput) -> Portfolio {
     }
 }
 
-// =============================================================================
-// BOND REFERENCE DATA CRUD
-// =============================================================================
-
-/// Query parameters for bond listing.
-#[derive(Debug, Deserialize)]
-pub struct BondListQuery {
-    /// Maximum number of bonds to return
-    #[serde(default = "default_limit")]
-    pub limit: usize,
-    /// Offset for pagination
-    #[serde(default)]
-    pub offset: usize,
-    /// Currency filter
-    pub currency: Option<String>,
-    /// Issuer type filter
-    pub issuer_type: Option<String>,
-    /// Bond type filter
-    pub bond_type: Option<String>,
-    /// Country filter
-    pub country: Option<String>,
-    /// Sector filter
-    pub sector: Option<String>,
-    /// Issuer ID filter
-    pub issuer_id: Option<String>,
-    /// Text search query (searches description, issuer name, ISIN, CUSIP)
-    pub q: Option<String>,
-    /// Filter callable bonds
-    pub is_callable: Option<bool>,
-    /// Filter floating rate notes
-    pub is_floating: Option<bool>,
-    /// Filter inflation-linked bonds
-    pub is_inflation_linked: Option<bool>,
-}
-
 fn default_limit() -> usize {
     100
-}
-
-/// Response for bond listing.
-#[derive(Debug, Serialize)]
-pub struct BondListResponse {
-    /// Bonds
-    pub bonds: Vec<BondReferenceData>,
-    /// Total count (before pagination)
-    pub total: u64,
-    /// Limit used
-    pub limit: usize,
-    /// Offset used
-    pub offset: usize,
-}
-
-/// List bonds with optional filtering and pagination.
-pub async fn list_bonds(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Query(query): axum::extract::Query<BondListQuery>,
-) -> impl IntoResponse {
-    use convex_engine::ports::reference_data::{BondType, IssuerType};
-
-    // Build filter from query params
-    let filter = BondFilter {
-        currency: query.currency.as_ref().and_then(|c| Currency::from_code(c)),
-        issuer_type: query
-            .issuer_type
-            .as_ref()
-            .and_then(|t| match t.to_lowercase().as_str() {
-                "sovereign" => Some(IssuerType::Sovereign),
-                "agency" => Some(IssuerType::Agency),
-                "supranational" => Some(IssuerType::Supranational),
-                "corporateig" | "corporate_ig" => Some(IssuerType::CorporateIG),
-                "corporatehy" | "corporate_hy" => Some(IssuerType::CorporateHY),
-                "financial" => Some(IssuerType::Financial),
-                "municipal" => Some(IssuerType::Municipal),
-                _ => None,
-            }),
-        bond_type: query
-            .bond_type
-            .as_ref()
-            .and_then(|t| match t.to_lowercase().as_str() {
-                "fixedbullet" | "fixed_bullet" => Some(BondType::FixedBullet),
-                "fixedcallable" | "fixed_callable" => Some(BondType::FixedCallable),
-                "fixedputable" | "fixed_putable" => Some(BondType::FixedPutable),
-                "floatingrate" | "floating_rate" | "frn" => Some(BondType::FloatingRate),
-                "zerocoupon" | "zero_coupon" => Some(BondType::ZeroCoupon),
-                "inflationlinked" | "inflation_linked" | "linker" => {
-                    Some(BondType::InflationLinked)
-                }
-                "amortizing" => Some(BondType::Amortizing),
-                "convertible" => Some(BondType::Convertible),
-                _ => None,
-            }),
-        country: query.country.clone(),
-        sector: query.sector.clone(),
-        issuer_id: query.issuer_id.clone(),
-        text_search: query.q.clone(),
-        is_callable: query.is_callable,
-        is_floating: query.is_floating,
-        is_inflation_linked: query.is_inflation_linked,
-        maturity_from: None,
-        maturity_to: None,
-    };
-
-    // Get total count first
-    let total = match state.bond_store.count(&filter).await {
-        Ok(count) => count,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.to_string() })),
-            );
-        }
-    };
-
-    // Get bonds with pagination
-    let bonds = match state
-        .bond_store
-        .search(&filter, query.limit, query.offset)
-        .await
-    {
-        Ok(bonds) => bonds,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.to_string() })),
-            );
-        }
-    };
-
-    let response = BondListResponse {
-        bonds,
-        total,
-        limit: query.limit,
-        offset: query.offset,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
-}
-
-/// Get a single bond by instrument ID.
-pub async fn get_bond(
-    State(state): State<Arc<AppState>>,
-    Path(instrument_id): Path<String>,
-) -> impl IntoResponse {
-    let id = InstrumentId::new(&instrument_id);
-
-    match state.bond_store.get_by_id(&id).await {
-        Ok(Some(bond)) => (StatusCode::OK, Json(serde_json::to_value(bond).unwrap())),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Bond not found: {}", instrument_id) })),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
-}
-
-/// Create a new bond.
-pub async fn create_bond(
-    State(state): State<Arc<AppState>>,
-    Json(bond): Json<BondReferenceData>,
-) -> impl IntoResponse {
-    // Check if bond already exists
-    if let Ok(Some(_)) = state.bond_store.get_by_id(&bond.instrument_id).await {
-        return (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "error": format!("Bond already exists: {}", bond.instrument_id.as_str())
-            })),
-        );
-    }
-
-    // Set timestamp if not provided
-    let mut bond = bond;
-    if bond.last_updated == 0 {
-        bond.last_updated = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
-    }
-
-    let created = state.bond_store.upsert(bond);
-
-    (
-        StatusCode::CREATED,
-        Json(serde_json::to_value(created).unwrap()),
-    )
-}
-
-/// Update an existing bond.
-pub async fn update_bond(
-    State(state): State<Arc<AppState>>,
-    Path(instrument_id): Path<String>,
-    Json(mut bond): Json<BondReferenceData>,
-) -> impl IntoResponse {
-    let id = InstrumentId::new(&instrument_id);
-
-    // Verify bond exists
-    match state.bond_store.get_by_id(&id).await {
-        Ok(Some(_)) => {}
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": format!("Bond not found: {}", instrument_id) })),
-            );
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.to_string() })),
-            );
-        }
-    }
-
-    // Ensure instrument ID matches path
-    bond.instrument_id = id;
-
-    // Update timestamp
-    bond.last_updated = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-
-    let updated = state.bond_store.upsert(bond);
-
-    (StatusCode::OK, Json(serde_json::to_value(updated).unwrap()))
-}
-
-/// Delete a bond.
-pub async fn delete_bond(
-    State(state): State<Arc<AppState>>,
-    Path(instrument_id): Path<String>,
-) -> impl IntoResponse {
-    let id = InstrumentId::new(&instrument_id);
-
-    match state.bond_store.delete(&id) {
-        Some(_) => (StatusCode::NO_CONTENT, Json(serde_json::json!({}))),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Bond not found: {}", instrument_id) })),
-        ),
-    }
-}
-
-/// Batch create bonds.
-#[derive(Debug, Deserialize)]
-pub struct BatchBondCreateRequest {
-    /// Bonds to create
-    pub bonds: Vec<BondReferenceData>,
-}
-
-/// Batch create response.
-#[derive(Debug, Serialize)]
-pub struct BatchBondCreateResponse {
-    /// Number of bonds created
-    pub created: usize,
-    /// Number of bonds that already existed (skipped)
-    pub skipped: usize,
-    /// Errors encountered
-    pub errors: Vec<String>,
-}
-
-/// Batch create bonds.
-pub async fn batch_create_bonds(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<BatchBondCreateRequest>,
-) -> impl IntoResponse {
-    let mut created = 0;
-    let mut skipped = 0;
-    let errors: Vec<String> = Vec::new();
-
-    for mut bond in request.bonds {
-        // Check if bond already exists
-        if let Ok(Some(_)) = state.bond_store.get_by_id(&bond.instrument_id).await {
-            skipped += 1;
-            continue;
-        }
-
-        // Set timestamp if not provided
-        if bond.last_updated == 0 {
-            bond.last_updated = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64;
-        }
-
-        state.bond_store.upsert(bond);
-        created += 1;
-    }
-
-    let response = BatchBondCreateResponse {
-        created,
-        skipped,
-        errors,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
-}
-
-/// Get bond by ISIN.
-pub async fn get_bond_by_isin(
-    State(state): State<Arc<AppState>>,
-    Path(isin): Path<String>,
-) -> impl IntoResponse {
-    match state.bond_store.get_by_isin(&isin).await {
-        Ok(Some(bond)) => (StatusCode::OK, Json(serde_json::to_value(bond).unwrap())),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Bond not found with ISIN: {}", isin) })),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
-}
-
-/// Get bond by CUSIP.
-pub async fn get_bond_by_cusip(
-    State(state): State<Arc<AppState>>,
-    Path(cusip): Path<String>,
-) -> impl IntoResponse {
-    match state.bond_store.get_by_cusip(&cusip).await {
-        Ok(Some(bond)) => (StatusCode::OK, Json(serde_json::to_value(bond).unwrap())),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Bond not found with CUSIP: {}", cusip) })),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
 }
 
 // =============================================================================

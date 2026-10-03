@@ -796,7 +796,7 @@ mod tests {
     }
 
     #[test]
-    fn demo_wire_labels_preserve_legacy_message_content() {
+    fn demo_wire_labels_preserve_message_content() {
         let message = ServerMessage::Connected {
             session_id: "test".into(),
             server_time: 123,

@@ -21,8 +21,8 @@ use convex_engine::ports::market_data::MarketDataProvider;
 use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
-    create_empty_output, EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
-    EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
+    create_empty_output, EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource,
+    EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 use convex_server::routes::create_router;
@@ -40,15 +40,13 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     };
 
     let reference_data = ReferenceDataProvider {
-        bonds: Arc::new(EmptyBondReferenceSource),
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
     };
 
     let output = create_empty_output();
-    let storage =
-        convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
+    let storage = convex_ext_redb::create_test_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
