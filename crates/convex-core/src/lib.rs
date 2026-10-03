@@ -30,6 +30,7 @@
 #![warn(clippy::all)]
 
 pub mod calendars;
+pub mod contracts;
 pub mod daycounts;
 pub mod error;
 pub mod traits;

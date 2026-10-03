@@ -155,6 +155,56 @@ pub struct BondReferenceData {
     pub source: String,
 }
 
+/// Validated identity and units at a legacy reference-data boundary.
+/// Supplier fields stay on BondReferenceData; this does not resolve mappings or versions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BondReferenceBoundary {
+    /// Validated internal identity; never substituted with a supplier symbol.
+    pub instrument_id: convex_core::contracts::InstrumentId,
+    /// Explicit issue date.
+    pub issue: convex_core::contracts::BusinessDate,
+    /// Explicit maturity date.
+    pub maturity: convex_core::contracts::BusinessDate,
+    /// Exact positive quoted face.
+    pub face: convex_core::contracts::FaceAmount,
+    /// Existing decimal coupon, or absent.
+    pub coupon: Option<convex_core::contracts::DecimalRate>,
+    /// Existing floating spread in bp, or absent.
+    pub floating_spread: Option<convex_core::contracts::BasisPoints>,
+}
+
+impl BondReferenceData {
+    /// Validate legacy reference identity/dates/face and expose explicit units.
+    /// Does not certify schedules, optionality or unsupported product terms.
+    pub fn canonical_boundary(
+        &self,
+    ) -> Result<BondReferenceBoundary, convex_core::contracts::ContractError> {
+        use convex_core::contracts::{
+            BasisPoints, BusinessDate, ContractError, DecimalRate, ExactDecimal, FaceAmount,
+        };
+        if self.issue_date >= self.maturity_date || self.face_value <= Decimal::ZERO {
+            return Err(ContractError {
+                field: "bond_reference",
+                reason: "maturity must follow issue and face must be positive",
+            });
+        }
+        Ok(BondReferenceBoundary {
+            instrument_id: self.instrument_id.clone().try_into()?,
+            issue: BusinessDate::try_from(self.issue_date)?,
+            maturity: BusinessDate::try_from(self.maturity_date)?,
+            face: FaceAmount::new(ExactDecimal::new(self.face_value))?,
+            coupon: self
+                .coupon_rate
+                .map(|value| DecimalRate::new(ExactDecimal::new(value))),
+            floating_spread: self
+                .floating_terms
+                .as_ref()
+                .map(|terms| BasisPoints::new(ExactDecimal::new(terms.spread))),
+        })
+    }
+}
+
 /// Filter for bond queries.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BondFilter {

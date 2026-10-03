@@ -1,0 +1,28 @@
+{
+  "schema_version": "2.0",
+  "request_id": "request-example",
+  "status": "Partial",
+  "quality": "Invalid",
+  "snapshot_id": "snapshot-example-001",
+  "configuration_version": 7,
+  "results": {
+    "pv": {
+      "value": {"value":"1000150.00","unit":"currency","currency":"USD"},
+      "quality": "Valid",
+      "method": "observed_dirty_mark",
+      "source_observation_id": "observation-example-001"
+    }
+  },
+  "errors": [{"code":"MISSING_FIXING","field":"market_quote_pv01","message":"Required fixing is absent at the requested information cutoff","retryable":false}],
+  "provenance": {
+    "subject": {"kind":"trade_version","trade_id":"trade-001","version":4},
+    "snapshot_id": "snapshot-example-001",
+    "configuration_version": 7,
+    "valuation_time": "2026-10-02T15:00:00Z",
+    "known_at": "2026-10-02T15:00:00Z",
+    "calculated_at": "2026-10-02T15:00:00.010Z",
+    "model_version": "example-model-v1",
+    "build_id": "example-build",
+    "input_versions": [{"kind":"instrument","id":"instrument-example-001","version":3}]
+  }
+}

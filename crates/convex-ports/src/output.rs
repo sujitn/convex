@@ -141,6 +141,45 @@ pub struct BondQuoteOutput {
 }
 
 impl BondQuoteOutput {
+    /// Expose mid pricing in explicit canonical units without inventing risk lineage.
+    /// Missing accrued remains missing; dirty price is unavailable in that case.
+    /// Legacy DV01/PV01 are excluded because their factor and notional bases differ.
+    pub fn canonical_mid_values(
+        &self,
+    ) -> Result<BondMidValues, convex_core::contracts::ContractError> {
+        use convex_core::contracts::{ContractError, DecimalRate, ExactDecimal, PricePer100};
+        let dirty = match (self.clean_price_mid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => {
+                let dirty = clean.checked_add(accrued).ok_or(ContractError {
+                    field: "dirty_price",
+                    reason: "exact decimal overflow",
+                })?;
+                if dirty.checked_sub(clean) != Some(accrued)
+                    || dirty.checked_sub(accrued) != Some(clean)
+                {
+                    return Err(ContractError {
+                        field: "dirty_price",
+                        reason: "exact decimal addition would round",
+                    });
+                }
+                Some(dirty)
+            }
+            _ => None,
+        };
+        Ok(BondMidValues {
+            clean: self
+                .clean_price_mid
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            dirty: dirty.map(|value| PricePer100::new(ExactDecimal::new(value))),
+            accrued: self
+                .accrued_interest
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            ytm: self
+                .ytm_mid
+                .map(|value| DecimalRate::new(ExactDecimal::new(value))),
+        })
+    }
+
     /// Calculate dirty price from clean price and accrued.
     pub fn dirty_price_mid(&self) -> Option<Decimal> {
         match (self.clean_price_mid, self.accrued_interest) {
@@ -187,6 +226,20 @@ impl BondQuoteOutput {
             QuoteSide::Ask => self.ytm_ask,
         }
     }
+}
+
+/// Explicit mid pricing values at the legacy publishing boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BondMidValues {
+    /// Existing clean per-100 price, if calculated.
+    pub clean: Option<convex_core::contracts::PricePer100>,
+    /// Exact clean plus accrued, only when both inputs are present.
+    pub dirty: Option<convex_core::contracts::PricePer100>,
+    /// Existing accrued per 100, if calculated.
+    pub accrued: Option<convex_core::contracts::PricePer100>,
+    /// Existing decimal yield, if calculated.
+    pub ytm: Option<convex_core::contracts::DecimalRate>,
 }
 
 /// Trait for bond quote publishing.

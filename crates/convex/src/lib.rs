@@ -6,6 +6,7 @@
 
 #![warn(missing_docs)]
 
+pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;
 pub use convex_core::error::{ConvexError, ConvexResult};
 pub use convex_core::types::{

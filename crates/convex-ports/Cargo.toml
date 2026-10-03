@@ -22,4 +22,5 @@ rust_decimal = { workspace = true }
 tokio = { version = "1", features = ["sync"] } # broadcast::Receiver in the *Receiver types
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
