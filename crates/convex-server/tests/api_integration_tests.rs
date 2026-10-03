@@ -29,6 +29,192 @@ use convex_server::routes::{
     create_router, create_router_with_bond_store, create_router_with_stores,
 };
 
+// =============================================================================
+// PRODUCTION READINESS REGRESSIONS (CVX-001)
+// =============================================================================
+// These assert required behavior, not the existing defects. Run all four with:
+// cargo test --locked -p convex-server --test api_integration_tests \
+//   production_readiness_ -- --include-ignored --test-threads=1
+// The separate CI gate runs this command without continue-on-error. Ignore
+// annotations keep the legacy baseline separately measurable while each owning
+// task is implemented; they are not evidence of production readiness. Remove an
+// annotation when its owning task fixes the behavior.
+
+fn production_readiness_bond(id: &str) -> BondReferenceData {
+    let mut bond = create_test_bond(id, dec!(0.05), 2030);
+    // Keep fictional economics, but avoid malformed external identifiers
+    // becoming the reason a later strict validator rejects this fixture.
+    bond.isin = None;
+    bond.cusip = Some("912810TD0".to_string());
+    bond
+}
+
+#[test]
+#[ignore = "G02 / CVX-005: the active engine marks Empty as a successful calculation"]
+fn production_readiness_failed_calculation_is_not_empty_success() {
+    use convex_engine::{NodeId, NodeValue};
+
+    let engine = create_test_engine();
+    let node = NodeId::BondPrice {
+        instrument_id: InstrumentId::new("CVX001-MISSING-BOND"),
+    };
+    engine.calc_graph().add_node(node.clone(), vec![]);
+    engine.calc_graph().invalidate(&node);
+    assert_eq!(engine.process_dirty_nodes(), 1);
+
+    let graph = engine.calc_graph();
+    let has_actual_result = graph
+        .get_cached(&node)
+        .is_some_and(|cached| !matches!(cached.value, NodeValue::Empty));
+    assert!(
+        graph.is_dirty(&node) || has_actual_result,
+        "G02: missing inputs were cached as Empty and the node was marked clean: {:?}",
+        graph.get_cached(&node)
+    );
+}
+
+#[tokio::test]
+#[ignore = "G04 / CVX-002 and CVX-005: POST pricing substitutes demo curves without opt-in"]
+async fn production_readiness_no_synthetic_curves_without_demo_opt_in() {
+    let engine = create_test_engine();
+    assert!(engine.curve_builder().list().is_empty());
+    let app = create_router(engine);
+    let (status, response) = post_json(
+        app,
+        "/api/v1/quote",
+        json!({
+            "bond": production_readiness_bond("CVX001-BOND"),
+            "settlement_date": "2025-06-17",
+            "market_price": 99.5
+        }),
+    )
+    .await;
+
+    // A supplied price can support price/yield analytics without curves. It
+    // cannot support curve-derived spreads with no market inputs or demo opt-in.
+    if status.is_success() {
+        assert_eq!(
+            response["clean_price_mid"].as_f64(),
+            Some(99.5),
+            "{response}"
+        );
+        let fabricated: Vec<_> = ["z_spread_mid", "i_spread_mid", "g_spread_mid", "asw_mid"]
+            .into_iter()
+            .filter(|field| !response[*field].is_null())
+            .collect();
+        assert!(
+            fabricated.is_empty(),
+            "G04: curve-derived fields {fabricated:?} appeared without market inputs: {response}"
+        );
+    } else {
+        assert!(
+            matches!(status, StatusCode::UNPROCESSABLE_ENTITY | StatusCode::SERVICE_UNAVAILABLE),
+            "Missing market data needs an explicit unavailable/valuation error, got {status}: {response}"
+        );
+        assert!(
+            !response["error"].is_null() || response["errors"].is_array(),
+            "Missing market data must retain an error: {response}"
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "G05 / CVX-003: API CRUD and pricing use disconnected reference stores"]
+async fn production_readiness_api_create_is_visible_to_pricing_reference() {
+    let engine = create_test_engine();
+    let app = create_router(engine.clone());
+    let bond = production_readiness_bond("CVX001-SHARED-REFERENCE");
+    let (status, created) = post_json(app.clone(), "/api/v1/bonds", json!(bond)).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+
+    // Verify the create really committed to the API's store before testing the
+    // pricing reader, so a parsing or routing error cannot reproduce this gap.
+    let request = Request::builder()
+        .uri(format!("/api/v1/bonds/{}", bond.instrument_id))
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(app.oneshot(request).await.unwrap().status(), StatusCode::OK);
+    let priced_reference = engine
+        .reference_data()
+        .bonds
+        .get_by_id(&bond.instrument_id)
+        .await
+        .unwrap();
+    assert!(
+        priced_reference.is_some(),
+        "G05: API committed {created}, but the pricing reference provider returned None"
+    );
+    assert_eq!(
+        serde_json::to_value(priced_reference.unwrap()).unwrap(),
+        created
+    );
+}
+
+#[test]
+#[ignore = "G06 / CVX-002: actual no-file startup ignores environment overrides"]
+fn production_readiness_environment_only_binary_startup() {
+    use std::path::PathBuf;
+    use std::process::{Child, Command, Stdio};
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+    struct Probe {
+        child: Child,
+        directory: PathBuf,
+    }
+    impl Drop for Probe {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+            let _ = std::fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    let directory = std::env::temp_dir().join(format!(
+        "convex_startup_regression_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    // No ./data directory: an ignored storage override must be visible, rather
+    // than silently falling back to another database or opening a default port.
+    let storage = directory.join("configured.redb");
+    let log_path = directory.join("startup.log");
+    let log_file = std::fs::File::create(&log_path).unwrap();
+    let child = Command::new(env!("CARGO_BIN_EXE_convex-server"))
+        .arg(directory.join("absent.toml"))
+        .current_dir(&directory)
+        .env_clear()
+        .env("RUST_LOG", "info")
+        .env("CONVEX_HOST", "127.0.0.1")
+        .env("CONVEX_PORT", "0")
+        .env("CONVEX_STORAGE_PATH", &storage)
+        .stdout(Stdio::from(log_file.try_clone().unwrap()))
+        .stderr(Stdio::from(log_file))
+        .spawn()
+        .unwrap();
+    let mut probe = Probe { child, directory };
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let expected_address = "Starting Convex server on 127.0.0.1:0";
+    let startup_log = loop {
+        let output = std::fs::read_to_string(&log_path).unwrap();
+        if output.contains(expected_address)
+            || probe.child.try_wait().unwrap().is_some()
+            || Instant::now() >= deadline
+        {
+            break std::fs::read_to_string(&log_path).unwrap();
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert!(
+        storage.exists() && startup_log.contains(expected_address),
+        "G06: valid environment-only storage/host/port were not used; configured storage exists={}; startup log: {startup_log}",
+        storage.exists()
+    );
+}
+
 /// Create test resources (engine + bond store) for tests that need shared state.
 fn create_test_resources() -> (Arc<convex_engine::PricingEngine>, Arc<InMemoryBondStore>) {
     let engine = create_test_engine();

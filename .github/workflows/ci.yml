@@ -19,12 +19,33 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: cargo test --all-features --workspace -- --test-threads=1
+        run: cargo test --locked --all-features --workspace -- --test-threads=1
+
+  production-regressions:
+    name: Production Readiness Regressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      # CVX-001 records known failures; their owning tasks must repair them.
+      # No continue-on-error: this job is a failing production gate until then.
+      - name: Check production behavior including known failures
+        run: cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1
 
   fmt:
     name: Format
@@ -35,6 +56,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           components: rustfmt
 
       - name: Check formatting
@@ -49,13 +71,14 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           components: clippy
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Run Clippy
-        run: cargo clippy --all-features --workspace -- -D warnings
+        run: cargo clippy --locked --all-features --workspace -- -D warnings
 
   docs:
     name: Documentation
@@ -65,12 +88,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Build documentation
-        run: cargo doc --no-deps --all-features --workspace
+        run: cargo doc --locked --no-deps --all-features --workspace
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -83,12 +108,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Check convex-core can be packaged
-        run: cargo package -p convex-core --list
+        run: cargo package --locked -p convex-core --list
 
   excel-addin:
     name: Excel Add-in (Windows)
@@ -99,6 +126,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           targets: x86_64-pc-windows-msvc
 
       - name: Cache cargo registry
@@ -106,7 +134,7 @@ jobs:
 
       # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi
-        run: cargo build --profile excel -p convex-ffi
+        run: cargo build --locked --profile excel -p convex-ffi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
