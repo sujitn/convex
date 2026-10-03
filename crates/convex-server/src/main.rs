@@ -1,8 +1,10 @@
 //! Convex pricing server entry point.
 
+use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::Arc;
 
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use convex_engine::ports::config::EngineConfig;
@@ -14,37 +16,52 @@ use convex_ext_file::{
     EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
     EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
-use convex_server::{Server, ServerConfig};
+use convex_server::{ConfigError, Server, ServerConfig};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> ExitCode {
+    match run().await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Startup failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info,convex=debug".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_ansi(false))
         .init();
 
     info!("Convex Pricing Server v{}", env!("CARGO_PKG_VERSION"));
 
     // Load configuration
-    let config_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "config/convex.toml".to_string());
-
-    let server_config = if std::path::Path::new(&config_path).exists() {
-        info!("Loading configuration from {}", config_path);
-        ServerConfig::from_file(&config_path)?
-    } else {
-        info!("Using default configuration");
-        ServerConfig::default()
-    };
+    let mut arguments = std::env::args_os().skip(1);
+    let config_path = arguments.next().map(PathBuf::from);
+    if arguments.next().is_some() {
+        return Err(ConfigError::Unsupported {
+            field: "config_path",
+            reason: "only one optional configuration path is supported",
+        }
+        .into());
+    }
+    let server_config = ServerConfig::load(config_path.as_deref())?;
+    info!(
+        configuration = %serde_json::to_string(&server_config.effective_redacted())?,
+        "Effective startup configuration"
+    );
+    server_config.validate_startup()?;
+    warn!("Demo profile enabled: all server output is demonstration data");
 
     // Create storage
     let storage = convex_ext_redb::create_redb_storage(&server_config.storage_path)?;
 
-    // Create empty providers (for demo - in production use file sources or real data)
+    // This composition is reachable only after explicit demo opt-in.
     let market_data = MarketDataProvider {
         quotes: Arc::new(EmptyQuoteSource),
         curve_inputs: Arc::new(EmptyCurveInputSource),

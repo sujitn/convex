@@ -151,7 +151,6 @@ async fn production_readiness_api_create_is_visible_to_pricing_reference() {
 }
 
 #[test]
-#[ignore = "G06 / CVX-002: actual no-file startup ignores environment overrides"]
 fn production_readiness_environment_only_binary_startup() {
     use std::path::PathBuf;
     use std::process::{Child, Command, Stdio};
@@ -184,10 +183,10 @@ fn production_readiness_environment_only_binary_startup() {
     let log_path = directory.join("startup.log");
     let log_file = std::fs::File::create(&log_path).unwrap();
     let child = Command::new(env!("CARGO_BIN_EXE_convex-server"))
-        .arg(directory.join("absent.toml"))
         .current_dir(&directory)
         .env_clear()
         .env("RUST_LOG", "info")
+        .env("CONVEX_PROFILE", "demo")
         .env("CONVEX_HOST", "127.0.0.1")
         .env("CONVEX_PORT", "0")
         .env("CONVEX_STORAGE_PATH", &storage)
@@ -197,7 +196,7 @@ fn production_readiness_environment_only_binary_startup() {
         .unwrap();
     let mut probe = Probe { child, directory };
     let deadline = Instant::now() + Duration::from_secs(5);
-    let expected_address = "Starting Convex server on 127.0.0.1:0";
+    let expected_address = "Starting Convex server on 127.0.0.1:";
     let startup_log = loop {
         let output = std::fs::read_to_string(&log_path).unwrap();
         if output.contains(expected_address)

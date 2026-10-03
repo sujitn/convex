@@ -16,10 +16,16 @@ use crate::websocket::{self, WebSocketState};
 /// # Arguments
 /// * `engine` - The pricing engine
 pub fn create_router(engine: Arc<PricingEngine>) -> Router {
-    create_router_with_stores(
+    create_router_with_websocket(engine, true)
+}
+
+/// Create the API router with optional WebSocket routes on the HTTP listener.
+pub fn create_router_with_websocket(engine: Arc<PricingEngine>, enabled: bool) -> Router {
+    create_router_with_options(
         engine,
         Arc::new(InMemoryBondStore::new()),
         Arc::new(InMemoryPortfolioStore::new()),
+        enabled,
     )
 }
 
@@ -46,6 +52,15 @@ pub fn create_router_with_stores(
     bond_store: Arc<InMemoryBondStore>,
     portfolio_store: Arc<InMemoryPortfolioStore>,
 ) -> Router {
+    create_router_with_options(engine, bond_store, portfolio_store, true)
+}
+
+fn create_router_with_options(
+    engine: Arc<PricingEngine>,
+    bond_store: Arc<InMemoryBondStore>,
+    portfolio_store: Arc<InMemoryPortfolioStore>,
+    websocket_enabled: bool,
+) -> Router {
     let state = Arc::new(AppState {
         engine,
         ws_state: WebSocketState::new(),
@@ -53,7 +68,7 @@ pub fn create_router_with_stores(
         portfolio_store,
     });
 
-    Router::new()
+    let router = Router::new()
         // Health
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
@@ -249,11 +264,14 @@ pub fn create_router_with_stores(
             "/api/v1/portfolios/:portfolio_id/positions/:instrument_id",
             axum::routing::put(handlers::update_portfolio_position)
                 .delete(handlers::remove_portfolio_position),
-        )
-        // WebSocket
-        .route("/ws", get(websocket::ws_handler))
-        .route("/api/v1/ws", get(websocket::ws_handler))
-        .route("/api/v1/ws/status", get(websocket::ws_status))
-        // State
-        .with_state(state)
+        );
+    let router = if websocket_enabled {
+        router
+            .route("/ws", get(websocket::ws_handler))
+            .route("/api/v1/ws", get(websocket::ws_handler))
+            .route("/api/v1/ws/status", get(websocket::ws_status))
+    } else {
+        router
+    };
+    router.with_state(state)
 }

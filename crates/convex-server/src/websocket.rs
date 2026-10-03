@@ -13,6 +13,7 @@ use std::time::Duration;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::IntoResponse;
+use axum::Extension;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
@@ -23,6 +24,7 @@ use convex_core::ids::{EtfId, InstrumentId, PortfolioId};
 use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
 
 use crate::handlers::AppState;
+use crate::ServerProfile;
 
 // =============================================================================
 // MESSAGE TYPES
@@ -370,12 +372,14 @@ impl ClientSession {
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    profile: Option<Extension<ServerProfile>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    let profile = profile.map_or(ServerProfile::Production, |Extension(profile)| profile);
+    ws.on_upgrade(move |socket| handle_socket(socket, state, profile))
 }
 
 /// Handle an individual WebSocket connection.
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
+async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerProfile) {
     let ws_state = &state.ws_state;
 
     // Generate session ID
@@ -401,7 +405,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         session_id: session_id.clone(),
         server_time: current_timestamp(),
     };
-    if let Err(e) = send_message(&mut sender, &connected_msg).await {
+    if let Err(e) = send_message(&mut sender, &connected_msg, profile).await {
         error!("Failed to send connected message: {}", e);
         ws_state
             .connection_count
@@ -418,14 +422,14 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
             Some(msg) = receiver.next() => {
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if let Err(e) = handle_client_message(&text, &mut session, &mut sender).await {
+                        if let Err(e) = handle_client_message(&text, &mut session, &mut sender, profile).await {
                             warn!("Error handling client message: {}", e);
                             // Send error message to client
                             let error_msg = ServerMessage::Error {
                                 code: "INVALID_MESSAGE".to_string(),
                                 message: e,
                             };
-                            if send_message(&mut sender, &error_msg).await.is_err() {
+                            if send_message(&mut sender, &error_msg, profile).await.is_err() {
                                 break;
                             }
                         }
@@ -433,7 +437,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     Ok(Message::Binary(data)) => {
                         // Try to parse as JSON
                         if let Ok(text) = String::from_utf8(data) {
-                            if let Err(e) = handle_client_message(&text, &mut session, &mut sender).await {
+                            if let Err(e) = handle_client_message(&text, &mut session, &mut sender, profile).await {
                                 warn!("Error handling binary message: {}", e);
                             }
                         }
@@ -460,7 +464,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
             // Handle broadcast updates
             Ok(update) = broadcast_rx.recv() => {
                 if let Some(msg) = filter_update(&session, &update) {
-                    if send_message(&mut sender, &msg).await.is_err() {
+                    if send_message(&mut sender, &msg, profile).await.is_err() {
                         break;
                     }
                 }
@@ -471,7 +475,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                 let heartbeat = ServerMessage::Heartbeat {
                     server_time: current_timestamp(),
                 };
-                if send_message(&mut sender, &heartbeat).await.is_err() {
+                if send_message(&mut sender, &heartbeat, profile).await.is_err() {
                     break;
                 }
             }
@@ -490,6 +494,7 @@ async fn handle_client_message(
     text: &str,
     session: &mut ClientSession,
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
+    profile: ServerProfile,
 ) -> Result<(), String> {
     let msg: ClientMessage =
         serde_json::from_str(text).map_err(|e| format!("Invalid message: {}", e))?;
@@ -593,7 +598,7 @@ async fn handle_client_message(
         },
     };
 
-    send_message(sender, &response)
+    send_message(sender, &response, profile)
         .await
         .map_err(|e| e.to_string())
 }
@@ -678,12 +683,34 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
 async fn send_message(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     msg: &ServerMessage,
+    profile: ServerProfile,
 ) -> Result<(), axum::Error> {
-    let json = serde_json::to_string(msg).unwrap();
+    let json = serialize_message(msg, profile).map_err(axum::Error::new)?;
     sender
         .send(Message::Text(json))
         .await
         .map_err(axum::Error::new)
+}
+
+fn serialize_message(
+    msg: &ServerMessage,
+    profile: ServerProfile,
+) -> Result<String, serde_json::Error> {
+    #[derive(Serialize)]
+    struct WireMessage<'a> {
+        #[serde(flatten)]
+        message: &'a ServerMessage,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        profile: Option<ServerProfile>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        data_quality: Option<&'static str>,
+    }
+    let demo = profile == ServerProfile::Demo;
+    serde_json::to_string(&WireMessage {
+        message: msg,
+        profile: demo.then_some(profile),
+        data_quality: demo.then_some("demo"),
+    })
 }
 
 /// Get current timestamp in milliseconds.
@@ -766,6 +793,34 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"type\":\"connected\""));
         assert!(json.contains("\"session_id\":\"ws-123\""));
+    }
+
+    #[test]
+    fn demo_wire_labels_preserve_legacy_message_content() {
+        let message = ServerMessage::Connected {
+            session_id: "test".into(),
+            server_time: 123,
+        };
+        let original = serde_json::to_value(&message).unwrap();
+        let production: serde_json::Value =
+            serde_json::from_str(&serialize_message(&message, ServerProfile::Production).unwrap())
+                .unwrap();
+        assert_eq!(production, original);
+        let mut demo: serde_json::Value =
+            serde_json::from_str(&serialize_message(&message, ServerProfile::Demo).unwrap())
+                .unwrap();
+        assert_eq!(
+            demo.as_object_mut().unwrap().remove("profile").unwrap(),
+            "demo"
+        );
+        assert_eq!(
+            demo.as_object_mut()
+                .unwrap()
+                .remove("data_quality")
+                .unwrap(),
+            "demo"
+        );
+        assert_eq!(demo, original);
     }
 
     #[test]
