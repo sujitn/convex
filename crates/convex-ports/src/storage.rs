@@ -4,7 +4,7 @@
 //! Bond transactions use [`crate::reference_repository::ReferenceRepository`].
 //! - [`CurveStore`]: Curve config and snapshot storage
 //! - [`ConfigStore`]: Pricing configuration storage
-//! - [`OverrideStore`]: Price override storage with audit
+//! - [`OverrideStore`]: Price overrides with explicitly declared history capability
 //! - [`AuditStore`]: Audit log storage
 //!
 //! Storage implementations are EXTENSIONS (e.g., redb, PostgreSQL, Redis).
@@ -34,6 +34,14 @@ impl Pagination {
     pub fn new(offset: usize, limit: usize) -> Self {
         Self { offset, limit }
     }
+
+    /// Validate the local query bound. A zero limit requests only the filtered total.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if self.limit > 1000 {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        Ok(())
+    }
 }
 
 /// Paginated result.
@@ -52,7 +60,7 @@ pub struct Page<T> {
 impl<T> Page<T> {
     /// Check if there are more pages.
     pub fn has_more(&self) -> bool {
-        (self.offset + self.items.len()) < self.total as usize
+        (self.offset as u64).saturating_add(self.items.len() as u64) < self.total
     }
 }
 
@@ -77,7 +85,8 @@ pub enum QuoteSide {
 /// Note: Curves don't have bid/ask internally - use curve ID convention
 /// (e.g., "USD_GOVT_BID", "USD_GOVT_MID") to reference specific side.
 /// Only `SpecificBond` has `side` since bond quotes have bid/ask.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum BenchmarkReference {
     /// Interpolated yield from government curve at bond's maturity.
     GovernmentCurve {
@@ -118,7 +127,8 @@ pub enum BenchmarkReference {
 ///
 /// This is the core configuration that determines the pricing methodology.
 /// The actual market data is fetched via `MarketDataProvider` based on this spec.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum PricingSpec {
     /// Use direct market quote.
     MarketQuote {
@@ -186,7 +196,8 @@ pub enum PricingSpec {
 ///
 /// When pricing from a model (BenchmarkSpread, ZSpread, etc.),
 /// this config determines how to generate bid/ask from the mid price.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BidAskSpreadConfig {
     /// Half-spread in basis points.
     /// bid = mid * (1 - half_spread/10000), ask = mid * (1 + half_spread/10000)
@@ -235,7 +246,8 @@ impl BidAskSpreadConfig {
 }
 
 /// Curves available for analytics calculations (spread calculations, etc.).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnalyticsCurves {
     /// Discount curve for Z-spread calculation.
     pub discount_curve: CurveId,
@@ -293,7 +305,8 @@ impl AnalyticsCurves {
 // =============================================================================
 
 /// Bond filter for storage queries and config matching.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondFilter {
     // === Per-bond identifiers (highest priority) ===
     /// Match specific ISIN.
@@ -585,7 +598,7 @@ impl BondFilter {
 // =============================================================================
 
 /// Curve configuration (what instruments to use for building).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CurveConfig {
     /// Curve identifier
     pub curve_id: CurveId,
@@ -606,7 +619,7 @@ pub struct CurveConfig {
 }
 
 /// Curve snapshot (built curve at a point in time).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CurveSnapshot {
     /// Curve identifier
     pub curve_id: CurveId,
@@ -672,7 +685,8 @@ pub trait CurveStore: Send + Sync {
 ///
 /// Defines how to price bonds matching a specific filter.
 /// Multiple configs can exist; the most specific filter wins (based on `specificity()`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondPricingConfig {
     /// Config identifier
     pub config_id: String,
@@ -690,7 +704,7 @@ pub struct BondPricingConfig {
     pub priority: Option<i32>,
     /// Is this config active
     pub active: bool,
-    /// Version number (for optimistic locking)
+    /// Positive immutable version. Save accepts current + 1, or an identical retained retry.
     pub version: u64,
     /// Created timestamp
     pub created_at: i64,
@@ -707,7 +721,7 @@ impl BondPricingConfig {
 }
 
 /// Config version info.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConfigVersion {
     /// Version number
     pub version: u64,
@@ -725,13 +739,18 @@ pub trait ConfigStore: Send + Sync {
     /// Get config by ID.
     async fn get(&self, id: &str) -> Result<Option<BondPricingConfig>, TraitError>;
 
-    /// Save config.
+    /// Atomically save immutable content and make it current.
+    ///
+    /// New IDs start at version 1; updates use current version + 1. Identical retries
+    /// of a retained version succeed without moving the current pointer backwards.
+    /// A reused version with different content or a skipped version returns Conflict.
     async fn save(&self, config: &BondPricingConfig) -> Result<(), TraitError>;
 
     /// List all configs.
     async fn list(&self) -> Result<Vec<BondPricingConfig>, TraitError>;
 
-    /// Delete config.
+    /// Delete config if the adapter supports a versioned deletion contract.
+    /// The local redb adapter returns Unsupported; disable via a new inactive version.
     async fn delete(&self, id: &str) -> Result<bool, TraitError>;
 
     /// Get specific version of config.
@@ -750,7 +769,7 @@ pub trait ConfigStore: Send + Sync {
 // =============================================================================
 
 /// Price override entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PriceOverride {
     /// Instrument ID
     pub instrument_id: InstrumentId,
@@ -777,7 +796,7 @@ pub struct PriceOverride {
 }
 
 /// Override audit entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OverrideAudit {
     /// Instrument ID
     pub instrument_id: InstrumentId,
@@ -793,7 +812,7 @@ pub struct OverrideAudit {
     pub new_value: Option<String>,
 }
 
-/// Override storage with audit.
+/// Override storage. Adapters must fail explicitly if mutation history is unavailable.
 #[async_trait]
 pub trait OverrideStore: Send + Sync {
     /// Get override for instrument.
@@ -811,7 +830,7 @@ pub trait OverrideStore: Send + Sync {
     /// Get overrides pending approval.
     async fn get_pending_approval(&self) -> Result<Vec<PriceOverride>, TraitError>;
 
-    /// Get override history for instrument.
+    /// Get override history for instrument, or Unsupported if history is unavailable.
     async fn get_history(&self, id: &InstrumentId) -> Result<Vec<OverrideAudit>, TraitError>;
 }
 
@@ -820,7 +839,7 @@ pub trait OverrideStore: Send + Sync {
 // =============================================================================
 
 /// Audit entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuditEntry {
     /// Entry ID
     pub id: u64,
@@ -857,13 +876,56 @@ pub struct AuditFilter {
     pub to: Option<i64>,
 }
 
+impl AuditFilter {
+    /// Reject oversized constraints and inverted inclusive time ranges.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if [
+            &self.event_type,
+            &self.entity_type,
+            &self.entity_id,
+            &self.user,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|v| v.len() > 1024 || v.chars().any(char::is_control))
+        {
+            return Err(TraitError::InvalidInput("invalid audit filter"));
+        }
+        if self.from.zip(self.to).is_some_and(|(from, to)| from > to) {
+            return Err(TraitError::InvalidInput("inverted audit time range"));
+        }
+        Ok(())
+    }
+
+    /// Apply all supplied constraints with exact text matches and inclusive timestamps.
+    pub fn matches(&self, entry: &AuditEntry) -> bool {
+        self.event_type
+            .as_ref()
+            .is_none_or(|v| v == &entry.event_type)
+            && self
+                .entity_type
+                .as_ref()
+                .is_none_or(|v| v == &entry.entity_type)
+            && self
+                .entity_id
+                .as_ref()
+                .is_none_or(|v| v == &entry.entity_id)
+            && self
+                .user
+                .as_ref()
+                .is_none_or(|v| entry.user.as_ref() == Some(v))
+            && self.from.is_none_or(|v| entry.timestamp >= v)
+            && self.to.is_none_or(|v| entry.timestamp <= v)
+    }
+}
+
 /// Audit log storage (append-only).
 #[async_trait]
 pub trait AuditStore: Send + Sync {
-    /// Append audit entry.
+    /// Append an immutable entry; identical ID/content retries succeed, different content conflicts.
     async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError>;
 
-    /// Query audit log.
+    /// Query matches and their total in one read snapshot, ordered by entry ID.
     async fn query(
         &self,
         filter: &AuditFilter,

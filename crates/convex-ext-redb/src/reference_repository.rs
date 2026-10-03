@@ -32,7 +32,10 @@ impl RedbReferenceRepository {
             Err(_) => return Err(ReferenceError::Unavailable),
         }
         drop(read);
-        let write = db.begin_write().map_err(|_| ReferenceError::Unavailable)?;
+        let mut write = db.begin_write().map_err(|_| ReferenceError::Unavailable)?;
+        write
+            .set_durability(redb::Durability::Immediate)
+            .map_err(|_| ReferenceError::Unavailable)?;
         write
             .open_table(CURRENT)
             .map_err(|_| ReferenceError::Unavailable)?;
@@ -132,9 +135,12 @@ impl ReferenceRepository for RedbReferenceRepository {
         recorded_at: UtcTimestamp,
     ) -> Result<ReferenceCommit, ReferenceError> {
         command.validate()?;
-        let write = self
+        let mut write = self
             .db
             .begin_write()
+            .map_err(|_| ReferenceError::Unavailable)?;
+        write
+            .set_durability(redb::Durability::Immediate)
             .map_err(|_| ReferenceError::Unavailable)?;
         let result;
         {

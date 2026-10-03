@@ -1,0 +1,185 @@
+{
+  "fixture_id": "CVX-004-RESTORE-001",
+  "configs": [
+    {
+      "config_id": "CONFIG-RESTORE",
+      "description": "Fictional USD configuration v1",
+      "applies_to": {
+        "currency": "USD",
+        "sector": "Technology"
+      },
+      "pricing_spec": {
+        "MarketQuote": {
+          "side": "Mid"
+        }
+      },
+      "bid_ask_spread": {
+        "half_spread_bps": 2.0,
+        "bid_spread_bps": null,
+        "ask_spread_bps": null,
+        "prefer_market_spread": true
+      },
+      "analytics_curves": {
+        "discount_curve": "USD-FIXTURE",
+        "government_curve": null,
+        "swap_curve": null,
+        "frn_reference_curve": null
+      },
+      "priority": 10,
+      "active": true,
+      "version": 1,
+      "created_at": 100,
+      "updated_at": 100
+    },
+    {
+      "config_id": "CONFIG-RESTORE",
+      "description": "Fictional USD configuration v2",
+      "applies_to": {
+        "currency": "USD",
+        "sector": "Technology"
+      },
+      "pricing_spec": {
+        "MarketQuote": {
+          "side": "Mid"
+        }
+      },
+      "bid_ask_spread": {
+        "half_spread_bps": 2.0,
+        "bid_spread_bps": null,
+        "ask_spread_bps": null,
+        "prefer_market_spread": true
+      },
+      "analytics_curves": {
+        "discount_curve": "USD-FIXTURE",
+        "government_curve": null,
+        "swap_curve": null,
+        "frn_reference_curve": null
+      },
+      "priority": 10,
+      "active": false,
+      "version": 2,
+      "created_at": 100,
+      "updated_at": 200
+    }
+  ],
+  "curve_config": {
+    "curve_id": "USD-FIXTURE",
+    "name": "Fictional discount curve",
+    "currency": "USD",
+    "interpolation": "Linear",
+    "day_count": "Act365Fixed",
+    "tenors": [
+      "1Y",
+      "2Y"
+    ],
+    "build_schedule": "manual",
+    "last_updated": 100
+  },
+  "snapshots": [
+    {
+      "curve_id": "USD-FIXTURE",
+      "as_of": 100,
+      "points": [
+        [
+          365,
+          -0.0025
+        ],
+        [
+          730,
+          0.012
+        ]
+      ],
+      "inputs_hash": "fictional-inputs-v1",
+      "build_duration_ms": 2
+    },
+    {
+      "curve_id": "USD-FIXTURE",
+      "as_of": 200,
+      "points": [
+        [
+          365,
+          -0.003
+        ],
+        [
+          730,
+          0.011
+        ]
+      ],
+      "inputs_hash": "fictional-inputs-v2",
+      "build_duration_ms": 2
+    }
+  ],
+  "override": {
+    "instrument_id": "RESTORE-BOND",
+    "price": 99.875,
+    "yield_value": null,
+    "spread": null,
+    "reason": "fictional test only",
+    "created_by": "fixture-actor",
+    "created_at": 100,
+    "expires_at": 101,
+    "is_approved": true,
+    "approved_by": "fixture-approver",
+    "approved_at": 100
+  },
+  "audit": [
+    {
+      "id": 11,
+      "timestamp": 100,
+      "event_type": "fixture",
+      "entity_type": "config",
+      "entity_id": "CONFIG-RESTORE",
+      "user": "fixture-actor",
+      "action": "create",
+      "details": "fictional seed"
+    },
+    {
+      "id": 12,
+      "timestamp": 200,
+      "event_type": "fixture",
+      "entity_type": "config",
+      "entity_id": "CONFIG-RESTORE",
+      "user": "fixture-actor",
+      "action": "deactivate",
+      "details": "fictional seed"
+    }
+  ],
+  "reference_bond": {
+    "instrument_id": "RESTORE-BOND",
+    "isin": "fixture-isin-001",
+    "cusip": "fixture-cusip-001",
+    "sedol": null,
+    "bbgid": null,
+    "description": "Fictional restore bond v1",
+    "currency": "USD",
+    "issue_date": "2020-01-15",
+    "maturity_date": "2030-01-15",
+    "coupon_rate": "0.05375",
+    "frequency": 2,
+    "day_count": "ACT/ACT",
+    "face_value": "100",
+    "bond_type": "FixedBullet",
+    "issuer_type": "CorporateIG",
+    "issuer_id": "ISSUER-001",
+    "issuer_name": "Fictional issuer",
+    "seniority": "Senior",
+    "is_callable": false,
+    "call_schedule": [],
+    "is_putable": false,
+    "is_sinkable": false,
+    "floating_terms": null,
+    "inflation_index": null,
+    "inflation_base_index": null,
+    "has_deflation_floor": false,
+    "country_of_risk": "US",
+    "sector": "Technology",
+    "amount_outstanding": "100000000",
+    "first_coupon_date": null,
+    "last_updated": 0,
+    "source": "fictional-fixture"
+  },
+  "reference_revision_description": "Fictional restore bond v2",
+  "reference_create_key": "restore-create",
+  "reference_update_key": "restore-update",
+  "recorded_at": "2026-10-03T12:00:00.123456789Z"
+}
