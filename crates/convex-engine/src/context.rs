@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 use convex_core::contracts::{
-    BusinessDate, FiniteF64, MeasureId, ModelId, SourceId, UtcTimestamp, ValuationSubject, Version,
+    BusinessDate, MeasureId, ModelId, UtcTimestamp, ValuationSubject, Version,
 };
 use convex_core::Currency;
 use convex_ports::{
@@ -11,15 +11,7 @@ use convex_ports::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Exact immutable pricing configuration selection.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConfigurationPin {
-    /// Internal configuration identity.
-    pub id: SourceId,
-    /// Positive immutable version.
-    pub version: Version,
-}
+pub use convex_ports::configuration::{ConfigurationPin, NumericalSettings};
 
 /// Scenario identity; transformed inputs must be supplied rather than fetched implicitly.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,16 +26,6 @@ pub enum ValuationScenario {
         /// Immutable scenario revision.
         version: Version,
     },
-}
-
-/// Numerical compatibility settings; compiled policy identifies solver limits/tolerances.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NumericalSettings {
-    /// Versioned compiled numerical policy, not an undocumented default.
-    pub policy_id: ModelId,
-    /// Finite positive bump in basis points, where the router performs numerical risk.
-    pub bump_bps: FiniteF64,
 }
 
 /// Complete context specification; validation never fills omitted fields from current state.

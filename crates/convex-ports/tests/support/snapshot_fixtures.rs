@@ -138,6 +138,7 @@ pub fn content() -> SnapshotContent {
         known_at: as_of,
         generation: version(1),
         configuration: config(),
+        configuration_capture: None,
         references: vec![ResolvedBondReference {
             record: ReferenceRecord {
                 schema_version: SchemaVersion::V2,

@@ -1,5 +1,5 @@
 //! Single-process local redb storage for references, curves, pricing configuration,
-//! overrides, and audit. See the crate README for transaction and recovery limits.
+//! activation, scoped policy overrides, and audit. See the crate README for transaction and recovery limits.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -13,18 +13,18 @@ use std::sync::Arc;
 
 mod audit_store;
 mod config_store;
+mod configuration_repository;
 mod curve_store;
 mod database;
-mod override_store;
 mod recovery;
 mod reference_repository;
 mod runtime_store;
 
 pub use audit_store::RedbAuditStore;
 pub use config_store::RedbConfigStore;
+pub use configuration_repository::RedbConfigurationRepository;
 pub use curve_store::RedbCurveStore;
 pub use database::{migrate_database, APPLICATION_SCHEMA_VERSION};
-pub use override_store::RedbOverrideStore;
 pub use recovery::{backup_database, restore_database, BackupManifest};
 pub use reference_repository::RedbReferenceRepository;
 pub use runtime_store::RedbRuntimeStore;
@@ -49,7 +49,7 @@ pub fn create_redb_storage_with_runtime(
         ),
         curves: Arc::new(RedbCurveStore::new(db.clone())),
         configs,
-        overrides: Arc::new(RedbOverrideStore::new(db.clone())),
+        configuration: Arc::new(RedbConfigurationRepository::new(db.clone())?),
         audit: Arc::new(RedbAuditStore::new(db)),
     };
     Ok((storage, runtime))

@@ -1,6 +1,6 @@
 //! Portable configuration/audit/curve storage scenarios for local and future adapters.
 
-use convex_core::ids::{CurveId, InstrumentId};
+use convex_core::ids::CurveId;
 use convex_ports::error::TraitError;
 use convex_ports::storage::*;
 use std::sync::Arc;
@@ -428,11 +428,4 @@ pub async fn curve_snapshots_are_immutable_and_ordered(store: Arc<dyn CurveStore
         Err(TraitError::InvalidInput(_))
     ));
     assert!(store.get_snapshot(&id, 400).await.unwrap().is_none());
-}
-
-pub async fn override_history_is_explicitly_unsupported(store: Arc<dyn OverrideStore>) {
-    assert!(matches!(
-        store.get_history(&InstrumentId::new("A")).await,
-        Err(TraitError::Unsupported(_))
-    ));
 }

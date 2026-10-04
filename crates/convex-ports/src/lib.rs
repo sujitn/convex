@@ -26,6 +26,8 @@
 #![warn(clippy::all)]
 
 pub mod config;
+pub mod configuration;
+pub mod configuration_schema;
 pub mod error;
 pub mod fixing;
 pub mod market_data;

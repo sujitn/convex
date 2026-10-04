@@ -66,6 +66,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Create storage
     let (storage, runtime_store) =
         convex_ext_redb::create_redb_storage_with_runtime(&server_config.storage_path)?;
+    let storage = Arc::new(storage);
 
     // Unused auxiliary product ports are explicit; replay reads the selected canonical event source.
     let market_data = MarketDataProvider {
@@ -89,7 +90,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .with_config(EngineConfig::default())
         .with_market_data(Arc::new(market_data))
         .with_reference_data(Arc::new(reference_data))
-        .with_storage(Arc::new(storage));
+        .with_storage(storage.clone());
     if server_config.profile == ServerProfile::Demo {
         builder = builder.with_demo_mode();
     } else {
@@ -127,20 +128,46 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 field: "quotes_file",
                 expected: "canonical JSONL quote events",
             })?;
-        builder = builder.with_runtime(RuntimeServices {
-            plan,
-            snapshots: Arc::new(convex_ext_file::FileSnapshotRepository::new(format!(
-                "{}.snapshots",
-                server_config.storage_path
-            ))?),
-            fixings: Arc::new(convex_ext_file::JsonFixingRepository::empty()),
-            store: runtime_store,
-            publisher: Arc::new(convex_ext_file::JsonlResultPublisher::new(format!(
-                "{}.results.jsonl",
-                server_config.storage_path
-            ))?),
-            input: RuntimeInput::Replay(Box::new(convex_ext_file::FileQuoteReplay::open(quotes)?)),
-        });
+        let snapshots = Arc::new(convex_ext_file::FileSnapshotRepository::new(format!(
+            "{}.snapshots",
+            server_config.storage_path
+        ))?);
+        let fixings = Arc::new(convex_ext_file::JsonFixingRepository::empty());
+        let sources = plan
+            .assembly
+            .quotes
+            .iter()
+            .map(|q| convex_core::contracts::SourceId::new(&q.key.source))
+            .collect::<Result<Vec<_>, _>>()?;
+        let cases = Arc::new(convex_engine::configuration::ConfigurationUseCases::new(
+            storage.configuration.clone(),
+            storage.bonds.clone(),
+            storage.configs.clone(),
+            fixings.clone(),
+            snapshots.clone(),
+            convex_server::configuration_admin::local_replay_capabilities(sources)?,
+        ));
+        if let Some(active) = cases.active(&plan.assembly.configuration.id).await? {
+            builder = builder.with_config(EngineConfig {
+                max_concurrent_calcs: active.staged.document.process.max_concurrent_calcs,
+                ..EngineConfig::default()
+            });
+        }
+        builder = builder
+            .with_configuration_use_cases(cases)
+            .with_runtime(RuntimeServices {
+                plan,
+                snapshots,
+                fixings,
+                store: runtime_store,
+                publisher: Arc::new(convex_ext_file::JsonlResultPublisher::new(format!(
+                    "{}.results.jsonl",
+                    server_config.storage_path
+                ))?),
+                input: RuntimeInput::Replay(Box::new(convex_ext_file::FileQuoteReplay::open(
+                    quotes,
+                )?)),
+            });
     }
     let engine = builder.build()?;
 

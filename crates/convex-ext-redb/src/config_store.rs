@@ -50,6 +50,66 @@ pub(crate) fn decode_config(bytes: &[u8]) -> Result<BondPricingConfig, TraitErro
     Ok(config)
 }
 
+/// Retain pricing content inside the caller's atomic staged-configuration transaction.
+/// Return whether new pricing content was written, so a standalone exact retry can abort read-only.
+pub(crate) fn save_config_in_transaction(
+    write: &redb::WriteTransaction,
+    config: &BondPricingConfig,
+) -> Result<bool, TraitError> {
+    validate_config(config)?;
+    let bytes = encode_config(config)?;
+    {
+        let mut current = write.open_table(CONFIGS).map_err(database_error)?;
+        let mut history = write.open_table(CONFIG_HISTORY).map_err(database_error)?;
+        if let Some(previous) = history
+            .get((config.config_id.as_str(), config.version))
+            .map_err(database_error)?
+        {
+            return if encode_config(&decode_config(previous.value())?)? == bytes {
+                Ok(false)
+            } else {
+                Err(TraitError::Conflict(
+                    "configuration version has different content",
+                ))
+            };
+        }
+        let prior = current
+            .get(config.config_id.as_str())
+            .map_err(database_error)?
+            .map(|v| decode_config(v.value()))
+            .transpose()?;
+        let expected = prior.as_ref().map_or(Some(1), |v| v.version.checked_add(1));
+        if expected != Some(config.version) {
+            return Err(TraitError::Conflict(
+                "configuration must use the next version",
+            ));
+        }
+        if prior
+            .as_ref()
+            .is_some_and(|v| v.created_at != config.created_at || v.updated_at > config.updated_at)
+        {
+            return Err(TraitError::InvalidInput(
+                "configuration creation time changed or update time regressed",
+            ));
+        }
+        if (prior.is_none() && current.len().map_err(database_error)? >= MAX_RECORDS)
+            || history.len().map_err(database_error)? >= MAX_HISTORY
+        {
+            return Err(TraitError::CapacityExceeded);
+        }
+        current
+            .insert(config.config_id.as_str(), bytes.as_slice())
+            .map_err(database_error)?;
+        history
+            .insert(
+                (config.config_id.as_str(), config.version),
+                bytes.as_slice(),
+            )
+            .map_err(database_error)?;
+    }
+    Ok(true)
+}
+
 #[async_trait]
 impl ConfigStore for RedbConfigStore {
     async fn get(&self, id: &str) -> Result<Option<BondPricingConfig>, TraitError> {
@@ -65,55 +125,9 @@ impl ConfigStore for RedbConfigStore {
 
     async fn save(&self, config: &BondPricingConfig) -> Result<(), TraitError> {
         validate_config(config)?;
-        let bytes = encode_config(config)?;
         let write = begin_write(&self.db)?;
-        {
-            let mut current = write.open_table(CONFIGS).map_err(database_error)?;
-            let mut history = write.open_table(CONFIG_HISTORY).map_err(database_error)?;
-            if let Some(previous) = history
-                .get((config.config_id.as_str(), config.version))
-                .map_err(database_error)?
-            {
-                return if encode_config(&decode_config(previous.value())?)? == bytes {
-                    Ok(())
-                } else {
-                    Err(TraitError::Conflict(
-                        "configuration version has different content",
-                    ))
-                };
-            }
-            let prior = current
-                .get(config.config_id.as_str())
-                .map_err(database_error)?
-                .map(|v| decode_config(v.value()))
-                .transpose()?;
-            let expected = prior.as_ref().map_or(Some(1), |v| v.version.checked_add(1));
-            if expected != Some(config.version) {
-                return Err(TraitError::Conflict(
-                    "configuration must use the next version",
-                ));
-            }
-            if prior.as_ref().is_some_and(|v| {
-                v.created_at != config.created_at || v.updated_at > config.updated_at
-            }) {
-                return Err(TraitError::InvalidInput(
-                    "configuration creation time changed or update time regressed",
-                ));
-            }
-            if (prior.is_none() && current.len().map_err(database_error)? >= MAX_RECORDS)
-                || history.len().map_err(database_error)? >= MAX_HISTORY
-            {
-                return Err(TraitError::CapacityExceeded);
-            }
-            current
-                .insert(config.config_id.as_str(), bytes.as_slice())
-                .map_err(database_error)?;
-            history
-                .insert(
-                    (config.config_id.as_str(), config.version),
-                    bytes.as_slice(),
-                )
-                .map_err(database_error)?;
+        if !save_config_in_transaction(&write, config)? {
+            return Ok(());
         }
         commit(write)
     }

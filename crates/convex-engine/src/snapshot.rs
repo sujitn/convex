@@ -3,7 +3,7 @@
 
 use convex_core::contracts::*;
 use convex_ports::{
-    fixing::{FixingKey, FixingRepository},
+    fixing::FixingRepository,
     quote_event::{QuoteEvent, QuoteField},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
@@ -30,41 +30,7 @@ pub const BOND_NUMERICAL_POLICY: &str = "convex-bond-router-v1";
 /// Quantitative model implemented by this application slice.
 pub const BOND_SNAPSHOT_MODEL: &str = "convex-fixed-bullet-router-v1";
 
-/// Exact immutable instrument reference selection.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstrumentPin {
-    /// Provider-neutral instrument identity.
-    pub instrument_id: InstrumentId,
-    /// Exact immutable reference revision.
-    pub version: Version,
-}
-
-/// Bounded supplied assembly request. Source selection and requirements are explicit.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SnapshotAssembly {
-    /// Economic market time.
-    pub as_of: UtcTimestamp,
-    /// Publication/recording cutoff.
-    pub known_at: UtcTimestamp,
-    /// Captured application input generation.
-    pub generation: Version,
-    /// Exact immutable quantitative configuration.
-    pub configuration: ConfigurationPin,
-    /// Exact reference revisions to resolve, 1..=256.
-    pub instruments: Vec<InstrumentPin>,
-    /// Explicit selected sources/fields and per-product age policy.
-    pub quotes: Vec<QuoteRequirement>,
-    /// Required published fixing keys, at most 1,024.
-    pub fixings: Vec<FixingKey>,
-    /// Required curve identities, at most 64.
-    pub required_curves: Vec<CurveId>,
-    /// Explicit resolved supplied curve revisions (not current builder pointers).
-    pub curves: Vec<SnapshotCurve>,
-    /// Maximum selected quote-field source skew.
-    pub max_source_skew_ms: i64,
-}
+pub use convex_ports::configuration::{InstrumentPin, SnapshotAssembly};
 
 /// Assemble then publish one complete immutable manifest. This creates no scheduler or background task.
 pub struct SnapshotAssembler {
@@ -95,6 +61,16 @@ impl SnapshotAssembler {
         request: &SnapshotAssembly,
         events: &[QuoteEvent],
     ) -> Result<MarketSnapshot, TraitError> {
+        let snapshot = self.resolve(request, events).await?;
+        self.snapshots.publish(&snapshot).await?;
+        Ok(snapshot)
+    }
+    /// Resolve without publishing; shared by dry-run configuration validation.
+    pub async fn resolve(
+        &self,
+        request: &SnapshotAssembly,
+        events: &[QuoteEvent],
+    ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, events)?;
         let configuration = self
             .configurations
@@ -106,6 +82,18 @@ impl SnapshotAssembler {
             .ok_or(TraitError::InvalidInput(
                 "missing exact snapshot configuration",
             ))?;
+        self.resolve_with_configuration(request, events, configuration)
+            .await
+    }
+    /// Resolve supplied immutable quantitative content without staging or publishing it.
+    /// The same reference, curve and quality checks govern actual assembly and dry runs.
+    pub async fn resolve_with_configuration(
+        &self,
+        request: &SnapshotAssembly,
+        events: &[QuoteEvent],
+        configuration: convex_ports::storage::BondPricingConfig,
+    ) -> Result<MarketSnapshot, TraitError> {
+        validate_request(request, events)?;
         if configuration.config_id != request.configuration.id.as_str()
             || configuration.version != request.configuration.version.get()
         {
@@ -202,6 +190,7 @@ impl SnapshotAssembler {
             known_at: request.known_at,
             generation: request.generation,
             configuration,
+            configuration_capture: request.configuration_capture.clone(),
             references,
             quotes,
             fixings,
@@ -209,7 +198,6 @@ impl SnapshotAssembler {
             curves: request.curves.clone(),
             max_source_skew_ms: request.max_source_skew_ms,
         })?;
-        self.snapshots.publish(&snapshot).await?;
         Ok(snapshot)
     }
 }
@@ -349,7 +337,7 @@ impl From<SnapshotValuationResult> for ValuationResultWire {
 }
 
 /// Snapshot valuation use case: existing router mathematics over resolved immutable values.
-/// The graph can commit its checked results with captured snapshot/context tickets; runtime consolidation remains CVX-005. It owns no scheduling loop.
+/// The owned runtime commits these results through captured snapshot/context graph tickets. This use case owns no scheduling loop.
 pub struct SnapshotValuator {
     build_id: ModelId,
     cache: ValuationCache,
@@ -620,6 +608,20 @@ pub(crate) fn consumed_versions(
             _ => return Err(TraitError::InvalidInput("wrong reference resource")),
         };
         push(kind, id, record.version)?;
+    }
+    if let Some(capture) = &snapshot.content().configuration_capture {
+        push(
+            "configuration_activation",
+            &snapshot.content().configuration.config_id,
+            capture.activation.revision,
+        )?;
+        for override_ in &capture.applied_overrides {
+            push(
+                "policy_override",
+                override_.id.as_str(),
+                Version::new(snapshot.content().configuration.version).map_err(contract_error)?,
+            )?;
+        }
     }
     push(
         "configuration",

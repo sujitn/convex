@@ -17,6 +17,7 @@ pub struct PricingEngineBuilder {
     reference_data: Option<Arc<ReferenceDataProvider>>,
     storage: Option<Arc<StorageAdapter>>,
     runtime: Option<crate::runtime::RuntimeServices>,
+    configurations: Option<Arc<crate::configuration::ConfigurationUseCases>>,
     demo: bool,
 }
 
@@ -29,6 +30,7 @@ impl PricingEngineBuilder {
             reference_data: None,
             storage: None,
             runtime: None,
+            configurations: None,
             demo: false,
         }
     }
@@ -60,6 +62,15 @@ impl PricingEngineBuilder {
     /// Configure the sole event-driven pricing lifecycle and genuine I/O boundaries.
     pub fn with_runtime(mut self, services: crate::runtime::RuntimeServices) -> Self {
         self.runtime = Some(services);
+        self
+    }
+
+    /// Enable audited application activation using capabilities of the actual adapter composition.
+    pub fn with_configuration_use_cases(
+        mut self,
+        configurations: Arc<crate::configuration::ConfigurationUseCases>,
+    ) -> Self {
+        self.configurations = Some(configurations);
         self
     }
 
@@ -99,6 +110,7 @@ impl PricingEngineBuilder {
             ));
         }
         let mut engine = PricingEngine::new(config, market_data, reference_data, storage);
+        engine.configurations = self.configurations;
         engine.runtime = crate::runtime::RuntimeController::new(
             self.runtime,
             self.demo,

@@ -20,7 +20,7 @@ The [snapshot port](../convex-ports/src/snapshot.rs) retains the following value
 | Input | Captured content |
 |---|---|
 | Reference | Exact instrument revision and resolved issuer, calendar and convention revisions |
-| Configuration | Exact active pricing configuration revision and its values |
+| Configuration | Exact pricing revision/values; optional retained activation sequence/digest and actually applied policy exceptions |
 | Quotes | Explicit source/field requirements, retained field observations, accepted data watermark and latest state-affecting delivery watermark |
 | Fixings | Required source/index/date and the selected published revision, or explicit absence |
 | Curves | Required identities and complete supplied zero nodes, reference date, interpolation, extrapolation, model and input revisions |
@@ -30,6 +30,11 @@ Assembly resolves exact repository versions. A missing version never becomes a
 lookup of the current version. Reference resources must satisfy both effective
 time and information time under the [reference master contract](../convex-ports/REFERENCE_MASTER.md).
 Configuration update time cannot exceed `known_at`.
+The [configuration lifecycle](CONFIGURATION.md) freezes a coherent active selection
+and scoped exceptions before work is admitted. Engine admission verifies a supplied
+activation/policy claim against retained immutable history. New selections never
+change an issued snapshot or an admitted context. Older explicit-pin snapshots
+omit this optional capture and keep their original canonical hashes.
 
 Replay accepts at most 100,000 validated quote events in nondecreasing recorded
 receipt order. Only explicitly selected keys enter the snapshot. Source time must
@@ -69,7 +74,9 @@ can retain all required values and still have invalid quality.
 `require_execution_quality_at(decision_time)` is a necessary data condition for
 an executable hedge. It refuses incomplete/nonvalid snapshots, decisions before
 the context and observations that have since become stale. It grants no strategy,
-risk, ownership, order or venue permission. Research/display valuation may return
+risk, ownership, order or venue permission. A captured override also refuses a
+decision at or after its exclusive expiry, even if its quote would otherwise meet
+the extended age limit. Research/display valuation may return
 retained values with their invalid quality; `Complete` means the requested
 measures calculated successfully, not that a hedge is authorized.
 

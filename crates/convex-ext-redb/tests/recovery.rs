@@ -7,8 +7,9 @@ use convex_ports::storage::*;
 use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
-#[path = "../../convex-ports/tests/support/reference_terms.rs"]
-mod reference_terms;
+#[path = "../../convex-ports/tests/support/configuration_fixtures.rs"]
+mod configuration_fixture;
+use configuration_fixture::snapshot::reference_terms;
 
 #[derive(Deserialize)]
 struct Seed {
@@ -16,8 +17,6 @@ struct Seed {
     configs: Vec<BondPricingConfig>,
     curve_config: CurveConfig,
     snapshots: Vec<CurveSnapshot>,
-    #[serde(rename = "override")]
-    price_override: PriceOverride,
     audit: Vec<AuditEntry>,
     reference_bond: BondReferenceData,
     reference_revision_description: String,
@@ -38,6 +37,39 @@ fn initial(seed: &Seed) -> ReferenceCommand {
     }
 }
 
+fn staged_configurations(seed: &Seed) -> Vec<convex_ports::configuration::StagedConfiguration> {
+    seed.configs
+        .iter()
+        .map(|pricing| {
+            let mut staged = configuration_fixture::staged(pricing.version);
+            // A separate managed identity preserves the original inactive pricing v2 fixture exactly.
+            staged.document.pricing = seed.configs[0].clone();
+            staged.document.pricing.config_id = "CONFIG-MANAGED-RESTORE".into();
+            staged.document.pricing.version = pricing.version;
+            staged.document.pricing.updated_at = pricing.updated_at;
+            staged.document.assembly.configuration.id =
+                convex_core::contracts::SourceId::new("CONFIG-MANAGED-RESTORE").unwrap();
+            staged
+        })
+        .collect()
+}
+fn activation_commands() -> Vec<convex_ports::configuration::ActivationCommand> {
+    use convex_ports::configuration::{ActivationKind, ReloadClass};
+    let initial = configuration_fixture::activate(1, 0, "restore-activation-1");
+    let mut second = configuration_fixture::activate(2, 1, "restore-activation-2");
+    second.mode = ReloadClass::RestartRequired;
+    let mut rollback = configuration_fixture::activate(1, 2, "restore-rollback-1");
+    rollback.mode = ReloadClass::RestartRequired;
+    rollback.action = ActivationKind::Rollback {
+        to_revision: Version::new(1).unwrap(),
+    };
+    let mut commands = vec![initial, second, rollback];
+    for command in &mut commands {
+        command.id = convex_core::contracts::SourceId::new("CONFIG-MANAGED-RESTORE").unwrap();
+    }
+    commands
+}
+
 async fn populate(path: &Path) {
     let seed = seed();
     assert_eq!(seed.fixture_id, "CVX-004-RESTORE-001");
@@ -53,7 +85,6 @@ async fn populate(path: &Path) {
     for snapshot in &seed.snapshots {
         storage.curves.save_snapshot(snapshot).await.unwrap();
     }
-    storage.overrides.save(&seed.price_override).await.unwrap();
     for entry in &seed.audit {
         storage.audit.append(entry).await.unwrap();
     }
@@ -64,7 +95,7 @@ async fn populate(path: &Path) {
         .await
         .unwrap();
     let mut bond = seed.reference_bond.clone();
-    bond.description = seed.reference_revision_description;
+    bond.description = seed.reference_revision_description.clone();
     storage
         .bonds
         .commit(
@@ -80,6 +111,12 @@ async fn populate(path: &Path) {
         )
         .await
         .unwrap();
+    for staged in staged_configurations(&seed) {
+        storage.configuration.stage(&staged).await.unwrap();
+    }
+    for command in activation_commands() {
+        storage.configuration.activate(&command).await.unwrap();
+    }
     // Exit with live storage handles: no destructor, close or reply after the final durable commit.
     std::process::exit(17);
 }
@@ -98,10 +135,24 @@ async fn verify(path: &Path) {
         "{}",
         String::from_utf8_lossy(&compact.stderr)
     );
+    // Explicit physical repair is followed by exact business reconciliation and another clean check.
+    let repair = Command::new(env!("CARGO_BIN_EXE_convex-redb"))
+        .args(["repair".as_ref(), path.as_os_str()])
+        .output()
+        .unwrap();
+    assert!(
+        repair.status.success(),
+        "{}",
+        String::from_utf8_lossy(&repair.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&repair.stdout).unwrap();
+    assert_eq!(report["physical_integrity_checked"], true);
+    assert_eq!(report["business_records_reconciled"], false);
+    verify_state(path, false).await;
     let mut database = redb::Database::open(path).unwrap();
     assert!(
         database.check_integrity().unwrap(),
-        "compacted fixture must pass integrity without repair"
+        "reconciled fixture must pass integrity without another repair"
     );
     drop(database);
     // Reconcile every retained business value again after any physical repair,
@@ -158,14 +209,6 @@ async fn verify_state(path: &Path, check_retries: bool) {
             .unwrap(),
         seed.snapshots
     );
-    assert_eq!(
-        storage
-            .overrides
-            .get(&seed.price_override.instrument_id)
-            .await
-            .unwrap(),
-        Some(seed.price_override.clone())
-    );
     let audit = storage
         .audit
         .query(&AuditFilter::default(), &Pagination::new(0, 1000))
@@ -173,6 +216,66 @@ async fn verify_state(path: &Path, check_retries: bool) {
         .unwrap();
     assert_eq!(audit.items, seed.audit);
     assert_eq!(audit.total, 2);
+    for staged in staged_configurations(&seed) {
+        assert_eq!(
+            storage
+                .configuration
+                .get_staged(
+                    &convex_core::contracts::SourceId::new(&staged.document.pricing.config_id)
+                        .unwrap(),
+                    Version::new(staged.document.pricing.version).unwrap()
+                )
+                .await
+                .unwrap(),
+            Some(staged.clone())
+        );
+        if check_retries {
+            storage.configuration.stage(&staged).await.unwrap();
+        }
+    }
+    let commands = activation_commands();
+    for (index, command) in commands.iter().enumerate() {
+        let retained = storage
+            .configuration
+            .activation_for_request(&command.idempotency_key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(retained.command, *command);
+        assert_eq!(retained.revision.get(), index as u64 + 1);
+        assert_eq!(
+            storage
+                .configuration
+                .get_activation(&command.id, retained.revision)
+                .await
+                .unwrap(),
+            Some(retained.clone())
+        );
+        if check_retries {
+            assert_eq!(
+                storage.configuration.activate(command).await.unwrap(),
+                retained
+            );
+        }
+    }
+    let active = storage
+        .configuration
+        .active(&commands[0].id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(active.activation.command, commands[2]);
+    assert_eq!(active.activation.revision.get(), 3);
+    assert_eq!(active.staged, staged_configurations(&seed)[0]);
+    assert_eq!(
+        storage
+            .configuration
+            .history(&commands[0].id, &Pagination::new(0, 1000))
+            .await
+            .unwrap()
+            .total,
+        3
+    );
     let first = initial(&seed);
     let receipt = storage
         .bonds

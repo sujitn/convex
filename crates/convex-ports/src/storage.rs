@@ -4,7 +4,7 @@
 //! Bond transactions use [`crate::reference_repository::ReferenceRepository`].
 //! - [`CurveStore`]: Curve config and snapshot storage
 //! - [`ConfigStore`]: Pricing configuration storage
-//! - [`OverrideStore`]: Price overrides with explicitly declared history capability
+//! - [`crate::configuration::ConfigurationRepository`]: Audited staged settings and scoped overrides
 //! - [`AuditStore`]: Audit log storage
 //!
 //! Storage implementations are EXTENSIONS (e.g., redb, PostgreSQL, Redis).
@@ -765,76 +765,6 @@ pub trait ConfigStore: Send + Sync {
 }
 
 // =============================================================================
-// OVERRIDE STORE
-// =============================================================================
-
-/// Price override entry.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PriceOverride {
-    /// Instrument ID
-    pub instrument_id: InstrumentId,
-    /// Override price
-    pub price: Option<f64>,
-    /// Override yield
-    pub yield_value: Option<f64>,
-    /// Override spread
-    pub spread: Option<f64>,
-    /// Reason
-    pub reason: String,
-    /// Created by
-    pub created_by: String,
-    /// Created at
-    pub created_at: i64,
-    /// Expires at
-    pub expires_at: Option<i64>,
-    /// Is approved
-    pub is_approved: bool,
-    /// Approved by
-    pub approved_by: Option<String>,
-    /// Approved at
-    pub approved_at: Option<i64>,
-}
-
-/// Override audit entry.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OverrideAudit {
-    /// Instrument ID
-    pub instrument_id: InstrumentId,
-    /// Action (create, update, delete, approve, reject)
-    pub action: String,
-    /// User who performed action
-    pub user: String,
-    /// Timestamp
-    pub timestamp: i64,
-    /// Previous value (JSON)
-    pub previous_value: Option<String>,
-    /// New value (JSON)
-    pub new_value: Option<String>,
-}
-
-/// Override storage. Adapters must fail explicitly if mutation history is unavailable.
-#[async_trait]
-pub trait OverrideStore: Send + Sync {
-    /// Get override for instrument.
-    async fn get(&self, id: &InstrumentId) -> Result<Option<PriceOverride>, TraitError>;
-
-    /// Get all active overrides.
-    async fn get_active(&self) -> Result<Vec<PriceOverride>, TraitError>;
-
-    /// Save override.
-    async fn save(&self, override_: &PriceOverride) -> Result<(), TraitError>;
-
-    /// Delete override.
-    async fn delete(&self, id: &InstrumentId) -> Result<bool, TraitError>;
-
-    /// Get overrides pending approval.
-    async fn get_pending_approval(&self) -> Result<Vec<PriceOverride>, TraitError>;
-
-    /// Get override history for instrument, or Unsupported if history is unavailable.
-    async fn get_history(&self, id: &InstrumentId) -> Result<Vec<OverrideAudit>, TraitError>;
-}
-
-// =============================================================================
 // AUDIT STORE
 // =============================================================================
 
@@ -947,8 +877,8 @@ pub struct StorageAdapter {
     pub curves: Arc<dyn CurveStore>,
     /// Config store
     pub configs: Arc<dyn ConfigStore>,
-    /// Override store
-    pub overrides: Arc<dyn OverrideStore>,
+    /// Staged application settings, atomic active pointer and append-only activation audit.
+    pub configuration: Arc<dyn crate::configuration::ConfigurationRepository>,
     /// Audit store
     pub audit: Arc<dyn AuditStore>,
 }

@@ -25,17 +25,8 @@ use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc, oneshot, watch, Mutex};
 
-/// Explicit interpretation of data time; historical replay never represents live strategy readiness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RuntimeMode {
-    /// Caller supplies exact event/cutoff times.
-    Captured,
-    /// File/pull replay retains original delivery and economic times.
-    Replay,
-    /// Subscribe to the configured canonical quote source; require new images after restart.
-    Live,
-}
+pub use convex_ports::configuration::RuntimeMode;
+
 /// A bounded fixed-bullet universe over one exact quantitative configuration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -243,6 +234,12 @@ pub struct RuntimeHealth {
     pub replay_complete: bool,
     /// Stable failure classification without source text.
     pub failure: Option<String>,
+    /// Exact content version accepted by current work.
+    pub configuration_version: Option<Version>,
+    /// Active-pointer audit sequence accepted by current work, absent for older explicit plans.
+    pub activation_revision: Option<Version>,
+    /// Most recently requested durable selection; a mismatch closes readiness during application.
+    pub desired_activation_revision: Option<Version>,
 }
 impl Default for RuntimeHealth {
     fn default() -> Self {
@@ -257,6 +254,9 @@ impl Default for RuntimeHealth {
             pending_publications: 0,
             replay_complete: false,
             failure: None,
+            configuration_version: None,
+            activation_revision: None,
+            desired_activation_revision: None,
         }
     }
 }
@@ -267,12 +267,21 @@ pub struct AcceptedUpdate {
     pub checkpoint_revision: u64,
     /// Captured next generation.
     pub generation: Version,
+    /// Atomic active selection pinned by this accepted work.
+    pub activation_revision: Option<Version>,
 }
-struct Command {
+struct QuoteCommand {
     event: QuoteEvent,
     as_of: UtcTimestamp,
     known_at: UtcTimestamp,
     reply: oneshot::Sender<Result<AcceptedUpdate, RuntimeError>>,
+}
+enum Command {
+    Quote(QuoteCommand),
+    RefreshConfiguration {
+        at: UtcTimestamp,
+        reply: oneshot::Sender<Result<AcceptedUpdate, RuntimeError>>,
+    },
 }
 struct Lifecycle {
     services: Option<RuntimeServices>,
@@ -450,12 +459,12 @@ impl RuntimeController {
                 .commands
                 .as_ref()
                 .ok_or(RuntimeError::State("input admission is closed"))?;
-            tx.try_send(Command {
+            tx.try_send(Command::Quote(QuoteCommand {
                 event,
                 as_of,
                 known_at,
                 reply,
-            })
+            }))
             .map_err(|e| match e {
                 mpsc::error::TrySendError::Full(_) => RuntimeError::CapacityExceeded,
                 mpsc::error::TrySendError::Closed(_) => {
@@ -466,6 +475,54 @@ impl RuntimeController {
         received
             .await
             .map_err(|_| RuntimeError::State("input was not acknowledged; reconcile checkpoint"))?
+    }
+    pub(crate) async fn refresh_configuration(
+        &self,
+        record: &convex_ports::configuration::ActivationRecord,
+    ) -> Result<AcceptedUpdate, RuntimeError> {
+        let (reply, received) = oneshot::channel();
+        {
+            let lifecycle = self.lifecycle.lock().await;
+            if !matches!(
+                self.health.read().phase,
+                RuntimePhase::Ready | RuntimePhase::Degraded
+            ) {
+                return Err(RuntimeError::State(
+                    "configuration application requires an accepting runtime",
+                ));
+            }
+            {
+                let mut health = self.health.write();
+                health.desired_activation_revision = Some(
+                    health
+                        .desired_activation_revision
+                        .map_or(record.revision, |r| r.max(record.revision)),
+                );
+                if health.activation_revision != health.desired_activation_revision {
+                    health.ready = false;
+                    health.phase = RuntimePhase::Degraded;
+                }
+            }
+            let tx = lifecycle
+                .commands
+                .as_ref()
+                .ok_or(RuntimeError::State("configuration admission is closed"))?;
+            tx.try_send(Command::RefreshConfiguration {
+                at: record.command.activated_at,
+                reply,
+            })
+            .map_err(|error| match error {
+                mpsc::error::TrySendError::Full(_) => RuntimeError::CapacityExceeded,
+                mpsc::error::TrySendError::Closed(_) => {
+                    RuntimeError::State("configuration admission is closed")
+                }
+            })?;
+        }
+        received.await.map_err(|_| {
+            RuntimeError::State(
+                "configuration application was not acknowledged; reconcile checkpoint",
+            )
+        })?
     }
     pub(crate) async fn shutdown(&self) -> Result<(), EngineError> {
         let mut lifecycle = self.lifecycle.lock().await;

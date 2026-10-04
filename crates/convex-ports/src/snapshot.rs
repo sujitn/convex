@@ -175,6 +175,10 @@ pub struct SnapshotContent {
     /// Exact active pricing configuration, retained rather than fetched on replay.
     #[serde(with = "snapshot_configuration")]
     pub configuration: BondPricingConfig,
+    /// Optional atomic active selection and approved exceptions actually applied at these cutoffs.
+    /// Omitted on older explicit-pin manifests to preserve their content identities.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_capture: Option<crate::configuration::ConfigurationCapture>,
     /// Resolved instrument, issuer, calendar and convention revisions.
     pub references: Vec<ResolvedBondReference>,
     /// Selected quote requirements, values and feed continuity.
@@ -325,6 +329,17 @@ impl MarketSnapshot {
             || !derive_quality(&self.0.content, decision_time)
                 .issues
                 .is_empty()
+            || self
+                .0
+                .content
+                .configuration_capture
+                .as_ref()
+                .is_some_and(|capture| {
+                    capture
+                        .applied_overrides
+                        .iter()
+                        .any(|o| decision_time >= o.expires_at)
+                })
         {
             return Err(TraitError::InvalidInput(
                 "snapshot cannot satisfy executable hedge data policy",
@@ -413,6 +428,34 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         ));
     }
     crate::storage::validate_pricing_config(&content.configuration)?;
+    if let Some(capture) = &content.configuration_capture {
+        capture.activation.validate()?;
+        let command = &capture.activation.command;
+        if command.id.as_str() != content.configuration.config_id
+            || command.configuration_version.get() != content.configuration.version
+            || command.activated_at > content.known_at
+            || capture.applied_overrides.len() > 256
+        {
+            return Err(TraitError::InvalidInput(
+                "invalid captured configuration activation",
+            ));
+        }
+        let mut scopes = std::collections::HashSet::new();
+        for override_ in &capture.applied_overrides {
+            override_.validate()?;
+            if !override_.applies_at(content.as_of, content.known_at)
+                || !scopes.insert(&override_.scope)
+                || !content.quotes.iter().any(|q| {
+                    q.requirement.key == override_.scope
+                        && q.requirement.max_age_ms == override_.max_age_ms
+                })
+            {
+                return Err(TraitError::InvalidInput(
+                    "expired or mismatched captured override",
+                ));
+            }
+        }
+    }
     crate::quote_event::validate_text(&content.configuration.config_id, 128)?;
     content
         .configuration
@@ -753,7 +796,7 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
 
 // Snapshot persistence preserves exact configuration decimals even when serde-float is unified.
 // Ordinary client configuration contracts retain their existing format.
-mod snapshot_configuration {
+pub(crate) mod snapshot_configuration {
     use super::*;
     use crate::storage::PricingSpec;
     use convex_core::contracts::ExactDecimal;

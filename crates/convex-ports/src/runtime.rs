@@ -48,6 +48,9 @@ pub struct RuntimeCheckpoint {
     pub revision: u64,
     /// SHA-256 of the exact configured runtime plan.
     pub plan_digest: String,
+    /// Exact accepted active selection, independent of later activations. Older checkpoints omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_activation: Option<crate::configuration::ActivationRecord>,
     /// Input generation; increments before accepted work is acknowledged.
     pub generation: Version,
     /// Accepted economic cutoff.
@@ -72,6 +75,14 @@ pub struct RuntimeCheckpoint {
 impl RuntimeCheckpoint {
     /// Structural storage bounds. Engine recovery additionally verifies the plan, snapshots and lineage.
     pub fn validate(&self) -> Result<(), TraitError> {
+        if let Some(activation) = &self.configuration_activation {
+            activation.validate()?;
+            if activation.command.activated_at > self.known_at {
+                return Err(TraitError::InvalidInput(
+                    "runtime activation is later than accepted cutoff",
+                ));
+            }
+        }
         if self.schema_version != 1
             || self.revision == 0
             || self.plan_digest.len() != 64

@@ -51,59 +51,6 @@ async fn curve_snapshots_are_immutable_and_ordered() {
     conformance::curve_snapshots_are_immutable_and_ordered(s.curves).await;
 }
 #[tokio::test]
-async fn override_history_is_explicitly_unsupported() {
-    let (_directory, s) = storage();
-    conformance::override_history_is_explicitly_unsupported(s.overrides).await;
-}
-
-#[tokio::test]
-async fn local_override_expiry_and_invalid_mutation_are_explicit() {
-    use convex_core::ids::InstrumentId;
-    use convex_ports::error::TraitError;
-    use convex_ports::storage::PriceOverride;
-    let (_directory, s) = storage();
-    let mut value = PriceOverride {
-        instrument_id: InstrumentId::new("OVERRIDE"),
-        price: Some(99.0),
-        yield_value: None,
-        spread: None,
-        reason: "fictional test".into(),
-        created_by: "fixture-actor".into(),
-        created_at: 0,
-        expires_at: Some(1),
-        is_approved: true,
-        approved_by: Some("fixture-approver".into()),
-        approved_at: Some(0),
-    };
-    s.overrides.save(&value).await.unwrap();
-    assert!(s.overrides.get_active().await.unwrap().is_empty());
-    value.expires_at = Some(i64::MAX);
-    s.overrides.save(&value).await.unwrap();
-    assert_eq!(s.overrides.get_active().await.unwrap(), [value.clone()]);
-    let mut invalid = value.clone();
-    invalid.price = Some(f64::NAN);
-    assert!(matches!(
-        s.overrides.save(&invalid).await,
-        Err(TraitError::InvalidInput(_))
-    ));
-    assert_eq!(
-        s.overrides.get(&value.instrument_id).await.unwrap(),
-        Some(value.clone())
-    );
-    value.is_approved = false;
-    value.approved_at = None;
-    value.approved_by = None;
-    s.overrides.save(&value).await.unwrap();
-    assert_eq!(
-        s.overrides.get_pending_approval().await.unwrap(),
-        [value.clone()]
-    );
-    assert!(s.overrides.get_active().await.unwrap().is_empty());
-    assert!(s.overrides.delete(&value.instrument_id).await.unwrap());
-    assert!(!s.overrides.delete(&value.instrument_id).await.unwrap());
-}
-
-#[tokio::test]
 async fn curve_config_projection_queries_and_deletion_are_consistent() {
     use convex_core::ids::CurveId;
     use convex_core::Currency;

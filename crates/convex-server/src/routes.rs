@@ -51,6 +51,14 @@ fn create_router_with_options(
         .route("/api/v1/runtime", get(handlers::runtime_health))
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
+        .route(
+            "/api/v1/configuration/schema",
+            get(crate::configuration_admin::schema),
+        )
+        .route(
+            "/api/v1/configuration/:id",
+            get(crate::configuration_admin::effective),
+        )
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
         // Bond Reference Data CRUD

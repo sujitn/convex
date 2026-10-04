@@ -1,6 +1,6 @@
 # Convex server configuration
 
-The server currently runs only with an explicit demo profile. Production is the default and fails before opening storage because production provider composition is not implemented. Demo responses contain demonstration inputs; they do not establish production readiness.
+The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default and fails before opening storage because production provider composition is not certified. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
 
 For a local demonstration, run from the repository root:
 
@@ -29,17 +29,18 @@ storage_path = "./data/convex.redb"
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.
 
-All settings require a restart. Quantitative model choices, data overrides, managed configuration history and activation are separate future capabilities. No secret-valued setting is supported. Startup inspection redacts paths, and configuration errors omit submitted values and file contents.
+These process settings require a restart. Versioned quantitative/integration/policy settings use the separate [configuration lifecycle](../convex-engine/CONFIGURATION.md), including strict schema, actual numerical validation, staging, CAS activation, expiring freshness exceptions and retained rollback. No inline secret-valued setting is supported. Startup inspection redacts paths, and configuration errors omit submitted values and file contents.
 
 | TOML key | Environment variable | Behavior |
 |---|---|---|
-| profile | CONVEX_PROFILE | `production` by default; only explicit `demo` currently starts |
+| profile | CONVEX_PROFILE | `production` by default; explicit `demo` or loopback `replay` can start |
 | host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0`; hostnames fail |
 | port | CONVEX_PORT | Integer 0–65535; default 8080; zero selects an ephemeral port |
 | websocket_enabled | CONVEX_WEBSOCKET_ENABLED | Boolean; environment accepts true/false or 1/0, case insensitive; default true |
 | websocket_port | CONVEX_WEBSOCKET_PORT | Optional; accepted only when WebSockets are enabled and it equals the HTTP port |
 | storage_path | CONVEX_STORAGE_PATH | Nonempty local redb path; default `./data/convex.redb`; parent directory must exist |
-| quotes_file | CONVEX_QUOTES_FILE | Rejected: file provider composition is not implemented |
+| runtime_plan | CONVEX_RUNTIME_PLAN | Required explicit plan for replay; fixed-bullet mode, exact build, no seed events |
+| quotes_file | CONVEX_QUOTES_FILE | Required canonical JSONL replay in replay mode; unsupported in other modes |
 | curves_file | CONVEX_CURVES_FILE | Rejected: file provider composition is not implemented |
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
@@ -50,7 +51,7 @@ Startup logs the effective redacted configuration and, after a successful bind, 
 
 Demo HTTP responses, including WebSocket upgrades, carry `x-convex-profile: demo` and `x-convex-data-quality: demo`. These headers are exposed to browser clients through CORS. Every demo WebSocket JSON message additionally carries `profile: "demo"` and `data_quality: "demo"`; existing economic fields retain their semantics. The numeric `quality` field is not a certification label.
 
-Router construction uses the engine’s configured reference repository. Provider capability validation occurs on the server startup path. Runtime calculation correctness and per-measure data quality remain separate implementation work.
+Router construction uses the engine’s configured reference repository. Provider capability validation occurs on the server startup path. The replay runtime calculates actual fixed-bullet results with per-measure quality and immutable lineage; complete products, live certification and production release gates remain open.
 
 ## Migrating existing startup code
 
@@ -112,8 +113,12 @@ Implement `ReferenceRepository` to slot in another backend and run both shared r
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
-The [local redb storage guide](../convex-ext-redb/README.md) documents immutable configuration history, schema migration and the `convex-redb` offline backup/restore commands. Configuration saves require the next version, configuration deletion explicitly fails, audit queries apply their filters, and override history explicitly reports `Unsupported`. These storage capabilities do not activate pricing configuration in the engine or provide shared persistence.
+The [local redb storage guide](../convex-ext-redb/README.md) documents immutable configuration history, atomic active selection, schema migration and the `convex-redb` offline backup/restore commands. Pricing saves require the next version, deletion explicitly fails and audit queries apply their filters. Managed rollback selects retained content through a new activation. Shared persistence and distributed ownership remain separate work.
 
 ## Market replay and file inputs
 
-[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears, bounds and snapshot-file migration. Run its standalone trace example before wiring an ingestion adapter. File snapshots now require recorded timestamps and sources; missing files or malformed records fail explicitly. Server runtime consolidation and snapshot-consistent pricing remain separate work.
+[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears, bounds and snapshot-file migration. Run its standalone trace example before wiring an ingestion adapter. File snapshots require recorded timestamps and sources; missing files or malformed records fail explicitly. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
+
+## Configuration operator
+
+Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. Embedded hosts can apply hot policies through the same engine use cases; the server adds only read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. There is no network configuration mutation route. Authentication, roles, secure access and administrative quotas remain CVX-037.

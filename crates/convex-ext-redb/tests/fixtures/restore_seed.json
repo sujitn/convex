@@ -109,19 +109,6 @@
       "build_duration_ms": 2
     }
   ],
-  "override": {
-    "instrument_id": "RESTORE-BOND",
-    "price": 99.875,
-    "yield_value": null,
-    "spread": null,
-    "reason": "fictional test only",
-    "created_by": "fixture-actor",
-    "created_at": 100,
-    "expires_at": 101,
-    "is_approved": true,
-    "approved_by": "fixture-approver",
-    "approved_at": 100
-  },
   "audit": [
     {
       "id": 11,

@@ -46,7 +46,12 @@ pub(super) fn context(
         valuation_time: snapshot.content().as_of,
         known_at: snapshot.content().known_at,
         settlement_date: plan.settlement_date,
-        configuration: plan.assembly.configuration.clone(),
+        configuration: ConfigurationPin {
+            id: SourceId::new(&snapshot.content().configuration.config_id)
+                .map_err(|_| RuntimeError::RecoveryConflict)?,
+            version: Version::new(snapshot.content().configuration.version)
+                .map_err(|_| RuntimeError::RecoveryConflict)?,
+        },
         model_id: ModelId::new(BOND_SNAPSHOT_MODEL)
             .map_err(|_| RuntimeError::Configuration("invalid compiled model identity"))?,
         build_id: plan.build_id.clone(),
@@ -371,6 +376,9 @@ pub(super) fn restore_results(
 
 pub(super) fn expiry(snapshot: &MarketSnapshot) -> Result<Option<UtcTimestamp>, RuntimeError> {
     let mut deadlines = Vec::new();
+    if let Some(capture) = &snapshot.content().configuration_capture {
+        deadlines.extend(capture.applied_overrides.iter().map(|o| o.expires_at));
+    }
     for curve in &snapshot.content().curves {
         let deadline = curve
             .source_time

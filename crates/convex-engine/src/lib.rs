@@ -62,6 +62,7 @@ pub mod scheduler;
 pub mod snapshot;
 
 pub mod cache;
+pub mod configuration;
 pub mod context;
 
 // Re-exports
@@ -125,6 +126,7 @@ pub struct PricingEngine {
 
     /// Sole lifecycle and accepted-work owner.
     runtime: runtime::RuntimeController,
+    configurations: Option<Arc<configuration::ConfigurationUseCases>>,
 }
 
 impl PricingEngine {
@@ -153,6 +155,7 @@ impl PricingEngine {
             reference_data,
             storage,
             runtime: runtime::RuntimeController::new(None, false, concurrency),
+            configurations: None,
         }
     }
 
@@ -169,6 +172,43 @@ impl PricingEngine {
     /// Separate lifecycle/dependency/data status; never execution permission.
     pub fn runtime_health(&self) -> RuntimeHealth {
         self.runtime.health()
+    }
+
+    /// Shared configuration validation, staging and inspection use cases, when explicitly composed.
+    pub fn configuration_use_cases(&self) -> Option<&Arc<configuration::ConfigurationUseCases>> {
+        self.configurations.as_ref()
+    }
+
+    /// Validate/warm then atomically activate; running runtimes accept only reloadable settings.
+    /// A committed selection remains committed if runtime application is delayed or unavailable.
+    pub async fn activate_configuration(
+        &self,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
+        let cases =
+            self.configurations
+                .as_ref()
+                .ok_or(configuration::ConfigurationError::Invalid(
+                    "configuration use cases are not composed",
+                ))?;
+        let running = !matches!(
+            self.runtime_health().phase,
+            RuntimePhase::New | RuntimePhase::Stopped
+        );
+        let activation = cases.activate(command, fixtures, running).await?;
+        let applied = if running {
+            self.runtime.refresh_configuration(&activation).await.ok()
+        } else {
+            None
+        };
+        Ok(configuration::ConfigurationActivationOutcome {
+            activation,
+            accepted_generation: applied.as_ref().map(|r| r.generation),
+            accepted_activation_revision: applied.and_then(|r| r.activation_revision),
+            restart_required: !running,
+        })
     }
 
     /// Observe joined shutdown so transport sessions can close promptly.
@@ -206,6 +246,15 @@ impl PricingEngine {
         request: convex_core::contracts::RequestId,
         calculated_at: convex_core::contracts::UtcTimestamp,
     ) -> Result<snapshot::SnapshotValuationResult, ports::TraitError> {
+        if snapshot.content().configuration_capture.is_some() {
+            let cases = self
+                .configurations
+                .as_ref()
+                .ok_or(ports::TraitError::Unsupported(
+                    "supplied activation requires configuration composition",
+                ))?;
+            cases.verify_snapshot_selection(&snapshot).await.map_err(|_| ports::TraitError::Conflict("snapshot activation or effective policies differ from retained configuration"))?;
+        }
         self.runtime
             .evaluate_context(snapshot, context, request, calculated_at)
             .await

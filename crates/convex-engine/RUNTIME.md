@@ -22,10 +22,14 @@ or curve is synthesized to fill a missing dependency.
 The complete manifest supplies each bond's dependencies. Every bond in a batch
 consumes the same captured snapshot and configuration. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
-CPU workers. Changes to pinned references/configuration/curves, settlement or the
-build require a new plan and runtime identity. Ordinary reference repository
-updates retain historical pins. Configuration activation and overrides belong to
-CVX-010; complete calibration and broader analytics remain their owning tasks.
+CPU workers. CVX-010 adds [validated configuration activation](CONFIGURATION.md):
+quote freshness/skew and approved scoped exceptions can change within the same
+process footprint. Accepted work freezes its activation before acknowledgment;
+in-flight calculations retain their original version. Reference/curve/model,
+settlement, build and process footprint changes require a compatible explicit
+plan and intentional new namespace when its digest changes. Ordinary reference
+repository updates retain historical pins. Complete calibration and broader
+analytics remain their owning tasks.
 
 | Mode | Input and time | Readiness meaning |
 | --- | --- | --- |
@@ -48,6 +52,8 @@ strategy or execution permission.
 Use `PricingEngineBuilder::with_runtime(RuntimeServices)` to supply a checked plan,
 immutable snapshot/fixing repositories, `RuntimeStore`, `ResultPublisher` and input
 ownership. Reference/configuration reads use the engine's authoritative storage.
+Add `with_configuration_use_cases` with actual composition capabilities to adopt
+managed selections. An active pointer without that composition fails startup.
 `create_redb_storage_with_runtime` returns those repositories and the checkpoint
 store over one local redb database. `FileSnapshotRepository` and
 `JsonlResultPublisher` are local Unix adapters; alternate backends implement the
@@ -59,6 +65,10 @@ result contexts and retained last-good values. It calculates pending accepted
 work, restores the graph and flushes retained output before reporting readiness.
 A restored live runtime waits for fresh images. Concurrent starts have one owner;
 repeated starts fail. Restart means constructing a new engine instance.
+The optional accepted activation in the checkpoint restores its exact historical
+selection first. After accepted pending work/output is recovered, the actor
+reconciles a newer pointer before readiness. Hot activation preserves the original
+plan digest and durable runtime identity; keep that bootstrap plan on restart.
 
 `shutdown().await` closes admission, stops pulling the source, drains already
 queued commands, finishes/checkpoints accepted work and output, unsubscribes, and
@@ -212,7 +222,8 @@ the runtime does not start their tasks or support additional timer policies.
 
 Pricing mathematics, units, numerical tolerances and existing DTOs are unchanged.
 The only dependency-list addition is the already locked `async-trait` package for
-fault adapters in engine tests. Complete calibration/products/risk, activation,
+fault adapters in engine tests. Configuration activation and expiry now use the
+shared control use cases and retained lineage. Complete calibration/products/risk,
 durable managed publication, distributed ownership, v2 API/security, full operational
 runbooks, dedicated CPU isolation and measured latency remain separate work.
 No LB0/LB1 or R0/R1/R2/R3 certificate is complete.

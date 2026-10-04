@@ -59,6 +59,7 @@ async fn setup(fixings: Vec<convex_ports::fixing::PublishedFixing>) -> Setup {
             id: SourceId::new(fixture::config().config_id).unwrap(),
             version: fixture::version(1),
         },
+        configuration_capture: None,
         instruments: vec![InstrumentPin {
             instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
             version: fixture::version(1),

@@ -14,6 +14,9 @@ pub(super) struct Actor {
     live_source: Option<Arc<dyn convex_ports::market_data::QuoteSource>>,
     data_deadline: Option<tokio::time::Instant>,
     needs_images: std::collections::HashSet<convex_ports::quote_event::QuoteKey>,
+    configurations: Option<Arc<crate::configuration::ConfigurationUseCases>>,
+    baseline_pricing: convex_ports::storage::BondPricingConfig,
+    selected: Option<convex_ports::configuration::ActiveConfiguration>,
 }
 impl Actor {
     pub(super) async fn restore(
@@ -41,11 +44,12 @@ impl Actor {
         }
         let loaded = bounded(services.store.load(&services.plan.runtime_id)).await?;
         let absent = loaded.is_none();
-        let checkpoint = loaded.unwrap_or_else(|| RuntimeCheckpoint {
+        let mut checkpoint = loaded.unwrap_or_else(|| RuntimeCheckpoint {
             schema_version: 1,
             runtime_id: services.plan.runtime_id.clone(),
             revision: 1,
             plan_digest: digest.clone(),
+            configuration_activation: None,
             generation: services.plan.assembly.generation,
             as_of: services.plan.assembly.as_of,
             known_at: services.plan.assembly.known_at,
@@ -60,6 +64,63 @@ impl Actor {
         checkpoint.validate()?;
         if checkpoint.plan_digest != digest || checkpoint.runtime_id != services.plan.runtime_id {
             return Err(RuntimeError::RecoveryConflict);
+        }
+        let configurations = engine.configurations.clone();
+        let baseline_pricing = bounded(engine.storage.configs.get_version(
+            services.plan.assembly.configuration.id.as_str(),
+            services.plan.assembly.configuration.version.get(),
+        ))
+        .await?
+        .ok_or(RuntimeError::Configuration(
+            "missing exact configured pricing version",
+        ))?;
+        let selected = match (&configurations, &checkpoint.configuration_activation) {
+            (Some(cases), Some(record)) => Some(
+                cases
+                    .selection(record)
+                    .await
+                    .map_err(|_| RuntimeError::RecoveryConflict)?,
+            ),
+            (Some(cases), None) if absent => cases
+                .active(&services.plan.assembly.configuration.id)
+                .await
+                .map_err(|_| RuntimeError::Storage)?,
+            (None, Some(_)) => {
+                return Err(RuntimeError::Configuration(
+                    "restored activation requires explicit capability composition",
+                ))
+            }
+            _ => None,
+        };
+        if configurations.is_none()
+            && bounded(
+                engine
+                    .storage
+                    .configuration
+                    .active(&services.plan.assembly.configuration.id),
+            )
+            .await?
+            .is_some()
+        {
+            return Err(RuntimeError::Configuration(
+                "active configuration requires explicit capability composition",
+            ));
+        }
+        if let (Some(cases), Some(selected)) = (&configurations, &selected) {
+            cases
+                .compatible_runtime(
+                    &services.plan,
+                    &baseline_pricing,
+                    engine.config.max_concurrent_calcs,
+                    selected,
+                )
+                .map_err(|_| {
+                    RuntimeError::Configuration(
+                        "selected configuration requires another runtime plan/process",
+                    )
+                })?;
+            selected.capture(checkpoint.as_of, checkpoint.known_at, checkpoint.generation)?;
+            checkpoint.configuration_activation = Some(selected.activation.clone());
         }
         if absent {
             bounded(services.store.checkpoint(0, &checkpoint)).await?;
@@ -100,6 +161,9 @@ impl Actor {
             results,
             updates,
             needs_images,
+            configurations,
+            baseline_pricing,
+            selected,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
         if let RuntimeInput::Replay(source) = &mut actor.services.input {
@@ -115,6 +179,22 @@ impl Actor {
         }
         actor.restore_dependencies().await?;
         actor.flush_outbox().await?;
+        if let Some(cases) = &actor.configurations {
+            if let Some(current) = cases
+                .active(&actor.services.plan.assembly.configuration.id)
+                .await
+                .map_err(|_| RuntimeError::Storage)?
+            {
+                actor.health.write().desired_activation_revision =
+                    Some(current.activation.revision);
+                if actor.checkpoint.configuration_activation.as_ref() != Some(&current.activation) {
+                    actor
+                        .refresh_configuration(current.activation.command.activated_at)
+                        .await?;
+                    actor.process().await?;
+                }
+            }
+        }
         if let Some(source) = &actor.live_source {
             let ids: Vec<_> = actor
                 .services
@@ -129,12 +209,21 @@ impl Actor {
         actor.refresh_health();
         Ok(actor)
     }
-    fn request(&self) -> SnapshotAssembly {
+    fn request(&self) -> Result<SnapshotAssembly, RuntimeError> {
+        if let Some(selected) = &self.selected {
+            return selected
+                .capture(
+                    self.checkpoint.as_of,
+                    self.checkpoint.known_at,
+                    self.checkpoint.generation,
+                )
+                .map_err(Into::into);
+        }
         let mut request = self.services.plan.assembly.clone();
         request.generation = self.checkpoint.generation;
         request.as_of = self.checkpoint.as_of;
         request.known_at = self.checkpoint.known_at;
-        request
+        Ok(request)
     }
     async fn save(&mut self, mut next: RuntimeCheckpoint) -> Result<(), RuntimeError> {
         next.revision = self
@@ -165,7 +254,7 @@ impl Actor {
         let snapshot = Arc::new(
             bounded(
                 self.assembler
-                    .assemble(&self.request(), &self.checkpoint.events),
+                    .assemble(&self.request()?, &self.checkpoint.events),
             )
             .await?,
         );
@@ -258,6 +347,11 @@ impl Actor {
             return Err(RuntimeError::CapacityExceeded);
         }
         let mut next = self.checkpoint.clone();
+        let selected = self.current_configuration().await?;
+        if let Some(selected) = &selected {
+            selected.capture(as_of, known_at, next.generation)?;
+            next.configuration_activation = Some(selected.activation.clone());
+        }
         next.generation = Version::new(
             next.generation
                 .get()
@@ -279,6 +373,7 @@ impl Actor {
             next.delivery_lost = false;
         }
         self.save(next).await?;
+        self.selected = selected;
         {
             let mut health = self.health.write();
             health.ready = false;
@@ -288,13 +383,18 @@ impl Actor {
         Ok(AcceptedUpdate {
             checkpoint_revision: self.checkpoint.revision,
             generation: self.checkpoint.generation,
+            activation_revision: self
+                .checkpoint
+                .configuration_activation
+                .as_ref()
+                .map(|a| a.revision),
         })
     }
     async fn process(&mut self) -> Result<(), RuntimeError> {
         let snapshot = Arc::new(
             bounded(
                 self.assembler
-                    .assemble(&self.request(), &self.checkpoint.events),
+                    .assemble(&self.request()?, &self.checkpoint.events),
             )
             .await?,
         );
@@ -360,6 +460,22 @@ impl Actor {
         } else {
             None
         };
+        if self.services.plan.mode == RuntimeMode::Live {
+            if let Some(capture) = &snapshot.content().configuration_capture {
+                if let Some(expiry) = capture.applied_overrides.iter().map(|o| o.expires_at).min() {
+                    let delta = expiry
+                        .datetime()
+                        .signed_duration_since(chrono::Utc::now())
+                        .to_std()
+                        .unwrap_or(Duration::ZERO);
+                    let deadline = tokio::time::Instant::now() + delta;
+                    self.data_deadline = Some(
+                        self.data_deadline
+                            .map_or(deadline, |prior| prior.min(deadline)),
+                    );
+                }
+            }
+        }
         Ok(())
     }
     async fn expire_data(&mut self) -> Result<(), RuntimeError> {
@@ -418,12 +534,20 @@ impl Actor {
                 .iter()
                 .all(|r| r.result.status() == ResultStatus::Complete);
         let mut health = self.health.write();
+        let accepted_activation = self
+            .checkpoint
+            .configuration_activation
+            .as_ref()
+            .map(|a| a.revision);
         let ready = complete
             && quality == DataQuality::Valid
             && !self.checkpoint.delivery_lost
             && self.needs_images.is_empty()
             && self.checkpoint.outbox.is_empty()
-            && !self.checkpoint.pending;
+            && !self.checkpoint.pending
+            && health
+                .desired_activation_revision
+                .is_none_or(|r| Some(r) == accepted_activation);
         if health.phase != RuntimePhase::Draining {
             health.phase = if ready {
                 RuntimePhase::Ready
@@ -438,6 +562,15 @@ impl Actor {
         health.generation = self.checkpoint.generation.get();
         health.revision = self.checkpoint.result_revision;
         health.pending_publications = self.checkpoint.outbox.len();
+        health.configuration_version = Some(
+            self.checkpoint
+                .configuration_activation
+                .as_ref()
+                .map_or(self.services.plan.assembly.configuration.version, |a| {
+                    a.command.configuration_version
+                }),
+        );
+        health.activation_revision = accepted_activation;
     }
     async fn next_event(&mut self) -> Result<QuoteEvent, StreamError> {
         match &mut self.services.input {
@@ -482,7 +615,11 @@ impl Actor {
         }
         rx.close();
         while let Ok(command) = rx.try_recv() {
-            let _ = command.reply.send(Err(RuntimeError::State(
+            let reply = match command {
+                Command::Quote(quote) => quote.reply,
+                Command::RefreshConfiguration { reply, .. } => reply,
+            };
+            let _ = reply.send(Err(RuntimeError::State(
                 "input not accepted before runtime failure",
             )));
         }
@@ -534,6 +671,29 @@ impl Actor {
         }
     }
     async fn process_command(&mut self, command: Command) -> Result<(), RuntimeError> {
+        if let Command::RefreshConfiguration { at, reply } = command {
+            let previous = self.checkpoint.generation;
+            match self.refresh_configuration(at).await {
+                Ok(receipt) => {
+                    let changed = receipt.generation != previous;
+                    let _ = reply.send(Ok(receipt));
+                    if changed {
+                        self.process().await?;
+                    }
+                }
+                Err(error @ (RuntimeError::Configuration(_) | RuntimeError::CapacityExceeded)) => {
+                    let _ = reply.send(Err(error));
+                }
+                Err(error) => {
+                    let _ = reply.send(Err(error.clone()));
+                    return Err(error);
+                }
+            }
+            return Ok(());
+        }
+        let Command::Quote(command) = command else {
+            return Err(RuntimeError::Worker);
+        };
         match self
             .accept(command.event, command.as_of, command.known_at)
             .await
@@ -551,5 +711,86 @@ impl Actor {
                 Err(error)
             }
         }
+    }
+    async fn current_configuration(
+        &mut self,
+    ) -> Result<Option<convex_ports::configuration::ActiveConfiguration>, RuntimeError> {
+        let Some(cases) = &self.configurations else {
+            return Ok(None);
+        };
+        let selected = cases
+            .active(&self.services.plan.assembly.configuration.id)
+            .await
+            .map_err(|_| RuntimeError::Storage)?;
+        if let Some(selected) = &selected {
+            cases
+                .compatible_runtime(
+                    &self.services.plan,
+                    &self.baseline_pricing,
+                    self.concurrency,
+                    selected,
+                )
+                .map_err(|_| {
+                    RuntimeError::Configuration(
+                        "selected configuration requires restart with a compatible process/plan",
+                    )
+                })?;
+            if self
+                .checkpoint
+                .configuration_activation
+                .as_ref()
+                .is_some_and(|p| p.revision > selected.activation.revision)
+            {
+                return Err(RuntimeError::RecoveryConflict);
+            }
+        } else if self.checkpoint.configuration_activation.is_some() {
+            return Err(RuntimeError::RecoveryConflict);
+        }
+        Ok(selected)
+    }
+    async fn refresh_configuration(
+        &mut self,
+        at: UtcTimestamp,
+    ) -> Result<AcceptedUpdate, RuntimeError> {
+        let selected = self
+            .current_configuration()
+            .await?
+            .ok_or(RuntimeError::Configuration("no active configuration"))?;
+        if self.checkpoint.pending || !self.checkpoint.outbox.is_empty() {
+            return Err(RuntimeError::State("prior accepted work requires recovery"));
+        }
+        if self.checkpoint.configuration_activation.as_ref() == Some(&selected.activation) {
+            return Ok(AcceptedUpdate {
+                checkpoint_revision: self.checkpoint.revision,
+                generation: self.checkpoint.generation,
+                activation_revision: Some(selected.activation.revision),
+            });
+        }
+        let mut next = self.checkpoint.clone();
+        next.generation = Version::new(
+            next.generation
+                .get()
+                .checked_add(1)
+                .ok_or(RuntimeError::CapacityExceeded)?,
+        )
+        .map_err(|_| RuntimeError::CapacityExceeded)?;
+        let at = at.max(selected.activation.command.activated_at);
+        next.as_of = next.as_of.max(at);
+        next.known_at = next.known_at.max(at);
+        selected.capture(next.as_of, next.known_at, next.generation)?;
+        next.configuration_activation = Some(selected.activation.clone());
+        next.pending = true;
+        self.save(next).await?;
+        self.selected = Some(selected);
+        self.health.write().ready = false;
+        Ok(AcceptedUpdate {
+            checkpoint_revision: self.checkpoint.revision,
+            generation: self.checkpoint.generation,
+            activation_revision: self
+                .checkpoint
+                .configuration_activation
+                .as_ref()
+                .map(|a| a.revision),
+        })
     }
 }

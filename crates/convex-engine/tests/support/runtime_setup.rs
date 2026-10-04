@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Different lifecycle suites exercise subsets of the shared fictional setup.
-#[path = "../../../convex-ports/tests/support/snapshot_fixtures.rs"]
-pub mod fixture;
+#[path = "../../../convex-ports/tests/support/configuration_fixtures.rs"]
+pub mod configuration_fixture;
+pub use configuration_fixture::snapshot as fixture;
 use convex_core::contracts::*;
 use convex_engine::{context::*, snapshot::*, *};
 use convex_ext_file::*;
@@ -48,6 +49,7 @@ pub async fn setup() -> Setup {
                 id: SourceId::new(content.configuration.config_id).unwrap(),
                 version: fixture::version(1),
             },
+            configuration_capture: None,
             instruments: vec![InstrumentPin {
                 instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
                 version: fixture::version(1),
