@@ -1,5 +1,8 @@
 //! CVX-002: isolated processes prove actual startup settings and profile behavior.
 
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -340,6 +343,20 @@ async fn explicit_demo_labels_websocket_handshake_and_messages() {
         }
     }
     assert!(subscribed);
+    let command = convex_ports::reference_repository::ReferenceCommand {
+        idempotency_key: convex_core::contracts::RequestId::new("startup-reference-resources")
+            .unwrap(),
+        changes: vec![],
+        master_changes: reference_terms::resources(&example_bond()),
+    };
+    let seed = client()
+        .post(format!("http://{address}/api/v1/reference/transactions"))
+        .header("idempotency-key", "startup-reference-resources")
+        .json(&command)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(seed.status(), 200);
     let response = client().post(format!("http://{address}/api/v1/quote"))
         .json(&serde_json::json!({"bond": example_bond(), "settlement_date": "2025-06-17", "market_price": "99.5"}))
         .send().await.unwrap();
@@ -373,7 +390,8 @@ async fn explicit_demo_labels_websocket_handshake_and_messages() {
 }
 
 fn example_bond() -> BondReferenceData {
-    BondReferenceData {
+    reference_terms::complete(BondReferenceData {
+        contractual_terms: None,
         instrument_id: InstrumentId::new("CONFIG-DEMO-TEST"),
         isin: None,
         cusip: Some("912810TD0".into()),
@@ -406,5 +424,5 @@ fn example_bond() -> BondReferenceData {
         first_coupon_date: None,
         last_updated: 0,
         source: "test".into(),
-    }
+    })
 }

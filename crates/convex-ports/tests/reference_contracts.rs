@@ -41,6 +41,7 @@ fn command_requires_typed_versions_and_bounded_identity() {
     assert!(serde_json::from_value::<ReferenceCommand>(value).is_err());
     assert!(RequestId::new("").is_err());
     let empty = ReferenceCommand {
+        master_changes: Vec::new(),
         idempotency_key: RequestId::new("empty").unwrap(),
         changes: vec![],
     };
@@ -52,6 +53,7 @@ fn planning_rejects_invalid_reference_without_clock_or_io() {
     let mut bond: BondReferenceData = serde_json::from_value(fixture()).unwrap();
     bond.issue_date = bond.maturity_date;
     let command = ReferenceCommand {
+        master_changes: Vec::new(),
         idempotency_key: RequestId::new("invalid").unwrap(),
         changes: vec![ReferenceChange::Create {
             bond: Box::new(bond),

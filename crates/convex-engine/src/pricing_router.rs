@@ -1,5 +1,8 @@
 //! Pricing router - selects pricing model based on bond type and config.
 
+#[cfg(test)]
+use crate::reference_terms;
+
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -7,7 +10,7 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use convex_bonds::instruments::{CallableBond, FloatingRateNote};
 use convex_bonds::prelude::{Bond, FixedCouponBond, FixedRateBond, FixedRateBondBuilder};
@@ -233,23 +236,71 @@ impl PricingRouter {
             .coupon_rate
             .ok_or_else(|| EngineError::PricingError("Missing coupon rate".to_string()))?;
 
-        let frequency = match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::SemiAnnual, // Default
-        };
+        let frequency = self.get_frequency(ref_data)?;
 
         let day_count = self.parse_day_count(&ref_data.day_count)?;
+        let terms = ref_data
+            .contractual_terms
+            .as_ref()
+            .ok_or_else(|| EngineError::PricingError("Missing contractual terms".into()))?;
+        let calendar = match terms.calendar_code {
+            crate::ports::reference_master::BondCalendar::WeekendsOnly => {
+                convex_bonds::types::CalendarId::weekend_only()
+            }
+            crate::ports::reference_master::BondCalendar::Sifma => {
+                convex_bonds::types::CalendarId::sifma()
+            }
+            crate::ports::reference_master::BondCalendar::Target2 => {
+                convex_bonds::types::CalendarId::target2()
+            }
+        };
 
         let mut builder = FixedRateBondBuilder::new()
+            .identifiers(
+                convex_bonds::types::BondIdentifiers::new()
+                    .with_ticker(ref_data.instrument_id.as_str()),
+            )
             .issue_date(ref_data.issue_date)
+            .dated_date(terms.dated_date.date())
             .maturity(ref_data.maturity_date)
             .coupon_rate(coupon_rate)
             .face_value(ref_data.face_value)
             .frequency(frequency)
-            .day_count(day_count);
+            .day_count(day_count)
+            .currency(ref_data.currency)
+            .calendar(calendar.clone())
+            .business_day_convention(terms.settings.business_day_convention)
+            .end_of_month(terms.settings.end_of_month)
+            .settlement_days(terms.settings.settlement_days)
+            .redemption_value(terms.redemption_value.decimal());
+
+        let mut schedule = convex_bonds::cashflows::ScheduleConfig::new(
+            terms.dated_date.date(),
+            ref_data.maturity_date,
+            frequency,
+        )
+        .with_calendar(calendar)
+        .with_business_day_convention(terms.settings.business_day_convention)
+        .with_end_of_month(terms.settings.end_of_month);
+        if let Some(first) = ref_data.first_coupon_date {
+            builder = builder.first_coupon_date(first);
+            schedule = schedule
+                .with_first_regular_date(first)
+                .with_stub_type(convex_bonds::cashflows::StubType::ShortFirst);
+        }
+        if let Some(last) = terms.penultimate_coupon_date {
+            builder = builder.penultimate_coupon_date(last.date());
+            schedule = schedule.with_penultimate_date(last.date());
+            if ref_data.first_coupon_date.is_none() {
+                schedule = schedule.with_stub_type(convex_bonds::cashflows::StubType::ShortLast);
+            }
+        }
+        if terms.settings.ex_coupon_days != 0 {
+            builder = builder.ex_dividend_days(terms.settings.ex_coupon_days);
+        }
+        // Preflight the exact schedule before the existing lazily generated bond schedule.
+        convex_bonds::cashflows::Schedule::generate(schedule)
+            .map_err(|e| EngineError::PricingError(format!("Invalid contractual schedule: {e}")))?;
 
         // Add CUSIP identifier if available
         if let Some(cusip) = ref_data.cusip.as_deref() {
@@ -314,13 +365,7 @@ impl PricingRouter {
         };
 
         // Get frequency for FRN
-        let frequency = match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::Quarterly, // Default for FRNs
-        };
+        let frequency = self.get_frequency(ref_data)?;
 
         // Get day count
         let day_count = self.parse_day_count(&ref_data.day_count)?;
@@ -355,29 +400,29 @@ impl PricingRouter {
             .map_err(|e| EngineError::PricingError(format!("Failed to build FRN: {}", e)))
     }
 
-    /// Parse day count convention string to enum, defaulting to 30/360 US on
-    /// unknown input so reference data with stray labels doesn't fail the
-    /// pricing request.
+    /// Reject unknown labels; no contractual convention is inferred.
     fn parse_day_count(&self, dcc_str: &str) -> Result<DayCountConvention, EngineError> {
-        Ok(DayCountConvention::from_str(dcc_str).unwrap_or_else(|_| {
-            warn!("Unknown day count '{}', defaulting to 30/360 US", dcc_str);
-            DayCountConvention::Thirty360US
-        }))
+        DayCountConvention::from_str(dcc_str)
+            .map_err(|_| EngineError::PricingError("Unknown day-count convention".into()))
     }
 
     /// Get frequency enum from reference data.
-    fn get_frequency(&self, ref_data: &BondReferenceData) -> Frequency {
+    fn get_frequency(&self, ref_data: &BondReferenceData) -> Result<Frequency, EngineError> {
         match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::SemiAnnual,
+            1 => Ok(Frequency::Annual),
+            2 => Ok(Frequency::SemiAnnual),
+            4 => Ok(Frequency::Quarterly),
+            12 => Ok(Frequency::Monthly),
+            _ => Err(EngineError::PricingError(
+                "Unsupported payment frequency".into(),
+            )),
         }
     }
 
     /// Price a bond.
     pub fn price(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
+        crate::ports::reference_repository::validate_bond_reference(&input.bond)
+            .map_err(|e| EngineError::PricingError(e.to_string()))?;
         let model = self.select_model(&input.bond);
         debug!(
             "Pricing {} with model {:?}",
@@ -1002,7 +1047,7 @@ impl PricingRouter {
         input: &PricingInput,
     ) -> Result<BondQuoteOutput, EngineError> {
         let settlement = input.settlement_date;
-        let frequency = self.get_frequency(&input.bond);
+        let frequency = self.get_frequency(&input.bond)?;
 
         // Build the bond for analytics
         let bond = self.to_fixed_rate_bond(&input.bond)?;
@@ -1254,7 +1299,7 @@ impl PricingRouter {
             }
         };
 
-        let frequency = self.get_frequency(&input.bond);
+        let frequency = self.get_frequency(&input.bond)?;
 
         // Convert call schedule to (Date, Decimal) pairs
         let call_schedule: Vec<(Date, Decimal)> = input
@@ -1613,7 +1658,8 @@ mod tests {
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> BondReferenceData {
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("TEST001"),
             isin: Some("US912828Z229".to_string()),
             cusip: Some("912828Z22".to_string()),
@@ -1646,7 +1692,104 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2020, 11, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
+    }
+
+    #[test]
+    fn unknown_day_count_cannot_enter_reference_valuation() {
+        let router = PricingRouter::new();
+        let mut bond = create_test_bond();
+        bond.day_count = "UNKNOWN-CONTRACT-DAY-COUNT".into();
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(
+            router.price(&input).is_err(),
+            "unknown contractual day count must fail"
+        );
+    }
+
+    #[test]
+    fn missing_terms_and_unknown_frequency_cannot_enter_pricing() {
+        let router = PricingRouter::new();
+        let mut bond = create_test_bond();
+        bond.contractual_terms = None;
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(router.price(&input).is_err());
+        let mut bond = create_test_bond();
+        bond.frequency = 3;
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(router.price(&input).is_err());
+    }
+
+    #[test]
+    fn corrected_schedule_and_redemption_are_consumed_without_mutating_prior_terms() {
+        let router = PricingRouter::new();
+        let original = create_test_bond();
+        let encoded = serde_json::to_vec(&original).unwrap();
+        let mut revised = original.clone();
+        revised.first_coupon_date = Some(Date::from_ymd(2020, 5, 15).unwrap());
+        let terms = revised.contractual_terms.as_mut().unwrap();
+        terms.dated_date = convex_core::contracts::BusinessDate::parse("2020-04-15").unwrap();
+        terms.redemption_value = convex_core::contracts::ExactDecimal::parse("102.50").unwrap();
+        let settlement = Date::from_ymd(2020, 5, 1).unwrap();
+        let before = router
+            .to_fixed_rate_bond(&original)
+            .unwrap()
+            .cash_flows(settlement);
+        let after = router
+            .to_fixed_rate_bond(&revised)
+            .unwrap()
+            .cash_flows(settlement);
+        assert_ne!(before[0].date, after[0].date);
+        assert_eq!(
+            after.last().unwrap().amount - before.last().unwrap().amount,
+            dec!(2.50)
+        );
+        assert_eq!(serde_json::to_vec(&original).unwrap(), encoded);
+        let replay = router
+            .to_fixed_rate_bond(&original)
+            .unwrap()
+            .cash_flows(settlement);
+        let values = |flows: &[convex_bonds::traits::BondCashFlow]| {
+            flows
+                .iter()
+                .map(|flow| {
+                    (
+                        flow.date,
+                        flow.amount,
+                        flow.flow_type,
+                        flow.accrual_start,
+                        flow.accrual_end,
+                        flow.factor,
+                        flow.reference_rate,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(values(&replay), values(&before));
     }
 
     fn create_test_curve(ref_date: Date) -> BuiltCurve {
@@ -1979,7 +2122,8 @@ mod tests {
     fn create_callable_test_bond() -> BondReferenceData {
         use crate::ports::reference_data::CallScheduleEntry;
 
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("CALLABLE001"),
             isin: Some("US123456789".to_string()),
             cusip: Some("123456789".to_string()),
@@ -2028,7 +2172,7 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2020, 12, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
     }
 
     #[test]
@@ -2185,7 +2329,8 @@ mod tests {
         use crate::ports::reference_data::FloatingRateTerms;
         use convex_core::ids::FloatingRateIndex;
 
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("FRN001"),
             isin: Some("US912828ZQ7".to_string()),
             cusip: Some("912828ZQ7".to_string()),
@@ -2224,7 +2369,7 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2025, 4, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
     }
 
     #[test]
@@ -2797,7 +2942,8 @@ mod tests {
                 let coupon_idx = i % coupons.len();
                 let maturity_idx = i % maturities.len();
 
-                BondReferenceData {
+                reference_terms::complete(BondReferenceData {
+                    contractual_terms: None,
                     instrument_id: InstrumentId::new(format!("BOND_{:05}", i)),
                     isin: Some(format!("US9128{:05}X", i)),
                     cusip: Some(format!("9128{:05}", i)),
@@ -2832,10 +2978,10 @@ mod tests {
                     country_of_risk: "US".to_string(),
                     sector: "Corporate".to_string(),
                     amount_outstanding: Some(dec!(1000000000)),
-                    first_coupon_date: Some(Date::from_ymd(2020, 7, 15).unwrap()),
+                    first_coupon_date: Some(Date::from_ymd(2020, 6, 15).unwrap()),
                     last_updated: 0,
                     source: "test".to_string(),
-                }
+                })
             })
             .collect()
     }

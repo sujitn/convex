@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::reference_data::BondReferenceData;
+use crate::reference_master::*;
 use crate::storage::{BondFilter, Page, Pagination};
 
 /// Maximum changes in one atomic reference transaction.
@@ -117,6 +118,9 @@ pub struct ReferenceCommand {
     pub idempotency_key: RequestId,
     /// All changes commit together, or none commit.
     pub changes: Vec<ReferenceChange>,
+    /// Entity, calendar, convention and mapping changes in the same transaction.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub master_changes: Vec<MasterChange>,
 }
 
 impl ReferenceCommand {
@@ -132,7 +136,8 @@ impl ReferenceCommand {
 
     /// Check the command before any external write or allocation of versions.
     pub fn validate(&self) -> Result<(), ReferenceError> {
-        if self.changes.is_empty() || self.changes.len() > MAX_REFERENCE_CHANGES {
+        let total = self.changes.len().saturating_add(self.master_changes.len());
+        if total == 0 || total > MAX_REFERENCE_CHANGES {
             return Err(ReferenceError::InvalidInput("expected 1..256 changes"));
         }
         let mut ids = BTreeSet::new();
@@ -146,6 +151,15 @@ impl ReferenceCommand {
             if let ReferenceChange::Create { bond } | ReferenceChange::Update { bond, .. } = change
             {
                 validate_bond_reference(bond)?;
+            }
+        }
+        let mut keys = BTreeSet::new();
+        for change in &self.master_changes {
+            change.definition.validate()?;
+            if !keys.insert(change.definition.key()) {
+                return Err(ReferenceError::InvalidInput(
+                    "duplicate master key in command",
+                ));
             }
         }
         Ok(())
@@ -162,6 +176,9 @@ pub struct ReferenceCommit {
     pub recorded_at: UtcTimestamp,
     /// Full newly committed versions in command order.
     pub records: Vec<ReferenceRecord>,
+    /// Newly committed resource definitions in command order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub master_records: Vec<MasterRecord>,
 }
 
 /// Stored deduplication record, written atomically with reference state and history.
@@ -172,33 +189,6 @@ pub struct CommittedReferenceCommand {
     pub command: ReferenceCommand,
     /// Original response, retrievable after a lost acknowledgment.
     pub result: ReferenceCommit,
-}
-
-/// Supported provider-neutral external identifiers. Ambiguity is an explicit error.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReferenceIdentifier {
-    /// International securities identifier.
-    Isin(String),
-    /// North American securities identifier.
-    Cusip(String),
-}
-
-impl ReferenceIdentifier {
-    /// Validate bounded opaque input; format/check-digit certification is separate.
-    pub fn validate(&self) -> Result<(), ReferenceError> {
-        let (Self::Isin(value) | Self::Cusip(value)) = self;
-        if value.is_empty() || value.len() > 128 || value.chars().any(char::is_control) {
-            return Err(ReferenceError::InvalidInput("invalid external identifier"));
-        }
-        Ok(())
-    }
-    /// Test one active instrument's supplied identifier mapping.
-    pub fn matches(&self, bond: &BondReferenceData) -> bool {
-        match self {
-            Self::Isin(value) => bond.isin.as_ref() == Some(value),
-            Self::Cusip(value) => bond.cusip.as_ref() == Some(value),
-        }
-    }
 }
 
 /// The single authoritative reference port. No database handle or query language escapes it.
@@ -221,7 +211,7 @@ pub trait ReferenceRepository: Send + Sync {
     /// Resolve a current identifier mapping, refusing ambiguous results.
     async fn resolve(
         &self,
-        identifier: &ReferenceIdentifier,
+        identifier: &ExternalIdentifier,
     ) -> Result<Option<ReferenceRecord>, ReferenceError>;
     /// Commit current state, immutable versions and command/receipt together.
     /// Identical retries return the original receipt even after subsequent mutations.
@@ -232,6 +222,90 @@ pub trait ReferenceRepository: Send + Sync {
     ) -> Result<ReferenceCommit, ReferenceError>;
     /// Recover a response by idempotency key after an unknown outcome or lost reply.
     async fn get_commit(&self, key: &RequestId) -> Result<Option<ReferenceCommit>, ReferenceError>;
+    /// Read a bond at supplied economic time and information cutoff, never current content.
+    async fn get_at(
+        &self,
+        id: &InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError>;
+    /// Read current master resource for operator inspection and compare-and-set preparation.
+    async fn get_master(&self, key: &MasterKey) -> Result<Option<MasterRecord>, ReferenceError>;
+    /// Read one exact immutable master resource version.
+    async fn get_master_version(
+        &self,
+        key: &MasterKey,
+        version: Version,
+    ) -> Result<Option<MasterRecord>, ReferenceError>;
+    /// Read resource history at supplied effective/known-at time.
+    async fn get_master_at(
+        &self,
+        key: &MasterKey,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<MasterRecord>, ReferenceError>;
+    /// Resolve historical mapping assertions from one read snapshot. Ambiguity is never selected away.
+    async fn resolve_at(
+        &self,
+        identifier: &ExternalIdentifier,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<IdentifierResolution>, ReferenceError>;
+
+    /// Resolve exact pinned resources and reject incomplete/unsupported service terms.
+    /// All consumed versions are immutable and cutoff checked; no latest-resource substitution.
+    async fn for_valuation(
+        &self,
+        id: &InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ResolvedBondReference>, ReferenceError> {
+        let Some(record) = self.get_at(id, lookup).await? else {
+            return Ok(None);
+        };
+        let bond = record.bond.as_ref().ok_or(ReferenceError::NotFound)?;
+        let (issuer, calendar, convention) = self.resources_for_valuation(bond, lookup).await?;
+        let resolved = ResolvedBondReference {
+            record,
+            issuer,
+            calendar,
+            convention,
+        };
+        validate_resolved_bond(&resolved, lookup)?;
+        Ok(Some(resolved))
+    }
+
+    /// Resolve supplied inline terms without claiming a stored instrument version.
+    async fn resources_for_valuation(
+        &self,
+        bond: &BondReferenceData,
+        lookup: ReferenceLookup,
+    ) -> Result<(MasterRecord, MasterRecord, MasterRecord), ReferenceError> {
+        validate_bond_reference(bond)?;
+        let terms = bond
+            .contractual_terms
+            .as_ref()
+            .ok_or(ReferenceError::InvalidInput("missing contractual terms"))?;
+        let issuer = self
+            .get_master_version(
+                &MasterKey::Entity(terms.issuer.entity_id.clone()),
+                terms.issuer.version,
+            )
+            .await?
+            .ok_or(ReferenceError::InvalidInput("missing pinned issuer"))?;
+        let calendar = self
+            .get_master_version(
+                &MasterKey::Calendar(terms.calendar.id.clone()),
+                terms.calendar.version,
+            )
+            .await?
+            .ok_or(ReferenceError::InvalidInput("missing pinned calendar"))?;
+        let convention = self
+            .get_master_version(
+                &MasterKey::Convention(terms.convention.id.clone()),
+                terms.convention.version,
+            )
+            .await?
+            .ok_or(ReferenceError::InvalidInput("missing pinned convention"))?;
+        validate_service_resources(bond, &issuer, &calendar, &convention, lookup)?;
+        Ok((issuer, calendar, convention))
+    }
 }
 
 /// Validate an existing public identity before accepting it at a repository boundary.
@@ -243,6 +317,7 @@ pub fn validate_reference_id(id: &InstrumentId) -> Result<(), ReferenceError> {
 
 /// Check reference ingress without inventing economic terms or certifying a pricing model.
 pub fn validate_bond_reference(bond: &BondReferenceData) -> Result<(), ReferenceError> {
+    validate_valuation_terms(bond)?;
     bond.canonical_boundary()
         .map_err(|_| ReferenceError::InvalidInput("invalid bond identity/dates/face"))?;
     if bond.description.is_empty() || bond.day_count.is_empty() || bond.source.is_empty() {
@@ -322,6 +397,14 @@ pub fn plan_reference_commit(
     let mut records = Vec::with_capacity(command.changes.len());
     for change in &command.changes {
         let previous = current(change.instrument_id())?;
+        if previous
+            .as_ref()
+            .is_some_and(|record| recorded_at < record.recorded_at)
+        {
+            return Err(ReferenceError::InvalidInput(
+                "recording time cannot move backwards",
+            ));
+        }
         let (version, bond) = match change {
             ReferenceChange::Create { bond } => {
                 if previous.is_some() {
@@ -385,6 +468,7 @@ pub fn plan_reference_commit(
         idempotency_key: command.idempotency_key.clone(),
         recorded_at,
         records,
+        master_records: Vec::new(),
     })
 }
 
@@ -434,9 +518,17 @@ pub fn reference_page(
 /// Resolve against one consistent read snapshot. Never select an arbitrary supplier mapping.
 pub fn resolve_reference(
     records: impl IntoIterator<Item = ReferenceRecord>,
-    identifier: &ReferenceIdentifier,
+    identifier: &ExternalIdentifier,
 ) -> Result<Option<ReferenceRecord>, ReferenceError> {
     identifier.validate()?;
+    if !matches!(
+        identifier,
+        ExternalIdentifier::Isin { .. } | ExternalIdentifier::Cusip { .. }
+    ) {
+        return Err(ReferenceError::Unsupported(
+            "current bond aliases support only ISIN/CUSIP; use resolve_at for master mappings",
+        ));
+    }
     let mut found = None;
     for (index, record) in records
         .into_iter()
@@ -446,11 +538,11 @@ pub fn resolve_reference(
         if index >= MAX_REFERENCE_RECORDS {
             return Err(ReferenceError::CapacityExceeded);
         }
-        if record
-            .bond
-            .as_ref()
-            .is_some_and(|bond| identifier.matches(bond))
-        {
+        if record.bond.as_ref().is_some_and(|bond| match identifier {
+            ExternalIdentifier::Isin { value } => bond.isin.as_ref() == Some(value),
+            ExternalIdentifier::Cusip { value } => bond.cusip.as_ref() == Some(value),
+            _ => false,
+        }) {
             if found.is_some() {
                 return Err(ReferenceError::AmbiguousIdentifier);
             }

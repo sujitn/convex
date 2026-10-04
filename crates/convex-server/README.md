@@ -68,7 +68,7 @@ All bond write requests require one `Idempotency-Key` header. PUT and DELETE add
 
 An identical retry returns the original committed response, including its original version, even after subsequent changes. A changed payload with the same key returns HTTP 409. Comparison uses normalized typed JSON, preserves exact decimal scale and includes operation order and expected versions. Transport whitespace/key order and server commit time are excluded. The repository never replaces the supplied source `last_updated` with the server clock; its independent `recorded_at` records commit time.
 
-Bond reference decimal fields are plain decimal **strings**, including coupon (decimal rate), face, call price, floating spread (bp), cap/floor, inflation base and amount outstanding. JSON numbers, scientific notation, rounding beyond supported precision and unknown fields fail reference ingress. These rules preserve exact persisted terms despite the workspace's numerical serde feature flags. The reference boundary validates identity, dates, positive face, required coupon/floating terms and basic resource limits; full convention, schedule and model certification still depends on the product matrix.
+Bond reference decimal fields are plain decimal **strings**, including coupon (decimal rate), face, call price, floating spread (bp), cap/floor, inflation base and amount outstanding. JSON numbers, scientific notation, rounding beyond supported precision and unknown fields fail reference ingress. These rules preserve exact persisted terms despite the workspace's numerical serde feature flags. New writes require explicit `contractual_terms` and exact issuer/calendar/convention pins. The [reference master contract](../convex-ports/REFERENCE_MASTER.md) explains supported schedules, rule versions, historical identity resolution and admission. The current service path admits supported fixed bullets; full product/convention certification remains separate.
 
 | Endpoint | Behavior |
 |---|---|
@@ -78,6 +78,8 @@ Bond reference decimal fields are plain decimal **strings**, including coupon (d
 | DELETE /api/v1/bonds/{id} | Append a deletion version; return 204 after commit |
 | POST /api/v1/bonds/batch | Atomic create of 1–256 complete terms; any conflict rejects the batch |
 | GET /api/v1/bonds/{id}/versions/{version} | Full immutable record including version, commit time and possible tombstone |
+| POST /api/v1/reference/transactions | Atomically commit bond and master changes; header/body idempotency keys must match |
+| POST /api/v1/reference/resolve | Resolve an identifier with supplied as_of and known_at; return mapping and target versions |
 | GET /api/v1/reference/commits/{key} | Original receipt for lost-reply/unknown-outcome recovery |
 | GET /api/v1/bonds/isin/{value} or /cusip/{value} | Current mapping; ambiguity returns 409 |
 | GET /api/v1/bonds | Deterministic internal-ID order; filtered total and page from one read snapshot |
@@ -89,23 +91,24 @@ HTTP 400 identifies invalid reference requests; 404 missing active records; 409 
 For a local fictional fixture, after starting the demo server:
 
 ```sh
-curl -i http://127.0.0.1:8080/api/v1/bonds \
+python3 -c 'import json; print(json.dumps(json.load(open("crates/convex-ext-file/tests/fixtures/instrument-master.json"))["command"]))' > /tmp/convex-reference-command.json
+curl -i -X POST http://127.0.0.1:8080/api/v1/reference/transactions \
   -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: example-reference-001' \
-  --data-binary @crates/convex-ports/tests/fixtures/reference_bond.json
-curl -i http://127.0.0.1:8080/api/v1/bonds/BOND-001
-curl -i http://127.0.0.1:8080/api/v1/reference/commits/example-reference-001
+  -H 'Idempotency-Key: master-example-initial' \
+  --data-binary @/tmp/convex-reference-command.json
+curl -i http://127.0.0.1:8080/api/v1/bonds/INSTRUMENT-001
+curl -i http://127.0.0.1:8080/api/v1/reference/commits/master-example-initial
 ```
 
-File imports use `convex_ext_file::load_bond_references` with an explicit complete JSON array, then the same atomic command port. The loader rejects missing files/fields and files above 8 MiB. The former abbreviated bond CSV source, unconditional stores and separate router store constructors have been removed. `bonds_file` startup composition remains unsupported.
+File imports use `convex_ext_file::import_reference_file` for a strict versioned command with resources and mappings in the same transaction. The full-term array loader `load_bond_references` remains available. Both reject missing files/mandatory terms and files above 8 MiB. See the [offline example and diagnostics](../convex-ports/REFERENCE_MASTER.md#file-imports-and-runnable-example). `bonds_file` startup composition remains unsupported.
 
 The initial adapters bound retained identities including tombstones to 100,000, commits to 100,000 and immutable versions to 1,000,000. Capacity exhaustion rejects writes; history/deduplication is never silently discarded. Queries and identifier resolution scan bounded local state. These bounds are safeguards, not measured throughput or latency targets. redb provides single-process transactions; managed shared-writer persistence remains future work.
 
 ## Reference schema and Rust migration
 
-The redb reference tables are `reference_current_v2`, `reference_history_v2` and `reference_commits_v2`. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. No automatic migration or invented prior history is provided.
+The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
 
-Implement `ReferenceRepository` to slot in another backend and run the shared conformance fixture. `BondStore`, `BondReferenceSource`, `BondRefDataReceiver`, `InMemoryBondStore`, `CsvBondReferenceSource`, `EmptyBondReferenceSource` and the duplicate reference filter are removed. `ReferenceDataProvider` now covers auxiliary issuer, rating and ETF sources. Router callers use `create_router(engine)`; the optional portfolio fixture helper is `create_router_with_portfolio_store`.
+Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Router callers use `create_router(engine)`; the optional portfolio fixture helper is `create_router_with_portfolio_store`.
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 

@@ -2,6 +2,9 @@
 //!
 //! Run with: cargo bench -p convex-engine
 
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -51,7 +54,8 @@ fn create_test_bond(id: usize) -> BondReferenceData {
     let coupon_idx = id % coupons.len();
     let maturity_idx = id % maturities.len();
 
-    BondReferenceData {
+    reference_terms::complete(BondReferenceData {
+        contractual_terms: None,
         instrument_id: InstrumentId::new(format!("BOND_{:05}", id)),
         isin: Some(format!("US9128{:05}X", id)),
         cusip: Some(format!("9128{:05}", id)),
@@ -84,7 +88,7 @@ fn create_test_bond(id: usize) -> BondReferenceData {
         first_coupon_date: Some(Date::from_ymd(2020, 7, 15).unwrap()),
         last_updated: 0,
         source: "bench".to_string(),
-    }
+    })
 }
 
 fn create_bond_batch(count: usize) -> Vec<BondReferenceData> {

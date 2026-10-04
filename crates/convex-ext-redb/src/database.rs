@@ -87,6 +87,14 @@ pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
         Err(e) => return Err(database_error(e)),
     }
     drop(read);
+    let existing_version = schema_version(db)?;
+    if existing_version > APPLICATION_SCHEMA_VERSION {
+        return Err(TraitError::Unsupported("newer application schema"));
+    }
+    if existing_version == APPLICATION_SCHEMA_VERSION {
+        // Reopen/inspection verifies the current schema without allocating a write transaction.
+        return validate_migrated_configurations(db);
+    }
     let write = begin_write(db)?;
     {
         let mut schema = write.open_table(SCHEMA).map_err(database_error)?;

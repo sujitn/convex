@@ -1,5 +1,8 @@
 //! Integration tests for the Convex Server API endpoints.
 
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 use std::sync::Arc;
 
 use axum::body::Body;
@@ -19,9 +22,9 @@ use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::{
     BondReferenceData, BondType, IssuerType, ReferenceDataProvider,
 };
+use convex_engine::ports::reference_master::ExternalIdentifier;
 use convex_engine::ports::reference_repository::{
-    ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceIdentifier, ReferenceRecord,
-    ReferenceRepository,
+    ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceRecord, ReferenceRepository,
 };
 use convex_engine::ports::storage::{BondFilter, Page, Pagination};
 use convex_engine::PricingEngineBuilder;
@@ -63,6 +66,195 @@ async fn reference_request(
             serde_json::from_slice(&bytes).unwrap()
         },
     )
+}
+
+#[tokio::test]
+async fn reference_master_http_remap_replay_conflicts_and_atomic_rejection() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+    let initial: Value = serde_json::from_str(include_str!(
+        "../../convex-ext-file/tests/fixtures/instrument-master.json"
+    ))
+    .unwrap();
+    let correction: Value = serde_json::from_str(include_str!(
+        "../../convex-ext-file/tests/fixtures/instrument-master-correction.json"
+    ))
+    .unwrap();
+    let command = initial["command"].clone();
+    let key = command["idempotency_key"].as_str().unwrap().to_owned();
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(command.clone()),
+        &[("idempotency-key", "wrong")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _, first) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(command.clone()),
+        &[("idempotency-key", &key)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert_eq!(first["records"][0]["version"], 1);
+    assert_eq!(first["master_records"].as_array().unwrap().len(), 5);
+    let corrected = correction["command"].clone();
+    let corrected_key = corrected["idempotency_key"].as_str().unwrap();
+    let (status, _, second) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(corrected.clone()),
+        &[("idempotency-key", corrected_key)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{second}");
+    assert_eq!(second["records"][0]["version"], 2);
+    for (identifier, as_of, known_at, expected, target_version) in [
+        (
+            "OLD-ISIN",
+            "2026-01-01T00:00:00Z",
+            first["recorded_at"].clone(),
+            StatusCode::OK,
+            1,
+        ),
+        (
+            "NEW-ISIN",
+            "2026-01-01T00:00:00Z",
+            first["recorded_at"].clone(),
+            StatusCode::NOT_FOUND,
+            0,
+        ),
+        (
+            "OLD-ISIN",
+            "2025-12-31T23:59:59.999999999Z",
+            second["recorded_at"].clone(),
+            StatusCode::OK,
+            2,
+        ),
+        (
+            "OLD-ISIN",
+            "2026-01-01T00:00:00Z",
+            second["recorded_at"].clone(),
+            StatusCode::NOT_FOUND,
+            0,
+        ),
+        (
+            "NEW-ISIN",
+            "2026-01-01T00:00:00Z",
+            second["recorded_at"].clone(),
+            StatusCode::OK,
+            2,
+        ),
+    ] {
+        let (status, _, body) = reference_request(app.clone(), "POST", "/api/v1/reference/resolve", Some(json!({"identifier":{"kind":"isin","value":identifier},"lookup":{"as_of":as_of,"known_at":known_at}})), &[]).await;
+        assert_eq!(status, expected, "{body}");
+        if expected == StatusCode::OK {
+            assert_eq!(body["target"]["instrument_id"], "INSTRUMENT-001");
+            assert_eq!(body["target_version"], target_version);
+        }
+    }
+    let (status, _, retry) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(command),
+        &[("idempotency-key", &key)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(retry, first);
+
+    let mut conflicting = corrected;
+    conflicting["idempotency_key"] = "http-ambiguity".into();
+    conflicting["changes"][0]["kind"] = "create".into();
+    conflicting["changes"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_version");
+    conflicting["changes"][0]["bond"]["instrument_id"] = "OTHER-INSTRUMENT".into();
+    let mut mapping = conflicting["master_changes"][2].clone();
+    mapping["definition"]["definition"]["mapping_id"] = "another-assertion".into();
+    mapping["definition"]["definition"]["target"]["instrument_id"] = "OTHER-INSTRUMENT".into();
+    conflicting["master_changes"] = json!([mapping]);
+    let (status, _, conflicting_receipt) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(conflicting),
+        &[("idempotency-key", "http-ambiguity")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{conflicting_receipt}");
+    let (status, _, ambiguous) = reference_request(app.clone(), "POST", "/api/v1/reference/resolve", Some(json!({"identifier":{"kind":"isin","value":"NEW-ISIN"},"lookup":{"as_of":"2026-01-01T00:00:00Z","known_at":conflicting_receipt["recorded_at"]}})), &[]).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(ambiguous["code"], "AMBIGUOUS_IDENTIFIER");
+
+    let mut invalid = initial["command"].clone();
+    invalid["idempotency_key"] = "http-invalid-atomic".into();
+    invalid["master_changes"] = json!([]);
+    invalid["changes"][0]["bond"]["instrument_id"] = "VALID-PREFIX".into();
+    let mut bad = invalid["changes"][0].clone();
+    bad["bond"]["instrument_id"] = "MISSING-TERMS".into();
+    bad["bond"]["contractual_terms"] = Value::Null;
+    invalid["changes"].as_array_mut().unwrap().push(bad);
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/reference/transactions",
+        Some(invalid),
+        &[("idempotency-key", "http-invalid-atomic")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _, _) =
+        reference_request(app, "GET", "/api/v1/bonds/VALID-PREFIX", None, &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn inline_pricing_refuses_missing_terms_resources_and_unsupported_models() {
+    let app = create_router(create_test_engine());
+    let valid = create_test_bond("ADMITTED", dec!(0.05), 2030);
+    let mut missing = create_test_bond("MISSING-TERMS", dec!(0.05), 2030);
+    missing.contractual_terms = None;
+    let mut bad_pin = create_test_bond("MISSING-CALENDAR", dec!(0.05), 2030);
+    bad_pin.contractual_terms.as_mut().unwrap().calendar.version = Version::new(99).unwrap();
+    let mut optional = create_test_bond("UNSUPPORTED", dec!(0.05), 2030);
+    optional.is_putable = true;
+    let mut hidden_optional = create_test_bond("UNDECLARED-OPTION", dec!(0.05), 2030);
+    hidden_optional
+        .call_schedule
+        .push(convex_ports::reference_data::CallScheduleEntry {
+            call_date: Date::parse("2029-06-15").unwrap(),
+            call_price: dec!(100),
+            is_make_whole: false,
+        });
+    for bond in [&missing, &bad_pin, &optional, &hidden_optional] {
+        let (status, _, body) = reference_request(
+            app.clone(),
+            "POST",
+            "/api/v1/quote",
+            Some(json!({"bond":bond,"settlement_date":"2026-10-02","market_price":"100"})),
+            &[],
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert_eq!(body["code"], "INVALID_REFERENCE");
+    }
+    for parallel in [false, true] {
+        let (status, _, body) = reference_request(app.clone(), "POST", "/api/v1/batch/price", Some(json!({"bonds":[{"bond":missing},{"bond":valid,"market_price":"100"},{"bond":bad_pin}],"settlement_date":"2026-10-02","parallel":parallel})), &[]).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["stats"]["succeeded"], 1);
+        assert_eq!(body["stats"]["failed"], 2);
+        assert_eq!(body["quotes"][0]["instrument_id"], "ADMITTED");
+        assert_eq!(body["errors"][0]["instrument_id"], "MISSING-TERMS");
+        assert_eq!(body["errors"][1]["instrument_id"], "MISSING-CALENDAR");
+    }
 }
 
 #[tokio::test]
@@ -275,6 +467,41 @@ struct LoseFirstCommitReply {
 
 #[async_trait::async_trait]
 impl ReferenceRepository for LoseFirstCommitReply {
+    async fn get_at(
+        &self,
+        id: &InstrumentId,
+        lookup: convex_engine::ports::reference_master::ReferenceLookup,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.get_at(id, lookup).await
+    }
+    async fn get_master(
+        &self,
+        key: &convex_engine::ports::reference_master::MasterKey,
+    ) -> Result<Option<convex_engine::ports::reference_master::MasterRecord>, ReferenceError> {
+        self.inner.get_master(key).await
+    }
+    async fn get_master_version(
+        &self,
+        key: &convex_engine::ports::reference_master::MasterKey,
+        version: Version,
+    ) -> Result<Option<convex_engine::ports::reference_master::MasterRecord>, ReferenceError> {
+        self.inner.get_master_version(key, version).await
+    }
+    async fn get_master_at(
+        &self,
+        key: &convex_engine::ports::reference_master::MasterKey,
+        lookup: convex_engine::ports::reference_master::ReferenceLookup,
+    ) -> Result<Option<convex_engine::ports::reference_master::MasterRecord>, ReferenceError> {
+        self.inner.get_master_at(key, lookup).await
+    }
+    async fn resolve_at(
+        &self,
+        id: &convex_engine::ports::reference_master::ExternalIdentifier,
+        lookup: convex_engine::ports::reference_master::ReferenceLookup,
+    ) -> Result<Option<convex_engine::ports::reference_master::IdentifierResolution>, ReferenceError>
+    {
+        self.inner.resolve_at(id, lookup).await
+    }
     async fn get(&self, id: &InstrumentId) -> Result<Option<ReferenceRecord>, ReferenceError> {
         self.inner.get(id).await
     }
@@ -294,7 +521,7 @@ impl ReferenceRepository for LoseFirstCommitReply {
     }
     async fn resolve(
         &self,
-        id: &ReferenceIdentifier,
+        id: &ExternalIdentifier,
     ) -> Result<Option<ReferenceRecord>, ReferenceError> {
         self.inner.resolve(id).await
     }
@@ -304,7 +531,8 @@ impl ReferenceRepository for LoseFirstCommitReply {
         time: UtcTimestamp,
     ) -> Result<ReferenceCommit, ReferenceError> {
         let committed = self.inner.commit(command, time).await?;
-        if self.lose.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        if !command.changes.is_empty() && self.lose.swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
             Err(ReferenceError::UnknownOutcome)
         } else {
             Ok(committed)
@@ -609,6 +837,20 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
 fn create_test_engine_with_storage(
     storage: convex_engine::ports::storage::StorageAdapter,
 ) -> Arc<convex_engine::PricingEngine> {
+    // These selected local adapters complete one commit without yielding; no live provider is involved.
+    use futures_util::FutureExt;
+    let template = create_test_bond("API-CONTEXT", dec!(0.05), 2030);
+    let seed = ReferenceCommand {
+        idempotency_key: convex_core::contracts::RequestId::new("api-fixture-resources").unwrap(),
+        changes: vec![],
+        master_changes: reference_terms::resources(&template),
+    };
+    storage
+        .bonds
+        .commit(&seed, UtcTimestamp::parse("2000-01-01T00:00:00Z").unwrap())
+        .now_or_never()
+        .unwrap()
+        .unwrap();
     let market_data = MarketDataProvider {
         quotes: Arc::new(EmptyQuoteSource),
         curve_inputs: Arc::new(EmptyCurveInputSource),
@@ -641,7 +883,8 @@ fn create_test_engine_with_storage(
 
 /// Create test bond reference data.
 fn create_test_bond(id: &str, coupon: Decimal, maturity_year: i32) -> BondReferenceData {
-    BondReferenceData {
+    reference_terms::complete(BondReferenceData {
+        contractual_terms: None,
         instrument_id: InstrumentId::new(id),
         isin: Some(id.to_string()),
         cusip: Some(format!("{}CUSIP", &id[..6.min(id.len())])),
@@ -674,7 +917,7 @@ fn create_test_bond(id: &str, coupon: Decimal, maturity_year: i32) -> BondRefere
         first_coupon_date: None,
         last_updated: 0,
         source: "test".to_string(),
-    }
+    })
 }
 
 /// Create a test bond quote output.

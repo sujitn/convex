@@ -15,11 +15,13 @@
 
 mod market_data;
 mod reference_data;
+mod reference_import;
 mod reference_repository;
 mod replay;
 
 pub use market_data::*;
 pub use reference_data::*;
+pub use reference_import::*;
 pub use reference_repository::*;
 pub use replay::*;
 

@@ -1,5 +1,7 @@
 //! Backend-independent executable reference transaction contract.
 
+use convex_ports::reference_master::ExternalIdentifier;
+
 use std::sync::Arc;
 
 use convex_core::contracts::{ExactDecimal, RequestId, UtcTimestamp, Version};
@@ -8,6 +10,30 @@ use convex_core::Currency;
 use convex_ports::reference_data::BondReferenceData;
 use convex_ports::reference_repository::*;
 use convex_ports::storage::{BondFilter, Pagination};
+
+#[path = "reference_terms.rs"]
+pub mod reference_terms;
+
+async fn seed(repository: &Arc<dyn ReferenceRepository>) {
+    let initial = bond("CONTEXT");
+    let mut resources = reference_terms::resources(&initial);
+    let mut other = initial.clone();
+    other.issuer_id = "OTHER".into();
+    other.contractual_terms.as_mut().unwrap().issuer.entity_id =
+        convex_core::contracts::EntityId::new("OTHER").unwrap();
+    resources.push(reference_terms::resources(&other).remove(0));
+    repository
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("fixture-context").unwrap(),
+                changes: vec![],
+                master_changes: resources,
+            },
+            UtcTimestamp::parse("2000-01-01T00:00:00Z").unwrap(),
+        )
+        .await
+        .unwrap();
+}
 
 pub fn bond(id: &str) -> BondReferenceData {
     let mut bond: BondReferenceData =
@@ -23,6 +49,7 @@ pub fn version(value: u64) -> Version {
 }
 pub fn command(key: &str, changes: Vec<ReferenceChange>) -> ReferenceCommand {
     ReferenceCommand {
+        master_changes: Vec::new(),
         idempotency_key: RequestId::new(key).unwrap(),
         changes,
     }
@@ -40,6 +67,7 @@ pub fn update(bond: BondReferenceData, expected: u64) -> ReferenceChange {
 }
 
 pub async fn versions_history_and_mapping(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let initial = bond("HISTORY");
     let created = repository
         .commit(
@@ -77,18 +105,24 @@ pub async fn versions_history_and_mapping(repository: Arc<dyn ReferenceRepositor
         .unwrap()
         .is_none());
     assert!(repository
-        .resolve(&ReferenceIdentifier::Isin(initial.isin.unwrap()))
+        .resolve(&ExternalIdentifier::Isin {
+            value: initial.isin.unwrap()
+        })
         .await
         .unwrap()
         .is_none());
     assert!(repository
-        .resolve(&ReferenceIdentifier::Cusip(initial.cusip.unwrap()))
+        .resolve(&ExternalIdentifier::Cusip {
+            value: initial.cusip.unwrap()
+        })
         .await
         .unwrap()
         .is_none());
     assert_eq!(
         repository
-            .resolve(&ReferenceIdentifier::Isin("remapped-isin".into()))
+            .resolve(&ExternalIdentifier::Isin {
+                value: "remapped-isin".into()
+            })
             .await
             .unwrap(),
         Some(updated.records[0].clone())
@@ -128,7 +162,9 @@ pub async fn versions_history_and_mapping(repository: Arc<dyn ReferenceRepositor
         0
     );
     assert!(repository
-        .resolve(&ReferenceIdentifier::Isin("remapped-isin".into()))
+        .resolve(&ExternalIdentifier::Isin {
+            value: "remapped-isin".into()
+        })
         .await
         .unwrap()
         .is_none());
@@ -141,6 +177,7 @@ pub async fn versions_history_and_mapping(repository: Arc<dyn ReferenceRepositor
 }
 
 pub async fn conflict_is_atomic(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let existing = bond("EXISTING");
     repository
         .commit(&command("seed", vec![create(existing.clone())]), time())
@@ -186,6 +223,7 @@ pub async fn conflict_is_atomic(repository: Arc<dyn ReferenceRepository>) {
 }
 
 pub async fn retry_preserves_original_result(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let original = bond("RETRY");
     let first = command("original", vec![create(original.clone())]);
     let result = repository.commit(&first, time()).await.unwrap();
@@ -227,6 +265,7 @@ pub async fn retry_preserves_original_result(repository: Arc<dyn ReferenceReposi
 }
 
 pub async fn expected_version_race(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let initial = bond("RACE");
     repository
         .commit(&command("race-seed", vec![create(initial.clone())]), time())
@@ -280,6 +319,7 @@ pub async fn expected_version_race(repository: Arc<dyn ReferenceRepository>) {
 }
 
 pub async fn identical_retry_race(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let mutation = command("same-key", vec![create(bond("SAME"))]);
     let mut tasks = Vec::new();
     for _ in 0..16 {
@@ -309,11 +349,14 @@ pub async fn identical_retry_race(repository: Arc<dyn ReferenceRepository>) {
 }
 
 pub async fn filters_and_ambiguity(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let mut first = bond("A");
     first.description = "Alpha Technology".into();
     let mut second = bond("B");
     second.currency = Currency::EUR;
     second.issuer_id = "OTHER".into();
+    second.contractual_terms.as_mut().unwrap().issuer.entity_id =
+        convex_core::contracts::EntityId::new("OTHER").unwrap();
     second.sector = "Financials".into();
     let mut third = bond("C");
     third.isin = Some("unique-third".into());
@@ -376,7 +419,9 @@ pub async fn filters_and_ambiguity(repository: Arc<dyn ReferenceRepository>) {
     assert_eq!(page.items[0].bond.as_ref(), Some(&first));
     assert_eq!(
         repository
-            .resolve(&ReferenceIdentifier::Isin(first.isin.unwrap()))
+            .resolve(&ExternalIdentifier::Isin {
+                value: first.isin.unwrap()
+            })
             .await,
         Err(ReferenceError::AmbiguousIdentifier)
     );
@@ -396,6 +441,7 @@ pub async fn filters_and_ambiguity(repository: Arc<dyn ReferenceRepository>) {
 }
 
 pub async fn exact_precision_and_failed_validation(repository: Arc<dyn ReferenceRepository>) {
+    seed(&repository).await;
     let mut exact = bond("EXACT");
     exact.coupon_rate = Some(
         ExactDecimal::parse("-0.1234567890123456789012345678")

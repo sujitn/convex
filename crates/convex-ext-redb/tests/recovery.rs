@@ -7,6 +7,8 @@ use convex_ports::storage::*;
 use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
 
 #[derive(Deserialize)]
 struct Seed {
@@ -28,6 +30,7 @@ fn seed() -> Seed {
 }
 fn initial(seed: &Seed) -> ReferenceCommand {
     ReferenceCommand {
+        master_changes: reference_terms::resources(&seed.reference_bond),
         idempotency_key: RequestId::new(&seed.reference_create_key).unwrap(),
         changes: vec![ReferenceChange::Create {
             bond: Box::new(seed.reference_bond.clone()),
@@ -66,6 +69,7 @@ async fn populate(path: &Path) {
         .bonds
         .commit(
             &ReferenceCommand {
+                master_changes: Vec::new(),
                 idempotency_key: RequestId::new(&seed.reference_update_key).unwrap(),
                 changes: vec![ReferenceChange::Update {
                     bond: Box::new(bond),
@@ -81,6 +85,31 @@ async fn populate(path: &Path) {
 }
 
 async fn verify(path: &Path) {
+    verify_state(path, true).await;
+    // Offline compaction normalizes allocator/free-page state after the larger fixture.
+    // Verify physical integrity and then reconcile all business records again.
+    // Keep backup_database's fail-closed repair guard unchanged.
+    let compact = Command::new(env!("CARGO_BIN_EXE_convex-redb"))
+        .args(["compact".as_ref(), path.as_os_str()])
+        .output()
+        .unwrap();
+    assert!(
+        compact.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compact.stderr)
+    );
+    let mut database = redb::Database::open(path).unwrap();
+    assert!(
+        database.check_integrity().unwrap(),
+        "compacted fixture must pass integrity without repair"
+    );
+    drop(database);
+    // Reconcile every retained business value again after any physical repair,
+    // without issuing retry writes that would change allocator state before backup.
+    verify_state(path, false).await;
+}
+
+async fn verify_state(path: &Path, check_retries: bool) {
     let seed = seed();
     let storage = create_redb_storage(path).unwrap();
     for config in &seed.configs {
@@ -92,7 +121,9 @@ async fn verify(path: &Path) {
                 .unwrap(),
             Some(config.clone())
         );
-        storage.configs.save(config).await.unwrap();
+        if check_retries {
+            storage.configs.save(config).await.unwrap();
+        }
     }
     assert_eq!(
         storage
@@ -149,14 +180,26 @@ async fn verify(path: &Path) {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(
-        storage
-            .bonds
-            .commit(&first, UtcTimestamp::parse("2026-10-04T12:00:00Z").unwrap())
-            .await
-            .unwrap(),
-        receipt
-    );
+    if check_retries {
+        assert_eq!(
+            storage
+                .bonds
+                .commit(&first, UtcTimestamp::parse("2026-10-04T12:00:00Z").unwrap())
+                .await
+                .unwrap(),
+            receipt
+        );
+    }
+    for record in &receipt.master_records {
+        assert_eq!(
+            storage
+                .bonds
+                .get_master_version(&record.definition.key(), record.version)
+                .await
+                .unwrap(),
+            Some(record.clone())
+        );
+    }
     assert_eq!(
         storage
             .bonds
@@ -180,10 +223,12 @@ async fn verify(path: &Path) {
     if let ReferenceChange::Create { bond } = &mut reused.changes[0] {
         bond.description = "changed key content".into();
     }
-    assert!(matches!(
-        storage.bonds.commit(&reused, seed.recorded_at).await,
-        Err(ReferenceError::Conflict(_))
-    ));
+    if check_retries {
+        assert!(matches!(
+            storage.bonds.commit(&reused, seed.recorded_at).await,
+            Err(ReferenceError::Conflict(_))
+        ));
+    }
 }
 
 #[test]

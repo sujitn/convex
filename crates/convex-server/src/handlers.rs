@@ -254,6 +254,13 @@ pub async fn price_single_bond(
     use convex_engine::pricing_router::PricingInput;
     use rust_decimal::prelude::FromPrimitive;
 
+    if let Err(error) = state.engine.validate_inline_reference(&request.bond).await {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"error": error.to_string(), "code": "INVALID_REFERENCE"})),
+        );
+    }
+
     // Parse settlement date
     let settlement_date = match parse_date(&request.settlement_date) {
         Ok(d) => d,
@@ -967,6 +974,22 @@ pub async fn batch_price(
     };
 
     // Build pricing inputs
+    if request.bonds.len() > 1000 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error":"batch limit is 1000 bonds"})),
+        );
+    }
+    let mut validation_errors = Vec::with_capacity(request.bonds.len());
+    for item in &request.bonds {
+        validation_errors.push(
+            state
+                .engine
+                .validate_inline_reference(&item.bond)
+                .await
+                .err(),
+        );
+    }
     let inputs: Vec<PricingInput> = request
         .bonds
         .into_iter()
@@ -987,11 +1010,33 @@ pub async fn batch_price(
     let start = Instant::now();
 
     // Execute pricing (parallel or sequential)
-    let results = if request.parallel {
-        router.price_batch_parallel(&inputs)
+    let instrument_ids: Vec<_> = inputs
+        .iter()
+        .map(|input| input.bond.instrument_id.as_str().to_owned())
+        .collect();
+    let valid_inputs: Vec<_> = inputs
+        .into_iter()
+        .zip(&validation_errors)
+        .filter(|(_, error)| error.is_none())
+        .map(|(input, _)| input)
+        .collect();
+    let mut valid_results = if request.parallel {
+        router.price_batch_parallel(&valid_inputs)
     } else {
-        router.price_batch(&inputs)
-    };
+        router.price_batch(&valid_inputs)
+    }
+    .into_iter();
+    let results: Vec<_> = validation_errors
+        .into_iter()
+        .map(|error| match error {
+            Some(error) => Err(convex_engine::EngineError::PricingError(error.to_string())),
+            None => valid_results.next().unwrap_or_else(|| {
+                Err(convex_engine::EngineError::Internal(
+                    "missing batch result".into(),
+                ))
+            }),
+        })
+        .collect();
 
     let elapsed = start.elapsed();
     let elapsed_ms = elapsed.as_millis() as u64;
@@ -1000,7 +1045,7 @@ pub async fn batch_price(
     let mut quotes = Vec::new();
     let mut errors = Vec::new();
 
-    for (i, result) in results.into_iter().enumerate() {
+    for (result, instrument_id) in results.into_iter().zip(instrument_ids) {
         match result {
             Ok(quote) => {
                 // Publish to WebSocket subscribers
@@ -1008,10 +1053,7 @@ pub async fn batch_price(
                 quotes.push(quote);
             }
             Err(e) => errors.push(PricingError {
-                instrument_id: inputs
-                    .get(i)
-                    .map(|inp| inp.bond.instrument_id.as_str().to_string())
-                    .unwrap_or_else(|| format!("index_{}", i)),
+                instrument_id,
                 error: e.to_string(),
             }),
         }

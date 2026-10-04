@@ -164,6 +164,10 @@ pub struct BondReferenceData {
     pub last_updated: i64,
     /// Source
     pub source: String,
+    /// Complete contractual settings and immutable reference pins.
+    /// Absent only on older stored records; new writes and valuation require them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contractual_terms: Option<crate::reference_master::BondContractTerms>,
 }
 
 // Exact reference terms must survive every dependency feature combination and

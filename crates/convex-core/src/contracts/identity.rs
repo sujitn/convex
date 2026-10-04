@@ -84,6 +84,10 @@ identifier!(
     "Internal issuer, reference entity or legal entity identity."
 );
 identifier!(
+    ReferenceDataId,
+    "Internal calendar, convention or mapping identity."
+);
+identifier!(
     SnapshotId,
     "Identity of an immutable supplied information set."
 );

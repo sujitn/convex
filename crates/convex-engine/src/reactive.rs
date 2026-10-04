@@ -8,6 +8,9 @@
 //! - Node update broadcasting
 //! - **Actual calculation execution** via PricingRouter
 
+#[cfg(test)]
+use crate::reference_terms;
+
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -347,8 +350,21 @@ impl ReactiveEngine {
         references: &Arc<dyn ReferenceRepository>,
         settlement_date: Date,
     ) -> NodeValue {
-        let reference = match references.get(instrument_id).await {
-            Ok(reference) => reference,
+        let time = match convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now()) {
+            Ok(t) => t,
+            Err(_) => return NodeValue::Empty,
+        };
+        let reference = match references
+            .for_valuation(
+                instrument_id,
+                crate::ports::reference_master::ReferenceLookup {
+                    as_of: time,
+                    known_at: time,
+                },
+            )
+            .await
+        {
+            Ok(reference) => reference.map(|resolved| resolved.record),
             Err(error) => {
                 warn!("Reference unavailable for {}: {}", instrument_id, error);
                 return NodeValue::Empty;
@@ -857,7 +873,8 @@ mod tests {
         let instrument_id = InstrumentId::new("TEST_BOND_001");
 
         // Commit bond reference data to the shared repository
-        let bond_ref = BondReferenceData {
+        let bond_ref = reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: instrument_id.clone(),
             isin: Some("US912810TD00".to_string()),
             cusip: Some("912810TD0".to_string()),
@@ -890,12 +907,13 @@ mod tests {
             first_coupon_date: None,
             last_updated: 0,
             source: "test".to_string(),
-        };
+        });
 
         engine
             .references
             .commit(
                 &crate::ports::reference_repository::ReferenceCommand {
+                    master_changes: reference_terms::resources(&bond_ref),
                     idempotency_key: convex_core::contracts::RequestId::new("reactive-test")
                         .unwrap(),
                     changes: vec![

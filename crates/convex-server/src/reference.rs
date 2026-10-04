@@ -11,6 +11,7 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
+use convex_engine::ports::reference_master::{ExternalIdentifier, ReferenceLookup};
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
 use serde::Deserialize;
@@ -20,8 +21,9 @@ use crate::handlers::AppState;
 pub(crate) fn reference_error(error: ReferenceError) -> Response {
     let (status, code, retryable) = match error {
         ReferenceError::InvalidInput(_) => (StatusCode::BAD_REQUEST, "INVALID_INPUT", false),
-        ReferenceError::Conflict(_) | ReferenceError::AmbiguousIdentifier => {
-            (StatusCode::CONFLICT, "VERSION_CONFLICT", false)
+        ReferenceError::Conflict(_) => (StatusCode::CONFLICT, "VERSION_CONFLICT", false),
+        ReferenceError::AmbiguousIdentifier => {
+            (StatusCode::CONFLICT, "AMBIGUOUS_IDENTIFIER", false)
         }
         ReferenceError::NotFound => (StatusCode::NOT_FOUND, "MISSING_REFERENCE", false),
         ReferenceError::CapacityExceeded => (StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", false),
@@ -36,6 +38,69 @@ pub(crate) fn reference_error(error: ReferenceError) -> Response {
         Json(serde_json::json!({"error":error.to_string(), "code":code, "retryable":retryable})),
     )
         .into_response()
+}
+
+pub(crate) async fn commit_reference_transaction(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    payload: Result<Json<ReferenceCommand>, JsonRejection>,
+) -> Response {
+    let command = match payload {
+        Ok(Json(command)) => command,
+        Err(_) => {
+            return reference_error(ReferenceError::InvalidInput(
+                "invalid reference command JSON",
+            ))
+        }
+    };
+    let header_key = match key(&headers) {
+        Ok(key) => key,
+        Err(error) => return reference_error(error),
+    };
+    if command.idempotency_key != header_key {
+        return reference_error(ReferenceError::InvalidInput(
+            "header/body idempotency keys differ",
+        ));
+    }
+    let time = match now() {
+        Ok(time) => time,
+        Err(error) => return reference_error(error),
+    };
+    match state.engine.commit_reference(&command, time).await {
+        Ok(receipt) => Json(receipt).into_response(),
+        Err(error) => reference_error(error),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ResolveReferenceRequest {
+    identifier: ExternalIdentifier,
+    lookup: ReferenceLookup,
+}
+
+pub(crate) async fn resolve_reference_at(
+    State(state): State<Arc<AppState>>,
+    payload: Result<Json<ResolveReferenceRequest>, JsonRejection>,
+) -> Response {
+    let request = match payload {
+        Ok(Json(request)) => request,
+        Err(_) => {
+            return reference_error(ReferenceError::InvalidInput(
+                "invalid reference resolution JSON",
+            ))
+        }
+    };
+    match state
+        .engine
+        .reference_repository()
+        .resolve_at(&request.identifier, request.lookup)
+        .await
+    {
+        Ok(Some(resolved)) => Json(resolved).into_response(),
+        Ok(None) => reference_error(ReferenceError::NotFound),
+        Err(error) => reference_error(error),
+    }
 }
 
 fn one_header<'a>(headers: &'a HeaderMap, name: &'static str) -> Result<&'a str, ReferenceError> {
@@ -127,6 +192,7 @@ async fn mutate(
 ) -> Response {
     let command = match key(headers) {
         Ok(idempotency_key) => ReferenceCommand {
+            master_changes: Vec::new(),
             idempotency_key,
             changes,
         },
@@ -260,6 +326,7 @@ pub(crate) async fn batch_create_bonds(
         Err(error) => return reference_error(error),
     };
     let command = ReferenceCommand {
+        master_changes: Vec::new(),
         idempotency_key,
         changes: request
             .bonds
@@ -334,7 +401,7 @@ pub(crate) async fn get_reference_commit(
     }
 }
 
-async fn resolve(state: &AppState, identifier: ReferenceIdentifier) -> Response {
+async fn resolve(state: &AppState, identifier: ExternalIdentifier) -> Response {
     match state
         .engine
         .reference_repository()
@@ -351,13 +418,13 @@ pub(crate) async fn get_bond_by_isin(
     State(state): State<Arc<AppState>>,
     Path(value): Path<String>,
 ) -> Response {
-    resolve(&state, ReferenceIdentifier::Isin(value)).await
+    resolve(&state, ExternalIdentifier::Isin { value }).await
 }
 pub(crate) async fn get_bond_by_cusip(
     State(state): State<Arc<AppState>>,
     Path(value): Path<String>,
 ) -> Response {
-    resolve(&state, ReferenceIdentifier::Cusip(value)).await
+    resolve(&state, ExternalIdentifier::Cusip { value }).await
 }
 
 fn default_limit() -> usize {

@@ -27,6 +27,36 @@ use convex_ext_file::{
 };
 use convex_server::routes::create_router;
 
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
+async fn complete_batch_reference(request: &mut Value, engine: &convex_engine::PricingEngine) {
+    use convex_core::contracts::{RequestId, UtcTimestamp};
+    use convex_ports::reference_data::BondReferenceData;
+    use convex_ports::reference_repository::ReferenceCommand;
+    let mut resources = std::collections::BTreeMap::new();
+    for item in request["bonds"].as_array_mut().unwrap() {
+        let bond: BondReferenceData = serde_json::from_value(item["bond"].clone()).unwrap();
+        let bond = reference_terms::complete(bond);
+        for resource in reference_terms::resources(&bond) {
+            resources.insert(resource.definition.key(), resource);
+        }
+        item["bond"] = serde_json::to_value(bond).unwrap();
+    }
+    let command = ReferenceCommand {
+        idempotency_key: RequestId::new("websocket-fixture-resources").unwrap(),
+        changes: Vec::new(),
+        master_changes: resources.into_values().collect(),
+    };
+    engine
+        .commit_reference(
+            &command,
+            UtcTimestamp::parse("2000-01-01T00:00:00Z").unwrap(),
+        )
+        .await
+        .unwrap();
+}
+
 /// Create a test engine with empty providers.
 fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     let market_data = MarketDataProvider {
@@ -393,7 +423,7 @@ async fn test_websocket_ping_pong() {
 
 #[tokio::test]
 async fn test_websocket_receives_bond_quote_broadcast() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect WebSocket client
@@ -413,7 +443,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
 
     // Trigger batch pricing via REST API
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "US912828ZT09",
@@ -447,6 +477,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
@@ -478,7 +509,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
 
 #[tokio::test]
 async fn test_websocket_receives_filtered_bond_quote() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect WebSocket client
@@ -501,7 +532,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
 
     // Trigger batch pricing for subscribed bond
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "US912828ZT09",
@@ -535,6 +566,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
@@ -570,7 +602,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
 
 #[tokio::test]
 async fn test_websocket_multiple_clients_receive_broadcast() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect two WebSocket clients
@@ -607,7 +639,7 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
 
     // Trigger batch pricing
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "MULTI_TEST",
@@ -641,6 +673,7 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)

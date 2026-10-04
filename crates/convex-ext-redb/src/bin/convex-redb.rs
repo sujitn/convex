@@ -14,7 +14,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             migrate_database(&db)?;
             println!("application schema {}", convex_ext_redb::APPLICATION_SCHEMA_VERSION);
         },
-        _ => return Err("usage: convex-redb backup DATABASE NEW_DIRECTORY | restore BACKUP_DIRECTORY NEW_DATABASE | migrate DATABASE".into()),
+        [operation, source] if operation == "compact" => {
+            let mut db = redb::Database::open(Path::new(source))?;
+            let changed = db.compact()?;
+            println!("{}", serde_json::json!({"compacted":changed, "business_records_reconciled":false}));
+        },
+        _ => return Err("usage: convex-redb backup DATABASE NEW_DIRECTORY | restore BACKUP_DIRECTORY NEW_DATABASE | migrate DATABASE | compact DATABASE".into()),
     }
     Ok(())
 }

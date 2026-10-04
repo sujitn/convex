@@ -818,6 +818,7 @@ dependencies = [
  "convex-ext-file",
  "convex-ext-redb",
  "convex-portfolio",
+ "convex-ports",
  "dashmap",
  "futures",
  "futures-util",

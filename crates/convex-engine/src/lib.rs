@@ -39,6 +39,10 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+#[cfg(test)]
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 pub mod builder;
 pub mod calc_graph;
 pub mod curve_builder;
@@ -295,12 +299,53 @@ impl PricingEngine {
         Option<ports::reference_repository::ReferenceRecord>,
         ports::reference_repository::ReferenceError,
     > {
+        let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(|_| ports::reference_repository::ReferenceError::Unavailable)?;
+        self.reference_at_for_pricing(
+            id,
+            ports::reference_master::ReferenceLookup {
+                as_of: time,
+                known_at: time,
+            },
+        )
+        .await
+    }
+
+    /// Validate a supplied economic/known-at reference context for deterministic application use.
+    pub async fn reference_at_for_pricing(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+        lookup: ports::reference_master::ReferenceLookup,
+    ) -> Result<
+        Option<ports::reference_repository::ReferenceRecord>,
+        ports::reference_repository::ReferenceError,
+    > {
         Ok(self
             .storage
             .bonds
-            .get(id)
+            .for_valuation(id, lookup)
             .await?
-            .filter(|record| record.bond.is_some()))
+            .map(|resolved| resolved.record))
+    }
+
+    /// Validate inline terms and their exact resource pins before service pricing.
+    pub async fn validate_inline_reference(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+    ) -> Result<(), ports::reference_repository::ReferenceError> {
+        let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(|_| ports::reference_repository::ReferenceError::Unavailable)?;
+        self.storage
+            .bonds
+            .resources_for_valuation(
+                bond,
+                ports::reference_master::ReferenceLookup {
+                    as_of: time,
+                    known_at: time,
+                },
+            )
+            .await?;
+        Ok(())
     }
 
     /// Commit a reference use case before invalidating dependent pricing work.

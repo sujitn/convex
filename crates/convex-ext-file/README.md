@@ -102,3 +102,12 @@ EURIBOR-3M,2026-10-02,0.025,1791086400100,file-eod
 Index names SOFR, ESTR, SONIA, EURIBOR-tenor and TERM-SOFR-tenor map to native index types; other bounded names retain their explicit Other identity. Fixing ranges are inclusive and date-ordered; duplicate index/date records fail. This file snapshot does not provide fixing revision history or known-at filtering.
 
 Convert previous curve numeric rates to exact strings and supply authoritative instrument types, timestamps and source names. Previous quote files also need recorded timestamps and sources. There is no fallback that invents their provenance. An intentionally empty snapshot uses a header-only CSV or `[]` curve JSON; demo/test composition can explicitly use the existing empty sources.
+
+## Reference master imports
+
+The [reference master contract](../convex-ports/REFERENCE_MASTER.md) describes the strict
+8 MiB command importer, row/field conflict diagnostics, historical mappings and
+exact resource pins. `import_reference_file` uses the configured authoritative port
+for one atomic bond/entity/calendar/convention/mapping transaction.
+The runnable offline example validates, imports, resolves by effective/information
+time and reads exact prior terms versions. Import files must remain immutable.

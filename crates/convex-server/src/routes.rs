@@ -73,6 +73,14 @@ fn create_router_with_options(
             "/api/v1/reference/commits/:key",
             get(reference::get_reference_commit),
         )
+        .route(
+            "/api/v1/reference/transactions",
+            post(reference::commit_reference_transaction),
+        )
+        .route(
+            "/api/v1/reference/resolve",
+            post(reference::resolve_reference_at),
+        )
         // Quotes (Pricing)
         .route(
             "/api/v1/quotes/:instrument_id",

@@ -54,6 +54,8 @@ async fn reopen_recovers_history_and_lost_response_by_key() {
     use conformance::*;
     let (directory, repository) = repository();
     let first = command("lost-reply", vec![create(bond("DURABLE"))]);
+    let mut first = first;
+    first.master_changes = reference_terms::resources(&bond("DURABLE"));
     let receipt = repository.commit(&first, time()).await.unwrap();
     let mut revised = bond("DURABLE");
     revised.description = "revision".into();

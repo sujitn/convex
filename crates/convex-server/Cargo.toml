@@ -52,6 +52,7 @@ name = "convex-server"
 path = "src/main.rs"
 
 [dev-dependencies]
+convex-ports = { workspace = true }
 async-trait = "0.1"
 tempfile = "3"
 reqwest = { version = "0.13", features = ["json"] }

@@ -1,7 +1,6 @@
 //! Memory conformance adapter and bounded full-term file import.
 
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::path::Path;
 use std::sync::RwLock;
 
@@ -9,6 +8,7 @@ use async_trait::async_trait;
 use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_ports::reference_data::BondReferenceData;
+use convex_ports::reference_master::*;
 use convex_ports::reference_repository::*;
 use convex_ports::storage::{BondFilter, Page, Pagination};
 
@@ -17,6 +17,8 @@ struct ReferenceState {
     current: BTreeMap<String, ReferenceRecord>,
     history: BTreeMap<(String, Version), ReferenceRecord>,
     commits: BTreeMap<RequestId, CommittedReferenceCommand>,
+    master_current: BTreeMap<MasterKey, MasterRecord>,
+    master_history: BTreeMap<(MasterKey, Version), MasterRecord>,
 }
 
 /// Volatile reference adapter for tests and explicit embedded demonstrations.
@@ -65,7 +67,7 @@ impl ReferenceRepository for MemoryReferenceRepository {
 
     async fn resolve(
         &self,
-        identifier: &ReferenceIdentifier,
+        identifier: &ExternalIdentifier,
     ) -> Result<Option<ReferenceRecord>, ReferenceError> {
         let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
         resolve_reference(state.current.values().cloned(), identifier)
@@ -76,7 +78,6 @@ impl ReferenceRepository for MemoryReferenceRepository {
         command: &ReferenceCommand,
         recorded_at: UtcTimestamp,
     ) -> Result<ReferenceCommit, ReferenceError> {
-        command.validate()?;
         let mut state = self
             .state
             .write()
@@ -90,19 +91,44 @@ impl ReferenceRepository for MemoryReferenceRepository {
                 ))
             };
         }
-        let result = plan_reference_commit(command, recorded_at, |id| {
+        let mut result = plan_reference_commit(command, recorded_at, |id| {
             Ok(state.current.get(id.as_str()).cloned())
         })?;
+        result.master_records = plan_master_changes(&command.master_changes, recorded_at, |key| {
+            Ok(state.master_current.get(key).cloned())
+        })?;
+        validate_reference_links(
+            &result,
+            |id| Ok(state.current.get(id.as_str()).cloned()),
+            |key, version| Ok(state.master_history.get(&(key.clone(), version)).cloned()),
+        )?;
         let creates = result
             .records
             .iter()
             .filter(|record| !state.current.contains_key(record.instrument_id.as_str()))
             .count();
-        if state.current.len() + creates > MAX_REFERENCE_RECORDS
+        let master_creates = result
+            .master_records
+            .iter()
+            .filter(|r| !state.master_current.contains_key(&r.definition.key()))
+            .count();
+        if state.current.len() + state.master_current.len() + creates + master_creates
+            > MAX_REFERENCE_RECORDS
             || state.commits.len() >= MAX_REFERENCE_COMMITS
-            || state.history.len() + result.records.len() > MAX_REFERENCE_VERSIONS
+            || state.history.len()
+                + state.master_history.len()
+                + result.records.len()
+                + result.master_records.len()
+                > MAX_REFERENCE_VERSIONS
         {
             return Err(ReferenceError::CapacityExceeded);
+        }
+        for record in &result.master_records {
+            let key = record.definition.key();
+            state.master_current.insert(key.clone(), record.clone());
+            state
+                .master_history
+                .insert((key, record.version), record.clone());
         }
         // No fallible operations remain after preflight. Readers cannot observe a prefix.
         for record in &result.records {
@@ -133,6 +159,128 @@ impl ReferenceRepository for MemoryReferenceRepository {
             .get(key)
             .map(|entry| entry.result.clone()))
     }
+
+    async fn get_at(
+        &self,
+        id: &InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        validate_reference_id(id)?;
+        let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
+        select_bond_at(
+            state
+                .history
+                .range(
+                    (
+                        id.as_str().to_owned(),
+                        Version::new(1).map_err(|_| ReferenceError::Unavailable)?,
+                    )
+                        ..=(
+                            id.as_str().to_owned(),
+                            Version::new(u64::MAX).map_err(|_| ReferenceError::Unavailable)?,
+                        ),
+                )
+                .map(|(_, r)| r.clone()),
+            lookup,
+        )
+    }
+
+    async fn get_master(&self, key: &MasterKey) -> Result<Option<MasterRecord>, ReferenceError> {
+        Ok(self
+            .state
+            .read()
+            .map_err(|_| ReferenceError::Unavailable)?
+            .master_current
+            .get(key)
+            .cloned())
+    }
+
+    async fn get_master_version(
+        &self,
+        key: &MasterKey,
+        version: Version,
+    ) -> Result<Option<MasterRecord>, ReferenceError> {
+        Ok(self
+            .state
+            .read()
+            .map_err(|_| ReferenceError::Unavailable)?
+            .master_history
+            .get(&(key.clone(), version))
+            .cloned())
+    }
+
+    async fn get_master_at(
+        &self,
+        key: &MasterKey,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<MasterRecord>, ReferenceError> {
+        let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
+        select_master_at(
+            state
+                .master_history
+                .range(
+                    (
+                        key.clone(),
+                        Version::new(1).map_err(|_| ReferenceError::Unavailable)?,
+                    )
+                        ..=(
+                            key.clone(),
+                            Version::new(u64::MAX).map_err(|_| ReferenceError::Unavailable)?,
+                        ),
+                )
+                .map(|(_, r)| r.clone()),
+            lookup,
+        )
+    }
+
+    async fn resolve_at(
+        &self,
+        identifier: &ExternalIdentifier,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<IdentifierResolution>, ReferenceError> {
+        let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
+        let Some(mapping) =
+            select_mapping_at(state.master_history.values().cloned(), identifier, lookup)?
+        else {
+            return Ok(None);
+        };
+        let MasterDefinition::Identifier(definition) = &mapping.definition else {
+            return Err(ReferenceError::InvalidInput("not a mapping"));
+        };
+        let target = definition.target.clone().ok_or(ReferenceError::NotFound)?;
+        let target_version = match &target {
+            ReferenceTarget::Instrument { instrument_id } => {
+                let record = select_bond_at(
+                    state
+                        .history
+                        .iter()
+                        .filter(|((id, _), _)| id == instrument_id.as_str())
+                        .map(|(_, r)| r.clone()),
+                    lookup,
+                )?
+                .ok_or(ReferenceError::NotFound)?;
+                validate_bond_reference(record.bond.as_ref().ok_or(ReferenceError::NotFound)?)?;
+                record.version
+            }
+            ReferenceTarget::Entity { entity_id } => {
+                select_master_at(
+                    state
+                        .master_history
+                        .iter()
+                        .filter(|((key, _), _)| *key == MasterKey::Entity(entity_id.clone()))
+                        .map(|(_, r)| r.clone()),
+                    lookup,
+                )?
+                .ok_or(ReferenceError::NotFound)?
+                .version
+            }
+        };
+        Ok(Some(IdentifierResolution {
+            mapping,
+            target,
+            target_version,
+        }))
+    }
 }
 
 /// Load a complete JSON array of bond terms for an explicit atomic repository import.
@@ -140,15 +288,7 @@ impl ReferenceRepository for MemoryReferenceRepository {
 pub fn load_bond_references(
     path: impl AsRef<Path>,
 ) -> Result<Vec<BondReferenceData>, ReferenceError> {
-    const MAX_BYTES: u64 = 8 * 1024 * 1024;
-    let file = std::fs::File::open(path).map_err(|_| ReferenceError::Unavailable)?;
-    let mut bytes = Vec::new();
-    file.take(MAX_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ReferenceError::Unavailable)?;
-    if bytes.len() as u64 > MAX_BYTES {
-        return Err(ReferenceError::CapacityExceeded);
-    }
+    let bytes = crate::reference_import::read_reference_file(path.as_ref())?;
     let bonds: Vec<BondReferenceData> = serde_json::from_slice(&bytes)
         .map_err(|_| ReferenceError::InvalidInput("expected complete bond reference JSON array"))?;
     if bonds.is_empty() || bonds.len() > MAX_REFERENCE_CHANGES {
