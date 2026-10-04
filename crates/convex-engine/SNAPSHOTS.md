@@ -7,9 +7,10 @@ cases in `convex-engine`; database, file and feed implementations remain behind
 ports. They create no background task or additional runtime.
 
 The current implementation supports reference-admitted fixed bullet bonds and
-observed mid clean marks. Integration with the authoritative calculation graph,
-generation-checked publication and the server lifecycle remains subsequent work.
-The existing reactive and v1 server paths have not acquired these guarantees.
+observed mid clean marks. The [calculation graph](GRAPH.md) now admits complete
+snapshot/context tickets and commits only their current generation. Authoritative
+runtime and server lifecycle adoption remain subsequent work; the existing reactive
+and v1 server compatibility paths do not inherit full immutable-context guarantees.
 
 ## Capture and time
 
@@ -216,9 +217,10 @@ date/default policy and discarded fractional pillars. Native pure curve
 constructors remain available. Builder input hashes now include actual input
 content instead of the formatted input string's length.
 
-Next, the graph must capture generations before calculation, calculate in
-dependency order, carry structured failures and commit only when input generations
-still match. The authoritative runtime can then call these use cases and publish
-one consistent snapshot/context/result. This implementation supplies the required
-values and boundaries; it does not mark the existing graph's `Empty` results or
-synthetic server curves as production-safe.
+The graph now captures generations before calculation, admits work in dependency
+order, propagates structured failures and rejects obsolete commits. Its
+[contract and migration guide](GRAPH.md) covers snapshot/context tickets and current
+runtime limits. Next, the authoritative runtime must call these use cases and
+publish one consistent snapshot/context/result. The older coordinator explicitly
+reports Unsupported, while synthetic server curves and complete runtime adoption
+remain unresolved production work.

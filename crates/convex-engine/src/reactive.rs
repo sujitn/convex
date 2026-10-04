@@ -22,13 +22,17 @@ use crate::ports::reference_repository::ReferenceRepository;
 use convex_core::ids::*;
 use convex_core::Date;
 
-use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
-use crate::curve_builder::{BuiltCurve, CurveBuilder};
+use crate::calc_graph::{
+    CalculationFailure, CalculationGraph, CalculationTicket, CommitOutcome, GraphError, NodeId,
+    NodeRole, NodeSpec, NodeValue,
+};
+use crate::curve_builder::CurveBuilder;
 use crate::market_data_listener::{MarketDataListener, MarketDataPublisher};
 use crate::pricing_router::{PricingInput, PricingRouter};
 use crate::scheduler::{
     CronScheduler, EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource,
 };
+use convex_core::contracts::ErrorCode;
 
 // =============================================================================
 // REACTIVE ENGINE
@@ -67,7 +71,7 @@ pub struct ReactiveEngine {
     node_update_tx: broadcast::Sender<NodeUpdate>,
 
     /// Settlement date for pricing (updated daily)
-    settlement_date: parking_lot::RwLock<Date>,
+    settlement_date: Arc<parking_lot::RwLock<Date>>,
 
     /// Shutdown signal
     shutdown_tx: broadcast::Sender<()>,
@@ -107,7 +111,7 @@ impl ReactiveEngine {
             throttle_manager,
             market_data_publisher,
             node_update_tx,
-            settlement_date: parking_lot::RwLock::new(today),
+            settlement_date: Arc::new(parking_lot::RwLock::new(today)),
             shutdown_tx,
         }
     }
@@ -149,20 +153,9 @@ impl ReactiveEngine {
         let throttle_manager = self.throttle_manager.clone();
         let update_rx = self.market_data_publisher.subscribe();
         let shutdown_rx = self.shutdown_tx.subscribe();
-        let node_update_tx = self.node_update_tx.clone();
-
         tokio::spawn(async move {
             let mut listener =
                 MarketDataListener::new(calc_graph, throttle_manager, update_rx, shutdown_rx);
-
-            // Forward listener updates to main channel
-            let mut listener_rx = listener.subscribe();
-            let tx = node_update_tx.clone();
-            tokio::spawn(async move {
-                while let Ok(update) = listener_rx.recv().await {
-                    let _ = tx.send(update);
-                }
-            });
 
             listener.run().await;
         });
@@ -176,48 +169,8 @@ impl ReactiveEngine {
         let references = self.references.clone();
         let throttle_manager = self.throttle_manager.clone();
         let node_update_tx = self.node_update_tx.clone();
-        let settlement_date = *self.settlement_date.read();
+        let settlement_date = self.settlement_date.clone();
         let mut shutdown_rx = self.shutdown_tx.subscribe();
-
-        // Forward interval scheduler updates
-        let interval_scheduler = self.interval_scheduler.clone();
-        let tx = self.node_update_tx.clone();
-        tokio::spawn(async move {
-            let mut rx = interval_scheduler.subscribe();
-            while let Ok(update) = rx.recv().await {
-                let _ = tx.send(update);
-            }
-        });
-
-        // Forward EOD scheduler updates
-        let eod_scheduler = self.eod_scheduler.clone();
-        let tx = self.node_update_tx.clone();
-        tokio::spawn(async move {
-            let mut rx = eod_scheduler.read().subscribe();
-            while let Ok(update) = rx.recv().await {
-                let _ = tx.send(update);
-            }
-        });
-
-        // Forward throttle manager updates
-        let throttle_manager_clone = self.throttle_manager.clone();
-        let tx = self.node_update_tx.clone();
-        tokio::spawn(async move {
-            let mut rx = throttle_manager_clone.subscribe();
-            while let Ok(update) = rx.recv().await {
-                let _ = tx.send(update);
-            }
-        });
-
-        // Forward cron scheduler updates
-        let cron_scheduler = self.cron_scheduler.clone();
-        let tx = self.node_update_tx.clone();
-        tokio::spawn(async move {
-            let mut rx = cron_scheduler.read().subscribe();
-            while let Ok(update) = rx.recv().await {
-                let _ = tx.send(update);
-            }
-        });
 
         // Main processing loop with actual calculation execution
         tokio::spawn(async move {
@@ -226,56 +179,41 @@ impl ReactiveEngine {
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
-                        // Process dirty nodes that are ready
-                        let nodes_to_calc = calc_graph.get_nodes_to_calculate();
-
-                        for node_id in nodes_to_calc {
-                            if calc_graph.market_delivery_suspended() { continue; }
-                            // A gapped/closed/invalid quote cannot trigger fresh calculation, even through a timer.
-                            let quote_guard = match &node_id {
-                                NodeId::Quote { .. } => Some(node_id.clone()),
-                                NodeId::BondPrice { instrument_id } => Some(NodeId::Quote { instrument_id: instrument_id.clone() }),
-                                _ => None,
+                        let ready = match calc_graph.get_nodes_to_calculate() {
+                            Ok(nodes) => nodes,
+                            Err(error) => { error!("Calculation frontier failed: {error}"); continue; }
+                        };
+                        for node_id in ready {
+                            if !throttle_manager.should_calculate(&node_id) { continue; }
+                            let ticket = match calc_graph.begin_calculation(&node_id) {
+                                Ok(ticket) => ticket,
+                                Err(GraphError::NotReady | GraphError::Suspended | GraphError::CapacityExceeded | GraphError::ContextRequired) => continue,
+                                Err(error) => { warn!("Calculation admission failed: {error}"); continue; }
                             };
-                            let quote_input = quote_guard.as_ref().and_then(|key| calc_graph.get_cached(key));
-                            let quote_revision = quote_input.as_ref().map(|cached| cached.revision);
-                            if quote_guard.is_some() && quote_revision.is_none() { continue; }
-                            // Check throttle
-                            if throttle_manager.should_calculate(&node_id) {
-                                debug!("Processing node: {}", node_id);
-
-                                // Execute actual calculation based on node type
-                                let node_value = Self::calculate_node(
-                                    &node_id,
-                                    &calc_graph,
-                                    &curve_builder,
-                                    &pricing_router,
-                                    &references,
-                                    settlement_date,
-                                ).await;
-
-                                if calc_graph.market_delivery_suspended() { continue; }
-                                // Do not publish a calculation whose quote was lost or replaced while awaiting reference I/O.
-                                // Full dependency generations and snapshots are implemented in CVX-006.
-                                if let Some(key) = &quote_guard {
-                                    if calc_graph.get_cached(key).map(|cached| cached.revision) != quote_revision { continue; }
+                            let captured_settlement = *settlement_date.read();
+                            let result = match tokio::time::timeout_at(
+                                tokio::time::Instant::from_std(ticket.deadline()),
+                                Self::calculate_node(&ticket, &curve_builder, &pricing_router, &references, captured_settlement),
+                            ).await {
+                                Ok(result) => result,
+                                Err(_) => Err(CalculationFailure::fixed(ErrorCode::DeadlineExceeded, "reference/pricing attempt exceeded its deadline")),
+                            };
+                            match calc_graph.commit_result(&ticket, result) {
+                                Ok(CommitOutcome::Committed { completion }) => {
+                                    throttle_manager.mark_calculated(&node_id);
+                                    let _ = node_update_tx.send(NodeUpdate {
+                                        node_id, timestamp: chrono::Utc::now().timestamp(), source: UpdateSource::Immediate, completion: Some(completion),
+                                    });
                                 }
-                                // Store calculated value
-                                match quote_input.and_then(|cached| cached.valid_until) {
-                                    Some(deadline) => calc_graph.update_cache_until(&node_id, node_value, deadline),
-                                    None => calc_graph.update_cache(&node_id, node_value),
+                                Ok(CommitOutcome::Discarded) => debug!("Discarded obsolete calculation: {node_id}"),
+                                Err(error) => {
+                                    calc_graph.cancel_attempt(&ticket);
+                                    error!("Calculation commit rejected: {error}");
                                 }
-                                throttle_manager.mark_calculated(&node_id);
-
-                                // Notify subscribers
-                                let _ = node_update_tx.send(NodeUpdate {
-                                    node_id,
-                                    timestamp: chrono::Utc::now().timestamp(),
-                                    source: UpdateSource::Immediate,
-                                });
                             }
                         }
                     }
+
                     _ = shutdown_rx.recv() => {
                         info!("Processing loop shutting down");
                         break;
@@ -285,20 +223,19 @@ impl ReactiveEngine {
         });
     }
 
-    /// Calculate a node's value based on its type.
+    /// Execute outside the graph lock, using only the captured dependency values.
     async fn calculate_node(
-        node_id: &NodeId,
-        calc_graph: &Arc<CalculationGraph>,
+        ticket: &CalculationTicket,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
         references: &Arc<dyn ReferenceRepository>,
         settlement_date: Date,
-    ) -> NodeValue {
-        match node_id {
+    ) -> Result<NodeValue, CalculationFailure> {
+        match ticket.node_id() {
             NodeId::BondPrice { instrument_id } => {
                 Self::calculate_bond_price(
                     instrument_id,
-                    calc_graph,
+                    ticket,
                     curve_builder,
                     pricing_router,
                     references,
@@ -306,55 +243,83 @@ impl ReactiveEngine {
                 )
                 .await
             }
-            NodeId::Curve { curve_id } => Self::calculate_curve(curve_id, curve_builder),
-            NodeId::EtfInav { etf_id: _ } => {
-                // ETF iNAV calculation - aggregate constituent prices
-                // For now, return empty; full implementation requires holdings data
-                debug!("ETF iNAV calculation not yet fully implemented");
-                NodeValue::Empty
-            }
-            NodeId::EtfNav { etf_id: _ } => {
-                // ETF NAV is typically end-of-day
-                debug!("ETF NAV calculation not yet fully implemented");
-                NodeValue::Empty
-            }
-            NodeId::Portfolio { portfolio_id: _ } => {
-                // Portfolio aggregation
-                debug!("Portfolio calculation not yet fully implemented");
-                NodeValue::Empty
-            }
-            // Input nodes don't need calculation - their values are set directly
-            NodeId::Quote { .. }
-            | NodeId::CurveInput { .. }
-            | NodeId::VolSurface { .. }
-            | NodeId::FxRate { .. }
-            | NodeId::IndexFixing { .. }
-            | NodeId::InflationFixing { .. }
-            | NodeId::Config { .. } => {
-                // Input nodes: value already set by market data listener
-                // Just return what's in the cache
-                calc_graph
-                    .get_cached(node_id)
-                    .map(|cv| cv.value.clone())
-                    .unwrap_or(NodeValue::Empty)
-            }
+            NodeId::Curve { .. } => Err(CalculationFailure::fixed(
+                ErrorCode::UnsupportedConvention,
+                "graph curve calibration requires a captured recipe and input pipeline",
+            )),
+            _ => Err(CalculationFailure::fixed(
+                ErrorCode::UnsupportedProduct,
+                "this node calculation is not implemented",
+            )),
         }
     }
 
-    /// Calculate bond price using PricingRouter.
+    /// Compatibility observed-mark pricing. Full immutable reference/configuration adoption is CVX-005.
     async fn calculate_bond_price(
         instrument_id: &InstrumentId,
-        calc_graph: &Arc<CalculationGraph>,
+        ticket: &CalculationTicket,
         curve_builder: &Arc<CurveBuilder>,
         pricing_router: &Arc<PricingRouter>,
         references: &Arc<dyn ReferenceRepository>,
         settlement_date: Date,
-    ) -> NodeValue {
-        let time = match convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now()) {
-            Ok(t) => t,
-            Err(_) => return NodeValue::Empty,
+    ) -> Result<NodeValue, CalculationFailure> {
+        if ticket.snapshot().is_some() {
+            return Err(CalculationFailure::fixed(
+                ErrorCode::UnsupportedConvention,
+                "snapshot work requires the supplied-context SnapshotValuator",
+            ));
+        }
+        let quote_node = NodeId::Quote {
+            instrument_id: instrument_id.clone(),
         };
-        let reference = match references
+        let (bid, market_price, ask) = match ticket.input(&quote_node).map(|input| &input.value) {
+            Some(NodeValue::Quote { bid, mid, ask }) => (*bid, *mid, *ask),
+            _ => {
+                return Err(CalculationFailure::fixed(
+                    ErrorCode::MissingMarketData,
+                    "declared market quote is missing",
+                ))
+            }
+        };
+        if market_price.is_none() && bid.is_none() && ask.is_none() {
+            return Err(CalculationFailure::fixed(
+                ErrorCode::MissingMarketData,
+                "market quote contains no price",
+            ));
+        }
+        // Freeze declared builder objects before reference I/O. Do not look up undeclared/default curves.
+        let mut curves = Vec::new();
+        for input in ticket.inputs() {
+            if let NodeId::Curve { curve_id } = &input.node_id {
+                let curve = curve_builder.get(curve_id).ok_or_else(|| {
+                    CalculationFailure::fixed(
+                        ErrorCode::MissingMarketData,
+                        "declared curve is unavailable",
+                    )
+                })?;
+                if !matches!(&input.value.value, NodeValue::Curve { points } if *points == curve.to_points())
+                {
+                    return Err(CalculationFailure::fixed(
+                        ErrorCode::VersionConflict,
+                        "curve builder differs from captured graph input",
+                    ));
+                }
+                curves.push(curve);
+            }
+        }
+        if curves.len() > 2 {
+            return Err(CalculationFailure::fixed(
+                ErrorCode::UnsupportedConvention,
+                "observed-mark pricing accepts explicit discount and benchmark curves only",
+            ));
+        }
+        let discount_curve = curves.first().cloned();
+        let benchmark_curve = curves.get(1).cloned();
+        let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(|_| {
+                CalculationFailure::fixed(ErrorCode::InvalidInput, "invalid valuation time")
+            })?;
+        let reference = references
             .for_valuation(
                 instrument_id,
                 crate::ports::reference_master::ReferenceLookup {
@@ -363,34 +328,20 @@ impl ReactiveEngine {
                 },
             )
             .await
-        {
-            Ok(reference) => reference.map(|resolved| resolved.record),
-            Err(error) => {
-                warn!("Reference unavailable for {}: {}", instrument_id, error);
-                return NodeValue::Empty;
-            }
-        };
-        let Some(bond_ref) = reference.and_then(|record| record.bond) else {
-            warn!("Reference missing or deleted for {}", instrument_id);
-            return NodeValue::Empty;
-        };
-
-        // Get market quote from cache
-        let quote_node = NodeId::Quote {
-            instrument_id: instrument_id.clone(),
-        };
-        let market_price = calc_graph
-            .get_cached(&quote_node)
-            .and_then(|cv| match &cv.value {
-                NodeValue::Quote { mid, .. } => *mid,
-                _ => None,
-            });
-
-        // Look up discount curve based on currency and issuer type
-        let discount_curve = Self::lookup_discount_curve(&bond_ref, curve_builder);
-
-        // Look up benchmark curve for I-spread calculations
-        let benchmark_curve = Self::lookup_benchmark_curve(&bond_ref, curve_builder);
+            .map_err(|_| {
+                CalculationFailure::fixed(
+                    ErrorCode::Unavailable,
+                    "reference repository unavailable",
+                )
+            })?;
+        let bond_ref = reference
+            .and_then(|resolved| resolved.record.bond)
+            .ok_or_else(|| {
+                CalculationFailure::fixed(
+                    ErrorCode::MissingReference,
+                    "bond reference missing or deleted",
+                )
+            })?;
 
         // Create pricing input
         // Note: GovernmentCurve requires specific benchmark securities which are not
@@ -399,9 +350,9 @@ impl ReactiveEngine {
         let input = PricingInput {
             bond: bond_ref.clone(),
             settlement_date,
-            market_price_bid: None,
+            market_price_bid: bid,
             market_price_mid: market_price,
-            market_price_ask: None,
+            market_price_ask: ask,
             discount_curve,
             benchmark_curve,
             government_curve: None, // Requires explicit benchmark securities
@@ -416,7 +367,7 @@ impl ReactiveEngine {
                     "Priced bond {}: clean={:?}, ytm={:?}",
                     instrument_id, output.clean_price_mid, output.ytm_mid
                 );
-                NodeValue::BondPrice {
+                Ok(NodeValue::BondPrice {
                     clean_price_bid: output.clean_price_bid,
                     clean_price_mid: output.clean_price_mid,
                     clean_price_ask: output.clean_price_ask,
@@ -427,120 +378,14 @@ impl ReactiveEngine {
                     z_spread_mid: output.z_spread_mid,
                     modified_duration: output.modified_duration,
                     dv01: output.dv01,
-                }
+                })
             }
             Err(e) => {
                 error!("Failed to price bond {}: {}", instrument_id, e);
-                NodeValue::Empty
-            }
-        }
-    }
-
-    /// Look up discount curve based on bond reference data.
-    ///
-    /// Uses currency and issuer type to determine the appropriate curve:
-    /// - Sovereign bonds: Use government curve (e.g., "USD_GOVT", "EUR_GOVT")
-    /// - Corporate/Financial: Use OIS or swap curve (e.g., "USD_OIS", "EUR_OIS")
-    fn lookup_discount_curve(
-        bond_ref: &crate::ports::reference_data::BondReferenceData,
-        curve_builder: &Arc<CurveBuilder>,
-    ) -> Option<BuiltCurve> {
-        use crate::ports::reference_data::IssuerType;
-        use convex_core::Currency;
-
-        let currency_code = match bond_ref.currency {
-            Currency::USD => "USD",
-            Currency::EUR => "EUR",
-            Currency::GBP => "GBP",
-            Currency::JPY => "JPY",
-            Currency::CHF => "CHF",
-            Currency::CAD => "CAD",
-            Currency::AUD => "AUD",
-            Currency::CNY => "CNY",
-            _ => "USD", // Default to USD
-        };
-
-        // Determine curve type based on issuer type
-        let curve_suffix = match bond_ref.issuer_type {
-            IssuerType::Sovereign | IssuerType::Agency | IssuerType::Municipal => "GOVT",
-            IssuerType::CorporateIG | IssuerType::CorporateHY | IssuerType::Financial => "OIS",
-            IssuerType::Supranational => "GOVT",
-        };
-
-        // Try the specific curve first
-        let curve_id = CurveId::new(format!("{}_{}", currency_code, curve_suffix));
-        if let Some(curve) = curve_builder.get(&curve_id) {
-            return Some(curve);
-        }
-
-        // Fall back to OIS curve
-        let ois_curve_id = CurveId::new(format!("{}_OIS", currency_code));
-        if let Some(curve) = curve_builder.get(&ois_curve_id) {
-            return Some(curve);
-        }
-
-        // Fall back to government curve
-        let govt_curve_id = CurveId::new(format!("{}_GOVT", currency_code));
-        if let Some(curve) = curve_builder.get(&govt_curve_id) {
-            return Some(curve);
-        }
-
-        // Try generic discount curve
-        let generic_curve_id = CurveId::new(format!("{}_DISCOUNT", currency_code));
-        curve_builder.get(&generic_curve_id)
-    }
-
-    /// Look up benchmark curve for I-spread calculations.
-    ///
-    /// Used to calculate I-spread (spread over swap/benchmark curve).
-    /// Typically uses OIS or swap curves as the benchmark.
-    fn lookup_benchmark_curve(
-        bond_ref: &crate::ports::reference_data::BondReferenceData,
-        curve_builder: &Arc<CurveBuilder>,
-    ) -> Option<BuiltCurve> {
-        use convex_core::Currency;
-
-        let currency_code = match bond_ref.currency {
-            Currency::USD => "USD",
-            Currency::EUR => "EUR",
-            Currency::GBP => "GBP",
-            Currency::JPY => "JPY",
-            Currency::CHF => "CHF",
-            Currency::CAD => "CAD",
-            Currency::AUD => "AUD",
-            Currency::CNY => "CNY",
-            _ => "USD", // Default to USD
-        };
-
-        // Try OIS curve first (preferred post-LIBOR)
-        let ois_curve_id = CurveId::new(format!("{}_OIS", currency_code));
-        if let Some(curve) = curve_builder.get(&ois_curve_id) {
-            return Some(curve);
-        }
-
-        // Try swap curve
-        let swap_curve_id = CurveId::new(format!("{}_SWAP", currency_code));
-        if let Some(curve) = curve_builder.get(&swap_curve_id) {
-            return Some(curve);
-        }
-
-        // Fall back to government curve
-        let govt_curve_id = CurveId::new(format!("{}_GOVT", currency_code));
-        curve_builder.get(&govt_curve_id)
-    }
-
-    /// Calculate/rebuild a curve.
-    fn calculate_curve(curve_id: &CurveId, curve_builder: &Arc<CurveBuilder>) -> NodeValue {
-        match curve_builder.get(curve_id) {
-            Some(curve) => {
-                debug!("Rebuilt curve: {}", curve_id);
-                NodeValue::Curve {
-                    points: curve.to_points(),
-                }
-            }
-            None => {
-                warn!("Could not rebuild curve: {}", curve_id);
-                NodeValue::Empty
+                Err(CalculationFailure::fixed(
+                    ErrorCode::InvalidInput,
+                    "bond pricing failed; see router diagnostics",
+                ))
             }
         }
     }
@@ -571,12 +416,42 @@ impl ReactiveEngine {
     }
 
     /// Register a node with appropriate scheduler based on its config.
-    pub fn register_node(&self, node_id: NodeId, config: NodeConfig) {
-        // Set config on calc graph
-        self.calc_graph
-            .set_node_config(node_id.clone(), config.clone());
+    pub fn register_node(&self, node_id: NodeId, config: NodeConfig) -> Result<u64, GraphError> {
+        let node = self.calc_graph.node_spec(&node_id).unwrap_or_else(|| {
+            let role = match node_id {
+                NodeId::BondPrice { .. }
+                | NodeId::Curve { .. }
+                | NodeId::EtfInav { .. }
+                | NodeId::EtfNav { .. }
+                | NodeId::Portfolio { .. } => NodeRole::Calculation,
+                _ => NodeRole::Input,
+            };
+            NodeSpec {
+                id: node_id.clone(),
+                role,
+                dependencies: vec![],
+                config: config.clone(),
+            }
+        });
+        let mut nodes = vec![node.with_config(config.clone())];
+        if let NodeId::BondPrice { instrument_id } = &node_id {
+            let quote = NodeId::Quote {
+                instrument_id: instrument_id.clone(),
+            };
+            if !nodes[0].dependencies.contains(&quote) {
+                nodes[0].dependencies.push(quote.clone());
+            }
+            if self.calc_graph.node_spec(&quote).is_none() {
+                nodes.push(NodeSpec::input(quote));
+            }
+        }
+        let generation = self.calc_graph.upsert_nodes(nodes)?;
 
-        // Register with appropriate scheduler
+        // Policy replacement removes prior timer registrations before installing the validated policy.
+        self.interval_scheduler.unregister(&node_id);
+        self.throttle_manager.unregister(&node_id);
+        self.eod_scheduler.read().unregister(&node_id);
+        self.cron_scheduler.read().unregister(&node_id);
         match config.frequency {
             UpdateFrequency::Immediate => {
                 // No scheduler needed - handled by main loop
@@ -599,42 +474,40 @@ impl ReactiveEngine {
                 }
             }
         }
+        Ok(generation)
     }
 
     /// Register a bond for reactive pricing.
-    pub fn register_bond(&self, instrument_id: InstrumentId, config: NodeConfig) {
+    pub fn register_bond(
+        &self,
+        instrument_id: InstrumentId,
+        config: NodeConfig,
+    ) -> Result<u64, GraphError> {
         let node_id = NodeId::BondPrice { instrument_id };
-        self.register_node(node_id, config);
+        self.register_node(node_id, config)
     }
 
     /// Register an ETF for iNAV calculations.
-    pub fn register_etf_inav(&self, etf_id: EtfId) {
+    pub fn register_etf_inav(&self, etf_id: EtfId) -> Result<u64, GraphError> {
         let node_id = NodeId::EtfInav { etf_id };
-        self.register_node(node_id, NodeConfig::etf_inav());
+        self.register_node(node_id, NodeConfig::etf_inav())
     }
 
     /// Register an ETF for NAV calculations.
-    pub fn register_etf_nav(&self, etf_id: EtfId) {
+    pub fn register_etf_nav(&self, etf_id: EtfId) -> Result<u64, GraphError> {
         let node_id = NodeId::EtfNav { etf_id };
-        self.register_node(node_id, NodeConfig::etf_nav());
+        self.register_node(node_id, NodeConfig::etf_nav())
     }
 
     /// Register a portfolio for analytics.
-    pub fn register_portfolio(&self, portfolio_id: PortfolioId) {
+    pub fn register_portfolio(&self, portfolio_id: PortfolioId) -> Result<u64, GraphError> {
         let node_id = NodeId::Portfolio { portfolio_id };
-        self.register_node(node_id, NodeConfig::portfolio());
+        self.register_node(node_id, NodeConfig::portfolio())
     }
 
     /// Force recalculation of a node (for on-demand).
-    pub fn force_recalculate(&self, node_id: &NodeId) {
-        self.calc_graph.invalidate(node_id);
-        self.calc_graph.update_cache(node_id, NodeValue::Empty);
-
-        let _ = self.node_update_tx.send(NodeUpdate {
-            node_id: node_id.clone(),
-            timestamp: chrono::Utc::now().timestamp(),
-            source: UpdateSource::OnDemand,
-        });
+    pub fn force_recalculate(&self, node_id: &NodeId) -> Result<u64, GraphError> {
+        self.calc_graph.request_calculation(node_id)
     }
 
     /// Get the calculation graph.
@@ -757,6 +630,159 @@ mod tests {
         ReactiveEngine::new(calc_graph, curve_builder, pricing_router, references)
     }
 
+    #[tokio::test]
+    async fn completion_stream_reports_committed_failure_and_on_demand_revision_without_fake_success(
+    ) {
+        let engine = create_test_engine();
+        let node = NodeId::Portfolio {
+            portfolio_id: PortfolioId::new("UNSUPPORTED"),
+        };
+        engine
+            .register_node(node.clone(), NodeConfig::default())
+            .unwrap();
+        let mut updates = engine.subscribe();
+        engine.start_processing_loop().await;
+        let first = tokio::time::timeout(Duration::from_secs(2), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let first = first.completion.unwrap();
+        assert_eq!(first.status, convex_core::contracts::ResultStatus::Failed);
+        assert_eq!(first.quality, convex_core::contracts::DataQuality::Invalid);
+        assert_eq!(first.failure.unwrap().code, ErrorCode::UnsupportedProduct);
+        assert_eq!(
+            engine.calc_graph.inspect_node(&node).unwrap().revision,
+            first.revision
+        );
+        assert!(engine.calc_graph.get_cached(&node).is_none());
+        let generation = engine.force_recalculate(&node).unwrap();
+        let second = tokio::time::timeout(Duration::from_secs(2), updates.recv())
+            .await
+            .unwrap()
+            .unwrap()
+            .completion
+            .unwrap();
+        assert_eq!(second.generation, generation);
+        assert!(second.revision > first.revision);
+        assert_eq!(second.status, convex_core::contracts::ResultStatus::Failed);
+        engine.stop();
+    }
+
+    #[tokio::test]
+    async fn actual_router_uses_captured_quote_after_async_yield_and_obsolete_result_is_discarded()
+    {
+        use rust_decimal_macros::dec;
+        let engine = create_test_engine();
+        let bond = serde_json::from_str::<crate::ports::reference_data::BondReferenceData>(
+            include_str!("../../convex-ports/tests/fixtures/reference_bond.json"),
+        )
+        .unwrap();
+        engine
+            .references
+            .commit(
+                &crate::ports::reference_repository::ReferenceCommand {
+                    idempotency_key: convex_core::contracts::RequestId::new("captured-router-test")
+                        .unwrap(),
+                    master_changes: reference_terms::resources(&bond),
+                    changes: vec![
+                        crate::ports::reference_repository::ReferenceChange::Create {
+                            bond: Box::new(bond.clone()),
+                        },
+                    ],
+                },
+                convex_core::contracts::UtcTimestamp::parse("2025-01-01T00:00:00Z").unwrap(),
+            )
+            .await
+            .unwrap();
+        engine
+            .register_bond(bond.instrument_id.clone(), NodeConfig::bond_price_liquid())
+            .unwrap();
+        let quote = NodeId::Quote {
+            instrument_id: bond.instrument_id.clone(),
+        };
+        let node = NodeId::BondPrice {
+            instrument_id: bond.instrument_id.clone(),
+        };
+        engine
+            .calc_graph
+            .publish_input(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(dec!(99.25)),
+                },
+            )
+            .unwrap();
+        let ticket = engine.calc_graph.begin_calculation(&node).unwrap();
+        let captured = Arc::new(tokio::sync::Barrier::new(2));
+        let finish = Arc::new(tokio::sync::Barrier::new(2));
+        let worker = {
+            let graph = engine.calc_graph.clone();
+            let curves = engine.curve_builder.clone();
+            let router = engine.pricing_router.clone();
+            let references = engine.references.clone();
+            let captured = captured.clone();
+            let finish = finish.clone();
+            tokio::spawn(async move {
+                captured.wait().await;
+                finish.wait().await;
+                let value = ReactiveEngine::calculate_node(
+                    &ticket,
+                    &curves,
+                    &router,
+                    &references,
+                    Date::from_ymd(2026, 10, 6).unwrap(),
+                )
+                .await
+                .unwrap();
+                assert!(
+                    matches!(&value, NodeValue::BondPrice { clean_price_mid: Some(price), .. } if *price == dec!(99.25))
+                );
+                graph.commit_result(&ticket, Ok(value)).unwrap()
+            })
+        };
+        captured.wait().await;
+        engine
+            .calc_graph
+            .publish_input(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(dec!(100.25)),
+                },
+            )
+            .unwrap();
+        finish.wait().await;
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), worker)
+                .await
+                .unwrap()
+                .unwrap(),
+            CommitOutcome::Discarded
+        );
+        assert!(engine.calc_graph.is_dirty(&node));
+        assert!(engine.calc_graph.get_cached(&node).is_none());
+        let current = engine.calc_graph.begin_calculation(&node).unwrap();
+        let value = ReactiveEngine::calculate_node(
+            &current,
+            &engine.curve_builder,
+            &engine.pricing_router,
+            &engine.references,
+            Date::from_ymd(2026, 10, 6).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(&value, NodeValue::BondPrice { clean_price_mid: Some(price), .. } if *price == dec!(100.25))
+        );
+        engine
+            .calc_graph
+            .commit_result(&current, Ok(value))
+            .unwrap();
+    }
+
     #[test]
     fn test_reactive_engine_creation() {
         let engine = create_test_engine();
@@ -767,21 +793,26 @@ mod tests {
     async fn timer_does_not_publish_a_suspended_or_expired_quote_as_empty_success() {
         let engine = create_test_engine();
         let instrument_id = InstrumentId::new("GAPPED-BOND");
-        engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
+        engine
+            .register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid())
+            .unwrap();
         let quote = NodeId::Quote {
             instrument_id: instrument_id.clone(),
         };
         let bond = NodeId::BondPrice { instrument_id };
-        engine.calc_graph.update_cache_until(
-            &quote,
-            NodeValue::Quote {
-                bid: None,
-                ask: None,
-                mid: Some(rust_decimal::Decimal::from(100)),
-            },
-            std::time::Instant::now() - Duration::from_millis(1),
-        );
-        engine.calc_graph.invalidate(&quote);
+        engine
+            .calc_graph
+            .publish_input_until(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(rust_decimal::Decimal::from(100)),
+                },
+                Some(std::time::Instant::now() - Duration::from_millis(1)),
+            )
+            .unwrap();
+        engine.calc_graph.invalidate(&quote).unwrap();
         let mut updates = engine.subscribe();
         engine.start_processing_loop().await;
         assert!(
@@ -790,7 +821,7 @@ mod tests {
                 .is_err()
         );
         assert!(engine.calc_graph.get_cached(&bond).is_none());
-        engine.calc_graph.evict_cached(&quote);
+        engine.calc_graph.evict_cached(&quote).unwrap();
         assert!(
             tokio::time::timeout(Duration::from_millis(150), updates.recv())
                 .await
@@ -806,22 +837,27 @@ mod tests {
         let quote = NodeId::Quote {
             instrument_id: "LOSS".into(),
         };
-        engine.register_bond("LOSS".into(), NodeConfig::bond_price_liquid());
-        engine.calc_graph.suspend_market_delivery();
+        engine
+            .register_bond("LOSS".into(), NodeConfig::bond_price_liquid())
+            .unwrap();
+        engine.calc_graph.suspend_market_delivery().unwrap();
         // A quote image can be assembled while other dependencies still require full reload.
-        engine.calc_graph.update_cache(
-            &quote,
-            NodeValue::Quote {
-                bid: None,
-                ask: None,
-                mid: Some(rust_decimal::Decimal::from(100)),
-            },
-        );
+        engine
+            .calc_graph
+            .publish_input(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(rust_decimal::Decimal::from(100)),
+                },
+            )
+            .unwrap();
         assert!(engine.calc_graph.market_delivery_suspended());
         let curve = NodeId::Curve {
             curve_id: "USD.TEST".into(),
         };
-        engine.calc_graph.add_node(curve.clone(), vec![]);
+        engine.calc_graph.add_node(curve.clone(), vec![]).unwrap();
         let mut updates = engine.subscribe();
         engine.start_processing_loop().await;
         assert!(
@@ -844,7 +880,9 @@ mod tests {
         let engine = create_test_engine();
 
         let instrument_id = InstrumentId::new("US912810TD00");
-        engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
+        engine
+            .register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid())
+            .unwrap();
 
         // Check that config was set
         let node_id = NodeId::BondPrice { instrument_id };
@@ -856,7 +894,7 @@ mod tests {
         let engine = create_test_engine();
 
         let etf_id = EtfId::new("LQD");
-        engine.register_etf_inav(etf_id.clone());
+        engine.register_etf_inav(etf_id.clone()).unwrap();
 
         // Check that it was registered with interval scheduler
         let intervals = engine.interval_scheduler().get_intervals();
@@ -928,30 +966,34 @@ mod tests {
             .unwrap();
 
         // Register the bond for reactive pricing
-        engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
+        engine
+            .register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid())
+            .unwrap();
 
         // Add initial quote to the calc graph
         let quote_node = NodeId::Quote {
             instrument_id: instrument_id.clone(),
         };
-        engine.calc_graph().update_cache(
-            &quote_node,
-            NodeValue::Quote {
-                bid: Some(dec!(99.50)),
-                ask: Some(dec!(100.50)),
-                mid: Some(dec!(100.00)),
-            },
-        );
+        engine
+            .calc_graph()
+            .publish_input(
+                &quote_node,
+                NodeValue::Quote {
+                    bid: Some(dec!(99.50)),
+                    ask: Some(dec!(100.50)),
+                    mid: Some(dec!(100.00)),
+                },
+            )
+            .unwrap();
 
         // Mark quote as dirty to trigger recalculation
-        engine.calc_graph().invalidate(&quote_node);
 
         // Wait a moment for the processing loop to run (if started)
         // For this test, we'll manually trigger calculation
         let bond_node = NodeId::BondPrice {
             instrument_id: instrument_id.clone(),
         };
-        engine.calc_graph().invalidate(&bond_node);
+        engine.calc_graph().invalidate(&bond_node).unwrap();
 
         // Get dirty nodes and verify bond is in the list
         let dirty = engine.calc_graph().get_dirty_nodes();
@@ -969,15 +1011,16 @@ mod tests {
 
         let result = ReactiveEngine::calculate_bond_price(
             &instrument_id,
-            &calc_graph,
+            &calc_graph.begin_calculation(&bond_node).unwrap(),
             &curve_builder,
             &pricing_router,
             &references,
             settlement_date,
         )
-        .await;
+        .await
+        .unwrap();
 
-        // Verify we got a calculated result (not Empty)
+        // Verify actual calculated measures
         match result {
             NodeValue::BondPrice {
                 clean_price_mid,
@@ -998,10 +1041,6 @@ mod tests {
                 if modified_duration.is_some() {
                     println!("Modified duration: {:?}", modified_duration);
                 }
-            }
-            NodeValue::Empty => {
-                // This is acceptable if bond ref wasn't found - but we cached it
-                panic!("Expected bond price calculation, got Empty");
             }
             other => {
                 panic!("Expected BondPrice, got {:?}", other);
@@ -1024,45 +1063,26 @@ mod tests {
             instrument_id: instrument_id.clone(),
         };
 
-        // Register bond node with dependency on quote
+        engine
+            .register_bond(instrument_id, NodeConfig::bond_price_liquid())
+            .unwrap();
         engine
             .calc_graph()
-            .add_node(bond_node.clone(), vec![quote_node.clone()]);
-
-        // Nodes start dirty - mark as clean first by updating cache
-        engine
+            .publish_input(
+                &quote_node,
+                NodeValue::Quote {
+                    bid: Some(dec!(98.00)),
+                    ask: Some(dec!(99.00)),
+                    mid: Some(dec!(98.50)),
+                },
+            )
+            .unwrap();
+        assert!(engine.calc_graph().is_dirty(&bond_node));
+        assert!(engine
             .calc_graph()
-            .update_cache(&bond_node, NodeValue::Empty);
-
-        // Now bond should be clean
-        assert!(
-            !engine.calc_graph().is_dirty(&bond_node),
-            "Bond should be clean after cache update"
-        );
-
-        // Update quote - this should propagate to bond
-        engine.calc_graph().update_cache(
-            &quote_node,
-            NodeValue::Quote {
-                bid: Some(dec!(98.00)),
-                ask: Some(dec!(99.00)),
-                mid: Some(dec!(98.50)),
-            },
-        );
-        engine.calc_graph().invalidate(&quote_node);
-
-        // Now bond should be dirty because its dependency (quote) was invalidated
-        assert!(
-            engine.calc_graph().is_dirty(&bond_node),
-            "Bond node should be dirty after quote invalidation"
-        );
-
-        // Verify bond is in the nodes to calculate
-        let to_calc = engine.calc_graph().get_nodes_to_calculate();
-        assert!(
-            to_calc.contains(&bond_node),
-            "Bond node should be in nodes to calculate"
-        );
+            .get_nodes_to_calculate()
+            .unwrap()
+            .contains(&bond_node));
     }
 
     #[tokio::test]
@@ -1080,35 +1100,27 @@ mod tests {
             instrument_id: instrument_id.clone(),
         };
 
-        // Bond depends on curve
         engine
             .calc_graph()
-            .add_node(bond_node.clone(), vec![curve_node.clone()]);
-
-        // Nodes start dirty - mark as clean first by updating cache
+            .upsert_nodes(vec![
+                NodeSpec::input(curve_node.clone()),
+                NodeSpec::calculation(bond_node.clone(), vec![curve_node.clone()]),
+            ])
+            .unwrap();
         engine
             .calc_graph()
-            .update_cache(&bond_node, NodeValue::Empty);
-
-        // Now bond should be clean
-        assert!(
-            !engine.calc_graph().is_dirty(&bond_node),
-            "Bond should be clean after cache update"
-        );
-
-        // Update curve
-        engine.calc_graph().update_cache(
-            &curve_node,
-            NodeValue::Curve {
-                points: vec![(365, 0.04), (730, 0.045), (1825, 0.05)],
-            },
-        );
-        engine.calc_graph().invalidate(&curve_node);
-
-        // Bond should now be dirty
-        assert!(
-            engine.calc_graph().is_dirty(&bond_node),
-            "Bond should be dirty after curve update"
-        );
+            .publish_input(
+                &curve_node,
+                NodeValue::Curve {
+                    points: vec![(365, 0.04), (730, 0.045), (1825, 0.05)],
+                },
+            )
+            .unwrap();
+        assert!(engine.calc_graph().is_dirty(&bond_node));
+        assert!(engine
+            .calc_graph()
+            .get_nodes_to_calculate()
+            .unwrap()
+            .contains(&bond_node));
     }
 }

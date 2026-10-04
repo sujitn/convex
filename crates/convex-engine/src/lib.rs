@@ -12,8 +12,8 @@
 //! - [`snapshot::SnapshotAssembler`]: Exact immutable input capture and publication
 //! - [`snapshot::SnapshotValuator`]: Supplied-context valuation with bounded complete-key caching
 //!
-//! Snapshot use cases create no scheduling loop. Their graph/runtime integration remains separate;
-//! the repository's `SNAPSHOTS.md` documents the current scope, replay and migration contract.
+//! Snapshot use cases create no scheduling loop. The graph admits supplied snapshot/context tickets;
+//! authoritative runtime adoption remains separate. `SNAPSHOTS.md` and `GRAPH.md` document scope and migration.
 //!
 //! ## Architecture
 //!
@@ -67,7 +67,9 @@ pub mod context;
 // Re-exports
 pub use builder::PricingEngineBuilder;
 pub use calc_graph::{
-    CalculationGraph, NodeId, NodeValue, ShardAssignment, ShardConfig, ShardStrategy,
+    CalculationCompletion, CalculationFailure, CalculationGraph, CalculationTicket, CommitOutcome,
+    GraphError, GraphLimits, NodeId, NodePhase, NodeRole, NodeSpec, NodeValue, ShardAssignment,
+    ShardConfig, ShardStrategy,
 };
 pub use curve_builder::{BuiltCurve, CurveBuilder};
 pub use error::EngineError;
@@ -188,39 +190,16 @@ impl PricingEngine {
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
-                        // Get dirty nodes that need recalculation
-                        let dirty_nodes = calc_graph.get_nodes_to_calculate();
-
-                        if !dirty_nodes.is_empty() {
-                            debug!("Processing {} dirty nodes", dirty_nodes.len());
-
-                            for node_id in dirty_nodes {
-                                // Process each node based on type
-                                match &node_id {
-                                    NodeId::Curve { curve_id } => {
-                                        debug!("Rebuilding curve: {}", curve_id);
-                                        // Curve building would happen here
-                                    }
-                                    NodeId::BondPrice { instrument_id } => {
-                                        debug!("Repricing bond: {}", instrument_id);
-                                        // Bond repricing would happen here
-                                    }
-                                    NodeId::EtfInav { etf_id } => {
-                                        debug!("Recalculating ETF iNAV: {}", etf_id);
-                                        // ETF iNAV calculation would happen here
-                                    }
-                                    NodeId::Portfolio { portfolio_id } => {
-                                        debug!("Recalculating portfolio: {}", portfolio_id);
-                                        // Portfolio analytics would happen here
-                                    }
-                                    _ => {
-                                        // Other node types
-                                    }
-                                }
-
-                                // Mark as clean (in real impl, after successful calculation)
-                                calc_graph.update_cache(&node_id, NodeValue::Empty);
-                            }
+                        // CVX-005 replaces this coordinator with the authoritative runtime.
+                        // Until then it reports Unsupported instead of clearing work with a placeholder.
+                        match calc_graph.claim_ready(64) {
+                            Ok(tickets) => for ticket in tickets {
+                                if let Err(error) = calc_graph.commit_result(&ticket, Err(CalculationFailure::fixed(
+                                    convex_core::contracts::ErrorCode::UnsupportedProduct,
+                                    "pricing coordinator requires CVX-005 runtime integration",
+                                ))) { warn!("Calculation status commit failed: {error}"); }
+                            },
+                            Err(error) => warn!("Calculation admission failed: {error}"),
                         }
                     }
                     _ = shutdown_rx.recv() => {
@@ -236,14 +215,25 @@ impl PricingEngine {
     ///
     /// This is useful for testing or on-demand calculations.
     pub fn process_dirty_nodes(&self) -> usize {
-        let dirty_nodes = self.calc_graph.get_nodes_to_calculate();
-        let count = dirty_nodes.len();
-
-        for node_id in dirty_nodes {
-            // Mark as processed
-            self.calc_graph.update_cache(&node_id, NodeValue::Empty);
+        let tickets = match self.calc_graph.claim_ready(64) {
+            Ok(tickets) => tickets,
+            Err(error) => {
+                warn!("Calculation admission failed: {error}");
+                return 0;
+            }
+        };
+        let count = tickets.len();
+        for ticket in tickets {
+            if let Err(error) = self.calc_graph.commit_result(
+                &ticket,
+                Err(CalculationFailure::fixed(
+                    convex_core::contracts::ErrorCode::UnsupportedProduct,
+                    "pricing coordinator requires CVX-005 runtime integration",
+                )),
+            ) {
+                warn!("Calculation status commit failed: {error}");
+            }
         }
-
         count
     }
 
@@ -365,9 +355,14 @@ impl PricingEngine {
     > {
         let result = self.storage.bonds.commit(command, recorded_at).await?;
         for record in &result.records {
-            self.calc_graph.invalidate(&NodeId::BondPrice {
+            let node = NodeId::BondPrice {
                 instrument_id: record.instrument_id.clone(),
-            });
+            };
+            if self.calc_graph.node_spec(&node).is_some() {
+                if let Err(error) = self.calc_graph.invalidate(&node) {
+                    warn!("Reference invalidation failed: {error}");
+                }
+            }
         }
         Ok(result)
     }
@@ -399,11 +394,12 @@ impl PricingEngine {
             (None, None) => None,
         };
 
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::Quote { bid, ask, mid });
-
-        // Invalidate quote node (propagates to bond price)
-        self.calc_graph.invalidate(&node_id);
+        if let Err(error) = self
+            .calc_graph
+            .publish_input(&node_id, NodeValue::Quote { bid, ask, mid })
+        {
+            warn!("Quote input publication failed: {error}");
+        }
 
         debug!(
             "Quote update for {}: bid={:?} ask={:?}",
@@ -422,15 +418,14 @@ impl PricingEngine {
         };
 
         // Update curve in cache
-        self.calc_graph.update_cache(
+        if let Err(error) = self.calc_graph.publish_input(
             &node_id,
             NodeValue::Curve {
                 points: curve.to_points(),
             },
-        );
-
-        // Invalidate curve node (propagates to dependent bonds)
-        self.calc_graph.invalidate(&node_id);
+        ) {
+            warn!("Curve input publication failed: {error}");
+        }
 
         debug!("Curve update for {}", curve_id);
     }
@@ -451,12 +446,12 @@ impl PricingEngine {
             date,
         };
 
-        // Update fixing in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::IndexFixing { rate });
-
-        // Invalidate fixing node (propagates to FRNs)
-        self.calc_graph.invalidate(&node_id);
+        if let Err(error) = self
+            .calc_graph
+            .publish_input(&node_id, NodeValue::IndexFixing { rate })
+        {
+            warn!("Input publication failed: {error}");
+        }
 
         debug!("Index fixing for {} on {}: {}", index, date, rate);
     }
@@ -476,12 +471,12 @@ impl PricingEngine {
             month,
         };
 
-        // Update fixing in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::InflationFixing { value });
-
-        // Invalidate fixing node (propagates to ILBs)
-        self.calc_graph.invalidate(&node_id);
+        if let Err(error) = self
+            .calc_graph
+            .publish_input(&node_id, NodeValue::InflationFixing { value })
+        {
+            warn!("Input publication failed: {error}");
+        }
 
         debug!("Inflation fixing for {} ({}): {}", index, month, value);
     }
@@ -498,12 +493,12 @@ impl PricingEngine {
     ) {
         let node_id = NodeId::FxRate { pair: pair.clone() };
 
-        // Update FX rate in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::FxRate { mid });
-
-        // Invalidate FX rate node
-        self.calc_graph.invalidate(&node_id);
+        if let Err(error) = self
+            .calc_graph
+            .publish_input(&node_id, NodeValue::FxRate { mid })
+        {
+            warn!("Input publication failed: {error}");
+        }
 
         debug!("FX rate update for {}: {}", pair, mid);
     }
@@ -518,7 +513,7 @@ impl PricingEngine {
         discount_curve: convex_core::ids::CurveId,
         benchmark_curve: Option<convex_core::ids::CurveId>,
         config: crate::ports::config::NodeConfig,
-    ) {
+    ) -> Result<u64, GraphError> {
         let bond_node = NodeId::BondPrice {
             instrument_id: instrument_id.clone(),
         };
@@ -539,52 +534,47 @@ impl PricingEngine {
             });
         }
 
-        // Add node with dependencies
-        self.calc_graph.add_node(bond_node.clone(), deps);
-
-        // Set config
-        self.calc_graph.set_node_config(bond_node, config);
+        // Include only missing roots; preserve existing curve/calculation definitions.
+        let mut nodes: Vec<_> = deps
+            .iter()
+            .filter(|id| self.calc_graph.node_spec(id).is_none())
+            .cloned()
+            .map(NodeSpec::input)
+            .collect();
+        let mut roots = std::collections::HashSet::new();
+        nodes.retain(|node| roots.insert(node.id.clone()));
+        let mut seen = std::collections::HashSet::new();
+        deps.retain(|id| seen.insert(id.clone()));
+        nodes.push(NodeSpec::calculation(bond_node, deps).with_config(config));
+        self.calc_graph.upsert_nodes(nodes)
     }
 
-    /// Register an ETF for iNAV calculations.
-    pub fn register_etf_inav(&self, etf_id: convex_core::ids::EtfId) {
-        let node_id = NodeId::EtfInav {
-            etf_id: etf_id.clone(),
-        };
-
-        // ETF iNAV depends on its constituent bond prices
-        // In practice, we'd look up the holdings and add dependencies
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use iNAV config (15 second interval)
-        self.calc_graph
-            .set_node_config(node_id, crate::ports::config::NodeConfig::etf_inav());
+    /// Register a currently unsupported ETF aggregation with explicit scheduling policy.
+    pub fn register_etf_inav(&self, etf_id: convex_core::ids::EtfId) -> Result<u64, GraphError> {
+        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
+            NodeId::EtfInav { etf_id },
+            vec![],
+        )
+        .with_config(crate::ports::config::NodeConfig::etf_inav())])
     }
-
-    /// Register an ETF for NAV calculations.
-    pub fn register_etf_nav(&self, etf_id: convex_core::ids::EtfId) {
-        let node_id = NodeId::EtfNav {
-            etf_id: etf_id.clone(),
-        };
-
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use NAV config (end of day)
-        self.calc_graph
-            .set_node_config(node_id, crate::ports::config::NodeConfig::etf_nav());
+    /// Register end-of-day ETF work; mathematical holdings integration remains explicit.
+    pub fn register_etf_nav(&self, etf_id: convex_core::ids::EtfId) -> Result<u64, GraphError> {
+        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
+            NodeId::EtfNav { etf_id },
+            vec![],
+        )
+        .with_config(crate::ports::config::NodeConfig::etf_nav())])
     }
-
-    /// Register a portfolio for analytics.
-    pub fn register_portfolio(&self, portfolio_id: convex_core::ids::PortfolioId) {
-        let node_id = NodeId::Portfolio {
-            portfolio_id: portfolio_id.clone(),
-        };
-
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use portfolio config (5 second throttle)
-        self.calc_graph
-            .set_node_config(node_id, crate::ports::config::NodeConfig::portfolio());
+    /// Register portfolio work; missing aggregation is never cached as a numerical result.
+    pub fn register_portfolio(
+        &self,
+        portfolio_id: convex_core::ids::PortfolioId,
+    ) -> Result<u64, GraphError> {
+        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
+            NodeId::Portfolio { portfolio_id },
+            vec![],
+        )
+        .with_config(crate::ports::config::NodeConfig::portfolio())])
     }
 
     /// Create a reactive engine from this pricing engine.

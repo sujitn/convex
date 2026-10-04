@@ -666,26 +666,28 @@ fn production_readiness_bond(id: &str) -> BondReferenceData {
 }
 
 #[test]
-#[ignore = "G02 / CVX-005: the active engine marks Empty as a successful calculation"]
 fn production_readiness_failed_calculation_is_not_empty_success() {
-    use convex_engine::{NodeId, NodeValue};
+    use convex_engine::{NodeId, NodePhase};
 
     let engine = create_test_engine();
     let node = NodeId::BondPrice {
         instrument_id: InstrumentId::new("CVX001-MISSING-BOND"),
     };
-    engine.calc_graph().add_node(node.clone(), vec![]);
-    engine.calc_graph().invalidate(&node);
+    engine.calc_graph().add_node(node.clone(), vec![]).unwrap();
+    engine.calc_graph().invalidate(&node).unwrap();
     assert_eq!(engine.process_dirty_nodes(), 1);
 
     let graph = engine.calc_graph();
-    let has_actual_result = graph
-        .get_cached(&node)
-        .is_some_and(|cached| !matches!(cached.value, NodeValue::Empty));
+    let explicit_failure = graph.inspect_node(&node).is_some_and(|view| {
+        view.phase == NodePhase::Failed && view.failure.is_some() && view.last_good.is_none()
+    });
     assert!(
-        graph.is_dirty(&node) || has_actual_result,
-        "G02: missing inputs were cached as Empty and the node was marked clean: {:?}",
-        graph.get_cached(&node)
+        graph.get_cached(&node).is_none(),
+        "G02: missing inputs became a fresh numeric result"
+    );
+    assert!(
+        graph.is_dirty(&node) || explicit_failure,
+        "G02: failed work was silently marked clean without a structured failure"
     );
 }
 

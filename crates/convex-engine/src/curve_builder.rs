@@ -388,9 +388,14 @@ impl CurveBuilder {
         self.curves.insert(curve_id.clone(), built.clone());
 
         // Invalidate calc graph
-        self.calc_graph.invalidate(&NodeId::Curve {
+        let node = NodeId::Curve {
             curve_id: curve_id.clone(),
-        });
+        };
+        if self.calc_graph.node_spec(&node).is_some() {
+            self.calc_graph
+                .invalidate(&node)
+                .map_err(|error| EngineError::CurveBuildError(error.to_string()))?;
+        }
 
         info!(
             "Curve {} built with {} points",
@@ -454,9 +459,14 @@ impl CurveBuilder {
         self.curves.insert(curve_id.clone(), built.clone());
 
         // Invalidate calc graph
-        self.calc_graph.invalidate(&NodeId::Curve {
+        let node = NodeId::Curve {
             curve_id: curve_id.clone(),
-        });
+        };
+        if self.calc_graph.node_spec(&node).is_some() {
+            self.calc_graph
+                .invalidate(&node)
+                .map_err(|error| EngineError::CurveBuildError(error.to_string()))?;
+        }
 
         info!(
             "Curve {} created with {} points",

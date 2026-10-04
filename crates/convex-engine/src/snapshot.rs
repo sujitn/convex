@@ -349,7 +349,7 @@ impl From<SnapshotValuationResult> for ValuationResultWire {
 }
 
 /// Snapshot valuation use case: existing router mathematics over resolved immutable values.
-/// CVX-006/005 will call this from the authoritative graph/runtime; it owns no scheduling loop.
+/// The graph can commit its checked results with captured snapshot/context tickets; runtime consolidation remains CVX-005. It owns no scheduling loop.
 pub struct SnapshotValuator {
     build_id: ModelId,
     cache: ValuationCache,

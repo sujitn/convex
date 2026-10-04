@@ -93,6 +93,8 @@ pub enum ServerMessage {
         node_id: String,
         source: String,
         timestamp: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        completion: Option<Box<convex_engine::CalculationCompletion>>,
     },
     /// Curve update notification
     CurveUpdated { curve_id: String, timestamp: i64 },
@@ -121,6 +123,8 @@ pub enum BroadcastUpdate {
         source: String,
         /// Timestamp
         timestamp: i64,
+        /// Actual committed generation, revision and status; absent for older producers.
+        completion: Option<Box<convex_engine::CalculationCompletion>>,
     },
     /// Curve updated event
     CurveUpdated {
@@ -198,12 +202,14 @@ impl WebSocketState {
         node_id: String,
         source: String,
         timestamp: i64,
+        completion: Option<convex_engine::CalculationCompletion>,
     ) {
         let _ = self.broadcast_tx.send(BroadcastUpdate::NodeRecalculated {
             node_type,
             node_id,
             source,
             timestamp,
+            completion: completion.map(Box::new),
         });
     }
 
@@ -301,10 +307,16 @@ pub fn connect_reactive_engine(
                         node_id.clone(),
                         source,
                         update.timestamp,
+                        update.completion.clone(),
                     );
 
                     // Also publish curve-specific events for curve nodes
-                    if node_type == "curve" {
+                    if node_type == "curve"
+                        && update.completion.as_ref().is_some_and(|result| {
+                            result.status == convex_core::contracts::ResultStatus::Complete
+                                && result.quality == convex_core::contracts::DataQuality::Valid
+                        })
+                    {
                         ws_state.publish_curve_updated(node_id, update.timestamp);
                     }
                 }
@@ -632,6 +644,7 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
             node_id,
             source,
             timestamp,
+            completion,
         } => {
             // Send node updates to clients that have subscribed to the relevant type
             // For now, send to all subscribed clients based on node type
@@ -659,6 +672,7 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
                     node_id: node_id.clone(),
                     source: source.clone(),
                     timestamp: *timestamp,
+                    completion: completion.clone(),
                 })
             } else {
                 None
@@ -747,6 +761,68 @@ pub async fn ws_status(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+
+    #[tokio::test]
+    async fn graph_failure_completion_reaches_subscriber_with_generation_revision_and_code() {
+        use convex_engine::{CalculationFailure, CalculationGraph, CommitOutcome, NodeId};
+        let graph = CalculationGraph::new();
+        let node = NodeId::BondPrice {
+            instrument_id: InstrumentId::new("FAILED"),
+        };
+        graph.add_node(node.clone(), vec![]).unwrap();
+        let ticket = graph.begin_calculation(&node).unwrap();
+        let completion = match graph
+            .commit_result(
+                &ticket,
+                Err(CalculationFailure::fixed(
+                    convex_core::contracts::ErrorCode::MissingReference,
+                    "reference missing",
+                )),
+            )
+            .unwrap()
+        {
+            CommitOutcome::Committed { completion } => completion,
+            CommitOutcome::Discarded => panic!("current failure was discarded"),
+        };
+        let state = Arc::new(WebSocketState::new());
+        let mut broadcast = state.broadcast_tx.subscribe();
+        let (tx, rx) = tokio::sync::broadcast::channel(4);
+        connect_reactive_engine(state, rx);
+        tx.send(NodeUpdate {
+            node_id: node,
+            timestamp: 123,
+            source: UpdateSource::Immediate,
+            completion: Some(completion.clone()),
+        })
+        .unwrap();
+        let update = tokio::time::timeout(std::time::Duration::from_secs(2), broadcast.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let mut session = ClientSession::new("test".into());
+        session.subscribe_all_bonds = true;
+        let message = filter_update(&session, &update).unwrap();
+        let json = serde_json::to_value(message).unwrap();
+        assert_eq!(json["type"], "node_recalculated");
+        assert_eq!(json["node_id"], "FAILED");
+        assert_eq!(json["completion"]["generation"], completion.generation);
+        assert_eq!(json["completion"]["revision"], completion.revision);
+        assert_eq!(json["completion"]["status"], "Failed");
+        assert_eq!(json["completion"]["quality"], "Invalid");
+        assert_eq!(json["completion"]["failure"]["code"], "MISSING_REFERENCE");
+        // Existing producers can omit completion; the original fields retain their wire form.
+        let old = ServerMessage::NodeRecalculated {
+            node_type: "bond_price".into(),
+            node_id: "OLD".into(),
+            source: "immediate".into(),
+            timestamp: 123,
+            completion: None,
+        };
+        assert!(serde_json::to_value(old)
+            .unwrap()
+            .get("completion")
+            .is_none());
+    }
 
     #[test]
     fn test_client_message_subscribe_bonds() {

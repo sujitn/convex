@@ -12,7 +12,7 @@ use tracing::{debug, info, warn};
 use convex_core::ids::*;
 use convex_core::Date;
 
-use crate::calc_graph::{CalculationGraph, NodeId, NodeValue};
+use crate::calc_graph::{CalculationGraph, GraphError, NodeId, NodeValue};
 use crate::curve_builder::BuiltCurve;
 use crate::market_ingestion::{DataState, IngestionOutcome, IngestionResult, MarketDataAssembler};
 use crate::scheduler::{NodeUpdate, ThrottleManager, UpdateSource};
@@ -122,6 +122,11 @@ pub struct VolSurfaceUpdate {
 /// Observable ingestion decisions. These do not imply that downstream pricing is certified.
 #[derive(Debug, Clone)]
 pub enum IngestionStatus {
+    /// Graph policy/role/activation rejected this input transition.
+    GraphRejected {
+        /// Exact typed graph error; no numerical fallback is published.
+        error: GraphError,
+    },
     /// One normalized event decision.
     Event(IngestionResult),
     /// Shared channel loss; every input is suspended.
@@ -221,7 +226,7 @@ impl MarketDataListener {
                             warn!("Market data listener lagged by {} messages; inputs suspended", n);
                             self.assembler.transport_gap();
                             self.auxiliary_suspended = true;
-                            self.calc_graph.suspend_market_delivery();
+                            self.graph_outcome(self.calc_graph.suspend_market_delivery());
                             self.publish_status(IngestionStatus::Lagged { missed: n });
                         }
                         Err(broadcast::error::RecvError::Closed) => {
@@ -238,7 +243,7 @@ impl MarketDataListener {
             }
         }
         self.assembler.close();
-        self.calc_graph.suspend_market_delivery();
+        self.graph_outcome(self.calc_graph.suspend_market_delivery());
         self.publish_status(IngestionStatus::Closed);
     }
 
@@ -278,11 +283,11 @@ impl MarketDataListener {
             instrument_id: key.instrument_id.clone(),
         };
         if decision.outcome == IngestionOutcome::CapacityExceeded {
-            self.calc_graph.suspend_market_delivery();
+            self.graph_outcome(self.calc_graph.suspend_market_delivery());
             return;
         }
         if decision.state != DataState::Live {
-            self.calc_graph.evict_cached(&node_id);
+            self.graph_outcome(self.calc_graph.evict_cached(&node_id));
             return;
         }
         if decision.outcome != IngestionOutcome::Applied {
@@ -293,7 +298,7 @@ impl MarketDataListener {
         };
         // Existing graph has no source-selection policy. Refuse a second source for the same instrument.
         if self.assembler.has_other_source(&key) {
-            self.calc_graph.evict_cached(&node_id);
+            self.graph_outcome(self.calc_graph.evict_cached(&node_id));
             self.publish_status(IngestionStatus::SourceSelectionRequired {
                 instrument_id: key.instrument_id,
             });
@@ -309,7 +314,7 @@ impl MarketDataListener {
             && price(QuoteField::AskPrice).is_none()
             && price(QuoteField::MidPrice).is_none()
         {
-            self.calc_graph.evict_cached(&node_id);
+            self.graph_outcome(self.calc_graph.evict_cached(&node_id));
             return;
         }
         let Some(valid_for_ms) = self.assembler.fresh_for_ms(&key, now_ms) else {
@@ -323,21 +328,21 @@ impl MarketDataListener {
         else {
             return;
         };
-        self.calc_graph.update_cache_until(
+        if !self.graph_outcome(self.calc_graph.publish_input_until(
             &node_id,
             NodeValue::Quote {
                 bid: price(QuoteField::BidPrice),
                 ask: price(QuoteField::AskPrice),
                 mid: price(QuoteField::MidPrice),
             },
-            deadline,
-        );
-        self.calc_graph.invalidate(&node_id);
+            Some(deadline),
+        )) {
+            return;
+        }
         let bond_node = NodeId::BondPrice {
             instrument_id: key.instrument_id,
         };
         if self.throttle_manager.should_calculate(&bond_node) {
-            self.throttle_manager.mark_calculated(&bond_node);
             self.notify_update(bond_node, UpdateSource::Immediate);
         } else {
             self.throttle_manager.schedule(bond_node);
@@ -351,145 +356,107 @@ impl MarketDataListener {
                 .state(key, now_ms)
                 .is_some_and(|state| state != DataState::Live)
             {
-                self.calc_graph.evict_cached(&NodeId::Quote {
+                self.graph_outcome(self.calc_graph.evict_cached(&NodeId::Quote {
                     instrument_id: key.instrument_id.clone(),
-                });
+                }));
             }
         }
     }
 
-    /// Handle a curve input update.
+    /// Supply a normalized calibration input; recipe-driven curve construction is separate.
     async fn on_curve_input_update(&self, update: CurveInputUpdate) {
-        debug!(
-            "Curve input update: {}.{} = {}",
-            update.curve_id, update.instrument, update.rate
-        );
-
         let node_id = NodeId::CurveInput {
             curve_id: update.curve_id.clone(),
-            instrument: update.instrument.clone(),
+            instrument: update.instrument,
         };
-
-        // Invalidate curve input (propagates to curve, then to bonds)
-        self.calc_graph.invalidate(&node_id);
-
-        // Trigger curve rebuild
-        let curve_node = NodeId::Curve {
-            curve_id: update.curve_id.clone(),
+        if !self.graph_outcome(
+            self.calc_graph
+                .publish_input(&node_id, NodeValue::CurveInput { rate: update.rate }),
+        ) {
+            return;
+        }
+        let curve = NodeId::Curve {
+            curve_id: update.curve_id,
         };
-        self.calc_graph.invalidate(&curve_node);
-
-        self.notify_update(curve_node, UpdateSource::Immediate);
+        if self.calc_graph.node_spec(&curve).is_some() {
+            self.graph_outcome(self.calc_graph.invalidate(&curve));
+        }
     }
-
-    /// Handle a built curve update.
+    /// Publish a supplied curve atomically; a calculated curve requires its own generation ticket.
     async fn on_curve_update(&self, update: CurveUpdate) {
-        debug!("Curve update: {}", update.curve_id);
-
         let node_id = NodeId::Curve {
-            curve_id: update.curve_id.clone(),
+            curve_id: update.curve_id,
         };
-
-        // Update cache with curve data
-        self.calc_graph.update_cache(
+        if self.graph_outcome(self.calc_graph.publish_input(
             &node_id,
             NodeValue::Curve {
                 points: update.curve.to_points(),
             },
-        );
-
-        // Invalidate to propagate to dependent bonds
-        self.calc_graph.invalidate(&node_id);
-
-        self.notify_update(node_id, UpdateSource::Immediate);
+        )) {
+            self.notify_update(node_id, UpdateSource::Immediate);
+        }
     }
-
-    /// Handle an index fixing update.
+    /// Publish an externally supplied index fixing.
     async fn on_index_fixing(&self, update: IndexFixingUpdate) {
-        debug!(
-            "Index fixing: {} {} = {}",
-            update.index, update.date, update.rate
-        );
-
         let node_id = NodeId::IndexFixing {
-            index: update.index.clone(),
+            index: update.index,
             date: update.date,
         };
-
-        // Update cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::IndexFixing { rate: update.rate });
-
-        // Invalidate to propagate to FRNs
-        self.calc_graph.invalidate(&node_id);
-
-        self.notify_update(node_id, UpdateSource::Immediate);
+        if self.graph_outcome(
+            self.calc_graph
+                .publish_input(&node_id, NodeValue::IndexFixing { rate: update.rate }),
+        ) {
+            self.notify_update(node_id, UpdateSource::Immediate);
+        }
     }
-
-    /// Handle an inflation fixing update.
+    /// Publish an externally supplied inflation fixing.
     async fn on_inflation_fixing(&self, update: InflationFixingUpdate) {
-        debug!(
-            "Inflation fixing: {} {} = {}",
-            update.index, update.month, update.value
-        );
-
         let node_id = NodeId::InflationFixing {
-            index: update.index.clone(),
+            index: update.index,
             month: update.month,
         };
-
-        // Update cache
-        self.calc_graph.update_cache(
+        if self.graph_outcome(self.calc_graph.publish_input(
             &node_id,
             NodeValue::InflationFixing {
                 value: update.value,
             },
-        );
-
-        // Invalidate to propagate to ILBs
-        self.calc_graph.invalidate(&node_id);
-
-        self.notify_update(node_id, UpdateSource::Immediate);
+        )) {
+            self.notify_update(node_id, UpdateSource::Immediate);
+        }
     }
-
-    /// Handle an FX rate update.
+    /// Publish a supplied currency rate.
     async fn on_fx_rate_update(&self, update: FxRateUpdate) {
-        debug!("FX rate update: {} = {}", update.pair, update.mid);
-
-        let node_id = NodeId::FxRate {
-            pair: update.pair.clone(),
-        };
-
-        // Update cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::FxRate { mid: update.mid });
-
-        // Invalidate to propagate to cross-currency holdings
-        self.calc_graph.invalidate(&node_id);
-
-        self.notify_update(node_id, UpdateSource::Immediate);
+        let node_id = NodeId::FxRate { pair: update.pair };
+        if self.graph_outcome(
+            self.calc_graph
+                .publish_input(&node_id, NodeValue::FxRate { mid: update.mid }),
+        ) {
+            self.notify_update(node_id, UpdateSource::Immediate);
+        }
     }
-
-    /// Handle a volatility surface update.
+    /// Publish an externally supplied volatility surface.
     async fn on_vol_surface_update(&self, update: VolSurfaceUpdate) {
-        debug!("Vol surface update: {}", update.surface_id);
-
         let node_id = NodeId::VolSurface {
-            surface_id: update.surface_id.clone(),
+            surface_id: update.surface_id,
         };
-
-        // Update cache
-        self.calc_graph.update_cache(
+        if self.graph_outcome(self.calc_graph.publish_input(
             &node_id,
             NodeValue::VolSurface {
                 atm_vols: update.atm_vols,
             },
-        );
-
-        // Invalidate to propagate to option-embedded bonds
-        self.calc_graph.invalidate(&node_id);
-
-        self.notify_update(node_id, UpdateSource::Immediate);
+        )) {
+            self.notify_update(node_id, UpdateSource::Immediate);
+        }
+    }
+    fn graph_outcome<T>(&self, result: Result<T, GraphError>) -> bool {
+        match result {
+            Ok(_) => true,
+            Err(error) => {
+                warn!("Market graph transition rejected: {error}");
+                self.publish_status(IngestionStatus::GraphRejected { error });
+                false
+            }
+        }
     }
 
     /// Notify subscribers of a node update.
@@ -498,6 +465,7 @@ impl MarketDataListener {
             node_id,
             timestamp: chrono::Utc::now().timestamp(),
             source,
+            completion: None,
         });
     }
 }
@@ -650,30 +618,62 @@ mod tests {
         let quote = NodeId::Quote {
             instrument_id: "EXPIRING".into(),
         };
-        graph.update_cache_until(
-            &quote,
-            NodeValue::Quote {
-                bid: None,
-                ask: None,
-                mid: Some(Decimal::from(100)),
-            },
-            std::time::Instant::now() - std::time::Duration::from_millis(1),
-        );
+        graph
+            .publish_input_until(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(Decimal::from(100)),
+                },
+                Some(std::time::Instant::now() - std::time::Duration::from_millis(1)),
+            )
+            .unwrap();
         assert!(graph.get_cached(&quote).is_none());
-        graph.update_cache(
-            &quote,
-            NodeValue::Quote {
-                bid: None,
-                ask: None,
-                mid: Some(Decimal::from(100)),
-            },
-        );
+        graph
+            .publish_input(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(Decimal::from(100)),
+                },
+            )
+            .unwrap();
         assert!(graph.get_cached(&quote).is_some());
         let bond = NodeId::BondPrice {
             instrument_id: "EXPIRING".into(),
         };
-        graph.update_cache(&bond, NodeValue::Empty);
-        graph.evict_cached(&quote);
+        graph.add_node(bond.clone(), vec![quote.clone()]).unwrap();
+        graph
+            .publish_input(
+                &quote,
+                NodeValue::Quote {
+                    bid: None,
+                    ask: None,
+                    mid: Some(Decimal::from(100)),
+                },
+            )
+            .unwrap();
+        let ticket = graph.begin_calculation(&bond).unwrap();
+        graph
+            .commit_result(
+                &ticket,
+                Ok(NodeValue::BondPrice {
+                    clean_price_bid: None,
+                    clean_price_mid: Some(Decimal::from(100)),
+                    clean_price_ask: None,
+                    accrued_interest: None,
+                    ytm_bid: None,
+                    ytm_mid: None,
+                    ytm_ask: None,
+                    z_spread_mid: None,
+                    modified_duration: None,
+                    dv01: None,
+                }),
+            )
+            .unwrap();
+        graph.evict_cached(&quote).unwrap();
         assert!(graph.get_cached(&quote).is_none());
         assert!(graph.get_cached(&bond).is_none());
     }
@@ -686,7 +686,7 @@ mod tests {
         };
         listener.on_quote_update(event(), 1000);
         assert!(matches!(
-            graph.get_cached(&node).unwrap().value,
+            &graph.get_cached(&node).unwrap().value,
             NodeValue::Quote {
                 bid: Some(_),
                 ask: Some(_),
@@ -790,7 +790,12 @@ mod tests {
                 ..
             })
         ));
-        assert!(graph.get_cached(&node).is_some());
+        assert!(graph.market_delivery_suspended());
+        assert!(graph.get_cached(&node).is_none());
+        assert_eq!(
+            graph.inspect_node(&node).unwrap().retained_quality,
+            Some(convex_core::contracts::DataQuality::Stale)
+        );
         drop(tx);
         assert!(matches!(recv(status).await.0, IngestionStatus::Closed));
         handle.await.unwrap();
