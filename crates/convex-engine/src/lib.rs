@@ -13,7 +13,7 @@
 //! - [`snapshot::SnapshotValuator`]: Supplied-context valuation with bounded complete-key caching
 //!
 //! Snapshot use cases create no scheduling loop. The graph admits supplied snapshot/context tickets;
-//! authoritative runtime adoption remains separate. `SNAPSHOTS.md` and `GRAPH.md` document scope and migration.
+//! the event-driven runtime owns authoritative snapshot valuation and publication. `SNAPSHOTS.md` and `GRAPH.md` document scope and migration.
 //!
 //! ## Architecture
 //!
@@ -34,8 +34,8 @@
 //!     .with_market_data(market_data_provider)
 //!     .with_reference_data(ref_data_provider)
 //!     .with_storage(storage_adapter)
-//!     .with_config(config_source)
-//!     .with_output(output_publisher)
+//!     .with_config(engine_config)
+//!     .with_runtime(runtime_services)
 //!     .build()?;
 //!
 //! engine.start().await?;
@@ -57,7 +57,7 @@ pub mod market_data_listener;
 pub mod market_ingestion;
 pub mod portfolio_analytics;
 pub mod pricing_router;
-pub mod reactive;
+pub mod runtime;
 pub mod scheduler;
 pub mod snapshot;
 
@@ -80,18 +80,17 @@ pub use market_data_listener::{
 };
 pub use portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
-pub use reactive::{ReactiveEngine, ReactiveEngineBuilder};
+pub use runtime::{
+    AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
+    RuntimePlan, RuntimeServices,
+};
 pub use scheduler::{EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource};
 
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::broadcast;
-use tokio::time::interval;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::ports::config::EngineConfig;
 use crate::ports::market_data::MarketDataProvider;
-use crate::ports::output::OutputPublisher;
 use crate::ports::reference_data::ReferenceDataProvider;
 use crate::ports::storage::StorageAdapter;
 
@@ -116,7 +115,6 @@ pub struct PricingEngine {
     portfolio_analyzer: Arc<PortfolioAnalyzer>,
 
     /// Market data provider
-    #[allow(dead_code)]
     market_data: Arc<MarketDataProvider>,
 
     /// Auxiliary issuer, rating and ETF sources; bond terms come from storage.
@@ -125,12 +123,8 @@ pub struct PricingEngine {
     /// Storage adapter, including the authoritative reference repository.
     storage: Arc<StorageAdapter>,
 
-    /// Output publisher
-    #[allow(dead_code)]
-    output: Arc<OutputPublisher>,
-
-    /// Shutdown signal sender
-    shutdown_tx: broadcast::Sender<()>,
+    /// Sole lifecycle and accepted-work owner.
+    runtime: runtime::RuntimeController,
 }
 
 impl PricingEngine {
@@ -140,10 +134,8 @@ impl PricingEngine {
         market_data: Arc<MarketDataProvider>,
         reference_data: Arc<ReferenceDataProvider>,
         storage: Arc<StorageAdapter>,
-        output: Arc<OutputPublisher>,
     ) -> Self {
-        let (shutdown_tx, _) = broadcast::channel(1);
-
+        let concurrency = config.max_concurrent_calcs;
         let calc_graph = Arc::new(CalculationGraph::new());
         let curve_builder = Arc::new(CurveBuilder::new(market_data.clone(), calc_graph.clone()));
         let pricing_router = Arc::new(PricingRouter::new());
@@ -160,89 +152,63 @@ impl PricingEngine {
             market_data,
             reference_data,
             storage,
-            output,
-            shutdown_tx,
+            runtime: runtime::RuntimeController::new(None, false, concurrency),
         }
     }
 
-    /// Start the pricing engine.
+    /// Start once, restoring exact dependencies and accepted work before readiness.
     pub async fn start(&self) -> Result<(), EngineError> {
-        info!("Starting pricing engine: {}", self.config.name);
-
-        // Start the calculation loop
-        self.start_calculation_loop().await;
-
-        info!("Pricing engine started");
-        Ok(())
+        self.runtime.start(self).await
     }
 
-    /// Start the main calculation loop.
-    async fn start_calculation_loop(&self) {
-        let calc_graph = self.calc_graph.clone();
-        let mut shutdown_rx = self.shutdown_tx.subscribe();
-
-        // Get calculation interval from config (default 100ms)
-        let calc_interval = Duration::from_millis(100);
-
-        tokio::spawn(async move {
-            let mut ticker = interval(calc_interval);
-
-            loop {
-                tokio::select! {
-                    _ = ticker.tick() => {
-                        // CVX-005 replaces this coordinator with the authoritative runtime.
-                        // Until then it reports Unsupported instead of clearing work with a placeholder.
-                        match calc_graph.claim_ready(64) {
-                            Ok(tickets) => for ticket in tickets {
-                                if let Err(error) = calc_graph.commit_result(&ticket, Err(CalculationFailure::fixed(
-                                    convex_core::contracts::ErrorCode::UnsupportedProduct,
-                                    "pricing coordinator requires CVX-005 runtime integration",
-                                ))) { warn!("Calculation status commit failed: {error}"); }
-                            },
-                            Err(error) => warn!("Calculation admission failed: {error}"),
-                        }
-                    }
-                    _ = shutdown_rx.recv() => {
-                        info!("Calculation loop shutting down");
-                        break;
-                    }
-                }
-            }
-        });
-    }
-
-    /// Process a single calculation cycle manually.
-    ///
-    /// This is useful for testing or on-demand calculations.
-    pub fn process_dirty_nodes(&self) -> usize {
-        let tickets = match self.calc_graph.claim_ready(64) {
-            Ok(tickets) => tickets,
-            Err(error) => {
-                warn!("Calculation admission failed: {error}");
-                return 0;
-            }
-        };
-        let count = tickets.len();
-        for ticket in tickets {
-            if let Err(error) = self.calc_graph.commit_result(
-                &ticket,
-                Err(CalculationFailure::fixed(
-                    convex_core::contracts::ErrorCode::UnsupportedProduct,
-                    "pricing coordinator requires CVX-005 runtime integration",
-                )),
-            ) {
-                warn!("Calculation status commit failed: {error}");
-            }
-        }
-        count
-    }
-
-    /// Shutdown the pricing engine.
+    /// Close admission, drain accepted work, and join all owned tasks and workers.
     pub async fn shutdown(&self) -> Result<(), EngineError> {
-        info!("Shutting down pricing engine");
-        let _ = self.shutdown_tx.send(());
-        info!("Pricing engine shutdown complete");
-        Ok(())
+        self.runtime.shutdown().await
+    }
+
+    /// Separate lifecycle/dependency/data status; never execution permission.
+    pub fn runtime_health(&self) -> RuntimeHealth {
+        self.runtime.health()
+    }
+
+    /// Observe joined shutdown so transport sessions can close promptly.
+    pub fn subscribe_shutdown(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.runtime.subscribe_shutdown()
+    }
+
+    /// Canonical persisted result states with original last-good timestamps.
+    pub fn runtime_results(&self) -> Vec<ports::runtime::PublishedValuation> {
+        self.runtime.results()
+    }
+
+    /// Transient display stream. Lag is explicit; resync through runtime_results.
+    pub fn subscribe_results(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<ports::runtime::PublishedValuation> {
+        self.runtime.subscribe()
+    }
+
+    /// Admit a captured update only after its checkpoint is durable; overload fails explicitly.
+    pub async fn submit_update(
+        &self,
+        event: ports::quote_event::QuoteEvent,
+        as_of: convex_core::contracts::UtcTimestamp,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<AcceptedUpdate, RuntimeError> {
+        self.runtime.submit(event, as_of, known_at).await
+    }
+
+    /// Run a complete supplied context on the bounded interactive CPU budget; shutdown joins it.
+    pub async fn evaluate_context(
+        &self,
+        snapshot: ports::snapshot::MarketSnapshot,
+        context: context::ValuationContext,
+        request: convex_core::contracts::RequestId,
+        calculated_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<snapshot::SnapshotValuationResult, ports::TraitError> {
+        self.runtime
+            .evaluate_context(snapshot, context, request, calculated_at)
+            .await
     }
 
     /// Get the calculation graph.
@@ -358,7 +324,7 @@ impl PricingEngine {
             let node = NodeId::BondPrice {
                 instrument_id: record.instrument_id.clone(),
             };
-            if self.calc_graph.node_spec(&node).is_some() {
+            if self.runtime_health().mode.is_none() && self.calc_graph.node_spec(&node).is_some() {
                 if let Err(error) = self.calc_graph.invalidate(&node) {
                     warn!("Reference invalidation failed: {error}");
                 }
@@ -575,19 +541,6 @@ impl PricingEngine {
             vec![],
         )
         .with_config(crate::ports::config::NodeConfig::portfolio())])
-    }
-
-    /// Create a reactive engine from this pricing engine.
-    ///
-    /// The reactive engine provides additional features like interval
-    /// scheduling and market data listening.
-    pub fn create_reactive_engine(&self) -> reactive::ReactiveEngine {
-        reactive::ReactiveEngine::new(
-            self.calc_graph.clone(),
-            self.curve_builder.clone(),
-            self.pricing_router.clone(),
-            self.storage.bonds.clone(),
-        )
     }
 }
 

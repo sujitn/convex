@@ -51,6 +51,10 @@ pub enum ClientMessage {
     SubscribePortfolios { portfolio_ids: Vec<String> },
     /// Unsubscribe from portfolio analytics
     UnsubscribePortfolios { portfolio_ids: Vec<String> },
+    /// Opt in to canonical snapshot-valued results.
+    SubscribeValuations { instrument_ids: Vec<String> },
+    /// Stop canonical valuation updates.
+    UnsubscribeValuations { instrument_ids: Vec<String> },
     /// Ping (client heartbeat)
     Ping { timestamp: i64 },
 }
@@ -87,7 +91,9 @@ pub enum ServerMessage {
     Error { code: String, message: String },
     /// Server heartbeat
     Heartbeat { server_time: i64 },
-    /// Node recalculated event (from reactive engine)
+    /// Canonical durable result state from the pricing runtime.
+    Valuation(Box<convex_engine::ports::runtime::PublishedValuation>),
+    /// Node recalculated event (from a graph completion)
     NodeRecalculated {
         node_type: String,
         node_id: String,
@@ -280,56 +286,24 @@ fn update_source_to_string(source: &UpdateSource) -> String {
     }
 }
 
-/// Connect the reactive engine's node update stream to WebSocket broadcasting.
-///
-/// This spawns a background task that listens to node updates from the reactive
-/// engine and forwards them to WebSocket clients via the broadcast channel.
-pub fn connect_reactive_engine(
-    ws_state: Arc<WebSocketState>,
-    mut node_update_rx: tokio::sync::broadcast::Receiver<NodeUpdate>,
-) {
-    tokio::spawn(async move {
-        info!("Reactive engine -> WebSocket bridge started");
-
-        loop {
-            match node_update_rx.recv().await {
-                Ok(update) => {
-                    let (node_type, node_id) = node_id_to_strings(&update.node_id);
-                    let source = update_source_to_string(&update.source);
-
-                    debug!(
-                        "Broadcasting node update: {} {} ({})",
-                        node_type, node_id, source
-                    );
-
-                    ws_state.publish_node_recalculated(
-                        node_type.clone(),
-                        node_id.clone(),
-                        source,
-                        update.timestamp,
-                        update.completion.clone(),
-                    );
-
-                    // Also publish curve-specific events for curve nodes
-                    if node_type == "curve"
-                        && update.completion.as_ref().is_some_and(|result| {
-                            result.status == convex_core::contracts::ResultStatus::Complete
-                                && result.quality == convex_core::contracts::DataQuality::Valid
-                        })
-                    {
-                        ws_state.publish_curve_updated(node_id, update.timestamp);
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                    warn!("WebSocket bridge lagged by {} node updates", n);
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                    info!("Reactive engine channel closed, WebSocket bridge shutting down");
-                    break;
-                }
-            }
-        }
-    });
+/// Forward an already committed graph notification synchronously; owns no background task.
+pub fn publish_node_update(ws_state: &WebSocketState, update: NodeUpdate) {
+    let (node_type, node_id) = node_id_to_strings(&update.node_id);
+    ws_state.publish_node_recalculated(
+        node_type.clone(),
+        node_id.clone(),
+        update_source_to_string(&update.source),
+        update.timestamp,
+        update.completion.clone(),
+    );
+    if node_type == "curve"
+        && update.completion.as_ref().is_some_and(|result| {
+            result.status == convex_core::contracts::ResultStatus::Complete
+                && result.quality == convex_core::contracts::DataQuality::Valid
+        })
+    {
+        ws_state.publish_curve_updated(node_id, update.timestamp);
+    }
 }
 
 // =============================================================================
@@ -341,6 +315,7 @@ struct ClientSession {
     session_id: String,
     /// Subscribed bond instrument IDs
     bond_subscriptions: HashSet<InstrumentId>,
+    valuation_subscriptions: HashSet<InstrumentId>,
     /// Subscribe to all bonds
     subscribe_all_bonds: bool,
     /// Subscribed ETF IDs
@@ -354,6 +329,7 @@ impl ClientSession {
         Self {
             session_id,
             bond_subscriptions: HashSet::new(),
+            valuation_subscriptions: HashSet::new(),
             subscribe_all_bonds: false,
             etf_subscriptions: HashSet::new(),
             portfolio_subscriptions: HashSet::new(),
@@ -408,6 +384,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
 
     // Subscribe to broadcast channel
     let mut broadcast_rx = ws_state.broadcast_tx.subscribe();
+    let mut valuation_rx = state.engine.subscribe_results();
+    let mut shutdown_rx = state.engine.subscribe_shutdown();
 
     // Split socket into sender and receiver
     let (mut sender, mut receiver) = socket.split();
@@ -430,6 +408,24 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
 
     loop {
         tokio::select! {
+            changed = shutdown_rx.changed() => {
+                if changed.is_err() || *shutdown_rx.borrow() { let _ = sender.send(Message::Close(None)).await; break; }
+            }
+            result = valuation_rx.recv() => {
+                match result {
+                    Ok(result) => {
+                        let subscribed = match &result.result.provenance().subject {
+                            convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => session.valuation_subscriptions.contains(&InstrumentId::new(instrument_id.as_str())),
+                            _ => false,
+                        };
+                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/runtime/results and resume by (runtime_id, revision)".into() }, profile).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Closed) => break,
+                }
+            }
             // Handle incoming messages from client
             Some(msg) = receiver.next() => {
                 match msg {
@@ -601,6 +597,44 @@ async fn handle_client_message(
             }
             ServerMessage::Unsubscribed {
                 subscription_type: "portfolios".to_string(),
+                count,
+            }
+        }
+        ClientMessage::SubscribeValuations { instrument_ids } => {
+            if instrument_ids.len() > 256
+                || session
+                    .valuation_subscriptions
+                    .len()
+                    .saturating_add(instrument_ids.len())
+                    > 256
+            {
+                return Err("at most 256 valuation subscriptions".into());
+            }
+            for id in &instrument_ids {
+                convex_core::contracts::InstrumentId::new(id)
+                    .map_err(|_| "invalid valuation identity")?;
+            }
+            let count = instrument_ids.len();
+            session
+                .valuation_subscriptions
+                .extend(instrument_ids.iter().map(InstrumentId::new));
+            ServerMessage::Subscribed {
+                subscription_type: "valuations".into(),
+                count,
+            }
+        }
+        ClientMessage::UnsubscribeValuations { instrument_ids } => {
+            if instrument_ids.len() > 256 {
+                return Err("at most 256 valuation subscriptions".into());
+            }
+            let count = instrument_ids.len();
+            for id in &instrument_ids {
+                session
+                    .valuation_subscriptions
+                    .remove(&InstrumentId::new(id));
+            }
+            ServerMessage::Unsubscribed {
+                subscription_type: "valuations".into(),
                 count,
             }
         }
@@ -786,15 +820,15 @@ mod tests {
         };
         let state = Arc::new(WebSocketState::new());
         let mut broadcast = state.broadcast_tx.subscribe();
-        let (tx, rx) = tokio::sync::broadcast::channel(4);
-        connect_reactive_engine(state, rx);
-        tx.send(NodeUpdate {
-            node_id: node,
-            timestamp: 123,
-            source: UpdateSource::Immediate,
-            completion: Some(completion.clone()),
-        })
-        .unwrap();
+        publish_node_update(
+            &state,
+            NodeUpdate {
+                node_id: node,
+                timestamp: 123,
+                source: UpdateSource::Immediate,
+                completion: Some(completion.clone()),
+            },
+        );
         let update = tokio::time::timeout(std::time::Duration::from_secs(2), broadcast.recv())
             .await
             .unwrap()

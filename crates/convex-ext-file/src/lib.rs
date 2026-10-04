@@ -19,6 +19,7 @@ mod reference_data;
 mod reference_import;
 mod reference_repository;
 mod replay;
+mod result_publisher;
 mod snapshot_repository;
 
 pub use fixing_repository::*;
@@ -27,6 +28,7 @@ pub use reference_data::*;
 pub use reference_import::*;
 pub use reference_repository::*;
 pub use replay::*;
+pub use result_publisher::*;
 pub use snapshot_repository::*;
 
 use std::path::Path;

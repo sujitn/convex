@@ -34,6 +34,7 @@ pub mod quote_event;
 pub mod reference_data;
 pub mod reference_master;
 pub mod reference_repository;
+pub mod runtime;
 pub mod snapshot;
 pub mod storage;
 

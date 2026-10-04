@@ -18,6 +18,8 @@ pub enum ServerProfile {
     Production,
     /// Explicitly permits the existing demonstration providers.
     Demo,
+    /// Explicit local historical replay; never live/execution readiness.
+    Replay,
 }
 
 /// Configuration failures never include input values, file contents or paths.
@@ -83,6 +85,8 @@ pub struct ServerConfig {
     pub storage_path: String,
     /// Reserved file integration; rejected until the provider is wired.
     pub quotes_file: Option<String>,
+    /// Complete bounded JSON runtime plan; required in replay mode.
+    pub runtime_plan: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
     pub curves_file: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
@@ -101,6 +105,7 @@ impl Default for ServerConfig {
             websocket_port: None,
             storage_path: "./data/convex.redb".into(),
             quotes_file: None,
+            runtime_plan: None,
             curves_file: None,
             fixings_file: None,
             bonds_file: None,
@@ -125,6 +130,8 @@ pub struct EffectiveConfig<'a> {
     pub storage_path: &'static str,
     /// Redacted optional quote source.
     pub quotes_file: Option<&'static str>,
+    /// Redacted optional runtime plan location.
+    pub runtime_plan: Option<&'static str>,
     /// Redacted optional curve source.
     pub curves_file: Option<&'static str>,
     /// Redacted optional fixing source.
@@ -221,10 +228,11 @@ impl ServerConfig {
                     candidate.profile = match value.as_str() {
                         "production" => ServerProfile::Production,
                         "demo" => ServerProfile::Demo,
+                        "replay" => ServerProfile::Replay,
                         _ => {
                             return Err(ConfigError::InvalidValue {
                                 field: "profile",
-                                expected: "production or demo",
+                                expected: "production, demo or replay",
                             })
                         }
                     }
@@ -247,6 +255,7 @@ impl ServerConfig {
                     candidate.websocket_port = Some(Self::parse_port(&value, "websocket_port")?)
                 }
                 "CONVEX_STORAGE_PATH" => candidate.storage_path = value,
+                "CONVEX_RUNTIME_PLAN" => candidate.runtime_plan = Some(value),
                 "CONVEX_QUOTES_FILE" => candidate.quotes_file = Some(value),
                 "CONVEX_CURVES_FILE" => candidate.curves_file = Some(value),
                 "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
@@ -284,7 +293,10 @@ impl ServerConfig {
             });
         }
         for (field, configured) in [
-            ("quotes_file", self.quotes_file.is_some()),
+            (
+                "quotes_file",
+                self.quotes_file.is_some() && self.profile != ServerProfile::Replay,
+            ),
             ("curves_file", self.curves_file.is_some()),
             ("fixings_file", self.fixings_file.is_some()),
             ("bonds_file", self.bonds_file.is_some()),
@@ -296,6 +308,25 @@ impl ServerConfig {
                 });
             }
         }
+        if self.profile == ServerProfile::Replay {
+            if self.runtime_plan.is_none() || self.quotes_file.is_none() {
+                return Err(ConfigError::InvalidValue {
+                    field: "replay",
+                    expected: "runtime_plan and canonical quotes_file",
+                });
+            }
+            if !self.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
+                return Err(ConfigError::Unsupported {
+                    field: "host",
+                    reason: "replay must bind loopback until access controls are implemented",
+                });
+            }
+        } else if self.runtime_plan.is_some() {
+            return Err(ConfigError::Unsupported {
+                field: "runtime_plan",
+                reason: "runtime plan requires the explicit replay profile",
+            });
+        }
         Ok(())
     }
 
@@ -303,7 +334,7 @@ impl ServerConfig {
     pub fn validate_startup(&self) -> Result<(), ConfigError> {
         self.validate()?;
         if self.profile == ServerProfile::Production {
-            return Err(ConfigError::Unsupported { field: "profile", reason: "production provider composition is not implemented; demo requires explicit opt-in" });
+            return Err(ConfigError::Unsupported { field: "profile", reason: "live production provider/security composition is not implemented; demo or local replay requires explicit opt-in" });
         }
         Ok(())
     }
@@ -336,6 +367,7 @@ impl ServerConfig {
             websocket_port: self.websocket_port,
             storage_path: REDACTED,
             quotes_file: self.quotes_file.as_ref().map(|_| REDACTED),
+            runtime_plan: self.runtime_plan.as_ref().map(|_| REDACTED),
             curves_file: self.curves_file.as_ref().map(|_| REDACTED),
             fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
             bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
@@ -352,6 +384,7 @@ impl ServerConfig {
             "CONVEX_WEBSOCKET_PORT",
             "CONVEX_STORAGE_PATH",
             "CONVEX_QUOTES_FILE",
+            "CONVEX_RUNTIME_PLAN",
             "CONVEX_CURVES_FILE",
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",

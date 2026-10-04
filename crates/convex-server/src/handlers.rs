@@ -108,6 +108,72 @@ pub async fn health() -> Json<HealthResponse> {
     })
 }
 
+/// Readiness fails independently of process liveness.
+pub async fn readiness(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let health = state.engine.runtime_health();
+    (
+        if health.ready {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        },
+        Json(health),
+    )
+}
+/// Full low-cardinality runtime lifecycle and input condition.
+pub async fn runtime_health(
+    State(state): State<Arc<AppState>>,
+) -> Json<convex_engine::RuntimeHealth> {
+    Json(state.engine.runtime_health())
+}
+/// Canonical display resynchronization, including explicit errors and stale retained values.
+pub async fn runtime_results(
+    State(state): State<Arc<AppState>>,
+) -> Json<Vec<convex_engine::ports::runtime::PublishedValuation>> {
+    Json(state.engine.runtime_results())
+}
+/// Supplied-context request uses precisely the runtime's quantitative path.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeValuationRequest {
+    /// Verified frozen information set.
+    pub snapshot: convex_engine::ports::snapshot::MarketSnapshot,
+    /// Complete context, including settlement/build/measures.
+    pub context: convex_engine::context::ValuationContext,
+    /// Correlation identity.
+    pub request_id: convex_core::contracts::RequestId,
+    /// Explicit calculation time; cannot precede the context cutoffs.
+    pub calculated_at: convex_core::contracts::UtcTimestamp,
+}
+/// Evaluate immutable supplied inputs; this never admits trading or edits current runtime state.
+pub async fn runtime_value(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<RuntimeValuationRequest>,
+) -> impl IntoResponse {
+    match state
+        .engine
+        .evaluate_context(
+            request.snapshot,
+            request.context,
+            request.request_id,
+            request.calculated_at,
+        )
+        .await
+    {
+        Ok(result) => (StatusCode::OK, Json(result)).into_response(),
+        Err(convex_engine::ports::TraitError::CapacityExceeded) => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({"error":"RUNTIME_CAPACITY_EXCEEDED"})),
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error":"INVALID_RUNTIME_CONTEXT"})),
+        )
+            .into_response(),
+    }
+}
+
 /// Error response.
 #[derive(Serialize)]
 pub struct ErrorResponse {

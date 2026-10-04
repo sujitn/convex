@@ -584,7 +584,7 @@ impl SnapshotValuator {
     }
 }
 
-fn consumed_versions(
+pub(crate) fn consumed_versions(
     snapshot: &MarketSnapshot,
     reference: &ResolvedBondReference,
 ) -> Result<Vec<InputVersion>, TraitError> {

@@ -660,6 +660,7 @@ dependencies = [
 name = "convex-engine"
 version = "0.13.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "convex-analytics",
  "convex-bonds",

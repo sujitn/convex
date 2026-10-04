@@ -23,6 +23,13 @@ pub struct JsonFixingRepository {
     histories: BTreeMap<FixingKey, Vec<PublishedFixing>>,
 }
 impl JsonFixingRepository {
+    /// Explicit empty fixing dependency for products that require no fixing keys.
+    pub fn empty() -> Self {
+        Self {
+            histories: BTreeMap::new(),
+        }
+    }
+
     /// Validate the entire regular, non-symlink <=16 MiB schema-1 file before exposing any records.
     pub fn new(path: impl AsRef<Path>) -> Result<Self, TraitError> {
         let bytes =

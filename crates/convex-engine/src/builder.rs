@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use crate::ports::config::EngineConfig;
 use crate::ports::market_data::MarketDataProvider;
-use crate::ports::output::OutputPublisher;
 use crate::ports::reference_data::ReferenceDataProvider;
 use crate::ports::storage::StorageAdapter;
 
@@ -17,7 +16,8 @@ pub struct PricingEngineBuilder {
     market_data: Option<Arc<MarketDataProvider>>,
     reference_data: Option<Arc<ReferenceDataProvider>>,
     storage: Option<Arc<StorageAdapter>>,
-    output: Option<Arc<OutputPublisher>>,
+    runtime: Option<crate::runtime::RuntimeServices>,
+    demo: bool,
 }
 
 impl PricingEngineBuilder {
@@ -28,7 +28,8 @@ impl PricingEngineBuilder {
             market_data: None,
             reference_data: None,
             storage: None,
-            output: None,
+            runtime: None,
+            demo: false,
         }
     }
 
@@ -56,9 +57,15 @@ impl PricingEngineBuilder {
         self
     }
 
-    /// Set the output publisher.
-    pub fn with_output(mut self, output: Arc<OutputPublisher>) -> Self {
-        self.output = Some(output);
+    /// Configure the sole event-driven pricing lifecycle and genuine I/O boundaries.
+    pub fn with_runtime(mut self, services: crate::runtime::RuntimeServices) -> Self {
+        self.runtime = Some(services);
+        self
+    }
+
+    /// Explicit idle demonstration mode. It performs no production pricing and is never ready.
+    pub fn with_demo_mode(mut self) -> Self {
+        self.demo = true;
         self
     }
 
@@ -78,17 +85,26 @@ impl PricingEngineBuilder {
             .storage
             .ok_or_else(|| EngineError::ConfigError("storage not configured".into()))?;
 
-        let output = self
-            .output
-            .ok_or_else(|| EngineError::ConfigError("output not configured".into()))?;
-
-        Ok(PricingEngine::new(
-            config,
-            market_data,
-            reference_data,
-            storage,
-            output,
-        ))
+        if self.demo && self.runtime.is_some() {
+            return Err(EngineError::ConfigError(
+                "demo and configured runtime are mutually exclusive".into(),
+            ));
+        }
+        if let Some(runtime) = &self.runtime {
+            runtime.plan.validate()?;
+        }
+        if !(1..=64).contains(&config.max_concurrent_calcs) {
+            return Err(EngineError::ConfigError(
+                "max_concurrent_calcs requires 1..=64".into(),
+            ));
+        }
+        let mut engine = PricingEngine::new(config, market_data, reference_data, storage);
+        engine.runtime = crate::runtime::RuntimeController::new(
+            self.runtime,
+            self.demo,
+            engine.config.max_concurrent_calcs,
+        );
+        Ok(engine)
     }
 }
 

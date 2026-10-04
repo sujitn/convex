@@ -29,10 +29,9 @@ use convex_engine::ports::reference_repository::{
 use convex_engine::ports::storage::{BondFilter, Page, Pagination};
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
-    create_empty_output, EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource,
-    EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
-    EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
-    InMemoryPortfolioStore,
+    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
+    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
+    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource, InMemoryPortfolioStore,
 };
 use convex_server::routes::{create_router, create_router_with_portfolio_store};
 
@@ -665,8 +664,8 @@ fn production_readiness_bond(id: &str) -> BondReferenceData {
     bond
 }
 
-#[test]
-fn production_readiness_failed_calculation_is_not_empty_success() {
+#[tokio::test]
+async fn production_readiness_failed_calculation_is_not_empty_success() {
     use convex_engine::{NodeId, NodePhase};
 
     let engine = create_test_engine();
@@ -675,7 +674,12 @@ fn production_readiness_failed_calculation_is_not_empty_success() {
     };
     engine.calc_graph().add_node(node.clone(), vec![]).unwrap();
     engine.calc_graph().invalidate(&node).unwrap();
-    assert_eq!(engine.process_dirty_nodes(), 1);
+    assert!(
+        engine.start().await.is_err(),
+        "G02: missing runtime inputs were accepted as ready"
+    );
+    assert!(!engine.runtime_health().ready);
+    engine.shutdown().await.unwrap();
 
     let graph = engine.calc_graph();
     let explicit_failure = graph.inspect_node(&node).is_some_and(|view| {
@@ -869,14 +873,11 @@ fn create_test_engine_with_storage(
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
     };
 
-    let output = create_empty_output();
-
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
         .with_market_data(Arc::new(market_data))
         .with_reference_data(Arc::new(reference_data))
         .with_storage(Arc::new(storage))
-        .with_output(Arc::new(output))
         .build()
         .expect("Failed to build engine");
 

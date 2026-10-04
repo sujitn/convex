@@ -46,6 +46,11 @@ fn create_router_with_options(
 
     let router = Router::new()
         // Health
+        .route("/live", get(handlers::health))
+        .route("/ready", get(handlers::readiness))
+        .route("/api/v1/runtime", get(handlers::runtime_health))
+        .route("/api/v1/runtime/results", get(handlers::runtime_results))
+        .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
         // Bond Reference Data CRUD

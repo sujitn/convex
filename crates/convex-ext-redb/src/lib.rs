@@ -18,6 +18,7 @@ mod database;
 mod override_store;
 mod recovery;
 mod reference_repository;
+mod runtime_store;
 
 pub use audit_store::RedbAuditStore;
 pub use config_store::RedbConfigStore;
@@ -26,14 +27,22 @@ pub use database::{migrate_database, APPLICATION_SCHEMA_VERSION};
 pub use override_store::RedbOverrideStore;
 pub use recovery::{backup_database, restore_database, BackupManifest};
 pub use reference_repository::RedbReferenceRepository;
+pub use runtime_store::RedbRuntimeStore;
 
 /// Create a full storage adapter with redb backend.
 pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, TraitError> {
+    create_redb_storage_with_runtime(path).map(|(storage, _)| storage)
+}
+
+/// Open the authoritative repositories and pricing checkpoint/outbox on one local database.
+pub fn create_redb_storage_with_runtime(
+    path: impl AsRef<Path>,
+) -> Result<(StorageAdapter, Arc<RedbRuntimeStore>), TraitError> {
     let db =
         Arc::new(Database::create(path).map_err(|e| TraitError::DatabaseError(e.to_string()))?);
-
     let configs = Arc::new(RedbConfigStore::new(db.clone())?);
-    Ok(StorageAdapter {
+    let runtime = Arc::new(RedbRuntimeStore::new(db.clone())?);
+    let storage = StorageAdapter {
         bonds: Arc::new(
             RedbReferenceRepository::new(db.clone())
                 .map_err(|e| TraitError::DatabaseError(e.to_string()))?,
@@ -42,7 +51,8 @@ pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, Tra
         configs,
         overrides: Arc::new(RedbOverrideStore::new(db.clone())),
         audit: Arc::new(RedbAuditStore::new(db)),
-    })
+    };
+    Ok((storage, runtime))
 }
 
 /// Create a file-backed storage adapter for testing.

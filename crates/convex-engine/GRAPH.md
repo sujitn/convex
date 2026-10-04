@@ -113,13 +113,13 @@ error in `NodeView.failed_valuation`. No missing risk or price becomes zero/par.
 Node staleness policy and earliest consumed input deadline are both enforced;
 cache reads do not extend deadlines.
 
-`ReactiveEngine::subscribe` emits actual committed completions. Timer/input
-notifications carry no completion and are not forwarded as completed calculations.
-The existing WebSocket `node_recalculated` envelope retains its fields and adds an
-optional `completion` object for this metadata. A failed curve does not emit a
-successful `curve_updated` notice. Full resynchronization, per-dependent status
-publication, durable result transport and v2 adoption remain later runtime/API
-work; the existing display broadcast may lose messages.
+The [pricing runtime](RUNTIME.md) owns canonical result publication and durable
+revisions. Graph notifications use `publish_node_update` synchronously; timer/input
+notifications contain no completion. The existing WebSocket `node_recalculated`
+envelope retains its fields and optional `completion` metadata. A failed curve
+never emits a successful `curve_updated` notice. Canonical valuation streaming is
+explicitly subscribed, reports lag and supports current-state resynchronization;
+durable managed catch-up and v2 API adoption remain later work.
 
 ## Immutable snapshot use
 
@@ -154,7 +154,7 @@ data entitlement or current-time freshness certificate.
 | `NodeValue::Empty` | Typed `CalculationFailure`, or a valid checked numerical result |
 | Arbitrary priority-sorted dirty list | Bounded dependency-ready frontier; claim before work |
 | `get_cached` for old values | `inspect_node().last_good` and its explicit retained quality |
-| Force recalculation that clears work | `request_calculation` / `ReactiveEngine::force_recalculate` |
+| Force recalculation that clears work | `request_calculation` for an independently owned graph; runtime uses captured updates |
 | Raw sharding constructor | Checked `with_sharding`; local partition hints do not fence execution |
 | Notification interpreted as success | Inspect `NodeUpdate.completion` and its status/quality |
 
@@ -163,20 +163,18 @@ pricing units and existing financial tolerances are preserved; there is no
 storage migration. Graph state is process-local and can be rebuilt from validated
 administrative definitions and pinned snapshots after restart.
 
-The current reactive observed-mark path uses captured quote values, explicitly
-declared builder curves and generation-checked commits. It freezes declared curve
-objects before reference I/O, rejects mismatched objects and removes implicit
-currency/default-curve substitution. Its references, settlement and pricing
-configuration are still a compatibility path; full replayable context adoption is
-runtime consolidation. Graph curve calibration, ETF/portfolio mathematics and
-other missing calculations fail Unsupported instead of becoming fresh placeholders.
-The older `PricingEngine` coordinator also fails Unsupported until it is replaced.
+`PricingEngine` now owns one [event-driven lifecycle](RUNTIME.md). It assembles
+complete immutable reference/configuration/curve/quote information sets, captures
+contexts, runs bounded CPU jobs, commits checked results and checkpoints publication.
+The independent reactive calculator and placeholder coordinator are removed.
+Reference/settlement/configuration compatibility reads no longer drive runtime
+valuation. Graph curve calibration and unsupported ETF/portfolio mathematics remain
+their owning tasks; the runtime admits only its explicit fixed-bullet scope.
 
-The 50/100 ms processing loops, process lifecycle and CPU-worker/publication
-composition still require consolidation. Cooperative reference-I/O timeout is not
-a hard preemption guarantee for CPU work. Multi-host leases/ownership, provider
-certification, complete curve calibration, v2 result resync and measured latency
-remain separate work. Production startup and release gates remain incomplete.
+Joined shutdown, local recovery and canonical publication are exercised. Cooperative
+I/O deadlines do not imply hard CPU preemption. Multi-host leases/ownership, live
+provider certification, complete curve calibration, durable managed catch-up and
+measured latency remain separate work. Production and library gates are incomplete.
 
 ## Validation
 

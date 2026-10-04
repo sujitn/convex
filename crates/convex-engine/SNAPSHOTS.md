@@ -8,9 +8,10 @@ ports. They create no background task or additional runtime.
 
 The current implementation supports reference-admitted fixed bullet bonds and
 observed mid clean marks. The [calculation graph](GRAPH.md) now admits complete
-snapshot/context tickets and commits only their current generation. Authoritative
-runtime and server lifecycle adoption remain subsequent work; the existing reactive
-and v1 server compatibility paths do not inherit full immutable-context guarantees.
+snapshot/context tickets and commits only their current generation. The [pricing runtime](RUNTIME.md) now adopts this path for authoritative fixed-bullet
+valuation, canonical publication and local recovery. Its additive supplied-context
+server endpoint is equivalent to runtime valuation; earlier v1 pricing endpoints
+retain their separate compatibility behavior and unresolved synthetic-curve gap.
 
 ## Capture and time
 
@@ -220,7 +221,8 @@ content instead of the formatted input string's length.
 The graph now captures generations before calculation, admits work in dependency
 order, propagates structured failures and rejects obsolete commits. Its
 [contract and migration guide](GRAPH.md) covers snapshot/context tickets and current
-runtime limits. Next, the authoritative runtime must call these use cases and
-publish one consistent snapshot/context/result. The older coordinator explicitly
-reports Unsupported, while synthetic server curves and complete runtime adoption
+runtime limits. The [authoritative lifecycle](RUNTIME.md) now calls these use cases,
+publishes consistent snapshot/context/results, retains stale/error states and
+restores accepted work before readiness. The older coordinator is removed. Complete
+calibration, synthetic v1 server curves, expanded products and release certificates
 remain unresolved production work.
