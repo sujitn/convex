@@ -45,6 +45,7 @@ pub mod curve_builder;
 pub mod error;
 pub mod etf_pricing;
 pub mod market_data_listener;
+pub mod market_ingestion;
 pub mod portfolio_analytics;
 pub mod pricing_router;
 pub mod reactive;
@@ -63,7 +64,7 @@ pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
 pub use market_data_listener::{
     CurveInputUpdate, CurveUpdate, FxRateUpdate, IndexFixingUpdate, InflationFixingUpdate,
-    MarketDataListener, MarketDataPublisher, MarketDataUpdate, QuoteUpdate, VolSurfaceUpdate,
+    IngestionStatus, MarketDataListener, MarketDataPublisher, MarketDataUpdate, VolSurfaceUpdate,
 };
 pub use portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};

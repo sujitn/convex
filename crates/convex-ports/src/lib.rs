@@ -29,6 +29,7 @@ pub mod config;
 pub mod error;
 pub mod market_data;
 pub mod output;
+pub mod quote_event;
 pub mod reference_data;
 pub mod reference_repository;
 pub mod storage;

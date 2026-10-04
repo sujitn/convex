@@ -29,7 +29,7 @@
 //! }
 //! ```
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 use dashmap::{DashMap, DashSet};
@@ -382,6 +382,8 @@ pub struct CachedValue {
     pub revision: u64,
     /// When this was calculated
     pub calculated_at: Instant,
+    /// Optional market freshness deadline. Expired values are unavailable to calculations/readers.
+    pub valid_until: Option<Instant>,
 }
 
 /// The calculation graph manages dependencies and memoization.
@@ -412,6 +414,7 @@ pub struct CalculationGraph {
 
     /// Current global revision
     current_revision: AtomicU64,
+    market_delivery_suspended: AtomicBool,
 
     /// Shard configuration for distributed deployments
     shard_config: ShardConfig,
@@ -434,6 +437,7 @@ impl CalculationGraph {
             last_calc_time: DashMap::new(),
             throttle_pending: DashSet::new(),
             current_revision: AtomicU64::new(0),
+            market_delivery_suspended: AtomicBool::new(false),
             shard_config,
         }
     }
@@ -558,15 +562,53 @@ impl CalculationGraph {
 
     /// Get cached value for a node.
     pub fn get_cached(&self, node_id: &NodeId) -> Option<CachedValue> {
-        self.cache.get(node_id).map(|c| c.clone())
+        self.cache
+            .get(node_id)
+            .filter(|cached| {
+                cached
+                    .valid_until
+                    .is_none_or(|deadline| Instant::now() <= deadline)
+            })
+            .map(|cached| cached.clone())
+    }
+
+    /// Remove an unusable market input without presenting it as fresh.
+    pub fn evict_cached(&self, node_id: &NodeId) {
+        self.cache.remove(node_id);
+        if let NodeId::Quote { instrument_id } = node_id {
+            self.cache.remove(&NodeId::BondPrice {
+                instrument_id: instrument_id.clone(),
+            });
+        }
+    }
+
+    /// Suspend automatic calculation after unknown shared transport loss. A new graph/engine is required for complete reload.
+    pub fn suspend_market_delivery(&self) {
+        self.market_delivery_suspended.store(true, Ordering::SeqCst);
+        self.cache.clear();
+    }
+
+    /// Whether automatic calculation is suspended by unreconciled transport loss/closure.
+    pub fn market_delivery_suspended(&self) -> bool {
+        self.market_delivery_suspended.load(Ordering::SeqCst)
     }
 
     /// Update cache for a node.
     pub fn update_cache(&self, node_id: &NodeId, value: NodeValue) {
+        self.write_cache(node_id, value, None);
+    }
+
+    /// Cache a market input/result only until the captured input freshness deadline.
+    pub fn update_cache_until(&self, node_id: &NodeId, value: NodeValue, valid_until: Instant) {
+        self.write_cache(node_id, value, Some(valid_until));
+    }
+
+    fn write_cache(&self, node_id: &NodeId, value: NodeValue, valid_until: Option<Instant>) {
         let cached = CachedValue {
             value,
             revision: self.current_revision.load(Ordering::SeqCst),
             calculated_at: Instant::now(),
+            valid_until,
         };
         self.cache.insert(node_id.clone(), cached);
         self.dirty.remove(node_id);

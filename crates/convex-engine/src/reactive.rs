@@ -143,20 +143,14 @@ impl ReactiveEngine {
     /// Start the market data listener task.
     async fn start_market_data_listener(&self) {
         let calc_graph = self.calc_graph.clone();
-        let curve_builder = self.curve_builder.clone();
         let throttle_manager = self.throttle_manager.clone();
         let update_rx = self.market_data_publisher.subscribe();
         let shutdown_rx = self.shutdown_tx.subscribe();
         let node_update_tx = self.node_update_tx.clone();
 
         tokio::spawn(async move {
-            let mut listener = MarketDataListener::new(
-                calc_graph,
-                curve_builder,
-                throttle_manager,
-                update_rx,
-                shutdown_rx,
-            );
+            let mut listener =
+                MarketDataListener::new(calc_graph, throttle_manager, update_rx, shutdown_rx);
 
             // Forward listener updates to main channel
             let mut listener_rx = listener.subscribe();
@@ -233,6 +227,16 @@ impl ReactiveEngine {
                         let nodes_to_calc = calc_graph.get_nodes_to_calculate();
 
                         for node_id in nodes_to_calc {
+                            if calc_graph.market_delivery_suspended() { continue; }
+                            // A gapped/closed/invalid quote cannot trigger fresh calculation, even through a timer.
+                            let quote_guard = match &node_id {
+                                NodeId::Quote { .. } => Some(node_id.clone()),
+                                NodeId::BondPrice { instrument_id } => Some(NodeId::Quote { instrument_id: instrument_id.clone() }),
+                                _ => None,
+                            };
+                            let quote_input = quote_guard.as_ref().and_then(|key| calc_graph.get_cached(key));
+                            let quote_revision = quote_input.as_ref().map(|cached| cached.revision);
+                            if quote_guard.is_some() && quote_revision.is_none() { continue; }
                             // Check throttle
                             if throttle_manager.should_calculate(&node_id) {
                                 debug!("Processing node: {}", node_id);
@@ -247,8 +251,17 @@ impl ReactiveEngine {
                                     settlement_date,
                                 ).await;
 
+                                if calc_graph.market_delivery_suspended() { continue; }
+                                // Do not publish a calculation whose quote was lost or replaced while awaiting reference I/O.
+                                // Full dependency generations and snapshots are implemented in CVX-006.
+                                if let Some(key) = &quote_guard {
+                                    if calc_graph.get_cached(key).map(|cached| cached.revision) != quote_revision { continue; }
+                                }
                                 // Store calculated value
-                                calc_graph.update_cache(&node_id, node_value);
+                                match quote_input.and_then(|cached| cached.valid_until) {
+                                    Some(deadline) => calc_graph.update_cache_until(&node_id, node_value, deadline),
+                                    None => calc_graph.update_cache(&node_id, node_value),
+                                }
                                 throttle_manager.mark_calculated(&node_id);
 
                                 // Notify subscribers
@@ -732,6 +745,82 @@ mod tests {
     fn test_reactive_engine_creation() {
         let engine = create_test_engine();
         assert!(engine.calc_graph().current_revision() == 0);
+    }
+
+    #[tokio::test]
+    async fn timer_does_not_publish_a_suspended_or_expired_quote_as_empty_success() {
+        let engine = create_test_engine();
+        let instrument_id = InstrumentId::new("GAPPED-BOND");
+        engine.register_bond(instrument_id.clone(), NodeConfig::bond_price_liquid());
+        let quote = NodeId::Quote {
+            instrument_id: instrument_id.clone(),
+        };
+        let bond = NodeId::BondPrice { instrument_id };
+        engine.calc_graph.update_cache_until(
+            &quote,
+            NodeValue::Quote {
+                bid: None,
+                ask: None,
+                mid: Some(rust_decimal::Decimal::from(100)),
+            },
+            std::time::Instant::now() - Duration::from_millis(1),
+        );
+        engine.calc_graph.invalidate(&quote);
+        let mut updates = engine.subscribe();
+        engine.start_processing_loop().await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(150), updates.recv())
+                .await
+                .is_err()
+        );
+        assert!(engine.calc_graph.get_cached(&bond).is_none());
+        engine.calc_graph.evict_cached(&quote);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(150), updates.recv())
+                .await
+                .is_err()
+        );
+        assert!(engine.calc_graph.get_cached(&bond).is_none());
+        engine.stop();
+    }
+
+    #[tokio::test]
+    async fn shared_transport_loss_blocks_scheduled_auxiliary_and_bond_publication() {
+        let engine = create_test_engine();
+        let quote = NodeId::Quote {
+            instrument_id: "LOSS".into(),
+        };
+        engine.register_bond("LOSS".into(), NodeConfig::bond_price_liquid());
+        engine.calc_graph.suspend_market_delivery();
+        // A quote image can be assembled while other dependencies still require full reload.
+        engine.calc_graph.update_cache(
+            &quote,
+            NodeValue::Quote {
+                bid: None,
+                ask: None,
+                mid: Some(rust_decimal::Decimal::from(100)),
+            },
+        );
+        assert!(engine.calc_graph.market_delivery_suspended());
+        let curve = NodeId::Curve {
+            curve_id: "USD.TEST".into(),
+        };
+        engine.calc_graph.add_node(curve.clone(), vec![]);
+        let mut updates = engine.subscribe();
+        engine.start_processing_loop().await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(150), updates.recv())
+                .await
+                .is_err()
+        );
+        assert!(engine.calc_graph.get_cached(&curve).is_none());
+        assert!(engine
+            .calc_graph
+            .get_cached(&NodeId::BondPrice {
+                instrument_id: "LOSS".into()
+            })
+            .is_none());
+        engine.stop();
     }
 
     #[test]

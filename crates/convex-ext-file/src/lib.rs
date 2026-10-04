@@ -7,7 +7,8 @@
 //! - JSON-based curve input source
 //! - CSV-based index fixing source
 //!
-//! For production real-time market data, use Bloomberg or Refinitiv extensions.
+//! Sequenced quote replay is available through `FileQuoteReplay`. Live provider
+//! adapters require separate product and entitlement certification.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -15,10 +16,12 @@
 mod market_data;
 mod reference_data;
 mod reference_repository;
+mod replay;
 
 pub use market_data::*;
 pub use reference_data::*;
 pub use reference_repository::*;
+pub use replay::*;
 
 use std::path::Path;
 use std::sync::Arc;

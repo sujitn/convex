@@ -37,6 +37,7 @@ chrono = "0.4"
 cron = "0.16"
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 convex-ext-file = { workspace = true }

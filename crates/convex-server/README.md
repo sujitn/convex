@@ -110,3 +110,7 @@ Implement `ReferenceRepository` to slot in another backend and run the shared co
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
 The [local redb storage guide](../convex-ext-redb/README.md) documents immutable configuration history, schema migration and the `convex-redb` offline backup/restore commands. Configuration saves require the next version, configuration deletion explicitly fails, audit queries apply their filters, and override history explicitly reports `Unsupported`. These storage capabilities do not activate pricing configuration in the engine or provide shared persistence.
+
+## Market replay and file inputs
+
+[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears, bounds and snapshot-file migration. Run its standalone trace example before wiring an ingestion adapter. File snapshots now require recorded timestamps and sources; missing files or malformed records fail explicitly. Server runtime consolidation and snapshot-consistent pricing remain separate work.
