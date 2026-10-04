@@ -126,6 +126,16 @@ an existing pinned fixture also requires that review, even if its hash has
 been refreshed. New product evidence must describe units, settings, reference
 version and justification; a hash is not proof of quantitative accuracy.
 
+CVX-040 adds eight pins for the offline runner, pure comparison adapter,
+catalog, retained pack, source/license record and pending ORE/ISDA/exchange
+templates. [The comparison contract](../reconciliation/COMPARISON.md) adds
+per-measure native units, complete contexts, future-known input rejection,
+evidence-scoped expiring mismatch records and a base guard that forbids wider
+absolute/relative bounds or removal of existing compared cases/measures.
+Tightening or refreshing existing evidence still requires independent review.
+The current retained replay has 105 failed measures; CI enforces that failure.
+Comparator capture and library/production certification remain explicit.
+
 `change-reviews.json` ties engineering impact to a base commit and candidate
 file hashes, with actor, rationale, review date and test evidence. It includes
 untracked candidate modules and detects changes after the review. An old
@@ -160,6 +170,8 @@ on protected branches; this task does not claim that remote policy is active.
 python3 tools/assurance/check.py
 python3 tools/assurance/check.py --base <base-sha>
 python3 -m unittest discover -s tools/assurance -p 'test_*.py'
+python3 reconciliation/comparison.py check --base <base-sha>
+python3 -m unittest discover -s reconciliation -p 'test_comparison.py'
 cargo fmt --all -- --check
 cargo test --locked -p convex-math -p convex-core -p convex-ffi
 cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics

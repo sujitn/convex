@@ -66,6 +66,46 @@ jobs:
       - name: Exercise optimized cdylib through C ABI in a subprocess
         run: python3 tools/assurance/abi_smoke.py
 
+  offline-comparison:
+    name: Offline Quantitative Comparison
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check fixture pins and complete manifests
+        run: python3 reconciliation/comparison.py check
+
+      - name: Prove comparison failures cannot be waived
+        run: python3 -m unittest discover -s reconciliation -p "test_comparison.py"
+
+      - name: Build standalone pure analytics adapter
+        run: cargo build --locked -p convex-analytics --example offline_compare
+
+      # Out-of-tolerance rows remain a failed gate; never ignore this exit.
+      - name: Replay retained QuantLib expectations without live data
+        run: python3 reconciliation/comparison.py run --candidate-binary target/debug/examples/offline_compare --report comparison-report.json
+
+      - name: Upload offline comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: offline-comparison-report
+          path: comparison-report.json
+          retention-days: 14
+
   test:
     name: Test
     runs-on: ubuntu-latest

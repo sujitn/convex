@@ -72,6 +72,36 @@
         "tools/assurance/numeric-evidence.json": "157e7e59ed407e3068dd00c690b6c3a09549b861375f82624e37b60af7e11639",
         "tools/assurance/test_policy.py": "c71ef1d6f3e515141acf03c0cdda5852cd784fe5fd824a72bcbe4f2e07781d7a"
       }
+    },
+    {
+      "base_commit": "4ef7b9d4ab886ee5fea13eb3669380c9b6a5cf4f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-04",
+      "rationale": "CVX-040 engineering impact: add bounded offline comparison tooling and a standalone public pure-library example; pin 112 retained cases with full context, native units and original tolerances, comparator identity/license records and pending product admission templates. Preserve all 47 previous quantitative artifact rows and contents, solver defaults, legacy reconciliation, production mathematics and dependency lock. Expose 105 numerical misses and keep all convention exceptions failing; enforce exact provenance, tolerance and coverage conservation, expired-evidence rejection and required CI execution. Eight initial pins are source-tree engineering records, not independently approved financial reference values or a certificate. No human quantitative approval is declared.",
+      "tests": [
+        "cargo fmt --all -- --check; cargo test --locked -p convex-analytics (340 passed, 7 ignored); strict native-example Clippy and offline build",
+        "26 comparison tests with deterministic mutation/threshold controls and 15 assurance policy tests",
+        "Actual native-process matching/convention/fault/unsupported/invalid-date controls and offline 392-measure replay; 105 failures remain visible",
+        "Previous quantitative/dependency/release scope integrity checks and task-base assurance check"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "17c9dd05505c0419dda566f18a0f55202005bc61643f8ac7a066f5a06615a980",
+        "crates/convex-analytics/examples/offline_compare.rs": "4bba0337eb11eb8f799e47e4d509ba5eb94df9aca61b2f57efe337fed1b49d0c",
+        "docs/ASSURANCE.md": "e2a3a1789e81305926cc0452c77248a6f8e4994db61a7580b99d6cb35fcce608",
+        "reconciliation/COMPARISON.md": "db2cb2db0ee816588e8a63dad9567194caa3417a562d138ad08bf3e52e570bb4",
+        "reconciliation/README.md": "6668e5624b6bc5037e1630b05156e48b9ee7f6e6abf1781a7dbc9d6b21a0aec7",
+        "reconciliation/comparator-records.json": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
+        "reconciliation/comparison.py": "e3c8ac51999ec4b6f47ab6f4acca033c55db5e3608f6d4c41603ebc9e78e4e6f",
+        "reconciliation/comparison_templates/exchange.json": "9ce7b3551520dd7e8017587e78ce7b03dba1a001a777cc20727894ae802f17b9",
+        "reconciliation/comparison_templates/isda.json": "f296b3f771338a87779760b2c9415e543aa545ceae18aa6a210259884f359c70",
+        "reconciliation/comparison_templates/ore.json": "940cc20419776b8f3d34252c87c749d6cea82ce2fb2383f903f3d29b57a429b4",
+        "reconciliation/test_comparison.py": "2db10dd5be90d3682a0def5ce2392306ec92b85a562e7b4da03ae378164d227a",
+        "tests/fixtures/comparisons/catalog.json": "28537f48c6376d08f6adcc34273a6abc0d7b78141fbbd2e7317943bd6ada2ddb",
+        "tests/fixtures/comparisons/quantlib-1.40.json": "c2a2f686b1b58e2b245649a6b516c6a624b15a23370e105c4e075193e4190c09",
+        "tools/assurance/check.py": "a726952a1c36b15c6a1e6d4f38396ffa764b59d9f097272184dec5bbedd85f99",
+        "tools/assurance/numeric-evidence.json": "c8192aaca048e606457cc1fd8bd6dbfdeb127fc5a6a9d562c36b02480df3a125",
+        "tools/assurance/test_policy.py": "91501573bcd197a54efcf374b2180392fdfc1ac80618c6f844391999f4eb600b"
+      }
     }
   ]
 }

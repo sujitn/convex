@@ -107,6 +107,20 @@ class AssuranceMutations(unittest.TestCase):
         candidate['solver_defaults']['DEFAULT_TOLERANCE'] = '1e-6'
         self.rejects(check.check_numeric, ROOT, candidate)
 
+    def test_comparison_pins_and_required_offline_job_cannot_be_removed(self):
+        numeric = check.read_json(ROOT/'tools/assurance/numeric-evidence.json')
+        for path in check.COMPARISON_PINS:
+            candidate = copy.deepcopy(numeric)
+            candidate['artifacts'] = [r for r in candidate['artifacts'] if r['path'] != path]
+            self.rejects(check.check_numeric, ROOT, candidate)
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for mutation in [source.replace('  offline-comparison:', '  old-comparison:'),
+                         source.replace('    name: Offline Quantitative Comparison', '    if: false\n    name: Offline Quantitative Comparison'),
+                         source.replace('--report comparison-report.json', '--report comparison-report.json || true'),
+                         source.replace('      - name: Replay retained QuantLib expectations without live data',
+                                        '      - name: Replay retained QuantLib expectations without live data\n        if: always()')]:
+            self.rejects(check.check_workflow, mutation)
+
     def change_fixture(self, directory):
         root = Path(directory)
         path = 'tests/fixtures/example.json'

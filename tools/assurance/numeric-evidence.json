@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 1,
+  "version": 2,
   "reviewed_on": "2026-10-04",
-  "provenance": "Existing committed quantitative expectations/tolerances preserved byte-for-byte against dc5e39a. Onboarding pins do not attest independent comparator execution or model certification. Complete version/license/unit manifests remain CVX-040.",
+  "provenance": "All 47 CVX-039 quantitative artifacts and solver defaults remain unchanged. CVX-040 adds pinned offline manifests, candidate adapter, comparison policy and primary-source version/license records. Retained QuantLib outputs have incomplete original runtime capture; pending ORE/ISDA/exchange product fixtures are not certifications.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -12,6 +12,11 @@
       "path": ".github/workflows/reconcile.yml",
       "mode": "file",
       "sha256": "1d2ee4486842b55a07d0041c9ad2769389f8b3c01edc15e9927b5e93eb4870e6"
+    },
+    {
+      "path": "crates/convex-analytics/examples/offline_compare.rs",
+      "mode": "file",
+      "sha256": "4bba0337eb11eb8f799e47e4d509ba5eb94df9aca61b2f57efe337fed1b49d0c"
     },
     {
       "path": "crates/convex-analytics/src/calibration/hw1f.rs",
@@ -209,6 +214,31 @@
       "sha256": "56f4e12f1fb38758e08c02bf3448f100b245b9d6daa52c081ce6a51a564d1937"
     },
     {
+      "path": "reconciliation/comparator-records.json",
+      "mode": "file",
+      "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33"
+    },
+    {
+      "path": "reconciliation/comparison.py",
+      "mode": "file",
+      "sha256": "e3c8ac51999ec4b6f47ab6f4acca033c55db5e3608f6d4c41603ebc9e78e4e6f"
+    },
+    {
+      "path": "reconciliation/comparison_templates/exchange.json",
+      "mode": "file",
+      "sha256": "9ce7b3551520dd7e8017587e78ce7b03dba1a001a777cc20727894ae802f17b9"
+    },
+    {
+      "path": "reconciliation/comparison_templates/isda.json",
+      "mode": "file",
+      "sha256": "f296b3f771338a87779760b2c9415e543aa545ceae18aa6a210259884f359c70"
+    },
+    {
+      "path": "reconciliation/comparison_templates/ore.json",
+      "mode": "file",
+      "sha256": "940cc20419776b8f3d34252c87c749d6cea82ce2fb2383f903f3d29b57a429b4"
+    },
+    {
       "path": "reconciliation/curves.json",
       "mode": "file",
       "sha256": "f3c257809cebe4c7f42c2aacc5e0ea9e373cc23b953b88f4befd1ccb5ef27891"
@@ -237,6 +267,16 @@
       "path": "reconciliation/swaptions_20251231.csv",
       "mode": "file",
       "sha256": "94a2366e5ebc58cd9ef32edcea752fa3f621976103cb5a0c8dbd5a8ca579f211"
+    },
+    {
+      "path": "tests/fixtures/comparisons/catalog.json",
+      "mode": "file",
+      "sha256": "28537f48c6376d08f6adcc34273a6abc0d7b78141fbbd2e7317943bd6ada2ddb"
+    },
+    {
+      "path": "tests/fixtures/comparisons/quantlib-1.40.json",
+      "mode": "file",
+      "sha256": "c2a2f686b1b58e2b245649a6b516c6a624b15a23370e105c4e075193e4190c09"
     },
     {
       "path": "tests/fixtures/quantlib_reference_tests.json",

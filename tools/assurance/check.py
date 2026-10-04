@@ -30,6 +30,23 @@ REQUIRED_RUNS = {
     'fmt': ('cargo fmt --all -- --check',),
     'clippy': ('cargo clippy --locked --all-features --workspace -- -D warnings',),
     'docs': ('cargo doc --locked --no-deps --all-features --workspace',),
+    'offline-comparison': (
+        'python3 reconciliation/comparison.py check',
+        'python3 -m unittest discover -s reconciliation -p "test_comparison.py"',
+        'cargo build --locked -p convex-analytics --example offline_compare',
+        'python3 reconciliation/comparison.py run --candidate-binary target/debug/examples/offline_compare --report comparison-report.json',
+    ),
+}
+
+COMPARISON_PINS = {
+    'reconciliation/comparison.py',
+    'reconciliation/comparator-records.json',
+    'reconciliation/comparison_templates/ore.json',
+    'reconciliation/comparison_templates/isda.json',
+    'reconciliation/comparison_templates/exchange.json',
+    'tests/fixtures/comparisons/catalog.json',
+    'tests/fixtures/comparisons/quantlib-1.40.json',
+    'crates/convex-analytics/examples/offline_compare.rs',
 }
 
 class Failure(ValueError):
@@ -103,6 +120,16 @@ def check_workflow(text: str) -> None:
                 '        run: python3 tools/assurance/check.py --base "$BASE_SHA"')
             require(body.count(guard) == 1, 'missing/altered PR base review step')
             body = body.replace(guard, '')
+        if name == 'offline-comparison':
+            artifact = ('      - name: Upload offline comparison report\n'
+                '        if: always()\n'
+                '        uses: actions/upload-artifact@v7\n'
+                '        with:\n'
+                '          name: offline-comparison-report\n'
+                '          path: comparison-report.json\n'
+                '          retention-days: 14')
+            require(body.count(artifact) == 1, 'missing/altered comparison artifact upload')
+            body = body.replace(artifact, '')
         require(not re.search(r'^\s*(if|continue-on-error|paths|paths-ignore):', body, re.M), f'conditional or ignored required job: {name}')
         runs = re.findall(r'^\s+run: (.+)$', body, re.M)
         for command in commands:
@@ -166,7 +193,7 @@ def check_numeric(root: Path, document: dict) -> None:
     require(document['schema_version'] == 1 and document['version'] >= 1, 'invalid quantitative evidence version')
     rows = document['artifacts']
     require(len(rows) == len({r['path'] for r in rows}), 'duplicate quantitative artifact')
-    required = {'tests/fixtures/quantlib_reference_tests.json', 'reconciliation/reconcile.py', 'reconciliation/ql_bench.py', '.github/workflows/reconcile.yml'}
+    required = {'tests/fixtures/quantlib_reference_tests.json', 'reconciliation/reconcile.py', 'reconciliation/ql_bench.py', '.github/workflows/reconcile.yml'} | COMPARISON_PINS
     require(required <= {r['path'] for r in rows}, 'required comparator/tolerance artifact removed')
     for row in rows:
         content = numeric_content((root / row['path']).read_bytes(), row['mode'])
@@ -264,7 +291,11 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
     check_numeric(root, numeric)
     check_workflow((root / '.github/workflows/ci.yml').read_text())
     changes = check_changes(root, base, read_json(directory / 'change-reviews.json'), numeric, today) if base else None
-    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'reviewed_changes': changes, 'quantitative_artifacts': len(numeric['artifacts'])}
+    comparison_command = [sys.executable, 'reconciliation/comparison.py', '--root', str(root), 'check']
+    if base:
+        comparison_command.extend(['--base', base])
+    comparison = json.loads(subprocess.check_output(comparison_command, cwd=root))
+    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'reviewed_changes': changes, 'quantitative_artifacts': len(numeric['artifacts']), 'comparison_packs': comparison['packs'], 'product_captures_pending': len(comparison['pending_product_fixtures'])}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
