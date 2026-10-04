@@ -3,9 +3,7 @@
 use crate::database::*;
 use async_trait::async_trait;
 use convex_ports::error::TraitError;
-use convex_ports::storage::{
-    BenchmarkReference, BondPricingConfig, ConfigStore, ConfigVersion, PricingSpec,
-};
+use convex_ports::storage::{BondPricingConfig, ConfigStore, ConfigVersion, PricingSpec};
 use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition};
 use std::sync::Arc;
 
@@ -27,96 +25,7 @@ impl RedbConfigStore {
 }
 
 pub(crate) fn validate_config(config: &BondPricingConfig) -> Result<(), TraitError> {
-    validate_id(&config.config_id)?;
-    if config.version == 0
-        || config.updated_at < config.created_at
-        || config.description.len() > 4096
-    {
-        return Err(TraitError::InvalidInput(
-            "invalid configuration version, time or description",
-        ));
-    }
-    config
-        .applies_to
-        .validate()
-        .map_err(TraitError::InvalidInput)?;
-    validate_id(config.analytics_curves.discount_curve.as_str())?;
-    for id in [
-        &config.analytics_curves.government_curve,
-        &config.analytics_curves.swap_curve,
-        &config.analytics_curves.frn_reference_curve,
-    ]
-    .into_iter()
-    .flatten()
-    {
-        validate_id(id.as_str())?;
-    }
-    let valid = match &config.pricing_spec {
-        PricingSpec::Auto | PricingSpec::MarketQuote { .. } => true,
-        PricingSpec::BenchmarkSpread {
-            benchmark,
-            spread_bps,
-        } => {
-            let valid_benchmark = match benchmark {
-                BenchmarkReference::ExplicitYield { yield_pct } => yield_pct.is_finite(),
-                BenchmarkReference::GovernmentCurve { curve }
-                | BenchmarkReference::SwapCurve { curve }
-                | BenchmarkReference::OnTheRun { curve, .. } => validate_id(curve.as_str()).is_ok(),
-                BenchmarkReference::SpecificBond { security_id, .. } => {
-                    validate_id(security_id.as_str()).is_ok()
-                }
-            };
-            valid_benchmark && spread_bps.is_finite()
-        }
-        PricingSpec::DiscountMargin {
-            reference_curve,
-            quoted_margin_bps,
-            discount_margin_bps,
-        } => {
-            validate_id(reference_curve.as_str()).is_ok()
-                && quoted_margin_bps.is_finite()
-                && discount_margin_bps.is_finite()
-        }
-        PricingSpec::ZSpread {
-            discount_curve,
-            z_spread_bps,
-        } => validate_id(discount_curve.as_str()).is_ok() && z_spread_bps.is_finite(),
-        PricingSpec::OptionAdjusted {
-            discount_curve,
-            vol_surface,
-            oas_bps,
-            mean_reversion,
-            tree_steps,
-        } => {
-            validate_id(discount_curve.as_str()).is_ok()
-                && validate_id(vol_surface.as_str()).is_ok()
-                && oas_bps.is_finite()
-                && mean_reversion.is_none_or(|v| v.is_finite() && v >= 0.0)
-                && tree_steps.is_none_or(|v| (1..=10000).contains(&v))
-        }
-        PricingSpec::RealYield {
-            real_yield_pct,
-            inflation_curve,
-            index_ratio,
-        } => {
-            real_yield_pct.is_finite()
-                && validate_id(inflation_curve.as_str()).is_ok()
-                && index_ratio.is_sign_positive()
-                && !index_ratio.is_zero()
-        }
-    };
-    let valid_spread = config.bid_ask_spread.as_ref().is_none_or(|s| {
-        [Some(s.half_spread_bps), s.bid_spread_bps, s.ask_spread_bps]
-            .into_iter()
-            .flatten()
-            .all(|v| v.is_finite() && v >= 0.0)
-    });
-    if !valid || !valid_spread {
-        return Err(TraitError::InvalidInput(
-            "invalid configuration model inputs",
-        ));
-    }
-    Ok(())
+    convex_ports::storage::validate_pricing_config(config)
 }
 
 pub(crate) fn encode_config(config: &BondPricingConfig) -> Result<Vec<u8>, TraitError> {

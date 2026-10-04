@@ -283,3 +283,85 @@ mod decimal_string {
         Decimal::from_str_exact(&value).map_err(serde::de::Error::custom)
     }
 }
+
+/// Recovery and usability of retained observations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataState {
+    /// A complete image has not arrived.
+    AwaitingImage,
+    /// Complete, timely real-time delivery.
+    Live,
+    /// Source reports delay.
+    Delayed,
+    /// Source reports indicative data.
+    Indicative,
+    /// Operator supplied data.
+    Manual,
+    /// At least one retained field exceeds the configured source/receipt age.
+    Stale,
+    /// Delivery lost data; no deltas are admitted until an image.
+    Gap,
+    /// Invalid input quarantined; an image is required.
+    Invalid,
+    /// Delivery closed; an image is required before reopening.
+    Closed,
+    /// Consumption entitlement was revoked.
+    Unauthorized,
+    /// Valid image/delta with no usable price, yield or spread.
+    Incomplete,
+}
+
+/// One field's original observation. Partial updates never refresh untouched fields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FieldObservation {
+    /// Exact value and unit.
+    pub value: QuoteValue,
+    /// Original source time, UTC Unix milliseconds.
+    pub source_time_ms: i64,
+    /// Original receipt time, UTC Unix milliseconds.
+    pub receive_time_ms: i64,
+    /// Sequence that supplied this field.
+    pub sequence: u64,
+}
+
+/// Last retained quote with explicit status. Only Live is admitted to the current graph.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteSnapshot {
+    /// Complete source/session/version/entitlement provenance of the last accepted data event.
+    pub watermark: QuoteEvent,
+    /// Assembled fields with their individual ages.
+    #[serde(deserialize_with = "deserialize_observations")]
+    pub fields: std::collections::BTreeMap<QuoteField, FieldObservation>,
+    /// Current recovery/freshness status.
+    pub state: DataState,
+}
+
+fn deserialize_observations<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<std::collections::BTreeMap<QuoteField, FieldObservation>, D::Error> {
+    struct Visitor;
+    impl<'de> serde::de::Visitor<'de> for Visitor {
+        type Value = std::collections::BTreeMap<QuoteField, FieldObservation>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("at most 12 unique field observations")
+        }
+        fn visit_map<A: serde::de::MapAccess<'de>>(
+            self,
+            mut map: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut fields = std::collections::BTreeMap::new();
+            while let Some((key, value)) = map.next_entry()? {
+                if fields.len() == MAX_QUOTE_FIELDS || fields.insert(key, value).is_some() {
+                    return Err(serde::de::Error::custom(
+                        "duplicate/oversized field observations",
+                    ));
+                }
+            }
+            Ok(fields)
+        }
+    }
+    deserializer.deserialize_map(Visitor)
+}

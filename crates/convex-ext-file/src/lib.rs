@@ -13,17 +13,21 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+mod fixing_repository;
 mod market_data;
 mod reference_data;
 mod reference_import;
 mod reference_repository;
 mod replay;
+mod snapshot_repository;
 
+pub use fixing_repository::*;
 pub use market_data::*;
 pub use reference_data::*;
 pub use reference_import::*;
 pub use reference_repository::*;
 pub use replay::*;
+pub use snapshot_repository::*;
 
 use std::path::Path;
 use std::sync::Arc;

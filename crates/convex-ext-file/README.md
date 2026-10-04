@@ -1,6 +1,6 @@
 # File market data and quote replay
 
-`FileQuoteReplay` delivers normalized bond quote events in recorded JSONL order. `MarketDataAssembler` in `convex-engine` validates and reconstructs them without reading a clock or starting a server. This is an offline ingestion contract; live provider certification and immutable cross-feed pricing snapshots are subsequent work.
+`FileQuoteReplay` delivers normalized bond quote events in recorded JSONL order. `MarketDataAssembler` in `convex-engine` validates and reconstructs them without reading a clock or starting a server. This is an offline ingestion contract; live provider certification remains subsequent work. `FileSnapshotRepository` and `JsonFixingRepository` now support immutable application snapshots and publication-aware fixing history through separate narrow ports.
 
 ## Run a deterministic trace
 
@@ -111,3 +111,21 @@ exact resource pins. `import_reference_file` uses the configured authoritative p
 for one atomic bond/entity/calendar/convention/mapping transaction.
 The runnable offline example validates, imports, resolves by effective/information
 time and reads exact prior terms versions. Import files must remain immutable.
+
+## Immutable application snapshots
+
+The [snapshot guide](../convex-engine/SNAPSHOTS.md) describes exact reference/configuration
+capture, source/field selection, curve reconstruction, publication/recording cutoffs,
+canonical content identity, data-quality conditions and the offline `snapshot_replay`
+example. `FileSnapshotRepository` publishes at most 16 MiB of verified content by
+atomic no-clobber hard link with file/directory sync on a local Unix filesystem.
+Identical retries preserve the original bytes; corruption is rejected. Unknown
+publication outcomes require exact-ID reconciliation. Trusted directories, explicit
+paths and immutable input files are required; shared-filesystem, host-loss and
+low-latency guarantees are not certified.
+
+`JsonFixingRepository` loads a frozen, strict schema-1 history of up to 100,000
+revisions from a regular file of at most 16 MiB. It requires actual publication
+and recording timestamps and filters both against the information cutoff.
+The earlier CSV fixing source remains a current snapshot with no historical
+publication contract; the two formats are not silently interchangeable.

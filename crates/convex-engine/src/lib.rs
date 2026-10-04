@@ -9,6 +9,11 @@
 //! - [`EtfPricer`]: ETF iNAV calculation from holdings
 //! - [`PortfolioAnalyzer`]: Portfolio-level risk aggregation
 //! - [`PricingEngine`]: Main engine orchestrating all components
+//! - [`snapshot::SnapshotAssembler`]: Exact immutable input capture and publication
+//! - [`snapshot::SnapshotValuator`]: Supplied-context valuation with bounded complete-key caching
+//!
+//! Snapshot use cases create no scheduling loop. Their graph/runtime integration remains separate;
+//! the repository's `SNAPSHOTS.md` documents the current scope, replay and migration contract.
 //!
 //! ## Architecture
 //!
@@ -54,9 +59,10 @@ pub mod portfolio_analytics;
 pub mod pricing_router;
 pub mod reactive;
 pub mod scheduler;
+pub mod snapshot;
 
-mod cache;
-mod context;
+pub mod cache;
+pub mod context;
 
 // Re-exports
 pub use builder::PricingEngineBuilder;

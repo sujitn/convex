@@ -133,31 +133,51 @@ impl BuiltCurve {
             .collect()
     }
 
-    /// Create a BuiltCurve from cached points.
-    ///
-    /// Used to reconstruct a curve from NodeValue::Curve data.
-    pub fn from_points(curve_id: &str, points: Vec<(u32, f64)>) -> Self {
-        let curve_points: Vec<(f64, f64)> = points
-            .into_iter()
-            .map(|(tenor_days, rate)| {
-                let tenor_years = tenor_days as f64 / 365.0;
-                (tenor_years, rate)
-            })
-            .collect();
-
-        let mut built = Self {
-            curve_id: CurveId::new(curve_id),
-            reference_date: Date::today(),
-            points: curve_points,
-            built_at: chrono::Utc::now().timestamp(),
-            inputs_hash: String::new(),
-            // Reconstruction from cached points does not know the original
-            // extrapolation; flat-forward is the neutral default.
-            extrapolation: ExtrapolationMethod::FlatForward,
-            inner: None,
+    /// Reconstruct the exact supplied reference date, continuous-zero ACT/365F values and policies.
+    /// This path validates before construction, reads no clock and never falls back after failure.
+    pub fn from_snapshot(
+        record: &convex_ports::snapshot::SnapshotCurve,
+    ) -> Result<Self, convex_ports::TraitError> {
+        use convex_ports::snapshot::{ZeroExtrapolation, ZeroInterpolation};
+        record.validate()?;
+        let interpolation = match record.interpolation {
+            ZeroInterpolation::Linear => InterpolationMethod::Linear,
+            ZeroInterpolation::MonotoneConvex => InterpolationMethod::MonotoneConvex,
         };
-        built.rebuild_inner();
-        built
+        let extrapolation = match record.extrapolation {
+            ZeroExtrapolation::FlatZero => ExtrapolationMethod::Flat,
+            ZeroExtrapolation::FlatForward => ExtrapolationMethod::FlatForward,
+        };
+        let points: Vec<_> = record
+            .points
+            .iter()
+            .map(|p| (p.tenor_years.get(), p.continuous_zero.get()))
+            .collect();
+        let inner = DiscreteCurve::with_extrapolation(
+            record.reference_date.date(),
+            points.iter().map(|p| p.0).collect(),
+            points.iter().map(|p| p.1).collect(),
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            interpolation,
+            extrapolation,
+        )
+        .map_err(|_| {
+            convex_ports::TraitError::InvalidInput("supplied curve construction failed")
+        })?;
+        let bytes = serde_json::to_vec(record)
+            .map_err(|_| convex_ports::TraitError::InvalidInput("curve serialization failed"))?;
+        Ok(Self {
+            curve_id: record.curve_id.clone().into(),
+            reference_date: record.reference_date.date(),
+            points,
+            built_at: record.recorded_at.datetime().timestamp_millis(),
+            inputs_hash: convex_ports::snapshot::content_digest(
+                b"convex.supplied-curve.v1\0",
+                &bytes,
+            ),
+            extrapolation,
+            inner: Some(Arc::new(inner)),
+        })
     }
 }
 
@@ -311,24 +331,44 @@ impl CurveBuilder {
             .iter()
             .map(|input| {
                 let tenor_years = input.tenor.to_days() as f64 / 365.0;
-                let rate: f64 = input.rate.try_into().unwrap_or(0.0);
-                (tenor_years, rate)
+                let rate: f64 = input.rate.try_into().map_err(|_| {
+                    EngineError::CurveBuildError("unrepresentable input rate".into())
+                })?;
+                Ok((tenor_years, rate))
             })
-            .collect();
+            .collect::<Result<_, EngineError>>()?;
 
+        validate_points(&points)?;
         // Sort by tenor
-        points.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        points.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        if points.windows(2).any(|p| p[0].0 == p[1].0) {
+            return Err(EngineError::CurveBuildError(
+                "duplicate curve pillar".into(),
+            ));
+        }
 
         // Create hash of inputs for change detection
-        let inputs_hash = format!(
-            "{:x}",
-            inputs
-                .iter()
-                .map(|i| format!("{}-{}", i.tenor, i.rate))
-                .collect::<Vec<_>>()
-                .join(",")
-                .len()
-        );
+        let exact_inputs: Vec<_> = inputs
+            .iter()
+            .map(|i| {
+                (
+                    &i.instrument_type,
+                    &i.tenor,
+                    i.rate.to_string(),
+                    i.timestamp,
+                    &i.source,
+                )
+            })
+            .collect();
+        let bytes = serde_json::to_vec(&(
+            curve_id,
+            ref_date,
+            exact_inputs,
+            format!("{:?}", self.extrapolation),
+        ))
+        .map_err(|_| EngineError::CurveBuildError("curve identity serialization failed".into()))?;
+        let inputs_hash =
+            convex_ports::snapshot::content_digest(b"convex.curve-inputs.v1\0", &bytes);
 
         let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
@@ -376,19 +416,25 @@ impl CurveBuilder {
             ));
         }
 
+        validate_points(&points)?;
         // Sort by tenor
-        points.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        points.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        if points.windows(2).any(|p| p[0].0 == p[1].0) {
+            return Err(EngineError::CurveBuildError(
+                "duplicate curve pillar".into(),
+            ));
+        }
 
         // Create hash of inputs for change detection
-        let inputs_hash = format!(
-            "{:x}",
-            points
-                .iter()
-                .map(|(t, r)| format!("{:.6}-{:.6}", t, r))
-                .collect::<Vec<_>>()
-                .join(",")
-                .len()
-        );
+        let bytes = serde_json::to_vec(&(
+            &curve_id,
+            reference_date,
+            &points,
+            format!("{:?}", self.extrapolation),
+        ))
+        .map_err(|_| EngineError::CurveBuildError("curve identity serialization failed".into()))?;
+        let inputs_hash =
+            convex_ports::snapshot::content_digest(b"convex.curve-points.v1\0", &bytes);
 
         let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
@@ -439,4 +485,18 @@ impl CurveBuilder {
     pub fn clear(&self) {
         self.curves.clear();
     }
+}
+
+fn validate_points(points: &[(f64, f64)]) -> Result<(), EngineError> {
+    if points.is_empty()
+        || points.len() > convex_ports::snapshot::MAX_SNAPSHOT_PILLARS
+        || points
+            .iter()
+            .any(|(t, r)| !t.is_finite() || *t <= 0.0 || !r.is_finite())
+    {
+        return Err(EngineError::CurveBuildError(
+            "invalid/bounded curve pillars required".into(),
+        ));
+    }
+    Ok(())
 }

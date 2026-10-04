@@ -666,6 +666,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "convex-ext-file",
+ "convex-ext-redb",
  "convex-ports",
  "criterion 0.5.1",
  "cron",
@@ -676,6 +677,7 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -799,6 +801,7 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.18",
  "tokio",
 ]

@@ -73,9 +73,12 @@ currency. The service refuses optional, floating, inflation-linked and other
 expanded product families until their complete models are implemented. Native
 standalone analytics APIs remain available under their own contracts.
 
-This is reference admission, not a production or library certificate. Cross-feed
-market snapshots, generation-safe publication, real curve configuration, rates/CDS/
-futures terms, corporate-action lifecycles and provider sessions remain separate.
+This is reference admission, not a production or library certificate. The
+[immutable snapshot application](../convex-engine/SNAPSHOTS.md) now captures these
+resolved reference values together with exact configuration, quote continuity,
+published fixings and supplied curves. Generation-safe graph publication, real
+curve calibration/configuration, rates/CDS/futures terms, corporate-action
+lifecycles and provider sessions remain separate.
 
 ## Transactions and bounds
 
@@ -95,7 +98,7 @@ Local adapters permit 100,000 combined bond/master identities, including tombsto
 1,000,000 combined immutable versions and 100,000 command receipts. Identifier
 history selection is bounded but scans retained assertions; it is an administration
 and replay path, not a measured low-latency lookup. Cache resolved immutable inputs
-at the application boundary when the snapshot task provides that contract. redb
+at the application boundary using the immutable snapshot contract. redb
 and file calls are synchronous and should run away from latency-sensitive loops.
 
 ## File imports and runnable example

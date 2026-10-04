@@ -1,0 +1,812 @@
+//! Immutable resolved information sets. SHA-256 identifies canonical schema-1 content.
+#![forbid(unsafe_code)]
+
+use async_trait::async_trait;
+use convex_core::contracts::{
+    BusinessDate, CurveId, DataQuality, FiniteF64, InputVersion, InstrumentId, ModelId, SnapshotId,
+    SourceId, UtcTimestamp, Version,
+};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+
+use crate::fixing::{FixingKey, PublishedFixing};
+use crate::quote_event::{
+    DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
+};
+use crate::reference_master::{validate_resolved_bond, ReferenceLookup, ResolvedBondReference};
+use crate::storage::BondPricingConfig;
+use crate::TraitError;
+
+/// Maximum serialized snapshot; adapters must reject growth beyond this bound.
+pub const MAX_SNAPSHOT_BYTES: usize = 16 * 1024 * 1024;
+/// Maximum selected instruments or quote keys in one information set.
+pub const MAX_SNAPSHOT_INSTRUMENTS: usize = 256;
+/// Maximum explicitly required fixings in one information set.
+pub const MAX_SNAPSHOT_FIXINGS: usize = 1024;
+/// Maximum supplied curves in one information set.
+pub const MAX_SNAPSHOT_CURVES: usize = 64;
+/// Maximum total curve pillars, not a separate allowance for each curve.
+pub const MAX_SNAPSHOT_PILLARS: usize = 4096;
+
+/// Stable content identity; domain separation prevents reuse as another record's hash.
+pub fn content_digest(domain: &[u8], bytes: &[u8]) -> String {
+    let mut hash = Sha256::new();
+    hash.update(domain);
+    hash.update(bytes);
+    format!("{:x}", hash.finalize())
+}
+
+/// Explicit supported representation of supplied zero curves. Calibration is a separate operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ZeroInterpolation {
+    /// Linear continuous-zero interpolation.
+    Linear,
+    /// Existing pure library monotone-convex interpolation.
+    MonotoneConvex,
+}
+
+/// Explicit long-end policy; no policy is inferred on reconstruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ZeroExtrapolation {
+    /// Constant continuous-zero boundary value.
+    FlatZero,
+    /// Constant instantaneous forward beyond the boundary.
+    FlatForward,
+}
+
+/// One finite ACT/365F year fraction and continuously compounded decimal zero rate.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ZeroRatePoint {
+    /// Explicit positive year fraction; no lossy conversion through integer days.
+    pub tenor_years: FiniteF64,
+    /// Finite decimal zero rate, including negative rates.
+    pub continuous_zero: FiniteF64,
+}
+
+/// Versioned supplied continuous-zero ACT/365F curve with full reconstruction policy.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotCurve {
+    /// Internal curve identity; configuration determines its pricing role.
+    pub curve_id: CurveId,
+    /// Immutable supplied curve revision.
+    pub version: Version,
+    /// Original reference date.
+    pub reference_date: BusinessDate,
+    /// Economic source time.
+    pub source_time: UtcTimestamp,
+    /// Recording/publication time of this immutable curve.
+    pub recorded_at: UtcTimestamp,
+    /// Provider-neutral origin.
+    pub source: SourceId,
+    /// Supplied construction/model identity.
+    pub model_id: ModelId,
+    /// Actual input definition revisions, where this is a calibrated curve.
+    pub input_versions: Vec<InputVersion>,
+    /// Numerical construction quality; supplied nodes are not automatically certified calibration.
+    pub quality: DataQuality,
+    /// Explicit curve source/recording age policy, 1..=86,400,000 milliseconds.
+    pub max_age_ms: i64,
+    /// Interpolation policy.
+    pub interpolation: ZeroInterpolation,
+    /// Extrapolation policy.
+    pub extrapolation: ZeroExtrapolation,
+    /// Strictly increasing finite pillars, at least two.
+    pub points: Vec<ZeroRatePoint>,
+}
+
+impl SnapshotCurve {
+    /// Reject invalid/oversized pillars and duplicate consumed definition keys.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if !(2..=MAX_SNAPSHOT_PILLARS).contains(&self.points.len())
+            || !(1..=86_400_000).contains(&self.max_age_ms)
+            || self.source_time > self.recorded_at
+            || self.input_versions.len() > 256
+            || self.points.iter().any(|p| p.tenor_years.get() <= 0.0)
+            || self
+                .points
+                .windows(2)
+                .any(|p| p[0].tenor_years.get() >= p[1].tenor_years.get())
+        {
+            return Err(TraitError::InvalidInput(
+                "invalid supplied zero-curve pillars",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for input in &self.input_versions {
+            if !seen.insert((&input.kind, &input.id)) {
+                return Err(TraitError::InvalidInput("duplicate curve input revision"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// A required selected source and fields, with a versioned per-product age policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteRequirement {
+    /// No implicit provider failover or cross-source bid/ask merge.
+    pub key: QuoteKey,
+    /// Fields needed for this snapshot's declared use.
+    pub fields: Vec<QuoteField>,
+    /// Maximum source/receipt age, 1..=86,400,000 UTC milliseconds.
+    pub max_age_ms: i64,
+}
+
+/// Selected feed state and latest delivery watermark, including explicit loss/closure controls.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotQuote {
+    /// Required fields and freshness policy.
+    pub requirement: QuoteRequirement,
+    /// Last delivered eligible event, distinct from the last accepted data sequence.
+    pub delivery_watermark: Option<QuoteEvent>,
+    /// Retained field observations, original ages and accepted-data watermark.
+    pub image: Option<QuoteSnapshot>,
+}
+
+/// Missing historic fixings remain explicit in the manifest.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotFixing {
+    /// Exact required source/index/date.
+    pub key: FixingKey,
+    /// Selected published revision, absent when none was known.
+    pub fixing: Option<PublishedFixing>,
+}
+
+/// Resolved values and policies; no repository handles or mutable current pointers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotContent {
+    /// Must be 1.
+    pub schema_version: u32,
+    /// Economic market/valuation instant.
+    pub as_of: UtcTimestamp,
+    /// Information cutoff, with nanosecond precision.
+    pub known_at: UtcTimestamp,
+    /// Captured application input generation. Zero cannot mean current.
+    pub generation: Version,
+    /// Exact active pricing configuration, retained rather than fetched on replay.
+    #[serde(with = "snapshot_configuration")]
+    pub configuration: BondPricingConfig,
+    /// Resolved instrument, issuer, calendar and convention revisions.
+    pub references: Vec<ResolvedBondReference>,
+    /// Selected quote requirements, values and feed continuity.
+    pub quotes: Vec<SnapshotQuote>,
+    /// Required known-at fixings, including explicit missing entries.
+    pub fixings: Vec<SnapshotFixing>,
+    /// Required curve IDs; absent supplied curves are visible quality failures.
+    pub required_curves: Vec<CurveId>,
+    /// Complete reconstructible curve values, never mutable builder lookups.
+    pub curves: Vec<SnapshotCurve>,
+    /// Maximum skew among required quote source-field timestamps, 0..=86,400,000 ms.
+    pub max_source_skew_ms: i64,
+}
+
+/// Machine-readable quality reason; identity is a selected dependency, never raw licensed data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotIssue {
+    /// Internal dependency identity (quote, fixing or curve).
+    pub dependency: String,
+    /// Stable quality reason.
+    pub reason: SnapshotIssueKind,
+}
+
+/// Explicit unavailable/unsafe input states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotIssueKind {
+    /// Required observation absent.
+    MissingQuote,
+    /// Required field cleared or absent.
+    MissingField,
+    /// Delivery has no accepted image.
+    AwaitingImage,
+    /// Feed discontinuity.
+    Gap,
+    /// Feed ended.
+    Closed,
+    /// Invalid or quarantined input.
+    Invalid,
+    /// Source or receipt age exceeds policy.
+    Stale,
+    /// Provider reports delayed observations.
+    Delayed,
+    /// Indicative/manual/approximate inputs.
+    Indicative,
+    /// Required observation is not entitled.
+    Unauthorized,
+    /// Required fixing had not been published/recorded by the cutoff.
+    MissingFixing,
+    /// Required supplied curve is missing.
+    MissingCurve,
+    /// Explicit demonstration construction.
+    Demo,
+    /// Required selected source observations exceed skew policy.
+    SourceSkew,
+}
+
+/// Derived information-set completeness and quality. It is not an execution permission.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotQuality {
+    /// Every required input is present (independent of timeliness/entitlements).
+    pub complete: bool,
+    /// Overall conservative classification.
+    pub quality: DataQuality,
+    /// Derived reasons; callers cannot stamp their own Valid label.
+    pub issues: Vec<SnapshotIssue>,
+}
+
+/// Verified immutable content-addressed information set, schema 1.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
+pub struct MarketSnapshot(SnapshotWire);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SnapshotWire {
+    snapshot_id: SnapshotId,
+    content: SnapshotContent,
+    quality: SnapshotQuality,
+}
+
+impl MarketSnapshot {
+    /// Normalize unordered manifests, validate supplied values and derive identity/quality.
+    pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
+        normalize(&mut content)?;
+        validate_content(&content)?;
+        let quality = derive_quality(&content, content.as_of.max(content.known_at));
+        let bytes = serde_json::to_vec(&content)
+            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
+        if bytes.len() > MAX_SNAPSHOT_BYTES {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let id = SnapshotId::new(format!(
+            "sha256:{}",
+            content_digest(b"convex.snapshot.v1\0", &bytes)
+        ))
+        .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))?;
+        Ok(Self(SnapshotWire {
+            snapshot_id: id,
+            content,
+            quality,
+        }))
+    }
+    /// Content hash identity.
+    pub fn id(&self) -> &SnapshotId {
+        &self.0.snapshot_id
+    }
+    /// Immutable resolved values, including policies and input generation.
+    pub fn content(&self) -> &SnapshotContent {
+        &self.0.content
+    }
+    /// Derived quality at capture time, never refreshed by reading a cache.
+    pub fn quality(&self) -> &SnapshotQuality {
+        &self.0.quality
+    }
+    /// Verify content/quality against its identity (also required after deserialization).
+    pub fn verify(&self) -> Result<(), TraitError> {
+        let verified = Self::new(self.0.content.clone())?;
+        if verified != *self {
+            return Err(TraitError::Conflict(
+                "snapshot content/quality/identity mismatch",
+            ));
+        }
+        Ok(())
+    }
+    /// Canonical bytes for storage/replay. Serialized content is bounded.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, TraitError> {
+        self.verify()?;
+        let bytes = serde_json::to_vec(self)
+            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
+        if bytes.len() > MAX_SNAPSHOT_BYTES {
+            return Err(TraitError::CapacityExceeded);
+        }
+        Ok(bytes)
+    }
+    /// Necessary data-quality condition for executable hedging, evaluated at supplied decision time.
+    /// This never grants trading, risk, ownership, venue or strategy authorization.
+    pub fn require_execution_quality_at(
+        &self,
+        decision_time: UtcTimestamp,
+    ) -> Result<(), TraitError> {
+        if decision_time < self.0.content.known_at
+            || decision_time < self.0.content.as_of
+            || !self.0.quality.complete
+            || self.0.quality.quality != DataQuality::Valid
+            || !derive_quality(&self.0.content, decision_time)
+                .issues
+                .is_empty()
+        {
+            return Err(TraitError::InvalidInput(
+                "snapshot cannot satisfy executable hedge data policy",
+            ));
+        }
+        Ok(())
+    }
+}
+impl TryFrom<SnapshotWire> for MarketSnapshot {
+    type Error = TraitError;
+    fn try_from(value: SnapshotWire) -> Result<Self, Self::Error> {
+        let result = Self(value);
+        result.verify()?;
+        Ok(result)
+    }
+}
+impl From<MarketSnapshot> for SnapshotWire {
+    fn from(value: MarketSnapshot) -> Self {
+        value.0
+    }
+}
+
+/// Atomic immutable publication. Exact retries return the original content; never overwrite.
+#[async_trait]
+pub trait SnapshotRepository: Send + Sync {
+    /// Verify identity, publish all resolved content, acknowledge only at the declared durability boundary.
+    /// UnknownOutcome requires get(id) and reconciliation before retrying.
+    async fn publish(&self, snapshot: &MarketSnapshot) -> Result<(), TraitError>;
+    /// Retrieve exact immutable content and verify it before returning; never use latest as a substitute.
+    async fn get(&self, id: &SnapshotId) -> Result<Option<MarketSnapshot>, TraitError>;
+}
+
+fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
+    if content.references.len() > MAX_SNAPSHOT_INSTRUMENTS
+        || content.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
+        || content.fixings.len() > MAX_SNAPSHOT_FIXINGS
+        || content.curves.len() > MAX_SNAPSHOT_CURVES
+        || content.required_curves.len() > MAX_SNAPSHOT_CURVES
+        || content.curves.iter().map(|c| c.points.len()).sum::<usize>() > MAX_SNAPSHOT_PILLARS
+    {
+        return Err(TraitError::CapacityExceeded);
+    }
+    content.references.sort_by(|a, b| {
+        a.record
+            .instrument_id
+            .as_str()
+            .cmp(b.record.instrument_id.as_str())
+    });
+    content.quotes.sort_by(|a, b| {
+        (
+            a.requirement.key.instrument_id.as_str(),
+            &a.requirement.key.source,
+        )
+            .cmp(&(
+                b.requirement.key.instrument_id.as_str(),
+                &b.requirement.key.source,
+            ))
+    });
+    for quote in &mut content.quotes {
+        quote.requirement.fields.sort();
+    }
+    content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
+    content.required_curves.sort();
+    content.curves.sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
+    for curve in &mut content.curves {
+        curve
+            .input_versions
+            .sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
+    }
+    Ok(())
+}
+
+fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
+    use crate::reference_repository::validate_reference_id;
+    if content.schema_version != 1
+        || content.references.is_empty()
+        || !(0..=86_400_000).contains(&content.max_source_skew_ms)
+        || content.configuration.version == 0
+        || !content.configuration.active
+        || content.configuration.created_at < 0
+        || content.configuration.updated_at < content.configuration.created_at
+        || content.configuration.updated_at > content.known_at.datetime().timestamp_millis()
+    {
+        return Err(TraitError::InvalidInput(
+            "invalid snapshot schema/configuration/policy",
+        ));
+    }
+    crate::storage::validate_pricing_config(&content.configuration)?;
+    crate::quote_event::validate_text(&content.configuration.config_id, 128)?;
+    content
+        .configuration
+        .applies_to
+        .validate()
+        .map_err(TraitError::InvalidInput)?;
+    let mut instruments = BTreeSet::new();
+    let mut resources = std::collections::BTreeMap::new();
+    for reference in &content.references {
+        validate_reference_id(&reference.record.instrument_id)
+            .map_err(|_| TraitError::InvalidInput("invalid snapshot instrument"))?;
+        if !instruments.insert(reference.record.instrument_id.as_str()) {
+            return Err(TraitError::InvalidInput("duplicate snapshot reference"));
+        }
+        validate_resolved_bond(
+            reference,
+            ReferenceLookup {
+                as_of: content.as_of,
+                known_at: content.known_at,
+            },
+        )
+        .map_err(|_| TraitError::InvalidInput("invalid resolved snapshot reference"))?;
+        for record in [
+            &reference.issuer,
+            &reference.calendar,
+            &reference.convention,
+        ] {
+            let key = (record.definition.key(), record.version);
+            if resources
+                .insert(key, record)
+                .is_some_and(|prior| prior != record)
+            {
+                return Err(TraitError::Conflict(
+                    "different content for one reference revision",
+                ));
+            }
+        }
+    }
+    let mut quotes = BTreeSet::new();
+    for quote in &content.quotes {
+        let requirement = &quote.requirement;
+        validate_reference_id(&requirement.key.instrument_id)
+            .map_err(|_| TraitError::InvalidInput("invalid quote instrument"))?;
+        crate::quote_event::validate_text(&requirement.key.source, 128)?;
+        if !instruments.contains(requirement.key.instrument_id.as_str())
+            || !quotes.insert((
+                requirement.key.instrument_id.as_str(),
+                &requirement.key.source,
+            ))
+            || requirement.fields.is_empty()
+            || requirement.fields.len() > 12
+            || requirement.fields.windows(2).any(|w| w[0] == w[1])
+            || !(1..=86_400_000).contains(&requirement.max_age_ms)
+        {
+            return Err(TraitError::InvalidInput(
+                "invalid/duplicate quote requirement",
+            ));
+        }
+        validate_quote(quote, content)?;
+    }
+    let mut fixing_keys = BTreeSet::new();
+    for selected in &content.fixings {
+        if !fixing_keys.insert(&selected.key)
+            || selected.key.observation_date.date().as_naive_date()
+                > content.as_of.datetime().date_naive()
+        {
+            return Err(TraitError::InvalidInput(
+                "duplicate or future required fixing",
+            ));
+        }
+        if let Some(fixing) = &selected.fixing {
+            fixing.validate()?;
+            if fixing.key != selected.key
+                || fixing.published_at > content.known_at
+                || fixing.recorded_at > content.known_at
+            {
+                return Err(TraitError::InvalidInput(
+                    "fixing was not known at snapshot cutoff",
+                ));
+            }
+        }
+    }
+    if content.required_curves.windows(2).any(|w| w[0] == w[1]) {
+        return Err(TraitError::InvalidInput("duplicate required curve"));
+    }
+    let mut curve_ids = BTreeSet::new();
+    for curve in &content.curves {
+        curve.validate()?;
+        if !curve_ids.insert(&curve.curve_id)
+            || !content.required_curves.contains(&curve.curve_id)
+            || curve.source_time > content.as_of
+            || curve.recorded_at > content.known_at
+        {
+            return Err(TraitError::InvalidInput(
+                "duplicate/unrequested/later-known curve",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<(), TraitError> {
+    let eligible = |event: &QuoteEvent| -> Result<(), TraitError> {
+        event.validate()?;
+        if event.key != quote.requirement.key
+            || event.source_time_ms > content.as_of.datetime().timestamp_millis()
+            || event.receive_time_ms > content.known_at.datetime().timestamp_millis()
+        {
+            return Err(TraitError::InvalidInput(
+                "quote outside selected source/time scope",
+            ));
+        }
+        Ok(())
+    };
+    if let Some(delivery) = &quote.delivery_watermark {
+        eligible(delivery)?;
+    }
+    if let Some(image) = &quote.image {
+        eligible(&image.watermark)?;
+        if !matches!(
+            image.watermark.event,
+            QuoteEventKind::Image { .. } | QuoteEventKind::Delta { .. }
+        ) {
+            return Err(TraitError::InvalidInput(
+                "accepted quote watermark must be data",
+            ));
+        }
+        if image.fields.len() > 12 || quote.delivery_watermark.is_none() {
+            return Err(TraitError::InvalidInput(
+                "missing delivery watermark/oversized image",
+            ));
+        }
+        for (field, value) in &image.fields {
+            if field.unit() != value.value.unit
+                || value.sequence == 0
+                || value.sequence > image.watermark.sequence
+                || value.source_time_ms < 0
+                || value.receive_time_ms < 0
+                || value.source_time_ms > content.as_of.datetime().timestamp_millis()
+                || value.receive_time_ms > content.known_at.datetime().timestamp_millis()
+            {
+                return Err(TraitError::InvalidInput(
+                    "invalid snapshot field observation",
+                ));
+            }
+        }
+        if image.state == DataState::Live {
+            let delivery = quote
+                .delivery_watermark
+                .as_ref()
+                .ok_or(TraitError::InvalidInput("missing watermark"))?;
+            if !delivery.entitled
+                || !image.watermark.entitled
+                || image.watermark.quality != QuoteQuality::Live
+                || delivery.session != image.watermark.session
+                || delivery.sequence != image.watermark.sequence
+                || !matches!(
+                    delivery.event,
+                    QuoteEventKind::Image { .. }
+                        | QuoteEventKind::Delta { .. }
+                        | QuoteEventKind::Heartbeat
+                )
+            {
+                return Err(TraitError::InvalidInput(
+                    "live quote contradicts delivery watermark",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuality {
+    let now_ms = now.datetime().timestamp_millis();
+    let now_sub_ms = now.datetime().timestamp_subsec_nanos() % 1_000_000;
+    use SnapshotIssueKind as K;
+    let mut issues = Vec::new();
+    let mut complete = true;
+    let mut source_times = Vec::new();
+    let mut add = |dependency: String, reason| issues.push(SnapshotIssue { dependency, reason });
+    for quote in &content.quotes {
+        let id = format!(
+            "quote:{}:{}",
+            quote.requirement.key.instrument_id, quote.requirement.key.source
+        );
+        let Some(image) = &quote.image else {
+            complete = false;
+            add(id.clone(), K::MissingQuote);
+            if let Some(delivery) = &quote.delivery_watermark {
+                if !delivery.entitled {
+                    add(id.clone(), K::Unauthorized);
+                }
+                match delivery.event {
+                    QuoteEventKind::Gap => add(id, K::Gap),
+                    QuoteEventKind::Closed => add(id, K::Closed),
+                    QuoteEventKind::Error { .. } => add(id, K::Invalid),
+                    QuoteEventKind::Reset => add(id, K::AwaitingImage),
+                    _ => {}
+                }
+            }
+            continue;
+        };
+        let reason = match image.state {
+            DataState::Live => None,
+            DataState::AwaitingImage => Some(K::AwaitingImage),
+            DataState::Gap => Some(K::Gap),
+            DataState::Closed => Some(K::Closed),
+            DataState::Invalid => Some(K::Invalid),
+            DataState::Stale => Some(K::Stale),
+            DataState::Delayed => Some(K::Delayed),
+            DataState::Indicative | DataState::Manual => Some(K::Indicative),
+            DataState::Unauthorized => Some(K::Unauthorized),
+            DataState::Incomplete => Some(K::MissingField),
+        };
+        if let Some(reason) = reason {
+            add(id.clone(), reason);
+        }
+        for field in &quote.requirement.fields {
+            match image.fields.get(field) {
+                None => {
+                    complete = false;
+                    add(format!("{id}:{field:?}"), K::MissingField);
+                }
+                Some(value) => {
+                    source_times.push(value.source_time_ms);
+                    if now_ms < value.receive_time_ms
+                        || now_ms < value.source_time_ms
+                        || age_exceeded(
+                            now_ms,
+                            now_sub_ms,
+                            value.source_time_ms,
+                            0,
+                            quote.requirement.max_age_ms,
+                        )
+                        || age_exceeded(
+                            now_ms,
+                            now_sub_ms,
+                            value.receive_time_ms,
+                            0,
+                            quote.requirement.max_age_ms,
+                        )
+                    {
+                        add(format!("{id}:{field:?}"), K::Stale);
+                    }
+                }
+            }
+        }
+    }
+    if let (Some(low), Some(high)) = (source_times.iter().min(), source_times.iter().max()) {
+        if high.saturating_sub(*low) > content.max_source_skew_ms {
+            add("selected_sources".into(), K::SourceSkew);
+        }
+    }
+    for selected in &content.fixings {
+        let id = format!(
+            "fixing:{}:{}:{}",
+            selected.key.index_id,
+            selected.key.observation_date.date(),
+            selected.key.source
+        );
+        match &selected.fixing {
+            None => {
+                complete = false;
+                add(id, K::MissingFixing);
+            }
+            Some(fixing) if !fixing.entitled => add(id, K::Unauthorized),
+            Some(fixing) if fixing.is_preliminary => add(id, K::Indicative),
+            _ => {}
+        }
+    }
+    for id in &content.required_curves {
+        let dependency = format!("curve:{id}");
+        match content.curves.iter().find(|c| &c.curve_id == id) {
+            None => {
+                complete = false;
+                add(dependency, K::MissingCurve);
+            }
+            Some(curve) => {
+                if age_exceeded(
+                    now_ms,
+                    now_sub_ms,
+                    curve.source_time.datetime().timestamp_millis(),
+                    curve.source_time.datetime().timestamp_subsec_nanos() % 1_000_000,
+                    curve.max_age_ms,
+                ) || age_exceeded(
+                    now_ms,
+                    now_sub_ms,
+                    curve.recorded_at.datetime().timestamp_millis(),
+                    curve.recorded_at.datetime().timestamp_subsec_nanos() % 1_000_000,
+                    curve.max_age_ms,
+                ) {
+                    add(dependency.clone(), K::Stale);
+                }
+                match curve.quality {
+                    DataQuality::Valid => {}
+                    DataQuality::Indicative => add(dependency, K::Indicative),
+                    DataQuality::Delayed => add(dependency, K::Delayed),
+                    DataQuality::Stale => add(dependency, K::Stale),
+                    DataQuality::Invalid => add(dependency, K::Invalid),
+                    DataQuality::Demo => add(dependency, K::Demo),
+                }
+            }
+        }
+    }
+    let quality = if issues.is_empty() {
+        DataQuality::Valid
+    } else if issues.iter().any(|i| {
+        matches!(
+            i.reason,
+            K::MissingQuote
+                | K::MissingField
+                | K::AwaitingImage
+                | K::Gap
+                | K::Closed
+                | K::Invalid
+                | K::Unauthorized
+                | K::MissingFixing
+                | K::MissingCurve
+                | K::SourceSkew
+        )
+    }) {
+        DataQuality::Invalid
+    } else if issues.iter().any(|i| i.reason == K::Demo) {
+        DataQuality::Demo
+    } else if issues.iter().any(|i| i.reason == K::Stale) {
+        DataQuality::Stale
+    } else if issues.iter().any(|i| i.reason == K::Delayed) {
+        DataQuality::Delayed
+    } else {
+        DataQuality::Indicative
+    };
+    SnapshotQuality {
+        complete,
+        quality,
+        issues,
+    }
+}
+
+// Snapshot persistence preserves exact configuration decimals even when serde-float is unified.
+// Ordinary client configuration contracts retain their existing format.
+mod snapshot_configuration {
+    use super::*;
+    use crate::storage::PricingSpec;
+    use convex_core::contracts::ExactDecimal;
+    pub fn serialize<S: serde::Serializer>(
+        config: &BondPricingConfig,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut wire = serde_json::to_value(config).map_err(serde::ser::Error::custom)?;
+        if let PricingSpec::RealYield { index_ratio, .. } = &config.pricing_spec {
+            wire["pricing_spec"]["RealYield"]["index_ratio"] =
+                serde_json::Value::String(index_ratio.to_string());
+        }
+        wire.serialize(serializer)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BondPricingConfig, D::Error> {
+        let wire = serde_json::Value::deserialize(deserializer)?;
+        let ratio = wire
+            .pointer("/pricing_spec/RealYield/index_ratio")
+            .map(|value| {
+                let text = value.as_str().ok_or_else(|| {
+                    serde::de::Error::custom("snapshot index ratio requires exact decimal string")
+                })?;
+                ExactDecimal::parse(text).map_err(serde::de::Error::custom)
+            })
+            .transpose()?;
+        let mut config: BondPricingConfig =
+            serde_json::from_value(wire).map_err(serde::de::Error::custom)?;
+        if let (PricingSpec::RealYield { index_ratio, .. }, Some(ratio)) =
+            (&mut config.pricing_spec, ratio)
+        {
+            *index_ratio = ratio.decimal();
+        }
+        Ok(config)
+    }
+}
+
+/// Checked conversion for callers starting with existing native instrument IDs.
+pub fn snapshot_instrument_id(
+    id: &convex_core::ids::InstrumentId,
+) -> Result<InstrumentId, TraitError> {
+    InstrumentId::new(id.as_str())
+        .map_err(|_| TraitError::InvalidInput("invalid instrument identity"))
+}
+
+fn age_exceeded(
+    now_ms: i64,
+    now_sub_ms: u32,
+    source_ms: i64,
+    source_sub_ms: u32,
+    maximum_ms: i64,
+) -> bool {
+    let age_ms = now_ms.saturating_sub(source_ms);
+    age_ms > maximum_ms || (age_ms == maximum_ms && now_sub_ms > source_sub_ms)
+}

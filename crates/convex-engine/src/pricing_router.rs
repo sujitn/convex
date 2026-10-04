@@ -421,6 +421,15 @@ impl PricingRouter {
 
     /// Price a bond.
     pub fn price(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
+        self.price_at(input, chrono::Utc::now().timestamp_millis())
+    }
+
+    /// Price over supplied values with a supplied completion timestamp; no wall-clock read.
+    pub fn price_at(
+        &self,
+        input: &PricingInput,
+        calculated_at_ms: i64,
+    ) -> Result<BondQuoteOutput, EngineError> {
         crate::ports::reference_repository::validate_bond_reference(&input.bond)
             .map_err(|e| EngineError::PricingError(e.to_string()))?;
         let model = self.select_model(&input.bond);
@@ -429,14 +438,16 @@ impl PricingRouter {
             input.bond.instrument_id, model
         );
 
-        match model {
+        let mut output = match model {
             PricingModel::DiscountToMaturity => self.price_discount_to_maturity(input),
             PricingModel::YieldToWorst => self.price_yield_to_worst(input),
             PricingModel::CallableOas => self.price_callable_oas(input),
             PricingModel::InflationLinkedRealYield => self.price_inflation_linked(input),
             PricingModel::FloatingRateDiscountMargin => self.price_floating_rate(input),
             PricingModel::MatrixPricing => self.price_matrix(input),
-        }
+        }?;
+        output.timestamp = calculated_at_ms;
+        Ok(output)
     }
 
     /// Calculate Z-spread if discount curve is provided.
@@ -1258,10 +1269,7 @@ impl PricingRouter {
             key_rate_durations: krd_val,
             cs01: cs01_val,
 
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
+            timestamp: 0, // Finalized once by price_at using the supplied clock.
             pricing_spec: "DiscountToMaturity".to_string(),
             source: "convex-engine".to_string(),
             is_stale: false,
@@ -1550,10 +1558,7 @@ impl PricingRouter {
             key_rate_durations: None,
             cs01: None,
 
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
+            timestamp: 0, // Finalized once by price_at using the supplied clock.
             pricing_spec: "FloatingRateDiscountMargin".to_string(),
             source: "engine".to_string(),
             is_stale: false,

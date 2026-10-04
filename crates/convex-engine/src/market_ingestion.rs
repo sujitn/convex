@@ -4,38 +4,12 @@
 use std::collections::{BTreeMap, HashMap};
 
 use convex_ports::market_data::{
-    FieldUpdate, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteValue,
+    FieldUpdate, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
 };
 use convex_ports::TraitError;
 use serde::{Deserialize, Serialize};
 
-/// Recovery and usability of retained observations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DataState {
-    /// A complete image has not arrived.
-    AwaitingImage,
-    /// Complete, timely real-time delivery.
-    Live,
-    /// Source reports delay.
-    Delayed,
-    /// Source reports indicative data.
-    Indicative,
-    /// Operator supplied data.
-    Manual,
-    /// At least one retained field exceeds the configured source/receipt age.
-    Stale,
-    /// Delivery lost data; no deltas are admitted until an image.
-    Gap,
-    /// Invalid input quarantined; an image is required.
-    Invalid,
-    /// Delivery closed; an image is required before reopening.
-    Closed,
-    /// Consumption entitlement was revoked.
-    Unauthorized,
-    /// Valid image/delta with no usable price, yield or spread.
-    Incomplete,
-}
+pub use convex_ports::quote_event::{DataState, FieldObservation, QuoteSnapshot};
 
 /// Deterministic per-event outcome, suitable for a bounded external trace sink.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,30 +29,6 @@ pub enum IngestionOutcome {
     Control,
     /// New key refused; all existing keys blocked until refreshed.
     CapacityExceeded,
-}
-
-/// One field's original observation. Partial updates never refresh untouched fields.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FieldObservation {
-    /// Exact value and unit.
-    pub value: QuoteValue,
-    /// Original source time, UTC Unix milliseconds.
-    pub source_time_ms: i64,
-    /// Original receipt time, UTC Unix milliseconds.
-    pub receive_time_ms: i64,
-    /// Sequence that supplied this field.
-    pub sequence: u64,
-}
-
-/// Last retained quote with explicit status. Only Live is admitted to the current graph.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct QuoteSnapshot {
-    /// Complete source/session/version/entitlement provenance of the last accepted data event.
-    pub watermark: QuoteEvent,
-    /// Assembled fields with their individual ages.
-    pub fields: BTreeMap<QuoteField, FieldObservation>,
-    /// Current recovery/freshness status.
-    pub state: DataState,
 }
 
 /// Per-event trace; callers choose retention. The assembler does not accumulate traces.
