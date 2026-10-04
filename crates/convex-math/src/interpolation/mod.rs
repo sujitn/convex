@@ -9,7 +9,7 @@
 //! - [`LinearInterpolator`]: Simple linear interpolation
 //! - [`LogLinearInterpolator`]: Log-linear interpolation (interpolates log of values)
 //! - [`CubicSpline`]: Natural cubic spline interpolation
-//! - [`MonotoneConvex`]: Hagan monotone convex (production default, ensures positive forwards)
+//! - [`MonotoneConvex`]: Hagan monotone convex (nonnegative-forward model)
 //! - [`FlatForward`]: Flat forward interpolation (constant forward rates between pillars)
 //!
 //! **Parametric Models:**
@@ -21,10 +21,10 @@
 //! | Method | Speed | Smoothness | Positive Forwards | Use Case |
 //! |--------|-------|------------|-------------------|----------|
 //! | Linear | Fast | C0 | No | Quick prototyping |
-//! | Log-Linear | Fast | C0 | Yes (on discount) | Discount factor curves |
+//! | Log-Linear | Fast | C0 | Only for decreasing discounts | Discount factor curves |
 //! | Flat Forward | Fast | C0 (step fwd) | Yes* | Step forward curve |
 //! | Cubic Spline | Medium | C2 | No | Smooth curves |
-//! | Monotone Convex | Medium | C1 | **Yes** | **Production default** |
+//! | Monotone Convex | Medium | C1 | Nonnegative model constraint | Nonnegative-forward curves |
 //! | Nelson-Siegel | Fast | C∞ | Usually | Parametric fitting |
 //! | Svensson | Fast | C∞ | Usually | More flexible fitting |
 //!
@@ -32,7 +32,9 @@
 //!
 //! # Forward Rate Considerations
 //!
-//! For production yield curve construction, use [`MonotoneConvex`] as it guarantees:
+//! Select an interpolator according to the supported curve domain. [`MonotoneConvex`]
+//! uses a nonnegative-forward constraint; it is not suitable for general negative-rate
+//! curves. Its intended properties are:
 //! - Positive forward rates
 //! - No spurious oscillations
 //! - C1 continuity (continuous first derivative)
@@ -52,6 +54,29 @@ pub use monotone_convex::MonotoneConvex;
 pub use parametric::{NelsonSiegel, Svensson};
 
 use crate::error::MathResult;
+
+fn validate_points(xs: &[f64], ys: &[f64], minimum: usize) -> MathResult<()> {
+    use crate::{bounds::finite_slice, MathError};
+    finite_slice(xs, "coordinates")?;
+    finite_slice(ys, "values")?;
+    if xs.len() < minimum {
+        return Err(MathError::insufficient_data(minimum, xs.len()));
+    }
+    if xs.len() != ys.len() {
+        return Err(MathError::invalid_input(
+            "coordinate and value lengths differ",
+        ));
+    }
+    for pair in xs.windows(2) {
+        let width = pair[1] - pair[0];
+        if !width.is_finite() || width <= 0.0 {
+            return Err(MathError::invalid_input(
+                "coordinates must have finite positive separation",
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// Trait for interpolation methods.
 ///

@@ -6,6 +6,7 @@
 //!
 //! These models are used for curve fitting rather than point-by-point interpolation.
 
+use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
 
@@ -73,6 +74,7 @@ impl NelsonSiegel {
     ///
     /// Returns an error if tau is not positive.
     pub fn new(beta0: f64, beta1: f64, beta2: f64, tau: f64) -> MathResult<Self> {
+        finite_slice(&[beta0, beta1, beta2, tau], "Nelson-Siegel parameters")?;
         if tau <= 0.0 {
             return Err(MathError::invalid_input(format!(
                 "tau must be positive, got {tau}"
@@ -85,6 +87,12 @@ impl NelsonSiegel {
             beta2,
             tau,
         })
+    }
+
+    /// Finite checked forward query for external input.
+    pub fn try_forward_rate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "forward query")?;
+        finite(self.forward_rate(t), "parametric forward")
     }
 
     /// Returns the instantaneous forward rate at time t.
@@ -129,9 +137,10 @@ impl NelsonSiegel {
 
 impl Interpolator for NelsonSiegel {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             // As t → 0, z(t) → β₀ + β₁
-            return Ok(self.beta0 + self.beta1);
+            return finite(self.beta0 + self.beta1, "short rate");
         }
 
         let x = t / self.tau;
@@ -140,10 +149,11 @@ impl Interpolator for NelsonSiegel {
             + self.beta1 * Self::loading_factor_1(x)
             + self.beta2 * Self::loading_factor_2(x);
 
-        Ok(z)
+        finite(z, "parametric interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -163,7 +173,7 @@ impl Interpolator for NelsonSiegel {
 
         let dz_dx = self.beta1 * dl1 + self.beta2 * dl2;
 
-        Ok(dz_dx / self.tau)
+        finite(dz_dx / self.tau, "Nelson-Siegel derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {
@@ -247,6 +257,10 @@ impl Svensson {
         tau1: f64,
         tau2: f64,
     ) -> MathResult<Self> {
+        finite_slice(
+            &[beta0, beta1, beta2, beta3, tau1, tau2],
+            "Svensson parameters",
+        )?;
         if tau1 <= 0.0 {
             return Err(MathError::invalid_input(format!(
                 "tau1 must be positive, got {tau1}"
@@ -266,6 +280,12 @@ impl Svensson {
             tau1,
             tau2,
         })
+    }
+
+    /// Finite checked forward query for external input.
+    pub fn try_forward_rate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "forward query")?;
+        finite(self.forward_rate(t), "parametric forward")
     }
 
     /// Returns the instantaneous forward rate at time t.
@@ -310,8 +330,9 @@ impl Svensson {
 
 impl Interpolator for Svensson {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
-            return Ok(self.beta0 + self.beta1);
+            return finite(self.beta0 + self.beta1, "short rate");
         }
 
         let x1 = t / self.tau1;
@@ -322,10 +343,11 @@ impl Interpolator for Svensson {
             + self.beta2 * Self::loading_factor_2(x1)
             + self.beta3 * Self::loading_factor_2(x2);
 
-        Ok(z)
+        finite(z, "parametric interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -348,7 +370,7 @@ impl Interpolator for Svensson {
             + self.beta2 * dl2_1 / self.tau1
             + self.beta3 * dl2_2 / self.tau2;
 
-        Ok(dz_dt)
+        finite(dz_dt, "Svensson derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {

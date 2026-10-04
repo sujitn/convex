@@ -27,19 +27,56 @@
 //! a JSON envelope `{"ok": "true", "result": …}` or `{"ok": "false", "error":
 //! {"code","message","field?"}}` — there is no out-of-band error path.
 
-#![allow(clippy::missing_safety_doc)]
+#![deny(unsafe_op_in_unsafe_fn, unused_must_use)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::missing_safety_doc,
+        clippy::undocumented_unsafe_blocks
+    )
+)]
+
+#[cfg(panic = "abort")]
+compile_error!("convex-ffi requires panic=unwind; build host libraries with --profile excel");
 
 mod build;
 mod dispatch;
 mod error;
+mod ingress;
 mod registry;
 mod schemas;
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use libc::c_char;
 
 pub use registry::{Handle, INVALID_HANDLE};
+
+static IN_FLIGHT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+const MAX_IN_FLIGHT: usize = 32;
+struct Admission<'a> {
+    counter: &'a std::sync::atomic::AtomicUsize,
+}
+impl<'a> Admission<'a> {
+    fn acquire_from(counter: &'a std::sync::atomic::AtomicUsize) -> Option<Self> {
+        use std::sync::atomic::Ordering;
+        counter
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                (n < MAX_IN_FLIGHT).then(|| n + 1)
+            })
+            .ok()
+            .map(|_| Self { counter })
+    }
+}
+impl Drop for Admission<'_> {
+    fn drop(&mut self) {
+        self.counter
+            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
 
 // ============================================================================
 // Panic guards
@@ -51,22 +88,16 @@ pub use registry::{Handle, INVALID_HANDLE};
 // (see the root Cargo.toml). Handlers are still written to never panic; this
 // is the backstop, not the error path.
 
-fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
-    if let Some(s) = payload.downcast_ref::<&str>() {
-        (*s).to_string()
-    } else if let Some(s) = payload.downcast_ref::<String>() {
-        s.clone()
-    } else {
-        "unknown panic".to_string()
-    }
-}
-
 /// Run `f`, converting a panic into `INVALID_HANDLE` + last-error.
 fn guard_handle(f: impl FnOnce() -> Handle) -> Handle {
+    let Some(_admission) = Admission::acquire_from(&IN_FLIGHT) else {
+        error::set_last_error("FFI concurrent call limit exceeded");
+        return INVALID_HANDLE;
+    };
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Ok(h) => h,
-        Err(p) => {
-            error::set_last_error(format!("panic: {}", panic_message(&*p)));
+        Err(_) => {
+            error::set_last_error("internal panic contained; operation failed");
             INVALID_HANDLE
         }
     }
@@ -74,11 +105,17 @@ fn guard_handle(f: impl FnOnce() -> Handle) -> Handle {
 
 /// Run `f`, converting a panic into a `{"ok":"false",...}` error envelope.
 fn guard_envelope(f: impl FnOnce() -> *mut c_char) -> *mut c_char {
+    let Some(_admission) = Admission::acquire_from(&IN_FLIGHT) else {
+        return to_owned_c(err_envelope(
+            "resource_limit",
+            "FFI concurrent call limit exceeded",
+        ));
+    };
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Ok(p) => p,
-        Err(p) => to_owned_c(err_envelope(
+        Err(_) => to_owned_c(err_envelope(
             "panic",
-            &format!("internal error: {}", panic_message(&*p)),
+            "internal panic contained; operation failed",
         )),
     }
 }
@@ -87,8 +124,8 @@ fn guard_envelope(f: impl FnOnce() -> *mut c_char) -> *mut c_char {
 fn guard_value<R>(default: R, f: impl FnOnce() -> R) -> R {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Ok(r) => r,
-        Err(p) => {
-            error::set_last_error(format!("panic: {}", panic_message(&*p)));
+        Err(_) => {
+            error::set_last_error("internal panic contained; operation failed");
             default
         }
     }
@@ -99,10 +136,15 @@ fn guard_value<R>(default: R, f: impl FnOnce() -> R) -> R {
 // ============================================================================
 
 /// Free a string returned by any FFI function in this crate.
+///
+/// # Safety
+/// `s` must be null or an unchanged owned pointer returned by this crate, freed
+/// exactly once. Never pass borrowed version/last-error or foreign allocations.
 #[no_mangle]
 pub unsafe extern "C" fn convex_string_free(s: *mut c_char) {
     if !s.is_null() {
-        let _ = CString::from_raw(s);
+        // SAFETY: caller returns an unchanged Rust allocation exactly once.
+        drop(unsafe { CString::from_raw(s) });
     }
 }
 
@@ -124,9 +166,8 @@ pub extern "C" fn convex_clear_error() {
 /// Library version (`CARGO_PKG_VERSION`). Static; do not free.
 #[no_mangle]
 pub extern "C" fn convex_version() -> *const c_char {
-    static VERSION: once_cell::sync::Lazy<CString> =
-        once_cell::sync::Lazy::new(|| CString::new(env!("CARGO_PKG_VERSION")).unwrap());
-    VERSION.as_ptr()
+    static VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
+    VERSION.as_ptr().cast()
 }
 
 // ============================================================================
@@ -134,15 +175,31 @@ pub extern "C" fn convex_version() -> *const c_char {
 // ============================================================================
 
 /// Build a bond from a `BondSpec` JSON. Returns `0` on failure.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_bond_from_json(spec_json: *const c_char) -> Handle {
-    guard_handle(|| with_str(spec_json, build::bond_from_json))
+    guard_handle(|| {
+        // SAFETY: this export's borrowed input contract is forwarded unchanged.
+        unsafe { with_str(spec_json, build::bond_from_json) }
+    })
 }
 
 /// Build a curve from a `CurveSpec` JSON. Returns `0` on failure.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_curve_from_json(spec_json: *const c_char) -> Handle {
-    guard_handle(|| with_str(spec_json, build::curve_from_json))
+    guard_handle(|| {
+        // SAFETY: this export's borrowed input contract is forwarded unchanged.
+        unsafe { with_str(spec_json, build::curve_from_json) }
+    })
 }
 
 /// Returns a JSON description of the registered object.
@@ -164,7 +221,11 @@ pub extern "C" fn convex_release(handle: Handle) {
 /// Number of registered objects.
 #[no_mangle]
 pub extern "C" fn convex_object_count() -> i32 {
-    guard_value(-1, || registry::object_count() as i32)
+    guard_value(-1, || {
+        registry::object_count()
+            .and_then(|n| i32::try_from(n).ok())
+            .unwrap_or(-1)
+    })
 }
 
 /// Returns a JSON array of `{handle,kind,name?}` entries for every registered
@@ -175,7 +236,10 @@ pub extern "C" fn convex_list_objects() -> *mut c_char {
 }
 
 fn convex_list_objects_inner() -> *mut c_char {
-    let entries: Vec<_> = registry::list(None)
+    let Some(objects) = registry::list(None) else {
+        return to_owned_c(err_envelope("unavailable", "registry unavailable"));
+    };
+    let entries: Vec<_> = objects
         .into_iter()
         .map(|(h, kind, name)| {
             serde_json::json!({
@@ -208,34 +272,64 @@ pub extern "C" fn convex_generation() -> u64 {
 // ============================================================================
 
 /// Price a bond. Request: `PricingRequest`. Response: `PricingResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_price(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::price)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::price) }
 }
 
 /// Risk metrics. Request: `RiskRequest`. Response: `RiskResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_risk(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::risk)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::risk) }
 }
 
 /// Spread (Z/G/I/ASW/OAS/DM dispatch). Request: `SpreadRequest`. Response:
 /// `SpreadResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_spread(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::spread)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::spread) }
 }
 
 /// Bond cashflow schedule. Request: `CashflowRequest`. Response: `CashflowResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_cashflows(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::cashflows)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::cashflows) }
 }
 
 /// Curve point query. Request: `CurveQueryRequest`. Response: `CurveQueryResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::curve_query)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::curve_query) }
 }
 
 /// Make-whole call price. Request: `MakeWholeRequest`. Response: `MakeWholeResponse`.
@@ -243,27 +337,45 @@ pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut
 /// Computes the make-whole call redemption price at a future call date for
 /// a callable bond carrying a make-whole spread. Discount uses the bond's
 /// own day count and frequency; treasury rate is supplied by the caller.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_make_whole(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::make_whole)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::make_whole) }
 }
 
 /// One-call yield & spread analysis (Bloomberg-YAS style). Request:
 /// `YasRequest`. Response: `YasResponse` — every yield convention, G/Z/
 /// benchmark/ASW spreads, risk metrics, and the settlement invoice from a
 /// single computation.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_yas(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::yas)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::yas) }
 }
 
 /// Curve scenario ladder in one call. Request: `ScenarioRequest` (N named
 /// scenarios of parallel/steepener/flattener/key-rate/credit bumps).
 /// Response: `ScenarioResponse` — base pricing + one repriced row per
 /// scenario, holding the mark-implied Z-spread fixed.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_scenario(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::scenario)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::scenario) }
 }
 
 // ============================================================================
@@ -274,24 +386,42 @@ pub unsafe extern "C" fn convex_scenario(request_json: *const c_char) -> *mut c_
 /// `RiskProfile` (modified/Macaulay duration, convexity, DV01, key-rate
 /// buckets, market value, provenance). The profile round-trips back into
 /// [`convex_hedge`] and [`convex_compare`].
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_risk_profile(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::risk_profile)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::risk_profile) }
 }
 
 /// Propose a hedge for a position profile. Request: `HedgeRequest` (carries a
 /// `strategy` tag + the `RiskProfile` from [`convex_risk_profile`]). Response:
 /// `HedgeProposal` (trades, residual risk, cost bps, tradeoff notes).
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_hedge(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::hedge)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::hedge) }
 }
 
 /// Compare hedge proposals against a position. Request: `CompareRequest`.
 /// Response: `CompareResponse` (`ComparisonReport` + optional narrative).
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_compare(request_json: *const c_char) -> *mut c_char {
-    rpc(request_json, dispatch::compare)
+    // SAFETY: this export forwards the caller-owned string contract.
+    unsafe { rpc(request_json, dispatch::compare) }
 }
 
 // ============================================================================
@@ -304,10 +434,16 @@ pub unsafe extern "C" fn convex_compare(request_json: *const c_char) -> *mut c_c
 /// `PricingResponse`, `RiskRequest`, `RiskResponse`, `SpreadRequest`,
 /// `SpreadResponse`, `CashflowRequest`, `CashflowResponse`,
 /// `CurveQueryRequest`, `CurveQueryResponse`.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char {
     guard_envelope(|| {
-        let result = with_str_owned(type_name, schemas::lookup);
+        // SAFETY: caller-owned string remains valid within the guard.
+        let result = unsafe { with_str_owned(type_name, schemas::lookup) };
         to_owned_c(match result {
             Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
             Err(msg) => err_envelope("schema", &msg),
@@ -318,13 +454,21 @@ pub unsafe extern "C" fn convex_schema(type_name: *const c_char) -> *mut c_char 
 /// Parse a textual mark (e.g. `"99.5C"`, `"4.65%"`, `"+125bps@USD.SOFR"`).
 ///
 /// Returns a JSON envelope; on success, `result` is the canonical `Mark` JSON.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+/// contract. Returned owned strings must be released once with `convex_string_free`.
 #[no_mangle]
 pub unsafe extern "C" fn convex_mark_parse(text: *const c_char) -> *mut c_char {
     guard_envelope(|| {
-        let payload = with_str_owned(text, |s| {
-            s.parse::<convex_core::types::Mark>()
-                .map_err(|e| e.to_string())
-        });
+        // SAFETY: caller-owned string remains valid within the guard.
+        let payload = unsafe {
+            with_str_owned(text, |s| {
+                s.parse::<convex_core::types::Mark>()
+                    .map_err(|e| e.to_string())
+            })
+        };
         to_owned_c(match payload {
             Ok(mark) => match serde_json::to_string(&mark) {
                 Ok(json) => format!(r#"{{"ok":"true","result":{json}}}"#),
@@ -339,20 +483,32 @@ pub unsafe extern "C" fn convex_mark_parse(text: *const c_char) -> *mut c_char {
 // Internal helpers
 // ============================================================================
 
-unsafe fn with_str<F, R>(ptr: *const c_char, f: F) -> R
-where
-    F: FnOnce(&str) -> R,
-    R: Default,
-{
+// SAFETY: internal callers forward a valid immutable C string for the call.
+unsafe fn read_input<'a>(ptr: *const c_char) -> Result<&'a str, String> {
     if ptr.is_null() {
-        error::set_last_error("null pointer");
-        return R::default();
+        return Err("null pointer".into());
     }
-    match CStr::from_ptr(ptr).to_str() {
+    for length in 0..=ingress::MAX_INPUT_BYTES {
+        // SAFETY: the caller guarantees a C string in one allocation. Every
+        // read precedes or reads its terminator; stop at the resource ceiling.
+        let byte = unsafe { ptr.add(length).read() };
+        if byte == 0 {
+            // SAFETY: the reads above established this borrowed range before
+            // its terminator; the caller keeps the allocation unchanged.
+            let bytes = unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), length) };
+            return std::str::from_utf8(bytes).map_err(|_| "invalid UTF-8".into());
+        }
+    }
+    Err("input byte limit exceeded".into())
+}
+
+unsafe fn with_str(ptr: *const c_char, f: fn(&str) -> Handle) -> Handle {
+    // SAFETY: borrowed input contract is forwarded from the export.
+    match unsafe { read_input(ptr) }.and_then(|s| ingress::parse(s).map(|_| s)) {
         Ok(s) => f(s),
-        Err(e) => {
-            error::set_last_error(format!("invalid UTF-8: {e}"));
-            R::default()
+        Err(error) => {
+            error::set_last_error(error);
+            INVALID_HANDLE
         }
     }
 }
@@ -361,20 +517,18 @@ unsafe fn with_str_owned<F, T>(ptr: *const c_char, f: F) -> Result<T, String>
 where
     F: FnOnce(&str) -> Result<T, String>,
 {
-    if ptr.is_null() {
-        return Err("null pointer".to_string());
-    }
-    let s = CStr::from_ptr(ptr)
-        .to_str()
-        .map_err(|e| format!("invalid UTF-8: {e}"))?;
-    f(s)
+    // SAFETY: borrowed input contract is forwarded from the export.
+    f(unsafe { read_input(ptr) }?)
 }
 
 unsafe fn rpc(request_json: *const c_char, handler: fn(&str) -> String) -> *mut c_char {
     guard_envelope(|| {
-        let response = match with_str_owned(request_json, |s| Ok::<String, String>(handler(s))) {
-            Ok(r) => r,
-            Err(e) => err_envelope("invalid_input", &e),
+        // SAFETY: caller retains the request allocation through this call.
+        let response = match unsafe { read_input(request_json) }
+            .and_then(|s| ingress::parse(s).map(|_| handler(s)))
+        {
+            Ok(response) => response,
+            Err(error) => err_envelope("invalid_input", &error),
         };
         to_owned_c(response)
     })
@@ -419,6 +573,52 @@ mod panic_guard_tests {
     // the same strategy `[profile.excel]` uses for the shipped DLL.
 
     #[test]
+    fn admission_limit_and_unwind_release_the_slot() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let counter = AtomicUsize::new(0);
+        let mut admitted: Vec<_> = (0..MAX_IN_FLIGHT)
+            .map(|_| Admission::acquire_from(&counter).unwrap())
+            .collect();
+        assert!(Admission::acquire_from(&counter).is_none());
+        admitted.pop();
+        let result = std::panic::catch_unwind(|| {
+            let _slot = Admission::acquire_from(&counter).unwrap();
+            panic!("test unwind");
+        });
+        assert!(result.is_err());
+        assert_eq!(counter.load(Ordering::SeqCst), MAX_IN_FLIGHT - 1);
+        drop(admitted);
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn admission_is_atomic_under_competing_callers() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Barrier,
+        };
+        let counter = AtomicUsize::new(0);
+        let admitted = AtomicUsize::new(0);
+        let barrier = Barrier::new(64);
+        std::thread::scope(|scope| {
+            for _ in 0..64 {
+                scope.spawn(|| {
+                    let slot = Admission::acquire_from(&counter);
+                    if slot.is_some() {
+                        admitted.fetch_add(1, Ordering::SeqCst);
+                    }
+                    barrier.wait();
+                    assert_eq!(counter.load(Ordering::SeqCst), MAX_IN_FLIGHT);
+                    barrier.wait();
+                    drop(slot);
+                });
+            }
+        });
+        assert_eq!(admitted.load(Ordering::SeqCst), MAX_IN_FLIGHT);
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
     fn guard_handle_converts_panic_to_invalid_handle_and_last_error() {
         error::clear_error();
         let h = guard_handle(|| panic!("boom in builder"));
@@ -426,7 +626,8 @@ mod panic_guard_tests {
         let msg = unsafe { CStr::from_ptr(error::last_error_message()) }
             .to_str()
             .unwrap();
-        assert!(msg.contains("boom in builder"), "got: {msg}");
+        assert!(msg.contains("internal panic contained"), "got: {msg}");
+        assert!(!msg.contains("boom in builder"));
     }
 
     #[test]
@@ -441,7 +642,7 @@ mod panic_guard_tests {
         assert!(v["error"]["message"]
             .as_str()
             .unwrap()
-            .contains("boom in rpc"));
+            .contains("internal panic contained"));
     }
 
     #[test]

@@ -107,6 +107,16 @@ impl Date {
         Date(self.0 + chrono::Duration::days(days))
     }
 
+    /// Adds supplied days without panicking on duration or calendar overflow.
+    /// Use this at external input boundaries; `add_days` retains its compatible
+    /// infallible signature for already bounded internal offsets.
+    pub fn checked_add_days(&self, days: i64) -> ConvexResult<Self> {
+        chrono::Duration::try_days(days)
+            .and_then(|duration| self.0.checked_add_signed(duration))
+            .map(Date)
+            .ok_or_else(|| ConvexError::invalid_date("day offset exceeds calendar range"))
+    }
+
     /// Adds a number of months to the date.
     ///
     /// If the resulting day would be invalid (e.g., Jan 31 + 1 month),
@@ -116,9 +126,11 @@ impl Date {
     ///
     /// Returns `ConvexError::InvalidDate` if the result is out of range.
     pub fn add_months(&self, months: i32) -> ConvexResult<Self> {
-        let total_months = self.year() * 12 + self.month() as i32 - 1 + months;
-        let new_year = total_months / 12;
-        let new_month = (total_months % 12 + 1) as u32;
+        let total_months = (self.year() * 12 + self.month() as i32 - 1)
+            .checked_add(months)
+            .ok_or_else(|| ConvexError::invalid_date("month offset overflow"))?;
+        let new_year = total_months.div_euclid(12);
+        let new_month = (total_months.rem_euclid(12) + 1) as u32;
 
         // Clamp day to valid range for new month
         let max_day = days_in_month(new_year, new_month);
@@ -133,7 +145,10 @@ impl Date {
     ///
     /// Returns `ConvexError::InvalidDate` if the result is invalid.
     pub fn add_years(&self, years: i32) -> ConvexResult<Self> {
-        let new_year = self.year() + years;
+        let new_year = self
+            .year()
+            .checked_add(years)
+            .ok_or_else(|| ConvexError::invalid_date("year offset overflow"))?;
         let max_day = days_in_month(new_year, self.month());
         let new_day = self.day().min(max_day);
 

@@ -1,5 +1,6 @@
 //! Linear interpolation.
 
+use crate::bounds::finite;
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
 
@@ -39,26 +40,7 @@ impl LinearInterpolator {
     ///
     /// Returns an error if there are fewer than 2 points or if lengths differ.
     pub fn new(xs: Vec<f64>, ys: Vec<f64>) -> MathResult<Self> {
-        if xs.len() < 2 {
-            return Err(MathError::insufficient_data(2, xs.len()));
-        }
-        if xs.len() != ys.len() {
-            return Err(MathError::invalid_input(format!(
-                "xs and ys must have same length: {} vs {}",
-                xs.len(),
-                ys.len()
-            )));
-        }
-
-        // Check that xs are sorted
-        for i in 1..xs.len() {
-            if xs[i] <= xs[i - 1] {
-                return Err(MathError::invalid_input(
-                    "x values must be strictly increasing",
-                ));
-            }
-        }
-
+        super::validate_points(&xs, &ys, 2)?;
         Ok(Self {
             xs,
             ys,
@@ -76,10 +58,7 @@ impl LinearInterpolator {
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
         // Binary search
-        match self
-            .xs
-            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        match self.xs.binary_search_by(|probe| probe.total_cmp(&x)) {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
@@ -88,6 +67,7 @@ impl LinearInterpolator {
 
 impl Interpolator for LinearInterpolator {
     fn interpolate(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -106,10 +86,11 @@ impl Interpolator for LinearInterpolator {
 
         // Linear interpolation formula
         let t = (x - x0) / (x1 - x0);
-        Ok(y0 + t * (y1 - y0))
+        finite(y0 + t * (y1 - y0), "linear interpolation")
     }
 
     fn derivative(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -127,7 +108,7 @@ impl Interpolator for LinearInterpolator {
         let y1 = self.ys[i + 1];
 
         // Derivative of linear interpolation is constant slope
-        Ok((y1 - y0) / (x1 - x0))
+        finite((y1 - y0) / (x1 - x0), "linear derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {

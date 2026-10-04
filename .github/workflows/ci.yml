@@ -11,6 +11,61 @@ env:
   RUSTFLAGS: -Dwarnings
 
 jobs:
+  assurance:
+    name: Bounded Rust Assurance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          components: clippy
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check dependency direction inventory and quantitative pins
+        run: python3 tools/assurance/check.py
+
+      - name: Check explicit change impact against the PR base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 tools/assurance/check.py --base "$BASE_SHA"
+
+      - name: Prove assurance rejects bypass mutations
+        run: python3 -m unittest discover -s tools/assurance -p "test_*.py"
+
+      - name: Check standalone library failures properties and ABI fuzzing
+        run: cargo test --locked -p convex-math -p convex-core -p convex-ffi
+
+      - name: Check minimum pure feature combination
+        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
+
+      - name: Check all library feature combination
+        run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
+
+      - name: Check calibration failure and repricing contracts
+        run: cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics
+
+      - name: Check graph generation and concurrent claims
+        run: cargo test --locked -p convex-engine --test graph_regressions
+
+      - name: Build the optimized host ABI with unwind
+        run: cargo build --locked --profile excel -p convex-ffi
+
+      - name: Exercise optimized cdylib through C ABI in a subprocess
+        run: python3 tools/assurance/abi_smoke.py
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -45,6 +100,8 @@ jobs:
       # CVX-001 records known failures; their owning tasks must repair them.
       # No continue-on-error: this job is a failing production gate until then.
       - name: Check production behavior including known failures
+        env:
+          CONVEX_PRODUCTION_PROBES: '1'
         run: cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1
 
   fmt:

@@ -11,8 +11,12 @@ serde enum variant plus a dispatch arm in `convex-analytics` /
 ## Building
 
 ```bash
-cargo build --release -p convex-ffi
+cargo build --locked --profile excel -p convex-ffi
 ```
+
+The optimized host profile uses `panic=unwind`; abort builds are rejected.
+Artifacts are written under `target/excel`. See [assurance](../../docs/ASSURANCE.md)
+for bounds, error contracts, review policy and additional checks.
 
 Produces:
 
@@ -22,7 +26,7 @@ Produces:
 | Static archive | `libconvex_ffi.a`  | `libconvex_ffi.a`   | `convex_ffi.lib` |
 | Rust rlib | `libconvex_ffi.rlib` (for integration tests) |
 
-## C surface (13 symbols)
+## C surface
 
 ### Construction
 
@@ -47,9 +51,15 @@ const char* convex_risk         (const char* request_json);
 const char* convex_spread       (const char* request_json);
 const char* convex_cashflows    (const char* request_json);
 const char* convex_curve_query  (const char* request_json);
+const char* convex_make_whole   (const char* request_json);
+const char* convex_yas          (const char* request_json);
+const char* convex_scenario     (const char* request_json);
+const char* convex_risk_profile (const char* request_json);
+const char* convex_hedge        (const char* request_json);
+const char* convex_compare      (const char* request_json);
 ```
 
-All five return a heap-allocated UTF-8 string the caller MUST free with
+All RPCs return a heap-allocated UTF-8 string the caller MUST free with
 `convex_string_free`. The body is a JSON envelope:
 
 ```json
@@ -64,6 +74,8 @@ Error codes:
 | `invalid_input` | Bad JSON, missing required field, or unparseable mark. May carry a `field` pointer. |
 | `invalid_handle` | Handle not in the registry, or wrong kind for the call. |
 | `analytics` | Solver did not converge, settlement ≥ maturity, etc. |
+| `resource_limit` | Concurrent constructor/RPC admission exhausted. |
+| `panic` | Unexpected internal panic contained with a fixed diagnostic. |
 
 ### Utilities
 
@@ -234,7 +246,20 @@ FFI function is safe to call from multiple threads. The thread-local
 `last_error` slot is per-thread; check it on the same thread that triggered
 the failure.
 
+## Input and resource limits
+
+Constructors and RPCs reject input over 2 MiB, malformed UTF-8, duplicate
+JSON fields, excessive nesting/collections and out-of-domain dates/numbers.
+There are 32 concurrent constructor/RPC slots and 16,384 object slots.
+Invalid input returns a normal error; constructors return zero and a
+thread-local diagnostic. `convex_object_count` returns `-1` when unavailable.
+Zero-coupon Simple/Daily compounding returns an unsupported-input error.
+Bounds and supported conventions are detailed in the assurance guide.
+
 ## Memory model
+
+Inputs must be immutable, NUL-terminated allocations valid for the whole
+call. The bounded scan does not make invalid pointers safe.
 
 - Strings returned by `convex_*` (any function with `*const c_char` or
   `*mut c_char` return type **other than** `convex_last_error` and
@@ -248,10 +273,10 @@ the failure.
 ## Tests
 
 ```bash
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
-19 end-to-end tests: every spread family (Z / G / I / ASW / OAS / DM),
+End-to-end tests cover: every spread family (Z / G / I / ASW / OAS / DM),
 FRN / zero / sinking-fund pricing and risk, KRD, cashflow tag stability,
 schema introspection, mark parsing, error envelopes.
 

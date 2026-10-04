@@ -40,10 +40,10 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+proptest = { workspace = true }
 
 [build-dependencies]
 cbindgen = { workspace = true }
 
 [features]
 default = []
-

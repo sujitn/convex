@@ -18,7 +18,14 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 
+pub mod bounds;
 pub mod error;
 pub mod extrapolation;
 pub mod interpolation;

@@ -73,6 +73,8 @@
 //! All term structures implement `Send + Sync`, enabling safe use in
 //! parallel pricing scenarios.
 
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -113,6 +115,7 @@ mod term_structure;
 mod value_type;
 
 // Curve implementations
+
 pub mod curves;
 
 // Domain wrappers

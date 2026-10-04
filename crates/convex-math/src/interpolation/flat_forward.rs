@@ -1,5 +1,6 @@
 //! Flat-forward interpolation: constant forward rates between pillars.
 
+use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
 
@@ -50,33 +51,16 @@ impl FlatForward {
     /// - Tenors are not strictly increasing
     /// - Any tenor is <= 0
     pub fn new(tenors: Vec<f64>, zero_rates: Vec<f64>) -> MathResult<Self> {
-        if tenors.len() < 2 {
-            return Err(MathError::insufficient_data(2, tenors.len()));
-        }
-        if tenors.len() != zero_rates.len() {
-            return Err(MathError::invalid_input(format!(
-                "tenors and zero_rates must have same length: {} vs {}",
-                tenors.len(),
-                zero_rates.len()
-            )));
-        }
-
+        super::validate_points(&tenors, &zero_rates, 2)?;
         // Check that tenors are positive and strictly increasing
         if tenors[0] <= 0.0 {
             return Err(MathError::invalid_input(
                 "First tenor must be positive for flat forward interpolation",
             ));
         }
-        for i in 1..tenors.len() {
-            if tenors[i] <= tenors[i - 1] {
-                return Err(MathError::invalid_input(
-                    "Tenors must be strictly increasing",
-                ));
-            }
-        }
-
         // Pre-compute forward rates for each segment
         let forward_rates = Self::compute_forward_rates(&tenors, &zero_rates);
+        finite_slice(&forward_rates, "forward rates")?;
 
         Ok(Self {
             tenors,
@@ -96,8 +80,9 @@ impl FlatForward {
     /// * `tenors` - Time points in years (must be strictly increasing, >= 0)
     /// * `zero_rates` - Zero rates at each tenor
     pub fn with_origin(mut tenors: Vec<f64>, mut zero_rates: Vec<f64>) -> MathResult<Self> {
-        if tenors.is_empty() {
-            return Err(MathError::insufficient_data(1, 0));
+        super::validate_points(&tenors, &zero_rates, 1)?;
+        if tenors[0] < 0.0 {
+            return Err(MathError::invalid_input("origin tenor cannot be negative"));
         }
 
         // If first tenor is not 0, prepend origin point
@@ -107,28 +92,10 @@ impl FlatForward {
             zero_rates.insert(0, zero_rates[0]);
         }
 
-        // Now call the standard constructor with tenors starting at 0
-        // We need to handle t=0 specially
-        if tenors.len() < 2 {
-            return Err(MathError::insufficient_data(2, tenors.len()));
-        }
-        if tenors.len() != zero_rates.len() {
-            return Err(MathError::invalid_input(format!(
-                "tenors and zero_rates must have same length: {} vs {}",
-                tenors.len(),
-                zero_rates.len()
-            )));
-        }
-
-        for i in 1..tenors.len() {
-            if tenors[i] <= tenors[i - 1] {
-                return Err(MathError::invalid_input(
-                    "Tenors must be strictly increasing",
-                ));
-            }
-        }
-
+        // Recheck the point count after optional origin insertion.
+        super::validate_points(&tenors, &zero_rates, 2)?;
         let forward_rates = Self::compute_forward_rates(&tenors, &zero_rates);
+        finite_slice(&forward_rates, "forward rates")?;
 
         Ok(Self {
             tenors,
@@ -175,8 +142,8 @@ impl FlatForward {
         }
 
         // Last segment uses flat forward extension
-        if !forwards.is_empty() {
-            forwards.push(*forwards.last().unwrap());
+        if let Some(&last) = forwards.last() {
+            forwards.push(last);
         } else {
             forwards.push(zero_rates[0]);
         }
@@ -188,10 +155,7 @@ impl FlatForward {
     ///
     /// Returns i such that tenors[i] <= t < tenors[i+1]
     fn find_segment(&self, t: f64) -> usize {
-        match self
-            .tenors
-            .binary_search_by(|probe| probe.partial_cmp(&t).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        match self.tenors.binary_search_by(|probe| probe.total_cmp(&t)) {
             Ok(i) => i.min(self.tenors.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.tenors.len() - 2),
         }
@@ -202,11 +166,14 @@ impl FlatForward {
     /// Since forward rates are flat between pillars, this returns the
     /// constant forward rate for the segment containing t.
     pub fn forward_rate(&self, t: f64) -> MathResult<f64> {
-        if !self.allow_extrapolation && (t < self.tenors[0] || t > *self.tenors.last().unwrap()) {
+        finite(t, "query coordinate")?;
+        if !self.allow_extrapolation
+            && (t < self.tenors[0] || t > self.tenors[self.tenors.len() - 1])
+        {
             return Err(MathError::ExtrapolationNotAllowed {
                 x: t,
                 min: self.tenors[0],
-                max: *self.tenors.last().unwrap(),
+                max: self.tenors[self.tenors.len() - 1],
             });
         }
 
@@ -232,8 +199,9 @@ impl FlatForward {
 
 impl Interpolator for FlatForward {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         let min_t = self.tenors[0];
-        let max_t = *self.tenors.last().unwrap();
+        let max_t = self.tenors[self.tenors.len() - 1];
 
         // Check bounds
         if !self.allow_extrapolation && (t < min_t || t > max_t) {
@@ -272,7 +240,7 @@ impl Interpolator for FlatForward {
             let f_n = self.forward_rates[n - 1];
 
             // r(t) = (r_n * t_n + f_n * (t - t_n)) / t
-            return Ok((r_n * t_n + f_n * (t - t_n)) / t);
+            return finite((r_n * t_n + f_n * (t - t_n)) / t, "forward extrapolation");
         }
 
         // Normal interpolation between pillars
@@ -282,12 +250,13 @@ impl Interpolator for FlatForward {
         let f_i = self.forward_rates[i];
 
         // r(t) = (r_i * t_i + f_i * (t - t_i)) / t
-        Ok((r_i * t_i + f_i * (t - t_i)) / t)
+        finite((r_i * t_i + f_i * (t - t_i)) / t, "forward interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         let min_t = self.tenors[0];
-        let max_t = *self.tenors.last().unwrap();
+        let max_t = self.tenors[self.tenors.len() - 1];
 
         // Check bounds
         if !self.allow_extrapolation && (t < min_t || t > max_t) {
@@ -324,7 +293,7 @@ impl Interpolator for FlatForward {
         // dr/dt = -(r_i - f_i) * t_i / t^2
         //       = (f_i - r_i) * t_i / t^2
 
-        Ok((f_i - r_i) * t_i / (t * t))
+        finite((f_i - r_i) * t_i / (t * t), "forward derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {
@@ -336,7 +305,7 @@ impl Interpolator for FlatForward {
     }
 
     fn max_x(&self) -> f64 {
-        *self.tenors.last().unwrap()
+        self.tenors[self.tenors.len() - 1]
     }
 }
 

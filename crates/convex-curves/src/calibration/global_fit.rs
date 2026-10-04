@@ -28,6 +28,11 @@
 //! println!("RMS error: {:.2e}", result.rms_error);
 //! ```
 
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
+
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Compounding, Date};
 
@@ -37,6 +42,46 @@ use crate::wrappers::RateCurve;
 use crate::{InterpolationMethod, ValueType};
 
 use super::instruments::{CalibrationInstrument, InstrumentSet};
+
+/// Hard cap for one dense calibration problem; this is not a capacity certificate.
+pub const MAX_CALIBRATION_INSTRUMENTS: usize = 128;
+const MAX_REFINEMENT_PASSES: usize = 32;
+
+fn finite_calibration(value: f64) -> CurveResult<f64> {
+    if !value.is_finite() {
+        return Err(CurveError::invalid_value(
+            "nonfinite calibration arithmetic",
+        ));
+    }
+    Ok(value)
+}
+fn checked_residual(result: CurveResult<f64>) -> CurveResult<f64> {
+    finite_calibration(result?)
+}
+fn validate_instruments(date: Date, instruments: &InstrumentSet) -> CurveResult<()> {
+    if instruments.is_empty() || instruments.len() > MAX_CALIBRATION_INSTRUMENTS {
+        return Err(CurveError::invalid_value(
+            "calibration instrument count outside 1..=128",
+        ));
+    }
+    for instrument in instruments.instruments() {
+        if instrument.reference_date() != date {
+            return Err(CurveError::reference_date_mismatch(
+                date,
+                instrument.reference_date(),
+            ));
+        }
+        if !instrument.tenor().is_finite()
+            || instrument.tenor() <= 0.0
+            || !instrument.quote().is_finite()
+        {
+            return Err(CurveError::invalid_value(
+                "calibration tenor must be finite positive and quote finite",
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// Configuration for the global fitter.
 #[derive(Debug, Clone, Copy)]
@@ -72,6 +117,35 @@ impl Default for FitterConfig {
 }
 
 impl FitterConfig {
+    /// Checks finite numerical settings and the bounded iteration budget.
+    pub fn validate(&self) -> CurveResult<()> {
+        if self.max_iterations == 0
+            || self.max_iterations > convex_math::bounds::MAX_SOLVER_ITERATIONS as usize
+        {
+            return Err(CurveError::invalid_value(
+                "global-fit iteration limit exceeded",
+            ));
+        }
+        let parameters = [
+            self.tolerance,
+            self.initial_lambda,
+            self.lambda_factor,
+            self.min_lambda,
+            self.max_lambda,
+            self.jacobian_step,
+        ];
+        if parameters.iter().any(|v| !v.is_finite() || *v <= 0.0)
+            || self.lambda_factor <= 1.0
+            || self.min_lambda > self.initial_lambda
+            || self.initial_lambda > self.max_lambda
+        {
+            return Err(CurveError::invalid_value(
+                "invalid global-fit numerical settings",
+            ));
+        }
+        Ok(())
+    }
+
     /// Creates a new configuration.
     #[must_use]
     pub fn new() -> Self {
@@ -212,17 +286,12 @@ impl GlobalFitter {
         reference_date: Date,
         instruments: &InstrumentSet,
     ) -> CurveResult<CalibrationResult> {
-        if instruments.is_empty() {
-            return Err(CurveError::calibration_failed(
-                0,
-                f64::NAN,
-                "No instruments provided",
-            ));
-        }
+        validate_instruments(reference_date, instruments)?;
+        self.config.validate()?;
 
         // Get sorted tenors and initial guesses from quotes
         let mut sorted_instruments: Vec<_> = instruments.instruments().iter().collect();
-        sorted_instruments.sort_by(|a, b| a.tenor().partial_cmp(&b.tenor()).unwrap());
+        sorted_instruments.sort_by(|a, b| a.tenor().total_cmp(&b.tenor()));
 
         let tenors: Vec<f64> = sorted_instruments.iter().map(|i| i.tenor()).collect();
         let quotes: Vec<f64> = sorted_instruments.iter().map(|i| i.quote()).collect();
@@ -232,7 +301,7 @@ impl GlobalFitter {
         curve_tenors.extend(&tenors);
 
         // Initial guess: use instrument quotes as zero rates
-        let mut values = vec![quotes.first().copied().unwrap_or(0.04)]; // Start with first quote
+        let mut values = vec![quotes[0]]; // Start with first quote
         values.extend(&quotes);
 
         // Run Levenberg-Marquardt
@@ -252,11 +321,19 @@ impl GlobalFitter {
         let rate_curve = RateCurve::new(curve.clone());
         let residuals: Vec<f64> = sorted_instruments
             .iter()
-            .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(f64::NAN))
-            .collect();
+            .map(|inst| checked_residual(inst.pricing_error(&rate_curve)))
+            .collect::<CurveResult<_>>()?;
 
-        let rms_error =
-            (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
+        let rms_error = finite_calibration(
+            (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt(),
+        )?;
+        if !converged || rms_error >= self.config.tolerance {
+            return Err(CurveError::calibration_failed(
+                iterations,
+                rms_error,
+                "global fit did not reach requested tolerance",
+            ));
+        }
 
         Ok(CalibrationResult {
             curve,
@@ -296,10 +373,10 @@ impl GlobalFitter {
             // Compute residuals
             let residuals: Vec<f64> = instruments
                 .iter()
-                .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(0.0))
-                .collect();
+                .map(|inst| checked_residual(inst.pricing_error(&rate_curve)))
+                .collect::<CurveResult<_>>()?;
 
-            let error = residuals.iter().map(|r| r * r).sum::<f64>();
+            let error = finite_calibration(residuals.iter().map(|r| r * r).sum::<f64>())?;
 
             // Check convergence
             let rms = (error / m as f64).sqrt();
@@ -311,8 +388,8 @@ impl GlobalFitter {
             let jacobian = self.compute_jacobian(reference_date, tenors, &values, instruments)?;
 
             // Compute J^T * J and J^T * r
-            let jtj = self.matrix_multiply_transpose(&jacobian, &jacobian, n);
-            let jtr = self.vector_multiply_transpose(&jacobian, &residuals, n);
+            let jtj = self.matrix_multiply_transpose(&jacobian, &jacobian, n)?;
+            let jtr = self.vector_multiply_transpose(&jacobian, &residuals, n)?;
 
             // Solve (J^T J + λI) δ = -J^T r
             let delta = self.solve_damped_system(&jtj, &jtr, lambda, n)?;
@@ -320,7 +397,7 @@ impl GlobalFitter {
             // Update values
             let mut new_values = values.clone();
             for i in 0..n {
-                new_values[i] -= delta[i];
+                new_values[i] = finite_calibration(new_values[i] - delta[i])?;
                 // Ensure values stay reasonable
                 new_values[i] = new_values[i].clamp(-0.10, 0.30);
             }
@@ -337,9 +414,9 @@ impl GlobalFitter {
 
             let new_residuals: Vec<f64> = instruments
                 .iter()
-                .map(|inst| inst.pricing_error(&new_rate_curve).unwrap_or(0.0))
-                .collect();
-            let new_error: f64 = new_residuals.iter().map(|r| r * r).sum();
+                .map(|inst| checked_residual(inst.pricing_error(&new_rate_curve)))
+                .collect::<CurveResult<_>>()?;
+            let new_error = finite_calibration(new_residuals.iter().map(|r| r * r).sum())?;
 
             if new_error < error {
                 // Accept step, reduce damping
@@ -353,7 +430,7 @@ impl GlobalFitter {
 
             // Check if stuck
             if (prev_error - error).abs() < 1e-16 && iteration > 10 {
-                return Ok((values, iteration + 1, rms < self.config.tolerance * 10.0));
+                return Ok((values, iteration + 1, rms < self.config.tolerance));
             }
         }
 
@@ -368,15 +445,15 @@ impl GlobalFitter {
         let rate_curve = RateCurve::new(final_curve);
         let residuals: Vec<f64> = instruments
             .iter()
-            .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(0.0))
-            .collect();
+            .map(|inst| checked_residual(inst.pricing_error(&rate_curve)))
+            .collect::<CurveResult<_>>()?;
         let rms = (residuals.iter().map(|r| r * r).sum::<f64>() / m as f64).sqrt();
 
         // May have gotten close enough
         Ok((
             values,
             self.config.max_iterations,
-            rms < self.config.tolerance * 100.0,
+            rms < self.config.tolerance,
         ))
     }
 
@@ -423,11 +500,9 @@ impl GlobalFitter {
 
             // Central difference for each instrument
             for i in 0..m {
-                let r_up = instruments[i].pricing_error(&rate_curve_up).unwrap_or(0.0);
-                let r_down = instruments[i]
-                    .pricing_error(&rate_curve_down)
-                    .unwrap_or(0.0);
-                jacobian[i][j] = (r_up - r_down) / (2.0 * h);
+                let r_up = checked_residual(instruments[i].pricing_error(&rate_curve_up))?;
+                let r_down = checked_residual(instruments[i].pricing_error(&rate_curve_down))?;
+                jacobian[i][j] = finite_calibration((r_up - r_down) / (2.0 * h))?;
             }
         }
 
@@ -440,33 +515,38 @@ impl GlobalFitter {
         j: &[Vec<f64>],
         _j2: &[Vec<f64>],
         n: usize,
-    ) -> Vec<Vec<f64>> {
+    ) -> CurveResult<Vec<Vec<f64>>> {
         let m = j.len();
         let mut result = vec![vec![0.0; n]; n];
 
         for i in 0..n {
             for k in 0..n {
                 for row in 0..m {
-                    result[i][k] += j[row][i] * j[row][k];
+                    result[i][k] = finite_calibration(result[i][k] + j[row][i] * j[row][k])?;
                 }
             }
         }
 
-        result
+        Ok(result)
     }
 
     /// Computes J^T * r.
-    fn vector_multiply_transpose(&self, j: &[Vec<f64>], r: &[f64], n: usize) -> Vec<f64> {
+    fn vector_multiply_transpose(
+        &self,
+        j: &[Vec<f64>],
+        r: &[f64],
+        n: usize,
+    ) -> CurveResult<Vec<f64>> {
         let m = j.len();
         let mut result = vec![0.0; n];
 
         for i in 0..n {
             for row in 0..m {
-                result[i] += j[row][i] * r[row];
+                result[i] = finite_calibration(result[i] + j[row][i] * r[row])?;
             }
         }
 
-        result
+        Ok(result)
     }
 
     /// Solves (A + λI) x = b using simple Gaussian elimination.
@@ -483,7 +563,7 @@ impl GlobalFitter {
             for j in 0..n {
                 aug[i][j] = a[i][j];
             }
-            aug[i][i] += lambda;
+            aug[i][i] = finite_calibration(aug[i][i] + lambda)?;
             aug[i][n] = b[i];
         }
 
@@ -499,15 +579,16 @@ impl GlobalFitter {
             aug.swap(k, max_row);
 
             if aug[k][k].abs() < 1e-15 {
-                // Matrix is singular, return zero step
-                return Ok(vec![0.0; n]);
+                return Err(CurveError::invalid_value(
+                    "singular damped calibration system",
+                ));
             }
 
             // Eliminate
             for i in k + 1..n {
-                let factor = aug[i][k] / aug[k][k];
+                let factor = finite_calibration(aug[i][k] / aug[k][k])?;
                 for j in k..=n {
-                    aug[i][j] -= factor * aug[k][j];
+                    aug[i][j] = finite_calibration(aug[i][j] - factor * aug[k][j])?;
                 }
             }
         }
@@ -517,18 +598,22 @@ impl GlobalFitter {
         for i in (0..n).rev() {
             let mut sum = aug[i][n];
             for j in i + 1..n {
-                sum -= aug[i][j] * x[j];
+                sum = finite_calibration(sum - aug[i][j] * x[j])?;
             }
-            x[i] = sum / aug[i][i];
+            x[i] = finite_calibration(sum / aug[i][i])?;
         }
 
         Ok(x)
     }
 }
 
-/// Sequential bootstrap for comparison/fallback.
+/// Approximate sequential quote curve for diagnostics.
 ///
-/// Bootstraps a curve by solving one instrument at a time in maturity order.
+/// This method does not solve instrument repricing; use `PiecewiseBootstrapper`
+/// for an enforced residual tolerance. Its historical completion flag reports
+/// construction, not calibration accuracy.
+///
+/// Builds an approximate curve from maturity-ordered quotes.
 #[derive(Debug, Clone, Default)]
 pub struct SequentialBootstrapper {
     /// Value type for output curve.
@@ -557,17 +642,11 @@ impl SequentialBootstrapper {
         reference_date: Date,
         instruments: &InstrumentSet,
     ) -> CurveResult<CalibrationResult> {
-        if instruments.is_empty() {
-            return Err(CurveError::calibration_failed(
-                0,
-                f64::NAN,
-                "No instruments provided",
-            ));
-        }
+        validate_instruments(reference_date, instruments)?;
 
         // Sort by maturity
         let mut sorted: Vec<_> = instruments.instruments().iter().collect();
-        sorted.sort_by(|a, b| a.tenor().partial_cmp(&b.tenor()).unwrap());
+        sorted.sort_by(|a, b| a.tenor().total_cmp(&b.tenor()));
 
         // Bootstrap each instrument (no t=0 point needed for simple bootstrap)
         let mut tenors = Vec::with_capacity(sorted.len());
@@ -596,10 +675,12 @@ impl SequentialBootstrapper {
         let rate_curve = RateCurve::new(curve.clone());
         let residuals: Vec<f64> = sorted
             .iter()
-            .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(f64::NAN))
-            .collect();
+            .map(|inst| checked_residual(inst.pricing_error(&rate_curve)))
+            .collect::<CurveResult<_>>()?;
 
-        let rms = (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
+        let rms = finite_calibration(
+            (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt(),
+        )?;
 
         Ok(CalibrationResult {
             curve,
@@ -694,104 +775,126 @@ impl PiecewiseBootstrapper {
         reference_date: Date,
         instruments: &InstrumentSet,
     ) -> CurveResult<CalibrationResult> {
-        use convex_math::solvers::{brent, SolverConfig};
+        use convex_math::solvers::SolverConfig;
 
-        if instruments.is_empty() {
-            return Err(CurveError::calibration_failed(
-                0,
-                f64::NAN,
-                "No instruments provided",
-            ));
-        }
-
-        // Sort instruments by maturity
-        let mut sorted: Vec<_> = instruments.instruments().iter().collect();
-        sorted.sort_by(|a, b| a.tenor().partial_cmp(&b.tenor()).unwrap());
-
-        // Initialize with t=0 point (rate = first instrument quote as initial guess)
-        let mut tenors = vec![0.0];
-        let mut values = vec![sorted[0].quote()];
-
+        validate_instruments(reference_date, instruments)?;
         let solver_config = SolverConfig {
             tolerance: self.tolerance,
-            max_iterations: self.max_iterations as u32,
+            max_iterations: u32::try_from(self.max_iterations)
+                .map_err(|_| CurveError::invalid_value("bootstrap iteration budget overflow"))?,
         };
+        solver_config
+            .validate()
+            .map_err(|error| CurveError::MathError {
+                reason: error.to_string(),
+            })?;
+        let mut sorted: Vec<_> = instruments.instruments().iter().collect();
+        sorted.sort_by(|a, b| a.tenor().total_cmp(&b.tenor()));
+        let mut tenors = vec![0.0];
+        let mut values = vec![sorted[0].quote()];
+        let mut total_iterations = 0usize;
 
-        let mut total_iterations = 0;
-
-        // Bootstrap each instrument
-        for inst in &sorted {
-            let target_tenor = inst.tenor();
-            let initial_guess = inst.quote();
-
-            // Define objective function: find rate that makes pricing error = 0
-            let objective = |rate: f64| -> f64 {
-                // Build temporary curve with this rate at target tenor
-                let mut temp_tenors = tenors.clone();
-                let mut temp_values = values.clone();
-                temp_tenors.push(target_tenor);
-                temp_values.push(rate);
-
-                // Create temporary curve
-                let Ok(temp_curve) = DiscreteCurve::new(
-                    reference_date,
-                    temp_tenors,
-                    temp_values,
-                    self.value_type.clone(),
-                    self.interpolation,
-                ) else {
-                    return f64::MAX;
-                };
-
-                let rate_curve = RateCurve::new(temp_curve);
-
-                // Return pricing error
-                inst.pricing_error(&rate_curve).unwrap_or(f64::MAX)
-            };
-
-            // Bracket the solution: rate should be between -10% and +50%
-            let lower = -0.10;
-            let upper = 0.50;
-
-            // Use Brent's method to find the root
-            let result = brent(objective, lower, upper, &solver_config);
-
-            if let Ok(solver_result) = result {
-                tenors.push(target_tenor);
-                values.push(solver_result.root);
-                total_iterations += solver_result.iterations;
-            } else {
-                // Fall back to using the quote directly if solver fails
-                tenors.push(target_tenor);
-                values.push(initial_guess);
-                total_iterations += 1;
-            }
+        // The quote is an initial guess, never a fallback for a failed solve.
+        for (index, instrument) in sorted.iter().enumerate() {
+            tenors.push(instrument.tenor());
+            values.push(instrument.quote());
+            let solution = self.solve_pillar(
+                reference_date,
+                &tenors,
+                &values,
+                index + 1,
+                instrument.as_ref(),
+                &solver_config,
+            )?;
+            values[index + 1] = solution.root;
+            total_iterations += solution.iterations as usize;
         }
 
-        // Build final curve
-        let curve = DiscreteCurve::new(
-            reference_date,
-            tenors,
-            values,
-            self.value_type.clone(),
-            self.interpolation,
-        )?;
+        // A later node can affect earlier cashflow interpolation. Check the
+        // entire curve after each bounded sweep without relaxing tolerance.
+        for pass in 0..=MAX_REFINEMENT_PASSES {
+            let curve = DiscreteCurve::new(
+                reference_date,
+                tenors.clone(),
+                values.clone(),
+                self.value_type.clone(),
+                self.interpolation,
+            )?;
+            let rate_curve = RateCurve::new(curve.clone());
+            let residuals: Vec<f64> = sorted
+                .iter()
+                .map(|inst| checked_residual(inst.pricing_error(&rate_curve)))
+                .collect::<CurveResult<_>>()?;
+            let rms = finite_calibration(
+                (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt(),
+            )?;
+            if rms < self.tolerance {
+                return Ok(CalibrationResult {
+                    curve,
+                    residuals,
+                    iterations: total_iterations,
+                    rms_error: rms,
+                    converged: true,
+                });
+            }
+            if pass == MAX_REFINEMENT_PASSES {
+                return Err(CurveError::calibration_failed(
+                    total_iterations,
+                    rms,
+                    "bootstrap refinement limit reached without requested repricing tolerance",
+                ));
+            }
+            for (index, instrument) in sorted.iter().enumerate() {
+                let solution = self.solve_pillar(
+                    reference_date,
+                    &tenors,
+                    &values,
+                    index + 1,
+                    instrument.as_ref(),
+                    &solver_config,
+                )?;
+                values[index + 1] = solution.root;
+                total_iterations += solution.iterations as usize;
+            }
+        }
+        Err(CurveError::invalid_value("bootstrap refinement exhausted"))
+    }
 
-        // Compute final residuals
-        let rate_curve = RateCurve::new(curve.clone());
-        let residuals: Vec<f64> = sorted
-            .iter()
-            .map(|inst| inst.pricing_error(&rate_curve).unwrap_or(f64::NAN))
-            .collect();
-
-        let rms = (residuals.iter().map(|r| r * r).sum::<f64>() / residuals.len() as f64).sqrt();
-
-        Ok(CalibrationResult {
-            curve,
-            residuals,
-            iterations: total_iterations as usize,
-            rms_error: rms,
-            converged: rms < 1e-6, // 1bp accuracy is sufficient for converged status
+    fn solve_pillar(
+        &self,
+        date: Date,
+        tenors: &[f64],
+        values: &[f64],
+        pillar: usize,
+        instrument: &dyn CalibrationInstrument,
+        config: &convex_math::solvers::SolverConfig,
+    ) -> CurveResult<convex_math::solvers::SolverResult> {
+        let callback_error = std::cell::RefCell::new(None);
+        let objective = |rate: f64| {
+            let mut candidate = values.to_vec();
+            candidate[pillar] = rate;
+            let result = DiscreteCurve::new(
+                date,
+                tenors.to_vec(),
+                candidate,
+                self.value_type.clone(),
+                self.interpolation,
+            )
+            .and_then(|curve| checked_residual(instrument.pricing_error(&RateCurve::new(curve))));
+            match result {
+                Ok(value) => value,
+                Err(error) => {
+                    *callback_error.borrow_mut() = Some(error);
+                    f64::NAN
+                }
+            }
+        };
+        let result = convex_math::solvers::brent(objective, -0.10, 0.50, config);
+        if let Some(error) = callback_error.into_inner() {
+            return Err(error);
+        }
+        result.map_err(|error| CurveError::MathError {
+            reason: error.to_string(),
         })
     }
 }

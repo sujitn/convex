@@ -613,7 +613,7 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
         SpreadType::ISpread => {
             let s = ISpreadCalculator::new(curve).calculate(
                 bond,
-                yield_typed(priced.ytm_decimal),
+                yield_typed(priced.ytm_decimal)?,
                 req.settlement,
             )?;
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
@@ -628,7 +628,7 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
             let gov_curve = build_government_curve(gov_handle)?;
             let s = GSpreadCalculator::new(&gov_curve).calculate(
                 bond,
-                yield_typed(priced.ytm_decimal),
+                yield_typed(priced.ytm_decimal)?,
                 req.settlement,
             )?;
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
@@ -1235,11 +1235,10 @@ fn dec_to_f64(d: Decimal) -> f64 {
     d.try_into().unwrap_or(0.0)
 }
 
-fn yield_typed(decimal: f64) -> Yield {
-    Yield::new(
-        Decimal::from_f64_retain(decimal).unwrap_or_default(),
-        Compounding::SemiAnnual,
-    )
+fn yield_typed(decimal: f64) -> Result<Yield, DispatchError> {
+    let value = Decimal::from_f64_retain(decimal)
+        .ok_or_else(|| DispatchError::analytics("yield is nonfinite or outside decimal range"))?;
+    Ok(Yield::new(value, Compounding::SemiAnnual))
 }
 
 fn parse_mark(input: &MarkInput) -> Result<Mark, DispatchError> {

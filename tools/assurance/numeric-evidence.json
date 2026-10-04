@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "version": 1,
+  "reviewed_on": "2026-10-04",
+  "provenance": "Existing committed quantitative expectations/tolerances preserved byte-for-byte against dc5e39a. Onboarding pins do not attest independent comparator execution or model certification. Complete version/license/unit manifests remain CVX-040.",
+  "solver_defaults": {
+    "DEFAULT_TOLERANCE": "1e-10",
+    "DEFAULT_MAX_ITERATIONS": "100"
+  },
+  "artifacts": [
+    {
+      "path": ".github/workflows/reconcile.yml",
+      "mode": "file",
+      "sha256": "1d2ee4486842b55a07d0041c9ad2769389f8b3c01edc15e9927b5e93eb4870e6"
+    },
+    {
+      "path": "crates/convex-analytics/src/calibration/hw1f.rs",
+      "mode": "test_section",
+      "sha256": "5fbb2ac4997b3ff18486f7d9c87a53630df0271b42c5ccc53204a9b810d9c900"
+    },
+    {
+      "path": "crates/convex-analytics/src/lib.rs",
+      "mode": "test_section",
+      "sha256": "290106099cd32f5322b54acc6787979b0c8f1bf44ea4ff26e66b2c50adbecaf7"
+    },
+    {
+      "path": "crates/convex-analytics/tests/fixtures/public_contracts.json",
+      "mode": "file",
+      "sha256": "1dafe0aa1fc4d5c0f5283cf16390589d42bc02e162fa1f9dbabeb6c6f3773653"
+    },
+    {
+      "path": "crates/convex-bonds/src/fixings.rs",
+      "mode": "test_section",
+      "sha256": "c365f335ddf6ef51f31ece1cd7e0b92ea62f2e052af7ec7770ccc7f1de97b7cf"
+    },
+    {
+      "path": "crates/convex-bonds/src/options/swaption_hw1f.rs",
+      "mode": "test_section",
+      "sha256": "b7e54b917ee6186e3fb9c30562c299540a4d73e78b3ecd3120d78f5ecf9f1094"
+    },
+    {
+      "path": "crates/convex-core/src/calendars/conventions.rs",
+      "mode": "test_section",
+      "sha256": "aaae87df20ad96b03dd960202978eecddc80c257b1266a810b0290a90d0087b7"
+    },
+    {
+      "path": "crates/convex-core/src/calendars/dynamic.rs",
+      "mode": "test_section",
+      "sha256": "151944ad86757a500e1668fe8a3cb8fed157f91f1e06cc4cba785b612e3a900b"
+    },
+    {
+      "path": "crates/convex-core/src/calendars/mod.rs",
+      "mode": "test_section",
+      "sha256": "596ec9c7c342a83c129976abc6fb459df7c4ccbf3f885acc66ca4bf4faa57119"
+    },
+    {
+      "path": "crates/convex-core/src/daycounts/act365.rs",
+      "mode": "test_section",
+      "sha256": "08825f53f7c17e7fae3906e1c32bf8a1dbb615b1a324238443b9a214540ab37b"
+    },
+    {
+      "path": "crates/convex-core/src/daycounts/actact.rs",
+      "mode": "test_section",
+      "sha256": "c53b6b3c077b6f85703e4be0244a2132d58228b92c8862a7a39d2aed6fd3428f"
+    },
+    {
+      "path": "crates/convex-core/src/types/date.rs",
+      "mode": "test_section",
+      "sha256": "5bdb657edeabcfdb2f10aa8ca24591b03337c9bf282185e3d45817e17b50f725"
+    },
+    {
+      "path": "crates/convex-core/src/types/frequency.rs",
+      "mode": "test_section",
+      "sha256": "22d082e25bd9d76f5cb7d87faf54f97baadf774afcb5d6acc5be929d148880b8"
+    },
+    {
+      "path": "crates/convex-curves/src/calibration/global_fit.rs",
+      "mode": "test_section",
+      "sha256": "9c4873d41cf408796040fb23031f5b7cbbde3e09e5368a8cc7475aff4643d448"
+    },
+    {
+      "path": "crates/convex-curves/src/curves/discrete.rs",
+      "mode": "test_section",
+      "sha256": "c1911cd6cca4be9aff5ec05be1a2246772600120a97421dfa71817fcf68b5115"
+    },
+    {
+      "path": "crates/convex-curves/src/curves/segmented.rs",
+      "mode": "test_section",
+      "sha256": "8750fac9c5159e92ed99bd78c06baa0811960bb9fc9b11c4cadba0bc157000b8"
+    },
+    {
+      "path": "crates/convex-curves/src/lib.rs",
+      "mode": "test_section",
+      "sha256": "cc704d8addecda258fe2450f42ede34100dc593d4425df14c82f2f2eb61e87fb"
+    },
+    {
+      "path": "crates/convex-math/src/error.rs",
+      "mode": "test_section",
+      "sha256": "06e4f3fb4012bac465af418a79b38237e27205a00281db2b608d5b7ba3b3dfe1"
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/flat.rs",
+      "mode": "test_section",
+      "sha256": "8b68671275e252b10ae4ebe9d37a1980c56297bf6ccaa68fc2834315c333a67f"
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/linear.rs",
+      "mode": "test_section",
+      "sha256": "9d5fd45557e345d91d3ece017a61cf6a2f918842eba718c2e8a56be5071dd8a7"
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/mod.rs",
+      "mode": "test_section",
+      "sha256": "4727a980c839943f096a06d194c840252ec39fb69f3f71a6e1e7d8881f7f35fa"
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/ufr_convergence.rs",
+      "mode": "test_section",
+      "sha256": "a44d410a76eac96ca45d5618639bb20849b1391eaff67b27869890d92028c740"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/cubic_spline.rs",
+      "mode": "test_section",
+      "sha256": "b9ef5df815d5d0fe81869f17d1ddf5655249a2c979fc6453e049b817843b65c4"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/flat_forward.rs",
+      "mode": "test_section",
+      "sha256": "d3a32c3b69d62e9f4da27d8e0a28dd5673e99110257061d6435beab41ca5c2a7"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/linear.rs",
+      "mode": "test_section",
+      "sha256": "1693625fa44d4df8e6004e0465a0979820ce049c8a22cb313ca0b8b1b2d2aa11"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/log_linear.rs",
+      "mode": "test_section",
+      "sha256": "e5e54bc6ab7777e181fc7083d888127cec775ed12e066cc891ad93b9db47e95f"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/mod.rs",
+      "mode": "test_section",
+      "sha256": "e1a3176fba1327773b92ed96b027cb2d47959480d5071be9528aa5ced1e1a2ff"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/monotone_convex.rs",
+      "mode": "test_section",
+      "sha256": "46e5a515507cd5eff8851e7fac5e5571716e9eda8f78412c87e73254120c0b3c"
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/parametric.rs",
+      "mode": "test_section",
+      "sha256": "8ca61ae3e101135aff83fc2d839189ebc7b03e2fb91f808f34dd7f70e3321f8e"
+    },
+    {
+      "path": "crates/convex-math/src/linear_algebra/mod.rs",
+      "mode": "test_section",
+      "sha256": "a338726d7ab17a857eb5f4c949e24ee32e19fdc090df3b607785b762892ba045"
+    },
+    {
+      "path": "crates/convex-math/src/optimization/mod.rs",
+      "mode": "test_section",
+      "sha256": "0edb31a24c9abe4ef9a94e72fd5bf1425af8af0ed82768e5af300bc010991d4d"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/bisection.rs",
+      "mode": "test_section",
+      "sha256": "26bb6ab7a8b81f7c45ecdde860fcddf3ee0bcdfd8fd662eab749c8bbf21e7149"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/brent.rs",
+      "mode": "test_section",
+      "sha256": "c7324f057999e134edd54274c5ef8d2b6c9c4585a5db7b0853f088d0c861751a"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/hybrid.rs",
+      "mode": "test_section",
+      "sha256": "828cfde9a23c8076739ebf750700df615970e28f6be067fdecc0a4f6affff6c9"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/mod.rs",
+      "mode": "test_section",
+      "sha256": "a3d024ff1ab5cc29458112f7887662e304dd108797e95dce9d71fa78880d9308"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/newton.rs",
+      "mode": "test_section",
+      "sha256": "ee2d623f87340cb1161c865efc5dfd8b3037757d84d9fa7f56e7d9b455f5a8d0"
+    },
+    {
+      "path": "crates/convex-math/src/solvers/secant.rs",
+      "mode": "test_section",
+      "sha256": "28871ce837f6df0934a58f50bb3dd77c8875ef0b6780206539a1161066831695"
+    },
+    {
+      "path": "crates/convex-math/src/stats/normal.rs",
+      "mode": "test_section",
+      "sha256": "2bb1381cafb0f7e967696c9798cb8d4105f9aaf741c4506ac3b54911c7d2e5c2"
+    },
+    {
+      "path": "crates/convex-portfolio/src/lib.rs",
+      "mode": "test_section",
+      "sha256": "552d60bafcf626cf2cf40a00ecbbb26e76634ef00db6a50071dcbe51bc929535"
+    },
+    {
+      "path": "reconciliation/book.json",
+      "mode": "file",
+      "sha256": "56f4e12f1fb38758e08c02bf3448f100b245b9d6daa52c081ce6a51a564d1937"
+    },
+    {
+      "path": "reconciliation/curves.json",
+      "mode": "file",
+      "sha256": "f3c257809cebe4c7f42c2aacc5e0ea9e373cc23b953b88f4befd1ccb5ef27891"
+    },
+    {
+      "path": "reconciliation/hw1f_params_20251231.json",
+      "mode": "file",
+      "sha256": "f4e9c314981a7189cecbe3c877dedf65d8762dafe39309fc078dc8e86d70c2f8"
+    },
+    {
+      "path": "reconciliation/ql_20250630.csv",
+      "mode": "file",
+      "sha256": "99e567a9a15e291d836c5bb91a2a3a34ab508bdce1fa4a5614d5c32374dd77b4"
+    },
+    {
+      "path": "reconciliation/ql_bench.py",
+      "mode": "file",
+      "sha256": "2a559425ff7ae37b5ef586e71bbb175801a84ae9f3bacff3e6fabf299d296fd0"
+    },
+    {
+      "path": "reconciliation/reconcile.py",
+      "mode": "file",
+      "sha256": "68e98b097a714d29d893c906fee4e54c49707e27d53ce671774282c6b208238a"
+    },
+    {
+      "path": "reconciliation/swaptions_20251231.csv",
+      "mode": "file",
+      "sha256": "94a2366e5ebc58cd9ef32edcea752fa3f621976103cb5a0c8dbd5a8ca579f211"
+    },
+    {
+      "path": "tests/fixtures/quantlib_reference_tests.json",
+      "mode": "file",
+      "sha256": "0acb59ab25b23cfe86689c0467d2d55eaadd782f055a48a246d408ff5c4bcf6e"
+    }
+  ]
+}

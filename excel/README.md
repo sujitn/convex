@@ -323,10 +323,10 @@ rejected.
 ## Smoke tests
 
 ```powershell
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
-19 end-to-end tests cover: every spread family, FRN/zero/sinking-fund
+End-to-end tests cover: every spread family, FRN/zero/sinking-fund
 pricing and risk, KRD, cashflow tag stability, schema introspection, mark
 parsing, and the error envelope.
 

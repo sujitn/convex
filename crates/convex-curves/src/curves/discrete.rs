@@ -367,10 +367,6 @@ impl TermStructure for DiscreteCurve {
     }
 }
 
-// Thread safety: DiscreteCurve uses Arc<dyn Interpolator> which is Send + Sync
-unsafe impl Send for DiscreteCurve {}
-unsafe impl Sync for DiscreteCurve {}
-
 #[cfg(test)]
 mod tests {
     use super::*;

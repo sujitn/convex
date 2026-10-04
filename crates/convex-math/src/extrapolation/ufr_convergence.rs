@@ -20,6 +20,7 @@
 //! curve-construction time instead.
 
 use super::Extrapolator;
+use crate::{MathError, MathResult};
 
 /// Heuristic UFR-convergence extrapolator (see module docs).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,6 +34,20 @@ pub struct UfrConvergence {
 }
 
 impl UfrConvergence {
+    /// Creates a finite validated extrapolator without panicking.
+    pub fn try_new(ufr: f64, alpha: f64, llp: f64) -> MathResult<Self> {
+        if !ufr.is_finite() || !alpha.is_finite() || alpha <= 0.0 || !llp.is_finite() || llp <= 0.0
+        {
+            return Err(MathError::invalid_input(
+                "UFR must be finite; alpha and LLP finite and positive",
+            ));
+        }
+        Ok(Self {
+            ultimate_forward_rate: ufr,
+            convergence_speed: alpha,
+            last_liquid_point: llp,
+        })
+    }
     /// Creates a new UFR-convergence extrapolator.
     ///
     /// # Arguments
@@ -43,7 +58,8 @@ impl UfrConvergence {
     ///
     /// # Panics
     ///
-    /// Panics if `alpha <= 0` or `llp <= 0`.
+    /// Panics on invalid parameters. Compatibility only; external callers use
+    /// [`Self::try_new`]. Exception ASR-001 tracks this infallible signature.
     #[must_use]
     pub fn new(ufr: f64, alpha: f64, llp: f64) -> Self {
         assert!(alpha > 0.0, "alpha must be positive");
@@ -75,6 +91,14 @@ impl UfrConvergence {
 }
 
 impl Extrapolator for UfrConvergence {
+    fn validate(&self) -> MathResult<()> {
+        Self::try_new(
+            self.ultimate_forward_rate,
+            self.convergence_speed,
+            self.last_liquid_point,
+        )
+        .map(|_| ())
+    }
     fn extrapolate(&self, t: f64, last_t: f64, last_value: f64, last_derivative: f64) -> f64 {
         if t <= last_t {
             return last_value;

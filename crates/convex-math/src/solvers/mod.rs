@@ -66,7 +66,7 @@ pub use hybrid::{hybrid, hybrid_numerical};
 pub use newton::{newton_raphson, newton_raphson_numerical};
 pub use secant::secant;
 
-use crate::error::MathResult;
+use crate::error::{MathError, MathResult};
 
 /// Default tolerance for root-finding algorithms.
 pub const DEFAULT_TOLERANCE: f64 = 1e-10;
@@ -93,6 +93,23 @@ impl Default for SolverConfig {
 }
 
 impl SolverConfig {
+    /// Validates finite positive tolerance and the hard iteration ceiling.
+    /// Constructors retain their compatible signature; every solver calls this
+    /// before evaluating a caller function. Callbacks must terminate and not panic.
+    pub fn validate(&self) -> MathResult<()> {
+        if !self.tolerance.is_finite() || self.tolerance <= 0.0 {
+            return Err(MathError::invalid_input(
+                "tolerance must be finite and positive",
+            ));
+        }
+        if self.max_iterations == 0 || self.max_iterations > crate::bounds::MAX_SOLVER_ITERATIONS {
+            return Err(MathError::invalid_input(
+                "iteration budget is outside 1..=10000",
+            ));
+        }
+        Ok(())
+    }
+
     /// Creates a new solver configuration.
     #[must_use]
     pub fn new(tolerance: f64, max_iterations: u32) -> Self {

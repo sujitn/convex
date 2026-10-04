@@ -5,6 +5,8 @@
 //! for compile-time parallelism but invisible to callers.
 
 #![warn(missing_docs)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;

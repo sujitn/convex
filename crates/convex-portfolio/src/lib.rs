@@ -63,8 +63,10 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 #![allow(clippy::module_name_repetitions)]
-
 // Module declarations
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+
 pub mod analytics;
 pub mod benchmark;
 pub mod bucketing;

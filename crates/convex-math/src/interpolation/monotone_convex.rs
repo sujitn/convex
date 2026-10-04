@@ -8,6 +8,7 @@
 //!
 //! Reference: Hagan, P. & West, G. (2006) "Interpolation Methods for Curve Construction"
 
+use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
 
@@ -74,31 +75,13 @@ impl MonotoneConvex {
     /// - Times are not positive or not sorted
     /// - Zero rates would produce negative forwards
     pub fn new(times: Vec<f64>, zero_rates: Vec<f64>) -> MathResult<Self> {
-        if times.len() < 2 {
-            return Err(MathError::insufficient_data(2, times.len()));
-        }
-        if times.len() != zero_rates.len() {
-            return Err(MathError::invalid_input(format!(
-                "times and zero_rates must have same length: {} vs {}",
-                times.len(),
-                zero_rates.len()
-            )));
-        }
-
+        super::validate_points(&times, &zero_rates, 2)?;
         // Check that times are sorted and positive
         if times[0] <= 0.0 {
             return Err(MathError::invalid_input(
                 "first time must be positive (use t=0 extrapolation if needed)",
             ));
         }
-        for i in 1..times.len() {
-            if times[i] <= times[i - 1] {
-                return Err(MathError::invalid_input(
-                    "times must be strictly increasing",
-                ));
-            }
-        }
-
         // Compute discrete forward rates
         // f_i = (z_i * t_i - z_{i-1} * t_{i-1}) / (t_i - t_{i-1})
         let n = times.len();
@@ -147,6 +130,8 @@ impl MonotoneConvex {
         // Last point: use last discrete forward
         f_inst.push(discrete_forwards[n - 1]);
 
+        finite_slice(&discrete_forwards, "discrete forwards")?;
+        finite_slice(&f_inst, "instantaneous forwards")?;
         Ok(Self {
             times,
             zero_rates,
@@ -163,6 +148,7 @@ impl MonotoneConvex {
     /// z(t) * t = ∫₀ᵗ f(s) ds
     /// ```
     pub fn forward_rate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             // At t=0, return the first forward rate
             return Ok(self.discrete_forwards[0]);
@@ -209,15 +195,12 @@ impl MonotoneConvex {
             + (f_lo - f_discrete) * (1.0 - 4.0 * x + 3.0 * x * x)
             + (f_hi - f_discrete) * (-2.0 * x + 3.0 * x * x);
 
-        Ok(f.max(0.0)) // Ensure non-negative
+        finite(f, "monotone forward").map(|value| value.max(0.0)) // Ensure non-negative
     }
 
     /// Finds the interval index containing time t.
     fn find_interval(&self, t: f64) -> usize {
-        match self
-            .times
-            .binary_search_by(|probe| probe.partial_cmp(&t).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        match self.times.binary_search_by(|probe| probe.total_cmp(&t)) {
             Ok(i) => i + 1,
             Err(i) => i,
         }
@@ -251,6 +234,7 @@ impl MonotoneConvex {
 
 impl Interpolator for MonotoneConvex {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             // At t=0, the zero rate is undefined; return the short rate
             return Ok(self.zero_rates[0]);
@@ -301,10 +285,11 @@ impl Interpolator for MonotoneConvex {
 
         let zt_product = z_lo * t_lo + (t_hi - t_lo) * integral_x;
 
-        Ok(zt_product / t)
+        finite(zt_product / t, "monotone interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -318,7 +303,10 @@ impl Interpolator for MonotoneConvex {
         let z_plus = self.interpolate(t_plus)?;
         let z_minus = self.interpolate(t_minus)?;
 
-        Ok((z_plus - z_minus) / (t_plus - t_minus))
+        finite(
+            (z_plus - z_minus) / (t_plus - t_minus),
+            "monotone derivative",
+        )
     }
 
     fn allows_extrapolation(&self) -> bool {

@@ -300,9 +300,10 @@ fn build_zero_coupon(spec: ZeroCouponSpec, hash: u64) -> Handle {
         CoreComp::Quarterly => ZcbComp::Quarterly,
         CoreComp::Monthly => ZcbComp::Monthly,
         CoreComp::Continuous => ZcbComp::Continuous,
-        // Simple/Daily aren't on the bond builder; nearest fallback.
-        CoreComp::Simple => ZcbComp::Annual,
-        CoreComp::Daily => ZcbComp::Continuous,
+        CoreComp::Simple | CoreComp::Daily => {
+            set_last_error("unsupported zero-coupon compounding; no approximation is applied");
+            return INVALID_HANDLE;
+        }
     };
 
     let mut builder = ZeroCouponBond::builder()
@@ -500,11 +501,4 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec, hash: u64) 
             INVALID_HANDLE
         }
     }
-}
-
-// ---- Diagnostics ----------------------------------------------------------
-
-#[allow(dead_code)]
-pub(crate) fn fixed_rate_decimal_to_f64(d: Decimal) -> f64 {
-    d.to_f64().unwrap_or(f64::NAN)
 }

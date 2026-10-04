@@ -729,6 +729,7 @@ dependencies = [
  "convex-math",
  "libc",
  "once_cell",
+ "proptest",
  "rust_decimal",
  "serde",
  "serde_json",

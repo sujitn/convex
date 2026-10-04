@@ -28,6 +28,8 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 
 pub mod calendars;
 pub mod contracts;

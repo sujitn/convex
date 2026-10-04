@@ -64,6 +64,8 @@ pub fn bachelier_atm_price(annuity: f64, normal_vol: f64, expiry: f64) -> f64 {
 /// Caller passes the time-0 instantaneous forward rate `f_0t` at the swaption
 /// expiry — typically `curve.instantaneous_forward(expiry)` — so the pricer
 /// stays free of curve-interpolation arithmetic.
+/// Returns NaN on invalid input or numerical failure. Use
+/// [`try_payer_swaption_hw1f`] to retain the typed error.
 pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
     discount: &F,
     a: f64,
@@ -73,8 +75,42 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
     tail: f64,
     strike: f64,
 ) -> f64 {
+    try_payer_swaption_hw1f(discount, a, sigma, f_0t, expiry, tail, strike).unwrap_or(f64::NAN)
+}
+
+/// Checked HW1F swaption price with at most 150 annual payments and 100
+/// Jamshidian root iterations. Discount callbacks must terminate and not panic.
+pub fn try_payer_swaption_hw1f<F: Fn(f64) -> f64>(
+    discount: &F,
+    a: f64,
+    sigma: f64,
+    f_0t: f64,
+    expiry: f64,
+    tail: f64,
+    strike: f64,
+) -> convex_math::MathResult<f64> {
+    use convex_math::MathError;
+    if [a, sigma, f_0t, expiry, tail, strike]
+        .iter()
+        .any(|v| !v.is_finite())
+        || !(0.0..=10.0).contains(&a)
+        || sigma <= 0.0
+        || sigma > 10.0
+        || expiry <= 0.0
+        || tail.round() < 1.0
+        || expiry + tail > 150.0
+    {
+        return Err(MathError::invalid_input(
+            "HW1F parameters outside bounded finite domain",
+        ));
+    }
     let n = tail.round() as usize;
     let p_t = discount(expiry);
+    if !p_t.is_finite() || p_t <= 0.0 {
+        return Err(MathError::invalid_input(
+            "HW1F discount factor must be finite positive",
+        ));
+    }
 
     let theta_factor = if a.abs() < 1e-12 {
         sigma.powi(2) * expiry / 2.0
@@ -106,9 +142,10 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
     };
 
     let cfg = SolverConfig::new(1e-12, 100);
-    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg).map_or(0.0, |res| res.root);
+    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg)?.root;
 
-    cs.iter()
+    let price: f64 = cs
+        .iter()
         .map(|(ti, ci)| {
             let xi = big_a(*ti) * (-big_b(*ti) * r_star).exp();
             ci * zcb_option(
@@ -119,7 +156,13 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
                 false,
             )
         })
-        .sum()
+        .sum();
+    if !price.is_finite() || price < 0.0 {
+        return Err(MathError::NonFinite {
+            operation: "HW1F swaption price".into(),
+        });
+    }
+    Ok(price)
 }
 
 #[cfg(test)]

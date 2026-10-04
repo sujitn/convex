@@ -1,0 +1,681 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-04",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review.",
+  "files": [
+    {
+      "path": "crates/convex-analytics/src/calibration/hw1f.rs",
+      "sha256": "46d4879e0ab203cab7230d4c5994e4c47bafd29197bf0f8e2581de386df60425",
+      "invariants": "Finite valid model/helper input and positive market values; missing zero/forward data and Jamshidian failure never become fixed rates.",
+      "bounds": "128 helpers, combined horizon<=150 years, 200 minimizer iterations, <=150 annual payments, 100 Jamshidian iterations.",
+      "failure_contract": "Checked errors, signal NaN only in infallible compatibility wrapper; no fabricated curve or root.",
+      "tests": [
+        "crates/convex-analytics/tests/assurance.rs",
+        "crates/convex-bonds/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/lib.rs",
+      "sha256": "27d2d27dd07bbb4b7d23e907b90a20c6a0108f8c15b86b5787f729424e0a2544",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/fixings.rs",
+      "sha256": "44e6a4486d7e6a47f6be793504f44a29aa2ab1db8e0330ee445b3adffdd531d0",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-bonds/src/lib.rs",
+      "sha256": "f357a833a58f563a8682be5bd03f9166d8a176c5db10110dc25d5c636eeeefef",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/options/swaption_hw1f.rs",
+      "sha256": "ba0361c89434d6eff651de74f099fd1325abc773245e7c860d56ad1acd778dfa",
+      "invariants": "Finite valid model/helper input and positive market values; missing zero/forward data and Jamshidian failure never become fixed rates.",
+      "bounds": "128 helpers, combined horizon<=150 years, 200 minimizer iterations, <=150 annual payments, 100 Jamshidian iterations.",
+      "failure_contract": "Checked errors, signal NaN only in infallible compatibility wrapper; no fabricated curve or root.",
+      "tests": [
+        "crates/convex-analytics/tests/assurance.rs",
+        "crates/convex-bonds/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/calendars/conventions.rs",
+      "sha256": "0e3c2d285363a00c339873348ec2d1cc5771364823a9bd4a922878e618f15bfb",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/calendars/dynamic.rs",
+      "sha256": "0d552cad4e9b105bd662b4936ab7ac0976690c619c5f09c30e0431c0a21fd629",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/calendars/mod.rs",
+      "sha256": "e59889e98773aed446b757ced8e18f4762c06902c7510d49e4d155d6783fbb9e",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/contracts/mod.rs",
+      "sha256": "9ac82559b8d69c3de0fe7f67d2069bc36bda552b340573d9f16ba386f2c9632d",
+      "invariants": "Canonical contracts validate values; checked day/month/year arithmetic avoids overflow; month indices use Euclidean division.",
+      "bounds": "Checked representable Chrono dates and offsets; wire dates additionally years1..9999.",
+      "failure_contract": "Typed errors before arithmetic/indexing; infallible compatibility requires prevalidated range.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-core/tests/canonical_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/daycounts/act365.rs",
+      "sha256": "52956e9897111297c704c3102034d6a9a9e123418a2a4d018f72a6484b402587",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/daycounts/actact.rs",
+      "sha256": "88422e12838c961709763b037996299ef2be10507984166674bfeb1f0a746c72",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/lib.rs",
+      "sha256": "5555be622ab1620349329fd49866e2d04da518774f804d9f836848c969f35485",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/types/date.rs",
+      "sha256": "c5a3af40354c8d9a362c38b6c99f212cabe5926e895a1977d6c4229ae33070f1",
+      "invariants": "Canonical contracts validate values; checked day/month/year arithmetic avoids overflow; month indices use Euclidean division.",
+      "bounds": "Checked representable Chrono dates and offsets; wire dates additionally years1..9999.",
+      "failure_contract": "Typed errors before arithmetic/indexing; infallible compatibility requires prevalidated range.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-core/tests/canonical_contracts.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/types/frequency.rs",
+      "sha256": "e3226fbba1f3975adc30a46787db8bcde049a1f6a4a60da2555dabded5a6d172",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-curves/src/calibration/global_fit.rs",
+      "sha256": "0dc1b977a82884a123a789c094c73b0650405d1a9f9e86e0432d66bb4f06c554",
+      "invariants": "Finite settings/tenors/quotes/residuals/arithmetic; reference dates match; actual successful global/piecewise RMS meets requested tolerance.",
+      "bounds": "128 helpers; configured budget<=10000; piecewise 32 full refinement sweeps; sorted unique nodes enforced by curve construction.",
+      "failure_contract": "Helper and matrix failures propagate; failed pillars never become quotes; no *10/*100 convergence relaxation. Approximate sequential construction separately excepted.",
+      "tests": [
+        "crates/convex-curves/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-003",
+        "ASR-004"
+      ]
+    },
+    {
+      "path": "crates/convex-curves/src/curves/discrete.rs",
+      "sha256": "fdc4cdf91a9dd792b847a8b3e5393580ac19b241447465ff775affcd15fb2fa2",
+      "invariants": "Send/Sync derived from fields; no unsafe thread marker. Validated interpolation nodes/segments; immutable sharing.",
+      "bounds": "Discrete math construction inherits65536 nodes; segment search bounded by supplied validated segment vector; universal recipe/query limits remain owning task.",
+      "failure_contract": "Existing typed construction/query errors; infallible TermStructure compatibility requires supported domains.",
+      "tests": [
+        "crates/convex-curves/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-curves/src/curves/segmented.rs",
+      "sha256": "c85133a521bce1a4beadc963bb2b658b579f8854cf04e49dedda610dfac7897b",
+      "invariants": "Send/Sync derived from fields; no unsafe thread marker. Validated interpolation nodes/segments; immutable sharing.",
+      "bounds": "Discrete math construction inherits65536 nodes; segment search bounded by supplied validated segment vector; universal recipe/query limits remain owning task.",
+      "failure_contract": "Existing typed construction/query errors; infallible TermStructure compatibility requires supported domains.",
+      "tests": [
+        "crates/convex-curves/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-curves/src/lib.rs",
+      "sha256": "a5e1202ba5eb54ef7bc7821c6565f749da138cdb45d7b6bcd869ccda382d0f60",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/calc_graph.rs",
+      "sha256": "48d87d94b996e0c01664e7d8276f78f2cc5907cda19dc6e2f1ffc73ef41a3597",
+      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown.",
+      "bounds": "Graph hard ceilings100000nodes/500000edges/depth4096/fanout10000/ready1024/inflight64, work lifetime<=300sec; runtime IO10sec and configured bounded queues.",
+      "failure_contract": "Typed claim/configuration/stale-commit/dependency errors; no empty calculation success. Existing process-local limits are not distributed capacity certification.",
+      "tests": [
+        "crates/convex-engine/tests/graph_regressions.rs",
+        "crates/convex-engine/tests/runtime.rs"
+      ],
+      "exceptions": [
+        "ASR-004"
+      ]
+    },
+    {
+      "path": "crates/convex-engine/src/runtime/mod.rs",
+      "sha256": "e95fbad1ae8adacb3598f5155561540bedec0231c35b570cfa7a4d8c5ec42948",
+      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown.",
+      "bounds": "Graph hard ceilings100000nodes/500000edges/depth4096/fanout10000/ready1024/inflight64, work lifetime<=300sec; runtime IO10sec and configured bounded queues.",
+      "failure_contract": "Typed claim/configuration/stale-commit/dependency errors; no empty calculation success. Existing process-local limits are not distributed capacity certification.",
+      "tests": [
+        "crates/convex-engine/tests/graph_regressions.rs",
+        "crates/convex-engine/tests/runtime.rs"
+      ],
+      "exceptions": [
+        "ASR-004"
+      ]
+    },
+    {
+      "path": "crates/convex-ffi/src/build.rs",
+      "sha256": "54aceb3a7972e3c8202c0fec3ecfa5749047bcc691cba800e44d8ddb6e5e5e81",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ffi/src/dispatch.rs",
+      "sha256": "79a58b8a9b0ebcab2c0312cbd126df446ef49be862c2ba3cd2b1204182c29a42",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": [
+        "ASR-004"
+      ]
+    },
+    {
+      "path": "crates/convex-ffi/src/error.rs",
+      "sha256": "30e2009791d1305cc7badcd82c49cd194df762582adef88dd2d8b9274949fae7",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ffi/src/ingress.rs",
+      "sha256": "64fd81dcbf8784a378eba408d99563aaad4e315a900fde62a7400a5fc76dc751",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ffi/src/lib.rs",
+      "sha256": "2bbc71fd16081b136163ed59d736257118a24cdb6c611abf3fe34d73fbd508cf",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ffi/src/registry.rs",
+      "sha256": "e3d4fe02d0a1d017ec9de2510d427f2ebb41b5c7f4847420564ecc74e03600fd",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ffi/src/schemas.rs",
+      "sha256": "befbabf9c0e867473f188a99f787e942f99ee2d137eb827d318251d2e1cab582",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
+      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "tests": [
+        "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "tools/assurance/abi_smoke.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/bounds.rs",
+      "sha256": "f1a63af9c5c60dc0a170c43e2bb7dd0fd7b6320345ebfc28d2635d32e19f3eb8",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/error.rs",
+      "sha256": "e2a9f3a5b5f1cb0ed2a786afe42651ab6f54c5e727dbf87c4c83353c045e07b9",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/flat.rs",
+      "sha256": "63aba495b62759377d8d3835fc427d378372e1426533b348f15e6c9e3413e2c2",
+      "invariants": "Checked query validates model and finite nonnegative time inputs; finite output required.",
+      "bounds": "Fixed closed-form work, no iterative tail fitting.",
+      "failure_contract": "Typed checked error; infallible compatibility preconditions inventoried separately.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/linear.rs",
+      "sha256": "b0978988ed72b9d446c88035062a01b1eb4ccebe4fcef05c64a2e3882ff94875",
+      "invariants": "Checked query validates model and finite nonnegative time inputs; finite output required.",
+      "bounds": "Fixed closed-form work, no iterative tail fitting.",
+      "failure_contract": "Typed checked error; infallible compatibility preconditions inventoried separately.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/mod.rs",
+      "sha256": "e29c77ea1c5006331b22aaef435c78318f0931a4ee7edbed6aecd74f104f0b00",
+      "invariants": "Checked query validates model and finite nonnegative time inputs; finite output required.",
+      "bounds": "Fixed closed-form work, no iterative tail fitting.",
+      "failure_contract": "Typed checked error; infallible compatibility preconditions inventoried separately.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/extrapolation/ufr_convergence.rs",
+      "sha256": "a93cb1971f13ace9831d867d77a6a380c44bf1a49c47293c033be4eb6e79ef77",
+      "invariants": "Checked query validates model and finite nonnegative time inputs; finite output required.",
+      "bounds": "Fixed closed-form work, no iterative tail fitting.",
+      "failure_contract": "Typed checked error; infallible compatibility preconditions inventoried separately.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001",
+        "ASR-003"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/cubic_spline.rs",
+      "sha256": "ebc85980a2dc89c28f71a2f417a710ede4f33e63246c42ed513d3e0524f6c59d",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/flat_forward.rs",
+      "sha256": "fedb99ca6644d9bf7ab60e62d818533ca58feea2db9b46aff1cb92703f8800d5",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/linear.rs",
+      "sha256": "7ed7b3292d5d8c2c493cd6bc2c9b81e8c29cf39e7e8d773d254c8bb776a09d9b",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/log_linear.rs",
+      "sha256": "ed283eedd08e92c4cc4d252d20358cac276f2d47f7347e23ca838ed728ba3cda",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/mod.rs",
+      "sha256": "c3b4e1f928ae592dce3a7d53bd6d5c4da2372d9279366467964ab7b2a4cd8c1b",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/monotone_convex.rs",
+      "sha256": "d17e328f26cad587361216ec3a43cc044f6dd2e7c65fcf3cd43f16b9e3844dce",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-003"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/interpolation/parametric.rs",
+      "sha256": "d39283891caa501b7e3cbb55612af680e073fb17b1cd169e7809d80803d3ae4d",
+      "invariants": "Finite matched nodes, strict finite spacing, finite query and returned value; log-discount data strictly positive, including values >1.",
+      "bounds": "At most 65536 nodes; finite indexed searches and fixed polynomial work.",
+      "failure_contract": "MathResult error for invalid construction/query/arithmetic; infallible parametric forward compatibility has checked alternative.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/lib.rs",
+      "sha256": "ecd68de2780d323c4b4441a16941491a0108bdee1284b1f61d06c0e359944197",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/linear_algebra/mod.rs",
+      "sha256": "716f09412af74855e40c8df4df7bf7da8715e7df68d4ae6ab888c8058ac04f58",
+      "invariants": "Finite matched dimensions and pivots; empty tridiagonal -> empty solution; no row indexing before dimension validation.",
+      "bounds": "65536 tridiagonal rows; 256 dense rows/columns; elimination bounded by validated dimensions.",
+      "failure_contract": "Typed invalid/dimension/nonfinite/singular errors; no zero-solution substitution.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/optimization/mod.rs",
+      "sha256": "34756477ecd1c4645423e94aeaa77503e2f370b82abbcebe4f20bc93cfdb8780",
+      "invariants": "Finite ordered interval, positive tolerance/budget and finite objective evaluations.",
+      "bounds": "1..10000 objective iterations, fixed extra evaluations.",
+      "failure_contract": "Checked typed failure; compatible infallible API signals NaN rather than last iterate.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-math/src/solvers/bisection.rs",
+      "sha256": "fe19cfa6cf17b27f11eba62d87e461d841e94a83b863f36b7a8562f2086d7386",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/solvers/brent.rs",
+      "sha256": "16d7feab792b1bba6297e19990b89be06a2d423744d1d7c2c866f673363c9aa0",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/solvers/hybrid.rs",
+      "sha256": "7d05280322a687b31bec47edb061149743c1e665330b4c8c91a9cf562b3c9f34",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/solvers/mod.rs",
+      "sha256": "82069e5abcd8d618e276c790eca1c1f0af8fa5838985d11b60ee3168a1c60ac9",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/solvers/newton.rs",
+      "sha256": "99cd79863a58e156f60a445f97c5ce8b68ec1aec2d3f80a35edb939061f6d74d",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/solvers/secant.rs",
+      "sha256": "b233006b2d23b87e6fde7ba90080cd473ff4e5c689e362da579a5f5dae6fbe91",
+      "invariants": "Finite settings/evaluations/iterates; real bracket sign checks; successful residual is below requested unchanged tolerance.",
+      "bounds": "Configured 1..10000 iterations; hybrid additionally 20 Newton and 50 bracket steps; user callbacks must terminate/nonpanic.",
+      "failure_contract": "Typed invalid input, nonfinite, singular derivative or nonconvergence; no width-only root success.",
+      "tests": [
+        "crates/convex-math/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/stats/mod.rs",
+      "sha256": "ddd66745bf0a1a5d9343a0bba6a6c65a716806d3c4defbadcf5ef29ecaa28426",
+      "invariants": "Normal CDF formula and unchanged coefficient/tolerance fixture; finite caller input contract; +/-infinity limits follow formula.",
+      "bounds": "Fixed polynomial/exponential work; no loops or allocation.",
+      "failure_contract": "Infallible compatibility may return NaN for NaN input; checked pricing consumers reject nonfinite results.",
+      "tests": [
+        "crates/convex-bonds/tests/assurance.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-math/src/stats/normal.rs",
+      "sha256": "f2c762667c7db507880d355280eeca5245a7f3fa9a9b1a1a073129f1fcad5673",
+      "invariants": "Normal CDF formula and unchanged coefficient/tolerance fixture; finite caller input contract; +/-infinity limits follow formula.",
+      "bounds": "Fixed polynomial/exponential work; no loops or allocation.",
+      "failure_contract": "Infallible compatibility may return NaN for NaN input; checked pricing consumers reject nonfinite results.",
+      "tests": [
+        "crates/convex-bonds/tests/assurance.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
+      ]
+    },
+    {
+      "path": "crates/convex-portfolio/src/lib.rs",
+      "sha256": "a3350b4411b07e606368dd37ed9975eddd81c37fec4324763fe495f5e85ef98b",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/lib.rs",
+      "sha256": "37354e987862d0e9259fdc9836d5c195e3a776a480d794998504685aba24da58",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
+      "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
+      "tests": [
+        "tools/assurance/test_policy.py"
+      ],
+      "exceptions": []
+    }
+  ],
+  "c_exports": [
+    "convex_string_free",
+    "convex_last_error",
+    "convex_clear_error",
+    "convex_version",
+    "convex_bond_from_json",
+    "convex_curve_from_json",
+    "convex_describe",
+    "convex_release",
+    "convex_object_count",
+    "convex_list_objects",
+    "convex_clear_all",
+    "convex_generation",
+    "convex_price",
+    "convex_risk",
+    "convex_spread",
+    "convex_cashflows",
+    "convex_curve_query",
+    "convex_make_whole",
+    "convex_yas",
+    "convex_scenario",
+    "convex_risk_profile",
+    "convex_hedge",
+    "convex_compare",
+    "convex_schema",
+    "convex_mark_parse"
+  ]
+}

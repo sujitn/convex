@@ -357,8 +357,8 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 git clone https://github.com/sujitn/convex.git
 cd convex
 
-# Build all crates
-cargo build --release
+# Build all crates, including the host ABI with panic containment
+cargo build --locked --profile excel
 
 # Run tests
 cargo test --all

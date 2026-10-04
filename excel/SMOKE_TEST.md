@@ -7,7 +7,7 @@ envelopes.
 The Rust side has its own integration test suite — run
 
 ```bash
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
 to validate every dispatcher arm. The checklist below is the manual
