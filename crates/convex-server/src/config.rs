@@ -71,6 +71,8 @@ pub enum ConfigError {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
+    /// Authentication, authorization, browser origins and TLS ingress boundary.
+    pub access: crate::access::identity::AccessSettings,
     /// Explicit demo or production profile.
     pub profile: ServerProfile,
     /// IPv4 or IPv6 bind address. Hostnames are unsupported.
@@ -98,6 +100,7 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
+            access: Default::default(),
             profile: ServerProfile::Production,
             host: "0.0.0.0".into(),
             port: 8080,
@@ -116,6 +119,8 @@ impl Default for ServerConfig {
 /// Safe startup inspection: all paths are redacted, including unsupported inputs.
 #[derive(Debug, Serialize)]
 pub struct EffectiveConfig<'a> {
+    /// Safe access configuration summary; no secret references, URLs or paths.
+    pub access: crate::access::identity::RedactedAccessSettings,
     /// Selected profile.
     pub profile: ServerProfile,
     /// Validated bind address.
@@ -224,6 +229,40 @@ impl ServerConfig {
                 .into_string()
                 .map_err(|_| ConfigError::EnvironmentEncoding { name: name.clone() })?;
             match name.as_str() {
+                "CONVEX_ACCESS_MODE" => {
+                    candidate.access.mode = match value.as_str() {
+                        "required" => crate::access::identity::AccessMode::Required,
+                        "local_development" => {
+                            crate::access::identity::AccessMode::LocalDevelopment
+                        }
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "access.mode",
+                                expected: "required or local_development",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_ACCESS_POLICY_FILE" => candidate.access.policy_file = Some(value),
+                "CONVEX_TLS_BOUNDARY" => {
+                    candidate.access.tls_boundary = match value.as_str() {
+                        "local_only" => crate::access::identity::TlsBoundary::LocalOnly,
+                        "proxy" => crate::access::identity::TlsBoundary::Proxy,
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "access.tls_boundary",
+                                expected: "local_only or proxy",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_CORS_ORIGINS" => {
+                    candidate.access.cors_origins =
+                        serde_json::from_str(&value).map_err(|_| ConfigError::InvalidValue {
+                            field: "access.cors_origins",
+                            expected: "a JSON array of exact origins",
+                        })?
+                }
                 "CONVEX_PROFILE" => {
                     candidate.profile = match value.as_str() {
                         "production" => ServerProfile::Production,
@@ -278,6 +317,12 @@ impl ServerConfig {
     /// Validate syntax and supported settings without creating resources.
     pub fn validate(&self) -> Result<(), ConfigError> {
         self.bind_address()?;
+        self.access
+            .validate()
+            .map_err(|_| ConfigError::InvalidValue {
+                field: "access",
+                expected: "valid bounded access settings and exact origins",
+            })?;
         if let Some(port) = self.websocket_port {
             if !self.websocket_enabled || port != self.port {
                 return Err(ConfigError::Unsupported {
@@ -318,7 +363,7 @@ impl ServerConfig {
             if !self.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
                 return Err(ConfigError::Unsupported {
                     field: "host",
-                    reason: "replay must bind loopback until access controls are implemented",
+                    reason: "this executable uses a loopback-only HTTP upstream",
                 });
             }
         } else if self.runtime_plan.is_some() {
@@ -334,7 +379,34 @@ impl ServerConfig {
     pub fn validate_startup(&self) -> Result<(), ConfigError> {
         self.validate()?;
         if self.profile == ServerProfile::Production {
-            return Err(ConfigError::Unsupported { field: "profile", reason: "live production provider/security composition is not implemented; demo or local replay requires explicit opt-in" });
+            return Err(ConfigError::Unsupported { field: "profile", reason: "live production provider composition is not implemented; demo or local replay requires explicit opt-in" });
+        }
+        if !self.bind_address()?.ip().is_loopback() {
+            return Err(ConfigError::Unsupported {
+                field: "host",
+                reason:
+                    "plain HTTP must bind loopback; remote ingress requires an external TLS proxy",
+            });
+        }
+        if self.access.mode == crate::access::identity::AccessMode::Required
+            && (self.access.policy_file.is_none() || self.access.introspection.is_none())
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "access",
+                expected: "policy_file and introspection settings, or explicit local_development",
+            });
+        }
+        if self
+            .access
+            .introspection
+            .as_ref()
+            .is_some_and(|i| i.allow_http_loopback)
+            && self.access.tls_boundary != crate::access::identity::TlsBoundary::LocalOnly
+        {
+            return Err(ConfigError::Unsupported {
+                field: "access.introspection",
+                reason: "HTTP identity fixtures require the local_only TLS boundary",
+            });
         }
         Ok(())
     }
@@ -355,6 +427,7 @@ impl ServerConfig {
     pub fn effective_redacted(&self) -> EffectiveConfig<'_> {
         const REDACTED: &str = "[REDACTED]";
         EffectiveConfig {
+            access: self.access.redacted(),
             profile: self.profile,
             // Debug on an unvalidated config must not expose an arbitrary input value.
             host: if self.host.parse::<IpAddr>().is_ok() {
@@ -378,6 +451,10 @@ impl ServerConfig {
     pub fn env_var_names() -> &'static [&'static str] {
         &[
             "CONVEX_PROFILE",
+            "CONVEX_ACCESS_MODE",
+            "CONVEX_ACCESS_POLICY_FILE",
+            "CONVEX_TLS_BOUNDARY",
+            "CONVEX_CORS_ORIGINS",
             "CONVEX_HOST",
             "CONVEX_PORT",
             "CONVEX_WEBSOCKET_ENABLED",
@@ -433,6 +510,7 @@ mod tests {
             &mut config,
             &[
                 ("CONVEX_PROFILE", "demo"),
+                ("CONVEX_ACCESS_MODE", "local_development"),
                 ("CONVEX_HOST", "127.0.0.1"),
                 ("CONVEX_PORT", "0"),
                 ("CONVEX_WEBSOCKET_ENABLED", "false"),

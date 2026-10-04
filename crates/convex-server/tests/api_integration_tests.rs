@@ -33,7 +33,25 @@ use convex_ext_file::{
     EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
     EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource, InMemoryPortfolioStore,
 };
-use convex_server::routes::{create_router, create_router_with_portfolio_store};
+// These economic/API fixtures explicitly use local development. Access denial has its own suite.
+fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
+    convex_server::routes::create_router_with_access(
+        engine,
+        true,
+        convex_server::access::AccessControl::local_development(),
+    )
+}
+fn create_router_with_portfolio_store(
+    engine: Arc<convex_engine::PricingEngine>,
+    portfolios: Arc<InMemoryPortfolioStore>,
+) -> axum::Router {
+    convex_server::routes::create_router_with_access_and_portfolios(
+        engine,
+        portfolios,
+        true,
+        convex_server::access::AccessControl::local_development(),
+    )
+}
 
 async fn reference_request(
     app: axum::Router,
@@ -806,6 +824,7 @@ fn production_readiness_environment_only_binary_startup() {
         .env_clear()
         .env("RUST_LOG", "info")
         .env("CONVEX_PROFILE", "demo")
+        .env("CONVEX_ACCESS_MODE", "local_development")
         .env("CONVEX_HOST", "127.0.0.1")
         .env("CONVEX_PORT", "0")
         .env("CONVEX_STORAGE_PATH", &storage)

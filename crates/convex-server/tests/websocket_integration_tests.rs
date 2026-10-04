@@ -25,7 +25,13 @@ use convex_ext_file::{
     EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
     EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
-use convex_server::routes::create_router;
+fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
+    convex_server::routes::create_router_with_access(
+        engine,
+        true,
+        convex_server::access::AccessControl::local_development(),
+    )
+}
 
 #[path = "../../convex-ports/tests/support/reference_terms.rs"]
 mod reference_terms;

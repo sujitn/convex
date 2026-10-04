@@ -6,7 +6,7 @@ mod reference_terms;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use convex_core::ids::InstrumentId;
 use convex_core::{Currency, Date};
@@ -29,15 +29,8 @@ enum ConfigFile<'a> {
 
 impl Probe {
     fn spawn(settings: &[(&str, &str)], file: ConfigFile<'_>) -> Self {
-        let directory = std::env::temp_dir().join(format!(
-            "convex_config_{}_{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir(&directory).unwrap();
+        // Atomically allocate a directory; concurrent probes can share a clock tick.
+        let directory = tempfile::tempdir().unwrap().keep();
         let log = std::fs::File::create(directory.join("startup.log")).unwrap();
         let mut command = Command::new(env!("CARGO_BIN_EXE_convex-server"));
         command
@@ -135,7 +128,14 @@ fn client() -> reqwest::Client {
 
 #[tokio::test]
 async fn environment_only_startup_uses_actual_socket_and_storage() {
-    let mut probe = Probe::spawn(&[("CONVEX_PROFILE", "demo")], ConfigFile::Absent);
+    let mut probe = Probe::spawn(
+        &[
+            ("CONVEX_PROFILE", "demo"),
+            ("CONVEX_ACCESS_MODE", "local_development"),
+            ("CONVEX_CORS_ORIGINS", r#"["https://example.test"]"#),
+        ],
+        ConfigFile::Absent,
+    );
     let address = probe.address();
     assert_eq!(
         address.ip(),
@@ -173,7 +173,9 @@ async fn environment_only_startup_uses_actual_socket_and_storage() {
 async fn optional_default_file_is_loaded_and_oversized_files_fail() {
     let mut probe = Probe::spawn(
         &[],
-        ConfigFile::Default("profile='demo'\nwebsocket_enabled=false"),
+        ConfigFile::Default(
+            "profile='demo'\nwebsocket_enabled=false\n[access]\nmode='local_development'",
+        ),
     );
     let address = probe.address();
     assert_eq!(
@@ -183,7 +185,7 @@ async fn optional_default_file_is_loaded_and_oversized_files_fail() {
             .await
             .unwrap()
             .status(),
-        404
+        403 // Disabled/unclassified routes remain closed at the access boundary.
     );
     let oversized = format!("profile='demo'\n#{}", "x".repeat(65536));
     let mut invalid = Probe::spawn(&[], ConfigFile::Default(&oversized));
@@ -214,7 +216,9 @@ fn invalid_settings_fail_before_storage_or_listening() {
         // A valid ephemeral file prevents the old loader opening a default port.
         let mut probe = Probe::spawn(
             &[(name, value)],
-            ConfigFile::Selected("profile = 'demo'\nhost = '127.0.0.1'\nport = 0\n"),
+            ConfigFile::Selected(
+                "profile = 'demo'\nhost = '127.0.0.1'\nport = 0\n[access]\nmode = 'local_development'\n",
+            ),
         );
         let output = probe.rejected();
         assert!(output.contains(code), "{name}: {output}");
@@ -263,7 +267,11 @@ fn production_default_and_override_refuse_placeholder_providers() {
 #[tokio::test]
 async fn environment_overrides_file_and_disables_all_websocket_routes() {
     let mut probe = Probe::spawn(
-        &[("CONVEX_PROFILE", "demo"), ("CONVEX_WEBSOCKET_ENABLED", "false")],
+        &[
+            ("CONVEX_PROFILE", "demo"),
+            ("CONVEX_WEBSOCKET_ENABLED", "false"),
+            ("CONVEX_ACCESS_MODE", "local_development"),
+        ],
         ConfigFile::Selected("profile = 'production'\nhost = '192.0.2.1'\nport = 61234\nwebsocket_enabled = true\nstorage_path = './unused.redb'\n"),
     );
     let address = probe.address();
@@ -280,14 +288,19 @@ async fn environment_overrides_file_and_disables_all_websocket_routes() {
             .send()
             .await
             .unwrap();
-        assert_eq!(response.status(), 404, "{path}");
+        assert_eq!(response.status(), 403, "{path}");
         assert_eq!(response.headers()["x-convex-data-quality"], "demo");
+        let denied: serde_json::Value = response.json().await.unwrap();
+        assert_eq!(denied["code"], "FORBIDDEN", "{path}");
     }
 }
 
 #[tokio::test]
 async fn explicit_demo_labels_websocket_handshake_and_messages() {
-    let mut probe = Probe::spawn(&[], ConfigFile::Selected("profile = 'demo'"));
+    let mut probe = Probe::spawn(
+        &[],
+        ConfigFile::Selected("profile = 'demo'\n[access]\nmode = 'local_development'"),
+    );
     let address = probe.address();
     let (mut socket, response) = tokio::time::timeout(
         Duration::from_secs(2),

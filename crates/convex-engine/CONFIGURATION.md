@@ -58,7 +58,7 @@ is an illustration, not a production template or vendor certification.
 Start the fictional historical replay only after exporting the initial plan:
 
 ```sh
-CONVEX_PROFILE=replay CONVEX_HOST=127.0.0.1 \
+CONVEX_PROFILE=replay CONVEX_HOST=127.0.0.1 CONVEX_ACCESS_MODE=local_development \
 CONVEX_STORAGE_PATH=/tmp/convex-config-example/inputs.redb \
 CONVEX_RUNTIME_PLAN=/tmp/convex-config-example/plan.json \
 CONVEX_QUOTES_FILE=/tmp/convex-config-example/quotes.jsonl \
@@ -171,8 +171,7 @@ hosts can call the shared use cases and engine application method while running.
 No network mutation route is added. `GET /api/v1/configuration/:id` requires
 explicit `as_of` and `known_at` query cutoffs and returns the same redacted
 effective-policy view as the CLI. Actor/approval metadata is trusted local
-input here; authentication, role checks and administrative quotas remain
-CVX-037.
+input here. Network inspection now uses [required authentication, roles and quotas](../convex-server/ACCESS.md). The offline CLI uses trusted local operator/filesystem access; shared authenticated mutation remains subsequent work.
 
 ## Override expiry and lineage
 

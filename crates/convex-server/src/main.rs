@@ -59,6 +59,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         "Effective startup configuration"
     );
     server_config.validate_startup()?;
+    let access = convex_server::access::AccessControl::from_settings(&server_config.access).await?;
+    if access.is_local_development() {
+        warn!("Explicit local development access: loopback API has no authentication");
+    }
     if server_config.profile == ServerProfile::Demo {
         warn!("Demo profile enabled: all server output is demonstration data");
     }
@@ -177,7 +181,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.start().await?;
 
     // Start server
-    let server = Server::new(server_config, engine);
+    let server = Server::with_access_control(server_config, engine, access);
     server.start().await?;
 
     Ok(())

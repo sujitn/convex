@@ -23,6 +23,8 @@ use tracing::{debug, error, info, warn};
 use convex_core::ids::{EtfId, InstrumentId, PortfolioId};
 use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
 
+use crate::access::http::WsAccess;
+use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
 use crate::ServerProfile;
 
@@ -32,7 +34,7 @@ use crate::ServerProfile;
 
 /// Inbound WebSocket message from client.
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(missing_docs)]
 pub enum ClientMessage {
     /// Subscribe to bond quotes
@@ -325,6 +327,13 @@ struct ClientSession {
 }
 
 impl ClientSession {
+    fn topic_count(&self) -> usize {
+        self.bond_subscriptions.len()
+            + self.valuation_subscriptions.len()
+            + self.etf_subscriptions.len()
+            + self.portfolio_subscriptions.len()
+            + usize::from(self.subscribe_all_bonds)
+    }
     fn new(session_id: String) -> Self {
         Self {
             session_id,
@@ -357,17 +366,29 @@ impl ClientSession {
 // =============================================================================
 
 /// WebSocket upgrade handler.
-pub async fn ws_handler(
+pub(crate) async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     profile: Option<Extension<ServerProfile>>,
+    authorization: Option<Extension<WsAccess>>,
 ) -> impl IntoResponse {
     let profile = profile.map_or(ServerProfile::Production, |Extension(profile)| profile);
-    ws.on_upgrade(move |socket| handle_socket(socket, state, profile))
+    let Some(Extension(authorization)) = authorization else {
+        return crate::access::http::response(AccessError::Unauthenticated);
+    };
+    ws.max_message_size(65536)
+        .max_frame_size(65536)
+        .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization))
+        .into_response()
 }
 
 /// Handle an individual WebSocket connection.
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerProfile) {
+async fn handle_socket(
+    socket: WebSocket,
+    state: Arc<AppState>,
+    profile: ServerProfile,
+    mut authorization: WsAccess,
+) {
     let ws_state = &state.ws_state;
 
     // Generate session ID
@@ -395,21 +416,41 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
         session_id: session_id.clone(),
         server_time: current_timestamp(),
     };
-    if let Err(e) = send_message(&mut sender, &connected_msg, profile).await {
-        error!("Failed to send connected message: {}", e);
+    if send_message(&mut sender, &connected_msg, profile, &authorization)
+        .await
+        .is_err()
+    {
+        error!(code = "WS_SEND_FAILED", "Connected frame could not be sent");
         ws_state
             .connection_count
             .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
         return;
     }
 
+    let mut policy_changes = authorization.access.subscribe_policy();
+    let mut auth_timer = interval(Duration::from_millis(250));
+    auth_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     // Heartbeat interval
     let mut heartbeat_interval = interval(Duration::from_secs(30));
 
     loop {
         tokio::select! {
+            biased;
+            changed = policy_changes.changed() => {
+                if changed.is_err() || session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+            }
+            _ = auth_timer.tick() => {
+                if session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                if !authorization.access.is_local_development() && authorization.access.session_needs_refresh(&authorization.context) {
+                    match authorization.access.refresh(&authorization.context).await {
+                        Ok(context) => authorization.context = context,
+                        Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                    }
+                    if session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                }
+            }
             changed = shutdown_rx.changed() => {
-                if changed.is_err() || *shutdown_rx.borrow() { let _ = sender.send(Message::Close(None)).await; break; }
+                if changed.is_err() || *shutdown_rx.borrow() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
             }
             result = valuation_rx.recv() => {
                 match result {
@@ -418,40 +459,28 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
                             convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => session.valuation_subscriptions.contains(&InstrumentId::new(instrument_id.as_str())),
                             _ => false,
                         };
-                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile).await.is_err() { break; }
+                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/runtime/results and resume by (runtime_id, revision)".into() }, profile).await.is_err() { break; }
+                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/runtime/results and resume by (runtime_id, revision)".into() }, profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
             }
             // Handle incoming messages from client
-            Some(msg) = receiver.next() => {
+            message = receiver.next() => {
+                let Some(msg) = message else { break; };
+                let admission = match authorization.access.admit_message(&authorization.context) { Ok(admission) => admission, Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; } };
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if let Err(e) = handle_client_message(&text, &mut session, &mut sender, profile).await {
-                            warn!("Error handling client message: {}", e);
-                            // Send error message to client
-                            let error_msg = ServerMessage::Error {
-                                code: "INVALID_MESSAGE".to_string(),
-                                message: e,
-                            };
-                            if send_message(&mut sender, &error_msg, profile).await.is_err() {
-                                break;
-                            }
-                        }
+                        if handle_client_payload(Ok(&text), &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
                     }
                     Ok(Message::Binary(data)) => {
-                        // Try to parse as JSON
-                        if let Ok(text) = String::from_utf8(data) {
-                            if let Err(e) = handle_client_message(&text, &mut session, &mut sender, profile).await {
-                                warn!("Error handling binary message: {}", e);
-                            }
-                        }
+                        let text = std::str::from_utf8(&data).map_err(|_| "INVALID_MESSAGE".to_owned());
+                        if handle_client_payload(text, &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
                     }
                     Ok(Message::Ping(data)) => {
-                        if sender.send(Message::Pong(data)).await.is_err() {
+                        if !tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Pong(data))).await.is_ok_and(|r| r.is_ok()) {
                             break;
                         }
                     }
@@ -462,17 +491,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
                         info!("WebSocket closed by client: {}", session_id);
                         break;
                     }
-                    Err(e) => {
-                        error!("WebSocket error for {}: {}", session_id, e);
+                    Err(_) => {
+                        error!(code = "WS_TRANSPORT_FAILED", "WebSocket transport failed");
                         break;
                     }
                 }
+                drop(admission);
             }
 
             // Handle broadcast updates
             Ok(update) = broadcast_rx.recv() => {
                 if let Some(msg) = filter_update(&session, &update) {
-                    if send_message(&mut sender, &msg, profile).await.is_err() {
+                    if send_message(&mut sender, &msg, profile, &authorization).await.is_err() {
                         break;
                     }
                 }
@@ -483,7 +513,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
                 let heartbeat = ServerMessage::Heartbeat {
                     server_time: current_timestamp(),
                 };
-                if send_message(&mut sender, &heartbeat, profile).await.is_err() {
+                if send_message(&mut sender, &heartbeat, profile, &authorization).await.is_err() {
                     break;
                 }
             }
@@ -497,16 +527,59 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, profile: ServerP
     info!("WebSocket connection closed: {}", session_id);
 }
 
+/// Identical safe denial semantics for text and UTF-8 binary frames.
+async fn handle_client_payload(
+    text: Result<&str, String>,
+    session: &mut ClientSession,
+    sender: &mut futures::stream::SplitSink<WebSocket, Message>,
+    profile: ServerProfile,
+    authorization: &WsAccess,
+) -> Result<(), axum::Error> {
+    let result = match text {
+        Ok(text) => handle_client_message(text, session, sender, profile, authorization).await,
+        Err(error) => Err(error),
+    };
+    if let Err(error) = result {
+        let code = if [
+            "FORBIDDEN",
+            "UNAUTHENTICATED",
+            "ACCESS_UNAVAILABLE",
+            "ACCESS_QUOTA_EXCEEDED",
+            "INVALID_ACCESS_REQUEST",
+        ]
+        .contains(&error.as_str())
+        {
+            error.clone()
+        } else {
+            "INVALID_MESSAGE".into()
+        };
+        warn!(code = %code, "WebSocket message rejected");
+        send_message(
+            sender,
+            &ServerMessage::Error {
+                code,
+                message: error,
+            },
+            profile,
+            authorization,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 /// Handle a client message.
 async fn handle_client_message(
     text: &str,
     session: &mut ClientSession,
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     profile: ServerProfile,
+    authorization: &WsAccess,
 ) -> Result<(), String> {
     let msg: ClientMessage =
-        serde_json::from_str(text).map_err(|e| format!("Invalid message: {}", e))?;
+        serde_json::from_str(text).map_err(|_| "INVALID_MESSAGE".to_owned())?;
 
+    authorize_subscription(&msg, session, authorization).map_err(|error| error.to_string())?;
     let response = match msg {
         ClientMessage::SubscribeBonds { instrument_ids } => {
             let count = instrument_ids.len();
@@ -644,9 +717,243 @@ async fn handle_client_message(
         },
     };
 
-    send_message(sender, &response, profile)
+    send_message(sender, &response, profile, authorization)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|_| "WS_SEND_FAILED".to_owned())
+}
+
+fn topic_permission(
+    kind: ResourceKind,
+    id: &str,
+    valuation: bool,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    let mut required = vec![
+        Resource::new(kind, id),
+        Resource::new(ResourceKind::Source, "*"),
+        Resource::new(ResourceKind::Curve, "*"),
+    ];
+    let data = if kind == ResourceKind::Book {
+        required.push(Resource::new(ResourceKind::Instrument, "*"));
+        vec![DataScope::Books, DataScope::Market, DataScope::Results]
+    } else if valuation || kind == ResourceKind::Instrument {
+        vec![DataScope::Reference, DataScope::Market, DataScope::Results]
+    } else {
+        vec![DataScope::Market, DataScope::Results]
+    };
+    authorization.access.authorize(
+        &authorization.context,
+        if valuation {
+            Action::ResultRead
+        } else {
+            Action::MarketRead
+        },
+        &data,
+        &required,
+    )
+}
+fn session_authorized(
+    session: &ClientSession,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    if session.topic_count()
+        > authorization
+            .access
+            .subscription_limit(&authorization.context)?
+    {
+        return Err(AccessError::Quota);
+    }
+    if session.subscribe_all_bonds {
+        topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
+    }
+    for id in &session.bond_subscriptions {
+        topic_permission(ResourceKind::Instrument, id.as_str(), false, authorization)?;
+    }
+    for id in &session.valuation_subscriptions {
+        topic_permission(ResourceKind::Instrument, id.as_str(), true, authorization)?;
+    }
+    for id in &session.etf_subscriptions {
+        topic_permission(ResourceKind::Etf, id.as_str(), false, authorization)?;
+    }
+    for id in &session.portfolio_subscriptions {
+        topic_permission(ResourceKind::Book, id.as_str(), false, authorization)?;
+    }
+    Ok(())
+}
+fn authorize_subscription(
+    message: &ClientMessage,
+    session: &ClientSession,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    let (ids, kind, valuation, existing): (&[String], ResourceKind, bool, HashSet<String>) =
+        match message {
+            ClientMessage::SubscribeBonds { instrument_ids } => (
+                instrument_ids,
+                ResourceKind::Instrument,
+                false,
+                session
+                    .bond_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeValuations { instrument_ids } => (
+                instrument_ids,
+                ResourceKind::Instrument,
+                true,
+                session
+                    .valuation_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeEtfs { etf_ids } => (
+                etf_ids,
+                ResourceKind::Etf,
+                false,
+                session
+                    .etf_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribePortfolios { portfolio_ids } => (
+                portfolio_ids,
+                ResourceKind::Book,
+                false,
+                session
+                    .portfolio_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeAllBonds => {
+                topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
+                if session
+                    .topic_count()
+                    .saturating_add(usize::from(!session.subscribe_all_bonds))
+                    > authorization
+                        .access
+                        .subscription_limit(&authorization.context)?
+                {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribeBonds { instrument_ids }
+            | ClientMessage::UnsubscribeValuations { instrument_ids } => {
+                if instrument_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribeEtfs { etf_ids } => {
+                if etf_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribePortfolios { portfolio_ids } => {
+                if portfolio_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            _ => return Ok(()),
+        };
+    if ids.len() > 256 {
+        return Err(AccessError::Quota);
+    }
+    let mut prospective = existing;
+    let before = prospective.len();
+    for id in ids {
+        if !crate::access::policy::valid_id(id) || id == "*" {
+            return Err(AccessError::InvalidRequest);
+        }
+        topic_permission(kind, id, valuation, authorization)?;
+        prospective.insert(id.clone());
+    }
+    if session
+        .topic_count()
+        .saturating_add(prospective.len().saturating_sub(before))
+        > authorization
+            .access
+            .subscription_limit(&authorization.context)?
+    {
+        return Err(AccessError::Quota);
+    }
+    Ok(())
+}
+fn authorize_delivery(
+    message: &ServerMessage,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    if !authorization.access.session_fresh(&authorization.context) {
+        return Err(AccessError::Unauthenticated);
+    }
+    match message {
+        ServerMessage::BondQuote(quote) => topic_permission(
+            ResourceKind::Instrument,
+            quote.instrument_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::EtfQuote(quote) => topic_permission(
+            ResourceKind::Etf,
+            quote.etf_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::PortfolioAnalytics(result) => topic_permission(
+            ResourceKind::Book,
+            result.portfolio_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::Valuation(result) => match &result.result.provenance().subject {
+            convex_core::contracts::ValuationSubject::InstrumentVersion {
+                instrument_id, ..
+            } => topic_permission(
+                ResourceKind::Instrument,
+                instrument_id.as_str(),
+                true,
+                authorization,
+            )?,
+            _ => return Err(AccessError::Forbidden),
+        },
+        ServerMessage::NodeRecalculated {
+            node_type, node_id, ..
+        } => match node_type.as_str() {
+            "bond_price" => {
+                topic_permission(ResourceKind::Instrument, node_id, false, authorization)?
+            }
+            "etf_inav" | "etf_nav" => {
+                topic_permission(ResourceKind::Etf, node_id, false, authorization)?
+            }
+            "portfolio" => topic_permission(ResourceKind::Book, node_id, false, authorization)?,
+            _ => return Err(AccessError::Forbidden),
+        },
+        ServerMessage::CurveUpdated { curve_id, .. } => authorization.access.authorize(
+            &authorization.context,
+            Action::MarketRead,
+            &[DataScope::Market],
+            &[
+                Resource::new(ResourceKind::Curve, curve_id),
+                Resource::new(ResourceKind::Source, "*"),
+            ],
+        )?,
+        _ => {}
+    }
+    Ok(())
 }
 
 /// Filter a broadcast update for a specific client session.
@@ -732,11 +1039,16 @@ async fn send_message(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     msg: &ServerMessage,
     profile: ServerProfile,
+    authorization: &WsAccess,
 ) -> Result<(), axum::Error> {
+    authorize_delivery(msg, authorization).map_err(axum::Error::new)?;
     let json = serialize_message(msg, profile).map_err(axum::Error::new)?;
-    sender
-        .send(Message::Text(json))
+    if json.len() > 65536 {
+        return Err(axum::Error::new(AccessError::Quota));
+    }
+    tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Text(json)))
         .await
+        .map_err(axum::Error::new)?
         .map_err(axum::Error::new)
 }
 
@@ -763,10 +1075,7 @@ fn serialize_message(
 
 /// Get current timestamp in milliseconds.
 fn current_timestamp() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
+    chrono::Utc::now().timestamp_millis()
 }
 
 // =============================================================================

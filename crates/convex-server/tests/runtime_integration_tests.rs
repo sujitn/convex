@@ -26,7 +26,11 @@ async fn liveness_is_separate_from_readiness_and_rest_matches_the_actual_runtime
         s.store.clone(),
         RuntimeInput::Captured,
     );
-    let router = convex_server::routes::create_router(engine.clone());
+    let router = convex_server::routes::create_router_with_access(
+        engine.clone(),
+        true,
+        convex_server::access::AccessControl::local_development(),
+    );
     for (path, status) in [
         ("/live", StatusCode::OK),
         ("/ready", StatusCode::SERVICE_UNAVAILABLE),
@@ -138,6 +142,11 @@ async fn actual_websocket_opt_in_publishes_lineage_and_sessions_close_during_joi
     let address = listener.local_addr().unwrap();
     let server = Server::new(
         ServerConfig {
+            profile: convex_server::ServerProfile::Demo,
+            access: convex_server::access::identity::AccessSettings {
+                mode: convex_server::access::identity::AccessMode::LocalDevelopment,
+                ..Default::default()
+            },
             host: "127.0.0.1".into(),
             port: address.port(),
             ..Default::default()
@@ -247,6 +256,7 @@ async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state()
         command
             .current_dir(dir.path())
             .env("CONVEX_PROFILE", "replay")
+            .env("CONVEX_ACCESS_MODE", "local_development")
             .env("CONVEX_HOST", "127.0.0.1")
             .env("CONVEX_PORT", "0")
             .env("CONVEX_STORAGE_PATH", &database_path)

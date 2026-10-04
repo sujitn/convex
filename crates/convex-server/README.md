@@ -2,11 +2,11 @@
 
 The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default and fails before opening storage because production provider composition is not certified. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
 
-For a local demonstration, run from the repository root:
+Authentication defaults to required verification. The [access guide](ACCESS.md) documents authenticated replay, exact role/book/data grants, identity/secret rotation, TLS proxy boundaries, quotas and distinct health states. For a local demonstration, run from the repository root:
 
 ```sh
 mkdir -p data
-CONVEX_PROFILE=demo CONVEX_HOST=127.0.0.1 cargo run --locked -p convex-server
+CONVEX_PROFILE=demo CONVEX_HOST=127.0.0.1 CONVEX_ACCESS_MODE=local_development cargo run --locked -p convex-server
 ```
 
 To select a TOML file, supply its path after the binary name:
@@ -23,6 +23,9 @@ host = "127.0.0.1"
 port = 8080
 websocket_enabled = true
 storage_path = "./data/convex.redb"
+
+[access]
+mode = "local_development"
 ```
 
 ## Loading and validation
@@ -34,7 +37,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | TOML key | Environment variable | Behavior |
 |---|---|---|
 | profile | CONVEX_PROFILE | `production` by default; explicit `demo` or loopback `replay` can start |
-| host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0`; hostnames fail |
+| host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0` must be changed to loopback for the current HTTP executable; hostnames fail |
 | port | CONVEX_PORT | Integer 0–65535; default 8080; zero selects an ephemeral port |
 | websocket_enabled | CONVEX_WEBSOCKET_ENABLED | Boolean; environment accepts true/false or 1/0, case insensitive; default true |
 | websocket_port | CONVEX_WEBSOCKET_PORT | Optional; accepted only when WebSockets are enabled and it equals the HTTP port |
@@ -44,6 +47,11 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | curves_file | CONVEX_CURVES_FILE | Rejected: file provider composition is not implemented |
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
+| access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
+| access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
+| access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
+| access.cors_origins | CONVEX_CORS_ORIGINS | JSON array of exact origins; empty denies cross-origin browser requests |
+| access.introspection | TOML only | Explicit endpoint/issuer/API audience/client and secret reference; see the access guide |
 
 Startup logs the effective redacted configuration and, after a successful bind, the actual listener address. A disabled WebSocket setting removes `/ws`, `/api/v1/ws` and `/api/v1/ws/status`.
 
@@ -55,7 +63,7 @@ Router construction uses the engine’s configured reference repository. Provide
 
 ## Migrating existing startup code
 
-ServerConfig::from_env and apply_env_overrides now return Result. ServerConfig::from_file returns ConfigError, and Server::start returns StartupError. Callers must handle errors. Add an explicit demo profile for current local demonstrations. Previously ignored invalid values, unsupported settings and hostnames must be corrected; they no longer fall back silently.
+ServerConfig::from_env and apply_env_overrides now return Result. ServerConfig::from_file returns ConfigError, and Server::start returns StartupError. Callers must handle errors. Add an explicit demo profile and local_development access for isolated loopback demonstrations; otherwise compose the required verifier and policy. Previously ignored invalid values, unsupported settings and hostnames must be corrected; they no longer fall back silently.
 
 The startup configuration changes preserve pricing conventions. The reference repository schema and write requirements are described below.
 
@@ -109,7 +117,7 @@ The initial adapters bound retained identities including tombstones to 100,000, 
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
 
-Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Router callers use `create_router(engine)`; the optional portfolio fixture helper is `create_router_with_portfolio_store`.
+Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Default router helpers deny protected access. Supply `create_router_with_access` or `create_router_with_access_and_portfolios` with the verified boundary; the access guide describes embedding migration.
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
@@ -121,4 +129,4 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 
 ## Configuration operator
 
-Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. Embedded hosts can apply hot policies through the same engine use cases; the server adds only read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. There is no network configuration mutation route. Authentication, roles, secure access and administrative quotas remain CVX-037.
+Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. Embedded hosts can apply hot policies through the same engine use cases; the server adds only read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. There is no network configuration mutation route. These network inspection routes share [current access control and quotas](ACCESS.md). The offline CLI still relies on trusted local filesystem/operator access; authenticated shared administration remains subsequent work.

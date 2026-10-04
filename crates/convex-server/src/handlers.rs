@@ -85,6 +85,8 @@ use convex_engine::ports::reference_data::{BondReferenceData, EtfHoldingEntry, E
 
 /// Application state.
 pub struct AppState {
+    /// Shared current authentication/authorization boundary.
+    pub access: Arc<crate::access::AccessControl>,
     /// The pricing engine
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
@@ -110,15 +112,7 @@ pub async fn health() -> Json<HealthResponse> {
 
 /// Readiness fails independently of process liveness.
 pub async fn readiness(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let health = state.engine.runtime_health();
-    (
-        if health.ready {
-            StatusCode::OK
-        } else {
-            StatusCode::SERVICE_UNAVAILABLE
-        },
-        Json(health),
-    )
+    crate::health::readiness(State(state)).await
 }
 /// Full low-cardinality runtime lifecycle and input condition.
 pub async fn runtime_health(

@@ -2,9 +2,7 @@
 mod support;
 use convex_core::contracts::*;
 use convex_engine::ports::configuration::*;
-use convex_server::{
-    configuration_admin::effective_configuration, routes::create_router, SERVER_BUILD_ID,
-};
+use convex_server::{configuration_admin::effective_configuration, SERVER_BUILD_ID};
 use serde_json::{json, Value};
 use std::{
     path::Path,
@@ -243,7 +241,7 @@ async fn cli_invalid_schema_credentials_fixture_and_process_values_are_redacted(
     let process = owned_dir.path().join("process.toml");
     std::fs::write(
         &process,
-        "profile='demo'\nhost='127.0.0.1'\nstorage_path='/PRIVATE_PROCESS_MARKER'\n",
+        "profile='demo'\nhost='127.0.0.1'\nstorage_path='/PRIVATE_PROCESS_MARKER'\n[access]\nmode='local_development'\n",
     )
     .unwrap();
     let inspected = output_json(run(&["process", "explain", text(&process)]));
@@ -312,4 +310,12 @@ async fn http_configuration_inspection_uses_same_policy_and_exposes_no_mutation_
         .await
         .unwrap();
     assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+}
+
+fn create_router(engine: std::sync::Arc<convex_engine::PricingEngine>) -> axum::Router {
+    convex_server::routes::create_router_with_access(
+        engine,
+        true,
+        convex_server::access::AccessControl::local_development(),
+    )
 }

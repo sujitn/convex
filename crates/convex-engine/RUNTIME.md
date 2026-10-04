@@ -182,7 +182,7 @@ The executable supports an explicit loopback-only `replay` profile. Supply a
 complete legitimate plan and previously imported authoritative references/configuration:
 
 ```sh
-CONVEX_PROFILE=replay CONVEX_HOST=127.0.0.1 CONVEX_PORT=8080 \
+CONVEX_PROFILE=replay CONVEX_HOST=127.0.0.1 CONVEX_PORT=8080 CONVEX_ACCESS_MODE=local_development \
 CONVEX_STORAGE_PATH=/absolute/path/inputs.redb \
 CONVEX_RUNTIME_PLAN=/absolute/path/runtime.json \
 CONVEX_QUOTES_FILE=/absolute/path/quotes.jsonl \
@@ -196,8 +196,10 @@ identity. Compile a release with `CONVEX_BUILD_ID` set to the pinned artifact ID
 it is a compile-time variable, not a server runtime setting. The default local
 build ID is `convex-server-0.13.0-local-unverified`. SIGINT/SIGTERM joins and drains.
 Empty providers still require explicit demo mode. Unconfigured production and
-non-loopback replay remain rejected while live composition/access controls await
-certification. v1 synthetic-curve behavior remains an enforced G04 failure.
+non-loopback HTTP upstreams remain rejected. [The access guide](../convex-server/ACCESS.md)
+documents required identity verification, role/data/book scopes, TLS proxy ingress
+and dependency/strategy readiness. This command explicitly opts into local
+development. v1 synthetic-curve behavior remains an enforced G04 failure.
 
 Run the actual lifecycle fixtures with:
 

@@ -38,7 +38,36 @@ fn create_router_with_options(
     portfolio_store: Arc<InMemoryPortfolioStore>,
     websocket_enabled: bool,
 ) -> Router {
+    create_router_with_access_and_portfolios(
+        engine,
+        portfolio_store,
+        websocket_enabled,
+        crate::access::AccessControl::deny_all(),
+    )
+}
+
+/// Compose explicit access control; default constructors deny protected requests.
+pub fn create_router_with_access(
+    engine: Arc<PricingEngine>,
+    enabled: bool,
+    access: Arc<crate::access::AccessControl>,
+) -> Router {
+    create_router_with_access_and_portfolios(
+        engine,
+        Arc::new(InMemoryPortfolioStore::new()),
+        enabled,
+        access,
+    )
+}
+/// Supplied portfolio and access boundaries for embedded composition and conformance fixtures.
+pub fn create_router_with_access_and_portfolios(
+    engine: Arc<PricingEngine>,
+    portfolio_store: Arc<InMemoryPortfolioStore>,
+    websocket_enabled: bool,
+    access: Arc<crate::access::AccessControl>,
+) -> Router {
     let state = Arc::new(AppState {
+        access: access.clone(),
         engine,
         ws_state: WebSocketState::new(),
         portfolio_store,
@@ -48,6 +77,8 @@ fn create_router_with_options(
         // Health
         .route("/live", get(handlers::health))
         .route("/ready", get(handlers::readiness))
+        .route("/strategy-ready", get(crate::health::strategy_readiness))
+        .route("/api/v1/dependencies", get(crate::health::dependencies))
         .route("/api/v1/runtime", get(handlers::runtime_health))
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
@@ -278,5 +309,10 @@ fn create_router_with_options(
     } else {
         router
     };
-    router.with_state(state)
+    router
+        .with_state(state)
+        .layer(axum::middleware::from_fn_with_state(
+            access,
+            crate::access::http::enforce,
+        ))
 }
