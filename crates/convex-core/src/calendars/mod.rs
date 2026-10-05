@@ -41,6 +41,7 @@
 use chrono::Datelike;
 
 mod bitmap;
+pub mod checked;
 mod conventions;
 mod dynamic;
 mod japan;

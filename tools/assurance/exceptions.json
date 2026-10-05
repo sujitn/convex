@@ -13,13 +13,14 @@
         "crates/convex-math/src/interpolation/parametric.rs",
         "crates/convex-math/src/optimization/mod.rs",
         "crates/convex-math/src/stats/normal.rs",
-        "crates/convex-bonds/src/options/swaption_hw1f.rs"
+        "crates/convex-bonds/src/options/swaption_hw1f.rs",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs"
       ],
       "rationale": "Existing infallible signatures retain documented preconditions and may panic or yield nonfinite signals on invalid direct Rust input. Changing signatures would break embedding clients; checked alternatives bound external paths.",
-      "mitigations": "Use checked constructors/arithmetic/queries/minimizer/swaption for external input. FFI applies resource/domain validation. Nonfinite minimizer/pricer failure cannot be treated as successful economics. Core compatibility conversion accepts declared period counts only. Pure callbacks must terminate and not panic. Existing signatures are not certified total APIs.",
-      "tracking_task": "CVX-054 / CVX-060 / CVX-064",
+      "mitigations": "Use checked constructors/arithmetic/queries/minimizer/swaption for external input. FFI applies resource/domain validation. Nonfinite minimizer/pricer failure cannot be treated as successful economics. Core compatibility conversion accepts declared period counts only. Pure callbacks must terminate and not panic. Existing signatures are not certified total APIs. CVX-054 checked bond builders and native deserialization prevalidate/cache schedules; try_schedule returns typed errors. Older infallible with_conventions and trait schedule access retain valid-term preconditions; new shared cashflow/fixing APIs deny unwrap/expect/panic.",
+      "tracking_task": "CVX-055 / CVX-060 / CVX-063 / CVX-064",
       "owner": "Convex maintainers",
-      "reviewed_on": "2026-10-04",
+      "reviewed_on": "2026-10-05",
       "expires_on": "2026-12-31"
     },
     {
@@ -30,13 +31,16 @@
         "crates/convex-core/src/calendars/dynamic.rs",
         "crates/convex-core/src/daycounts/actact.rs",
         "crates/convex-core/src/daycounts/act365.rs",
-        "crates/convex-bonds/src/fixings.rs"
+        "crates/convex-bonds/src/fixings.rs",
+        "crates/convex-core/src/daycounts/thirty360.rs",
+        "crates/convex-bonds/src/cashflows/schedule.rs",
+        "crates/convex-bonds/src/arrc.rs"
       ],
-      "rationale": "Legacy infallible calendar/day-count search APIs rely on ordered representable dates, valid periods and calendars with reachable business days. Existing file-loading convenience methods remain; a universal checked schedule API is separate scope.",
-      "mitigations": "Host dates are years 1..9999 and instrument spans at most 150*366 days, using built-in calendars. Do not pass pathological custom calendars or boundary dates to unchecked search APIs. Checked date offset regression/property tests run. File conveniences are setup only and never provider/runtime dependencies of pricing. Complete checked shared primitives and move side-effect conveniences at the owning task.",
-      "tracking_task": "CVX-054",
+      "rationale": "Older infallible calendar/day-count convenience APIs and date-only overnight functions retain preconditions and incomplete publication semantics. The compatibility 30E/360 ISDA method retains its pinned all-month termination behavior; only the new checked path applies the February exception. Calendar file-loading conveniences remain. These compatibility paths are not total or product certificates.",
+      "mitigations": "Use CVX-054 checked shared schedules, offsets, contract-aware day-count accrual and publication/receipt/revision-aware FixingSeries and OvernightSchedule. Missing published observations fail before any projection. Calendar::adjust now bounds built-in searches. Do not pass pathological custom calendars or boundary dates to older infallible convenience searches. Migrate full product amounts/observations and schemas in their owning tasks; file conveniences are setup only. New primitives have no registered exception.",
+      "tracking_task": "CVX-055 / CVX-018 / CVX-019 / CVX-063 / CVX-064",
       "owner": "Convex maintainers",
-      "reviewed_on": "2026-10-04",
+      "reviewed_on": "2026-10-05",
       "expires_on": "2026-12-31"
     },
     {

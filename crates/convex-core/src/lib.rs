@@ -32,9 +32,11 @@
 #![deny(unused_must_use)]
 
 pub mod calendars;
+pub mod cashflows;
 pub mod contracts;
 pub mod daycounts;
 pub mod error;
+pub mod fixings;
 pub mod traits;
 pub mod types;
 

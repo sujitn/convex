@@ -50,6 +50,15 @@ returns a linear midpoint, and four missing historic overnight observations
 are forecast. Passing those characterization controls does not bless the
 fallbacks. Owning fixes must update the evidence and controls together.
 
+CVX-054 adds [shared native cashflow primitives](CASHFLOW-PRIMITIVES.md): one
+anchored schedule generator in core, distinct date rules and ICMA references,
+checked dated coupon/spread/gearing/notional profiles, explicit cash entitlement
+and principal effects, and eligible fixing/overnight resolution. Thirty-six
+new tests and a standalone consumer exercise supplied contracts; source
+observations increase to 38. All 2,154 records remain Planned until their exact
+market/product/surface certificates are established. The old date-only ARRC
+characterization above remains a compatibility gap.
+
 ## Evidence and missing operations
 
 `requirement_areas` maps requirements, minimum gate, operations, surfaces and
@@ -61,7 +70,7 @@ JSON join avoids duplicating source/provenance text in thousands of rows;
 it introduces no production capability registry or pricing abstraction.
 
 `observations` records partial, missing, type-only, approximate or missing
-construction/dispatch paths. Anchors and 44 exact source hashes prove which
+construction/dispatch paths. Anchors and 57 exact source hashes prove which
 bytes were inspected. Family test anchors are **candidates for reuse**, not
 proof that every convention/model/operation/surface record passes them.
 Actual command receipts and standalone results belong to task evidence.
@@ -69,8 +78,8 @@ Source review did not establish line/branch coverage or quantitative approval.
 
 | Area | Mandatory scope | Current evidence and primary gaps | Owning tasks |
 |---|---|---|---|
-| LC-001 | Shared calendar and schedule primitives (LB0) | incomplete contract, unverified conventions | CVX-054 |
-| LC-002 | Fixings and dated coupon/principal profiles (LB0) | incomplete contract, missing input substitution | CVX-054 |
+| LC-001 | Shared calendar and schedule primitives (LB0) | checked supplied-contract primitives implemented; exact market conventions/certificate pending | CVX-054, CVX-064 |
+| LC-002 | Fixings and dated coupon/principal profiles (LB0) | checked publication/revision and dated-profile APIs implemented; full product migration/certificate pending | CVX-054, CVX-064 |
 | LC-003 | Fixed-rate bullet bonds (LB0) | failed comparison, lossy schema, missing dispatch, unverified conventions | CVX-017, CVX-054 |
 | LC-004 | Bills and zero-coupon bonds (LB0) | incomplete contract, incomplete facade, missing dispatch, unverified conventions | CVX-017, CVX-054 |
 | LC-005 | Plain floating-rate notes (LB1) | incomplete contract, incomplete facade, missing dispatch, missing input substitution, missing option model | CVX-055, CVX-061, CVX-062 |
@@ -118,10 +127,11 @@ The highest-impact concrete findings are:
 - Native `CallableFloatingRateNote` and DM-to-workout/worst are callable, but
   there is no shared construction variant or complete joint floating/exercise
   model workflow. Forecast cap/floor clipping is not an option price.
-- Historic fixing publication/revisions and missing-input requirements are
-  incomplete in pure coupon inputs. Application publication-aware fixing
-  repositories do not make those coupon APIs complete. Existing FRN methods
-  can use zero current rate; ARRC can forecast missing past observations.
+- CVX-054 supplies checked pure publication/revision-aware fixing and overnight
+  APIs, with complete missing history rejected before projection. Existing FRN
+  and date-only ARRC product routes still require migration; they can use zero
+  current rate or forecast missing past observations. Those compatibility
+  routes are not certified by the new primitives.
 - Native CDS premium/protection/upfront/JTD and full seasoned IRS/OIS workflows
   are missing. CreditCurve queries do not provide CDS calibration; synthetic
   swap hedge risk assumes floating-leg DV01 zero. Risk across projection,

@@ -13,7 +13,8 @@ The pure calculation crates are `convex`, `convex-core`, `convex-math`,
 Each forbids unsafe code and denies unchecked `must_use` results. Math and
 FFI production builds additionally deny Clippy's `unwrap_used`, `expect_used`,
 and `panic`; core contracts and global curve calibration apply the same
-scoped rules. Test assertions remain available. FFI denies undocumented
+scoped rules. Shared core cashflows, fixings and checked calendars apply the
+same denial. Test assertions remain available. FFI denies undocumented
 unsafe blocks, missing safety documentation, and implicit unsafe operations.
 
 The dependency checker traverses all-feature, target-specific **normal**
@@ -44,6 +45,8 @@ API is already complete. Its C export list detects ABI inventory drift.
 | Piecewise calibration | At most 128 helpers, configured solver bound for each pillar, at most 32 full-curve refinement sweeps | Failed solves cannot become quote values. Full-curve repricing satisfies the requested tolerance or returns an error. |
 | HW1F calibration | At most 128 helpers; combined expiry/tail ≤150 years, 200 minimizer iterations | Finite valid inputs and positive market values; missing curve values and failed Jamshidian roots return errors. |
 | Checked HW1F swaption | At most 150 annual payments and 100 root iterations | Finite price or typed error; no zero-rate fallback. |
+| Shared schedules/profiles | At most 4,096 entries per validated schedule/profile; years 1–9999, span ≤150×366 days | Anchored date grids, reference periods, independent dated terms and explicit entitlement; invalid/overlapping/gapped profiles fail. |
+| Eligible fixings/overnight | At most 65,536 revisions and 4,096 requests/compound terms; offsets ≤366 business/calendar days, calendar scans ≤3,660 steps | Publication and receipt cutoffs, immutable revisions, complete missing-history failure before any forecast; checked positive Decimal product. |
 | Checked date arithmetic | Chrono's representable calendar; checked day/month/year addition | Overflow/out-of-range returns an error; signed month arithmetic uses Euclidean division. |
 
 Solver defaults remain `1e-10` and 100 iterations. Piecewise defaults remain
@@ -144,6 +147,16 @@ metadata require exact candidate impact review. CI requires coverage rejection
 tests and a pure standalone consumer with default, no-default and schema
 features. Metadata/source inspection cannot award `Verified`; LB0/LB1 remain
 explicitly incomplete. Existing quantitative pins and tolerances are unchanged.
+
+CVX-054 adds five new [shared-primitives](CASHFLOW-PRIMITIVES.md) artifact pins
+while preserving all 55 previous rows, bytes and solver defaults. New fixtures
+state exact supplied contracts, reference identities, units and analytic Decimal
+bounds; no independent quantitative approval or market pack is inferred. CI
+requires the pure consumer in default, no-default and schema builds. Checked
+bond construction validates schedules up front. Older infallible/date-only
+compatibility routes retain registered preconditions; full product/schema
+migration and LB0/LB1 certification remain owning tasks. Exception expirations
+remain 2026-12-31.
 
 `change-reviews.json` ties engineering impact to a base commit and candidate
 file hashes, with actor, rationale, review date and test evidence. It includes

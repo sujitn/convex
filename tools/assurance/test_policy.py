@@ -12,7 +12,7 @@ from unittest.mock import patch
 import check
 
 ROOT = Path(__file__).resolve().parents[2]
-TODAY = dt.date(2026, 10, 4)
+TODAY = dt.date(2026, 10, 5)
 
 class AssuranceMutations(unittest.TestCase):
     def rejects(self, function, *args):
@@ -69,7 +69,7 @@ class AssuranceMutations(unittest.TestCase):
     def test_expiry_owner_and_duplicate_exceptions(self):
         source = check.read_json(ROOT/'tools/assurance/exceptions.json')
         check.check_exceptions(source, TODAY)
-        for field, value in [('owner',''), ('expires_on','2026-10-04'), ('expires_on','2027-10-04'), ('reviewed_on','2026-10-05')]:
+        for field, value in [('owner',''), ('expires_on','2026-10-05'), ('expires_on','2027-10-04'), ('reviewed_on','2026-10-06')]:
             candidate = copy.deepcopy(source)
             candidate['exceptions'][0][field] = value
             self.rejects(check.check_exceptions, candidate, TODAY)
@@ -129,6 +129,17 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, mutation)
         self.assertTrue(check.protected('tools/library/library-inventory.json'))
         self.assertTrue(check.protected('tools/library/check.py'))
+
+    def test_shared_cashflow_consumer_feature_checks_are_mandatory(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'cargo run --locked -p convex --example cashflow_primitives',
+            'cargo run --locked -p convex --example cashflow_primitives --no-default-features',
+            'cargo run --locked -p convex --example cashflow_primitives --features schemars',
+        ]:
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: cargo run --example unrelated_consumer\n'))
 
     def change_fixture(self, directory):
         root = Path(directory)

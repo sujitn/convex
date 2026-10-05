@@ -65,33 +65,33 @@ pub fn adjust<C: Calendar + ?Sized>(
     match convention {
         BusinessDayConvention::Unadjusted => Ok(date),
 
-        BusinessDayConvention::Following => Ok(following(date, calendar)),
+        BusinessDayConvention::Following => following(date, calendar),
 
         BusinessDayConvention::ModifiedFollowing => {
-            let adjusted = following(date, calendar);
+            let adjusted = following(date, calendar)?;
             if adjusted.month() != date.month() {
                 // Crossed month boundary, go preceding instead
-                Ok(preceding(date, calendar))
+                preceding(date, calendar)
             } else {
                 Ok(adjusted)
             }
         }
 
-        BusinessDayConvention::Preceding => Ok(preceding(date, calendar)),
+        BusinessDayConvention::Preceding => preceding(date, calendar),
 
         BusinessDayConvention::ModifiedPreceding => {
-            let adjusted = preceding(date, calendar);
+            let adjusted = preceding(date, calendar)?;
             if adjusted.month() != date.month() {
                 // Crossed month boundary, go following instead
-                Ok(following(date, calendar))
+                following(date, calendar)
             } else {
                 Ok(adjusted)
             }
         }
 
         BusinessDayConvention::Nearest => {
-            let fwd = following(date, calendar);
-            let back = preceding(date, calendar);
+            let fwd = following(date, calendar)?;
+            let back = preceding(date, calendar)?;
 
             let fwd_days = date.days_between(&fwd);
             let back_days = back.days_between(&date);
@@ -108,26 +108,20 @@ pub fn adjust<C: Calendar + ?Sized>(
             if calendar.is_business_day(eom) {
                 Ok(eom)
             } else {
-                Ok(preceding(eom, calendar))
+                preceding(eom, calendar)
             }
         }
     }
 }
 
 /// Returns the next business day on or after the given date.
-fn following<C: Calendar + ?Sized>(mut date: Date, calendar: &C) -> Date {
-    while !calendar.is_business_day(date) {
-        date = date.add_days(1);
-    }
-    date
+fn following<C: Calendar + ?Sized>(date: Date, calendar: &C) -> ConvexResult<Date> {
+    super::checked::business_day_on_or_after(date, calendar)
 }
 
 /// Returns the previous business day on or before the given date.
-fn preceding<C: Calendar + ?Sized>(mut date: Date, calendar: &C) -> Date {
-    while !calendar.is_business_day(date) {
-        date = date.add_days(-1);
-    }
-    date
+fn preceding<C: Calendar + ?Sized>(date: Date, calendar: &C) -> ConvexResult<Date> {
+    super::checked::business_day_on_or_before(date, calendar)
 }
 
 #[cfg(test)]

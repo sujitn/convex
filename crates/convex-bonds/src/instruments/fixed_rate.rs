@@ -14,7 +14,8 @@ use crate::error::{BondError, BondResult, IdentifierError};
 use crate::traits::{Bond, BondCashFlow, FixedCouponBond};
 use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip};
 
-/// Fixed-rate bond. Cashflow schedule is built lazily on first use.
+/// Fixed-rate bond. Checked construction validates and caches the schedule.
+/// The infallible with_conventions convenience retains its existing preconditions.
 #[derive(Debug, Clone)]
 pub struct FixedRateBond {
     // Identification
@@ -157,7 +158,15 @@ impl FixedRateBond {
     /// Uses backward generation from maturity to ensure correct regular coupon dates
     /// regardless of the `dated_date`.
     fn schedule(&self) -> &Schedule {
-        self.schedule.get_or_init(|| {
+        // Infallible compatibility trait: checked constructors have populated
+        // this cell already. Direct infallible construction requires valid terms.
+        self.try_schedule().expect("Schedule generation failed")
+    }
+
+    /// Resolve the shared schedule with typed validation failure instead of panic.
+    /// Checked builders/deserialization call this before accepting the bond.
+    pub fn try_schedule(&self) -> BondResult<&Schedule> {
+        self.schedule.get_or_try_init(|| {
             // Determine stub type based on whether we have explicit first/penultimate dates
             let stub_type = if self.first_coupon_date.is_some() {
                 StubType::ShortFirst
@@ -186,7 +195,7 @@ impl FixedRateBond {
                 config
             };
 
-            Schedule::generate(config).expect("Schedule generation failed")
+            Schedule::generate(config)
         })
     }
 
@@ -779,7 +788,7 @@ impl FixedRateBondBuilder {
 
         let dated_date = self.dated_date.unwrap_or(issue_date);
 
-        Ok(FixedRateBond {
+        let bond = FixedRateBond {
             identifiers,
             coupon_rate,
             maturity,
@@ -801,7 +810,9 @@ impl FixedRateBondBuilder {
             ex_dividend_days: self.ex_dividend_days,
             bond_type: self.bond_type.unwrap_or(BondType::FixedRateCorporate),
             schedule: OnceCell::new(),
-        })
+        };
+        bond.try_schedule()?;
+        Ok(bond)
     }
 }
 
@@ -897,7 +908,7 @@ impl<'de> Deserialize<'de> for FixedRateBond {
         }
 
         let data = FixedRateBondData::deserialize(deserializer)?;
-        Ok(FixedRateBond {
+        let bond = FixedRateBond {
             identifiers: data.identifiers,
             coupon_rate: data.coupon_rate,
             maturity: data.maturity,
@@ -917,7 +928,9 @@ impl<'de> Deserialize<'de> for FixedRateBond {
             ex_dividend_days: data.ex_dividend_days,
             bond_type: data.bond_type,
             schedule: OnceCell::new(),
-        })
+        };
+        bond.try_schedule().map_err(serde::de::Error::custom)?;
+        Ok(bond)
     }
 }
 

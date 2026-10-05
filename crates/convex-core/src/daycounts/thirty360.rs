@@ -194,6 +194,42 @@ pub struct Thirty360EIsda {
 }
 
 impl Thirty360EIsda {
+    /// Checked contract-aware fraction. Only a February termination keeps its
+    /// actual final day; a termination on the 31st still becomes day 30.
+    /// The older DayCount implementation retains its historical all-month
+    /// termination exception for compatibility with existing numerical fixtures.
+    pub fn checked_year_fraction(&self, start: Date, end: Date) -> crate::ConvexResult<Decimal> {
+        if !(1..=9999).contains(&start.year()) || !(1..=9999).contains(&end.year()) || end < start {
+            return Err(crate::ConvexError::DayCountError {
+                reason: "invalid checked accrual dates".into(),
+            });
+        }
+        if self
+            .termination_date
+            .is_some_and(|date| !(1..=9999).contains(&date.year()))
+        {
+            return Err(crate::ConvexError::DayCountError {
+                reason: "invalid termination date".into(),
+            });
+        }
+        let d1 = if start.is_end_of_month() {
+            30
+        } else {
+            i64::from(start.day())
+        };
+        let february_termination = end.month() == 2 && self.termination_date == Some(end);
+        let d2 = if end.is_end_of_month() && !february_termination {
+            30
+        } else {
+            i64::from(end.day())
+        };
+        let days = 360 * i64::from(end.year() - start.year())
+            + 30 * (i64::from(end.month()) - i64::from(start.month()))
+            + d2
+            - d1;
+        Ok(Decimal::from(days) / Decimal::from(360))
+    }
+
     /// Creates a new 30E/360 ISDA convention.
     ///
     /// # Arguments

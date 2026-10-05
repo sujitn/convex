@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 2,
-  "reviewed_on": "2026-10-04",
-  "provenance": "All 47 CVX-039 quantitative artifacts and solver defaults remain unchanged. CVX-040 adds pinned offline manifests, candidate adapter, comparison policy and primary-source version/license records. Retained QuantLib outputs have incomplete original runtime capture; pending ORE/ISDA/exchange product fixtures are not certifications.",
+  "version": 3,
+  "reviewed_on": "2026-10-05",
+  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -34,6 +34,11 @@
       "sha256": "1dafe0aa1fc4d5c0f5283cf16390589d42bc02e162fa1f9dbabeb6c6f3773653"
     },
     {
+      "path": "crates/convex-analytics/tests/shared_primitives.rs",
+      "mode": "file",
+      "sha256": "cdd5ca407a9e0f3ce509f89444df40c009bfb77e6d53faa437757f2640c6469c"
+    },
+    {
       "path": "crates/convex-bonds/src/fixings.rs",
       "mode": "test_section",
       "sha256": "c365f335ddf6ef51f31ece1cd7e0b92ea62f2e052af7ec7770ccc7f1de97b7cf"
@@ -42,6 +47,11 @@
       "path": "crates/convex-bonds/src/options/swaption_hw1f.rs",
       "mode": "test_section",
       "sha256": "b7e54b917ee6186e3fb9c30562c299540a4d73e78b3ecd3120d78f5ecf9f1094"
+    },
+    {
+      "path": "crates/convex-bonds/tests/shared_primitives.rs",
+      "mode": "file",
+      "sha256": "228583de8d49dcff66b341df839b42279914923a209b023afd34cc8ec2810737"
     },
     {
       "path": "crates/convex-core/src/calendars/conventions.rs",
@@ -77,6 +87,16 @@
       "path": "crates/convex-core/src/types/frequency.rs",
       "mode": "test_section",
       "sha256": "22d082e25bd9d76f5cb7d87faf54f97baadf774afcb5d6acc5be929d148880b8"
+    },
+    {
+      "path": "crates/convex-core/tests/cashflow_primitives.rs",
+      "mode": "file",
+      "sha256": "c3d05785507db8d2fa4379ed2390ea2b1f914779f299627bf21a39cb0da728c8"
+    },
+    {
+      "path": "crates/convex-core/tests/fixtures/cashflow-primitives.json",
+      "mode": "file",
+      "sha256": "3d348b738c54981cc0c2774feac054feba5b016032986b10abf01ec1d8ed882e"
     },
     {
       "path": "crates/convex-curves/src/calibration/global_fit.rs",
@@ -207,6 +227,11 @@
       "path": "crates/convex-portfolio/src/lib.rs",
       "mode": "test_section",
       "sha256": "552d60bafcf626cf2cf40a00ecbbb26e76634ef00db6a50071dcbe51bc929535"
+    },
+    {
+      "path": "crates/convex/examples/cashflow_primitives.rs",
+      "mode": "file",
+      "sha256": "d78247fc67825b70b5f8a709186f7b624a69f02543c719bb2490cb4e00fde9d7"
     },
     {
       "path": "reconciliation/book.json",

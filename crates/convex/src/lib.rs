@@ -15,6 +15,7 @@ pub use convex_core::types::{
     CashFlow, CashFlowSchedule, CashFlowType, Compounding, Currency, Date, Frequency, Mark, Price,
     PriceKind, Spread, SpreadType, Yield,
 };
+pub use convex_core::{cashflows, fixings};
 
 pub use convex_curves::{
     CalibrationResult, CurveError, CurveResult, Deposit, DiscountCurve, DiscreteCurve, Fra,

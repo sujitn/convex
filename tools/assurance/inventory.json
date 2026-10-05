@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-04",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review.",
+  "reviewed_on": "2026-10-05",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending.",
   "files": [
     {
       "path": "crates/convex-analytics/src/calibration/hw1f.rs",
@@ -27,16 +27,56 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-bonds/src/arrc.rs",
+      "sha256": "8fb48d0615ddd7660d2485bafeee6b0708ccb4f77427f4cf163b2b3c990a187b",
+      "invariants": "Checked OvernightSchedule reexport; old date-only ARRC function/test bytes and missing-history forecast characterization unchanged.",
+      "bounds": "New API shares4096 terms/366offset bounds. Older function preconditions and full-product integration remain exception scope.",
+      "failure_contract": "Use checked pure API for published history failure; old function is not a publication/model certificate.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-bonds/src/cashflows/schedule.rs",
+      "sha256": "507e6321020029752d4fac1a04c11ac1316d28c30c61519b2478fa73001d68db",
+      "invariants": "One core generator, reused by compatibility bond/analytics schedules; explicit short-front None default and existing zero behavior; known/joint calendar validation.",
+      "bounds": "Shared schedule limits; identifier<=256bytes, <=16 joint components; empty single name is explicit weekend alias, empty joint components fail.",
+      "failure_contract": "Checked shared/date/calendar failures converted to BondError; old to_calendar fallback separately excepted.",
+      "tests": [
+        "crates/convex-bonds/tests/shared_primitives.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
       "path": "crates/convex-bonds/src/fixings.rs",
-      "sha256": "44e6a4486d7e6a47f6be793504f44a29aa2ab1db8e0330ee445b3adffdd531d0",
+      "sha256": "6d49361f99d14d9201d090069eacd5466da65cfae4ee9f2be2981c8ea728e2d2",
       "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
       "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
       "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
       "tests": [
-        "crates/convex-core/tests/assurance.rs"
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-core/tests/cashflow_primitives.rs"
       ],
       "exceptions": [
         "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-bonds/src/instruments/fixed_rate.rs",
+      "sha256": "6e07bc56957fadf6a01a34683141e5a678844fb5eb578c625eb422a65eb64d9a",
+      "invariants": "Checked builder and native deserialize cache validated schedule; public try_schedule returns typed errors. Existing financial coupon/pricing kernels unchanged.",
+      "bounds": "Shared schedule/calendar bounds apply before checked construction accepts product; older infallible mutation keeps valid-term precondition.",
+      "failure_contract": "Checked construction/try_schedule propagate errors; infallible compatibility getter retains declared precondition.",
+      "tests": [
+        "crates/convex-bonds/tests/shared_primitives.rs"
+      ],
+      "exceptions": [
+        "ASR-001"
       ]
     },
     {
@@ -65,13 +105,25 @@
       ]
     },
     {
-      "path": "crates/convex-core/src/calendars/conventions.rs",
-      "sha256": "0e3c2d285363a00c339873348ec2d1cc5771364823a9bd4a922878e618f15bfb",
-      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
-      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
-      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "path": "crates/convex-core/src/calendars/checked.rs",
+      "sha256": "779ae37b936da4ee83cbc872c18dc6a17265e50d9b2e02b3f75fdc46b5851dcb",
+      "invariants": "Bounded directional business-day search and offset with checked date arithmetic; scoped unwrap/expect/panic denial.",
+      "bounds": "Offset\u00b1366 business days, scan<=3660 calendar-day steps; representable Chrono dates, canonical bounds additionally enforced by shared caller.",
+      "failure_contract": "Typed exhausted-search/date-overflow error.",
       "tests": [
-        "crates/convex-core/tests/assurance.rs"
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/calendars/conventions.rs",
+      "sha256": "97a1e5f4596fdb3edc33be47cc79990100165c81057686b6aba0d6e560cc2b35",
+      "invariants": "Adjustment preserves the declared convention; all directional searches use checked date arithmetic and fixed ceilings. Caller calendar callbacks must terminate without panic.",
+      "bounds": "Searches <=3660 calendar days; enclosing shared contracts use years1..9999. Modified/following/preceding use explicit tie and month rules.",
+      "failure_contract": "Unreachable business day/date overflow propagates typed calendar/date error; no substituted holiday date.",
+      "tests": [
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-core/tests/cashflow_primitives.rs"
       ],
       "exceptions": [
         "ASR-002"
@@ -92,16 +144,72 @@
     },
     {
       "path": "crates/convex-core/src/calendars/mod.rs",
-      "sha256": "e59889e98773aed446b757ced8e18f4762c06902c7510d49e4d155d6783fbb9e",
+      "sha256": "23ef58562c8bac070fd72b02bf9deade21d91d493706035f4ea82a63924b350a",
       "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
       "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
       "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
       "tests": [
-        "crates/convex-core/tests/assurance.rs"
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-core/tests/cashflow_primitives.rs"
       ],
       "exceptions": [
         "ASR-002"
       ]
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/amounts.rs",
+      "sha256": "1247cd2c10e78903a6b67449d9a14ec44f607107d8de2733236e8ec770331aea",
+      "invariants": "Checked Decimal economic segment sums; explicit principal/negative-coupon/rounding/redemption/entitlement policies; expected cash never asserts realized payment.",
+      "bounds": "Four validated profiles<=4096entries each; combined cuts<=4*4096+2; canonical covered coupon dates; index\u00b110, rounding scale0..28, redemption multiplier0..10; checked Decimal operations.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/mod.rs",
+      "sha256": "91dece06cfe3bf52169f0fc620b419306696f08b9f99842a5473514585938316",
+      "invariants": "Pure shared immutable inputs; scoped unwrap/expect/panic denial; canonical dates and ordered bounded spans.",
+      "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/overnight.rs",
+      "sha256": "5eb8c44bb7e780aae8fccfed422b377d58a9518e22fd8660dda337f9cb44df4f",
+      "invariants": "Explicit lookback/shift/lockout calendar weights; resolve complete eligible history before any forecast; positive compound factors and per-observation provenance.",
+      "bounds": "Canonical ordered span<=150*366days; <=4096 observation terms, lookback/lockout<=366, calendar search<=3660; unique requirements<=4096; inherited rate and history bounds; checked positive compound product; callbacks must terminate without panic.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/profiles.rs",
+      "sha256": "4dd6ce6df2a0e3c04ad34ad75c53442727a802b48e3201924b3559230a5ee391",
+      "invariants": "Immutable sorted contiguous independent coupon/spread/gearing/notional intervals; explicit before/after boundary principal and no unchecked deserialization.",
+      "bounds": "Each profile<=4096 entries; canonical years1..9999/span<=150*366days; coupon/spread \u00b110, gearing magnitude<=1e6, notional0..1e18. Full nonempty contiguous coverage and private immutable fields bound access.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/schedule.rs",
+      "sha256": "9878e2e4f4e7175e2ce5f96ca631b53a6c7ef7b06366a06d56e01c78183bf57a",
+      "invariants": "Anchored grid; short/long front/back stubs; independent contractual/accrual/payment/fixing/observation/ex dates; complete ICMA reference partition; contract-aware 30E ISDA.",
+      "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
     },
     {
       "path": "crates/convex-core/src/contracts/mod.rs",
@@ -142,8 +250,32 @@
       ]
     },
     {
+      "path": "crates/convex-core/src/daycounts/thirty360.rs",
+      "sha256": "d3dcf48ecebdfc4d487d854862829b183166c0f4c6c03bfb45b42631e73782a4",
+      "invariants": "New checked 30E/360 ISDA only exempts final February end; 31 always becomes30. Existing infallible compatibility kernel and all old tests unchanged.",
+      "bounds": "Checked ordered canonical dates1..9999; finite integer days and denominator360.",
+      "failure_contract": "New checked typed date/domain errors; old compatibility preconditions tracked separately.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": [
+        "ASR-002"
+      ]
+    },
+    {
+      "path": "crates/convex-core/src/fixings.rs",
+      "sha256": "7c52de77c37b19b7e0ed312564fe0b009e65f687e03e74cfcb716856f3c8d770",
+      "invariants": "Immutable source-selected revision history; both publication and receipt <=cutoff; no future observation leakage or missing-published projection; duplicates and inconsistent histories rejected.",
+      "bounds": "Dates1..9999; <=65536 history revisions, <=4096 unique resolution requests; input rates \u00b110 annualized decimal. No clock/repository calls or implicit source arbitration. History sorting/scans bounded by input size; callback must terminate without panic.",
+      "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
+      "tests": [
+        "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-core/src/lib.rs",
-      "sha256": "5555be622ab1620349329fd49866e2d04da518774f804d9f836848c969f35485",
+      "sha256": "90a0a64633a6d147e78b06995270f07c8cb53d87674e99d4be4b26187dbde582",
       "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
@@ -641,7 +773,7 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "37354e987862d0e9259fdc9836d5c195e3a776a480d794998504685aba24da58",
+      "sha256": "e326a53ee53405e59b2db5a6dae44bac976147a9ac0b2abeae25fa8856549296",
       "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",

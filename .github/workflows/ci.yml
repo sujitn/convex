@@ -60,6 +60,15 @@ jobs:
       - name: Check standalone library failures properties and ABI fuzzing
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi
 
+      - name: Exercise shared cashflow primitives through the standalone facade
+        run: cargo run --locked -p convex --example cashflow_primitives
+
+      - name: Exercise shared cashflow primitives without default features
+        run: cargo run --locked -p convex --example cashflow_primitives --no-default-features
+
+      - name: Exercise shared cashflow primitives with schema features
+        run: cargo run --locked -p convex --example cashflow_primitives --features schemars
+
       - name: Check minimum pure feature combination
         run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
 

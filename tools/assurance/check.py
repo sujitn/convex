@@ -22,6 +22,9 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example inventory_probe --no-default-features',
         'cargo run --locked -p convex --example inventory_probe --features schemars',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi',
+        'cargo run --locked -p convex --example cashflow_primitives',
+        'cargo run --locked -p convex --example cashflow_primitives --no-default-features',
+        'cargo run --locked -p convex --example cashflow_primitives --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -167,6 +170,8 @@ def inventory_paths(root: Path) -> set[str]:
     paths = {str(p.relative_to(root)) for crate in ['convex-math', 'convex-ffi'] for p in (root / 'crates' / crate / 'src').rglob('*.rs')}
     paths.update(f'crates/{crate}/src/lib.rs' for crate in DOMAIN)
     paths.update(['crates/convex-core/src/types/date.rs', 'crates/convex-core/src/types/frequency.rs', 'crates/convex-core/src/calendars/mod.rs', 'crates/convex-core/src/calendars/conventions.rs', 'crates/convex-core/src/calendars/dynamic.rs', 'crates/convex-bonds/src/fixings.rs', 'crates/convex-core/src/daycounts/actact.rs', 'crates/convex-core/src/daycounts/act365.rs', 'crates/convex-core/src/contracts/mod.rs', 'crates/convex-curves/src/curves/discrete.rs', 'crates/convex-curves/src/curves/segmented.rs', 'crates/convex-curves/src/calibration/global_fit.rs', 'crates/convex-analytics/src/calibration/hw1f.rs', 'crates/convex-bonds/src/options/swaption_hw1f.rs', 'crates/convex-engine/src/calc_graph.rs', 'crates/convex-engine/src/runtime/mod.rs'])
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/cashflows').glob('*.rs'))
+    paths.update(['crates/convex-core/src/calendars/checked.rs', 'crates/convex-core/src/fixings.rs', 'crates/convex-core/src/daycounts/thirty360.rs', 'crates/convex-bonds/src/cashflows/schedule.rs', 'crates/convex-bonds/src/instruments/fixed_rate.rs', 'crates/convex-bonds/src/arrc.rs'])
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:
