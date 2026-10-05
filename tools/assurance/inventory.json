@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-05",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved.",
   "files": [
     {
       "path": "crates/convex-analytics/src/calibration/hw1f.rs",
@@ -19,7 +19,7 @@
       "path": "crates/convex-analytics/src/curve_inputs.rs",
       "sha256": "a0db7565538d44b816d4b0fe8106160ea5b76c78d0b85fc0315f059f180c1ed4",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. New Decimal economics serialize as exact strings and reject inexact or numeric ingress; wire adapters reuse core DatedValue without changing older serialization.",
-      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Acyclic derived dependency depth<=256. Decimal strings<=64bytes; serialized/deserialized profile entries<=4096; caller byte/depth admission remains required.",
+      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Decimal strings<=64bytes; serialized/deserialized profile entries<=4096; caller byte/depth admission remains required.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
         "crates/convex-curves/tests/curve_contracts.rs",
@@ -340,53 +340,91 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/build.rs",
-      "sha256": "3430dd844bcc8cd38247f5060c5f0dd8f0de9466e7dfc02f1fcb2055921a7e51",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply.",
-      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Acyclic derived dependency depth<=256.",
+      "sha256": "3960a39b13b91004d563290d3d299d7fc764f9cb7cb2a0592b2e95cfd5faea9a",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
         "crates/convex-curves/tests/curve_contracts.rs",
         "crates/convex-analytics/tests/curve_inputs.rs",
-        "crates/convex/examples/curve_contracts.rs"
+        "crates/convex/examples/curve_contracts.rs",
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/contracts/inputs.rs",
-      "sha256": "721779606f9af92f59c0ac2fcf869b6ffdc00ef242e72584db117e6e10192231",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply.",
-      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Acyclic derived dependency depth<=256.",
+      "sha256": "ec4985dfcc52304daae84b99ceac0c4dc6384f1e1765c20a4209f6a6e0a474db",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
         "crates/convex-curves/tests/curve_contracts.rs",
         "crates/convex-analytics/tests/curve_inputs.rs",
-        "crates/convex/examples/curve_contracts.rs"
+        "crates/convex/examples/curve_contracts.rs",
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/contracts/mod.rs",
-      "sha256": "caded68a681594abdf510cfe67ba4177f025bcb8440883fa7055866e9900d6e3",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply.",
-      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Acyclic derived dependency depth<=256.",
+      "sha256": "4eb218f9569289120b649d627e84531a6fb8e70f408abd4f8ca5d1c968fab1d6",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
         "crates/convex-curves/tests/curve_contracts.rs",
         "crates/convex-analytics/tests/curve_inputs.rs",
-        "crates/convex/examples/curve_contracts.rs"
+        "crates/convex/examples/curve_contracts.rs",
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-curves/src/contracts/numerics.rs",
+      "sha256": "abbf5fe4766149527b3119e1ec447095fb06a6934b8fa9148b07a4172938786d",
+      "invariants": "Pure checked caller-supplied inputs. Finite native residuals; objective and every native postcondition plus undamped identification required; no callback, method, rate or partial-output substitute. Exact view/roll conventions and old kernels conserved. Scoped deny unwrap/expect/panic inherited.",
+      "bounds": "Fit parameters/residuals<=128; LM/SVD positive budgets<=10000; callback calls<=1+maxiter+2*n*(maxiter+1); dense augmented rows<=256; curve queries<=150years; derived views<=32; date inverse<=16 steps. Caller callbacks must terminate and not panic.",
+      "failure_contract": "Typed contract or solver error, including original callback failure and measured rank/residual/budget diagnostics; no fitted vector/curve on failure.",
+      "tests": [
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/contracts/query.rs",
-      "sha256": "477bfe66b66eae90c0ebbf89b05160085fd85701241fd5f16710587879aa05db",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply.",
-      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Acyclic derived dependency depth<=256.",
+      "sha256": "cdff73cf2c92e87c82dc484054edf19b541e3094468f02aa5cd0de73cc8328ec",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
         "crates/convex-curves/tests/curve_contracts.rs",
         "crates/convex-analytics/tests/curve_inputs.rs",
-        "crates/convex/examples/curve_contracts.rs"
+        "crates/convex/examples/curve_contracts.rs",
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-curves/src/contracts/transformations.rs",
+      "sha256": "db52929869da2e6e2b0c3763867777d83855e7baad6eefd016eaf8ad043263a1",
+      "invariants": "Pure checked caller-supplied inputs. Finite native residuals; objective and every native postcondition plus undamped identification required; no callback, method, rate or partial-output substitute. Exact view/roll conventions and old kernels conserved. Scoped deny unwrap/expect/panic inherited.",
+      "bounds": "Fit parameters/residuals<=128; LM/SVD positive budgets<=10000; callback calls<=1+maxiter+2*n*(maxiter+1); dense augmented rows<=256; curve queries<=150years; derived views<=32; date inverse<=16 steps. Caller callbacks must terminate and not panic.",
+      "failure_contract": "Typed contract or solver error, including original callback failure and measured rank/residual/budget diagnostics; no fitted vector/curve on failure.",
+      "tests": [
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
       ],
       "exceptions": []
     },
@@ -723,13 +761,29 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-math/src/optimization/least_squares.rs",
+      "sha256": "04aea794ad93f1ce104e12888ea1174340dcb4f18013f995b16c286e25f0c618",
+      "invariants": "Pure checked caller-supplied inputs. Finite native residuals; objective and every native postcondition plus undamped identification required; no callback, method, rate or partial-output substitute. Exact view/roll conventions and old kernels conserved. Scoped deny unwrap/expect/panic inherited.",
+      "bounds": "Fit parameters/residuals<=128; LM/SVD positive budgets<=10000; callback calls<=1+maxiter+2*n*(maxiter+1); dense augmented rows<=256; curve queries<=150years; derived views<=32; date inverse<=16 steps. Caller callbacks must terminate and not panic.",
+      "failure_contract": "Typed contract or solver error, including original callback failure and measured rank/residual/budget diagnostics; no fitted vector/curve on failure.",
+      "tests": [
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-math/src/optimization/mod.rs",
-      "sha256": "34756477ecd1c4645423e94aeaa77503e2f370b82abbcebe4f20bc93cfdb8780",
-      "invariants": "Finite ordered interval, positive tolerance/budget and finite objective evaluations.",
-      "bounds": "1..10000 objective iterations, fixed extra evaluations.",
+      "sha256": "0c64ac64d48954772c70f6d96a460cf0ae0a75bb64641937fba87143d1574b33",
+      "invariants": "Finite ordered interval, positive tolerance/budget and finite objective evaluations. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "bounds": "1..10000 objective iterations, fixed extra evaluations. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Checked typed failure; compatible infallible API signals NaN rather than last iterate.",
       "tests": [
-        "crates/convex-math/tests/assurance.rs"
+        "crates/convex-math/tests/assurance.rs",
+        "crates/convex-math/tests/least_squares.rs",
+        "crates/convex-curves/tests/curve_numerics.rs",
+        "crates/convex/examples/curve_numerics.rs"
       ],
       "exceptions": [
         "ASR-001"

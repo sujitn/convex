@@ -174,6 +174,16 @@ quotes; locked package versions and normal dependency scope remain unchanged.
 Actual host/parser compatibility checks do not certify new schema dispatch.
 All library records and the 105 retained comparison failures remain pending.
 
+CVX-060 adds [numerical fitting and transformation](CURVE-NUMERICS.md) candidates
+while preserving all 65 earlier quantitative rows/bytes/defaults. The new dense
+scaled solver admits at most 128 parameters/observations and 10,000 attempts;
+each SVD has a separate positive bounded iteration count. Native thresholds and
+weighted rank are mandatory. Exact immutable representation/roll/spread views
+have a 32-level depth ceiling across calls. Stable log/exponential conversions
+improve checked short-period paths without changing older numerical kernels.
+Four new analytic test/fixture/consumer pins and mandatory consumer feature
+checks do not certify pending products, market packs, host dispatch or LB0/LB1.
+
 `change-reviews.json` ties engineering impact to a base commit and candidate
 file hashes, with actor, rationale, review date and test evidence. It includes
 untracked candidate modules and detects changes after the review. An old
@@ -214,6 +224,9 @@ cargo run --locked -p convex --example inventory_probe
 cargo run --locked -p convex --example curve_contracts
 cargo run --locked -p convex --example curve_contracts --no-default-features
 cargo run --locked -p convex --example curve_contracts --features schemars
+cargo run --locked -p convex --example curve_numerics
+cargo run --locked -p convex --example curve_numerics --no-default-features
+cargo run --locked -p convex --example curve_numerics --features schemars
 python3 reconciliation/comparison.py check --base <base-sha>
 python3 -m unittest discover -s reconciliation -p 'test_comparison.py'
 cargo fmt --all -- --check

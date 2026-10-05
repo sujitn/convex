@@ -5,7 +5,7 @@ use super::{
     inputs::{validate_date, validate_tenor},
     *,
 };
-use crate::{ExtrapolationMethod, InterpolationMethod, ValueConverter};
+use crate::{ExtrapolationMethod, InterpolationMethod};
 use convex_core::{
     daycounts::DayCountConvention,
     types::{Compounding, Date},
@@ -433,18 +433,6 @@ fn ordered(t1: f64, t2: f64) -> CurveContractResult<()> {
     }
     Ok(())
 }
-fn rate_from_discount(df: f64, tau: f64, compounding: Compounding) -> CurveContractResult<f64> {
-    positive(df, "period discount factor")?;
-    positive(tau, "rate year fraction")?;
-    let result = ValueConverter::df_to_zero(df, tau, compounding);
-    if !result.is_finite() {
-        return Err(CurveContractError::Numerical(
-            "discount-to-rate conversion".into(),
-        ));
-    }
-    Ok(result)
-}
-
 /// Explicit date rounding; nearest ties choose the earlier date.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TenorRounding {
@@ -487,6 +475,8 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "discount_zero_forward_queries", status: Supported, conditions: "Explicit period/compounding/basis; different output basis requires dates; origin rates undefined" },
         CurveCapability { name: "survival_default_hazard_queries", status: Supported, conditions: "Credit survival only; conditional flag and hazard knot side explicit; intensity per curve-time year" },
         CurveCapability { name: "date_tenor_conversion", status: Supported, conditions: "ACT/360, ACT/365F, ACT/ACT ISDA; canonical years 1..9999; explicit inverse rounding" },
+        CurveCapability { name: "discount_equivalent_views_and_rolling", status: Supported, conditions: "Immutable exact base; inherited role/currency/time basis/methods; explicit sticky-forward/sticky-zero; no resampling; <=32 derived views" },
+        CurveCapability { name: "dated_money_market_global_fit", status: Supported, conditions: "Explicit fit_money_market_curve API; bounded scaled native objective and all-quote postconditions; identified continuous-zero parameters; original recipe dispatch remains v1" },
         CurveCapability { name: "extrapolation", status: Supported, conditions: "None, raw-value Flat, raw-value Linear for rate curves; valid output postconditions; ceiling 150 years" },
         CurveCapability { name: "product_helper_global_calibration", status: Pending, conditions: "Full future/bond/CDS/rates descriptions in analytics; CVX-021/057/058/059 own dated product-backed bootstrap/global routes" },
         CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Existing segmented/parametric/monotone/flat-forward/UFR APIs remain separate with explicit model constraints; no method substitution" },

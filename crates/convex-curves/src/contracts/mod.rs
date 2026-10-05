@@ -8,11 +8,15 @@
 
 mod build;
 mod inputs;
+mod numerics;
 mod query;
+mod transformations;
 
 pub use build::{build_curve_set, BuiltCurve, CurveBuildOutput, CurveSet};
 pub use inputs::*;
+pub use numerics::*;
 pub use query::*;
+pub use transformations::*;
 
 /// Maximum recipes in one atomic curve build, including supplied dependencies.
 pub const MAX_CURVES: usize = 256;
@@ -22,6 +26,8 @@ pub const MAX_CURVE_INPUTS: usize = 1024;
 pub const MAX_CURVE_TENOR: f64 = 150.0;
 /// Minimum distinct pillar separation, in years, to avoid an ill-conditioned grid.
 pub const MIN_PILLAR_SEPARATION: f64 = 1e-10;
+/// Maximum nested immutable derived views, independently of batch size.
+pub const MAX_CURVE_DERIVATIONS: usize = 32;
 
 /// Stable checked construction/query failures. No failure returns a curve.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

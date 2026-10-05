@@ -216,6 +216,44 @@
         "tools/assurance/test_policy.py": "073de0b2617551a0a795b004b53dc038b7bca5d397cd78722ba48cad790dbcc3",
         "tools/library/library-inventory.json": "7d912d9f2da610d8d6b9df38df352df2dd7bd9232a1e36914dc73e1ef47f2cd1"
       }
+    },
+    {
+      "base_commit": "8fb1609a39507d0e4d3c074b115e551609dfff8b",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-05",
+      "rationale": "CVX-060 engineering impact: add a bounded scaled native-residual dense fitting kernel using the already locked nalgebra SVD, undamped weighted identification, bounded finite differences/closed parameter intervals and native quote plus objective postconditions; propagate original callback errors and measured limits without partial parameters/curves. Add named checked dated deposit/FRA global fitting and immutable set insertion; retain v1 Global recipe Unsupported and older interpolation/calibration/product/value-converter kernels. Add stable checked accumulation conversions, exact source-function DF/zero views and explicit sticky-forward/sticky-zero rolling with actual reference fractions and a 32-level depth limit across calls. New source enum variants require exhaustive Rust arms; no host/schema/engine dispatch is claimed. Four new quantitative pins are engineering supplied-contract/analytic evidence (50-digit Decimal DF reference), without independent owner approval. Preserve all 65 previous rows/bytes/defaults, manifests/lockfile/toolchain/allowlist and four existing exceptions/expirations. Preserve all 30 areas,174 combinations,2154 Planned records,12 exclusions and task/gate/owner scope; add candidate observation/source pins only. No live vendor/DB/MQ dependency, model/market certificate or latency certification. Current false starts and retained G04/105 comparison failures stay in raw receipts; no failing criterion waived.",
+      "tests": [
+        "Required final fmt/math/curves pass: 398 passes,30 existing documentation ignores; 38 new tests with512 deterministic generated cases",
+        "Final all-feature workspace serial loopback-enabled:2292 pass,0 fail,85 existing ignored; strict workspace production/new test/example Clippy pass",
+        "Standalone default/no-default/schemars identical successful native execution; minimum feature check and optimized local C ABI11 RPC/44 invalid cases/valid pricing pass",
+        "19 assurance/16 public coverage/26 comparison/4 private mapping mutation tests; current/base coverage/harness and integrity/50-digit fixture verification pass",
+        "Fresh392-measure retained comparison:287 pass,105 implementation_error; enforced production probes:3pass/G04fails; LB0/1 explicitly incomplete and uncertified",
+        "All-feature Rustdoc exits0 with4 pre-existing broken links; no cross-host/remoteCI/full-model/latency certification"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4cacf968460da8a83e68125ea790738cb798dd593117e9410c8281eafc851f2c",
+        "crates/convex-curves/src/contracts/build.rs": "3960a39b13b91004d563290d3d299d7fc764f9cb7cb2a0592b2e95cfd5faea9a",
+        "crates/convex-curves/src/contracts/inputs.rs": "ec4985dfcc52304daae84b99ceac0c4dc6384f1e1765c20a4209f6a6e0a474db",
+        "crates/convex-curves/src/contracts/mod.rs": "4eb218f9569289120b649d627e84531a6fb8e70f408abd4f8ca5d1c968fab1d6",
+        "crates/convex-curves/src/contracts/numerics.rs": "abbf5fe4766149527b3119e1ec447095fb06a6934b8fa9148b07a4172938786d",
+        "crates/convex-curves/src/contracts/query.rs": "cdff73cf2c92e87c82dc484054edf19b541e3094468f02aa5cd0de73cc8328ec",
+        "crates/convex-curves/src/contracts/transformations.rs": "db52929869da2e6e2b0c3763867777d83855e7baad6eefd016eaf8ad043263a1",
+        "crates/convex-curves/tests/curve_numerics.rs": "97d47de5f9e1f3d975bbec3e06df9b9e0cda5e27168b06f92cf25e059b802c54",
+        "crates/convex-curves/tests/fixtures/curve-numerics.json": "99b487a70168a80638cf3f44c66a250e296ff2da20946c61b634716869e08592",
+        "crates/convex-math/src/optimization/least_squares.rs": "04aea794ad93f1ce104e12888ea1174340dcb4f18013f995b16c286e25f0c618",
+        "crates/convex-math/src/optimization/mod.rs": "0c64ac64d48954772c70f6d96a460cf0ae0a75bb64641937fba87143d1574b33",
+        "crates/convex-math/tests/least_squares.rs": "facfe0c64a2cce8b8f2b7467a3fb2a4eb681cb903fdf69c34a7db502b7874be8",
+        "crates/convex/examples/curve_numerics.rs": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7",
+        "docs/ASSURANCE.md": "246a8576bc4bce58b73525fb7277e02f73a6e3feb1b63258b2476507c7810e30",
+        "docs/CURVE-CONTRACTS.md": "1865d6b55d95aed3e41bfb9cadc760f37f6a2d842f18e7e712df66e7455ba62d",
+        "docs/CURVE-NUMERICS.md": "ae0a0a19a90035f1bc57ff35fb7f39caf9c025f697eeef165e90bcb4297bc959",
+        "docs/LIBRARY-COVERAGE.md": "19887dc47d8691ef662e6aeebc523c72c28ef1fe56f210b838e2224fdf002718",
+        "tools/assurance/check.py": "858590b94ad34e6f6e9354f87838c95f072ee845af91f26129bb22e756f9d1b9",
+        "tools/assurance/inventory.json": "d5ffc3041c97fbe804bb1d0236c1201c00c4956ae32f8d7729a5b50aa97cfb42",
+        "tools/assurance/numeric-evidence.json": "f60118b95dd5c460db0fb5aec55fa3e15e6ed7f9dd0b069fb466e469302e16d4",
+        "tools/assurance/test_policy.py": "0d0116b58baf12ba6dd059e9e9f6de8a7649e63bc56acfc2db7470286160ac80",
+        "tools/library/library-inventory.json": "3e4e6d7ce1ad46e18e7c6b84afc4403db6863002e8d0ac5c1570370923adfc5b"
+      }
     }
   ]
 }

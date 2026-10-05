@@ -3,6 +3,9 @@
 use crate::bounds::{finite, interval, MAX_SOLVER_ITERATIONS};
 use crate::{MathError, MathResult};
 
+mod least_squares;
+pub use least_squares::*;
+
 /// Golden-section minimiser on `[a, b]`. Robust for unimodal smooth objectives.
 /// Returns the argmin.
 pub fn golden_section<F: Fn(f64) -> f64>(f: F, a: f64, b: f64, tol: f64, max_iter: usize) -> f64 {

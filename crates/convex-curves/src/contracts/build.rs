@@ -1,13 +1,10 @@
 //! Atomic immutable curve construction and explicit supported calibration.
 
 use super::{
-    inputs::*, CurveContractError as Error, CurveContractResult as Result, MAX_CURVES,
-    MAX_CURVE_INPUTS, MIN_PILLAR_SEPARATION,
+    inputs::*, CurveContractError as Error, CurveContractResult as Result, RollPolicy, MAX_CURVES,
+    MAX_CURVE_DERIVATIONS, MAX_CURVE_INPUTS, MIN_PILLAR_SEPARATION,
 };
-use crate::{
-    DiscreteCurve, ExtrapolationMethod, InterpolationMethod, TermStructure, ValueConverter,
-    ValueType,
-};
+use crate::{DiscreteCurve, ExtrapolationMethod, InterpolationMethod, TermStructure, ValueType};
 use convex_core::{
     daycounts::DayCountConvention,
     types::{Compounding, Date},
@@ -20,16 +17,29 @@ use std::{
 #[derive(Debug, Clone)]
 enum CurveValues {
     Direct(DiscreteCurve),
-    Spread { base: Arc<BuiltCurve>, spread: f64 },
+    Spread {
+        base: Arc<BuiltCurve>,
+        spread: f64,
+    },
+    Equivalent {
+        base: Arc<BuiltCurve>,
+    },
+    Rolled {
+        base: Arc<BuiltCurve>,
+        offset: f64,
+        anchor: f64,
+        policy: RollPolicy,
+    },
 }
 
 /// Immutable validated curve. The recipe and input dates are retained verbatim;
 /// queries use the actual recipe time basis, never an approximate nominal year.
 #[derive(Debug, Clone)]
 pub struct BuiltCurve {
-    recipe: CurveRecipe,
+    pub(super) recipe: CurveRecipe,
     values: CurveValues,
-    diagnostics: CurveDiagnostics,
+    pub(super) diagnostics: CurveDiagnostics,
+    depth: usize,
 }
 impl BuiltCurve {
     /// Complete immutable input contract, including native units and versions.
@@ -44,6 +54,19 @@ impl BuiltCurve {
         match &self.values {
             CurveValues::Direct(curve) => curve.tenor_bounds(),
             CurveValues::Spread { base, .. } => base.bounds(),
+            CurveValues::Equivalent { base } => base.bounds(),
+            CurveValues::Rolled {
+                base,
+                offset,
+                policy,
+                ..
+            } => {
+                let (min, max) = base.bounds();
+                match policy {
+                    RollPolicy::StickyForward => ((min - offset).max(0.0), max - offset),
+                    RollPolicy::StickyZero => (min, max),
+                }
+            }
         }
     }
     pub(crate) fn raw(&self, t: f64) -> Result<f64> {
@@ -68,6 +91,27 @@ impl BuiltCurve {
                 }
                 -base.discount(t)?.ln() / t + spread
             }
+            CurveValues::Equivalent { base } => match self.recipe.representation {
+                CurveRepresentation::DiscountFactors => base.discount(t)?,
+                CurveRepresentation::ZeroRates { compounding } => {
+                    super::rate_from_discount(base.discount(t)?, t, compounding)?
+                }
+                _ => {
+                    return Err(Error::unsupported(
+                        "equivalent view",
+                        "requires discount or zero representation",
+                    ))
+                }
+            },
+            CurveValues::Rolled {
+                base,
+                offset,
+                anchor,
+                policy,
+            } => match policy {
+                RollPolicy::StickyForward => base.discount(offset + t)? / anchor,
+                RollPolicy::StickyZero => base.discount(t)?,
+            },
         };
         if !value.is_finite() {
             return Err(Error::Numerical(
@@ -99,6 +143,11 @@ impl BuiltCurve {
         // P(0)=1 is the definition, not a missing-rate fallback.
         if t == 0.0 {
             return Ok(1.0);
+        }
+        // A representation view preserves the discount function itself. Avoid
+        // a roundtrip through a short-period or extreme zero-rate conversion.
+        if let CurveValues::Equivalent { base } = &self.values {
+            return base.discount(t);
         }
         let result = match self.recipe.representation {
             CurveRepresentation::DiscountFactors => self.raw(t)?,
@@ -170,6 +219,26 @@ impl CurveSet {
     /// Sorted exact identities, for deterministic inspection.
     pub fn keys(&self) -> impl Iterator<Item = &CurveKey> {
         self.curves.values().map(|curve| &curve.recipe.key)
+    }
+    /// Add a completely validated fit to a new immutable set. Duplicate IDs,
+    /// capacity violations and missing exact dependencies fail atomically.
+    pub fn with_curve(&self, curve: BuiltCurve) -> Result<Self> {
+        if self.len() >= MAX_CURVES {
+            return Err(Error::BoundExceeded("curve set"));
+        }
+        if self.curves.contains_key(&curve.recipe.key.id) {
+            return Err(Error::invalid(
+                "curve.id",
+                "duplicate immutable curve identity",
+            ));
+        }
+        for key in &curve.recipe.dependencies {
+            self.get(key)?;
+        }
+        let mut next = self.clone();
+        next.curves
+            .insert(curve.recipe.key.id.clone(), Arc::new(curve));
+        Ok(next)
     }
 }
 
@@ -263,7 +332,9 @@ fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
         }
     }
     let expected: Vec<&CurveKey> = match &recipe.source {
-        CurveSource::ContinuousZeroSpread { base, .. } => vec![base],
+        CurveSource::ContinuousZeroSpread { base, .. }
+        | CurveSource::DiscountEquivalent { base }
+        | CurveSource::Rolled { base, .. } => vec![base],
         CurveSource::Helpers(ids) => {
             if ids.is_empty() || ids.len() > MAX_CURVE_INPUTS {
                 return Err(Error::BoundExceeded("product helpers"));
@@ -300,7 +371,7 @@ fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
     validate_methods(recipe)
 }
 
-fn validate_global_settings(settings: &GlobalFitSettings) -> Result<()> {
+pub(super) fn validate_global_settings(settings: &GlobalFitSettings) -> Result<()> {
     if settings.max_iterations == 0
         || settings.max_iterations > convex_math::bounds::MAX_SOLVER_ITERATIONS as usize
         || settings.initial_zeros.is_empty()
@@ -370,7 +441,12 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
     // A continuous zero spread consumes the actual base curve values; it does
     // not log-interpolate the output zero rates. build_spread checks exact
     // method inheritance from a previously validated immutable rate curve.
-    if matches!(recipe.source, CurveSource::ContinuousZeroSpread { .. }) {
+    if matches!(
+        recipe.source,
+        CurveSource::ContinuousZeroSpread { .. }
+            | CurveSource::DiscountEquivalent { .. }
+            | CurveSource::Rolled { .. }
+    ) {
         return Ok(());
     }
     let supported = match recipe.interpolation {
@@ -414,6 +490,8 @@ fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
         CurveSource::ContinuousZeroSpread { base, spread } => {
             build_spread(recipe, supplied, base, *spread)
         }
+        CurveSource::DiscountEquivalent { base } => build_view(recipe, supplied, base, None),
+        CurveSource::Rolled { base, policy } => build_view(recipe, supplied, base, Some(*policy)),
         CurveSource::Helpers(_) => Err(Error::unsupported(
             "product helpers",
             "use the pure analytics composition layer",
@@ -489,7 +567,7 @@ fn normalize_nodes(recipe: &CurveRecipe, nodes: &[CurveNode]) -> Result<(Vec<f64
     Ok(normalized.into_iter().unzip())
 }
 
-fn build_direct(
+pub(super) fn build_direct(
     recipe: &CurveRecipe,
     nodes: &[CurveNode],
     method: &str,
@@ -522,6 +600,7 @@ fn build_direct(
     Ok(BuiltCurve {
         recipe: recipe.clone(),
         values: CurveValues::Direct(curve),
+        depth: 0,
         diagnostics: CurveDiagnostics {
             curve: recipe.key.clone(),
             method: method.into(),
@@ -533,7 +612,7 @@ fn build_direct(
     })
 }
 
-fn validate_money_market_helpers(
+pub(super) fn validate_money_market_helpers(
     recipe: &CurveRecipe,
     helpers: &[MoneyMarketHelper],
 ) -> Result<()> {
@@ -702,12 +781,117 @@ fn build_spread(
             base: Arc::clone(base),
             spread,
         },
+        depth: derived_depth(base)?,
         diagnostics: CurveDiagnostics {
             curve: recipe.key.clone(),
             method: "continuous_zero_spread_over_exact_base".into(),
             iterations: 0,
             pillars: base.diagnostics.pillars.clone(),
             dependencies: vec![base_key.clone()],
+            quotes: vec![],
+        },
+    })
+}
+
+fn derived_depth(base: &BuiltCurve) -> Result<usize> {
+    if base.depth >= MAX_CURVE_DERIVATIONS {
+        return Err(Error::BoundExceeded("derived curve nesting"));
+    }
+    Ok(base.depth + 1)
+}
+
+fn build_view(
+    recipe: &CurveRecipe,
+    supplied: &CurveSet,
+    key: &CurveKey,
+    roll: Option<RollPolicy>,
+) -> Result<BuiltCurve> {
+    let base = supplied.get(key)?;
+    let old = base.recipe();
+    if recipe.calibration != CalibrationMode::Direct
+        || !recipe.role.is_rate()
+        || recipe.role != old.role
+        || recipe.currency != old.currency
+        || recipe.time_basis != old.time_basis
+        || recipe.interpolation != old.interpolation
+        || recipe.extrapolation != old.extrapolation
+    {
+        return Err(Error::invalid("curve view", "requires Direct mode and identical rate role, currency, time basis and inherited methods"));
+    }
+    let (values, pillars, method) = if let Some(policy) = roll {
+        if recipe.reference_date < old.reference_date
+            || recipe.representation != CurveRepresentation::DiscountFactors
+        {
+            return Err(Error::invalid(
+                "roll",
+                "requires a forward reference date and DiscountFactors output",
+            ));
+        }
+        let offset = point_tenor(
+            old.reference_date,
+            old.time_basis,
+            CurvePoint::Date(recipe.reference_date),
+        )?;
+        // Rolling is restricted to the original observed domain, independently
+        // of an enabled tail. Otherwise a roll could silently be a tail scenario.
+        let (min, max) = base.bounds();
+        if offset < min || max - offset < MIN_PILLAR_SEPARATION {
+            return Err(Error::invalid(
+                "roll.date",
+                "must lie inside the original domain with a nonempty remaining horizon",
+            ));
+        }
+        let anchor = base.discount(offset)?;
+        let pillars = match policy {
+            RollPolicy::StickyForward => std::iter::once(0.0)
+                .chain(base.diagnostics.pillars.iter().filter_map(|&t| {
+                    if t > offset {
+                        Some(t - offset)
+                    } else {
+                        None
+                    }
+                }))
+                .collect(),
+            RollPolicy::StickyZero => base.diagnostics.pillars.clone(),
+        };
+        (
+            CurveValues::Rolled {
+                base: Arc::clone(base),
+                offset,
+                anchor,
+                policy,
+            },
+            pillars,
+            match policy {
+                RollPolicy::StickyForward => "exact_sticky_forward_roll",
+                RollPolicy::StickyZero => "exact_sticky_zero_roll",
+            },
+        )
+    } else {
+        if recipe.reference_date != old.reference_date {
+            return Err(Error::invalid(
+                "view.reference_date",
+                "representation views preserve the reference date",
+            ));
+        }
+        (
+            CurveValues::Equivalent {
+                base: Arc::clone(base),
+            },
+            base.diagnostics.pillars.clone(),
+            "exact_discount_equivalent_view",
+        )
+    };
+    Ok(BuiltCurve {
+        recipe: recipe.clone(),
+        values,
+        depth: derived_depth(base)?,
+        diagnostics: CurveDiagnostics {
+            curve: recipe.key.clone(),
+            method: method.into(),
+            iterations: 0,
+            pillars,
+            dependencies: vec![key.clone()],
             quotes: vec![],
         },
     })
@@ -758,7 +942,5 @@ pub(crate) fn checked_zero_to_df(rate: f64, t: f64, compounding: Compounding) ->
             "periodic compounding base",
         )?,
     }
-    let value = ValueConverter::zero_to_df(rate, t, compounding);
-    positive(value, "zero-to-discount conversion")?;
-    Ok(value)
+    super::discount_from_rate(rate, t, compounding)
 }

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 4,
+  "version": 5,
   "reviewed_on": "2026-10-05",
-  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed.",
+  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed. CVX-060 appends four new analytic numerical/transform test, fixture and standalone consumer artifacts. All 65 earlier rows/bytes/defaults remain unchanged. Supplied negative-rate DF reference uses independent 50-digit Python Decimal exp. Declared absolute1e-11 plus relative1e-11 bounds, tighter explicit short-period checks, native objective/quote thresholds and 512 seeded generated cases do not claim independent quantitative approval or a market/library certificate.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -332,6 +332,26 @@
       "path": "tests/fixtures/quantlib_reference_tests.json",
       "mode": "file",
       "sha256": "0acb59ab25b23cfe86689c0467d2d55eaadd782f055a48a246d408ff5c4bcf6e"
+    },
+    {
+      "path": "crates/convex-math/tests/least_squares.rs",
+      "mode": "file",
+      "sha256": "facfe0c64a2cce8b8f2b7467a3fb2a4eb681cb903fdf69c34a7db502b7874be8"
+    },
+    {
+      "path": "crates/convex-curves/tests/curve_numerics.rs",
+      "mode": "file",
+      "sha256": "97d47de5f9e1f3d975bbec3e06df9b9e0cda5e27168b06f92cf25e059b802c54"
+    },
+    {
+      "path": "crates/convex-curves/tests/fixtures/curve-numerics.json",
+      "mode": "file",
+      "sha256": "99b487a70168a80638cf3f44c66a250e296ff2da20946c61b634716869e08592"
+    },
+    {
+      "path": "crates/convex/examples/curve_numerics.rs",
+      "mode": "file",
+      "sha256": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7"
     }
   ]
 }

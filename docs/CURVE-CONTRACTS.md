@@ -6,6 +6,12 @@ CVX-056 exposes `convex::curve_contracts` (directly
 histories are supplied by the caller. No engine, handle registry, runtime,
 repository, vendor, network connection or system clock is required.
 
+CVX-060 adds [bounded fitting and explicit transformations](CURVE-NUMERICS.md):
+dated money-market global fitting, exact discount-equivalent views, declared
+sticky-zero/sticky-forward rolling and stable short-period conversions. The
+original v1 Global builder route retains its Unsupported contract; use the named
+fitting API. Full product calibration and library certificates remain pending.
+
 Run the [standalone consumer](../crates/convex/examples/curve_contracts.rs):
 
 ```sh

@@ -424,6 +424,21 @@ pub enum CurveSource {
         /// Spread in a rate unit.
         spread: MarketQuote,
     },
+    /// Exact view of the base discount function in the recipe's DF/zero
+    /// representation; the base interpolation is not resampled/reinterpreted.
+    DiscountEquivalent {
+        /// Exact base version; currency, role, reference/time basis and methods
+        /// must match. Only the output representation may change.
+        base: CurveKey,
+    },
+    /// Explicit forward reference-date movement of an immutable rate curve.
+    /// Output is DiscountFactors; no implicit sticky policy or date approximation.
+    Rolled {
+        /// Actual immutable source curve version.
+        base: CurveKey,
+        /// Mathematical meaning of reference-date movement.
+        policy: super::RollPolicy,
+    },
 }
 
 /// Complete supplied recipe. Native construction supports the capability subset

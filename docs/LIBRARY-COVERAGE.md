@@ -70,6 +70,14 @@ observations and 68 source pins. Product-backed/global calibration, rolling,
 schema/host parity and numerical certification remain owning work; all 2,154
 records stay Planned.
 
+CVX-060 adds [bounded numerical fitting and transformations](CURVE-NUMERICS.md):
+scaled native-unit dated deposit/FRA fitting with rank/limit diagnostics,
+stable compounding conversions, exact representation views and explicit rolling.
+Thirty-eight new tests include 512 deterministic generated cases. The current
+inventory has 40 observations and 76 inspected source pins. All 2,154 mandatory
+records remain Planned; full methods/products, admitted market packs, host
+dispatch and independent LB0/LB1 certificates remain owning work.
+
 ## Evidence and missing operations
 
 `requirement_areas` maps requirements, minimum gate, operations, surfaces and
@@ -81,7 +89,7 @@ JSON join avoids duplicating source/provenance text in thousands of rows;
 it introduces no production capability registry or pricing abstraction.
 
 `observations` records partial, missing, type-only, approximate or missing
-construction/dispatch paths. Anchors and 68 exact source hashes prove which
+construction/dispatch paths. Anchors and 76 exact source hashes prove which
 bytes were inspected. Family test anchors are **candidates for reuse**, not
 proof that every convention/model/operation/surface record passes them.
 Actual command receipts and standalone results belong to task evidence.
@@ -103,7 +111,7 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-012 | Single-name CDS (LB1) | missing dispatch, missing lifecycle, missing trade pricer | CVX-020, CVX-021, CVX-061, CVX-062 |
 | LC-013 | Government-bond futures (LB1) | approximation, incomplete contract, missing lifecycle | CVX-023, CVX-058, CVX-061, CVX-062 |
 | LC-014 | Rate futures (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-023, CVX-057, CVX-061, CVX-062 |
-| LC-015 | Core yield curve construction (LB0) | checked native contracts/direct and exact-chain construction; full calibration, dispatch and numerical certificate pending | CVX-056, CVX-060 |
+| LC-015 | Core yield curve construction (LB0) | checked direct/exact-chain and scaled dated core global fit; full model/product/host and independent certificate pending | CVX-056, CVX-060 |
 | LC-016 | OIS discount curve calibration (LB1) | approximation, incomplete contract, missing dispatch, missing quote rebuild | CVX-057 |
 | LC-017 | Index projection and tenor-basis curves (LB1) | approximation, lossy schema, missing calibration, missing quote rebuild, type only | CVX-057 |
 | LC-018 | Government benchmark curves (LB1) | missing calibration, missing quote rebuild, type only | CVX-058 |
@@ -111,7 +119,7 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-020 | Issuer spread and bond-basis curves (LB1) | missing calibration, missing quote rebuild | CVX-058 |
 | LC-021 | Repo and carry term structures (LB1) | incomplete contract, missing calibration | CVX-058 |
 | LC-022 | Optional-bond model inputs and calibration (LB1) | incomplete contract, unverified model | CVX-059 |
-| LC-023 | Curve queries and numerical transformations (LB0) | checked native DF/zero/forward/credit/date queries; full transformations, roll semantics and numerical certificate pending | CVX-056, CVX-060 |
+| LC-023 | Curve queries and numerical transformations (LB0) | checked queries/conversions and explicit rate roll/views; credit/model transforms and independent certificate pending | CVX-056, CVX-060 |
 | LC-024 | Quote, node and scenario sensitivity construction (LB1) | incomplete contract, missing quote rebuild | CVX-024, CVX-057, CVX-058, CVX-059, CVX-061 |
 | LC-025 | Complete native valuation and inverse facade (LB1) | incomplete facade, missing requirements, missing trade pricer | CVX-061 |
 | LC-026 | Pure cross-product lifecycle functions (LB1) | missing dispatch, missing lifecycle | CVX-062 |
