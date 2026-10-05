@@ -102,6 +102,28 @@
         "tools/assurance/numeric-evidence.json": "c8192aaca048e606457cc1fd8bd6dbfdeb127fc5a6a9d562c36b02480df3a125",
         "tools/assurance/test_policy.py": "91501573bcd197a54efcf374b2180392fdfc1ac80618c6f844391999f4eb600b"
       }
+    },
+    {
+      "base_commit": "74022b4d17f046579c6f0cad3396b5eda29e531f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-05",
+      "rationale": "CVX-053 engineering impact: inventory all 30 mandatory requirement areas in 174 proposed/retained scope combinations and 2154 pending operation/surface records, with inspected source/test anchors and exact bytes. Reject declaration-only, missing dispatch, lossy/approximate term support and mandatory status/coverage bypasses; enforce inventory/base conservation and source review. Add one pure standalone facade/direct-crate consumer with analytic/roundtrip/failure invariants and explicitly labelled gap characterizations. Integrate metadata and feature consumers into mandatory assurance CI. No production Rust source, financial expectations, tolerances, quantitative policy/defaults, dependencies, C ABI, existing comparison runner or release/library requirements changed. Family observations and successful metadata do not award Verified. This is engineering evidence, not independent human quantitative approval.",
+      "tests": [
+        "Required fmt and cargo test -p convex/-p convex-analytics; 340 analytics and 587 curves/bonds checks passed, existing ignores explicit",
+        "16 coverage rejection tests, 16 assurance mutations, 4 private/public mapping tests; real local optimized C ABI gap/positive controls",
+        "Standalone default/no-default/schemars consumer and strict Clippy; existing FFI smoke and MCP/WASM native-host tests",
+        "All 55 quantitative artifacts and complete original 30 requirement areas/backlog/gates conserved; task-base review and inventory checks"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "1d27f0bab8890c1ddc7bf92aeefefaec58488c1aa60b1f22e5a91888e302c47a",
+        "crates/convex/examples/inventory_probe.rs": "118a2c2b19025eae71810e3af1c1f8fcfbf327a34722cb8f6d3511b991571554",
+        "docs/ASSURANCE.md": "29728cd7ab35d93b597e90c5fdf2dd3579a1276bd8c24acc3e158315a9101aea",
+        "tools/assurance/check.py": "da78cd55fa1e398fe0140800543a603e026d252a74923f9244304679ef4d6546",
+        "tools/assurance/test_policy.py": "417a70c96b3d527d7486841716523cf62698867c4cd8c093d88c785bd2bf2f7a",
+        "tools/library/check.py": "63fea0905f4995f83104ae1522e8bc6476efe914c786a86da5ffed07eccff7c1",
+        "tools/library/library-inventory.json": "1b7ee5ca9bd1022b3b17eaf8a3f5e39424c668e09ea8948e3dfbf0559bef027b",
+        "tools/library/test_coverage.py": "8c849ae6df8403f15c683d010a3c1a89a5827e3e21e7c29d7c2878fd2a519c1e"
+      }
     }
   ]
 }

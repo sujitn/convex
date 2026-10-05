@@ -45,6 +45,18 @@ jobs:
       - name: Prove assurance rejects bypass mutations
         run: python3 -m unittest discover -s tools/assurance -p "test_*.py"
 
+      - name: Prove library coverage rejects incomplete and declaration-only support
+        run: python3 -m unittest discover -s tools/library -p "test_*.py"
+
+      - name: Exercise standalone public APIs with default features
+        run: cargo run --locked -p convex --example inventory_probe
+
+      - name: Exercise standalone public APIs without default features
+        run: cargo run --locked -p convex --example inventory_probe --no-default-features
+
+      - name: Exercise standalone public APIs with schema features
+        run: cargo run --locked -p convex --example inventory_probe --features schemars
+
       - name: Check standalone library failures properties and ABI fuzzing
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi
 

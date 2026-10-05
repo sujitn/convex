@@ -121,6 +121,15 @@ class AssuranceMutations(unittest.TestCase):
                                         '      - name: Replay retained QuantLib expectations without live data\n        if: always()')]:
             self.rejects(check.check_workflow, mutation)
 
+    def test_library_inventory_and_consumer_cannot_be_skipped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for mutation in [source.replace('-s tools/library', '-s tools/unreviewed'),
+                         source.replace('--example inventory_probe --no-default-features', '--example inventory_probe --no-default-features || true'),
+                         source.replace('--example inventory_probe --features schemars', '--example unrelated_probe --features schemars')]:
+            self.rejects(check.check_workflow, mutation)
+        self.assertTrue(check.protected('tools/library/library-inventory.json'))
+        self.assertTrue(check.protected('tools/library/check.py'))
+
     def change_fixture(self, directory):
         root = Path(directory)
         path = 'tests/fixtures/example.json'

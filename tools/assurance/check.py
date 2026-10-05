@@ -17,6 +17,10 @@ REQUIRED_RUNS = {
     'assurance': (
         'python3 tools/assurance/check.py',
         'python3 -m unittest discover -s tools/assurance -p "test_*.py"',
+        'python3 -m unittest discover -s tools/library -p "test_*.py"',
+        'cargo run --locked -p convex --example inventory_probe',
+        'cargo run --locked -p convex --example inventory_probe --no-default-features',
+        'cargo run --locked -p convex --example inventory_probe --features schemars',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
@@ -205,7 +209,7 @@ def check_numeric(root: Path, document: dict) -> None:
 
 
 def protected(path: str) -> bool:
-    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml'} or path.startswith('.github/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi')) or path.startswith('tests/fixtures/') or path.startswith('reconciliation/'))
+    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi')) or path.startswith('tests/fixtures/') or path.startswith('reconciliation/'))
 
 def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt.date) -> int:
     # Include untracked candidate files: local validation cannot miss new modules.
@@ -295,7 +299,11 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
     if base:
         comparison_command.extend(['--base', base])
     comparison = json.loads(subprocess.check_output(comparison_command, cwd=root))
-    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'reviewed_changes': changes, 'quantitative_artifacts': len(numeric['artifacts']), 'comparison_packs': comparison['packs'], 'product_captures_pending': len(comparison['pending_product_fixtures'])}
+    coverage_command = [sys.executable, 'tools/library/check.py', '--root', str(root)]
+    if base:
+        coverage_command.extend(['--base', base])
+    coverage = json.loads(subprocess.check_output(coverage_command, cwd=root))
+    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'reviewed_changes': changes, 'quantitative_artifacts': len(numeric['artifacts']), 'comparison_packs': comparison['packs'], 'product_captures_pending': len(comparison['pending_product_fixtures']), 'library_required_records': coverage['mandatory_records'], 'library_certified': coverage['certified']}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

@@ -136,6 +136,15 @@ Tightening or refreshing existing evidence still requires independent review.
 The current retained replay has 105 failed measures; CI enforces that failure.
 Comparator capture and library/production certification remain explicit.
 
+CVX-053 adds a separate [library coverage inventory](LIBRARY-COVERAGE.md):
+30 mandatory areas, 174 scoped combinations and 2,154 operation/surface
+records, with inspected source pins and owning implementation tasks. Assurance
+checks this public inventory and its base conservation; its tooling and
+metadata require exact candidate impact review. CI requires coverage rejection
+tests and a pure standalone consumer with default, no-default and schema
+features. Metadata/source inspection cannot award `Verified`; LB0/LB1 remain
+explicitly incomplete. Existing quantitative pins and tolerances are unchanged.
+
 `change-reviews.json` ties engineering impact to a base commit and candidate
 file hashes, with actor, rationale, review date and test evidence. It includes
 untracked candidate modules and detects changes after the review. An old
@@ -170,6 +179,9 @@ on protected branches; this task does not claim that remote policy is active.
 python3 tools/assurance/check.py
 python3 tools/assurance/check.py --base <base-sha>
 python3 -m unittest discover -s tools/assurance -p 'test_*.py'
+python3 tools/library/check.py --base <base-sha>
+python3 -m unittest discover -s tools/library -p 'test_*.py'
+cargo run --locked -p convex --example inventory_probe
 python3 reconciliation/comparison.py check --base <base-sha>
 python3 -m unittest discover -s reconciliation -p 'test_comparison.py'
 cargo fmt --all -- --check
