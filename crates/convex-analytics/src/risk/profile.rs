@@ -586,7 +586,20 @@ mod tests {
 
     #[test]
     fn long_bond_priced_at_yield_has_positive_dv01() {
-        let bond = bond_5pct_10y();
+        // Par at coupon assumes a regular, unadjusted payment grid. Holiday
+        // delays have a real discount effect and are tested separately.
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("TEST10Y5")
+            .coupon_rate(dec!(0.05))
+            .maturity(d(2035, 1, 15))
+            .issue_date(d(2025, 1, 15))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .currency(Currency::USD)
+            .face_value(dec!(100))
+            .business_day_convention(convex_core::calendars::BusinessDayConvention::Unadjusted)
+            .build()
+            .unwrap();
         let curve = flat_curve(0.05);
         let mark = Mark::Yield {
             value: dec!(0.05),

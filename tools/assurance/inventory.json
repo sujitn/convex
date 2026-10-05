@@ -1,8 +1,21 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-05",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1.",
   "files": [
+    {
+      "path": "crates/convex-analytics/src/bond_quote.rs",
+      "sha256": "4a9c63a7e347049fa491216b861ee8ceaceae2dda196a911cf4e5419b4bef445",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
     {
       "path": "crates/convex-analytics/src/calibration/hw1f.rs",
       "sha256": "46d4879e0ab203cab7230d4c5994e4c47bafd29197bf0f8e2581de386df60425",
@@ -17,7 +30,7 @@
     },
     {
       "path": "crates/convex-analytics/src/curve_inputs.rs",
-      "sha256": "a0db7565538d44b816d4b0fe8106160ea5b76c78d0b85fc0315f059f180c1ed4",
+      "sha256": "5d2131743a3499fc60b2002e4cc62ac0c1957dbfc746f3b246b3ff3ca4e98392",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. New Decimal economics serialize as exact strings and reject inexact or numeric ingress; wire adapters reuse core DatedValue without changing older serialization.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Decimal strings<=64bytes; serialized/deserialized profile entries<=4096; caller byte/depth admission remains required.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -30,12 +43,67 @@
     },
     {
       "path": "crates/convex-analytics/src/lib.rs",
-      "sha256": "4055d70075688ee5a26b087f432c965416605bc8485c5538dd56be15b1636937",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "sha256": "1e3f303d6d839208f950c4d575b15fe0dafe6cd6e8206da8af44d6f95921f12a",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
-        "tools/assurance/test_policy.py"
+        "tools/assurance/test_policy.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/pricing.rs",
+      "sha256": "baf9f2295b3a65e65190d04547a8e18f930dfb88bc2eed0cbfab4844d2274023",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/spreads/asw/par_par.rs",
+      "sha256": "b8cf12e4e2e91a5ae948a9ae7827fbf1a1dbea65393fec724d63fa1e01e7ee50",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/spreads/government_curve.rs",
+      "sha256": "98ceb34c13acd2caac5d9fd14ca5b850e72cd698df93c74ff7f6dbcff62c65ee",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/spreads/zspread.rs",
+      "sha256": "d70cbe189ebfe52da5fb923a4588f3f451bc23f7fbf25f3e5ed60c4f63942366",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": []
     },
@@ -54,12 +122,15 @@
     },
     {
       "path": "crates/convex-bonds/src/cashflows/schedule.rs",
-      "sha256": "507e6321020029752d4fac1a04c11ac1316d28c30c61519b2478fa73001d68db",
-      "invariants": "One core generator, reused by compatibility bond/analytics schedules; explicit short-front None default and existing zero behavior; known/joint calendar validation.",
+      "sha256": "ec668e678abe00172941799edff5e52d8a54d96acd2fb926f2cb0ebd8e374cd2",
+      "invariants": "One core generator, reused by compatibility bond/analytics schedules; explicit short-front None default and existing zero behavior; known/joint calendar validation. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "Shared schedule limits; identifier<=256bytes, <=16 joint components; empty single name is explicit weekend alias, empty joint components fail.",
       "failure_contract": "Checked shared/date/calendar failures converted to BondError; old to_calendar fallback separately excepted.",
       "tests": [
-        "crates/convex-bonds/tests/shared_primitives.rs"
+        "crates/convex-bonds/tests/shared_primitives.rs",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": [
         "ASR-002"
@@ -81,12 +152,15 @@
     },
     {
       "path": "crates/convex-bonds/src/instruments/fixed_rate.rs",
-      "sha256": "6e07bc56957fadf6a01a34683141e5a678844fb5eb578c625eb422a65eb64d9a",
-      "invariants": "Checked builder and native deserialize cache validated schedule; public try_schedule returns typed errors. Existing financial coupon/pricing kernels unchanged.",
+      "sha256": "8af145fae61ddf4b6dcd3e2fa5fafd83b1c775d48da1c06eda40b4e63b22b598",
+      "invariants": "Checked builder and native deserialize cache validated schedule; public try_schedule returns typed errors. Existing financial coupon/pricing kernels unchanged. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "Shared schedule/calendar bounds apply before checked construction accepts product; older infallible mutation keeps valid-term precondition.",
       "failure_contract": "Checked construction/try_schedule propagate errors; infallible compatibility getter retains declared precondition.",
       "tests": [
-        "crates/convex-bonds/tests/shared_primitives.rs"
+        "crates/convex-bonds/tests/shared_primitives.rs",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": [
         "ASR-001"
@@ -116,6 +190,45 @@
       "exceptions": [
         "ASR-001"
       ]
+    },
+    {
+      "path": "crates/convex-bonds/src/pricing/yield_solver.rs",
+      "sha256": "3bf9af7a11ab735d81de3ac0348614ec3b14c50982e7707ba5f74c282fd5ae17",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/traits/analytics.rs",
+      "sha256": "beb8a9c0d7e07e679024b6a4c776e9ac772ff2321135a41ca8dc2fe9dc964a5b",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/traits/bond.rs",
+      "sha256": "fb5144de03baabf23d6e126aa2772e636c81335499544165b6a66590b63fc2c1",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
     },
     {
       "path": "crates/convex-core/src/calendars/checked.rs",
@@ -356,7 +469,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/inputs.rs",
-      "sha256": "ec4985dfcc52304daae84b99ceac0c4dc6384f1e1765c20a4209f6a6e0a474db",
+      "sha256": "c1a20c837e3bd2a5a04b4838a435999dcb21da37373e4924d6459ace95154a4b",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -372,7 +485,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/mod.rs",
-      "sha256": "4eb218f9569289120b649d627e84531a6fb8e70f408abd4f8ca5d1c968fab1d6",
+      "sha256": "cee88e2b80ff2c63cfcdbd9241977bb2fa63e193d93a5bf5ca6d3367aa84d3c6",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -401,7 +514,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/query.rs",
-      "sha256": "cdff73cf2c92e87c82dc484054edf19b541e3094468f02aa5cd0de73cc8328ec",
+      "sha256": "131f44a210c837a50efd7305a96e30d5b35a3b4282ae5a171e5004d9a77cae15",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -476,6 +589,19 @@
       ]
     },
     {
+      "path": "crates/convex-engine/src/pricing_router.rs",
+      "sha256": "5a2c8198d8ace26aa5a4ff78bf8e030cf554207a8d8fcdb6928a92235ac831ad",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-engine/src/runtime/mod.rs",
       "sha256": "e95fbad1ae8adacb3598f5155561540bedec0231c35b570cfa7a4d8c5ec42948",
       "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown.",
@@ -491,27 +617,33 @@
     },
     {
       "path": "crates/convex-ffi/src/build.rs",
-      "sha256": "54aceb3a7972e3c8202c0fec3ecfa5749047bcc691cba800e44d8ddb6e5e5e81",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "sha256": "60cea88f297ec63547908312914bb1345fc91c9c6690de4f0eb069d137afa5ea",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
         "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py"
+        "tools/assurance/abi_smoke.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-ffi/src/dispatch.rs",
-      "sha256": "79a58b8a9b0ebcab2c0312cbd126df446ef49be862c2ba3cd2b1204182c29a42",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "sha256": "f2eb2be99939ff1d1f01757a885ae3ef0b8f4c7e5b3821ea10b4ac32a7feb132",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
         "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py"
+        "tools/assurance/abi_smoke.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": [
         "ASR-004"
@@ -532,14 +664,17 @@
     },
     {
       "path": "crates/convex-ffi/src/ingress.rs",
-      "sha256": "64fd81dcbf8784a378eba408d99563aaad4e315a900fde62a7400a5fc76dc751",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "sha256": "beca32078ac3efe17e9ef43478908c93f53c63aa67ef34f1740e00e48857df7b",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
         "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py"
+        "tools/assurance/abi_smoke.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": []
     },
@@ -571,14 +706,17 @@
     },
     {
       "path": "crates/convex-ffi/src/schemas.rs",
-      "sha256": "befbabf9c0e867473f188a99f787e942f99ee2d137eb827d318251d2e1cab582",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "sha256": "1aebbcf70f45b62230ced42236b104b1bcc15a80f561d45ee61c3d7fb5a173aa",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
         "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py"
+        "tools/assurance/abi_smoke.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": []
     },
@@ -891,13 +1029,55 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-ports/src/output.rs",
+      "sha256": "30ef5ffbcdac97699a5b534e2ad47008fb93096d336cff8ed6b20ad9e79fb59f",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/reference_master.rs",
+      "sha256": "b83426cf5c88bc32f825509ae8bfca6971cfa4a6286014ed79b37e5db36cbf23",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-server/src/handlers.rs",
+      "sha256": "06c330960f58c5a9eeafde174a4706bce8aa744ffa77e7ef0e465b5b7d938298",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
+      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "fbd730c757ab811bb1c278c711e6f1ceb05df4e9757e36bb8aecc288e39fea5e",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "sha256": "f41a604d68a5854334b8b9611deff354619d1fc1425ceb199acbb5d9f64ae2ac",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
-        "tools/assurance/test_policy.py"
+        "tools/assurance/test_policy.py",
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/bond_quotes.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs"
       ],
       "exceptions": []
     }

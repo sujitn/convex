@@ -605,7 +605,7 @@ pub fn validate_service_resources(
         .as_ref()
         .ok_or(ReferenceError::InvalidInput("missing terms"))?;
     // Expanded families require their complete contractual models in subsequent tasks.
-    if bond.bond_type != BondType::FixedBullet
+    if !matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon)
         || bond.is_callable
         || !bond.call_schedule.is_empty()
         || bond.is_putable
@@ -616,7 +616,7 @@ pub fn validate_service_resources(
         || bond.has_deflation_floor
     {
         return Err(ReferenceError::Unsupported(
-            "service reference valuation currently supports fixed bullets",
+            "service reference valuation currently supports nominal fixed bullets and zeros",
         ));
     }
     if !terms.effective.contains(lookup.as_of) {

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 5,
+  "version": 6,
   "reviewed_on": "2026-10-05",
-  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed. CVX-060 appends four new analytic numerical/transform test, fixture and standalone consumer artifacts. All 65 earlier rows/bytes/defaults remain unchanged. Supplied negative-rate DF reference uses independent 50-digit Python Decimal exp. Declared absolute1e-11 plus relative1e-11 bounds, tighter explicit short-period checks, native objective/quote thresholds and 512 seeded generated cases do not claim independent quantitative approval or a market/library certificate.",
+  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed. CVX-060 appends four new analytic numerical/transform test, fixture and standalone consumer artifacts. All 65 earlier rows/bytes/defaults remain unchanged. Supplied negative-rate DF reference uses independent 50-digit Python Decimal exp. Declared absolute1e-11 plus relative1e-11 bounds, tighter explicit short-period checks, native objective/quote thresholds and 512 seeded generated cases do not claim independent quantitative approval or a market/library certificate. CVX-017 appends five engineering candidate artifacts: 13 supplied dated bond cases with independent Decimal(50) calculation, actual native/C ABI and admitted REST parity, explicit role/failure controls and standalone facade. All 69 earlier rows/bytes/defaults and retained QuantLib reference values/tolerances remain unchanged. New absolute price/risk 1e-9 plus relative1e-11 bounds and accrued/yield1e-10 checks are engineering declarations, not independent quantitative approval. Correcting coupon/payment discount steps resolves all 105 historical comparison misses on the same 392 references; original failing captures remain historical evidence. Market/model and full-surface certificates remain pending.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -352,6 +352,31 @@
       "path": "crates/convex/examples/curve_numerics.rs",
       "mode": "file",
       "sha256": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7"
+    },
+    {
+      "path": "crates/convex-analytics/tests/bond_quotes.rs",
+      "mode": "file",
+      "sha256": "0e02cb6bd89bc30861630a1a398e662ba17ed077b8b9da689f6d364be4653cd8"
+    },
+    {
+      "path": "crates/convex-analytics/tests/fixtures/bond-quotes.json",
+      "mode": "file",
+      "sha256": "67ace3bc6531f059ba7f12a844900ab5c9c5931fdf12bbb708d7b76bbaa740ce"
+    },
+    {
+      "path": "crates/convex-ffi/tests/bond_quotes.rs",
+      "mode": "file",
+      "sha256": "7be645e7529225ce6b5145af257e1419b4c914408b9f28b86da3f8552b21dcc0"
+    },
+    {
+      "path": "crates/convex-server/tests/support/bond_quotes.rs",
+      "mode": "file",
+      "sha256": "2f0ab4b14f1271cdaa1fbe3cb8869b6d47a793aed044f36aff863fc904b7d6ca"
+    },
+    {
+      "path": "crates/convex/examples/bond_quotes.rs",
+      "mode": "file",
+      "sha256": "6b7a7103962705dbcc654fe24cc680c7c9708ca499bc0ae73c63b10c8bbb146b"
     }
   ]
 }

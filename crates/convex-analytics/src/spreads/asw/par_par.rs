@@ -5,21 +5,23 @@ use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Price, Spread, SpreadType};
+#[cfg(test)]
 use convex_curves::curves::ZeroCurve;
+use convex_curves::RateCurveDyn;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::spreads::asw::{coupon_year_fraction, day_counter};
 
 /// Par-par asset swap spread calculator.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ParParAssetSwap<'a> {
-    swap_curve: &'a ZeroCurve,
+    swap_curve: &'a dyn RateCurveDyn,
 }
 
 impl<'a> ParParAssetSwap<'a> {
     /// Creates a new par-par asset swap calculator.
     #[must_use]
-    pub fn new(swap_curve: &'a ZeroCurve) -> Self {
+    pub fn new(swap_curve: &'a dyn RateCurveDyn) -> Self {
         Self { swap_curve }
     }
 
@@ -48,7 +50,7 @@ impl<'a> ParParAssetSwap<'a> {
             });
         }
 
-        let accrued = bond.accrued_interest(settlement);
+        let accrued = bond.try_accrued_interest(settlement)?;
         let dirty_price = clean_price.as_percentage() + accrued;
 
         let upfront = Decimal::ONE_HUNDRED - dirty_price;
@@ -86,7 +88,7 @@ impl<'a> ParParAssetSwap<'a> {
     ) -> AnalyticsResult<Spread> {
         let gross = self.calculate(bond, clean_price, settlement)?;
 
-        let accrued = bond.accrued_interest(settlement);
+        let accrued = bond.try_accrued_interest(settlement)?;
         let dirty_price = clean_price.as_percentage() + accrued;
 
         let funding_adjustment = (dirty_price / Decimal::ONE_HUNDRED - Decimal::ONE) * repo_rate;
@@ -104,8 +106,8 @@ impl<'a> ParParAssetSwap<'a> {
         bond: &B,
         settlement: Date,
     ) -> AnalyticsResult<(Decimal, Decimal)> {
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
+        let cash_flows = bond.try_cash_flows(settlement)?;
+        if cash_flows.is_empty() || cash_flows.len() > 4096 {
             return Err(AnalyticsError::InvalidInput(
                 "No payment dates after settlement".to_string(),
             ));
@@ -118,14 +120,24 @@ impl<'a> ParParAssetSwap<'a> {
             ));
         }
 
-        let coupon = bond.coupon_rate().to_f64().unwrap();
+        let coupon = bond
+            .coupon_rate()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("coupon conversion".into()))?;
         let day_count = day_counter(bond.day_count_convention());
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;
+        let settle_df = self
+            .swap_curve
+            .discount_factor(self.swap_curve.date_to_tenor(settlement))
+            .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+        if !settle_df.is_finite() || settle_df <= 0.0 {
+            return Err(AnalyticsError::InvalidInput("invalid settlement DF".into()));
+        }
         let mut prev_df = self
             .swap_curve
-            .discount_factor(settlement)
+            .discount_factor(self.swap_curve.date_to_tenor(settlement))
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
         for cf in &cash_flows {
@@ -135,20 +147,27 @@ impl<'a> ParParAssetSwap<'a> {
 
             let df = self
                 .swap_curve
-                .discount_factor(cf.date)
+                .discount_factor(self.swap_curve.date_to_tenor(cf.date))
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
             let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
 
             let fwd = (prev_df / df - 1.0) / tau;
-            annuity += tau * df;
-            mismatch += df * tau * (coupon - fwd) * 100.0;
+            if !df.is_finite() || df <= 0.0 || !tau.is_finite() || tau <= 0.0 || !fwd.is_finite() {
+                return Err(AnalyticsError::InvalidInput("invalid ASW period/DF".into()));
+            }
+            annuity += tau * df / settle_df;
+            mismatch += df / settle_df * tau * (coupon - fwd) * 100.0;
             prev_df = df;
         }
 
         Ok((
-            Decimal::from_f64_retain(annuity).unwrap_or_default(),
-            Decimal::from_f64_retain(mismatch).unwrap_or_default(),
+            Decimal::from_f64_retain(annuity).ok_or_else(|| {
+                AnalyticsError::InvalidInput("ASW annuity outside decimal domain".into())
+            })?,
+            Decimal::from_f64_retain(mismatch).ok_or_else(|| {
+                AnalyticsError::InvalidInput("ASW mismatch outside decimal domain".into())
+            })?,
         ))
     }
 
@@ -164,8 +183,8 @@ impl<'a> ParParAssetSwap<'a> {
             ));
         }
 
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
+        let cash_flows = bond.try_cash_flows(settlement)?;
+        if cash_flows.is_empty() || cash_flows.len() > 4096 {
             return Err(AnalyticsError::InvalidInput(
                 "No payment dates after settlement".to_string(),
             ));
@@ -181,7 +200,7 @@ impl<'a> ParParAssetSwap<'a> {
 
             let df_f64 = self
                 .swap_curve
-                .discount_factor(cf.date)
+                .discount_factor(self.swap_curve.date_to_tenor(cf.date))
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;
@@ -231,7 +250,7 @@ impl<'a> ParParAssetSwap<'a> {
         let spread_pct = asw_spread.as_bps() / Decimal::from(100);
         let dirty_price = Decimal::ONE_HUNDRED + mismatch_pct - spread_pct * annuity;
 
-        let clean_price = dirty_price - bond.accrued_interest(settlement);
+        let clean_price = dirty_price - bond.try_accrued_interest(settlement)?;
         Ok(Price::new(clean_price, bond.currency()))
     }
 }

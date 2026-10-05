@@ -246,6 +246,67 @@ impl GovernmentCurve {
         self.reference_date
     }
 
+    /// Checked interpolation of supplied securities at their actual remaining
+    /// ACT/365F maturities. Yields convert to semiannual compounding; endpoint
+    /// extrapolation is explicitly flat. Empty/ineligible benchmarks fail.
+    pub fn supplied_yield(
+        &self,
+        settlement: Date,
+        maturity: Date,
+    ) -> crate::AnalyticsResult<Yield> {
+        use crate::AnalyticsError;
+        use convex_core::types::Compounding;
+        use rust_decimal::prelude::ToPrimitive;
+        let invalid =
+            || AnalyticsError::InvalidInput("invalid supplied government benchmark".into());
+        if self.reference_date > settlement || maturity <= settlement || self.benchmarks.len() > 128
+        {
+            return Err(invalid());
+        }
+        if self.benchmarks.is_empty() {
+            return Err(AnalyticsError::BenchmarkNotFound(
+                "actual government securities required".into(),
+            ));
+        }
+        let mut points = Vec::with_capacity(self.benchmarks.len());
+        for b in self.benchmarks.values() {
+            if b.sovereign != self.sovereign || b.maturity <= settlement {
+                return Err(invalid());
+            }
+            let time = settlement.days_between(&b.maturity) as f64 / 365.0;
+            let rate = b.yield_rate.value().to_f64().ok_or_else(invalid)?;
+            let df =
+                convex_curves::contracts::discount_from_rate(rate, 1.0, b.yield_rate.compounding())
+                    .map_err(|_| invalid())?;
+            let value =
+                convex_curves::contracts::rate_from_discount(df, 1.0, Compounding::SemiAnnual)
+                    .map_err(|_| invalid())?;
+            if time > 150.0 {
+                return Err(invalid());
+            }
+            points.push((time, value));
+        }
+        points.sort_by(|a, b| a.0.total_cmp(&b.0));
+        if points.windows(2).any(|w| w[0].0 == w[1].0) {
+            return Err(invalid());
+        }
+        let time = settlement.days_between(&maturity) as f64 / 365.0;
+        let value = if points.len() == 1 {
+            points[0].1
+        } else {
+            LinearInterpolator::new(
+                points.iter().map(|p| p.0).collect(),
+                points.iter().map(|p| p.1).collect(),
+            )
+            .map_err(|_| invalid())?
+            .with_extrapolation()
+            .interpolate(time)
+            .map_err(|_| invalid())?
+        };
+        let value = Decimal::from_f64_retain(value).ok_or_else(invalid)?;
+        Ok(Yield::new(value, Compounding::SemiAnnual))
+    }
+
     /// Adds a benchmark to the curve.
     #[must_use]
     pub fn with_benchmark(mut self, benchmark: GovernmentBenchmark) -> Self {

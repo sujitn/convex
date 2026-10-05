@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "inventory_version": 4,
+  "inventory_version": 5,
   "reviewed_at": "2026-10-05",
-  "reviewed_source_commit": "8fb1609a39507d0e4d3c074b115e551609dfff8b",
-  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending.",
+  "reviewed_source_commit": "3285b44e64c7f6dfa6bc21130b3be718b9be69a9",
+  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred.",
   "requirement_areas": [
     {
       "id": "LC-001",
@@ -869,34 +869,42 @@
     "Cargo.toml": "f537904343cc2b981ad102b25f03a23d08cf391d7f4d5a2a560035b5900c23c5",
     "bindings/java/src/main/java/com/convex/ConvexAnalytics.java": "95fdb687ab040fba779ebb327eacffde47dc045961efeec38d6274b575bd3c94",
     "bindings/java/src/test/java/com/convex/SmokeTest.java": "5c75f5398b9ec0acdf9fa63791ce63725a3dfbf25d527d919acb45029bfb1639",
+    "crates/convex-analytics/src/bond_quote.rs": "4a9c63a7e347049fa491216b861ee8ceaceae2dda196a911cf4e5419b4bef445",
     "crates/convex-analytics/src/calibration/hw1f.rs": "46d4879e0ab203cab7230d4c5994e4c47bafd29197bf0f8e2581de386df60425",
     "crates/convex-analytics/src/cashflows/schedule.rs": "68a156cd140792e0ce53802b379a0f0cdedf3caadf09eff0063be6eee0ab1df9",
-    "crates/convex-analytics/src/curve_inputs.rs": "a0db7565538d44b816d4b0fe8106160ea5b76c78d0b85fc0315f059f180c1ed4",
-    "crates/convex-analytics/src/dto.rs": "6cca4b0dc4b5675c0d88919ba91740cf3eebe6401a33021d3c86a3b1e13186f9",
-    "crates/convex-analytics/src/lib.rs": "4055d70075688ee5a26b087f432c965416605bc8485c5538dd56be15b1636937",
-    "crates/convex-analytics/src/pricing.rs": "607981418cad192647dd4829d0f4f245157585536981688713d07fc619273e34",
+    "crates/convex-analytics/src/curve_inputs.rs": "5d2131743a3499fc60b2002e4cc62ac0c1957dbfc746f3b246b3ff3ca4e98392",
+    "crates/convex-analytics/src/dto.rs": "733806f77d07a430e81dbed5ce7a3bac9fb38bcef7d5df887ed58ad7dee3af8c",
+    "crates/convex-analytics/src/lib.rs": "1e3f303d6d839208f950c4d575b15fe0dafe6cd6e8206da8af44d6f95921f12a",
+    "crates/convex-analytics/src/pricing.rs": "baf9f2295b3a65e65190d04547a8e18f930dfb88bc2eed0cbfab4844d2274023",
     "crates/convex-analytics/src/risk/hedging/ctd.rs": "63c26b4b55ec335022a1fd8406b939365382f50a8e6b6e56c3ca0708233101db",
     "crates/convex-analytics/src/risk/hedging/instruments.rs": "77a3b04eb7a76df0745811b34cbfa7a4c1cca6f08ea8b2380b40c707af9723a7",
     "crates/convex-analytics/src/risk/hedging/strategies.rs": "8077a6fcf06932e057f590092d4ae81292c3351bdb2b7cd5019291683d2a301c",
     "crates/convex-analytics/src/risk/hedging/types.rs": "2e331915190529ad7bec4dd14f87306926b0c7e645d7528c02f88a75c4531e15",
-    "crates/convex-analytics/src/risk/profile.rs": "f9a02de305426d71bab0112f1b71d9fd6fb2a46f73c7fec73b1f137b97605c35",
+    "crates/convex-analytics/src/risk/profile.rs": "4075ee2dbafdbb8bf7136df00cff37f776631668b1845195e6e16e76a33d7e64",
+    "crates/convex-analytics/src/spreads/asw/par_par.rs": "b8cf12e4e2e91a5ae948a9ae7827fbf1a1dbea65393fec724d63fa1e01e7ee50",
     "crates/convex-analytics/src/spreads/discount_margin.rs": "7d7b8d2d7b646ede6ec9b99ec562c40c73d2eb62169cf77b884aaa6c5bb0c551",
-    "crates/convex-analytics/src/spreads/government_curve.rs": "0dcadbb8d7676bd260f698c6041bb7c5dbf7f38f65a80b095a1455d6aa29f54d",
+    "crates/convex-analytics/src/spreads/government_curve.rs": "98ceb34c13acd2caac5d9fd14ca5b850e72cd698df93c74ff7f6dbcff62c65ee",
+    "crates/convex-analytics/src/spreads/zspread.rs": "d70cbe189ebfe52da5fb923a4588f3f451bc23f7fbf25f3e5ed60c4f63942366",
     "crates/convex-analytics/src/yields/money_market.rs": "a162c9295a4c0876197c3bf49873e566c12d4dabc49d3dd8d93500385fc162a0",
+    "crates/convex-analytics/tests/bond_quotes.rs": "0e02cb6bd89bc30861630a1a398e662ba17ed077b8b9da689f6d364be4653cd8",
     "crates/convex-analytics/tests/curve_inputs.rs": "26bd64a0b6541739aa11b81a980fda6682e95241366fbb49b808e301f17c5b21",
+    "crates/convex-analytics/tests/fixtures/bond-quotes.json": "67ace3bc6531f059ba7f12a844900ab5c9c5931fdf12bbb708d7b76bbaa740ce",
     "crates/convex-analytics/tests/fixtures/curve-helper-inputs.json": "07db36008e095c9b922bcc3b11e875502eaa01d78947d05ba4c81a19797ed109",
     "crates/convex-analytics/tests/shared_primitives.rs": "cdd5ca407a9e0f3ce509f89444df40c009bfb77e6d53faa437757f2640c6469c",
     "crates/convex-bonds/src/arrc.rs": "8fb48d0615ddd7660d2485bafeee6b0708ccb4f77427f4cf163b2b3c990a187b",
-    "crates/convex-bonds/src/cashflows/schedule.rs": "507e6321020029752d4fac1a04c11ac1316d28c30c61519b2478fa73001d68db",
+    "crates/convex-bonds/src/cashflows/schedule.rs": "ec668e678abe00172941799edff5e52d8a54d96acd2fb926f2cb0ebd8e374cd2",
     "crates/convex-bonds/src/fixings.rs": "6d49361f99d14d9201d090069eacd5466da65cfae4ee9f2be2981c8ea728e2d2",
     "crates/convex-bonds/src/instruments/callable.rs": "cb5a2b8c67bd1cd8699782ec52e9dcb2337f17d36fb8c76736ced1233ef6877e",
     "crates/convex-bonds/src/instruments/callable_frn.rs": "eefb593fbb88a71f033af522f137bc01a3d75c74bef8017b5677243ab0f5b04f",
-    "crates/convex-bonds/src/instruments/fixed_rate.rs": "6e07bc56957fadf6a01a34683141e5a678844fb5eb578c625eb422a65eb64d9a",
+    "crates/convex-bonds/src/instruments/fixed_rate.rs": "8af145fae61ddf4b6dcd3e2fa5fafd83b1c775d48da1c06eda40b4e63b22b598",
     "crates/convex-bonds/src/instruments/floating_rate.rs": "b1393daa018603f59c4d9f0efa8d3d91d5ee5e3abc8fc06d5d642b683ad113a5",
     "crates/convex-bonds/src/instruments/mod.rs": "bde18fc0364db0aee0a2e4b9e2b40386a0d65f25adc1d3080d3fd3aae49671b4",
     "crates/convex-bonds/src/instruments/sinking_fund.rs": "0151b8ee730ccef834cc58142f34c64223acbcb36dc3bd354da88d2e7c617831",
     "crates/convex-bonds/src/instruments/zero_coupon.rs": "885c3e95c00bc83ee853de206819538a02359a4ae33c6fb30251e0769d31b0a9",
     "crates/convex-bonds/src/options/trinomial_tree.rs": "3cf1223a9fe5a04168f95298c6fe05aa51795c1e715c63d5be88d68e123fb007",
+    "crates/convex-bonds/src/pricing/yield_solver.rs": "3bf9af7a11ab735d81de3ac0348614ec3b14c50982e7707ba5f74c282fd5ae17",
+    "crates/convex-bonds/src/traits/analytics.rs": "beb8a9c0d7e07e679024b6a4c776e9ac772ff2321135a41ca8dc2fe9dc964a5b",
+    "crates/convex-bonds/src/traits/bond.rs": "fb5144de03baabf23d6e126aa2772e636c81335499544165b6a66590b63fc2c1",
     "crates/convex-bonds/src/types/amortization.rs": "0541daef6d4d496d4dfb12e3a78117a0e6ad69beffb829c476d525a023696cef",
     "crates/convex-bonds/tests/shared_primitives.rs": "228583de8d49dcff66b341df839b42279914923a209b023afd34cc8ec2810737",
     "crates/convex-core/src/calendars/checked.rs": "779ae37b936da4ee83cbc872c18dc6a17265e50d9b2e02b3f75fdc46b5851dcb",
@@ -913,10 +921,10 @@
     "crates/convex-curves/src/calibration/global_fit.rs": "0dc1b977a82884a123a789c094c73b0650405d1a9f9e86e0432d66bb4f06c554",
     "crates/convex-curves/src/calibration/instruments.rs": "50d7746036a1dae0735fe2718f31ca8bbf90e58fb7c7ab498a9869d5b20a92d2",
     "crates/convex-curves/src/contracts/build.rs": "3960a39b13b91004d563290d3d299d7fc764f9cb7cb2a0592b2e95cfd5faea9a",
-    "crates/convex-curves/src/contracts/inputs.rs": "ec4985dfcc52304daae84b99ceac0c4dc6384f1e1765c20a4209f6a6e0a474db",
-    "crates/convex-curves/src/contracts/mod.rs": "4eb218f9569289120b649d627e84531a6fb8e70f408abd4f8ca5d1c968fab1d6",
+    "crates/convex-curves/src/contracts/inputs.rs": "c1a20c837e3bd2a5a04b4838a435999dcb21da37373e4924d6459ace95154a4b",
+    "crates/convex-curves/src/contracts/mod.rs": "cee88e2b80ff2c63cfcdbd9241977bb2fa63e193d93a5bf5ca6d3367aa84d3c6",
     "crates/convex-curves/src/contracts/numerics.rs": "abbf5fe4766149527b3119e1ec447095fb06a6934b8fa9148b07a4172938786d",
-    "crates/convex-curves/src/contracts/query.rs": "cdff73cf2c92e87c82dc484054edf19b541e3094468f02aa5cd0de73cc8328ec",
+    "crates/convex-curves/src/contracts/query.rs": "131f44a210c837a50efd7305a96e30d5b35a3b4282ae5a171e5004d9a77cae15",
     "crates/convex-curves/src/contracts/transformations.rs": "db52929869da2e6e2b0c3763867777d83855e7baad6eefd016eaf8ad043263a1",
     "crates/convex-curves/src/curves/derived.rs": "78eb0b29a218b64408e640c177f3de994e1f92f35e46b1410809a24a1aef973d",
     "crates/convex-curves/src/curves/discrete.rs": "c2424abdfc6a3d2b1cbd7ed6905b1dfa6a3a5963c4e9c413a61092f38b42a29d",
@@ -928,19 +936,26 @@
     "crates/convex-curves/tests/curve_numerics.rs": "97d47de5f9e1f3d975bbec3e06df9b9e0cda5e27168b06f92cf25e059b802c54",
     "crates/convex-curves/tests/fixtures/curve-contracts.json": "bfc91be8a64ec068fa3f4a3bfe6906c0ab68145e3d27bf6611665542f7738c1b",
     "crates/convex-curves/tests/fixtures/curve-numerics.json": "99b487a70168a80638cf3f44c66a250e296ff2da20946c61b634716869e08592",
-    "crates/convex-ffi/src/build.rs": "54aceb3a7972e3c8202c0fec3ecfa5749047bcc691cba800e44d8ddb6e5e5e81",
-    "crates/convex-ffi/src/dispatch.rs": "79a58b8a9b0ebcab2c0312cbd126df446ef49be862c2ba3cd2b1204182c29a42",
-    "crates/convex-ffi/tests/smoke.rs": "1ad30cc5251e9f2a1bc9d0cf806d8fd539554b3739bc0e2d13edaf487c434263",
+    "crates/convex-engine/src/pricing_router.rs": "5a2c8198d8ace26aa5a4ff78bf8e030cf554207a8d8fcdb6928a92235ac831ad",
+    "crates/convex-ffi/src/build.rs": "60cea88f297ec63547908312914bb1345fc91c9c6690de4f0eb069d137afa5ea",
+    "crates/convex-ffi/src/dispatch.rs": "f2eb2be99939ff1d1f01757a885ae3ef0b8f4c7e5b3821ea10b4ac32a7feb132",
+    "crates/convex-ffi/tests/bond_quotes.rs": "7be645e7529225ce6b5145af257e1419b4c914408b9f28b86da3f8552b21dcc0",
+    "crates/convex-ffi/tests/smoke.rs": "b85730160ea05a56c8044c7467f89b684d309ac521620d00021ab9c2bd2d6190",
     "crates/convex-math/src/interpolation/parametric.rs": "d39283891caa501b7e3cbb55612af680e073fb17b1cd169e7809d80803d3ae4d",
     "crates/convex-math/src/optimization/least_squares.rs": "04aea794ad93f1ce104e12888ea1174340dcb4f18013f995b16c286e25f0c618",
     "crates/convex-math/src/optimization/mod.rs": "0c64ac64d48954772c70f6d96a460cf0ae0a75bb64641937fba87143d1574b33",
     "crates/convex-math/tests/least_squares.rs": "facfe0c64a2cce8b8f2b7467a3fb2a4eb681cb903fdf69c34a7db502b7874be8",
     "crates/convex-mcp/src/server.rs": "359ca3ee76843ef71062cab35680831ffda7905e5dac8b88fd8024ea60c4015e",
+    "crates/convex-ports/src/output.rs": "30ef5ffbcdac97699a5b534e2ad47008fb93096d336cff8ed6b20ad9e79fb59f",
+    "crates/convex-ports/src/reference_master.rs": "b83426cf5c88bc32f825509ae8bfca6971cfa4a6286014ed79b37e5db36cbf23",
+    "crates/convex-server/src/handlers.rs": "06c330960f58c5a9eeafde174a4706bce8aa744ffa77e7ef0e465b5b7d938298",
+    "crates/convex-server/tests/support/bond_quotes.rs": "2f0ab4b14f1271cdaa1fbe3cb8869b6d47a793aed044f36aff863fc904b7d6ca",
     "crates/convex-wasm/src/dto.rs": "335a154c8b4ed29da86d02f1070655b837bfacc47705ebc6db7fc7f8e304650c",
+    "crates/convex/examples/bond_quotes.rs": "6b7a7103962705dbcc654fe24cc680c7c9708ca499bc0ae73c63b10c8bbb146b",
     "crates/convex/examples/cashflow_primitives.rs": "d78247fc67825b70b5f8a709186f7b624a69f02543c719bb2490cb4e00fde9d7",
     "crates/convex/examples/curve_contracts.rs": "06f71fa366eb2e1cc5339095a12b6b0ce6c53bee89019ff50ead7efacb7a0bb0",
     "crates/convex/examples/curve_numerics.rs": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7",
-    "crates/convex/src/lib.rs": "fbd730c757ab811bb1c278c711e6f1ceb05df4e9757e36bb8aecc288e39fea5e",
+    "crates/convex/src/lib.rs": "f41a604d68a5854334b8b9611deff354619d1fc1425ceb199acbb5d9f64ae2ac",
     "excel/Convex.Excel/Cx.cs": "221f6ad5df978f7021615400e2cd9fd4af7223847654bb2f12b147b95af968a1"
   },
   "observations": {
@@ -1011,7 +1026,7 @@
     },
     "fixed": {
       "assessment": "partial",
-      "note": "Native builder, cashflows, price/yield, risk and spreads exist. Explicit convention/certification coverage is incomplete; CVX-040 retains 105 failing fixed-bond measures. Shared CouponSpec loses dated date, first/last coupon, EOM, calendar, ex days, settlement days and redemption.",
+      "note": "Native fixed schedule/cashflow, clean/dirty/yield and analytical risk now share checked payment-time primitives. FixedRateTerms preserves exact native/FFI terms; admitted REST nominal contracts reuse the same library. Fresh retained QuantLib replay passes all392 unchanged references; CVX-040/060 captures retain their historical105 failures. Full market convention approval and host/lifecycle matrices remain pending.",
       "public_apis": [
         "convex::FixedRateBond::builder",
         "convex::Bond::cash_flows",
@@ -1044,14 +1059,14 @@
       ],
       "gaps": [
         "unverified_conventions",
-        "failed_comparison",
-        "lossy_schema"
+        "independent_certificate_pending",
+        "incomplete_surface_matrix"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Actual engineering and retained reference receipts recorded in private CVX-017 evidence; successful subsets award no market/model or full-surface certificate."
     },
     "zeros": {
       "assessment": "partial",
-      "note": "Closed-form zero pricing/inverse and money-market helpers exist, but bill quote construction, full conversion/roundtrip and signed risk scope require certification. FFI explicitly rejects Simple/Daily zero compounding.",
+      "note": "Closed-form zero pricing/inverse and money-market helpers exist, but bill quote construction, full conversion/roundtrip and signed risk scope require certification. FFI explicitly rejects Simple/Daily zero compounding. CVX-017 checked quote_zero supports explicit context-free day counts, actual face/redemption and five native compounding modes; FFI admits the same five compounding modes and rejects missing ICMA reference periods. EUR premium zero native/REST/FFI parity is exercised; bills and full matrix remain unqualified.",
       "public_apis": [
         "convex::ZeroCouponBond",
         "convex_analytics::yields::money_market_yield"
@@ -1086,7 +1101,7 @@
     },
     "frn": {
       "assessment": "partial",
-      "note": "Term projection/DM and standalone ARRC compounding exist. FRN cashflows/accrual may use current_rate or zero; reset/fixing/observation/known-at input requirements are incomplete. Cap/floor clipping is not an option valuation.",
+      "note": "Term projection/DM and standalone ARRC compounding exist. FRN cashflows/accrual may use current_rate or zero; reset/fixing/observation/known-at input requirements are incomplete. Cap/floor clipping is not an option valuation. CVX-017 removes these substitutions from engine and C ABI price/risk/DM/cashflow dispatch: FRNs fail explicitly until an eligible fixing/projection contract is implemented. Native compatibility kernels remain diagnostic gaps owned by CVX-055.",
       "public_apis": [
         "convex::FloatingRateNote::builder",
         "convex_analytics::spreads::DiscountMarginCalculator",
@@ -2175,6 +2190,40 @@
         "independent_certificate_pending"
       ],
       "test_execution": "Actual receipts, analytic units/reference and failure outcomes recorded in private CVX-060 evidence; source anchors alone award no certificate."
+    },
+    "bond_quotes": {
+      "assessment": "candidate",
+      "note": "CVX-017 pure shared supplied nominal fixed/zero pricing, curve roles, signed frozen-Z risk and bounded missing-input errors; 13 independent supplied dated cashflow cases, actual native/C ABI parity and eight REST-admitted boundary cases. Engine/REST do not invent prices/curves/volatility. Full model/convention/surface, bill and fixing-aware complex product certificates remain pending.",
+      "public_apis": [
+        "convex::bond_quote::quote_fixed",
+        "convex::bond_quote::quote_zero",
+        "convex::bond_quote::curve_risk",
+        "convex::bond_quote::government_curve"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/bond_quote.rs",
+          "text": "pub fn quote_fixed<",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/bond_quote.rs",
+          "text": "pub fn quote_zero(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/bond_quotes.rs",
+          "text": "fn supplied_contract_golden_coupon_ex_leap_stubs_eom_holiday_negative_yield(",
+          "kind": "test"
+        }
+      ],
+      "gaps": [
+        "unverified_conventions",
+        "independent_certificate_pending",
+        "incomplete_surface_matrix",
+        "missing_quote_rebuild"
+      ],
+      "test_execution": "Actual commands, raw failures, Decimal(50) oracle and unchanged392-reference replay are recorded in private CVX-017 evidence. Engineering evidence is not quantitative approval or a production gate."
     }
   },
   "combinations": [
@@ -2241,7 +2290,8 @@
       ],
       "observation_ids": [
         "fixed",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -2263,7 +2313,8 @@
       ],
       "observation_ids": [
         "fixed",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -2285,7 +2336,8 @@
       ],
       "observation_ids": [
         "fixed",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -2307,7 +2359,8 @@
       ],
       "observation_ids": [
         "fixed",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -2329,7 +2382,8 @@
       ],
       "observation_ids": [
         "fixed",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -2351,7 +2405,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -2373,7 +2428,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -2395,7 +2451,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -2417,7 +2474,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -2439,7 +2497,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -2461,7 +2520,8 @@
       ],
       "observation_ids": [
         "zeros",
-        "position_risk_dispatch"
+        "position_risk_dispatch",
+        "bond_quotes"
       ]
     },
     {
@@ -5150,7 +5210,8 @@
         "rust-schemars"
       ],
       "observation_ids": [
-        "risk"
+        "risk",
+        "bond_quotes"
       ]
     },
     {
@@ -5173,7 +5234,8 @@
         "rust-schemars"
       ],
       "observation_ids": [
-        "risk"
+        "risk",
+        "bond_quotes"
       ]
     },
     {
@@ -5196,7 +5258,8 @@
         "rust-schemars"
       ],
       "observation_ids": [
-        "risk"
+        "risk",
+        "bond_quotes"
       ]
     },
     {
@@ -5219,7 +5282,8 @@
         "rust-schemars"
       ],
       "observation_ids": [
-        "facade"
+        "facade",
+        "bond_quotes"
       ]
     },
     {
@@ -5615,7 +5679,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5639,7 +5704,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5663,7 +5729,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5687,7 +5754,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5711,7 +5779,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5735,7 +5804,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5759,7 +5829,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5783,7 +5854,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5807,7 +5879,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5831,7 +5904,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5855,7 +5929,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5879,7 +5954,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {
@@ -5903,7 +5979,8 @@
       ],
       "observation_ids": [
         "wire",
-        "ignored_bdc"
+        "ignored_bdc",
+        "bond_quotes"
       ]
     },
     {

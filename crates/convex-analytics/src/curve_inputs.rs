@@ -320,7 +320,7 @@ pub struct CdsHelper {
     pub notionals: Vec<DatedValue>,
     /// Contractual fixed running premium, in an annualized rate unit.
     pub running_coupon: MarketQuote,
-    /// Recovery fraction in [0,1].
+    /// Recovery fraction in `[0,1]`.
     pub recovery: f64,
     /// Whether accrued premium is paid on default.
     pub settles_accrual_on_default: bool,

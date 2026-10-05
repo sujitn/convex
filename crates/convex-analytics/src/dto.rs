@@ -80,6 +80,23 @@ pub struct FixedRateSpec {
     pub id: BondIdentifier,
     #[serde(flatten)]
     pub coupon: CouponSpec,
+    /// Complete fixed-bond dates/entitlement/redemption; absent retains v1 defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terms: Option<FixedRateTerms>,
+}
+
+/// Exact R0 fixed-bond construction inputs. Every supplied field is consumed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FixedRateTerms {
+    pub dated_date: Date,
+    pub first_coupon_date: Option<Date>,
+    pub penultimate_coupon_date: Option<Date>,
+    pub calendar: String,
+    pub end_of_month: bool,
+    pub settlement_days: u32,
+    pub redemption_value: Decimal,
+    pub ex_coupon: Option<convex_core::cashflows::ExCouponRule>,
 }
 
 /// Price is % of par (102.0 = 102%).
@@ -179,6 +196,9 @@ pub struct ZeroCouponSpec {
     pub currency: Currency,
     #[serde(default = "default_face")]
     pub face_value: Decimal,
+    /// Actual final cash redemption; omission retains the v1 face-value default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redemption_value: Option<Decimal>,
 }
 
 fn default_act_act_icma() -> DayCountConvention {
@@ -346,7 +366,7 @@ pub struct PricingRequest {
     /// Compounding for the derived YTM.
     #[serde(default)]
     pub quote_frequency: Frequency,
-    /// FRN projection curve. Falls back to `curve` when omitted.
+    /// Explicit FRN projection curve; fixing-aware dispatch is pending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forward_curve: Option<Handle>,
 }
@@ -405,10 +425,13 @@ pub struct RiskResponse {
 /// reads it; values are ignored for unrelated families.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SpreadParams {
+    /// Quoted-yield compounding for fixed-coupon spreads; preserves the v1 default.
+    #[serde(default)]
+    pub quote_frequency: Frequency,
     /// OAS: short-rate volatility (decimal, e.g. 0.01 = 1%).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volatility: Option<f64>,
-    /// DM: projection curve handle. If omitted, falls back to the discount curve.
+    /// DM: explicit projection curve handle. Fixing-aware dispatch is pending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forward_curve: Option<Handle>,
     /// Simple margin: current index rate (decimal, 0.05 = 5%).
@@ -417,6 +440,21 @@ pub struct SpreadParams {
     /// G-spread: government curve handle. Required for `GSpread` requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub govt_curve: Option<Handle>,
+    /// Actual government benchmark yields; a generic zero curve is not a substitute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub government: Option<GovernmentCurveSpec>,
+}
+
+/// Caller-supplied government benchmarks, separate from discount and swap curves.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentCurveSpec {
+    /// Curve origin on the supplied benchmark record.
+    pub reference_date: Date,
+    /// Sovereign and currency of the actual benchmarks.
+    pub sovereign: crate::spreads::Sovereign,
+    /// Original benchmark identifiers, maturities and quoted yields.
+    pub benchmarks: Vec<crate::spreads::GovernmentBenchmark>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -796,6 +834,7 @@ mod tests {
                 cusip: Some("037833100".into()),
                 ..Default::default()
             },
+            terms: None,
             coupon: CouponSpec {
                 coupon_rate: dec!(0.05),
                 frequency: Frequency::SemiAnnual,

@@ -293,6 +293,9 @@ mod tests {
                 pricing_spec: "DiscountToMaturity".to_string(),
                 source: "test".to_string(),
                 is_stale: false,
+                zero_pv01_signed: None,
+                z_pv01_signed: None,
+                measure_errors: Vec::new(),
                 quality: 100,
             },
             BondQuoteOutput {
@@ -344,6 +347,9 @@ mod tests {
                 pricing_spec: "DiscountToMaturity".to_string(),
                 source: "test".to_string(),
                 is_stale: false,
+                zero_pv01_signed: None,
+                z_pv01_signed: None,
+                measure_errors: Vec::new(),
                 quality: 100,
             },
         ]

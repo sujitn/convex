@@ -19,12 +19,16 @@ fn forward_cashflows(
     cash_flows: &[convex_bonds::traits::BondCashFlow],
     settlement: Date,
 ) -> AnalyticsResult<Vec<(f64, f64, f64)>> {
-    let ref_date = curve.reference_date();
-    let t_settle = ref_date.days_between(&settlement) as f64 / 365.0;
+    let t_settle = curve.date_to_tenor(settlement);
+    if !t_settle.is_finite() || t_settle < 0.0 {
+        return Err(AnalyticsError::InvalidInput(
+            "curve reference follows settlement".into(),
+        ));
+    }
     let df_settle = curve
-        .discount_factor(t_settle.max(0.0))
+        .discount_factor(t_settle)
         .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at settle: {e}")))?;
-    if df_settle <= 0.0 {
+    if !df_settle.is_finite() || df_settle <= 0.0 {
         return Err(AnalyticsError::InvalidInput(
             "curve DF at settle is non-positive".to_string(),
         ));
@@ -35,17 +39,23 @@ fn forward_cashflows(
         if cf.date <= settlement {
             continue;
         }
-        let t_cf = ref_date.days_between(&cf.date) as f64 / 365.0;
+        let t_cf = curve.date_to_tenor(cf.date);
         let dt = settlement.days_between(&cf.date) as f64 / 365.0;
         let df_cf = curve
             .discount_factor(t_cf)
             .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at cf: {e}")))?;
-        if df_cf <= 0.0 {
+        if !df_cf.is_finite() || df_cf <= 0.0 {
             return Err(AnalyticsError::InvalidInput(format!(
                 "curve DF at cashflow date is non-positive (t={t_cf})"
             )));
         }
-        out.push((dt, df_cf / df_settle, cf.amount.to_f64().unwrap_or(0.0)));
+        out.push((
+            dt,
+            df_cf / df_settle,
+            cf.amount
+                .to_f64()
+                .ok_or_else(|| AnalyticsError::InvalidInput("cashflow conversion".into()))?,
+        ));
     }
     Ok(out)
 }
@@ -159,23 +169,36 @@ impl<'a> ZSpreadCalculator<'a> {
             AnalyticsError::InvalidInput("Bond has no maturity (perpetual)".to_string())
         })?;
 
-        if settlement >= maturity {
+        if settlement < bond.issue_date() || settlement >= maturity {
             return Err(AnalyticsError::InvalidSettlement {
                 settlement: settlement.to_string(),
                 maturity: maturity.to_string(),
             });
         }
 
-        let target_price = dirty_price.to_f64().unwrap_or(100.0);
+        let target_price = dirty_price
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("price conversion".into()))?;
+        if target_price <= 0.0 {
+            return Err(AnalyticsError::InvalidInput(
+                "dirty price must be positive".into(),
+            ));
+        }
 
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
+        let cash_flows = bond.try_cash_flows(settlement)?;
+        if cash_flows.is_empty() || cash_flows.len() > 4096 {
             return Err(AnalyticsError::InvalidInput(
                 "No cash flows after settlement".to_string(),
             ));
         }
 
-        let face = bond.face_value().to_f64().unwrap_or(100.0);
+        let face = bond
+            .face_value()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("face conversion".into()))?;
+        if face <= 0.0 {
+            return Err(AnalyticsError::InvalidInput("face must be positive".into()));
+        }
         // Z-spread is anchored at SETTLEMENT, not the curve reference date —
         // forward DF from settle = DF(cf) / DF(settle).
         let cf_data = forward_cashflows(self.curve, &cash_flows, settlement)?;
@@ -209,6 +232,44 @@ impl<'a> ZSpreadCalculator<'a> {
         ))
     }
 
+    /// Fallible settlement-anchored PV. No missing DF or failed conversion is zero.
+    pub fn try_price_with_spread<B: Bond + FixedCouponBond>(
+        &self,
+        bond: &B,
+        z_spread: f64,
+        settlement: Date,
+    ) -> AnalyticsResult<f64> {
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("missing maturity".into()))?;
+        if settlement < bond.issue_date() || settlement >= maturity || !z_spread.is_finite() {
+            return Err(AnalyticsError::InvalidInput(
+                "invalid settlement/spread".into(),
+            ));
+        }
+        let face = bond
+            .face_value()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("face conversion".into()))?;
+        if face <= 0.0 {
+            return Err(AnalyticsError::InvalidInput("face must be positive".into()));
+        }
+        let cash = bond.try_cash_flows(settlement)?;
+        if cash.is_empty() || cash.len() > 4096 {
+            return Err(AnalyticsError::InvalidInput("cashflow count".into()));
+        }
+        let data = forward_cashflows(self.curve, &cash, settlement)?;
+        let pv: f64 = data
+            .iter()
+            .map(|(dt, df, amount)| amount * df * self.spread_df(z_spread, *dt))
+            .sum();
+        let price = pv / face * 100.0;
+        if !price.is_finite() || price <= 0.0 {
+            return Err(AnalyticsError::InvalidInput("invalid curve price".into()));
+        }
+        Ok(price)
+    }
+
     /// Prices a bond given a Z-spread.
     ///
     /// # Arguments
@@ -226,23 +287,8 @@ impl<'a> ZSpreadCalculator<'a> {
         z_spread: f64,
         settlement: Date,
     ) -> f64 {
-        let Some(maturity) = bond.maturity() else {
-            return 0.0;
-        };
-        if settlement >= maturity {
-            return 0.0;
-        }
-
-        let cash_flows = bond.cash_flows(settlement);
-        let Ok(cf_data) = forward_cashflows(self.curve, &cash_flows, settlement) else {
-            return 0.0;
-        };
-        let face = bond.face_value().to_f64().unwrap_or(100.0);
-        let pv: f64 = cf_data
-            .iter()
-            .map(|(dt, fwd_df, amt)| amt * fwd_df * self.spread_df(z_spread, *dt))
-            .sum();
-        pv / face * 100.0
+        self.try_price_with_spread(bond, z_spread, settlement)
+            .unwrap_or(f64::NAN)
     }
 
     /// Calculates the spread DV01 (price sensitivity to 1bp spread change).
@@ -256,19 +302,22 @@ impl<'a> ZSpreadCalculator<'a> {
     /// # Returns
     ///
     /// The price change for a 1 basis point increase in spread.
+    /// Checked one-sided +1bp Z-spread loss per 100, retaining the public
+    /// historical convention. Curve failures never become zero sensitivity.
     pub fn spread_dv01<B: Bond + FixedCouponBond>(
         &self,
         bond: &B,
         z_spread: Spread,
         settlement: Date,
-    ) -> Decimal {
-        let base_spread = z_spread.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
-
-        let base_price = self.price_with_spread(bond, base_spread, settlement);
-        let bumped_price = self.price_with_spread(bond, base_spread + 0.0001, settlement);
-
-        // DV01 is positive (price decreases when spread increases)
-        Decimal::from_f64_retain(base_price - bumped_price).unwrap_or(Decimal::ZERO)
+    ) -> AnalyticsResult<Decimal> {
+        let z = z_spread
+            .as_decimal()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("spread conversion".into()))?;
+        let base = self.try_price_with_spread(bond, z, settlement)?;
+        let bumped = self.try_price_with_spread(bond, z + 0.0001, settlement)?;
+        Decimal::from_f64_retain(base - bumped)
+            .ok_or_else(|| AnalyticsError::InvalidInput("spread DV01 conversion".into()))
     }
 
     /// Calculates the Z-spread from pre-computed cash flows.
@@ -627,7 +676,7 @@ mod tests {
         let settlement = date(2024, 1, 17);
         let z = Spread::new(dec!(50), SpreadType::ZSpread);
 
-        let dv01 = calc.spread_dv01(&bond, z, settlement);
+        let dv01 = calc.spread_dv01(&bond, z, settlement).unwrap();
 
         // DV01 should be positive
         assert!(dv01 > Decimal::ZERO, "DV01 should be positive");

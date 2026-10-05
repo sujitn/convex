@@ -96,7 +96,7 @@ pub enum CurveQueryUnit {
     DecimalRate,
     /// Positive discount factor or ratio.
     DiscountFactor,
-    /// Dimensionless probability in [0,1].
+    /// Dimensionless probability in `[0,1]`.
     Probability,
     /// Intensity per curve-time year.
     HazardPerYear,

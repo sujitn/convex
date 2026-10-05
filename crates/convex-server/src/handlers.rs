@@ -192,6 +192,16 @@ pub struct BondQuoteQuery {
     pub market_price: Option<Decimal>,
 }
 
+pub(crate) fn bond_quote_json(
+    quote: &convex_engine::ports::output::BondQuoteOutput,
+) -> Result<serde_json::Value, serde_json::Error> {
+    let mut value = serde_json::to_value(quote)?;
+    value["dirty_price_mid"] = serde_json::json!(quote.dirty_price_mid());
+    value["dirty_price_bid"] = serde_json::json!(quote.dirty_price_bid());
+    value["dirty_price_ask"] = serde_json::json!(quote.dirty_price_ask());
+    Ok(value)
+}
+
 /// Get bond quote by instrument ID.
 ///
 /// Looks up bond reference data and prices the bond.
@@ -272,12 +282,15 @@ pub async fn get_bond_quote(
         Ok(quote) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_bond_quote(quote.clone());
-            crate::reference::with_consumed_reference_version(Json(quote).into_response(), version)
+            match bond_quote_json(&quote) {
+                Ok(value) => crate::reference::with_consumed_reference_version(Json(value).into_response(), version),
+                Err(_) => (StatusCode::INTERNAL_SERVER_ERROR,Json(serde_json::json!({"code":"UNAVAILABLE","error":"quote serialization failed"}))).into_response(),
+            }
         }
         Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::UNPROCESSABLE_ENTITY,
             Json(serde_json::json!({
-                "error": format!("Pricing failed: {}", e)
+                "code":"INVALID_INPUT", "error": format!("Pricing failed: {}", e)
             })),
         )
             .into_response(),
@@ -290,6 +303,7 @@ pub async fn get_bond_quote(
 
 /// Request for single bond pricing.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SingleBondPricingRequest {
     /// Bond reference data
     pub bond: BondReferenceData,
@@ -297,22 +311,50 @@ pub struct SingleBondPricingRequest {
     pub settlement_date: String,
     /// Market price (optional, for spread calculations)
     pub market_price: Option<Decimal>,
+    /// Explicit supplied discount curve and currency; no repository alias resolution.
+    pub discount_curve: Option<BondCurveInput>,
+    /// Explicit supplied swap benchmark, independently mapped.
+    pub swap_curve: Option<BondCurveInput>,
+    /// Actual government benchmark yields.
+    pub government_curve: Option<GovernmentCurveInput>,
+    /// Explicit model volatility; optional products currently require CVX-055.
+    pub volatility: Option<Decimal>,
 }
+
+/// Exact supplied curve revision mapped to a currency and pricing role by the request.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BondCurveInput {
+    /// Currency must match the instrument.
+    pub currency: Currency,
+    /// Validated ACT/365F continuous-zero snapshot record, including version/policies.
+    pub curve: convex_engine::ports::snapshot::SnapshotCurve,
+}
+
+/// Supplied securities and observed yields, rather than inferred discount zeros.
+pub type GovernmentCurveInput = convex_analytics::dto::GovernmentCurveSpec;
 
 /// Price a single bond (POST endpoint).
 ///
 /// Use this when you have bond reference data and want to price on-demand.
 pub async fn price_single_bond(
     State(state): State<Arc<AppState>>,
-    Json(request): Json<SingleBondPricingRequest>,
+    request: Result<Json<SingleBondPricingRequest>, axum::extract::rejection::JsonRejection>,
 ) -> impl IntoResponse {
-    use convex_analytics::spreads::{GovernmentBenchmark, GovernmentCurve, Sovereign};
-    use convex_bonds::types::Tenor;
-    use convex_core::ids::CurveId;
-    use convex_core::types::{Compounding, Yield};
     use convex_engine::curve_builder::BuiltCurve;
     use convex_engine::pricing_router::PricingInput;
-    use rust_decimal::prelude::FromPrimitive;
+
+    let request = match request {
+        Ok(Json(request)) => request,
+        Err(error) => {
+            return (
+                error.status(),
+                Json(
+                    serde_json::json!({"code":"INVALID_INPUT","error":error.body_text().chars().take(2048).collect::<String>()}),
+                ),
+            )
+        }
+    };
 
     if let Err(error) = state.engine.validate_inline_reference(&request.bond).await {
         return (
@@ -332,91 +374,86 @@ pub async fn price_single_bond(
         }
     };
 
-    // Create default demo curves for spread calculations
-    // USD SOFR OIS curve (for Z-spread and discount)
-    let mut discount_curve = BuiltCurve {
-        curve_id: CurveId::new("USD_SOFR_DEMO"),
-        reference_date: settlement_date,
-        points: vec![
-            (0.25, 0.043), // 3M: 4.3%
-            (0.5, 0.044),  // 6M: 4.4%
-            (1.0, 0.045),  // 1Y: 4.5%
-            (2.0, 0.044),  // 2Y: 4.4%
-            (3.0, 0.043),  // 3Y: 4.3%
-            (5.0, 0.042),  // 5Y: 4.2%
-            (7.0, 0.041),  // 7Y: 4.1%
-            (10.0, 0.040), // 10Y: 4.0%
-            (30.0, 0.042), // 30Y: 4.2%
-        ],
-        built_at: 0,
-        inputs_hash: "demo".to_string(),
-        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
-        inner: None,
+    let resolve = |supplied: &Option<BondCurveInput>| -> Result<Option<BuiltCurve>, String> {
+        supplied
+            .as_ref()
+            .map(|value| {
+                if value.currency != request.bond.currency {
+                    return Err("curve currency does not match bond".into());
+                }
+                if value.curve.reference_date.date() > settlement_date {
+                    return Err("curve reference follows settlement".into());
+                }
+                if matches!(
+                    value.curve.quality,
+                    convex_core::contracts::DataQuality::Invalid
+                        | convex_core::contracts::DataQuality::Stale
+                ) || value
+                    .curve
+                    .recorded_at
+                    .datetime()
+                    .signed_duration_since(value.curve.source_time.datetime())
+                    .num_milliseconds()
+                    > value.curve.max_age_ms
+                {
+                    return Err("supplied curve is invalid or stale at publication".into());
+                }
+                BuiltCurve::from_snapshot(&value.curve).map_err(|e| e.to_string())
+            })
+            .transpose()
     };
-    discount_curve.rebuild_inner();
-
-    // Swap curve for I-spread (slightly higher than OIS)
-    let mut benchmark_curve = BuiltCurve {
-        curve_id: CurveId::new("USD_SWAP_DEMO"),
-        reference_date: settlement_date,
-        points: vec![
-            (0.25, 0.045), // 3M: 4.5%
-            (0.5, 0.046),  // 6M: 4.6%
-            (1.0, 0.047),  // 1Y: 4.7%
-            (2.0, 0.046),  // 2Y: 4.6%
-            (3.0, 0.045),  // 3Y: 4.5%
-            (5.0, 0.044),  // 5Y: 4.4%
-            (7.0, 0.043),  // 7Y: 4.3%
-            (10.0, 0.042), // 10Y: 4.2%
-            (30.0, 0.044), // 30Y: 4.4%
-        ],
-        built_at: 0,
-        inputs_hash: "demo".to_string(),
-        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
-        inner: None,
+    if let (Some(discount), Some(swap)) = (&request.discount_curve, &request.swap_curve) {
+        if discount.curve.curve_id == swap.curve.curve_id
+            && discount.curve.version == swap.curve.version
+            && discount.curve != swap.curve
+        {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    serde_json::json!({"code":"INVALID_INPUT","error":"conflicting contents for the same curve revision"}),
+                ),
+            );
+        }
+    }
+    let (discount, swap) = match (
+        resolve(&request.discount_curve),
+        resolve(&request.swap_curve),
+    ) {
+        (Ok(discount), Ok(swap)) => (discount, swap),
+        (Err(error), _) | (_, Err(error)) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(serde_json::json!({"code":"INVALID_INPUT","error":error})),
+            )
+        }
     };
-    benchmark_curve.rebuild_inner();
-
-    // Treasury curve for G-spread
-    let coupon = Decimal::from_f64(0.04).unwrap();
-    let y2 = GovernmentBenchmark::with_cusip_unchecked(
-        Sovereign::UST,
-        Tenor::Y2,
-        "912828XX0",
-        settlement_date.add_years(2).unwrap_or(settlement_date),
-        coupon,
-        Yield::new(Decimal::from_f64(0.044).unwrap(), Compounding::SemiAnnual),
-    );
-    let y5 = GovernmentBenchmark::with_cusip_unchecked(
-        Sovereign::UST,
-        Tenor::Y5,
-        "912828YY0",
-        settlement_date.add_years(5).unwrap_or(settlement_date),
-        coupon,
-        Yield::new(Decimal::from_f64(0.042).unwrap(), Compounding::SemiAnnual),
-    );
-    let y10 = GovernmentBenchmark::with_cusip_unchecked(
-        Sovereign::UST,
-        Tenor::Y10,
-        "912828ZZ0",
-        settlement_date.add_years(10).unwrap_or(settlement_date),
-        coupon,
-        Yield::new(Decimal::from_f64(0.040).unwrap(), Compounding::SemiAnnual),
-    );
-    let government_curve = GovernmentCurve::us_treasury(settlement_date)
-        .with_benchmark(y2)
-        .with_benchmark(y5)
-        .with_benchmark(y10);
-
-    // Build pricing input with curves
+    let government = match request.government_curve {
+        Some(value) => {
+            match convex_analytics::bond_quote::government_curve(
+                &value,
+                settlement_date,
+                request.bond.currency,
+            ) {
+                Ok(curve) => Some(curve),
+                Err(error) => {
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(serde_json::json!({"code":"INVALID_INPUT","error":error.to_string()})),
+                    )
+                }
+            }
+        }
+        None => None,
+    };
+    let curve_versions: Vec<_> = [("discount",request.discount_curve.as_ref()),("swap",request.swap_curve.as_ref())].into_iter().filter_map(|(role,input)|input.map(|v|serde_json::json!({"role":role,"currency":v.currency,"curve_id":v.curve.curve_id,"version":v.curve.version,"source":v.curve.source,"model_id":v.curve.model_id}))).collect();
     let input = PricingInput::with_mid_price(
         request.bond,
         settlement_date,
         request.market_price,
-        Some(discount_curve),
-        Some(benchmark_curve),
-        Some(government_curve),
-        Some(Decimal::from_f64(0.10).unwrap()), // 10% volatility for OAS on callables
+        discount,
+        swap,
+        government,
+        request.volatility,
     );
 
     // Price the bond
@@ -425,12 +462,25 @@ pub async fn price_single_bond(
         Ok(quote) => {
             // Publish to WebSocket subscribers
             state.ws_state.publish_bond_quote(quote.clone());
-            (StatusCode::OK, Json(serde_json::to_value(quote).unwrap()))
+            match bond_quote_json(&quote) {
+                Ok(mut response) => {
+                    if !curve_versions.is_empty() {
+                        response["curve_versions"] = serde_json::json!(curve_versions);
+                    }
+                    (StatusCode::OK, Json(response))
+                }
+                Err(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        serde_json::json!({"code":"UNAVAILABLE","error":"quote serialization failed"}),
+                    ),
+                ),
+            }
         }
         Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::UNPROCESSABLE_ENTITY,
             Json(serde_json::json!({
-                "error": format!("Pricing failed: {}", e)
+                "code":"INVALID_INPUT", "error": format!("Pricing failed: {}", e)
             })),
         ),
     }

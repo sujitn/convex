@@ -64,7 +64,7 @@ const BOND_SPEC: &str = r##"{
   "type": "object",
   "discriminator": "type",
   "oneOf": [
-    {"description": "fixed_rate: { id?, coupon_rate, frequency, maturity, issue, day_count?, currency?, face_value?, business_day_convention? }"},
+    {"description": "fixed_rate: { id?, coupon_rate, frequency, maturity, issue, day_count?, currency?, face_value?, business_day_convention?, terms?:{dated_date,first_coupon_date?,penultimate_coupon_date?,calendar,end_of_month,settlement_days,redemption_value,ex_coupon?} }"},
     {"description": "callable: fixed_rate fields + call_schedule:[{date,price,end_date?}], call_style?, put_schedule?"},
     {"description": "floating_rate: id?, spread_bps, rate_index?, maturity, issue, frequency?, day_count?, currency?, face_value?, cap?, floor?"},
     {"description": "zero_coupon: id?, maturity, issue, compounding?, day_count?, currency?, face_value?"},
@@ -150,9 +150,11 @@ const SPREAD_REQUEST: &str = r##"{
     "spread_type": {"enum": ["ZSpread","GSpread","ISpread","AssetSwapPar","AssetSwapProceeds","OAS","Credit","DiscountMargin"]},
     "params": {"type":"object","properties":{
         "volatility":{"type":"number","description":"OAS short-rate volatility (decimal, 0.01 = 1%)"},
-        "forward_curve":{"type":"integer","description":"DM projection curve (default: discount curve)"},
+        "forward_curve":{"type":"integer","description":"Explicit projection curve; fixing-aware FRN dispatch is pending"},
         "current_index":{"type":"number","description":"Simple-margin current index rate (decimal)"},
-        "govt_curve":{"type":"integer","description":"G-spread government curve handle (required)"}
+        "quote_frequency":{"enum":["Annual","SemiAnnual","Quarterly","Monthly"],"description":"Fixed-coupon quoted yield compounding; v1 default SemiAnnual"},
+        "govt_curve":{"type":"integer","description":"Unsupported zero-curve proxy; supply government benchmarks"},
+        "government":{"type":"object","required":["reference_date","sovereign","benchmarks"],"description":"Actual GovernmentCurveSpec with 1..128 supplied securities and quoted yields; no zero-rate proxy"}
     }}
   }
 }"##;

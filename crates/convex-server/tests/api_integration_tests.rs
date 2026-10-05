@@ -714,7 +714,6 @@ async fn production_readiness_failed_calculation_is_not_empty_success() {
 }
 
 #[tokio::test]
-#[ignore = "G04 / CVX-002 and CVX-005: POST pricing substitutes demo curves without opt-in"]
 async fn production_readiness_no_synthetic_curves_without_demo_opt_in() {
     let engine = create_test_engine();
     assert!(engine.curve_builder().list().is_empty());
@@ -757,6 +756,9 @@ async fn production_readiness_no_synthetic_curves_without_demo_opt_in() {
         );
     }
 }
+
+#[path = "support/bond_quotes.rs"]
+mod bond_quotes;
 
 #[tokio::test]
 async fn production_readiness_api_create_is_visible_to_pricing_reference() {
@@ -1002,6 +1004,9 @@ fn create_test_quote(id: &str, clean_price: Decimal) -> BondQuoteOutput {
         pricing_spec: "DiscountToMaturity".to_string(),
         source: "test".to_string(),
         is_stale: false,
+        zero_pv01_signed: None,
+        z_pv01_signed: None,
+        measure_errors: Vec::new(),
         quality: 100,
     }
 }
@@ -1877,8 +1882,12 @@ async fn test_post_single_bond_quote_minimal() {
 
     let (status, json) = post_json(app, "/api/v1/quote", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["instrument_id"], "US037833DV24");
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(json["code"], "INVALID_INPUT");
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("observed clean price"));
 }
 
 #[tokio::test]

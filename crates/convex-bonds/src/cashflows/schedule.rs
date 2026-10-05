@@ -29,7 +29,7 @@ use convex_core::calendars::{
     BusinessDayConvention, Calendar, JapanCalendar, JointCalendar, SIFMACalendar, Target2Calendar,
     UKCalendar, WeekendCalendar,
 };
-use convex_core::cashflows::{CouponPeriod, CouponSchedule, DateRules, ScheduleSpec};
+use convex_core::cashflows::{CouponPeriod, CouponSchedule, DateRules, ExCouponRule, ScheduleSpec};
 use convex_core::types::{Date, Frequency};
 
 use crate::error::{BondError, BondResult};
@@ -59,6 +59,8 @@ pub struct ScheduleConfig {
     pub penultimate_date: Option<Date>,
     /// Stub type
     pub stub_type: StubType,
+    /// Explicit coupon entitlement; principal remains independent.
+    pub ex_coupon: Option<ExCouponRule>,
 }
 
 impl ScheduleConfig {
@@ -75,6 +77,7 @@ impl ScheduleConfig {
             first_regular_date: None,
             penultimate_date: None,
             stub_type: StubType::None,
+            ex_coupon: None,
         }
     }
 
@@ -110,6 +113,13 @@ impl ScheduleConfig {
     #[must_use]
     pub fn with_penultimate_date(mut self, date: Date) -> Self {
         self.penultimate_date = Some(date);
+        self
+    }
+
+    /// Sets exact ex-coupon date and boundary terms.
+    #[must_use]
+    pub fn with_ex_coupon(mut self, rule: ExCouponRule) -> Self {
+        self.ex_coupon = Some(rule);
         self
     }
 
@@ -178,6 +188,7 @@ impl Schedule {
             } else {
                 config.business_day_convention
             },
+            ex_coupon: config.ex_coupon,
             ..DateRules::default()
         };
         let coupon_schedule =

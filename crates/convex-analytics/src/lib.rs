@@ -72,6 +72,8 @@ pub mod options;
 pub mod functions;
 
 // Mark-driven pricing (the trader-mark sovereignty entry point)
+/// Pure shared fixed/zero quote orchestration and explicit diagnostic risk.
+pub mod bond_quote;
 pub mod pricing;
 
 // JSON-wire DTOs for FFI / MCP / WASM boundaries.

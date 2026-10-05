@@ -254,6 +254,53 @@
         "tools/assurance/test_policy.py": "0d0116b58baf12ba6dd059e9e9f6de8a7649e63bc56acfc2db7470286160ac80",
         "tools/library/library-inventory.json": "3e4e6d7ce1ad46e18e7c6b84afc4403db6863002e8d0ac5c1570370923adfc5b"
       }
+    },
+    {
+      "base_commit": "3285b44e64c7f6dfa6bc21130b3be718b9be69a9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-05",
+      "rationale": "CVX-017 engineering impact: replace engine duplicate pricing/risk formulas and synthetic REST curves/benchmarks/volatility with pure supplied nominal fixed/zero quote functions. Core contractual periods determine actual coupon amounts, accrued/ex entitlement and payment discount steps; unchanged retained QuantLib expectations/tolerances now reconcile392/392. Explicit currency and distinct discount/swap/government inputs, actual benchmark securities/maturities, checked positive/finite bounded data and frozen-Z central signed risk reject missing inputs rather than substitutes. FixedRateTerms and optional zero redemption survive actual C ABI construction; FRN C ABI price/risk/DM/cashflows explicitly reject absent eligible fixing contracts. Nominal engine rejects complex/embedded terms; full model/convention/host matrices remain pending. REST/WS share economic serialization; supplied REST curve revisions remain indicative metadata, not complete canonical execution contexts. Remove unused pricing-model selector and curve-copy/fallback helpers. Preserve all69 earlier quantitative pin rows/bytes/defaults, lock/toolchain/dependency allowlist,25 C exports and four expiring exception bytes; append only five new unapproved engineering artifacts. Complete30-area/174-combination/2154-Planned-record scope, owners, release/library gates and historical failed captures remain unchanged. Public curve docs receive only comment/link repairs exposed by strict rustdoc. No independent human quantitative approval, market/model, latency, execution or LB0/LB1 certificate is declared.",
+      "tests": [
+        "Required bond,analytics,server andFFI suites; actual13 supplied contracts,8 admitted REST cases and explicit EUR premium zero; missing role/fixing/benchmark,stale/invalid/conflicting revision and unsupported-product controls",
+        "Strict production/all-feature and new-test Clippy,fmt,standalone default/minimal/schemars facade; fresh optimized shared library and real separate-process C ABI controls",
+        "Unchanged392 retained comparison references and all69 prior quantitative pins conserved; assurance/public/private/comparison policy controls and unchanged pending gate reports retained",
+        "Final exact-source checks and raw failing attempts are bound in private CVX-017 receipts; no fabricated approval or financial tolerance refresh"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d943d18c4ea740c545a7dd04ca65a2bab4bf7e07b819c6a650cdfb7138318edb",
+        "crates/convex-analytics/src/bond_quote.rs": "4a9c63a7e347049fa491216b861ee8ceaceae2dda196a911cf4e5419b4bef445",
+        "crates/convex-analytics/src/curve_inputs.rs": "5d2131743a3499fc60b2002e4cc62ac0c1957dbfc746f3b246b3ff3ca4e98392",
+        "crates/convex-analytics/src/dto.rs": "733806f77d07a430e81dbed5ce7a3bac9fb38bcef7d5df887ed58ad7dee3af8c",
+        "crates/convex-analytics/src/lib.rs": "1e3f303d6d839208f950c4d575b15fe0dafe6cd6e8206da8af44d6f95921f12a",
+        "crates/convex-analytics/src/pricing.rs": "baf9f2295b3a65e65190d04547a8e18f930dfb88bc2eed0cbfab4844d2274023",
+        "crates/convex-analytics/src/risk/profile.rs": "4075ee2dbafdbb8bf7136df00cff37f776631668b1845195e6e16e76a33d7e64",
+        "crates/convex-analytics/src/spreads/asw/par_par.rs": "b8cf12e4e2e91a5ae948a9ae7827fbf1a1dbea65393fec724d63fa1e01e7ee50",
+        "crates/convex-analytics/src/spreads/government_curve.rs": "98ceb34c13acd2caac5d9fd14ca5b850e72cd698df93c74ff7f6dbcff62c65ee",
+        "crates/convex-analytics/src/spreads/zspread.rs": "d70cbe189ebfe52da5fb923a4588f3f451bc23f7fbf25f3e5ed60c4f63942366",
+        "crates/convex-analytics/tests/bond_quotes.rs": "0e02cb6bd89bc30861630a1a398e662ba17ed077b8b9da689f6d364be4653cd8",
+        "crates/convex-analytics/tests/fixtures/bond-quotes.json": "67ace3bc6531f059ba7f12a844900ab5c9c5931fdf12bbb708d7b76bbaa740ce",
+        "crates/convex-bonds/src/cashflows/schedule.rs": "ec668e678abe00172941799edff5e52d8a54d96acd2fb926f2cb0ebd8e374cd2",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "8af145fae61ddf4b6dcd3e2fa5fafd83b1c775d48da1c06eda40b4e63b22b598",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "3bf9af7a11ab735d81de3ac0348614ec3b14c50982e7707ba5f74c282fd5ae17",
+        "crates/convex-bonds/src/traits/analytics.rs": "beb8a9c0d7e07e679024b6a4c776e9ac772ff2321135a41ca8dc2fe9dc964a5b",
+        "crates/convex-bonds/src/traits/bond.rs": "fb5144de03baabf23d6e126aa2772e636c81335499544165b6a66590b63fc2c1",
+        "crates/convex-curves/src/contracts/inputs.rs": "c1a20c837e3bd2a5a04b4838a435999dcb21da37373e4924d6459ace95154a4b",
+        "crates/convex-curves/src/contracts/mod.rs": "cee88e2b80ff2c63cfcdbd9241977bb2fa63e193d93a5bf5ca6d3367aa84d3c6",
+        "crates/convex-curves/src/contracts/query.rs": "131f44a210c837a50efd7305a96e30d5b35a3b4282ae5a171e5004d9a77cae15",
+        "crates/convex-ffi/README.md": "eb378c2b0f4634881030b0e94e50a8b9550e771c20bcd529145c9fc5b77a00db",
+        "crates/convex-ffi/src/build.rs": "60cea88f297ec63547908312914bb1345fc91c9c6690de4f0eb069d137afa5ea",
+        "crates/convex-ffi/src/dispatch.rs": "f2eb2be99939ff1d1f01757a885ae3ef0b8f4c7e5b3821ea10b4ac32a7feb132",
+        "crates/convex-ffi/src/ingress.rs": "beca32078ac3efe17e9ef43478908c93f53c63aa67ef34f1740e00e48857df7b",
+        "crates/convex-ffi/src/schemas.rs": "1aebbcf70f45b62230ced42236b104b1bcc15a80f561d45ee61c3d7fb5a173aa",
+        "crates/convex-ffi/tests/bond_quotes.rs": "7be645e7529225ce6b5145af257e1419b4c914408b9f28b86da3f8552b21dcc0",
+        "crates/convex-ffi/tests/smoke.rs": "b85730160ea05a56c8044c7467f89b684d309ac521620d00021ab9c2bd2d6190",
+        "crates/convex/examples/bond_quotes.rs": "6b7a7103962705dbcc654fe24cc680c7c9708ca499bc0ae73c63b10c8bbb146b",
+        "crates/convex/src/lib.rs": "f41a604d68a5854334b8b9611deff354619d1fc1425ceb199acbb5d9f64ae2ac",
+        "tools/assurance/check.py": "e3bc5fa6ebfdd86a4135cbf6833ba96c1171d44a9a1ee046d4c9949e1b9545bc",
+        "tools/assurance/inventory.json": "caef2e618192db702700a2a7a91a8831f6b7171bb54b662a012950dfd01ce1fe",
+        "tools/assurance/numeric-evidence.json": "cbc6f57aab450f7e811ca64a1f43b951db785728e0caaa15d731fc11413cdb2f",
+        "tools/library/library-inventory.json": "a39dd20b07a735fb104f3772f5e16ed3422e78c381d4c2977118fdc848284545"
+      }
     }
   ]
 }

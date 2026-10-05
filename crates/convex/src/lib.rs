@@ -8,8 +8,10 @@
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 
+pub use convex_analytics::bond_quote;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
+pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;
 pub use convex_core::error::{ConvexError, ConvexResult};
@@ -31,7 +33,7 @@ pub use convex_bonds::instruments::{
     CallableBond, FixedRateBond, FloatingRateNote, ZeroCouponBond,
 };
 pub use convex_bonds::traits::{Bond, BondCashFlow, FixedCouponBond};
-pub use convex_bonds::types::{CallEntry, CallSchedule, CallType};
+pub use convex_bonds::types::{CalendarId, CallEntry, CallSchedule, CallType};
 pub use convex_bonds::{BondError, BondResult};
 
 pub use convex_analytics::error::{AnalyticsError, AnalyticsResult};

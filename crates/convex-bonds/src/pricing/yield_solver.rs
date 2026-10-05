@@ -317,10 +317,9 @@ impl YieldSolver {
         periods_per_year: f64,
         initial_guess: f64,
     ) -> BondResult<YieldResult> {
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "No cash flows".to_string(),
-            });
+        self.price_primitive(cash_flows, initial_guess, periods_per_year)?;
+        if !target_dirty_price.is_finite() || target_dirty_price <= 0.0 {
+            return Err(BondError::invalid_spec("invalid yield target"));
         }
 
         let objective =
@@ -335,6 +334,32 @@ impl YieldSolver {
             }),
             Err(_) => self.solve_with_brent(objective, initial_guess),
         }
+    }
+
+    /// Checked price over precomputed dated times and per-100 cash amounts.
+    pub fn price_primitive(
+        &self,
+        cash: &[(f64, f64)],
+        yield_rate: f64,
+        frequency: f64,
+    ) -> BondResult<f64> {
+        if cash.is_empty()
+            || cash.len() > 4096
+            || !frequency.is_finite()
+            || frequency <= 0.0
+            || !yield_rate.is_finite()
+            || 1.0 + yield_rate / frequency <= 0.0
+            || cash
+                .iter()
+                .any(|(t, a)| !t.is_finite() || *t <= 0.0 || !a.is_finite())
+        {
+            return Err(BondError::invalid_spec("invalid yield price input"));
+        }
+        let price = self.pv_at_yield(cash, yield_rate, frequency);
+        if !price.is_finite() || price <= 0.0 {
+            return Err(BondError::invalid_spec("invalid yield price output"));
+        }
+        Ok(price)
     }
 
     /// Solves using Brent's method when Newton-Raphson fails.

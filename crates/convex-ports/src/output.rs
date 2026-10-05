@@ -118,14 +118,24 @@ pub struct BondQuoteOutput {
     pub effective_convexity: Option<Decimal>,
 
     // Risk
-    /// DV01 (per $1M notional)
+    /// Quoted-yield DV01 loss in price per 100 face; no position scaling.
     pub dv01: Option<Decimal>,
-    /// PV01
+    /// Diagnostic continuous-zero PV01 loss per 100 at frozen Z-spread.
     pub pv01: Option<Decimal>,
     /// Key rate durations (tenor label, duration value)
     pub key_rate_durations: Option<Vec<(String, Decimal)>>,
-    /// CS01 - Credit spread sensitivity (price change for 1bp spread increase)
+    /// Z-spread loss per 100 for +1bp; this is not CDS quote CS01.
     pub cs01: Option<Decimal>,
+
+    /// Signed diagnostic continuous-zero change per 100 for +1bp, frozen Z-spread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zero_pv01_signed: Option<Decimal>,
+    /// Signed continuous ACT/365F Z-spread change per 100 for +1bp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_pv01_signed: Option<Decimal>,
+    /// Explicit measure failures; absence never represents zero risk.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measure_errors: Vec<convex_core::contracts::StructuredError>,
 
     // Metadata
     /// Calculation timestamp
@@ -183,8 +193,7 @@ impl BondQuoteOutput {
     /// Calculate dirty price from clean price and accrued.
     pub fn dirty_price_mid(&self) -> Option<Decimal> {
         match (self.clean_price_mid, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }
@@ -192,8 +201,7 @@ impl BondQuoteOutput {
     /// Calculate dirty price bid.
     pub fn dirty_price_bid(&self) -> Option<Decimal> {
         match (self.clean_price_bid, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }
@@ -201,8 +209,7 @@ impl BondQuoteOutput {
     /// Calculate dirty price ask.
     pub fn dirty_price_ask(&self) -> Option<Decimal> {
         match (self.clean_price_ask, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }

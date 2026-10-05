@@ -294,7 +294,7 @@ fn g_spread_requires_separate_gov_curve() {
     unsafe {
         let bond = build_handle(fixed_rate_5pct());
         let swap = build_curve(flat_curve(0.04));
-        // Without params.govt_curve we should refuse rather than fabricate.
+        // Without params.government we should refuse rather than fabricate.
         let no_govt = rpc(
             convex_ffi::convex_spread,
             &json!({
@@ -304,17 +304,27 @@ fn g_spread_requires_separate_gov_curve() {
             .to_string(),
         );
         assert_eq!(no_govt["ok"], "false");
-        assert_eq!(no_govt["error"]["field"], "params.govt_curve");
+        assert_eq!(no_govt["error"]["field"], "params.government");
 
         // With a separate gov curve at 3.5%, G-spread on a bond priced
         // against the 4% swap curve should be roughly +50bps.
-        let gov = build_curve(flat_curve(0.035));
+        let benchmark = convex_analytics::spreads::GovernmentBenchmark::with_cusip_unchecked(
+            convex_analytics::spreads::Sovereign::UST,
+            convex_bonds::types::Tenor::Y10,
+            "SUPPLIED-US",
+            convex_core::Date::from_ymd(2035, 1, 15).unwrap(),
+            rust_decimal::Decimal::from_f64_retain(0.035).unwrap(),
+            convex_core::types::Yield::new(
+                rust_decimal::Decimal::from_f64_retain(0.035).unwrap(),
+                convex_core::types::Compounding::SemiAnnual,
+            ),
+        );
         let resp = rpc(
             convex_ffi::convex_spread,
             &json!({
                 "bond": bond, "curve": swap, "settlement": "2025-04-15",
                 "mark": "99.5C", "spread_type": "GSpread",
-                "params": {"govt_curve": gov},
+                "params": {"government": {"reference_date":"2025-01-15","sovereign":"UST","benchmarks":[benchmark]}},
             })
             .to_string(),
         );
@@ -352,7 +362,7 @@ fn zero_coupon_5y() -> Value {
         "maturity": "2030-01-15",
         "issue": "2025-01-15",
         "compounding": "SemiAnnual",
-        "day_count": "ActActIcma"
+        "day_count": "Act365Fixed"
     })
 }
 
@@ -414,11 +424,12 @@ fn frn_price_with_clean_mark() {
             convex_ffi::convex_price,
             &json!({"bond": bond, "settlement": "2025-04-15", "mark": "100"}).to_string(),
         );
-        assert_eq!(r["ok"], "true", "{r}");
-        let dirty = r["result"]["dirty_price"].as_f64().unwrap();
-        let clean = r["result"]["clean_price"].as_f64().unwrap();
-        let accrued = r["result"]["accrued"].as_f64().unwrap();
-        assert!((dirty - clean - accrued).abs() < 1e-9);
+        assert_eq!(r["ok"], "false", "{r}");
+        assert_eq!(r["error"]["field"], "fixings");
+        assert!(r["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("fixing history"));
     }
 }
 

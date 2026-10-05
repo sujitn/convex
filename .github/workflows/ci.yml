@@ -87,6 +87,15 @@ jobs:
       - name: Exercise curve numerics with schema features
         run: cargo run --locked -p convex --example curve_numerics --features schemars
 
+      - name: Exercise shared supplied bond quotes through the standalone facade
+        run: cargo run --locked -p convex --example bond_quotes
+
+      - name: Exercise shared bond quotes without default features
+        run: cargo run --locked -p convex --example bond_quotes --no-default-features
+
+      - name: Exercise shared bond quotes with schema features
+        run: cargo run --locked -p convex --example bond_quotes --features schemars
+
       - name: Check minimum pure feature combination
         run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
 

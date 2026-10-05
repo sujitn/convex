@@ -82,7 +82,7 @@ pub enum ServerMessage {
         count: usize,
     },
     /// Bond quote update
-    BondQuote(Box<BondQuoteOutput>),
+    BondQuote(#[serde(serialize_with = "serialize_bond_quote")] Box<BondQuoteOutput>),
     /// ETF iNAV update
     EtfQuote(Box<EtfQuoteOutput>),
     /// Portfolio analytics update
@@ -106,6 +106,15 @@ pub enum ServerMessage {
     },
     /// Curve update notification
     CurveUpdated { curve_id: String, timestamp: i64 },
+}
+
+fn serialize_bond_quote<S: serde::Serializer>(
+    quote: &BondQuoteOutput,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    crate::handlers::bond_quote_json(quote)
+        .map_err(serde::ser::Error::custom)?
+        .serialize(serializer)
 }
 
 // =============================================================================
@@ -1340,6 +1349,9 @@ mod tests {
             pricing_spec: "test".to_string(),
             source: "test".to_string(),
             is_stale: false,
+            zero_pv01_signed: None,
+            z_pv01_signed: None,
+            measure_errors: Vec::new(),
             quality: 100,
         };
 

@@ -8,7 +8,7 @@ use convex_core::calendars::BusinessDayConvention;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
-use crate::cashflows::{AccruedInterestCalculator, Schedule, ScheduleConfig, StubType};
+use crate::cashflows::{Schedule, ScheduleConfig, StubType};
 use crate::conventions::{self, BondConventions};
 use crate::error::{BondError, BondResult, IdentifierError};
 use crate::traits::{Bond, BondCashFlow, FixedCouponBond};
@@ -46,6 +46,7 @@ pub struct FixedRateBond {
 
     // Ex-dividend
     ex_dividend_days: Option<u32>,
+    ex_coupon_rule: Option<convex_core::cashflows::ExCouponRule>,
 
     // Classification
     bond_type: BondType,
@@ -99,6 +100,7 @@ impl FixedRateBond {
             face_value: Decimal::ONE_HUNDRED,
             redemption_value: Decimal::ONE_HUNDRED,
             ex_dividend_days: conventions.ex_dividend_days(),
+            ex_coupon_rule: None,
             bond_type: BondType::FixedRateCorporate,
             schedule: OnceCell::new(),
         }
@@ -166,6 +168,19 @@ impl FixedRateBond {
     /// Resolve the shared schedule with typed validation failure instead of panic.
     /// Checked builders/deserialization call this before accepting the bond.
     pub fn try_schedule(&self) -> BondResult<&Schedule> {
+        if self.face_value <= Decimal::ZERO
+            || self.face_value > Decimal::from(1_000_000_000_000_000_000_i64)
+            || self.coupon_rate < Decimal::ZERO
+            || self.coupon_rate > Decimal::TEN
+            || self.redemption_value <= Decimal::ZERO
+            || self.redemption_value > self.face_value * Decimal::TEN
+            || self.settlement_days > 366
+            || self.ex_dividend_days.is_some_and(|v| v > 366)
+        {
+            return Err(BondError::invalid_spec(
+                "invalid fixed bond economic bounds",
+            ));
+        }
         self.schedule.get_or_try_init(|| {
             // Determine stub type based on whether we have explicit first/penultimate dates
             let stub_type = if self.first_coupon_date.is_some() {
@@ -195,104 +210,106 @@ impl FixedRateBond {
                 config
             };
 
+            let config = match self.ex_coupon_rule.or_else(|| {
+                self.ex_dividend_days
+                    .map(|days| convex_core::cashflows::ExCouponRule {
+                        offset: convex_core::cashflows::DateOffset::BusinessDays(-(days as i32)),
+                        anchor: convex_core::cashflows::ExDateAnchor::ContractualEnd,
+                        boundary: convex_core::cashflows::ExCouponBoundary::OnDate,
+                    })
+            }) {
+                Some(rule) => config.with_ex_coupon(rule),
+                None => config,
+            };
             Schedule::generate(config)
         })
     }
 
-    /// Finds the previous and next coupon dates for a given settlement date.
-    fn coupon_dates_for_settlement(&self, settlement: Date) -> (Date, Date) {
-        let schedule = self.schedule();
-        let dates = schedule.unadjusted_dates();
-
-        for window in dates.windows(2) {
-            if settlement >= window[0] && settlement < window[1] {
-                return (window[0], window[1]);
+    /// Checked accrued per 100 face, using actual validated coupon periods.
+    /// Payment-date cash is excluded. Ex-coupon accrual rebates the full coupon.
+    pub fn try_accrued_interest(&self, settlement: Date) -> BondResult<Decimal> {
+        let mut accrued = Decimal::ZERO;
+        if self.frequency.is_zero() {
+            return Ok(accrued);
+        }
+        for period in self.try_schedule()?.coupon_periods() {
+            let (start, end) = period.accrual_dates();
+            if settlement <= start || settlement >= period.payment_date() {
+                continue;
             }
+            let full = period
+                .year_fraction(start, end, self.day_count)
+                .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+            let elapsed = period
+                .year_fraction(start, settlement.min(end), self.day_count)
+                .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+            let fraction = if period.is_ex_coupon(settlement) {
+                elapsed.checked_sub(full)
+            } else {
+                Some(elapsed)
+            }
+            .ok_or_else(|| BondError::invalid_spec("accrual overflow"))?;
+            let amount = self
+                .coupon_rate
+                .checked_mul(Decimal::ONE_HUNDRED)
+                .and_then(|v| v.checked_mul(fraction))
+                .ok_or_else(|| BondError::invalid_spec("accrued overflow"))?;
+            accrued = accrued
+                .checked_add(amount)
+                .ok_or_else(|| BondError::invalid_spec("accrued overflow"))?;
         }
-
-        // Settlement after last coupon before maturity
-        let n = dates.len();
-        if n >= 2 {
-            (dates[n - 2], dates[n - 1])
-        } else {
-            (self.dated_date, self.maturity)
-        }
+        Ok(accrued)
     }
 
-    /// Calculates accrued interest at settlement.
-    ///
-    /// Handles both standard accrued and ex-dividend accrued (UK Gilts).
-    /// Also handles irregular (stub) first coupon periods by prorating the coupon.
-    fn calculate_accrued(&self, settlement: Date) -> Decimal {
-        if self.frequency.is_zero() {
-            return Decimal::ZERO;
-        }
-
-        let (last_coupon, next_coupon) = self.coupon_dates_for_settlement(settlement);
-
-        // Check if we're in an irregular first period (short or long first coupon)
-        // This happens when the first coupon period doesn't match the regular period length
-        let is_first_period = last_coupon == self.dated_date;
-        let is_irregular_period = if is_first_period {
-            // Calculate regular period length in days (approximately)
-            let regular_days = 365 / self.frequency.periods_per_year() as i64;
-            // Calculate actual first period length in days
-            let actual_days = self.dated_date.days_between(&next_coupon).abs();
-            // If the first period differs by more than 30 days from regular, it's irregular
-            (actual_days - regular_days).abs() > 30
-        } else {
-            false
-        };
-
-        if is_irregular_period {
-            // For irregular first period, use the irregular period calculator
-            // which prorates based on reference period length
-            let regular_months = 12 / self.frequency.periods_per_year();
-            let ref_period_start = next_coupon
-                .add_months(-(regular_months as i32))
-                .unwrap_or(next_coupon);
-            let ref_period_end = next_coupon;
-
-            AccruedInterestCalculator::irregular_period(
-                settlement,
-                last_coupon, // period_start = dated_date
-                next_coupon, // period_end = first coupon
-                ref_period_start,
-                ref_period_end,
-                self.coupon_rate,
-                self.face_value,
-                self.day_count,
-                self.frequency,
-            )
-        } else {
-            match self.ex_dividend_days {
-                Some(ex_div_days) => AccruedInterestCalculator::ex_dividend(
-                    settlement,
-                    last_coupon,
-                    next_coupon,
-                    self.coupon_rate,
-                    self.face_value,
-                    self.day_count,
-                    self.frequency,
-                    ex_div_days,
-                    &self.calendar,
-                ),
-                None => AccruedInterestCalculator::standard(
-                    settlement,
-                    last_coupon,
-                    next_coupon,
-                    self.coupon_rate,
-                    self.face_value,
-                    self.day_count,
-                    self.frequency,
-                ),
+    /// Checked actual cash amounts. Ex-coupon exclusion never removes principal.
+    pub fn try_cash_flows(&self, from: Date) -> BondResult<Vec<BondCashFlow>> {
+        let mut flows = Vec::new();
+        let periods = self.try_schedule()?.coupon_periods();
+        for (i, period) in periods.iter().enumerate() {
+            if period.payment_date() <= from {
+                continue;
             }
+            let (start, end) = period.accrual_dates();
+            let coupon = if self.frequency.is_zero() || period.is_ex_coupon(from) {
+                Decimal::ZERO
+            } else {
+                let fraction = period
+                    .year_fraction(start, end, self.day_count)
+                    .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+                self.face_value
+                    .checked_mul(self.coupon_rate)
+                    .and_then(|v| v.checked_mul(fraction))
+                    .ok_or_else(|| BondError::invalid_spec("coupon overflow"))?
+            };
+            let principal = if i + 1 == periods.len() {
+                self.redemption_value
+            } else {
+                Decimal::ZERO
+            };
+            let amount = coupon
+                .checked_add(principal)
+                .ok_or_else(|| BondError::invalid_spec("cashflow overflow"))?;
+            // Retain a zero ex-coupon entry for the yield time grid.
+            let mut flow =
+                BondCashFlow::coupon(period.payment_date(), amount).with_accrual(start, end);
+            if !principal.is_zero() {
+                flow.flow_type = crate::traits::CashFlowType::CouponAndPrincipal;
+            }
+            flows.push(flow);
         }
+        Ok(flows)
     }
 }
 
 // Implement the Bond trait from traits/bond.rs
 impl Bond for FixedRateBond {
+    fn try_cash_flows(&self, from: Date) -> BondResult<Vec<BondCashFlow>> {
+        FixedRateBond::try_cash_flows(self, from)
+    }
+
+    fn try_accrued_interest(&self, settlement: Date) -> BondResult<Decimal> {
+        FixedRateBond::try_accrued_interest(self, settlement)
+    }
     fn identifiers(&self) -> &BondIdentifiers {
         &self.identifiers
     }
@@ -331,78 +348,81 @@ impl Bond for FixedRateBond {
     }
 
     fn cash_flows(&self, from: Date) -> Vec<BondCashFlow> {
-        let schedule = self.schedule();
-        let dates = schedule.dates();
-        let unadjusted = schedule.unadjusted_dates();
+        self.try_cash_flows(from)
+            .expect("checked fixed bond cashflows")
+    }
 
-        // Calculate regular period length for stub detection
-        let regular_days = 365 / self.frequency.periods_per_year() as i64;
-
-        let mut flows = Vec::new();
-
-        for (i, window) in unadjusted.windows(2).enumerate() {
-            let accrual_start = window[0];
-            let accrual_end = window[1];
-            let payment_date = dates.get(i + 1).copied().unwrap_or(accrual_end);
-
-            if payment_date <= from {
+    fn yield_cash_flows(
+        &self,
+        settlement: Date,
+        frequency: Frequency,
+    ) -> BondResult<Vec<(f64, f64)>> {
+        use rust_decimal::prelude::ToPrimitive;
+        if frequency.is_zero() {
+            return Err(BondError::invalid_spec("zero yield frequency"));
+        }
+        let periods = self.try_schedule()?.coupon_periods();
+        let cash = self.try_cash_flows(settlement)?;
+        let mut out = Vec::with_capacity(cash.len());
+        let mut time = Decimal::ZERO;
+        let mut last = settlement;
+        let mut index = 0;
+        for period in periods {
+            let payment = period.payment_date();
+            if payment <= settlement {
                 continue;
             }
-
-            // Check if this is the first period and it's a stub
-            let is_first_period = i == 0 && accrual_start == self.dated_date;
-            let actual_days = accrual_start.days_between(&accrual_end).abs();
-            let is_stub_period = is_first_period && (actual_days - regular_days).abs() > 30;
-
-            let coupon = if is_stub_period {
-                // Prorate the regular coupon by actual_days / nominal_period_days,
-                // matching ISMA/ICMA convention (and QuantLib's stub handling).
-                // Using the DayCount's own day_count() keeps 30/360 rules in sync.
-                let dc = self.day_count.to_day_count();
-                let months_per_period = 12 / self.frequency.periods_per_year() as i32;
-                let nominal_start = accrual_end
-                    .add_months(-months_per_period)
-                    .unwrap_or(accrual_start);
-                let nominal_days = dc.day_count(nominal_start, accrual_end).abs();
-                let actual = dc.day_count(accrual_start, accrual_end).abs();
-                if nominal_days > 0 {
-                    self.coupon_per_period() * Decimal::from(actual) / Decimal::from(nominal_days)
+            let (start, end) = period.accrual_dates();
+            let fraction = |a: Date, b: Date| -> BondResult<Decimal> {
+                if self.day_count == DayCountConvention::ActActIcma {
+                    // ICMA accrual uses retained regular references. A payment
+                    // adjustment extends the final reference denominator.
+                    let left = a.max(start).min(end);
+                    let right = b.max(start).min(end);
+                    let inside = period
+                        .year_fraction(left, right, self.day_count)
+                        .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+                    let reference = period
+                        .reference_periods()
+                        .last()
+                        .ok_or_else(|| BondError::invalid_spec("missing ICMA reference"))?;
+                    let extra_days = a.days_between(&b) - left.days_between(&right);
+                    let extra = Decimal::from(extra_days)
+                        / (Decimal::from(self.frequency.periods_per_year())
+                            * Decimal::from(reference.start.days_between(&reference.end)));
+                    inside
+                        .checked_add(extra)
+                        .ok_or_else(|| BondError::invalid_spec("yield time overflow"))
                 } else {
-                    self.coupon_per_period()
+                    Ok(self.day_count.to_day_count().year_fraction(a, b))
                 }
-            } else if matches!(
-                self.day_count,
-                DayCountConvention::Act360
-                    | DayCountConvention::Act365Fixed
-                    | DayCountConvention::Act365Leap
-            ) {
-                // Under ACT/360 and ACT/365*, period lengths differ (89–92 days for
-                // quarterly, etc.) and the year-fraction-based coupon varies with
-                // the period. Match QL's `rate * year_fraction(start, end)`; for
-                // 30/360 and ACT/ACT that collapses to `rate / freq` already.
-                let dc = self.day_count.to_day_count();
-                self.annual_coupon() * dc.year_fraction(accrual_start, accrual_end)
-            } else {
-                self.coupon_per_period()
             };
-
-            let is_final = i == unadjusted.len() - 2;
-
-            if is_final {
-                // Final payment: coupon + principal
-                flows.push(
-                    BondCashFlow::coupon_and_principal(payment_date, coupon, self.redemption_value)
-                        .with_accrual(accrual_start, accrual_end),
-                );
-            } else {
-                flows.push(
-                    BondCashFlow::coupon(payment_date, coupon)
-                        .with_accrual(accrual_start, accrual_end),
-                );
-            }
+            // Subtraction preserves non-additive 30/360 boundary rules.
+            let step = fraction(start, payment)?
+                .checked_sub(fraction(start, last)?)
+                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+            time = time
+                .checked_add(step)
+                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+            let flow = cash
+                .get(index)
+                .ok_or_else(|| BondError::invalid_spec("cashflow grid mismatch"))?;
+            let amount = flow
+                .amount
+                .checked_div(self.face_value)
+                .and_then(|v| v.checked_mul(Decimal::ONE_HUNDRED))
+                .ok_or_else(|| BondError::invalid_spec("cashflow normalization overflow"))?;
+            out.push((
+                time.to_f64()
+                    .ok_or_else(|| BondError::invalid_spec("yield time conversion"))?,
+                amount
+                    .to_f64()
+                    .ok_or_else(|| BondError::invalid_spec("cashflow conversion"))?,
+            ));
+            last = payment;
+            index += 1;
         }
-
-        flows
+        Ok(out)
     }
 
     fn next_coupon_date(&self, after: Date) -> Option<Date> {
@@ -421,7 +441,8 @@ impl Bond for FixedRateBond {
     }
 
     fn accrued_interest(&self, settlement: Date) -> Decimal {
-        self.calculate_accrued(settlement)
+        self.try_accrued_interest(settlement)
+            .expect("checked fixed bond accrued")
     }
 
     fn day_count_convention(&self) -> &str {
@@ -476,14 +497,10 @@ impl FixedCouponBond for FixedRateBond {
     }
 
     fn is_ex_dividend(&self, settlement: Date) -> bool {
-        if let Some(ex_div_days) = self.ex_dividend_days {
-            let (_, next_coupon) = self.coupon_dates_for_settlement(settlement);
-            let calendar = self.calendar.to_calendar();
-            let ex_div_date = calendar.add_business_days(next_coupon, -(ex_div_days as i32));
-            settlement >= ex_div_date
-        } else {
-            false
-        }
+        self.schedule()
+            .coupon_periods()
+            .iter()
+            .any(|p| p.payment_date() > settlement && p.is_ex_coupon(settlement))
     }
 }
 
@@ -510,6 +527,7 @@ pub struct FixedRateBondBuilder {
     face_value: Option<Decimal>,
     redemption_value: Option<Decimal>,
     ex_dividend_days: Option<u32>,
+    ex_coupon_rule: Option<convex_core::cashflows::ExCouponRule>,
     bond_type: Option<BondType>,
 }
 
@@ -746,6 +764,13 @@ impl FixedRateBondBuilder {
         self
     }
 
+    /// Set explicit ex-coupon offset, anchor and boundary semantics.
+    #[must_use]
+    pub fn ex_coupon_rule(mut self, rule: convex_core::cashflows::ExCouponRule) -> Self {
+        self.ex_coupon_rule = Some(rule);
+        self
+    }
+
     /// Applies conventions from a `BondConventions` object.
     #[must_use]
     pub fn with_conventions(mut self, conv: &BondConventions) -> Self {
@@ -786,6 +811,19 @@ impl FixedRateBondBuilder {
             return Err(BondError::invalid_spec("coupon_rate cannot be negative"));
         }
 
+        let face = self.face_value.unwrap_or(Decimal::ONE_HUNDRED);
+        let redemption = self.redemption_value.unwrap_or(Decimal::ONE_HUNDRED);
+        if face <= Decimal::ZERO
+            || face > Decimal::from(1_000_000_000_000_000_000_i64)
+            || redemption <= Decimal::ZERO
+            || redemption > face * Decimal::TEN
+            || coupon_rate > Decimal::TEN
+            || self.ex_dividend_days.is_some_and(|v| v > 366)
+        {
+            return Err(BondError::invalid_spec(
+                "invalid face/redemption/coupon/ex-coupon bounds",
+            ));
+        }
         let dated_date = self.dated_date.unwrap_or(issue_date);
 
         let bond = FixedRateBond {
@@ -808,6 +846,7 @@ impl FixedRateBondBuilder {
             face_value: self.face_value.unwrap_or(Decimal::ONE_HUNDRED),
             redemption_value: self.redemption_value.unwrap_or(Decimal::ONE_HUNDRED),
             ex_dividend_days: self.ex_dividend_days,
+            ex_coupon_rule: self.ex_coupon_rule,
             bond_type: self.bond_type.unwrap_or(BondType::FixedRateCorporate),
             schedule: OnceCell::new(),
         };
@@ -832,23 +871,6 @@ fn day_count_to_string(dc: &DayCountConvention) -> &'static str {
     }
 }
 
-/// Helper function to convert string to `DayCountConvention` for deserialization.
-fn string_to_day_count(s: &str) -> DayCountConvention {
-    match s {
-        "Act360" => DayCountConvention::Act360,
-        "Act365Fixed" => DayCountConvention::Act365Fixed,
-        "Act365Leap" => DayCountConvention::Act365Leap,
-        "ActActIsda" => DayCountConvention::ActActIsda,
-        "ActActIcma" => DayCountConvention::ActActIcma,
-        "ActActAfb" => DayCountConvention::ActActAfb,
-        "Thirty360US" => DayCountConvention::Thirty360US,
-        "Thirty360E" => DayCountConvention::Thirty360E,
-        "Thirty360EIsda" => DayCountConvention::Thirty360EIsda,
-        "Thirty360German" => DayCountConvention::Thirty360German,
-        _ => DayCountConvention::Thirty360US, // Default fallback
-    }
-}
-
 // Implement Serialize manually to skip the OnceCell and handle DayCountConvention
 impl Serialize for FixedRateBond {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -856,7 +878,7 @@ impl Serialize for FixedRateBond {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("FixedRateBond", 18)?;
+        let mut state = serializer.serialize_struct("FixedRateBond", 19)?;
         state.serialize_field("identifiers", &self.identifiers)?;
         state.serialize_field("coupon_rate", &self.coupon_rate)?;
         state.serialize_field("maturity", &self.maturity)?;
@@ -874,6 +896,7 @@ impl Serialize for FixedRateBond {
         state.serialize_field("face_value", &self.face_value)?;
         state.serialize_field("redemption_value", &self.redemption_value)?;
         state.serialize_field("ex_dividend_days", &self.ex_dividend_days)?;
+        state.serialize_field("ex_coupon_rule", &self.ex_coupon_rule)?;
         state.serialize_field("bond_type", &self.bond_type)?;
         state.end()
     }
@@ -904,6 +927,8 @@ impl<'de> Deserialize<'de> for FixedRateBond {
             face_value: Decimal,
             redemption_value: Decimal,
             ex_dividend_days: Option<u32>,
+            #[serde(default)]
+            ex_coupon_rule: Option<convex_core::cashflows::ExCouponRule>,
             bond_type: BondType,
         }
 
@@ -917,7 +942,7 @@ impl<'de> Deserialize<'de> for FixedRateBond {
             first_coupon_date: data.first_coupon_date,
             penultimate_coupon_date: data.penultimate_coupon_date,
             frequency: data.frequency,
-            day_count: string_to_day_count(&data.day_count),
+            day_count: data.day_count.parse().map_err(serde::de::Error::custom)?,
             settlement_days: data.settlement_days,
             calendar: data.calendar,
             business_day_convention: data.business_day_convention,
@@ -926,6 +951,7 @@ impl<'de> Deserialize<'de> for FixedRateBond {
             face_value: data.face_value,
             redemption_value: data.redemption_value,
             ex_dividend_days: data.ex_dividend_days,
+            ex_coupon_rule: data.ex_coupon_rule,
             bond_type: data.bond_type,
             schedule: OnceCell::new(),
         };

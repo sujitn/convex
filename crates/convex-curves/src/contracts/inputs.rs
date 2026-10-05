@@ -153,7 +153,7 @@ pub enum CurveRole {
         entity_id: String,
         /// Debt seniority contract.
         seniority: String,
-        /// Recovery fraction in [0,1].
+        /// Recovery fraction in `[0,1]`.
         recovery: f64,
     },
     /// Explicit issuer/bond residual basis model (construction pending).

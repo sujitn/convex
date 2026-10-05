@@ -73,10 +73,20 @@ records stay Planned.
 CVX-060 adds [bounded numerical fitting and transformations](CURVE-NUMERICS.md):
 scaled native-unit dated deposit/FRA fitting with rank/limit diagnostics,
 stable compounding conversions, exact representation views and explicit rolling.
-Thirty-eight new tests include 512 deterministic generated cases. The current
-inventory has 40 observations and 76 inspected source pins. All 2,154 mandatory
+Thirty-eight new tests include 512 deterministic generated cases. The CVX-060
+inventory had 40 observations and 76 inspected source pins. All 2,154 mandatory
 records remain Planned; full methods/products, admitted market packs, host
 dispatch and independent LB0/LB1 certificates remain owning work.
+
+CVX-017 adds [shared supplied bond quotes](BOND-QUOTES.md), checked fixed/zero
+economics, explicit curve roles, actual government benchmarks and bounded
+missing-input errors. Thirteen supplied dated contracts cover coupons, ex-coupon,
+leap/stub/EOM, holiday payments and negative yields. Native/C ABI parity covers
+all thirteen; REST covers eight admitted contracts and an explicit premium EUR
+zero. The fresh retained comparison passes all 392 measures at unchanged
+reference values/tolerances. Earlier failing captures remain historical evidence.
+The inventory now has 41 observations and 91 source pins; all 2,154 records
+remain Planned pending independent market/model and full surface certificates.
 
 ## Evidence and missing operations
 
@@ -89,7 +99,7 @@ JSON join avoids duplicating source/provenance text in thousands of rows;
 it introduces no production capability registry or pricing abstraction.
 
 `observations` records partial, missing, type-only, approximate or missing
-construction/dispatch paths. Anchors and 76 exact source hashes prove which
+construction/dispatch paths. Anchors and 91 exact source hashes prove which
 bytes were inspected. Family test anchors are **candidates for reuse**, not
 proof that every convention/model/operation/surface record passes them.
 Actual command receipts and standalone results belong to task evidence.
@@ -99,8 +109,8 @@ Source review did not establish line/branch coverage or quantitative approval.
 |---|---|---|---|
 | LC-001 | Shared calendar and schedule primitives (LB0) | checked supplied-contract primitives implemented; exact market conventions/certificate pending | CVX-054, CVX-064 |
 | LC-002 | Fixings and dated coupon/principal profiles (LB0) | checked publication/revision and dated-profile APIs implemented; full product migration/certificate pending | CVX-054, CVX-064 |
-| LC-003 | Fixed-rate bullet bonds (LB0) | failed comparison, lossy schema, missing dispatch, unverified conventions | CVX-017, CVX-054 |
-| LC-004 | Bills and zero-coupon bonds (LB0) | incomplete contract, incomplete facade, missing dispatch, unverified conventions | CVX-017, CVX-054 |
+| LC-003 | Fixed-rate bullet bonds (LB0) | shared supplied fixed quotes and native/C ABI/admitted REST parity; independent convention and full surface certification pending | CVX-017, CVX-054 |
+| LC-004 | Bills and zero-coupon bonds (LB0) | shared explicit zero economics and admitted host parity; bill workflows, convention and full surface certification pending | CVX-017, CVX-054 |
 | LC-005 | Plain floating-rate notes (LB1) | incomplete contract, incomplete facade, missing dispatch, missing input substitution, missing option model | CVX-055, CVX-061, CVX-062 |
 | LC-006 | Amortizing and sinking bonds (LB1) | incomplete contract, missing lifecycle, type only | CVX-055, CVX-061, CVX-062 |
 | LC-007 | Deterministically stepped coupons and notionals (LB1) | lossy schema, missing implementation | CVX-055, CVX-061, CVX-062 |

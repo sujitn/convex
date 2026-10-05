@@ -1,7 +1,7 @@
 //! Pure, checked construction and query contracts. Inputs contain actual values;
 //! no clock, registry, repository, runtime or provider is consulted.
 //!
-//! Deserialize input DTOs, then call [`build_curve_set`]. Built objects have
+//! Deserialize input DTOs, then call `build_curve_set`. Built objects have
 //! private validated state and cannot bypass validation by deserialization.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]

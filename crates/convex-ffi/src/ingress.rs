@@ -125,6 +125,7 @@ fn validate_fields(value: &Value) -> Result<(), String> {
                 let limit = match key.as_str() {
                     "instruments" => 128,
                     "key_rate_tenors" | "scenarios" | "proposals" => 64,
+                    "benchmarks" => 128,
                     "basket_overrides" => 32,
                     _ => MAX_ITEMS,
                 };
@@ -150,6 +151,19 @@ fn validate_fields(value: &Value) -> Result<(), String> {
                     }
                 }
                 if matches!(key.as_str(), "tenor" | "tenor_end" | "pivot_tenor") {
+                    if key == "tenor"
+                        && fields.contains_key("yield_rate")
+                        && fields.contains_key("sovereign")
+                        && fields.contains_key("maturity")
+                    {
+                        let tenor: convex_bonds::types::Tenor =
+                            serde_json::from_value(value.clone())
+                                .map_err(|_| "invalid government tenor")?;
+                        if tenor.months() > 1800 {
+                            return Err("government tenor exceeds 150 years".into());
+                        }
+                        continue;
+                    }
                     check_number(value, 0.0, 150.0, key)?;
                 }
                 if matches!(key.as_str(), "rate" | "coupon_rate") {
