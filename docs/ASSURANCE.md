@@ -16,6 +16,8 @@ and `panic`; core contracts and global curve calibration apply the same
 scoped rules. Shared core cashflows, fixings and checked calendars apply the
 same denial. Test assertions remain available. FFI denies undocumented
 unsafe blocks, missing safety documentation, and implicit unsafe operations.
+Checked curve contracts and their analytics helper composition apply the
+same scoped denial and retain the pure dependency direction.
 
 The dependency checker traverses all-feature, target-specific **normal**
 dependency edges using `cargo metadata --locked`. It rejects network,
@@ -47,6 +49,7 @@ API is already complete. Its C export list detects ABI inventory drift.
 | Checked HW1F swaption | At most 150 annual payments and 100 root iterations | Finite price or typed error; no zero-rate fallback. |
 | Shared schedules/profiles | At most 4,096 entries per validated schedule/profile; years 1–9999, span ≤150×366 days | Anchored date grids, reference periods, independent dated terms and explicit entitlement; invalid/overlapping/gapped profiles fail. |
 | Eligible fixings/overnight | At most 65,536 revisions and 4,096 requests/compound terms; offsets ≤366 business/calendar days, calendar scans ≤3,660 steps | Publication and receipt cutoffs, immutable revisions, complete missing-history failure before any forecast; checked positive Decimal product. |
+| Checked curve contracts | At most 256 supplied/built curves, 1,024 nodes or 1,023 helpers plus origin; time ≤150 years; inverse ≤16 bisections | Exact dependency versions, finite typed queries and native quote repricing; unsupported methods/products, cycles, invalid domains and failed residuals return errors without partial output. |
 | Checked date arithmetic | Chrono's representable calendar; checked day/month/year addition | Overflow/out-of-range returns an error; signed month arithmetic uses Euclidean division. |
 
 Solver defaults remain `1e-10` and 100 iterations. Piecewise defaults remain
@@ -158,6 +161,19 @@ compatibility routes retain registered preconditions; full product/schema
 migration and LB0/LB1 certification remain owning tasks. Exception expirations
 remain 2026-12-31.
 
+CVX-056 adds five [checked-curve](CURVE-CONTRACTS.md) artifact pins while
+preserving all 60 earlier rows, bytes, expectations and solver defaults.
+The new native API supplies full helper economics, explicit query conventions
+and immutable dependencies. It implements direct DF/zero/survival curves,
+an exact dated deposit/FRA chain and a continuous zero spread; full product
+and global calibration remains explicit owning work. Forty-four new tests,
+including 256 deterministic generated cases, exercise supplied contracts.
+CI requires its standalone default, no-default and schema-feature consumers.
+The workspace enables serde_json `float_roundtrip` to preserve original f64
+quotes; locked package versions and normal dependency scope remain unchanged.
+Actual host/parser compatibility checks do not certify new schema dispatch.
+All library records and the 105 retained comparison failures remain pending.
+
 `change-reviews.json` ties engineering impact to a base commit and candidate
 file hashes, with actor, rationale, review date and test evidence. It includes
 untracked candidate modules and detects changes after the review. An old
@@ -195,6 +211,9 @@ python3 -m unittest discover -s tools/assurance -p 'test_*.py'
 python3 tools/library/check.py --base <base-sha>
 python3 -m unittest discover -s tools/library -p 'test_*.py'
 cargo run --locked -p convex --example inventory_probe
+cargo run --locked -p convex --example curve_contracts
+cargo run --locked -p convex --example curve_contracts --no-default-features
+cargo run --locked -p convex --example curve_contracts --features schemars
 python3 reconciliation/comparison.py check --base <base-sha>
 python3 -m unittest discover -s reconciliation -p 'test_comparison.py'
 cargo fmt --all -- --check

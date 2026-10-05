@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 3,
+  "version": 4,
   "reviewed_on": "2026-10-05",
-  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed.",
+  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -27,6 +27,16 @@
       "path": "crates/convex-analytics/src/lib.rs",
       "mode": "test_section",
       "sha256": "290106099cd32f5322b54acc6787979b0c8f1bf44ea4ff26e66b2c50adbecaf7"
+    },
+    {
+      "path": "crates/convex-analytics/tests/curve_inputs.rs",
+      "mode": "file",
+      "sha256": "26bd64a0b6541739aa11b81a980fda6682e95241366fbb49b808e301f17c5b21"
+    },
+    {
+      "path": "crates/convex-analytics/tests/fixtures/curve-helper-inputs.json",
+      "mode": "file",
+      "sha256": "07db36008e095c9b922bcc3b11e875502eaa01d78947d05ba4c81a19797ed109"
     },
     {
       "path": "crates/convex-analytics/tests/fixtures/public_contracts.json",
@@ -117,6 +127,16 @@
       "path": "crates/convex-curves/src/lib.rs",
       "mode": "test_section",
       "sha256": "cc704d8addecda258fe2450f42ede34100dc593d4425df14c82f2f2eb61e87fb"
+    },
+    {
+      "path": "crates/convex-curves/tests/curve_contracts.rs",
+      "mode": "file",
+      "sha256": "0cb20de73abb52c599588a43f6bbbcd28a76edef06a6d7eee55430edb5df704a"
+    },
+    {
+      "path": "crates/convex-curves/tests/fixtures/curve-contracts.json",
+      "mode": "file",
+      "sha256": "bfc91be8a64ec068fa3f4a3bfe6906c0ab68145e3d27bf6611665542f7738c1b"
     },
     {
       "path": "crates/convex-math/src/error.rs",
@@ -232,6 +252,11 @@
       "path": "crates/convex/examples/cashflow_primitives.rs",
       "mode": "file",
       "sha256": "d78247fc67825b70b5f8a709186f7b624a69f02543c719bb2490cb4e00fde9d7"
+    },
+    {
+      "path": "crates/convex/examples/curve_contracts.rs",
+      "mode": "file",
+      "sha256": "06f71fa366eb2e1cc5339095a12b6b0ce6c53bee89019ff50ead7efacb7a0bb0"
     },
     {
       "path": "reconciliation/book.json",

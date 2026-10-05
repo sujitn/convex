@@ -13,7 +13,8 @@ use std::collections::BTreeMap;
 
 /// Explicit contracted overnight observation mechanics. No universal SOFR,
 /// SONIA or EUR rule is inferred from an index name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OvernightConvention {
     /// Look back this many business days on the supplied observation calendar.
     pub lookback_business_days: u32,

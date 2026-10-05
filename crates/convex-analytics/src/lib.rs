@@ -54,6 +54,8 @@ pub use error::{AnalyticsError, AnalyticsResult};
 // ============================================================================
 
 pub mod cashflows;
+/// Pure dated product helper descriptions and checked curve composition.
+pub mod curve_inputs;
 pub mod risk;
 pub mod yields;
 

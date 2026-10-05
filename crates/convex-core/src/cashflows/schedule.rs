@@ -142,7 +142,7 @@ pub struct ExCouponRule {
 }
 
 /// Whether an unpaid cashflow on settlement date belongs to the buyer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PaymentDateEntitlement {
     /// Include cash due on settlement, for a supplied pre-payment state.
     Include,
@@ -151,7 +151,8 @@ pub enum PaymentDateEntitlement {
 }
 
 /// Independent date transformations. None leaves fixing/observation/ex dates absent.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DateRules {
     /// Adjustment applied only to accrual boundaries.
     pub accrual_adjustment: BusinessDayConvention,

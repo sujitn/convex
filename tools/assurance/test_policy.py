@@ -141,6 +141,17 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: cargo run --example unrelated_consumer\n'))
 
+    def test_curve_consumer_feature_checks_are_mandatory(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'cargo run --locked -p convex --example curve_contracts',
+            'cargo run --locked -p convex --example curve_contracts --no-default-features',
+            'cargo run --locked -p convex --example curve_contracts --features schemars',
+        ]:
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: cargo run --example unrelated_consumer\n'))
+
     def change_fixture(self, directory):
         root = Path(directory)
         path = 'tests/fixtures/example.json'

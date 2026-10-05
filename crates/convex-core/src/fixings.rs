@@ -60,7 +60,7 @@ pub struct FixingRequirement {
 }
 
 /// Explicit treatment of a past observation that is not yet due for publication.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum UnpublishedFixingPolicy {
     /// Forecast, retaining an AwaitingPublication origin distinct from future dates.
     Forecast,
@@ -69,7 +69,8 @@ pub enum UnpublishedFixingPolicy {
 }
 
 /// All time and admissibility policy supplied by the valuation caller.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FixingContext {
     /// Future observation dates are projected, even in a restated history.
     pub valuation_date: Date,

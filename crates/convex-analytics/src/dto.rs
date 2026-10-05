@@ -321,6 +321,11 @@ pub struct BootstrapSpec {
 
 // ---- Pricing --------------------------------------------------------------
 
+// The checked native curve contract uses actual immutable values rather than
+// registry handles. Host/schema dispatch migration is owned by CVX-063.
+pub use crate::curve_inputs::{CurveHelperInput, HelperCurveRecipe};
+pub use convex_curves::contracts::{CurveQuery, CurveRecipe};
+
 /// Either a textual mark (parsed by `Mark::from_str` — see examples in
 /// `convex_schema("Mark")`) or an already-parsed JSON `Mark`.
 #[derive(Debug, Clone, Serialize, Deserialize)]

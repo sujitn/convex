@@ -9,7 +9,7 @@ use rust_decimal::{Decimal, RoundingStrategy};
 use std::collections::BTreeSet;
 
 /// Contractual cash rounding, applied once after summing coupon segments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CashRounding {
     /// Preserve all available Decimal precision (maximum scale 28).
     Unrounded,
@@ -38,7 +38,7 @@ impl CashRounding {
 }
 
 /// Principal convention for the amount due at a contractual coupon boundary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CouponPrincipal {
     /// Accrue each segment on its independently dated outstanding principal.
     AccrualProfile,
@@ -49,7 +49,7 @@ pub enum CouponPrincipal {
 }
 
 /// Negative coupon handling is a contract choice; there is no implicit floor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum NegativeCouponPolicy {
     /// Preserve signed negative amounts.
     Allow,
@@ -74,7 +74,7 @@ pub struct CouponCalculation {
 }
 
 /// Ex-coupon accrued convention, independent of cash entitlement.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ExCouponAccrual {
     /// Accrued-to-settlement minus the full unrounded coupon, then round once.
     SubtractCoupon,

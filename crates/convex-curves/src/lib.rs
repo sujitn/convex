@@ -133,6 +133,9 @@ pub mod bumping;
 // Multi-curve environment
 pub mod multicurve;
 
+/// Checked pure curve recipes, construction, dependencies and queries.
+pub mod contracts;
+
 // Re-exports for convenience
 pub use conversion::ValueConverter;
 pub use error::{CurveError, CurveResult};
@@ -180,7 +183,7 @@ pub mod interpolation {
 }
 
 /// Extrapolation methods for curve extension.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ExtrapolationMethod {
     /// No extrapolation - error if outside range.
     #[default]
@@ -201,7 +204,7 @@ pub enum ExtrapolationMethod {
 }
 
 /// Interpolation method selection for curve construction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InterpolationMethod {
     /// Simple linear interpolation.
     Linear,

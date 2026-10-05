@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "inventory_version": 2,
+  "inventory_version": 3,
   "reviewed_at": "2026-10-05",
-  "reviewed_source_commit": "b441e02eba8330213a567a016c6826062700b3f7",
-  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required.",
+  "reviewed_source_commit": "9e8a82191ca0b4fba96ec67898ca21f03bc00327",
+  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending.",
   "requirement_areas": [
     {
       "id": "LC-001",
@@ -866,12 +866,14 @@
     }
   },
   "source_pins": {
+    "Cargo.toml": "f537904343cc2b981ad102b25f03a23d08cf391d7f4d5a2a560035b5900c23c5",
     "bindings/java/src/main/java/com/convex/ConvexAnalytics.java": "95fdb687ab040fba779ebb327eacffde47dc045961efeec38d6274b575bd3c94",
     "bindings/java/src/test/java/com/convex/SmokeTest.java": "5c75f5398b9ec0acdf9fa63791ce63725a3dfbf25d527d919acb45029bfb1639",
     "crates/convex-analytics/src/calibration/hw1f.rs": "46d4879e0ab203cab7230d4c5994e4c47bafd29197bf0f8e2581de386df60425",
     "crates/convex-analytics/src/cashflows/schedule.rs": "68a156cd140792e0ce53802b379a0f0cdedf3caadf09eff0063be6eee0ab1df9",
-    "crates/convex-analytics/src/dto.rs": "781e8a337e7f9c45bddfa9ab9d36ba05685c32577b8e6a6c4d59e4db3ffcaf72",
-    "crates/convex-analytics/src/lib.rs": "27d2d27dd07bbb4b7d23e907b90a20c6a0108f8c15b86b5787f729424e0a2544",
+    "crates/convex-analytics/src/curve_inputs.rs": "a0db7565538d44b816d4b0fe8106160ea5b76c78d0b85fc0315f059f180c1ed4",
+    "crates/convex-analytics/src/dto.rs": "6cca4b0dc4b5675c0d88919ba91740cf3eebe6401a33021d3c86a3b1e13186f9",
+    "crates/convex-analytics/src/lib.rs": "4055d70075688ee5a26b087f432c965416605bc8485c5538dd56be15b1636937",
     "crates/convex-analytics/src/pricing.rs": "607981418cad192647dd4829d0f4f245157585536981688713d07fc619273e34",
     "crates/convex-analytics/src/risk/hedging/ctd.rs": "63c26b4b55ec335022a1fd8406b939365382f50a8e6b6e56c3ca0708233101db",
     "crates/convex-analytics/src/risk/hedging/instruments.rs": "77a3b04eb7a76df0745811b34cbfa7a4c1cca6f08ea8b2380b40c707af9723a7",
@@ -881,6 +883,8 @@
     "crates/convex-analytics/src/spreads/discount_margin.rs": "7d7b8d2d7b646ede6ec9b99ec562c40c73d2eb62169cf77b884aaa6c5bb0c551",
     "crates/convex-analytics/src/spreads/government_curve.rs": "0dcadbb8d7676bd260f698c6041bb7c5dbf7f38f65a80b095a1455d6aa29f54d",
     "crates/convex-analytics/src/yields/money_market.rs": "a162c9295a4c0876197c3bf49873e566c12d4dabc49d3dd8d93500385fc162a0",
+    "crates/convex-analytics/tests/curve_inputs.rs": "26bd64a0b6541739aa11b81a980fda6682e95241366fbb49b808e301f17c5b21",
+    "crates/convex-analytics/tests/fixtures/curve-helper-inputs.json": "07db36008e095c9b922bcc3b11e875502eaa01d78947d05ba4c81a19797ed109",
     "crates/convex-analytics/tests/shared_primitives.rs": "cdd5ca407a9e0f3ce509f89444df40c009bfb77e6d53faa437757f2640c6469c",
     "crates/convex-bonds/src/arrc.rs": "8fb48d0615ddd7660d2485bafeee6b0708ccb4f77427f4cf163b2b3c990a187b",
     "crates/convex-bonds/src/cashflows/schedule.rs": "507e6321020029752d4fac1a04c11ac1316d28c30c61519b2478fa73001d68db",
@@ -896,24 +900,30 @@
     "crates/convex-bonds/src/types/amortization.rs": "0541daef6d4d496d4dfb12e3a78117a0e6ad69beffb829c476d525a023696cef",
     "crates/convex-bonds/tests/shared_primitives.rs": "228583de8d49dcff66b341df839b42279914923a209b023afd34cc8ec2810737",
     "crates/convex-core/src/calendars/checked.rs": "779ae37b936da4ee83cbc872c18dc6a17265e50d9b2e02b3f75fdc46b5851dcb",
-    "crates/convex-core/src/cashflows/amounts.rs": "1247cd2c10e78903a6b67449d9a14ec44f607107d8de2733236e8ec770331aea",
+    "crates/convex-core/src/cashflows/amounts.rs": "c985b969576316c8d6505fbf9ce34797150e86004ec88d064c554cbbf127aa6a",
     "crates/convex-core/src/cashflows/mod.rs": "91dece06cfe3bf52169f0fc620b419306696f08b9f99842a5473514585938316",
-    "crates/convex-core/src/cashflows/overnight.rs": "5eb8c44bb7e780aae8fccfed422b377d58a9518e22fd8660dda337f9cb44df4f",
+    "crates/convex-core/src/cashflows/overnight.rs": "bc383d2df88e1f6c458069e99ec935c08845a86448206682f61f627b5c5af0bb",
     "crates/convex-core/src/cashflows/profiles.rs": "4dd6ce6df2a0e3c04ad34ad75c53442727a802b48e3201924b3559230a5ee391",
-    "crates/convex-core/src/cashflows/schedule.rs": "9878e2e4f4e7175e2ce5f96ca631b53a6c7ef7b06366a06d56e01c78183bf57a",
+    "crates/convex-core/src/cashflows/schedule.rs": "2b57fdcb77f80b623fb608154c6bd011caf27efdd6b922b09fa2f42615918bfc",
     "crates/convex-core/src/contracts/risk.rs": "6758011c4fdedafbc435d276a411ccaddf5e52153c9c9fd3f0cae2d4430993f6",
     "crates/convex-core/src/daycounts/thirty360.rs": "d3dcf48ecebdfc4d487d854862829b183166c0f4c6c03bfb45b42631e73782a4",
-    "crates/convex-core/src/fixings.rs": "7c52de77c37b19b7e0ed312564fe0b009e65f687e03e74cfcb716856f3c8d770",
+    "crates/convex-core/src/fixings.rs": "74f9c9de56159827cbe26ff99232ded0ae9172dacff5c6c484d6be81182bc021",
     "crates/convex-core/tests/cashflow_primitives.rs": "c3d05785507db8d2fa4379ed2390ea2b1f914779f299627bf21a39cb0da728c8",
     "crates/convex-core/tests/fixtures/cashflow-primitives.json": "3d348b738c54981cc0c2774feac054feba5b016032986b10abf01ec1d8ed882e",
     "crates/convex-curves/src/calibration/global_fit.rs": "0dc1b977a82884a123a789c094c73b0650405d1a9f9e86e0432d66bb4f06c554",
     "crates/convex-curves/src/calibration/instruments.rs": "50d7746036a1dae0735fe2718f31ca8bbf90e58fb7c7ab498a9869d5b20a92d2",
+    "crates/convex-curves/src/contracts/build.rs": "3430dd844bcc8cd38247f5060c5f0dd8f0de9466e7dfc02f1fcb2055921a7e51",
+    "crates/convex-curves/src/contracts/inputs.rs": "721779606f9af92f59c0ac2fcf869b6ffdc00ef242e72584db117e6e10192231",
+    "crates/convex-curves/src/contracts/mod.rs": "caded68a681594abdf510cfe67ba4177f025bcb8440883fa7055866e9900d6e3",
+    "crates/convex-curves/src/contracts/query.rs": "477bfe66b66eae90c0ebbf89b05160085fd85701241fd5f16710587879aa05db",
     "crates/convex-curves/src/curves/derived.rs": "78eb0b29a218b64408e640c177f3de994e1f92f35e46b1410809a24a1aef973d",
-    "crates/convex-curves/src/curves/discrete.rs": "fdc4cdf91a9dd792b847a8b3e5393580ac19b241447465ff775affcd15fb2fa2",
-    "crates/convex-curves/src/lib.rs": "a5e1202ba5eb54ef7bc7821c6565f749da138cdb45d7b6bcd869ccda382d0f60",
+    "crates/convex-curves/src/curves/discrete.rs": "c2424abdfc6a3d2b1cbd7ed6905b1dfa6a3a5963c4e9c413a61092f38b42a29d",
+    "crates/convex-curves/src/lib.rs": "81519925eb6ddc6ce2f4f7b72504d7e6537fca6b7a7852fa097d4f60b272504b",
     "crates/convex-curves/src/multicurve/environment.rs": "dcec67a7ae7de233fbd15e1f50e7fd5bd34110015a31cbab0c5a6378e71b077f",
     "crates/convex-curves/src/wrappers/credit_curve.rs": "ff191548486ee51385770797f469c75cc81ac02cfe8453497bd633bbbd304b40",
     "crates/convex-curves/src/wrappers/rate_curve.rs": "751538839ac61dc3c579c22326b3d3b686f4e51d864160f2752fc4b3bb92be71",
+    "crates/convex-curves/tests/curve_contracts.rs": "0cb20de73abb52c599588a43f6bbbcd28a76edef06a6d7eee55430edb5df704a",
+    "crates/convex-curves/tests/fixtures/curve-contracts.json": "bfc91be8a64ec068fa3f4a3bfe6906c0ab68145e3d27bf6611665542f7738c1b",
     "crates/convex-ffi/src/build.rs": "54aceb3a7972e3c8202c0fec3ecfa5749047bcc691cba800e44d8ddb6e5e5e81",
     "crates/convex-ffi/src/dispatch.rs": "79a58b8a9b0ebcab2c0312cbd126df446ef49be862c2ba3cd2b1204182c29a42",
     "crates/convex-ffi/tests/smoke.rs": "1ad30cc5251e9f2a1bc9d0cf806d8fd539554b3739bc0e2d13edaf487c434263",
@@ -921,7 +931,8 @@
     "crates/convex-mcp/src/server.rs": "359ca3ee76843ef71062cab35680831ffda7905e5dac8b88fd8024ea60c4015e",
     "crates/convex-wasm/src/dto.rs": "335a154c8b4ed29da86d02f1070655b837bfacc47705ebc6db7fc7f8e304650c",
     "crates/convex/examples/cashflow_primitives.rs": "d78247fc67825b70b5f8a709186f7b624a69f02543c719bb2490cb4e00fde9d7",
-    "crates/convex/src/lib.rs": "e326a53ee53405e59b2db5a6dae44bac976147a9ac0b2abeae25fa8856549296",
+    "crates/convex/examples/curve_contracts.rs": "06f71fa366eb2e1cc5339095a12b6b0ce6c53bee89019ff50ead7efacb7a0bb0",
+    "crates/convex/src/lib.rs": "fbd730c757ab811bb1c278c711e6f1ceb05df4e9757e36bb8aecc288e39fea5e",
     "excel/Convex.Excel/Cx.cs": "221f6ad5df978f7021615400e2cd9fd4af7223847654bb2f12b147b95af968a1"
   },
   "observations": {
@@ -1360,7 +1371,7 @@
     },
     "core_curves": {
       "assessment": "partial",
-      "note": "Public typed nodes, dated Deposit/Fra and numerical global/piecewise solvers exist. Complete recipes/helper dates, native quote units, diagnostics and representation/interpolation combinations remain to certify. Approximate SequentialBootstrapper is not a repricing certificate.",
+      "note": "Public typed nodes, dated Deposit/Fra and numerical global/piecewise solvers exist. Complete recipes/helper dates, native quote units, diagnostics and representation/interpolation combinations remain to certify. Approximate SequentialBootstrapper is not a repricing certificate. CVX-056 adds a separate checked pure recipe/dependency/query route and an exact dated deposit/FRA chain; full method/product/global certification is still pending.",
       "public_apis": [
         "convex::DiscreteCurve::new",
         "convex::GlobalFitter::fit",
@@ -1715,7 +1726,7 @@
     },
     "wire": {
       "assessment": "partial",
-      "note": "Actual shared BondSpec has five variants; CurveSpec has discrete/bootstrap and four tenor-rate helpers. JSON/C ABI expose existing generic RPCs but omit full schedules, profiles/fixings, products, curve recipes and lifecycle. Serialization of accepted fields alone is not lossless economics.",
+      "note": "Actual shared BondSpec has five variants; CurveSpec has discrete/bootstrap and four tenor-rate helpers. JSON/C ABI expose existing generic RPCs but omit full schedules, profiles/fixings, products, curve recipes and lifecycle. Serialization of accepted fields alone is not lossless economics. CVX-056 reexports the shared checked native CurveRecipe/CurveQuery/helper DTOs, with full economic serde roundtrips; existing registry JSON/C ABI/schema dispatch remains CVX-063.",
       "public_apis": [
         "convex_analytics::dto::BondSpec",
         "convex_analytics::dto::CurveSpec",
@@ -2050,6 +2061,60 @@
         "independent_certificate_pending"
       ],
       "test_execution": "Actual task commands/logs are recorded in private CVX-054 evidence. Source pins and family anchors alone do not prove every required combination."
+    },
+    "curve_contracts": {
+      "assessment": "candidate",
+      "note": "CVX-056 checked native construction/query/dependency facade and actual standalone default/no-default/schemars consumer. Direct DF/zero/survival, exact deposit/FRA chain and continuous zero spread are callable. Full future/bond/CDS/IRS/basis descriptions preserve native terms and explicitly reject unimplemented calibration. This does not certify all required curve/model/surface records.",
+      "public_apis": [
+        "convex::curve_contracts::build_curve_set",
+        "convex::curve_contracts::BuiltCurve::query",
+        "convex::curve_contracts::BuiltCurve::date_to_tenor",
+        "convex::curve_contracts::BuiltCurve::tenor_to_date",
+        "convex::curve_contracts::curve_capabilities",
+        "convex::curve_inputs::describe_helper",
+        "convex::curve_inputs::build_helper_curve_set",
+        "convex_analytics::dto::CurveRecipe",
+        "convex_analytics::dto::CurveQuery"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-curves/src/contracts/build.rs",
+          "text": "pub fn build_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/query.rs",
+          "text": "pub fn curve_capabilities()",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/curve_inputs.rs",
+          "text": "pub fn describe_helper(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "text": "fn dated_deposit_fra_chain_reprices_every_original_native_quote(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/curve_inputs.rs",
+          "text": "fn all_economic_helper_terms_roundtrip_without_loss(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/curve_inputs.rs",
+          "text": "fn complex_helpers_never_become_tenor_rate_proxies_or_partial_builds(",
+          "kind": "test"
+        }
+      ],
+      "gaps": [
+        "missing_calibration",
+        "missing_quote_rebuild",
+        "unverified_model",
+        "independent_certificate_pending"
+      ],
+      "test_execution": "Exact executed commands/logs and analytic units/assumptions are recorded in private CVX-056 evidence. Source anchors alone cannot certify a market convention/model or public host surface."
     }
   },
   "combinations": [
@@ -3904,9 +3969,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/df_nodes_loglinear/SUPPLIED/nodes",
@@ -3925,9 +3988,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/cubic_spline_nodes/SUPPLIED/nodes",
@@ -3946,9 +4007,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/monotone_convex_nodes/SUPPLIED/nodes",
@@ -3967,9 +4026,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/flat_forward_nodes/SUPPLIED/nodes",
@@ -3988,9 +4045,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/segmented_delegated_derived/SUPPLIED/nodes",
@@ -4009,9 +4064,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/core_dated_helpers/SUPPLIED/global",
@@ -4030,9 +4083,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves"
-      ]
+      "observation_ids": ["core_curves","curve_contracts"]
     },
     {
       "id": "LC-015/core_dated_helpers/SUPPLIED/piecewise",
@@ -4051,10 +4102,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves",
-        "ffi_piecewise"
-      ]
+      "observation_ids": ["core_curves","ffi_piecewise","curve_contracts"]
     },
     {
       "id": "LC-015/nelson_siegel/SUPPLIED/parametric",
@@ -4073,10 +4121,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves",
-        "parametric"
-      ]
+      "observation_ids": ["core_curves","parametric","curve_contracts"]
     },
     {
       "id": "LC-015/svensson/SUPPLIED/parametric",
@@ -4095,10 +4140,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "core_curves",
-        "parametric"
-      ]
+      "observation_ids": ["core_curves","parametric","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/USD/global",
@@ -4119,9 +4161,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve"
-      ]
+      "observation_ids": ["ois_curve","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/EUR/global",
@@ -4142,9 +4182,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve"
-      ]
+      "observation_ids": ["ois_curve","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/GBP/global",
@@ -4165,9 +4203,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve"
-      ]
+      "observation_ids": ["ois_curve","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/USD/piecewise",
@@ -4188,10 +4224,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve",
-        "ffi_piecewise"
-      ]
+      "observation_ids": ["ois_curve","ffi_piecewise","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/EUR/piecewise",
@@ -4212,10 +4245,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve",
-        "ffi_piecewise"
-      ]
+      "observation_ids": ["ois_curve","ffi_piecewise","curve_contracts"]
     },
     {
       "id": "LC-016/ois_discount/GBP/piecewise",
@@ -4236,10 +4266,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "ois_curve",
-        "ffi_piecewise"
-      ]
+      "observation_ids": ["ois_curve","ffi_piecewise","curve_contracts"]
     },
     {
       "id": "LC-017/index_projection/USD/global",
@@ -4260,10 +4287,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-017/tenor_basis/USD/global",
@@ -4284,10 +4308,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-017/index_projection/EUR/global",
@@ -4308,10 +4329,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-017/tenor_basis/EUR/global",
@@ -4332,10 +4350,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-017/index_projection/GBP/global",
@@ -4356,10 +4371,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-017/tenor_basis/GBP/global",
@@ -4380,10 +4392,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "basis",
-        "ffi_fra"
-      ]
+      "observation_ids": ["basis","ffi_fra","curve_contracts"]
     },
     {
       "id": "LC-018/government_benchmark/USD/global",
@@ -4404,9 +4413,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "government_curve"
-      ]
+      "observation_ids": ["government_curve","curve_contracts"]
     },
     {
       "id": "LC-018/government_benchmark/EUR/global",
@@ -4427,9 +4434,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "government_curve"
-      ]
+      "observation_ids": ["government_curve","curve_contracts"]
     },
     {
       "id": "LC-018/government_benchmark/GBP/global",
@@ -4450,9 +4455,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "government_curve"
-      ]
+      "observation_ids": ["government_curve","curve_contracts"]
     },
     {
       "id": "LC-019/credit_survival/USD/credit",
@@ -4473,9 +4476,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "credit_curve"
-      ]
+      "observation_ids": ["credit_curve","curve_contracts"]
     },
     {
       "id": "LC-019/credit_survival/EUR/credit",
@@ -4496,9 +4497,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "credit_curve"
-      ]
+      "observation_ids": ["credit_curve","curve_contracts"]
     },
     {
       "id": "LC-019/credit_survival/GBP/credit",
@@ -4519,9 +4518,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "credit_curve"
-      ]
+      "observation_ids": ["credit_curve","curve_contracts"]
     },
     {
       "id": "LC-020/issuer_bond_basis/USD/global",
@@ -4542,9 +4539,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "issuer_basis"
-      ]
+      "observation_ids": ["issuer_basis","curve_contracts"]
     },
     {
       "id": "LC-020/issuer_bond_basis/EUR/global",
@@ -4565,9 +4560,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "issuer_basis"
-      ]
+      "observation_ids": ["issuer_basis","curve_contracts"]
     },
     {
       "id": "LC-020/issuer_bond_basis/GBP/global",
@@ -4588,9 +4581,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "issuer_basis"
-      ]
+      "observation_ids": ["issuer_basis","curve_contracts"]
     },
     {
       "id": "LC-021/repo_carry/USD/carry",
@@ -4611,9 +4602,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "repo"
-      ]
+      "observation_ids": ["repo","curve_contracts"]
     },
     {
       "id": "LC-021/repo_carry/EUR/carry",
@@ -4634,9 +4623,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "repo"
-      ]
+      "observation_ids": ["repo","curve_contracts"]
     },
     {
       "id": "LC-021/repo_carry/GBP/carry",
@@ -4657,9 +4644,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "repo"
-      ]
+      "observation_ids": ["repo","curve_contracts"]
     },
     {
       "id": "LC-022/hw1f_assumption/USD/hw1f",
@@ -4885,9 +4870,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "queries"
-      ]
+      "observation_ids": ["queries","curve_contracts"]
     },
     {
       "id": "LC-023/credit_queries/SUPPLIED/nodes",
@@ -4906,9 +4889,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "queries"
-      ]
+      "observation_ids": ["queries","curve_contracts"]
     },
     {
       "id": "LC-023/roll_rebase/SUPPLIED/nodes",
@@ -4927,9 +4908,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "queries"
-      ]
+      "observation_ids": ["queries","curve_contracts"]
     },
     {
       "id": "LC-023/piecewise_constant_hazard/SUPPLIED/nodes",
@@ -4948,10 +4927,7 @@
         "rust-no-default",
         "rust-schemars"
       ],
-      "observation_ids": [
-        "queries",
-        "piecewise_constant"
-      ]
+      "observation_ids": ["queries","piecewise_constant","curve_contracts"]
     },
     {
       "id": "LC-024/quote_rebuild/SUPPLIED/risk",

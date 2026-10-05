@@ -171,6 +171,51 @@
         "tools/assurance/test_policy.py": "77cc0a368b2d5c07c64fcb6a34aaef24df14222be597877cbd2feaae39a0259d",
         "tools/library/library-inventory.json": "ff52c3087a7a3e4b6d759c3b7c3ec1c5d52803334d5c8bcff6eb85798661cddf"
       }
+    },
+    {
+      "base_commit": "9e8a82191ca0b4fba96ec67898ca21f03bc00327",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-05",
+      "rationale": "CVX-056 engineering impact: add bounded immutable pure curve recipes, exact supplied dependencies, explicit native units/methods and checked date/DF/zero/forward/credit queries. Reuse existing interpolators behind failure propagation; reject approximate and unimplemented routes. Product helper economics and actual shared schedule/profile/fixing validation live above the curve layer without a product dependency cycle. Implement only direct supplied DF/zero/survival, exact dated deposit/FRA chain with original native residual checks and continuous zero spread. Explicit Unsupported preserves pending product/global calibration, quote rebuild, transforms and schema/certificate work. Enable serde_json float_roundtrip after a demonstrated one-ULP original quote parse loss; locked package versions and old C ABI DTO dispatch remain unchanged. Preserve all 60 earlier quantitative rows/bytes, numerical expectations/defaults, four expiring exceptions, complete 30-area/174-combination/2154-Planned-record scope and all 105 retained comparison failures. Five new analytic/supplied-term pins do not claim independent quantitative or market approval. Add mandatory standalone consumer feature checks and rejection controls; no provider, storage, async runtime, latency certification or production gate added. All source loops and dependency depth have declared bounds; caller calendar callbacks retain explicit termination preconditions. No human quantitative approval is declared. A final high-precision regression reproduces lost digits under the old Decimal serde-float path. New helper scalar/profile adapters emit exact strings and use from_str_exact with64byte limits, retaining core types/old core and C ABI serialization. Numeric JSON/inexact strings explicitly fail. Only new uncommitted fixtures/tests changed; earlier60quantitative artifacts remain intact.",
+      "tests": [
+        "Final required fmt, convex-curves, convex-analytics and convex suites passed; 42 new tests including 256 deterministic generated cases",
+        "Default/no-default/schemars standalone consumer and strict workspace/new test/example Clippy passed",
+        "Fresh optimized FFI cdylib and actual separate-process C ABI consumer passed; normal dependency/parser feature compatibility checks retained",
+        "All prior pinned quantitative artifacts, solver defaults and mandatory pending scope conserved; exact base/check reports retained in private CVX-056 evidence",
+        "Full all-feature workspace tests passed after allowing local loopback fixture listeners; sandbox-blocked attempt retained separately. 18 assurance,16 public coverage,4 private mapping and26 comparison controls passed.",
+        "Two additional exact-decimal controls pass:44newtests; final analytics356passes,curve210passes,facadefeature consumers and strictClippy all pass. Final allfeature workspace validation and exact-source replay recorded in CVX-056 receipts."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "44712c12740ecaf82618b47e0d9fa9c18fe9f40d9dbdf0a692bc67a24a2f8c5e",
+        "Cargo.toml": "f537904343cc2b981ad102b25f03a23d08cf391d7f4d5a2a560035b5900c23c5",
+        "crates/convex-analytics/src/curve_inputs.rs": "a0db7565538d44b816d4b0fe8106160ea5b76c78d0b85fc0315f059f180c1ed4",
+        "crates/convex-analytics/src/dto.rs": "6cca4b0dc4b5675c0d88919ba91740cf3eebe6401a33021d3c86a3b1e13186f9",
+        "crates/convex-analytics/src/lib.rs": "4055d70075688ee5a26b087f432c965416605bc8485c5538dd56be15b1636937",
+        "crates/convex-analytics/tests/curve_inputs.rs": "26bd64a0b6541739aa11b81a980fda6682e95241366fbb49b808e301f17c5b21",
+        "crates/convex-analytics/tests/fixtures/curve-helper-inputs.json": "07db36008e095c9b922bcc3b11e875502eaa01d78947d05ba4c81a19797ed109",
+        "crates/convex-core/src/cashflows/amounts.rs": "c985b969576316c8d6505fbf9ce34797150e86004ec88d064c554cbbf127aa6a",
+        "crates/convex-core/src/cashflows/overnight.rs": "bc383d2df88e1f6c458069e99ec935c08845a86448206682f61f627b5c5af0bb",
+        "crates/convex-core/src/cashflows/schedule.rs": "2b57fdcb77f80b623fb608154c6bd011caf27efdd6b922b09fa2f42615918bfc",
+        "crates/convex-core/src/fixings.rs": "74f9c9de56159827cbe26ff99232ded0ae9172dacff5c6c484d6be81182bc021",
+        "crates/convex-curves/src/contracts/build.rs": "3430dd844bcc8cd38247f5060c5f0dd8f0de9466e7dfc02f1fcb2055921a7e51",
+        "crates/convex-curves/src/contracts/inputs.rs": "721779606f9af92f59c0ac2fcf869b6ffdc00ef242e72584db117e6e10192231",
+        "crates/convex-curves/src/contracts/mod.rs": "caded68a681594abdf510cfe67ba4177f025bcb8440883fa7055866e9900d6e3",
+        "crates/convex-curves/src/contracts/query.rs": "477bfe66b66eae90c0ebbf89b05160085fd85701241fd5f16710587879aa05db",
+        "crates/convex-curves/src/curves/discrete.rs": "c2424abdfc6a3d2b1cbd7ed6905b1dfa6a3a5963c4e9c413a61092f38b42a29d",
+        "crates/convex-curves/src/lib.rs": "81519925eb6ddc6ce2f4f7b72504d7e6537fca6b7a7852fa097d4f60b272504b",
+        "crates/convex-curves/tests/curve_contracts.rs": "0cb20de73abb52c599588a43f6bbbcd28a76edef06a6d7eee55430edb5df704a",
+        "crates/convex-curves/tests/fixtures/curve-contracts.json": "bfc91be8a64ec068fa3f4a3bfe6906c0ab68145e3d27bf6611665542f7738c1b",
+        "crates/convex/examples/curve_contracts.rs": "06f71fa366eb2e1cc5339095a12b6b0ce6c53bee89019ff50ead7efacb7a0bb0",
+        "crates/convex/src/lib.rs": "fbd730c757ab811bb1c278c711e6f1ceb05df4e9757e36bb8aecc288e39fea5e",
+        "docs/ASSURANCE.md": "c016f9309d217e63cf4b26e80887d500d33bdc9714660b54b0225f61c915041a",
+        "docs/CURVE-CONTRACTS.md": "66c309c60e4e7540e20bbf67d7479e0b120582415d8e1a257aef8db823dfba0c",
+        "docs/LIBRARY-COVERAGE.md": "a0336732a77038bfc903903587896e72b6c3151eb370c39095966a7369419972",
+        "tools/assurance/check.py": "1f39963dfce795fef6e43a8aba4050e7e4dea941f7a80f1b44224cfbf3a46e15",
+        "tools/assurance/inventory.json": "76e015f953b25f22743f020211432474cb065fe4f20346c81009ef659446edb0",
+        "tools/assurance/numeric-evidence.json": "5ff14fff1b9f4b796b87aa298d38220e40738a3c0f2bb317801b0ab3e32740e2",
+        "tools/assurance/test_policy.py": "073de0b2617551a0a795b004b53dc038b7bca5d397cd78722ba48cad790dbcc3",
+        "tools/library/library-inventory.json": "7d912d9f2da610d8d6b9df38df352df2dd7bd9232a1e36914dc73e1ef47f2cd1"
+      }
     }
   ]
 }

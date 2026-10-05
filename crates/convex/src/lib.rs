@@ -8,6 +8,8 @@
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 
+/// Full dated product helper inputs without application dependencies.
+pub use convex_analytics::curve_inputs;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;
 pub use convex_core::error::{ConvexError, ConvexResult};
@@ -16,11 +18,13 @@ pub use convex_core::types::{
     PriceKind, Spread, SpreadType, Yield,
 };
 pub use convex_core::{cashflows, fixings};
+/// Pure checked curve construction/query contracts.
+pub use convex_curves::contracts as curve_contracts;
 
 pub use convex_curves::{
-    CalibrationResult, CurveError, CurveResult, Deposit, DiscountCurve, DiscreteCurve, Fra,
-    GlobalFitter, InstrumentSet, InstrumentType, InterpolationMethod, Ois, RateCurve, RateCurveDyn,
-    Swap, ValueType, ZeroCurve,
+    CalibrationResult, CurveError, CurveResult, Deposit, DiscountCurve, DiscreteCurve,
+    ExtrapolationMethod, Fra, GlobalFitter, InstrumentSet, InstrumentType, InterpolationMethod,
+    Ois, RateCurve, RateCurveDyn, Swap, ValueType, ZeroCurve,
 };
 
 pub use convex_bonds::instruments::{

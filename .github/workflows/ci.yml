@@ -69,6 +69,15 @@ jobs:
       - name: Exercise shared cashflow primitives with schema features
         run: cargo run --locked -p convex --example cashflow_primitives --features schemars
 
+      - name: Exercise checked curve contracts through the standalone facade
+        run: cargo run --locked -p convex --example curve_contracts
+
+      - name: Exercise checked curve contracts without default features
+        run: cargo run --locked -p convex --example curve_contracts --no-default-features
+
+      - name: Exercise checked curve contracts with schema features
+        run: cargo run --locked -p convex --example curve_contracts --features schemars
+
       - name: Check minimum pure feature combination
         run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
 

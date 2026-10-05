@@ -265,6 +265,57 @@ impl DiscreteCurve {
         self.extrapolation
     }
 
+    /// Fallible raw-value query honoring this curve's extrapolation policy.
+    /// Interpolation failure is propagated instead of replaced by a tail value.
+    /// Semantic rate/probability validation belongs to the checked contract facade.
+    pub fn checked_value_at(&self, t: f64) -> CurveResult<f64> {
+        if !t.is_finite() {
+            return Err(CurveError::invalid_value("query tenor must be finite"));
+        }
+        let (min, max) = self.tenor_bounds();
+        let value = if t < min || t > max {
+            if self.extrapolation == ExtrapolationMethod::None {
+                return Err(CurveError::tenor_out_of_range(t, min, max));
+            }
+            match self.extrapolation {
+                ExtrapolationMethod::FlatForward => {
+                    return Err(CurveError::builder_error(
+                        "checked query does not support approximate FlatForward extrapolation",
+                    ));
+                }
+                ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
+                    if t < min {
+                        return Err(CurveError::tenor_out_of_range(t, min, max));
+                    }
+                    let last =
+                        self.values.last().copied().ok_or_else(|| {
+                            CurveError::builder_error("missing UFR boundary value")
+                        })?;
+                    let derivative = self
+                        .interpolator
+                        .derivative(max)
+                        .map_err(|error| CurveError::interpolation_error(error.to_string()))?;
+                    let extension =
+                        convex_math::extrapolation::UfrConvergence::try_new(ufr, alpha, max)
+                            .map_err(|error| CurveError::invalid_value(error.to_string()))?;
+                    convex_math::extrapolation::Extrapolator::try_extrapolate(
+                        &extension, t, max, last, derivative,
+                    )
+                    .map_err(|error| CurveError::invalid_value(error.to_string()))?
+                }
+                _ => self.extrapolate(t),
+            }
+        } else {
+            self.interpolator
+                .interpolate(t)
+                .map_err(|error| CurveError::interpolation_error(error.to_string()))?
+        };
+        if !value.is_finite() {
+            return Err(CurveError::invalid_value("nonfinite raw curve value"));
+        }
+        Ok(value)
+    }
+
     /// Handles extrapolation for out-of-range tenors.
     fn extrapolate(&self, t: f64) -> f64 {
         let min_t = self.tenors[0];
