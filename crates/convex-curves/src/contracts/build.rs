@@ -50,6 +50,17 @@ impl BuiltCurve {
     pub fn diagnostics(&self) -> &CurveDiagnostics {
         &self.diagnostics
     }
+    /// Actual validated interpolation coordinates/values, including product fits.
+    /// Derived views have no such grid and fail instead of being resampled.
+    pub fn interpolation_grid(&self) -> Result<(&[f64], &[f64])> {
+        match &self.values {
+            CurveValues::Direct(curve) => Ok((curve.tenors(), curve.values())),
+            _ => Err(Error::unsupported(
+                "interpolation grid",
+                "derived views require their own exact integration contract",
+            )),
+        }
+    }
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
             CurveValues::Direct(curve) => curve.tenor_bounds(),
@@ -342,6 +353,12 @@ pub fn build_fitted_rate_curve(
                 "an actual calibrated mode is required",
             ))
         }
+        CalibrationMode::CreditGlobal(_) => {
+            return Err(Error::invalid(
+                "fitted.calibration",
+                "credit intensity settings cannot fit a rate curve",
+            ))
+        }
     };
     if !recipe.role.is_rate()
         || ids.is_empty()
@@ -459,7 +476,7 @@ fn validate_fitted_quotes(
     Ok(())
 }
 
-fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
+pub(super) fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
     recipe.key.validate()?;
     recipe.role.validate()?;
     validate_date(recipe.reference_date)?;

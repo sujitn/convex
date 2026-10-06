@@ -11,6 +11,10 @@
 /// Pure fixed/floating contractual cash valuation with explicit curve roles.
 pub use convex_analytics::bond_contract;
 pub use convex_analytics::bond_quote;
+/// Pure native-quote single-name CDS calibration and immutable curve sets.
+pub use convex_analytics::credit_calibration;
+/// Pure credit scenario/risk inputs and checked bond-CDS hedge mappings.
+pub use convex_analytics::credit_risk;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.

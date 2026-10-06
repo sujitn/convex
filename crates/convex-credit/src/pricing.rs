@@ -7,7 +7,6 @@ use convex_core::{daycounts::DayCountConvention, Currency, Date};
 use convex_curves::{
     contracts::{
         BuiltCurve, CurveKey, CurvePoint, CurveQuery, CurveRepresentation, CurveRole, CurveSet,
-        CurveSource,
     },
     ExtrapolationMethod, InterpolationMethod,
 };
@@ -136,7 +135,7 @@ fn validate_grid(curve: &BuiltCurve, credit: bool) -> Result<(), CdsError> {
         || r.time_basis != DayCountConvention::Act365Fixed
         || r.interpolation != InterpolationMethod::LogLinear
         || r.extrapolation != ExtrapolationMethod::None
-        || !matches!(r.source, CurveSource::Nodes(_))
+        || curve.interpolation_grid().is_err()
     {
         return Err(CdsError::Unsupported("standard integration requires supplied direct ACT/365F log-linear DF/survival grids with explicit origin and no extrapolation"));
     }
@@ -148,15 +147,10 @@ fn add_knots(
     horizon: f64,
     points: &mut Vec<f64>,
 ) -> Result<(), CdsError> {
-    let CurveSource::Nodes(nodes) = &curve.recipe().source else {
-        return Err(CdsError::Unsupported("derived or non-node standard curve"));
-    };
+    let (tenors, _) = curve.interpolation_grid()?;
     let offset = days(curve.recipe().reference_date, valuation);
-    for node in nodes {
-        let day = match node.pillar {
-            CurvePoint::Date(date) => days(date, valuation),
-            CurvePoint::Tenor(t) => offset + 365.0 * t,
-        };
+    for &tenor in tenors {
+        let day = offset + 365.0 * tenor;
         if day > 0.0 && day < horizon {
             points.push(day);
         }

@@ -183,8 +183,9 @@ execution in CI.
 
 ## Remaining production scope
 
-CVX-021 owns multi-pillar single-name credit calibration and propagated quote
-CS01/JTD; CVX-057 owns native RFR calibration. CDS indices, convention-pack
+CVX-021 supplies [multi-pillar credit calibration, signed quote risk, immediate
+default scenarios and bond/CDS mapping admission](CREDIT-CALIBRATION.md).
+CVX-057 owns native RFR calibration. CDS indices, convention-pack
 admission, default/auction/successor and paid-cash lifecycle, common result/host
 dispatch, independent human quantitative approval and complete USD/EUR/GBP
 market/model/library certificates remain their owning tasks. All 2,154 mandatory

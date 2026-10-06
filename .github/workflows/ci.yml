@@ -168,6 +168,21 @@ jobs:
       - name: Run supplied CDS valuation with schema features
         run: cargo run --locked -p convex --example cds_valuation --features schemars
 
+      - name: Check full supplied credit calibration and risk inputs
+        run: cargo test --locked -p convex-analytics --test credit_calibration
+
+      - name: Verify original credit calibration capture and declared bounds
+        run: python3 tests/scripts/isda_credit_compare.py check
+
+      - name: Run supplied credit calibration and signed risk
+        run: cargo run --locked -p convex --example credit_calibration
+
+      - name: Run supplied credit calibration with minimal features
+        run: cargo run --locked -p convex --example credit_calibration --no-default-features
+
+      - name: Run supplied credit calibration with schema features
+        run: cargo run --locked -p convex --example credit_calibration --features schemars
+
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
 
@@ -233,6 +248,15 @@ jobs:
       - name: Compare CDS with the original ISDA RFR grid without live data
         run: python3 tests/scripts/isda_cds_compare.py offline --candidate-binary target/debug/examples/cds_comparison --report cds-comparison-report.json
 
+      - name: Check credit calibration capture and risk failure controls
+        run: python3 -m unittest discover -s tests/scripts -p test_isda_credit_compare.py
+
+      - name: Build standalone native credit calibration comparison
+        run: cargo build --locked -p convex-analytics --example credit_comparison
+
+      - name: Compare credit calibration and risk with original ISDA execution
+        run: python3 tests/scripts/isda_credit_compare.py offline --candidate-binary target/debug/examples/credit_comparison --report credit-comparison-report.json
+
       - name: Upload offline comparison report
         if: always()
         uses: actions/upload-artifact@v7
@@ -261,6 +285,17 @@ jobs:
             cds-comparison-report.json
             cds-comparison-report-native.stdout
             cds-comparison-report-native.stderr
+          retention-days: 14
+
+      - name: Upload supplied credit comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-credit-comparison-report
+          path: |
+            credit-comparison-report.json
+            credit-comparison-report-native.stdout
+            credit-comparison-report-native.stderr
           retention-days: 14
 
   test:

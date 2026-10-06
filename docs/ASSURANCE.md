@@ -345,3 +345,31 @@ mandatory record's status, economics, surfaces or owner. Existing external lock
 identities/checksums and all 25 C exports are preserved. Only local dependency
 edges are added. Host/schema, calibrated quote risk, lifecycle, market packs,
 independent quantitative approval and production/latency gates remain pending.
+
+CVX-021 adds [pure CDS calibration and risk inputs](CREDIT-CALIBRATION.md).
+Piecewise and globally identified fits use the full native pricer with original
+native quote tolerances, exact helper/dependency/calendar versions and final
+repricing. Central rate, running quote, upfront and recovery risk retain distinct
+signed units and response semantics. Immediate default cash is conditional on
+supplied auction data; unknown recovery stays Pending. Exact legal bond/CDS
+mapping and independently supplied residual basis/liquidity inputs are mandatory.
+
+The new actual original ISDA 1.8.3 capture supplies 23 deterministic engineering
+scenarios and 276 valuations, with 1,150 native numeric comparisons at bounds
+declared before execution: hazard 1e-9, survival 1e-10, upfront 1e-10 and PV 1e-3
+currency; sensitivity 0.1 currency absolute plus 1e-6 relative. Eleven new native
+tests include mixed quote units, actual rank/identification failure, 65 seeded
+nonflat/zero-hazard cases, signed bump stability, default cash and mapping failures.
+Ten comparator controls reject missing/mislabeled/nonfinite/reordered results
+without relying on Python assertions. Offline CI executes a fresh native adapter
+and always uploads its report and raw output. This supplements the unchanged
+original 7,164-case/35,820-measure CDS grid and earlier swap comparisons.
+
+Preserve all 128 earlier quantitative artifact rows/bytes/defaults and all 2,154
+Planned library requirements. The only new normal dependency is the local
+analytics-to-credit edge; external Cargo identities/checksums and all 25 C exports
+are unchanged. Resource limits of 128 helpers/parameters, 8,192 actual helper
+valuations, 256 curves, 150-year horizons and shared bounded solvers are not a
+latency certificate. Actual source/command/raw output evidence is engineering
+review, not independent human quantitative approval or a complete market/model,
+host, lifecycle, library, production or colocation certificate.

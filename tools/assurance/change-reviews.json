@@ -566,6 +566,60 @@
         "tools/assurance/test_policy.py": "a8d238785725441de003a75c4d6ff29872fb29bd5723a213a1a17db0bf058e34",
         "tools/library/library-inventory.json": "8b73ed124c7c90d2e8a3d5791523d37ee74a4134c40f921ffb793b2036836be4"
       }
+    },
+    {
+      "base_commit": "a88f5fbd2193638ef647cd345a9768421c86022f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-021 additive scoped engineering change: full product CDS helper calibration with actual pricer/shared solvers; exact immutable fitted curve grid/lineage; disjoint signed risk and explicit conditional default/mapping/basis inputs. Review the CDS grid-reading adaptation without changing leg formulas. Add only the local analytics-to-credit edge, keep429external locked package entries,146normal closure/nine roots and25Cexports. Preserve all128 prior numeric rows/bytes/defaults, all original external captures and all2154 Planned library records/economics/owners/surfaces/gates. Actual original1.8.3 supplied six-pillar engineering execution and1150checks supplement unchanged original7164grid and prior swap comparisons. CI checks and uploads are additive; failures are retained. No independent human quantitative reviewer or market/model/host/library/production/latency certificate is inferred.",
+      "tests": [
+        "Required full credit/curves/engine and analytics tests,11new native tests/65seeded zero/nonflat cases",
+        "Actual original ISDA1.8.3 execution:23scenarios/276valuations/1150comparisons at predeclared bounds; unchanged original7164grid regression",
+        "Current supplied swap comparison; strict Clippy/rustdoc, full workspace, three facade feature consumers",
+        "Assurance/library/history/lock/ABI conservation,10new comparator controls, additive CI/harness controls with actual receipts"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "14f2ffaa381278ccd8a717d3210cb86e2a7e75866b0f348ba08c4442d3478c1c",
+        "Cargo.lock": "a6e9d9eb61c53fcf5da8b84e702b5b68ab6aec0236b63848ff963c5a2e5f417f",
+        "README.md": "344a564496bd6d1c102c10e1cf1b1ca0fdb860b80aae5365dc5ad23bf23a5790",
+        "crates/convex-analytics/Cargo.toml": "ccb90ebd8ed2ca4f3f43e84305c8d0ee6958e48812ba2a61bb67daf4446c223a",
+        "crates/convex-analytics/examples/credit_comparison.rs": "31f5f325c6404b5e79c7039884f3e1163bc6fb21bf6035b868b9f6b8f44a0468",
+        "crates/convex-analytics/src/credit_calibration.rs": "5ec78f05db96af128d7442965d0e132d2e584affe3bb8a4083bb06c420fc762d",
+        "crates/convex-analytics/src/credit_risk.rs": "8b4df16590cd1333963a29b9de8c3d18cdac3eed87d2752486fa62df976dfed3",
+        "crates/convex-analytics/src/lib.rs": "57bc2a4ea9494901167f75d940a693c634a2faccc95492a482638ed241ce9065",
+        "crates/convex-analytics/tests/credit_calibration.rs": "b044dc4b2dc0293dd22c4b39428dd8345d75701d042c577952ce54459abf00a4",
+        "crates/convex-analytics/tests/credit_support/mod.rs": "7a141d34f11c792e2dc7c2986c7d0d974fb6e6191694f2986b9a9d0895d6fe5e",
+        "crates/convex-credit/src/pricing.rs": "d2efc13417dc69fa0078add0980b20f010b1b992d2ed8c1da4a44c2bfab01e4a",
+        "crates/convex-curves/src/contracts/build.rs": "b1bcb7dfff62b6778e4a78077439f1bdba1b68658ce92211d07db76e48f6a3df",
+        "crates/convex-curves/src/contracts/credit_fit.rs": "fe6ac8b2fdb835bea153f34c9061ec7a333c612080fad95b0855bcdebfdda85f",
+        "crates/convex-curves/src/contracts/inputs.rs": "db1362436407c65ad2520d7f027c43fb05f15ab57b6203fac6d1f83364490a86",
+        "crates/convex-curves/src/contracts/mod.rs": "2803fc9fbd9069df9bb0f97a803b3e0c91475e8ea0c7c8aaeb81b6b2ee67b1ab",
+        "crates/convex-engine/src/curve_builder.rs": "3a365f12535e2e0cd767becdf9af64d3d33702b5b1039d41aa244faa94329ec5",
+        "crates/convex/examples/credit_calibration.rs": "f32b12bb09bcd851610c51e8047c8a52164aecf03490f65393ae0c6903093868",
+        "crates/convex/src/lib.rs": "7b0e35e6068e378620f47543f901affe3232406399761737ae4df5c1cd0ae3fe",
+        "docs/ASSURANCE.md": "8685b25bd7b9c655427c966df5088b2cdf49a83201ba6dcb36104824e25596c5",
+        "docs/CDS-VALUATION.md": "400134279bbaf53c8e857cfee76edbb9f4d94375846a3f36692db3bf6d99ba79",
+        "docs/CREDIT-CALIBRATION.md": "8bb22bc74f20d25e63ff2deb815bfb8fe3f3df557f24d2cdc410733195e28cc2",
+        "docs/LIBRARY-COVERAGE.md": "e3ba22fb40fcfdc70b2fec7830bc03eda4d7a1d3747df9039bed947c3dd11a4f",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/compiler.stdout": "f6a41663474c412322e565ec1a1aa27bcb42151b98d527dc401b7d744b9a4237",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/inputs.json": "a2e30428a157f58afe75728e8014a64a48e746f2295dfcf9801ca0b69fd3cd75",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/isda-commands.json": "562f5877a604bc6a4186b0072b6083cee62cc9d7b207f6473316b1b5e6e97d30",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/isda-manifest.json": "39d12eb6019be6a3fd5a90cdc7a8e00f76df379884f98a00835c6c19593c610d",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/isda-reference.json": "b95e98b84b85531eda23070a2849a6da3a04ae57929f5e45b931aa0192a2ee2d",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/isda-reference.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/mixed-inputs.json": "bac57e44771c869aa734d0b2bbeea8de7e374afba79feb8ea3fe0920a4e06153",
+        "tests/fixtures/comparisons/credit-isda-1.8.3/native-control.json": "da25fcc8de599f51485719ad8933a70118fae4538b872b6d34dbd845d64abc24",
+        "tests/scripts/isda_credit_capture.c": "0fba540ff9012af254426d3469142d6c589ef39739f57fb1cb3738d371b35088",
+        "tests/scripts/isda_credit_capture.py": "beeadb2552058aa55cb1917e4c6b39f44d693b215d645021bd3487e06a01668e",
+        "tests/scripts/isda_credit_compare.py": "d6bcda0aaf6ef93c485b33755e8fb8c33b5497555a069ea4565c91bcce4917fe",
+        "tests/scripts/test_isda_credit_compare.py": "660b350f97d279a2d52541422307005c79781da8a75612fbb9d74210e8348df8",
+        "tools/assurance/check.py": "fff26804928c582036491bd02a42f4399160a8edc336344002bec1be164ddc88",
+        "tools/assurance/dependencies.json": "a0a361cbaab9375e2cd19355734e3853bd6bb5bc5ef2d6b02ea1ca8391f454a9",
+        "tools/assurance/inventory.json": "4f336d2a0e4cbc5eb58eb2be7800c499bdb000903bb9b2e28863d26c760a7e48",
+        "tools/assurance/numeric-evidence.json": "24eb0f2eaebc427f9ad32bdbbbcfdca5d7249152d65229448036de63d893ce2a",
+        "tools/assurance/test_policy.py": "fdd4f07ba5e31659312f712d2b115f1d67b8fe9b51412fa157f96738416d08c7",
+        "tools/library/library-inventory.json": "f58e7530d216c6aa62e367c9471c8858eec29a40992d97a826a73bb5fce94086"
+      }
     }
   ]
 }

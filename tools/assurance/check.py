@@ -57,6 +57,11 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example cds_valuation',
         'cargo run --locked -p convex --example cds_valuation --no-default-features',
         'cargo run --locked -p convex --example cds_valuation --features schemars',
+        'cargo test --locked -p convex-analytics --test credit_calibration',
+        'python3 tests/scripts/isda_credit_compare.py check',
+        'cargo run --locked -p convex --example credit_calibration',
+        'cargo run --locked -p convex --example credit_calibration --no-default-features',
+        'cargo run --locked -p convex --example credit_calibration --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -80,6 +85,9 @@ REQUIRED_RUNS = {
         'python3 -m unittest discover -s tests/scripts -p test_isda_cds_compare.py',
         'cargo build --locked -p convex-credit --example cds_comparison',
         'python3 tests/scripts/isda_cds_compare.py offline --candidate-binary target/debug/examples/cds_comparison --report cds-comparison-report.json',
+        'python3 -m unittest discover -s tests/scripts -p test_isda_credit_compare.py',
+        'cargo build --locked -p convex-analytics --example credit_comparison',
+        'python3 tests/scripts/isda_credit_compare.py offline --candidate-binary target/debug/examples/credit_comparison --report credit-comparison-report.json',
     ),
 }
 
@@ -94,6 +102,12 @@ COMPARISON_PINS = {
     'crates/convex-analytics/examples/offline_compare.rs',
     'tests/scripts/isda_cds_compare.py',
     'tests/scripts/isda_cds_capture.c',
+    'tests/scripts/isda_credit_compare.py',
+    'tests/scripts/isda_credit_capture.c',
+    'tests/scripts/isda_credit_capture.py',
+    *(f'tests/fixtures/comparisons/credit-isda-1.8.3/{name}' for name in (
+        'compiler.stdout', 'inputs.json', 'mixed-inputs.json', 'isda-commands.json',
+        'isda-manifest.json', 'isda-reference.json', 'isda-reference.stderr', 'native-control.json')),
     'licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt',
     *(f'tests/fixtures/comparisons/cds-isda-1.8.3/{name}' for name in (
         'NYM.csv', 'USD_SOFR_20220621.zip', 'compiler.stdout', 'grid.json', 'inputs.json',
@@ -205,6 +219,18 @@ def check_workflow(text: str) -> None:
                 '          retention-days: 14')
             require(body.count(cds_artifact) == 1, 'missing/altered CDS comparison artifact upload')
             body = body.replace(cds_artifact, '')
+            credit_artifact = ('      - name: Upload supplied credit comparison report\n'
+                '        if: always()\n'
+                '        uses: actions/upload-artifact@v7\n'
+                '        with:\n'
+                '          name: supplied-credit-comparison-report\n'
+                '          path: |\n'
+                '            credit-comparison-report.json\n'
+                '            credit-comparison-report-native.stdout\n'
+                '            credit-comparison-report-native.stderr\n'
+                '          retention-days: 14')
+            require(body.count(credit_artifact) == 1, 'missing/altered credit comparison artifact upload')
+            body = body.replace(credit_artifact, '')
         require(not re.search(r'^\s*(if|continue-on-error|paths|paths-ignore):', body, re.M), f'conditional or ignored required job: {name}')
         runs = re.findall(r'^\s+run: (.+)$', body, re.M)
         for command in commands:
@@ -243,6 +269,8 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
     paths.add('crates/convex-analytics/src/swap_calibration.rs')
+    paths.update(['crates/convex-analytics/src/credit_calibration.rs',
+                  'crates/convex-analytics/src/credit_risk.rs'])
     paths.add('crates/convex-engine/src/curve_builder.rs')
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-rates/src').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-credit/src').glob('*.rs'))
@@ -303,7 +331,7 @@ def check_numeric(root: Path, document: dict) -> None:
 
 
 def protected(path: str) -> bool:
-    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi')) or path.startswith('tests/fixtures/') or path.startswith('tests/scripts/isda_cds_') or path == 'tests/scripts/test_isda_cds_compare.py' or path.startswith('licenses/') or path.startswith('reconciliation/'))
+    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
 
 def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt.date) -> int:
     # Include untracked candidate files: local validation cannot miss new modules.

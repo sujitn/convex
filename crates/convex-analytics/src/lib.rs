@@ -56,6 +56,10 @@ pub use error::{AnalyticsError, AnalyticsResult};
 /// Checked pricing of full supplied dated bond contractual cash.
 pub mod bond_contract;
 pub mod cashflows;
+/// Full supplied CDS calibration through the actual native credit pricer.
+pub mod credit_calibration;
+/// Distinct credit scenarios, signed sensitivities and checked bond-CDS mappings.
+pub mod credit_risk;
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
 pub mod optional_bond;

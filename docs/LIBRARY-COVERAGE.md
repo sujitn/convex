@@ -206,8 +206,10 @@ The highest-impact concrete findings are:
   and date-only ARRC product routes still require migration; they can use zero
   current rate or forecast missing past observations. Those compatibility
   routes are not certified by the new primitives.
-- Native CDS premium/protection/upfront/JTD and complete seasoned IRS/OIS
-  risk/lifecycle/host workflows are missing. [CVX-019](SWAP-VALUATION.md) adds
+- [Native CDS valuation](CDS-VALUATION.md) and [credit calibration/risk inputs](CREDIT-CALIBRATION.md)
+  supply single-name premium/protection/upfront, full quote fitting, signed risk
+  and immediate conditional JTD candidates. Complete seasoned IRS/OIS
+  risk/lifecycle/host workflows remain incomplete. [CVX-019](SWAP-VALUATION.md) adds
   native seasoned/amortizing IRS/OIS PV/accrued/par and full-contract fitting
   candidates; its ten-case captured QuantLib comparison now passes 973 numeric
   checks within the original bounds. Independent market/model/library approval
@@ -282,3 +284,15 @@ bounded positive/failure calibration tests do not establish an executed
 ORE/QuantLib comparison. All 2,154 mandatory records and their byte-preserved
 pending specification remain Planned; risk, lifecycle, market/convention packs,
 hosts and independent library/production certificates remain owning work.
+
+Version 13 adds inspected full CDS calibration and risk APIs through the native
+facade, preserving every mandatory requirement, owner, surface and status.
+Actual original ISDA 1.8.3 execution provides 23 supplied engineering scenarios,
+276 valuations and 1,150 new numeric checks. Piecewise/global native fits enforce
+original quote units, residuals, nonnegative hazards and exact source lineage.
+Frozen/rebuilt rates and recovery remain distinct; running CS01, upfront and
+recovery derivatives have explicit units. Immediate unknown recovery remains
+Pending. Bond/CDS admission requires actual legal mapping and dated basis/liquidity
+inputs; it is not a complete bond credit pricing or executable hedge workflow.
+All 2,154 mandatory records remain Planned; market/model packs, lifecycle,
+host/schema dispatch and independent certificates remain owning work.

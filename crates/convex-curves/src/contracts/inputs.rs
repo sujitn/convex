@@ -394,6 +394,27 @@ pub struct GlobalFitSettings {
     pub weights: Vec<f64>,
 }
 
+/// Credit objective over nonnegative piecewise ACT/365F forward intensities.
+/// These are intensities, not zero rates or CDS spreads.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreditGlobalFitSettings {
+    /// Bounded LM attempt count.
+    pub max_iterations: usize,
+    /// Weighted scaled RMS convergence target; native residuals also must pass.
+    pub objective_tolerance: f64,
+    /// One intensity per increasing parameter interval.
+    pub initial_hazards: Vec<f64>,
+    /// Closed lower intensity bound, at least zero.
+    pub lower_hazard: f64,
+    /// Closed upper intensity bound, at most five per ACT/365F year.
+    pub upper_hazard: f64,
+    /// Positive native scales, in original helper order.
+    pub quote_scales: Vec<f64>,
+    /// Nonnegative weights, in original helper order; zero never waives repricing.
+    pub weights: Vec<f64>,
+}
+
 /// Construction method; no mode is silently replaced by another algorithm.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -404,6 +425,8 @@ pub enum CalibrationMode {
     Piecewise,
     /// Global objective, requiring a supported product composition.
     Global(GlobalFitSettings),
+    /// Credit fit with explicitly different parameter semantics from rate zeros.
+    CreditGlobal(CreditGlobalFitSettings),
 }
 
 /// Source values are supplied, never fetched. Product helpers reside in analytics

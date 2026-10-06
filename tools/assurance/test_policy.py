@@ -188,6 +188,30 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: cargo run --example unrelated_consumer\n'))
 
+    def test_credit_calibration_risk_checks_and_raw_outputs_are_mandatory(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'cargo test --locked -p convex-analytics --test credit_calibration',
+            'python3 tests/scripts/isda_credit_compare.py check',
+            'cargo run --locked -p convex --example credit_calibration',
+            'cargo run --locked -p convex --example credit_calibration --no-default-features',
+            'cargo run --locked -p convex --example credit_calibration --features schemars',
+            'python3 -m unittest discover -s tests/scripts -p test_isda_credit_compare.py',
+            'cargo build --locked -p convex-analytics --example credit_comparison',
+            'python3 tests/scripts/isda_credit_compare.py offline --candidate-binary target/debug/examples/credit_comparison --report credit-comparison-report.json',
+        ]:
+            for replacement in ['run: '+command+' || true\n', 'if: false\n        run: '+command+'\n', 'run: echo skipped\n']:
+                self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
+        for suffix in ['stdout', 'stderr']:
+            self.rejects(check.check_workflow, source.replace('            credit-comparison-report-native.'+suffix+'\n', ''))
+        self.rejects(check.check_workflow, source.replace('Upload supplied credit comparison report\n        if: always()',
+                                                        'Upload supplied credit comparison report\n        if: success()'))
+        for path in ['crates/convex-analytics/src/credit_calibration.rs',
+                     'crates/convex-analytics/src/credit_risk.rs',
+                     'tests/scripts/isda_credit_compare.py', 'tests/scripts/isda_credit_capture.c',
+                     'tests/scripts/isda_credit_capture.py', 'tests/scripts/test_isda_credit_compare.py']:
+            self.assertTrue(check.protected(path))
+
     def test_curve_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

@@ -586,6 +586,7 @@ dependencies = [
  "chrono",
  "convex-bonds",
  "convex-core",
+ "convex-credit",
  "convex-curves",
  "convex-math",
  "convex-rates",

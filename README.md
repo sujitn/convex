@@ -41,7 +41,7 @@ The full set of published crates: `convex-core`, `convex-math`,
 `convex-curves`, `convex-bonds`, `convex-analytics`.
 The new workspace `convex-rates` crate provides [supplied IRS/OIS contracts](docs/RATES-CONTRACTS.md) and [native multi-curve valuation](docs/SWAP-VALUATION.md); analytics composes full-contract curve fitting. Ten supplied cases have executed QuantLib 1.40 comparison evidence at the declared bounds. These workspace additions are not yet a published release or an independent market/model certificate.
 
-The workspace `convex-credit` crate provides [single-name CDS valuation and running/upfront conversion](docs/CDS-VALUATION.md), exposed as `convex::credit`, with all 7,164 original USD SOFR ISDA RFR grid cases checked offline. Credit calibration/risk, lifecycle and host certificates remain owning work.
+The workspace `convex-credit` crate provides [single-name CDS valuation and running/upfront conversion](docs/CDS-VALUATION.md), exposed as `convex::credit`, with all 7,164 original USD SOFR ISDA RFR grid cases checked offline. [Credit calibration and risk inputs](docs/CREDIT-CALIBRATION.md) compose full quotes, signed rate/CS01/recovery sensitivities, immediate default scenarios and checked bond/CDS mappings. Lifecycle and host certificates remain owning work.
 
 This application is based on the ISDA CDS Standard Model (version 1.8.3), developed and supported in collaboration with Markit Group Ltd. The separate [ISDA public license](licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt) applies to that standard-model route.
 

@@ -1,5 +1,7 @@
 //! Curve builder - constructs curves from market data.
 
+/// Delegate supplied credit construction to the pure product composition.
+pub use convex_analytics::credit_calibration::build_credit_curve_set as build_supplied_credit_curves;
 /// Supplied product calibration delegates directly to the pure composition API.
 /// Callers retain exact immutable results; this entry point uses no live lookup,
 /// cache publication, timestamp, tenor approximation or numerical duplication.

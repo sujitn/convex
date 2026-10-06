@@ -17,6 +17,7 @@ convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
 convex-rates = { workspace = true }
+convex-credit = { workspace = true }
 
 # Date/time handling
 chrono = { workspace = true }
@@ -61,4 +62,3 @@ harness = false
 [[bench]]
 name = "hedge_advisor"
 harness = false
-
