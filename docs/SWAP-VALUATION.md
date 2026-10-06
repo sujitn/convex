@@ -2,9 +2,12 @@
 
 CVX-019 adds native IRS/OIS valuation and full-contract rate-curve fitting over
 the [CVX-018 contracts](RATES-CONTRACTS.md). The native implementation is an
-engineering candidate. Its ORE/QuantLib acceptance comparison remains pending;
-the independent manual oracle is not an external-engine capture. The task must
-not enter the harness completion set until that comparison passes.
+engineering implementation. Its ten-case QuantLib 1.40 acceptance comparison has
+executed and passed all 973 numeric checks at unchanged predeclared tolerances.
+[The capture and offline guide](SWAP-COMPARISON.md) records the scope and how to
+run current-native regression comparisons. This satisfies the scoped CVX-019
+engineering task; independent market/model, library, host and release certificates
+remain pending. The manual oracle remains a separate reference.
 
 ## Start and integration
 
@@ -177,20 +180,23 @@ ratios and exact dates. Existing artifact bytes, expectations, tolerances and
 solver defaults are preserved. Native cash details and full calibrated helper
 repricing have separate positive, boundary and failure tests.
 
-CVX-019 AC2 requires actual seasoned **and amortizing** IRS/OIS outputs from
-ORE or QuantLib using matched calendars, eligible fixes, dates, quotation
-intervals, curves, payment lag and notional schedules. QuantLib 1.40 is the
-pinned proposed comparator; [official release files](https://pypi.org/project/QuantLib/1.40/#files)
-provide wheel hashes. Runtime downloads currently fail on this machine. To
-finish: supply/install a checksum-verified pinned runtime in an isolated test
-environment; capture code, version/build identity, full inputs, conventions,
-outputs and raw execution provenance; independently review any differences;
-then consume that immutable capture in offline comparison tests with bounds
-declared before the run. Keep unsupported convention combinations explicit.
-The [prepared capture/replay runner](SWAP-COMPARISON.md) now supplies ten pinned
-matched full-term cases, a native exporter, publisher/installed-runtime checks,
-raw execution/build provenance and offline comparison controls. Its QuantLib
-coupon path remains unexecuted; preparation alone does not satisfy AC2.
-Only a passing captured comparison may close AC2 and add CVX-019 to the harness
-completion set. All 2,154 mandatory library records remain Planned and no
-library, production or low-latency release gate is awarded.
+CVX-019 AC2 now has actual seasoned **and amortizing** IRS/OIS outputs from
+QuantLib 1.40, with matched supplied calendars, eligible fixes, quotation dates,
+curves, payment lag and dated economic steps. The runtime wheel and installed
+publisher bytes were verified before import; actual coupon objects and
+`DiscountingSwapEngine` computed the reference. All ten cases and 973 numeric
+values match within the original bounds. Exact cashflow/reset/fixing lineage
+matches too. No native pricing or calibration code changed for this comparison.
+
+[The complete capture](../tests/fixtures/comparisons/swap-quantlib-1.40/manifest.json)
+retains actual execution/build provenance and is frozen separately from the
+original manual fixtures and retained bond pack. Follow the
+[capture/offline guide](SWAP-COMPARISON.md) to compare a newly built native
+candidate without QuantLib or network access. Positive/boundary/failure native
+and full-contract calibration checks remain required. Stub, intracoupon reset,
+rounding and other convention/model combinations outside the supplied external
+suite require further comparison coverage.
+
+CVX-019 may enter the engineering completion set. All 2,154 mandatory library
+records remain Planned and no library, production or low-latency release gate
+is awarded.

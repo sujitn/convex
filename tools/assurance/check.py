@@ -68,6 +68,9 @@ REQUIRED_RUNS = {
         'python3 -m unittest discover -s reconciliation -p "test_comparison.py"',
         'cargo build --locked -p convex-analytics --example offline_compare',
         'python3 reconciliation/comparison.py run --candidate-binary target/debug/examples/offline_compare --report comparison-report.json',
+        'python3 -m unittest discover -s tests/scripts -p test_swap_quantlib_compare.py',
+        'cargo build --locked -p convex --example swap_comparison',
+        'python3 tests/scripts/swap_quantlib_compare.py offline --candidate-binary target/debug/examples/swap_comparison --report swap-comparison-report.json',
     ),
 }
 
@@ -163,6 +166,18 @@ def check_workflow(text: str) -> None:
                 '          retention-days: 14')
             require(body.count(artifact) == 1, 'missing/altered comparison artifact upload')
             body = body.replace(artifact, '')
+            swap_artifact = ('      - name: Upload supplied swap comparison report\n'
+                '        if: always()\n'
+                '        uses: actions/upload-artifact@v7\n'
+                '        with:\n'
+                '          name: supplied-swap-comparison-report\n'
+                '          path: |\n'
+                '            swap-comparison-report.json\n'
+                '            swap-comparison-report-native.stdout\n'
+                '            swap-comparison-report-native.stderr\n'
+                '          retention-days: 14')
+            require(body.count(swap_artifact) == 1, 'missing/altered swap comparison artifact upload')
+            body = body.replace(swap_artifact, '')
         require(not re.search(r'^\s*(if|continue-on-error|paths|paths-ignore):', body, re.M), f'conditional or ignored required job: {name}')
         runs = re.findall(r'^\s+run: (.+)$', body, re.M)
         for command in commands:

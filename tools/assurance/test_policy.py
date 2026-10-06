@@ -130,6 +130,25 @@ class AssuranceMutations(unittest.TestCase):
         self.assertTrue(check.protected('tools/library/library-inventory.json'))
         self.assertTrue(check.protected('tools/library/check.py'))
 
+    def test_supplied_swap_offline_checks_cannot_be_skipped_or_ignore_failure(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [
+            'python3 -m unittest discover -s tests/scripts -p test_swap_quantlib_compare.py',
+            'cargo build --locked -p convex --example swap_comparison',
+            'python3 tests/scripts/swap_quantlib_compare.py offline --candidate-binary target/debug/examples/swap_comparison --report swap-comparison-report.json',
+        ]
+        for command in commands:
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: echo skipped\n'))
+
+    def test_supplied_swap_raw_outputs_must_be_uploaded_even_on_failure(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        self.rejects(check.check_workflow, source.replace('            swap-comparison-report-native.stdout\n', ''))
+        self.rejects(check.check_workflow, source.replace('            swap-comparison-report-native.stderr\n', ''))
+        self.rejects(check.check_workflow, source.replace('Upload supplied swap comparison report\n        if: always()',
+                                                        'Upload supplied swap comparison report\n        if: success()'))
+
     def test_shared_cashflow_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

@@ -5,10 +5,15 @@ or imitating QuantLib. Actual QuantLib execution remains a separate required run
 """
 import copy
 import importlib.util
+import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
+import zipfile
 
 sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location('swap_compare', Path(__file__).with_name('swap_quantlib_compare.py'))
@@ -40,6 +45,77 @@ def synthetic_control_outputs():
 
 
 class ComparisonControls(unittest.TestCase):
+    def test_publisher_data_license_is_verified_after_install_relocation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            wheel = root / 'quantlib-1.40.whl'
+            members = {'QuantLib/__init__.py': b'init', 'QuantLib/QuantLib.py': b'wrapper',
+                       'QuantLib/_QuantLib.abi3.so': b'extension',
+                       'quantlib-1.40.data/data/share/doc/quantlib/LICENSE.TXT': b'publisher license'}
+            with zipfile.ZipFile(wheel, 'w') as archive:
+                for name, data in members.items():
+                    archive.writestr(name, data)
+                    installed = root / ('share/doc/quantlib/LICENSE.TXT' if '.data/' in name else name)
+                    installed.parent.mkdir(parents=True, exist_ok=True)
+                    installed.write_bytes(data)
+            fixture = {'comparator': {'wheel': wheel.name, 'sha256': comparison.digest(wheel.read_bytes()), 'version': '1.40'}}
+            distribution = SimpleNamespace(version='1.40', locate_file=lambda name: root / name)
+            module = SimpleNamespace(origin=str(root / 'QuantLib/__init__.py'))
+            with mock.patch.object(comparison.platform, 'system', return_value='Darwin'), \
+                    mock.patch.object(comparison.platform, 'machine', return_value='arm64'), \
+                    mock.patch.object(comparison.importlib.metadata, 'distribution', return_value=distribution), \
+                    mock.patch.object(comparison.importlib.util, 'find_spec', return_value=module), \
+                    mock.patch.object(sys, 'prefix', str(root)):
+                result = comparison.verified_runtime(wheel, fixture)
+                self.assertEqual(set(result['installed_files']), set(members))
+                (root / 'share/doc/quantlib/LICENSE.TXT').write_bytes(b'changed license')
+                with self.assertRaisesRegex(comparison.Failure, 'installed QuantLib bytes differ'):
+                    comparison.verified_runtime(wheel, fixture)
+
+    def test_frozen_reference_is_a_real_complete_capture_and_not_a_certificate(self):
+        reference = comparison.frozen_reference()
+        self.assertEqual(reference['qualification'], 'executed_quantlib_candidate')
+        self.assertEqual(len(reference['cases']), 10)
+        self.assertFalse(reference['certified'])
+        self.assertEqual(reference['runtime']['wheel_sha256'], comparison.inputs()['comparator']['sha256'])
+
+    def test_frozen_reference_rejects_changed_raw_output_without_relaxing_pins(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference = root / comparison.REFERENCE.relative_to(comparison.ROOT)
+            shutil.copytree(comparison.REFERENCE, reference)
+            policy = root / 'tools/assurance/numeric-evidence.json'
+            policy.parent.mkdir(parents=True)
+            shutil.copyfile(comparison.ROOT / 'tools/assurance/numeric-evidence.json', policy)
+            (reference / 'quantlib.stdout').write_bytes(b'{}')
+            with mock.patch.object(comparison, 'ROOT', root), mock.patch.object(comparison, 'REFERENCE', reference):
+                with self.assertRaisesRegex(comparison.Failure, 'reference numerical pins/bytes differ'):
+                    comparison.frozen_reference()
+
+    def test_generic_replay_still_requires_the_actual_current_source_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / 'capture'
+            shutil.copytree(comparison.REFERENCE, directory)
+            manifest = json.loads((directory / 'manifest.json').read_text())
+            manifest['runner_sha256'] = manifest['source_pins'][comparison.SCRIPT] = '0' * 64
+            comparison.write(directory / 'manifest.json', manifest)
+            with self.assertRaisesRegex(comparison.Failure, 'capture source/protocol mismatch'):
+                comparison.replay(directory)
+
+    def test_cli_preserves_supplied_virtual_environment_interpreter(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            interpreter = Path(temporary) / 'venv-python'
+            interpreter.symlink_to(Path(sys.executable).resolve())
+            arguments = ['compare', 'run', '--quantlib-python', str(interpreter),
+                         '--wheel', str(Path(temporary) / 'runtime.whl'),
+                         '--output', str(Path(temporary) / 'capture')]
+            with mock.patch.object(sys, 'argv', arguments), \
+                    mock.patch.object(comparison, 'run', return_value={'status': 'execution_incomplete'}) as execute, \
+                    mock.patch('builtins.print'):
+                self.assertEqual(comparison.main(), 1)
+            self.assertEqual(execute.call_args.args[0], interpreter.absolute())
+            self.assertNotEqual(execute.call_args.args[0], interpreter.resolve())
+
     def test_pinned_inputs_contain_all_declared_contracts_and_no_external_outputs(self):
         fixture = comparison.inputs()
         self.assertFalse(fixture['certified'])

@@ -197,12 +197,32 @@ jobs:
       - name: Replay retained QuantLib expectations without live data
         run: python3 reconciliation/comparison.py run --candidate-binary target/debug/examples/offline_compare --report comparison-report.json
 
+      - name: Check supplied swap capture controls
+        run: python3 -m unittest discover -s tests/scripts -p test_swap_quantlib_compare.py
+
+      - name: Build supplied swap comparison adapter
+        run: cargo build --locked -p convex --example swap_comparison
+
+      - name: Compare supplied swaps against captured QuantLib without live data
+        run: python3 tests/scripts/swap_quantlib_compare.py offline --candidate-binary target/debug/examples/swap_comparison --report swap-comparison-report.json
+
       - name: Upload offline comparison report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: offline-comparison-report
           path: comparison-report.json
+          retention-days: 14
+
+      - name: Upload supplied swap comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-swap-comparison-report
+          path: |
+            swap-comparison-report.json
+            swap-comparison-report-native.stdout
+            swap-comparison-report-native.stderr
           retention-days: 14
 
   test:

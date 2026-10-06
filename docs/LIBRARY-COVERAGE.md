@@ -149,8 +149,8 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-007 | Deterministically stepped coupons and notionals (LB1) | independent checked dated profiles and native JSON terms; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
 | LC-008 | Callable and putable bonds (LB1) | checked fixed-price notice call/put HW1F pricing, OAS and resolved risk; unsupported models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
 | LC-009 | Callable floating-rate notes (LB1) | checked aligned term-FRN common HW1F state and eligible history; off-cycle/overnight models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
-| LC-010 | Vanilla term-rate IRS (LB1) | checked native supplied terms/reset/cash; discounted pricing, risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-061, CVX-062 |
-| LC-011 | OIS (LB1) | checked native supplied observation/compounding/cash; discounted pricing, calibration/risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
+| LC-010 | Vanilla term-rate IRS (LB1) | checked native supplied terms/reset/cash/PV/accrued/par and fitting; risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-061, CVX-062 |
+| LC-011 | OIS (LB1) | checked native supplied observation/compounding/cash/PV/accrued/par and fitting; risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
 | LC-012 | Single-name CDS (LB1) | missing dispatch, missing lifecycle, missing trade pricer | CVX-020, CVX-021, CVX-061, CVX-062 |
 | LC-013 | Government-bond futures (LB1) | approximation, incomplete contract, missing lifecycle | CVX-023, CVX-058, CVX-061, CVX-062 |
 | LC-014 | Rate futures (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-023, CVX-057, CVX-061, CVX-062 |
@@ -201,7 +201,9 @@ The highest-impact concrete findings are:
 - Native CDS premium/protection/upfront/JTD and complete seasoned IRS/OIS
   risk/lifecycle/host workflows are missing. [CVX-019](SWAP-VALUATION.md) adds
   native seasoned/amortizing IRS/OIS PV/accrued/par and full-contract fitting
-  candidates; its captured external comparator remains pending. CreditCurve
+  candidates; its ten-case captured QuantLib comparison now passes 973 numeric
+  checks within the original bounds. Independent market/model/library approval
+  remains pending. CreditCurve
   queries do not provide CDS calibration; synthetic
   swap hedge risk assumes floating-leg DV01 zero. Risk across projection,
   discount, basis and credit factors requires the actual product workflow.

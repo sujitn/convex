@@ -29,6 +29,7 @@ INPUT = ROOT / 'tests/fixtures/comparisons/swap-quantlib-inputs.json'
 INPUT_SHA256 = 'ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a'
 EXPORT = 'crates/convex/examples/swap_comparison.rs'
 SCRIPT = 'tests/scripts/swap_quantlib_compare.py'
+REFERENCE = ROOT / 'tests/fixtures/comparisons/swap-quantlib-1.40'
 CASE_IDS = (
     'irs-seasoned', 'irs-amortizing-stepped', 'irs-negative', 'irs-forward',
     'irs-receiver', 'ois-seasoned', 'ois-amortizing-stepped', 'ois-lookback',
@@ -119,11 +120,19 @@ def verified_runtime(wheel, fixture):
         require(len({e.filename for e in entries}) == len(entries), 'duplicate wheel member')
         for entry in entries:
             name = entry.filename
-            require(not Path(name).is_absolute() and '..' not in Path(name).parts
-                    and '.data' not in name, 'unsupported wheel layout')
+            require(not Path(name).is_absolute() and '..' not in Path(name).parts,
+                    'unsupported wheel layout')
             if name.endswith('.dist-info/RECORD') or name.endswith('/RECORD'):
                 continue  # pip writes installed RECORD; all publisher payloads are checked below.
-            installed = Path(distribution.locate_file(name))
+            # The publisher places its license in the wheel's data scheme;
+            # pip installs that exact member under the supplied venv prefix.
+            license_member = f"quantlib-{pin['version']}.data/data/share/doc/quantlib/LICENSE.TXT"
+            if name == license_member:
+                installed = Path(sys.prefix) / 'share/doc/quantlib/LICENSE.TXT'
+            else:
+                require(not any(part.endswith('.data') for part in Path(name).parts),
+                        'unsupported wheel data member')
+                installed = Path(distribution.locate_file(name))
             require(installed.is_file(), f'missing installed publisher file: {name}')
             sha = digest(archive.read(name))
             require(digest(installed.read_bytes()) == sha, f'installed QuantLib bytes differ: {name}')
@@ -477,10 +486,18 @@ def run(python, wheel, directory):
 
 
 def replay(directory):
+    """Replay a run against its exact current calculation/protocol sources."""
+    return replay_execution(directory, current_sources=True)
+
+
+def replay_execution(directory, *, current_sources):
     manifest = loads((directory / 'manifest.json').read_bytes())
     require(manifest['schema_version'] == 1 and manifest['certified'] is False
-            and manifest['input_sha256'] == INPUT_SHA256 and manifest['source_pins'] == source_pins()
-            and manifest['runner_sha256'] == digest((ROOT / SCRIPT).read_bytes()), 'capture source/protocol mismatch')
+            and manifest['input_sha256'] == INPUT_SHA256
+            and manifest['runner_sha256'] == manifest['source_pins'][SCRIPT], 'capture source/protocol mismatch')
+    if current_sources:
+        require(manifest['source_pins'] == source_pins()
+                and manifest['runner_sha256'] == digest((ROOT / SCRIPT).read_bytes()), 'capture source/protocol mismatch')
     artifacts = {p.name: digest(p.read_bytes()) for p in directory.iterdir() if p.is_file() and p.name != 'manifest.json'}
     require(artifacts == manifest['artifact_sha256'], 'capture artifact bytes/set changed')
     inputs((directory / 'inputs.json').read_bytes())
@@ -489,6 +506,17 @@ def replay(directory):
             and all(c['exit_code'] == 0 and c['error'] is None and c['stdout'] == c['name'] + '.stdout'
                     and c['stderr'] == c['name'] + '.stderr' for c in commands),
             'missing successful actual engine executions')
+    for command in commands:
+        require(command['duration_seconds'] >= 0
+                and dt.datetime.fromisoformat(command['finished_at']) >= dt.datetime.fromisoformat(command['started_at']),
+                'invalid command timestamps')
+    require(commands[1]['command'] == ['rustc', '-Vv']
+            and commands[2]['command'] == ['cargo', '--version']
+            and commands[3]['command'] == ['cargo', 'build', '--locked', '--message-format=json', '-p', 'convex',
+                                           '--example', 'swap_comparison']
+            and commands[0]['command'][-3:-1] == ['capture', '--wheel']
+            and Path(commands[0]['command'][-1]).name == inputs()['comparator']['wheel'],
+            'unexpected engine/build commands')
     reference = loads((directory / 'quantlib.stdout').read_bytes())
     runtime = reference['runtime']
     pin = inputs()['comparator']
@@ -517,6 +545,47 @@ def replay(directory):
     return dict(result, qualification='replayed_execution_evidence', accepted_task=False)
 
 
+def frozen_reference():
+    """Read only the admitted immutable capture, never an arbitrary golden path.
+
+    Capture replay checks original execution/source identity. A future native
+    candidate may differ from that captured native revision; the independent QL
+    outputs stay fixed and every capture byte must retain its numerical-policy pin.
+    """
+    policy = loads((ROOT / 'tools/assurance/numeric-evidence.json').read_bytes())
+    prefix = REFERENCE.relative_to(ROOT).as_posix() + '/'
+    pins = {r['path'].removeprefix(prefix): r for r in policy['artifacts'] if r['path'].startswith(prefix)}
+    actual = {p.name: digest(p.read_bytes()) for p in REFERENCE.iterdir() if p.is_file()}
+    require(pins and actual.keys() == pins.keys()
+            and all(pins[name]['mode'] == 'file' and pins[name]['sha256'] == value for name, value in actual.items()),
+            'frozen reference numerical pins/bytes differ')
+    replay_execution(REFERENCE, current_sources=False)
+    return loads((REFERENCE / 'quantlib.stdout').read_bytes())
+
+
+def offline(binary, report_path):
+    """Execute today's candidate against the fixed independently captured QL."""
+    reference = frozen_reference()
+    require(binary.is_file(), 'missing native candidate executable')
+    require(not report_path.is_relative_to(REFERENCE), 'report cannot overwrite immutable reference')
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    binary_sha = digest(binary.read_bytes())
+    pins = source_pins()
+    command = recorded([str(binary)], report_path.parent, report_path.stem + '-native')
+    require(command['exit_code'] == 0, 'native offline candidate failed')
+    require(digest(binary.read_bytes()) == binary_sha and source_pins() == pins, 'offline candidate/source changed during execution')
+    native = loads((report_path.parent / command['stdout']).read_bytes())
+    require(native['qualification'] == 'native_candidate_not_external_evidence', 'native qualification mismatch')
+    result = compare(native, reference)
+    result.update(qualification='current_native_against_frozen_quantlib_execution', accepted_task=False,
+                  input_sha256=INPUT_SHA256, reference_sha256=digest((REFERENCE / 'quantlib.stdout').read_bytes()),
+                  native_executable_sha256=binary_sha, command=command, source_pins=pins,
+                  stdout_sha256=digest((report_path.parent / command['stdout']).read_bytes()),
+                  stderr_sha256=digest((report_path.parent / command['stderr']).read_bytes()))
+    write(report_path, result)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='mode', required=True)
@@ -529,6 +598,9 @@ def main():
     run_parser.add_argument('--output', type=Path, required=True)
     replay_parser = commands.add_parser('replay', help='verify a successful saved execution and compare offline')
     replay_parser.add_argument('directory', type=Path)
+    offline_parser = commands.add_parser('offline', help='run a current native binary against the pinned captured QL reference')
+    offline_parser.add_argument('--candidate-binary', type=Path, required=True)
+    offline_parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.mode == 'check':
@@ -538,9 +610,13 @@ def main():
         elif args.mode == 'capture':
             result = capture(args.wheel.resolve())
         elif args.mode == 'run':
-            result = run(args.quantlib_python.resolve(), args.wheel.resolve(), args.output.resolve())
-        else:
+            # Resolving a venv interpreter symlink selects the base interpreter
+            # and loses its installed packages. Preserve the supplied entry point.
+            result = run(args.quantlib_python.absolute(), args.wheel.resolve(), args.output.resolve())
+        elif args.mode == 'replay':
             result = replay(args.directory.resolve())
+        else:
+            result = offline(args.candidate_binary.resolve(), args.report.resolve())
         print(json.dumps(result, allow_nan=False))
         return 0 if result.get('status') != 'execution_incomplete' and result.get('status') != 'numerical_mismatch' else 1
     except (Failure, OSError, KeyError, TypeError, RuntimeError, importlib.metadata.PackageNotFoundError,

@@ -473,6 +473,44 @@
         "tools/assurance/numeric-evidence.json": "0bffde288272b7e13cb92f40bd75683230bff83e2d3026a466c492bc36459a56",
         "tools/library/library-inventory.json": "a423f36da2fed885fa6b60316e6523a30c47e6b0216f04bbdac388b320c09a05"
       }
+    },
+    {
+      "base_commit": "3cbd64eab7bd79c1fd70e72c3fbab952364d98f6",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-019 AC2 execution and immutable offline regression. Verify the official QuantLib1.40 wheel and installed publisher payloads, correct only test tooling venv-symlink selection and relocated data-scheme license verification, retain both failed attempts and actual successful reference execution. Append fourteen new raw capture pins; preserve every existing96 numerical row, exact inputs/tolerances/expected outputs and solver default. Enforce current-native offline CI against the frozen independently calculated reference without adding a production dependency. Source-dependent replay remains strict; frozen-reference replay permits future native revisions only through exact numerical-policy pins. Preserve all production/library/lock/ABI bytes, historical evidence and all2154 Planned requirements/owners/surfaces. Only the evidenced external swap-comparison gap closes. This is scoped engineering task acceptance, not independent human quantitative approval or a market/model/library/production/latency certificate. Preserve the original retained-comparison upload unchanged and require a separate always-uploaded swap report/raw-output artifact. New controls reject skipping the swap checks, ignored failures or missing raw artifact uploads.",
+      "tests": [
+        "Actual verified ten-case QuantLib capture and exact source replay:973 numeric checks within original predeclared bounds and exact dates/fixing/quotation lineage",
+        "Eighteen comparison/provenance/threshold controls including Python optimized mode",
+        "Required native rates/curves/engine and full-contract calibration/prefix suites; default/minimal/schema current-native offline comparison",
+        "Assurance/library/conservation/comparison/harness checks and immutable historical evidence bindings recorded in the new task extension"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "706d3a4791675d241adb48a37b1b8667231b26efa323cc800fb97ee860aab842",
+        "docs/LIBRARY-COVERAGE.md": "4d0854d7cc19ce8c70f1a792e111ea9c496eee36ce173bb4cc6aa4c0464f72ed",
+        "docs/SWAP-COMPARISON.md": "2c817efc3667f6bc0a1aac41dd772329fb394964b33035e3d40e482590acdcf5",
+        "docs/SWAP-VALUATION.md": "d4174f5c48f27a837543772cdee67563a3921039ed340ab26bab8a13e22cd086",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/build.stderr": "44b8fd7edd5f31b3c13990c60f78fb24d66abebe8e770e0c54aee9390bbb5cde",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/build.stdout": "653219d6bd5cebbd57a9a0681f626fa58ac78d9219fcc4e2e4e946a49250b35e",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/cargo-version.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/cargo-version.stdout": "1aedaa9cce116919d39b1eb303a58865771582bc24fc259aa8e26cb212e0f59e",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/commands.json": "54f46098b5bc4c269f2c7f5cad123e0535d5ea9bd220a3caac1b29f48208d0d7",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/inputs.json": "ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/manifest.json": "42e22f48972d2a9542ef4799e4826be51a5c64a5bd367c434ebe900d590f08ce",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/native.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/native.stdout": "d5fc2b5a60e51d18980061027d0e562b8b283f4d6c73664d02cde2468c1ac616",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/quantlib.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/quantlib.stdout": "ca8c9415b2b8ed75733d4a321e97710697b3833b1112ae42c048406a243a1432",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/report.json": "bb904c1be03016f0a436547b19e50b62f54797d3d9a4b7d2be4649e22b075610",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/rustc.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/fixtures/comparisons/swap-quantlib-1.40/rustc.stdout": "e794146d99fad54562fdcbd4a7c8b22b0240d2b0312ff6d879d67939b3131850",
+        "tests/scripts/swap_quantlib_compare.py": "54a300e8d13b98ff64fbdebf36afc30a0b7af6e79ea09aeaec9c88201ea6148a",
+        "tests/scripts/test_swap_quantlib_compare.py": "4ff3e523076a9cd1a7a1936bece521b87aad0baa72cd61d63bddda36aa492637",
+        "tools/assurance/check.py": "d839592ff9023342b4db1ce5a19d2b62bc6cde5eff19aec28290ecdfb7b5af3d",
+        "tools/assurance/numeric-evidence.json": "7181b16b5de130fdac9b4d01e7c3b333e1b29340f8d407f7058fa8c47586b685",
+        "tools/assurance/test_policy.py": "3c6a4bf3b72bf119667c0fe30574bbc5e4d3805492dafd091e6cfb63cf40f2ca",
+        "tools/library/library-inventory.json": "1233d2c466e9bcac8e9bcddf2ea92d12fc3c21825769ec3ed842ca10be1209fd"
+      }
     }
   ]
 }
