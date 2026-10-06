@@ -153,6 +153,112 @@ impl FixedRateBond {
         self.ex_dividend_days
     }
 
+    /// Complete checked supplied terms, ready for independent dated profiles.
+    /// Existing quote methods retain their established per-100 conventions.
+    pub fn contract_terms(
+        &self,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        use crate::contracts::{BondCalendarIds, BondCoupon, BondProfiles, BondTerms};
+        use convex_core::cashflows::{
+            CashRounding, CouponPrincipal, DateOffset, DateRules, ExCouponAccrual,
+            ExCouponBoundary, ExCouponRule, ExDateAnchor, NegativeCouponPolicy, ScheduleSpec,
+        };
+        let periods = self.try_schedule()?.coupon_periods();
+        let start = periods
+            .first()
+            .ok_or_else(|| BondError::invalid_spec("empty schedule"))?
+            .accrual_dates()
+            .0;
+        let end = periods
+            .last()
+            .ok_or_else(|| BondError::invalid_spec("empty schedule"))?
+            .accrual_dates()
+            .1;
+        let redemption_multiplier = self.redemption_value.checked_div(self.face_value).ok_or(
+            convex_core::cashflows::CashflowError::Arithmetic("redemption ratio"),
+        )?;
+        Ok(BondTerms {
+            schema_version: 1,
+            currency: self.currency,
+            issue_date: self.issue_date,
+            face_value: self.face_value,
+            schedule: ScheduleSpec {
+                start_date: self.dated_date,
+                end_date: self.maturity,
+                frequency: self.frequency,
+                stub_type: if self.penultimate_coupon_date.is_some()
+                    && self.first_coupon_date.is_none()
+                {
+                    StubType::ShortLast
+                } else {
+                    StubType::ShortFirst
+                },
+                end_of_month: self.end_of_month,
+                first_regular_date: self.first_coupon_date,
+                penultimate_date: self.penultimate_coupon_date,
+            },
+            dates: DateRules {
+                payment_adjustment: self.business_day_convention,
+                ex_coupon: self.ex_coupon_rule.or_else(|| {
+                    self.ex_dividend_days.map(|days| ExCouponRule {
+                        offset: DateOffset::BusinessDays(-(days as i32)),
+                        anchor: ExDateAnchor::ContractualEnd,
+                        boundary: ExCouponBoundary::OnDate,
+                    })
+                }),
+                ..DateRules::default()
+            },
+            calendars: BondCalendarIds::single(self.calendar.clone()),
+            settlement_lag: DateOffset::BusinessDays(self.settlement_days as i32),
+            settlement_adjustment: self.business_day_convention,
+            day_count: self.day_count,
+            profiles: BondProfiles::constant(
+                start,
+                end,
+                self.coupon_rate,
+                Decimal::ZERO,
+                Decimal::ZERO,
+                self.face_value,
+            ),
+            coupon: BondCoupon::Fixed,
+            coupon_principal: CouponPrincipal::AccrualProfile,
+            redemption_multiplier,
+            principal_prices: vec![],
+            rounding: CashRounding::Unrounded,
+            negative_coupons: NegativeCouponPolicy::Allow,
+            ex_coupon_accrual: ExCouponAccrual::SubtractCoupon,
+            exercise: vec![],
+        })
+    }
+
+    /// Extend this bond with actual independently dated coupon/principal terms.
+    /// Quotes for the result use its actual cashflows, never this flat coupon.
+    pub fn with_profiles(
+        &self,
+        profiles: crate::contracts::BondProfiles,
+    ) -> Result<crate::contracts::BondContract, crate::contracts::BondContractError> {
+        let mut terms = self.contract_terms()?;
+        terms.profiles = profiles;
+        terms.build()
+    }
+
+    /// Compose an explicitly dated amortization schedule without averaged factors.
+    pub fn with_amortization(
+        &self,
+        schedule: &crate::types::AmortizationSchedule,
+    ) -> Result<crate::contracts::BondContract, crate::contracts::BondContractError> {
+        let mut terms = self.contract_terms()?;
+        terms.profiles.notional = schedule
+            .notional_profile(
+                terms.schedule.start_date,
+                terms.schedule.end_date,
+                terms.face_value,
+            )?
+            .entries()
+            .to_vec();
+        terms.build()
+    }
+
     /// Gets or generates the payment schedule.
     ///
     /// The schedule is lazily computed and cached for performance.

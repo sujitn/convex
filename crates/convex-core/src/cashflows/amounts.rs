@@ -121,6 +121,17 @@ impl CouponProfiles {
     pub fn notional(&self) -> &DatedProfile {
         &self.notional
     }
+    /// Checked unrounded cash for a subinterval. A product with independent
+    /// resets sums these amounts and rounds once at the payment boundary.
+    pub fn segment_amount(
+        &self,
+        period: &CouponPeriod,
+        start: crate::Date,
+        end: crate::Date,
+        calculation: CouponCalculation,
+    ) -> Result<Decimal, CashflowError> {
+        self.accumulated_from(period, start, end, calculation)
+    }
     /// Expected full coupon amount. Payment dates do not select profile values.
     pub fn coupon_amount(
         &self,
@@ -171,11 +182,26 @@ impl CouponProfiles {
         end: Date,
         calculation: CouponCalculation,
     ) -> Result<Decimal, CashflowError> {
+        self.accumulated_from(period, period.accrual_dates().0, end, calculation)
+    }
+
+    fn accumulated_from(
+        &self,
+        period: &CouponPeriod,
+        start: crate::Date,
+        end: crate::Date,
+        calculation: CouponCalculation,
+    ) -> Result<Decimal, CashflowError> {
         validate_rate(calculation.index_rate)?;
         calculation.rounding.apply(Decimal::ZERO)?;
-        let (start, accrual_end) = period.accrual_dates();
+        let (accrual_start, accrual_end) = period.accrual_dates();
         let coverage = self.coupon.coverage();
-        if start < coverage.0 || accrual_end > coverage.1 || end < start || end > accrual_end {
+        if accrual_start < coverage.0
+            || accrual_end > coverage.1
+            || start < accrual_start
+            || end < start
+            || end > accrual_end
+        {
             return Err(CashflowError::terms(
                 "profiles",
                 "coupon accrual not fully covered",

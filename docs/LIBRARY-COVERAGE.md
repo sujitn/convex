@@ -85,8 +85,20 @@ leap/stub/EOM, holiday payments and negative yields. Native/C ABI parity covers
 all thirteen; REST covers eight admitted contracts and an explicit premium EUR
 zero. The fresh retained comparison passes all 392 measures at unchanged
 reference values/tolerances. Earlier failing captures remain historical evidence.
-The inventory now has 41 observations and 91 source pins; all 2,154 records
+The CVX-017 inventory had 41 observations and 91 source pins; all 2,154 records
 remain Planned pending independent market/model and full surface certificates.
+
+CVX-055 adds [full supplied bond terms and cash](BOND-CONTRACTS.md): checked
+independent stepped/amortizing profiles, term/overnight fixing-aware projection,
+exact principal allocations and supported fixed-price call/put notice terms.
+Nineteen new native/analytics tests include ten independent Decimal(50) cash/PV
+cases and 128 seeded exact step/principal cases. A standalone consumer prices
+plain cash with separate supplied projection/discount roles in three feature
+profiles. Native/JSON reconstruction preserves complete supported economics;
+optional pricing requires a model and is refused by the plain price route.
+The inventory now has 42 observations and 100 source pins. All 2,154 records
+remain Planned; full model/market, inverse/risk/lifecycle and host/schema
+certificates remain required.
 
 ## Evidence and missing operations
 
@@ -99,7 +111,7 @@ JSON join avoids duplicating source/provenance text in thousands of rows;
 it introduces no production capability registry or pricing abstraction.
 
 `observations` records partial, missing, type-only, approximate or missing
-construction/dispatch paths. Anchors and 91 exact source hashes prove which
+construction/dispatch paths. Anchors and 100 exact source hashes prove which
 bytes were inspected. Family test anchors are **candidates for reuse**, not
 proof that every convention/model/operation/surface record passes them.
 Actual command receipts and standalone results belong to task evidence.
@@ -111,11 +123,11 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-002 | Fixings and dated coupon/principal profiles (LB0) | checked publication/revision and dated-profile APIs implemented; full product migration/certificate pending | CVX-054, CVX-064 |
 | LC-003 | Fixed-rate bullet bonds (LB0) | shared supplied fixed quotes and native/C ABI/admitted REST parity; independent convention and full surface certification pending | CVX-017, CVX-054 |
 | LC-004 | Bills and zero-coupon bonds (LB0) | shared explicit zero economics and admitted host parity; bill workflows, convention and full surface certification pending | CVX-017, CVX-054 |
-| LC-005 | Plain floating-rate notes (LB1) | incomplete contract, incomplete facade, missing dispatch, missing input substitution, missing option model | CVX-055, CVX-061, CVX-062 |
-| LC-006 | Amortizing and sinking bonds (LB1) | incomplete contract, missing lifecycle, type only | CVX-055, CVX-061, CVX-062 |
-| LC-007 | Deterministically stepped coupons and notionals (LB1) | lossy schema, missing implementation | CVX-055, CVX-061, CVX-062 |
-| LC-008 | Callable and putable bonds (LB1) | incomplete contract, lossy schema, missing dispatch, missing lifecycle, unverified model | CVX-055, CVX-059, CVX-061, CVX-062 |
-| LC-009 | Callable floating-rate notes (LB1) | lossy schema, missing dispatch, missing option model | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
+| LC-005 | Plain floating-rate notes (LB1) | checked supplied term/overnight cash and model PV; old diagnostic shortcuts, full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
+| LC-006 | Amortizing and sinking bonds (LB1) | checked dated principal/coupon and priced repayments; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
+| LC-007 | Deterministically stepped coupons and notionals (LB1) | independent checked dated profiles and native JSON terms; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
+| LC-008 | Callable and putable bonds (LB1) | complete supported fixed-price exercise/notice/settlement terms; full model/workout/risk/lifecycle and host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
+| LC-009 | Callable floating-rate notes (LB1) | supported floating/exercise terms survive native JSON reconstruction; joint model and full host/inverse/risk/lifecycle certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
 | LC-010 | Vanilla term-rate IRS (LB1) | approximation, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-061, CVX-062 |
 | LC-011 | OIS (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
 | LC-012 | Single-name CDS (LB1) | missing dispatch, missing lifecycle, missing trade pricer | CVX-020, CVX-021, CVX-061, CVX-062 |
@@ -220,9 +232,10 @@ that private submodule. Assurance invokes inventory validation and base
 conservation, protects the tooling in candidate impact review, and requires
 mutation tests plus all three standalone consumer feature builds.
 
-CVX-040's 392-measure retained comparison still has 287 passes and 105 failures;
-its existing expectations, tolerances, qualification and failing CI remain
-unchanged. See the [comparison contract](../reconciliation/COMPARISON.md) and
+CVX-040's recorded 392-measure comparison had 287 passes and 105 failures.
+CVX-017 repaired shared payment-step pricing; the current CVX-055 replay passes
+392/392 with unchanged expectations, tolerances and retained-unqualified status.
+Historical failures remain evidence. See the [comparison contract](../reconciliation/COMPARISON.md) and
 [assurance policy](ASSURANCE.md). Passing this inventory task completes its
 review infrastructure only. Product models, actual exact convention packs,
 full positive/boundary/failure fixtures, host builds, numerical certificates,

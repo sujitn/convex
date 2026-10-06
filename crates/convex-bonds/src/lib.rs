@@ -45,6 +45,7 @@
 
 pub mod arrc;
 pub mod cashflows;
+pub mod contracts;
 pub mod conventions;
 pub mod error;
 pub mod fixings;

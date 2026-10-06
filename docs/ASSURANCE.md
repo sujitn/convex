@@ -18,6 +18,9 @@ same denial. Test assertions remain available. FFI denies undocumented
 unsafe blocks, missing safety documentation, and implicit unsafe operations.
 Checked curve contracts and their analytics helper composition apply the
 same scoped denial and retain the pure dependency direction.
+Checked [supplied bond terms/projection/valuation](BOND-CONTRACTS.md) apply the
+same denial over shared primitives. Their native checked adapters retain exact
+economic terms, eligible history and explicit unsupported model requirements.
 
 The dependency checker traverses all-feature, target-specific **normal**
 dependency edges using `cargo metadata --locked`. It rejects network,
@@ -50,6 +53,7 @@ API is already complete. Its C export list detects ABI inventory drift.
 | Shared schedules/profiles | At most 4,096 entries per validated schedule/profile; years 1–9999, span ≤150×366 days | Anchored date grids, reference periods, independent dated terms and explicit entitlement; invalid/overlapping/gapped profiles fail. |
 | Eligible fixings/overnight | At most 65,536 revisions and 4,096 requests/compound terms; offsets ≤366 business/calendar days, calendar scans ≤3,660 steps | Publication and receipt cutoffs, immutable revisions, complete missing-history failure before any forecast; checked positive Decimal product. |
 | Checked curve contracts | At most 256 supplied/built curves, 1,024 nodes or 1,023 helpers plus origin; time ≤150 years; inverse ≤16 bisections | Exact dependency versions, finite typed queries and native quote repricing; unsupported methods/products, cycles, invalid domains and failed residuals return errors without partial output. |
+| Supplied bond composition | At most 4,096 entries per coupon/profile/exercise grid; 65,536 reset slices or overnight observations and unique fixing requirements per bond | Exact independent dated coupon/principal and eligible-history cash; all missing published history fails before forecasts. Plain PV requires separate declared curve roles and refuses optional valuation without a model. |
 | Checked date arithmetic | Chrono's representable calendar; checked day/month/year addition | Overflow/out-of-range returns an error; signed month arithmetic uses Euclidean division. |
 
 Solver defaults remain `1e-10` and 100 iterations. Piecewise defaults remain

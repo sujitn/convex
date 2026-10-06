@@ -114,6 +114,35 @@ impl CallableBond {
         &self.base
     }
 
+    /// Complete checked fixed-price call/put terms. Unsupported triggers or
+    /// make-whole inputs fail instead of becoming ordinary fixed-price calls.
+    pub fn contract_terms(
+        &self,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        let mut terms = self.base.contract_terms()?;
+        if let Some(schedule) = &self.call_schedule {
+            terms.exercise.extend(crate::contracts::call_terms(
+                schedule,
+                terms.schedule.end_date,
+            )?);
+        }
+        if let Some(schedule) = &self.put_schedule {
+            terms.exercise.extend(crate::contracts::put_terms(
+                schedule,
+                terms.schedule.end_date,
+            )?);
+        }
+        if terms.exercise.is_empty() {
+            return Err(crate::contracts::invalid(
+                "exercise",
+                "optional bond needs exercise terms",
+            ));
+        }
+        // Validate before exporting terms; reconstruction runs these checks again.
+        terms.clone().build()?;
+        Ok(terms)
+    }
+
     /// Returns the call type, or `None` for put-only bonds.
     #[must_use]
     pub fn call_type(&self) -> Option<CallType> {

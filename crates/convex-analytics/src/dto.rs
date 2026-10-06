@@ -16,6 +16,13 @@ use serde::{Deserialize, Serialize};
 /// Registry handle. `0` denotes "no handle".
 pub type Handle = u64;
 
+/// Lossless native/shared JSON economic terms. Reconstruct through the checked
+/// build API. C ABI and client dispatch migration is separately owned by CVX-063.
+pub use convex_bonds::contracts::{
+    BondCalendarIds, BondCoupon, BondProfiles, BondTerms, ExerciseStyle, ExerciseTerms,
+    OvernightRateTerms, TermRateTerms,
+};
+
 // ---- Bond construction ----------------------------------------------------
 
 /// Tagged JSON: `{ "type": "fixed_rate" | "callable" | "floating_rate"

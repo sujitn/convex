@@ -8,6 +8,8 @@
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 
+/// Pure fixed/floating contractual cash valuation with explicit curve roles.
+pub use convex_analytics::bond_contract;
 pub use convex_analytics::bond_quote;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
@@ -29,6 +31,8 @@ pub use convex_curves::{
     Ois, RateCurve, RateCurveDyn, Swap, ValueType, ZeroCurve,
 };
 
+/// Complete supplied bond terms, profiles, resets, cash and exercise contracts.
+pub use convex_bonds::contracts as bond_contracts;
 pub use convex_bonds::instruments::{
     CallableBond, FixedRateBond, FloatingRateNote, ZeroCouponBond,
 };

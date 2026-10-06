@@ -423,6 +423,106 @@ impl SinkingFundBond {
         self.original_face
     }
 
+    /// Complete checked deterministic sinking cash, including repayments between
+    /// coupon dates. Delivery/acceleration/optional sinks require their own model.
+    pub fn contract_terms(
+        &self,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        use crate::contracts::PrincipalPrice;
+        use convex_core::cashflows::{CashflowError, DatedValue, MAX_SCHEDULE_PERIODS};
+        if !self.sinking_schedule.is_mandatory
+            || self.sinking_schedule.delivery_option
+            || self.sinking_schedule.acceleration.is_some()
+        {
+            return Err(crate::contracts::unsupported(
+                "sinking option",
+                "delivery, acceleration or optional sink cannot become mandatory cash",
+            ));
+        }
+        let mut terms = self.base.contract_terms()?;
+        let payments = &self.sinking_schedule.payments;
+        if payments.len() > MAX_SCHEDULE_PERIODS
+            || payments.windows(2).any(|p| p[0].date >= p[1].date)
+        {
+            return Err(crate::contracts::invalid(
+                "sinking_schedule",
+                "requires bounded sorted unique dates",
+            ));
+        }
+        let mut start = terms.schedule.start_date;
+        let mut remaining = terms.face_value;
+        let mut profile = Vec::new();
+        for payment in payments {
+            if payment.date <= start
+                || payment.date > terms.schedule.end_date
+                || !payment.amount_pct.is_finite()
+                || payment.amount_pct <= 0.0
+                || payment.amount_pct > 100.0
+                || !payment.price.is_finite()
+                || payment.price < 0.0
+                || payment.price > 1000.0
+            {
+                return Err(crate::contracts::invalid(
+                    "sinking_schedule",
+                    "invalid dates/amount/price",
+                ));
+            }
+            let pct = Decimal::try_from(payment.amount_pct)
+                .map_err(|_| crate::contracts::invalid("sink.amount", "not Decimal"))?;
+            let multiplier = Decimal::try_from(payment.price)
+                .map_err(|_| crate::contracts::invalid("sink.price", "not Decimal"))?
+                .checked_div(Decimal::ONE_HUNDRED)
+                .ok_or(CashflowError::Arithmetic("sink price"))?;
+            let retired = terms
+                .face_value
+                .checked_mul(pct)
+                .and_then(|x| x.checked_div(Decimal::ONE_HUNDRED))
+                .ok_or(CashflowError::Arithmetic("sink amount"))?;
+            if retired > remaining {
+                return Err(crate::contracts::invalid(
+                    "sinking_schedule",
+                    "repayments exceed original principal",
+                ));
+            }
+            profile.push(DatedValue {
+                start,
+                end: payment.date,
+                value: remaining,
+            });
+            terms.principal_prices.push(PrincipalPrice {
+                effective_date: payment.date,
+                multiplier,
+                amount: if payment.date == terms.schedule.end_date {
+                    Some(retired)
+                } else {
+                    None
+                },
+            });
+            remaining = remaining
+                .checked_sub(retired)
+                .ok_or(CashflowError::Arithmetic("sink remaining"))?;
+            start = payment.date;
+        }
+        if start < terms.schedule.end_date {
+            profile.push(DatedValue {
+                start,
+                end: terms.schedule.end_date,
+                value: remaining,
+            });
+        }
+        if !profile.is_empty() {
+            terms.profiles.notional = profile;
+        }
+        Ok(terms)
+    }
+
+    /// Validate and compose actual dated sinking cash over the shared core.
+    pub fn try_contract(
+        &self,
+    ) -> Result<crate::contracts::BondContract, crate::contracts::BondContractError> {
+        self.contract_terms()?.build()
+    }
+
     /// Returns the current factor (remaining principal / original).
     #[must_use]
     pub fn current_factor(&self, settlement: Date) -> f64 {
@@ -609,6 +709,33 @@ impl SinkingFundBond {
 
 // Implement Bond trait
 impl Bond for SinkingFundBond {
+    fn try_cash_flows(&self, from: Date) -> BondResult<Vec<BondCashFlow>> {
+        self.try_contract()
+            .and_then(|bond| {
+                bond.fixed_projection(
+                    from,
+                    convex_core::cashflows::PaymentDateEntitlement::Exclude,
+                )
+            })
+            .and_then(|cash| cash.cashflows())
+            .map_err(|e| BondError::invalid_spec(e.to_string()))
+    }
+
+    fn try_accrued_interest(&self, settlement: Date) -> BondResult<Decimal> {
+        let cash = self
+            .try_contract()
+            .and_then(|bond| {
+                bond.fixed_projection(
+                    settlement,
+                    convex_core::cashflows::PaymentDateEntitlement::Exclude,
+                )
+            })
+            .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+        cash.accrued
+            .checked_div(self.original_face)
+            .and_then(|x| x.checked_mul(Decimal::ONE_HUNDRED))
+            .ok_or_else(|| BondError::invalid_spec("accrued normalization overflow"))
+    }
     fn identifiers(&self) -> &BondIdentifiers {
         self.base.identifiers()
     }

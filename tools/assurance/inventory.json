@@ -1,8 +1,20 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-05",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending.",
   "files": [
+    {
+      "path": "crates/convex-analytics/src/bond_contract.rs",
+      "sha256": "cfa9b43440780e47e39b6cdbeef4eb34fe2fc13f918d429f6385264209832176",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
     {
       "path": "crates/convex-analytics/src/bond_quote.rs",
       "sha256": "4a9c63a7e347049fa491216b861ee8ceaceae2dda196a911cf4e5419b4bef445",
@@ -43,15 +55,17 @@
     },
     {
       "path": "crates/convex-analytics/src/lib.rs",
-      "sha256": "1e3f303d6d839208f950c4d575b15fe0dafe6cd6e8206da8af44d6f95921f12a",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
+      "sha256": "3c7fdc4367858e8f129346e214f8452a4cae4eaa1709f5da1abfc980dd90703a",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
         "tools/assurance/test_policy.py",
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
       ],
       "exceptions": []
     },
@@ -137,6 +151,54 @@
       ]
     },
     {
+      "path": "crates/convex-bonds/src/contracts/exercise.rs",
+      "sha256": "36526da74c00cd6897d2776a6c44728931127256021abbe77a33d0b4fd2f9c88",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/contracts/mod.rs",
+      "sha256": "84d339b5114c298ca0901bb5a4783bd0f6878639d7e5113428cbdc8a29dc9fac",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/contracts/projection.rs",
+      "sha256": "19518bbaee4bf86a74b27e458286aff492734670540e0a388889f6a433843268",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/contracts/terms.rs",
+      "sha256": "6c6d942a134cb7236a3a25b0a036013534addf84cc355d34c096acc7999b3026",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-bonds/src/fixings.rs",
       "sha256": "6d49361f99d14d9201d090069eacd5466da65cfae4ee9f2be2981c8ea728e2d2",
       "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
@@ -151,29 +213,81 @@
       ]
     },
     {
+      "path": "crates/convex-bonds/src/instruments/callable.rs",
+      "sha256": "4b6f0813afb3327eb046d6543a28f1c620506c43b7ab0f68eb9d1ac8f99c6ef5",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/instruments/callable_frn.rs",
+      "sha256": "299fefc7725c5d22ca5f219148383e5a231c6ee41d5f164c4659a721c6460b20",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-bonds/src/instruments/fixed_rate.rs",
-      "sha256": "8af145fae61ddf4b6dcd3e2fa5fafd83b1c775d48da1c06eda40b4e63b22b598",
-      "invariants": "Checked builder and native deserialize cache validated schedule; public try_schedule returns typed errors. Existing financial coupon/pricing kernels unchanged. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
+      "sha256": "2872d4f6125ba6df8feecf090cd5cbffc7cc5ed5af5fa6e446b5ba900b761c06",
+      "invariants": "Checked builder and native deserialize cache validated schedule; public try_schedule returns typed errors. Existing financial coupon/pricing kernels unchanged. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Shared schedule/calendar bounds apply before checked construction accepts product; older infallible mutation keeps valid-term precondition.",
       "failure_contract": "Checked construction/try_schedule propagate errors; infallible compatibility getter retains declared precondition.",
       "tests": [
         "crates/convex-bonds/tests/shared_primitives.rs",
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
       ],
       "exceptions": [
         "ASR-001"
       ]
     },
     {
+      "path": "crates/convex-bonds/src/instruments/floating_rate.rs",
+      "sha256": "9186e4ec91d5e1f84ac0a941389c1e31d600016b8565ff4e8d0ad60916a61428",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/instruments/sinking_fund.rs",
+      "sha256": "b1d81c325e50ce4276e1e5ece28616dd8084b0feb69fd71abe55e87ea676136f",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-bonds/src/lib.rs",
-      "sha256": "f357a833a58f563a8682be5bd03f9166d8a176c5db10110dc25d5c636eeeefef",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "sha256": "8b85f3e1aa13fb21140cbcfc14c41ac545cfa8323d3e75a9a4547cc6eb4a1894",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
-        "tools/assurance/test_policy.py"
+        "tools/assurance/test_policy.py",
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
       ],
       "exceptions": []
     },
@@ -231,6 +345,18 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-bonds/src/types/amortization.rs",
+      "sha256": "2751dcfa4ce692d36aa9011235df355a1c36abb6b8d3f75c97ec4b8292c18eb1",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
+      "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
+      "tests": [
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-core/src/calendars/checked.rs",
       "sha256": "779ae37b936da4ee83cbc872c18dc6a17265e50d9b2e02b3f75fdc46b5851dcb",
       "invariants": "Bounded directional business-day search and offset with checked date arithmetic; scoped unwrap/expect/panic denial.",
@@ -284,12 +410,14 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/amounts.rs",
-      "sha256": "c985b969576316c8d6505fbf9ce34797150e86004ec88d064c554cbbf127aa6a",
-      "invariants": "Checked Decimal economic segment sums; explicit principal/negative-coupon/rounding/redemption/entitlement policies; expected cash never asserts realized payment.",
+      "sha256": "17cb42f9053caf7274fd06e560ea97f54cdae404af669976cb227ecb100bf193",
+      "invariants": "Checked Decimal economic segment sums; explicit principal/negative-coupon/rounding/redemption/entitlement policies; expected cash never asserts realized payment. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Four validated profiles<=4096entries each; combined cuts<=4*4096+2; canonical covered coupon dates; index\u00b110, rounding scale0..28, redemption multiplier0..10; checked Decimal operations.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
       "tests": [
-        "crates/convex-core/tests/cashflow_primitives.rs"
+        "crates/convex-core/tests/cashflow_primitives.rs",
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
       ],
       "exceptions": []
     },
@@ -1069,15 +1197,17 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "f41a604d68a5854334b8b9611deff354619d1fc1425ceb199acbb5d9f64ae2ac",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
+      "sha256": "440031d980d05f132177a5b78808b1b77a4f68f2bff272919e6bf6fb92c8a97a",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
         "tools/assurance/test_policy.py",
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-bonds/tests/bond_contracts.rs",
+        "crates/convex-analytics/tests/bond_contracts.rs"
       ],
       "exceptions": []
     }

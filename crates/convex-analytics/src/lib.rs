@@ -53,6 +53,8 @@ pub use error::{AnalyticsError, AnalyticsResult};
 // MODULES
 // ============================================================================
 
+/// Checked pricing of full supplied dated bond contractual cash.
+pub mod bond_contract;
 pub mod cashflows;
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;

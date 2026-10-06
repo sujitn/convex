@@ -96,6 +96,15 @@ jobs:
       - name: Exercise shared bond quotes with schema features
         run: cargo run --locked -p convex --example bond_quotes --features schemars
 
+      - name: Run supplied bond terms
+        run: cargo run --locked -p convex --example bond_contracts
+
+      - name: Run supplied bond terms with minimal features
+        run: cargo run --locked -p convex --example bond_contracts --no-default-features
+
+      - name: Run supplied bond terms with schema support
+        run: cargo run --locked -p convex --example bond_contracts --features schemars
+
       - name: Check minimum pure feature combination
         run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
 

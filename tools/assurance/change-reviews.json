@@ -301,6 +301,46 @@
         "tools/assurance/numeric-evidence.json": "cbc6f57aab450f7e811ca64a1f43b951db785728e0caaa15d731fc11413cdb2f",
         "tools/library/library-inventory.json": "a39dd20b07a735fb104f3772f5e16ed3422e78c381d4c2977118fdc848284545"
       }
+    },
+    {
+      "base_commit": "a166808b77c8b4ad603a4c0eb4d625f5532d003e",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-055 engineering impact: compose full supplied BondTerms over shared checked dates/profiles/fixings, preserving independent actual coupon/reset/principal/exercise economics. Add exact subinterval accrual, independent term resets, whole-history publication/revision preflight, actual overnight product/prefix and priced sinking allocations. Native checked FRN cash/accrual refuses absent eligible history; checked sinking adapters use actual dated terms. Fixed/term/overnight model PV uses supplied checked curve roles, currency/collateral and original-face units. Supported fixed-price call/put/callable-FRN terms retain notice/protection/settlement/accrued conventions through strict native JSON rebuild; optional plain PV requires a model. Unsupported caps/floors, segmented overnight principal/gearing, triggered/make-whole and missing or conflicting inputs are errors, never simplified economics. Existing infallible flat/DM/workout diagnostics remain unqualified; complete host/generated-schema and v1 ABI construction/dispatch remain CVX-063, model/workout/risk/inverse/lifecycle remain owning tasks. Four new engineering artifacts append to the existing 74 unchanged numerical rows/bytes/defaults; no existing tolerance or reference is refreshed. Manifests/lock/toolchain/dependency allowlist, 25 exports, four expiring exceptions and full 30-area/174-combination/2154-Planned-record scope/owners/gates stay intact. The coding agent records engineering review only; no independent human quantitative approval, model/market, latency or LB0/LB1 certificate is fabricated.",
+      "tests": [
+        "Ten independently declared Decimal(50) cash/PV fixtures, actual native economic JSON reconstruction, 128 seeded analytic step/principal cases, all front/back stub styles and entitled payment/ex boundaries",
+        "Actual term reset/fixing cutoff/revision controls, missing entire published history before any forecast across bounded batches, separate unpublished policy, overnight weekend/lookback/shift/lockout products and prefix accrued, explicit unsupported option and native FRN failures",
+        "Required bond/analytics/full-workspace suites; strict source/new-test/example Clippy, fmt, rustdoc and standalone default/minimal/schemars consumers",
+        "Fresh unchanged392-reference comparison, optimized shared library and real separate-process ABI controls; assurance/library/comparison/harness validation and mutation controls, exact source hashes and conservation receipts retained in private CVX-055 evidence"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d1d5916b5f49de80fa82733b0f3349c65feb36199c4b1a2ceabb010944a3f13f",
+        "crates/convex-analytics/src/bond_contract.rs": "cfa9b43440780e47e39b6cdbeef4eb34fe2fc13f918d429f6385264209832176",
+        "crates/convex-analytics/src/dto.rs": "c2172c4fd5984755c640face76e6cdc26037fea93482d69bbf0d5585ca428693",
+        "crates/convex-analytics/src/lib.rs": "3c7fdc4367858e8f129346e214f8452a4cae4eaa1709f5da1abfc980dd90703a",
+        "crates/convex-analytics/tests/bond_contracts.rs": "15e31bb9e63e6e395d123bd7d3bdb29ed176fca50ea6db48f613018921f57275",
+        "crates/convex-bonds/src/contracts/exercise.rs": "36526da74c00cd6897d2776a6c44728931127256021abbe77a33d0b4fd2f9c88",
+        "crates/convex-bonds/src/contracts/mod.rs": "84d339b5114c298ca0901bb5a4783bd0f6878639d7e5113428cbdc8a29dc9fac",
+        "crates/convex-bonds/src/contracts/projection.rs": "19518bbaee4bf86a74b27e458286aff492734670540e0a388889f6a433843268",
+        "crates/convex-bonds/src/contracts/terms.rs": "6c6d942a134cb7236a3a25b0a036013534addf84cc355d34c096acc7999b3026",
+        "crates/convex-bonds/src/instruments/callable.rs": "4b6f0813afb3327eb046d6543a28f1c620506c43b7ab0f68eb9d1ac8f99c6ef5",
+        "crates/convex-bonds/src/instruments/callable_frn.rs": "299fefc7725c5d22ca5f219148383e5a231c6ee41d5f164c4659a721c6460b20",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "2872d4f6125ba6df8feecf090cd5cbffc7cc5ed5af5fa6e446b5ba900b761c06",
+        "crates/convex-bonds/src/instruments/floating_rate.rs": "9186e4ec91d5e1f84ac0a941389c1e31d600016b8565ff4e8d0ad60916a61428",
+        "crates/convex-bonds/src/instruments/sinking_fund.rs": "b1d81c325e50ce4276e1e5ece28616dd8084b0feb69fd71abe55e87ea676136f",
+        "crates/convex-bonds/src/lib.rs": "8b85f3e1aa13fb21140cbcfc14c41ac545cfa8323d3e75a9a4547cc6eb4a1894",
+        "crates/convex-bonds/src/types/amortization.rs": "2751dcfa4ce692d36aa9011235df355a1c36abb6b8d3f75c97ec4b8292c18eb1",
+        "crates/convex-bonds/tests/bond_contracts.rs": "3f5a9b1ff4f61abd9a3a4dde2b922f169b44816f8e46429e27fd97b876e2efe9",
+        "crates/convex-bonds/tests/fixtures/bond-contracts.json": "329a0b5087074b3ca004483dee8129a9647c9e8ac5ec18b2b8ccb74af35ba63a",
+        "crates/convex-core/src/cashflows/amounts.rs": "17cb42f9053caf7274fd06e560ea97f54cdae404af669976cb227ecb100bf193",
+        "crates/convex/examples/bond_contracts.rs": "3ba6b5782c3620932056f4f6a6751687fcd90dbc8d7ac7f2e664e83079e63624",
+        "crates/convex/src/lib.rs": "440031d980d05f132177a5b78808b1b77a4f68f2bff272919e6bf6fb92c8a97a",
+        "docs/ASSURANCE.md": "0f4cb82a447f8087ee13dfe78e7a4cbdad96c49ad845fa725a003c09c9582961",
+        "tools/assurance/check.py": "39981b4bf22eec3a2c4ebb27d3b8760ecd99e1f12f0d74cfe82389c556b1d662",
+        "tools/assurance/inventory.json": "06bde8f6f7a62c7f0d90565b5e96d7948e55a34134f450f4b9645b3cabc6dfb0",
+        "tools/assurance/numeric-evidence.json": "6d7b820abe8997a39a988e784f4a54bc2593bfd0602ef56c04b0d0664a6f2349",
+        "tools/library/library-inventory.json": "50e178c88c7389a8666a8615749d449a9dba31c8b9154bedd8482b6b9b530bc2"
+      }
     }
   ]
 }
