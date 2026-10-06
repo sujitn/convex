@@ -574,6 +574,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "convex-rates",
+ "serde_json",
 ]
 
 [[package]]
@@ -586,6 +587,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "convex-math",
+ "convex-rates",
  "criterion 0.8.1",
  "log",
  "nalgebra",
@@ -670,6 +672,7 @@ dependencies = [
  "convex-ext-file",
  "convex-ext-redb",
  "convex-ports",
+ "convex-rates",
  "criterion 0.5.1",
  "cron",
  "dashmap",

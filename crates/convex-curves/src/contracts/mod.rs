@@ -12,7 +12,7 @@ mod numerics;
 mod query;
 mod transformations;
 
-pub use build::{build_curve_set, BuiltCurve, CurveBuildOutput, CurveSet};
+pub use build::{build_curve_set, build_fitted_rate_curve, BuiltCurve, CurveBuildOutput, CurveSet};
 pub use inputs::*;
 pub use numerics::*;
 pub use query::*;

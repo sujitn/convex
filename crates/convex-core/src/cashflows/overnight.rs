@@ -72,6 +72,82 @@ pub struct CompoundedCoupon {
     pub observations: Vec<ResolvedOvernightObservation>,
 }
 
+impl CompoundedCoupon {
+    /// Compound the already resolved observation prefix through an explicit
+    /// weight-window cutoff. The caller supplies the economic cutoff; shifting
+    /// it again is not automatic. A clipped final holiday
+    /// interval uses its actual partial days; no rate is resolved or forecast.
+    pub fn factor_through(
+        &self,
+        cutoff: Date,
+        day_count: DayCountConvention,
+    ) -> Result<Decimal, CashflowError> {
+        super::validate_date(cutoff)?;
+        if self.observations.is_empty() || self.observations.len() > MAX_SCHEDULE_PERIODS {
+            return Err(CashflowError::BoundExceeded("compound prefix observations"));
+        }
+        if !matches!(
+            day_count,
+            DayCountConvention::Act360 | DayCountConvention::Act365Fixed
+        ) {
+            return Err(CashflowError::terms(
+                "compound prefix",
+                "requires an overnight day count",
+            ));
+        }
+        let mut factor = Decimal::ONE;
+        let mut previous_end = None;
+        for observation in &self.observations {
+            let dates = &observation.dates;
+            validate_span(dates.weight_start, dates.weight_end)?;
+            validate_span(dates.observation_date, dates.rate_end)?;
+            crate::fixings::validate_rate(observation.rate)?;
+            if previous_end.is_some_and(|end| end != dates.weight_start)
+                || observation.year_fraction
+                    != day_count
+                        .to_day_count()
+                        .year_fraction(dates.weight_start, dates.weight_end)
+            {
+                return Err(CashflowError::terms(
+                    "compound prefix",
+                    "contiguous exact day-count weights required",
+                ));
+            }
+            previous_end = Some(dates.weight_end);
+            if dates.weight_start >= cutoff {
+                continue;
+            }
+            let end = observation.dates.weight_end.min(cutoff);
+            validate_span(observation.dates.weight_start, end)?;
+            let fraction = day_count
+                .to_day_count()
+                .year_fraction(observation.dates.weight_start, end);
+            factor = compound_step(factor, observation.rate, fraction)?;
+        }
+        Ok(factor)
+    }
+}
+
+fn compound_step(
+    factor: Decimal,
+    rate: Decimal,
+    fraction: Decimal,
+) -> Result<Decimal, CashflowError> {
+    let term = rate
+        .checked_mul(fraction)
+        .and_then(|x| x.checked_add(Decimal::ONE))
+        .ok_or(CashflowError::Arithmetic("overnight factor"))?;
+    if term <= Decimal::ZERO {
+        return Err(CashflowError::terms(
+            "overnight_factor",
+            "nonpositive compound factor",
+        ));
+    }
+    factor
+        .checked_mul(term)
+        .ok_or(CashflowError::Arithmetic("overnight product"))
+}
+
 impl OvernightSchedule {
     /// Generate actual business-day weights, including a partial initial weekend.
     /// Observation shift requires business-day endpoints; nonbusiness shifted
@@ -239,20 +315,7 @@ impl OvernightSchedule {
                 .ok_or_else(|| CashflowError::terms("observation", "unresolved rate"))?;
             let fraction =
                 day_count.year_fraction(observation.weight_start, observation.weight_end);
-            let term = rate
-                .rate
-                .checked_mul(fraction)
-                .and_then(|x| x.checked_add(Decimal::ONE))
-                .ok_or(CashflowError::Arithmetic("overnight factor"))?;
-            if term <= Decimal::ZERO {
-                return Err(CashflowError::terms(
-                    "overnight_factor",
-                    "nonpositive compound factor",
-                ));
-            }
-            factor = factor
-                .checked_mul(term)
-                .ok_or(CashflowError::Arithmetic("overnight product"))?;
+            factor = compound_step(factor, rate.rate, fraction)?;
             resolved.push(ResolvedOvernightObservation {
                 dates: observation.clone(),
                 year_fraction: fraction,

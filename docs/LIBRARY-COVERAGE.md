@@ -198,8 +198,11 @@ The highest-impact concrete findings are:
   and date-only ARRC product routes still require migration; they can use zero
   current rate or forecast missing past observations. Those compatibility
   routes are not certified by the new primitives.
-- Native CDS premium/protection/upfront/JTD and full seasoned IRS/OIS workflows
-  are missing. CreditCurve queries do not provide CDS calibration; synthetic
+- Native CDS premium/protection/upfront/JTD and complete seasoned IRS/OIS
+  risk/lifecycle/host workflows are missing. [CVX-019](SWAP-VALUATION.md) adds
+  native seasoned/amortizing IRS/OIS PV/accrued/par and full-contract fitting
+  candidates; its captured external comparator remains pending. CreditCurve
+  queries do not provide CDS calibration; synthetic
   swap hedge risk assumes floating-leg DV01 zero. Risk across projection,
   discount, basis and credit factors requires the actual product workflow.
 - Generic FFI position risk rejects zero-coupon and FRN dispatch; existing
@@ -261,3 +264,11 @@ Historical failures remain evidence. See the [comparison contract](../reconcilia
 review infrastructure only. Product models, actual exact convention packs,
 full positive/boundary/failure fixtures, host builds, numerical certificates,
 production gates and latency/colocation remain their owning tasks.
+
+Version 9 adds inspected native swap pricing/common-PV and product-fit source
+and test anchors, including explicit discount/index dependencies and zero-basis
+overnight projection modeling. Twenty manual independent reference cases and
+bounded positive/failure calibration tests do not establish an executed
+ORE/QuantLib comparison. All 2,154 mandatory records and their byte-preserved
+pending specification remain Planned; risk, lifecycle, market/convention packs,
+hosts and independent library/production certificates remain owning work.

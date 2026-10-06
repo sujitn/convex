@@ -13,6 +13,8 @@ pub use convex_analytics::bond_contract;
 pub use convex_analytics::bond_quote;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
+/// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
+pub use convex_analytics::swap_calibration;
 pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;
@@ -26,6 +28,8 @@ pub use convex_core::{cashflows, fixings};
 pub use convex_curves::contracts as curve_contracts;
 /// Complete supplied IRS/OIS terms, schedules and publication-aware cashflows.
 pub use convex_rates as rates;
+/// Supplied multi-curve swap valuation with actual historical coupon provenance.
+pub use convex_rates::pricing as swap_pricing;
 
 pub use convex_curves::{
     CalibrationResult, CurveError, CurveResult, Deposit, DiscountCurve, DiscreteCurve,

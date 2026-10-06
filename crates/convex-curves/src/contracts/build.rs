@@ -313,6 +313,152 @@ pub fn build_curve_set(recipes: &[CurveRecipe], supplied: &CurveSet) -> Result<C
     })
 }
 
+/// Construct the validated representation of a product fit performed in a pure
+/// composition layer. This function verifies native repricing records and exact
+/// dependencies; it does not resolve instruments or run a product solver.
+/// The original recipe remains intact instead of being relabeled as direct nodes.
+pub fn build_fitted_rate_curve(
+    recipe: &CurveRecipe,
+    nodes: &[CurveNode],
+    quotes: Vec<QuoteRepricing>,
+    iterations: usize,
+    supplied: &CurveSet,
+) -> Result<BuiltCurve> {
+    let CurveSource::Helpers(ids) = &recipe.source else {
+        return Err(Error::invalid(
+            "fitted.source",
+            "full product helper identities required",
+        ));
+    };
+    let method = match &recipe.calibration {
+        CalibrationMode::Piecewise => "product_piecewise_brent",
+        CalibrationMode::Global(settings) => {
+            validate_global_settings(settings)?;
+            "product_global_bounded_least_squares"
+        }
+        CalibrationMode::Direct => {
+            return Err(Error::invalid(
+                "fitted.calibration",
+                "an actual calibrated mode is required",
+            ))
+        }
+    };
+    if !recipe.role.is_rate()
+        || ids.is_empty()
+        || ids.len() > MAX_CURVE_INPUTS
+        || quotes.len() != ids.len()
+        || iterations > ids.len() * convex_math::bounds::MAX_SOLVER_ITERATIONS as usize
+    {
+        return Err(Error::invalid(
+            "fitted.dimensions",
+            "bounded rate-curve helper/repricing/iteration dimensions required",
+        ));
+    }
+    validate_fitted_nodes(recipe, nodes, quotes.len(), ids.len())?;
+    validate_fitted_quotes(recipe.reference_date, ids, &quotes)?;
+    let mut dependencies = BTreeSet::new();
+    for dependency in &recipe.dependencies {
+        if !dependencies.insert(&dependency.id) || dependency.id == recipe.key.id {
+            return Err(Error::invalid(
+                "dependencies",
+                "unique external exact dependencies required",
+            ));
+        }
+        supplied.get(dependency)?;
+    }
+    if recipe.dependencies.len() > MAX_CURVES {
+        return Err(Error::BoundExceeded("dependencies"));
+    }
+    let mut direct = recipe.clone();
+    direct.source = CurveSource::Nodes(nodes.to_vec());
+    direct.calibration = CalibrationMode::Direct;
+    direct.dependencies.clear();
+    validate_recipe(&direct)?;
+    let mut built = build_direct(&direct, nodes, method, quotes)?;
+    built.recipe = recipe.clone();
+    built
+        .diagnostics
+        .dependencies
+        .clone_from(&recipe.dependencies);
+    built.diagnostics.iterations = iterations;
+    Ok(built)
+}
+
+fn validate_fitted_nodes(
+    recipe: &CurveRecipe,
+    nodes: &[CurveNode],
+    quote_count: usize,
+    helper_count: usize,
+) -> Result<()> {
+    if recipe.representation
+        != (CurveRepresentation::ZeroRates {
+            compounding: Compounding::Continuous,
+        })
+        || nodes.len() < 2
+        || nodes
+            .first()
+            .is_none_or(|node| node.pillar != CurvePoint::Date(recipe.reference_date))
+        || nodes[0].quote.decimal_rate()? != nodes[1].quote.decimal_rate()?
+    {
+        return Err(Error::invalid(
+            "fitted.nodes",
+            "continuous-zero dated grid with origin tied to the first parameter required",
+        ));
+    }
+    match &recipe.calibration {
+        CalibrationMode::Piecewise if helper_count != nodes.len() - 1 => {
+            return Err(Error::invalid(
+                "fitted.dimensions",
+                "one piecewise helper per positive grid node required",
+            ));
+        }
+        CalibrationMode::Global(settings)
+            if settings.initial_zeros.len() != nodes.len() - 1
+                || settings.quote_scales.len() != quote_count
+                || nodes.iter().any(|node| match node.quote.decimal_rate() {
+                    Ok(zero) => zero < settings.lower_zero || zero > settings.upper_zero,
+                    Err(_) => true,
+                }) =>
+        {
+            return Err(Error::invalid("fitted.global", "matching parameter/helper dimensions and solved nodes inside the declared bounds required"));
+        }
+        _ => (),
+    }
+    Ok(())
+}
+
+fn validate_fitted_quotes(
+    reference_date: Date,
+    ids: &[String],
+    quotes: &[QuoteRepricing],
+) -> Result<()> {
+    let mut seen = BTreeSet::new();
+    for (id, quote) in ids.iter().zip(quotes) {
+        validate_label(id, "helper.id")?;
+        validate_date(quote.pillar)?;
+        validate_tolerance(quote.tolerance)?;
+        quote.input.decimal_rate()?;
+        quote.model.decimal_rate()?;
+        if !seen.insert(id)
+            || id != &quote.helper_id
+            || quote.pillar <= reference_date
+            || quote.input.unit != quote.model.unit
+            || !quote.residual.is_finite()
+            || quote.residual != quote.model.value - quote.input.value
+        {
+            return Err(Error::invalid("fitted.repricing", "ordered unique native helper records and exact model-minus-input residuals required"));
+        }
+        if quote.residual.abs() > quote.tolerance {
+            return Err(Error::RepricingFailure {
+                helper_id: id.clone(),
+                residual: quote.residual,
+                tolerance: quote.tolerance,
+            });
+        }
+    }
+    Ok(())
+}
+
 fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
     recipe.key.validate()?;
     recipe.role.validate()?;
@@ -335,6 +481,7 @@ fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
         CurveSource::ContinuousZeroSpread { base, .. }
         | CurveSource::DiscountEquivalent { base }
         | CurveSource::Rolled { base, .. } => vec![base],
+        CurveSource::OvernightProjection { discount, .. } => vec![discount],
         CurveSource::Helpers(ids) => {
             if ids.is_empty() || ids.len() > MAX_CURVE_INPUTS {
                 return Err(Error::BoundExceeded("product helpers"));
@@ -445,6 +592,7 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
         recipe.source,
         CurveSource::ContinuousZeroSpread { .. }
             | CurveSource::DiscountEquivalent { .. }
+            | CurveSource::OvernightProjection { .. }
             | CurveSource::Rolled { .. }
     ) {
         return Ok(());
@@ -491,6 +639,9 @@ fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
             build_spread(recipe, supplied, base, *spread)
         }
         CurveSource::DiscountEquivalent { base } => build_view(recipe, supplied, base, None),
+        CurveSource::OvernightProjection { discount, index_id } => {
+            build_overnight_projection(recipe, supplied, discount, index_id)
+        }
         CurveSource::Rolled { base, policy } => build_view(recipe, supplied, base, Some(*policy)),
         CurveSource::Helpers(_) => Err(Error::unsupported(
             "product helpers",
@@ -798,6 +949,43 @@ fn derived_depth(base: &BuiltCurve) -> Result<usize> {
         return Err(Error::BoundExceeded("derived curve nesting"));
     }
     Ok(base.depth + 1)
+}
+
+fn build_overnight_projection(
+    recipe: &CurveRecipe,
+    supplied: &CurveSet,
+    key: &CurveKey,
+    index_id: &str,
+) -> Result<BuiltCurve> {
+    validate_label(index_id, "overnight.index_id")?;
+    let base = supplied.get(key)?;
+    let old = base.recipe();
+    if recipe.calibration != CalibrationMode::Direct
+        || !matches!(&recipe.role, CurveRole::Projection { index_id: actual } if actual == index_id)
+        || !matches!(old.role, CurveRole::Discount { collateral_currency } if collateral_currency == recipe.currency)
+        || recipe.currency != old.currency
+        || recipe.reference_date != old.reference_date
+        || recipe.time_basis != old.time_basis
+        || recipe.interpolation != old.interpolation
+        || recipe.extrapolation != old.extrapolation
+    {
+        return Err(Error::invalid("overnight projection", "requires an explicit matching index, Direct mode, same-currency collateral discount base, identical reference/time basis and inherited methods"));
+    }
+    Ok(BuiltCurve {
+        recipe: recipe.clone(),
+        values: CurveValues::Equivalent {
+            base: Arc::clone(base),
+        },
+        depth: derived_depth(base)?,
+        diagnostics: CurveDiagnostics {
+            curve: recipe.key.clone(),
+            method: "explicit_zero_basis_overnight_projection".into(),
+            iterations: 0,
+            pillars: base.diagnostics.pillars.clone(),
+            dependencies: vec![key.clone()],
+            quotes: vec![],
+        },
+    })
 }
 
 fn build_view(

@@ -16,6 +16,7 @@ convex-core = { workspace = true }
 convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
+convex-rates = { workspace = true }
 
 # Date/time handling
 chrono = { workspace = true }

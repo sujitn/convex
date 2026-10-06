@@ -60,6 +60,8 @@ pub mod cashflows;
 pub mod curve_inputs;
 pub mod optional_bond;
 pub mod risk;
+/// Native-quote IRS/OIS fitting with exact dependent curves and frozen history.
+pub mod swap_calibration;
 pub mod yields;
 
 // Phase 3: Spreads (from convex-spreads/)

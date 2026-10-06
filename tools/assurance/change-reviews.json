@@ -413,6 +413,44 @@
         "tools/library/library-inventory.json": "c31525359a94865d7c974d2e775835e7e3288b5d032e3a3b35750f872c7b4ef9",
         "tools/library/test_coverage.py": "d59facb557b1c8c9c51d5ba596cd66dd2a4e800bd1b21fc35a9da6d1065b70d2"
       }
+    },
+    {
+      "base_commit": "208cffdc1afcfddb3db31f9cfd0438445bf4b7b9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-019 engineering impact: single full-term native IRS/OIS pricer over retained core cash, validated observation prefix, exact separate projection/discount roles and signed model PV/accrued/admissible inverses. Pure analytics composes bounded product fitting with original native tolerances and full final helper repricing; curves supplies validated representations/explicit overnight zero-basis view, engine delegates. Preserve all earlier 86 quantitative rows/bytes/defaults, external locked packages/checksums, 25 C exports and mandatory Planned scope/owners. Three existing local dependency edges are added; no runtime/adapter in pure normal graph. New manual independent reference bounds are scoped engineering declarations, not captured ORE/QuantLib outputs or independent human approval. AC2 pending; no CVX-019 acceptance or release/latency certificate.",
+      "tests": [
+        "CVX-019 acceptance-to-test mapping and actual fresh raw command receipts in private task evidence; AC1/AC3 engineering checks and AC2 explicit pending comparator",
+        "Strict targeted Clippy, native required tests, independent manual oracle, feature consumers, workspace/docs/ABI/retained comparison and assurance/conservation checks recorded as executed"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "ceaf5c82f90bce2354b7bf954f9207745767a626d00911722a4949630e751126",
+        "Cargo.lock": "84bf861ca8d7f298d9e25d074ec4468083a1cff96c4ff364b6d25cb0dc510b7a",
+        "crates/convex-analytics/Cargo.toml": "9a9de8a3ac8a94e240943025ff83cd577fb4b34755935630ec2bc2e4d9a9bb9b",
+        "crates/convex-analytics/src/lib.rs": "26bb273a5ad74630b397926a9accd146e58d7ca18270191fa8376b0ef4620282",
+        "crates/convex-analytics/src/swap_calibration.rs": "1d00fb6d43ff2dc4b94c4de755cc50c668923e792fc91ff2ce01bd6629da0601",
+        "crates/convex-analytics/tests/swap_calibration.rs": "58f9d8d6e18bb8276acf8dc84c979c3cc4979fa44266c8eee4f13da807eb0002",
+        "crates/convex-core/src/cashflows/overnight.rs": "88d88ae2c0316b636bae9199d199eb999b5e3bf2d97d83528242fc0d17b83262",
+        "crates/convex-core/tests/overnight_prefix.rs": "ef6a23af91dbcce9a1b98e1714b807b259e6e5086c0864aa1dea0d52d0a8b50f",
+        "crates/convex-curves/src/contracts/build.rs": "e59036ce754ab959f70c3045743fc3076e12df52b912823df08e97ed29299d97",
+        "crates/convex-curves/src/contracts/inputs.rs": "5f169b4f7ac8ef1b6342658139fdd051fbb539007c4609c6286f39906ad91b15",
+        "crates/convex-curves/src/contracts/mod.rs": "6e4072554d6cd02bcf677dd4c74bf12731b6f189a3e3eb68275bddc7fa6e264a",
+        "crates/convex-curves/tests/product_composition.rs": "dfe3e5abaf3d674d0383ccecb0d11d93b26b1954c7c0c13f92efdd38bd871fff",
+        "crates/convex-rates/src/lib.rs": "f415e442e39f852bbef360bb77a50f0eb92fb973a60666dec826d808be44b890",
+        "crates/convex-rates/src/pricing.rs": "5bc1dab0eca79b8423801efdba4b48a922b0bdfad656077d1ac42444716751c5",
+        "crates/convex-rates/src/results.rs": "ead4a666344eaa46e139d6ede1d0d53090e3fb7c212a325b0883273557a6c6d2",
+        "crates/convex-rates/tests/fixtures/valuation.json": "91342b44961e5705bd013f9eb20c73e0daea16c96b49e8f710b30f5177964e6b",
+        "crates/convex-rates/tests/pricing.rs": "3212e58eee76986e975ffeb6f7d5386c0d2af01510a79eae81e51b1e49e2944a",
+        "crates/convex-rates/tests/support/mod.rs": "52b713b286c8f23338e859d05dc78235b91ab9f78eb72933d8d1cd3ea7bfa0e4",
+        "crates/convex/Cargo.toml": "6ed02ce4430c42da20667bd30bd7a81e177a6401fe3069dca9e7cc954319928c",
+        "crates/convex/examples/swap_valuation.rs": "2b8f69de2d65d1e002e61673b2522f221dd57acdc98bfb2af5b786ab77085e31",
+        "crates/convex/src/lib.rs": "67b99c2ab1419b7ccce11b0ba9262fb94ab37f424ea4de68456489400e88e8ed",
+        "docs/ASSURANCE.md": "ef59ee3d86b31e13d569e5b6d926488ee710a6649bddbde4789e9cada0584159",
+        "tools/assurance/check.py": "13e4b7fc705bd52585e86c736a71cc0b1338210d693209aa23dbe1ca078ed2da",
+        "tools/assurance/inventory.json": "85ba4c7ebbe07ef3b6562f87fbb74f44f320a6d86aed598bb6dd72548c642e92",
+        "tools/assurance/numeric-evidence.json": "d59aafeab9a11e8b535b82757c60e97a81e33d39fa5fa23fae60cf4b85e7fda0",
+        "tools/library/library-inventory.json": "e816672c0d698cf8dd74e47d6749c7d734f832d5d7b4b210deb79a9ffc1305c3"
+      }
     }
   ]
 }

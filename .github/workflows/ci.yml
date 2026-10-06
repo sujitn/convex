@@ -129,6 +129,24 @@ jobs:
       - name: Run supplied rates contracts with schema features
         run: cargo run --locked -p convex --example rates_contracts --features schemars
 
+      - name: Check independent supplied swap valuation fixtures
+        run: python3 tests/scripts/swap_valuation_reference.py check
+
+      - name: Check native dependent swap curve fitting
+        run: cargo test --locked -p convex-analytics --test swap_calibration
+
+      - name: Check swap prefixes curve composition and engine delegation
+        run: cargo test --locked -p convex-core --test overnight_prefix -p convex-curves --test product_composition -p convex-engine --test swap_curves
+
+      - name: Run supplied swap valuation and calibration
+        run: cargo run --locked -p convex --example swap_valuation
+
+      - name: Run supplied swap valuation with minimal features
+        run: cargo run --locked -p convex --example swap_valuation --no-default-features
+
+      - name: Run supplied swap valuation with schema features
+        run: cargo run --locked -p convex --example swap_valuation --features schemars
+
       - name: Check minimum pure feature combination
         run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-analytics -p convex-portfolio --no-default-features
 

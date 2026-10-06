@@ -1,5 +1,10 @@
 //! Curve builder - constructs curves from market data.
 
+/// Supplied product calibration delegates directly to the pure composition API.
+/// Callers retain exact immutable results; this entry point uses no live lookup,
+/// cache publication, timestamp, tenor approximation or numerical duplication.
+pub use convex_analytics::swap_calibration::build_swap_curve_set as build_supplied_swap_curves;
+
 use std::sync::Arc;
 
 use dashmap::DashMap;

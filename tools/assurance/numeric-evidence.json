@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "version": 9,
+  "version": 10,
   "reviewed_on": "2026-10-06",
-  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed. CVX-060 appends four new analytic numerical/transform test, fixture and standalone consumer artifacts. All 65 earlier rows/bytes/defaults remain unchanged. Supplied negative-rate DF reference uses independent 50-digit Python Decimal exp. Declared absolute1e-11 plus relative1e-11 bounds, tighter explicit short-period checks, native objective/quote thresholds and 512 seeded generated cases do not claim independent quantitative approval or a market/library certificate. CVX-017 appends five engineering candidate artifacts: 13 supplied dated bond cases with independent Decimal(50) calculation, actual native/C ABI and admitted REST parity, explicit role/failure controls and standalone facade. All 69 earlier rows/bytes/defaults and retained QuantLib reference values/tolerances remain unchanged. New absolute price/risk 1e-9 plus relative1e-11 bounds and accrued/yield1e-10 checks are engineering declarations, not independent quantitative approval. Correcting coupon/payment discount steps resolves all 105 historical comparison misses on the same 392 references; original failing captures remain historical evidence. Market/model and full-surface certificates remain pending. CVX-055 appends four supplied bond engineering artifacts: 10 independently declared Decimal(50) cash/PV cases, native eligible-history/overnight/exercise tests, analytic valuation tests and a real standalone facade. All 74 earlier rows, bytes, expected values, tolerances and solver defaults remain unchanged. New absolute cash1e-22 and price1e-9 plus relative1e-11 bounds, and 128 seeded exact step/principal cases, are engineering declarations rather than independent quantitative approval. Unsupported market/model/host combinations fail explicitly; full certificates remain pending. CVX-059 appends five engineering artifacts for 12 independent math.erfc European ZCB options, three actual-dated swaption quotations, notice exchange option, joint term-FRN margin option, analytic optional risk at explicit 50/100/200bp bumps, positive/failure tests and standalone facade. New scoped option premium2e-7, lattice price0.004+1e-8 relative, sigma2e-7, duration0.005/convexity0.5/PV01-per100 5e-5 declarations include existing CDF approximation and kinked-grid limits. Undersampled 1bp risk fails explicitly. Preserve every earlier 78 row/byte/expectation/tolerance/default. These independent engineering calculations do not assert independent human quantitative approval, admitted market packs or complete model/host/LB certificates.",
+  "provenance": "All 55 prior quantitative artifacts/rows/defaults remain byte-identical. CVX-054 adds five pinned new shared-primitives supplied-contract tests/fixture/standalone example, with exact dates, annualized decimal rates, absolute cash units, primary-source identities and analytic bounds (1e-24 absolute/zero relative; published NY Fed index precision eight decimals). Engineering-derived evidence, not admitted market packs or independent quantitative approval. No older tolerance or kernel test is refreshed. CVX-056 appends five new supplied-contract/analytic curve and economic term conservation artifacts. All 60 prior artifact rows/bytes and solver defaults are preserved. Native f64 tolerance 1e-11 absolute plus 1e-11 relative; exact dates/units/Decimal economics unchanged. No independent quantitative approval or library/model certificate is claimed. CVX-060 appends four new analytic numerical/transform test, fixture and standalone consumer artifacts. All 65 earlier rows/bytes/defaults remain unchanged. Supplied negative-rate DF reference uses independent 50-digit Python Decimal exp. Declared absolute1e-11 plus relative1e-11 bounds, tighter explicit short-period checks, native objective/quote thresholds and 512 seeded generated cases do not claim independent quantitative approval or a market/library certificate. CVX-017 appends five engineering candidate artifacts: 13 supplied dated bond cases with independent Decimal(50) calculation, actual native/C ABI and admitted REST parity, explicit role/failure controls and standalone facade. All 69 earlier rows/bytes/defaults and retained QuantLib reference values/tolerances remain unchanged. New absolute price/risk 1e-9 plus relative1e-11 bounds and accrued/yield1e-10 checks are engineering declarations, not independent quantitative approval. Correcting coupon/payment discount steps resolves all 105 historical comparison misses on the same 392 references; original failing captures remain historical evidence. Market/model and full-surface certificates remain pending. CVX-055 appends four supplied bond engineering artifacts: 10 independently declared Decimal(50) cash/PV cases, native eligible-history/overnight/exercise tests, analytic valuation tests and a real standalone facade. All 74 earlier rows, bytes, expected values, tolerances and solver defaults remain unchanged. New absolute cash1e-22 and price1e-9 plus relative1e-11 bounds, and 128 seeded exact step/principal cases, are engineering declarations rather than independent quantitative approval. Unsupported market/model/host combinations fail explicitly; full certificates remain pending. CVX-059 appends five engineering artifacts for 12 independent math.erfc European ZCB options, three actual-dated swaption quotations, notice exchange option, joint term-FRN margin option, analytic optional risk at explicit 50/100/200bp bumps, positive/failure tests and standalone facade. New scoped option premium2e-7, lattice price0.004+1e-8 relative, sigma2e-7, duration0.005/convexity0.5/PV01-per100 5e-5 declarations include existing CDF approximation and kinked-grid limits. Undersampled 1bp risk fails explicitly. Preserve every earlier 78 row/byte/expectation/tolerance/default. These independent engineering calculations do not assert independent human quantitative approval, admitted market packs or complete model/host/LB certificates. CVX-019 appends nine new engineering pins for 20 manual independent Decimal(60) seasoned/amortizing/stepped IRS/OIS cases, native PV/accrued/par, bounded full-contract native-quote fitting, exact role/history/manifest failures and a pure consumer. New absolute currency1e-7 at notional1e6, decimal par1e-12 and discount-ratio1e-13 bounds were declared for these fixtures; dates are exact. All prior 86 rows/bytes/expectations/tolerances and solver defaults are unchanged. ORE/QuantLib AC2 is pending: manual references are not executed external-engine captures or independent human quantitative approval. Native implementation does not accept CVX-019 or certify any library/production gate.",
   "solver_defaults": {
     "DEFAULT_TOLERANCE": "1e-10",
     "DEFAULT_MAX_ITERATIONS": "100"
@@ -437,6 +437,51 @@
       "path": "crates/convex/examples/rates_contracts.rs",
       "mode": "file",
       "sha256": "135aa46423388f068d4b5987e4f42d5ce6cd36d21bf8129054b0f16605907081"
+    },
+    {
+      "path": "crates/convex-core/tests/overnight_prefix.rs",
+      "mode": "file",
+      "sha256": "ef6a23af91dbcce9a1b98e1714b807b259e6e5086c0864aa1dea0d52d0a8b50f"
+    },
+    {
+      "path": "crates/convex-curves/tests/product_composition.rs",
+      "mode": "file",
+      "sha256": "dfe3e5abaf3d674d0383ccecb0d11d93b26b1954c7c0c13f92efdd38bd871fff"
+    },
+    {
+      "path": "crates/convex-rates/tests/pricing.rs",
+      "mode": "file",
+      "sha256": "3212e58eee76986e975ffeb6f7d5386c0d2af01510a79eae81e51b1e49e2944a"
+    },
+    {
+      "path": "crates/convex-rates/tests/support/mod.rs",
+      "mode": "file",
+      "sha256": "52b713b286c8f23338e859d05dc78235b91ab9f78eb72933d8d1cd3ea7bfa0e4"
+    },
+    {
+      "path": "crates/convex-rates/tests/fixtures/valuation.json",
+      "mode": "file",
+      "sha256": "91342b44961e5705bd013f9eb20c73e0daea16c96b49e8f710b30f5177964e6b"
+    },
+    {
+      "path": "crates/convex-analytics/tests/swap_calibration.rs",
+      "mode": "file",
+      "sha256": "58f9d8d6e18bb8276acf8dc84c979c3cc4979fa44266c8eee4f13da807eb0002"
+    },
+    {
+      "path": "crates/convex-engine/tests/swap_curves.rs",
+      "mode": "file",
+      "sha256": "151ab9e9672a56bf095e8f65e0c40dbf43786a578539d1fd6180565279816fdf"
+    },
+    {
+      "path": "crates/convex/examples/swap_valuation.rs",
+      "mode": "file",
+      "sha256": "2b8f69de2d65d1e002e61673b2522f221dd57acdc98bfb2af5b786ab77085e31"
+    },
+    {
+      "path": "tests/scripts/swap_valuation_reference.py",
+      "mode": "file",
+      "sha256": "86d6e2261a34d111d4234888d9c05b4ac6d8a96738da95bfec73e2e0f5fb4387"
     }
   ]
 }

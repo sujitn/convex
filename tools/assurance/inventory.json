@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-06",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate. CVX-019 native swap candidate, exact dependencies/fitted diagnostics and thin engine delegation; external comparison and independent certificates pending.",
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
@@ -55,8 +55,8 @@
     },
     {
       "path": "crates/convex-analytics/src/lib.rs",
-      "sha256": "749a695e8477e2415cb5dad7a427c4fbdce8dc260fcbe64043ea1e37e103f970",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
+      "sha256": "26bb273a5ad74630b397926a9accd146e58d7ca18270191fa8376b0ef4620282",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -67,7 +67,16 @@
         "crates/convex-bonds/tests/bond_contracts.rs",
         "crates/convex-analytics/tests/bond_contracts.rs",
         "crates/convex-bonds/tests/hw1f.rs",
-        "crates/convex-analytics/tests/optional_bonds.rs"
+        "crates/convex-analytics/tests/optional_bonds.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
@@ -156,6 +165,25 @@
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/swap_calibration.rs",
+      "sha256": "1d00fb6d43ff2dc4b94c4de755cc50c668923e792fc91ff2ce01bd6629da0601",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts.",
+      "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
+      "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
+      "tests": [
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
@@ -512,12 +540,21 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/overnight.rs",
-      "sha256": "bc383d2df88e1f6c458069e99ec935c08845a86448206682f61f627b5c5af0bb",
-      "invariants": "Explicit lookback/shift/lockout calendar weights; resolve complete eligible history before any forecast; positive compound factors and per-observation provenance.",
+      "sha256": "88d88ae2c0316b636bae9199d199eb999b5e3bf2d97d83528242fc0d17b83262",
+      "invariants": "Explicit lookback/shift/lockout calendar weights; resolve complete eligible history before any forecast; positive compound factors and per-observation provenance. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "Canonical ordered span<=150*366days; <=4096 observation terms, lookback/lockout<=366, calendar search<=3660; unique requirements<=4096; inherited rate and history bounds; checked positive compound product; callbacks must terminate without panic.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
       "tests": [
-        "crates/convex-core/tests/cashflow_primitives.rs"
+        "crates/convex-core/tests/cashflow_primitives.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
@@ -659,8 +696,8 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/build.rs",
-      "sha256": "3960a39b13b91004d563290d3d299d7fc764f9cb7cb2a0592b2e95cfd5faea9a",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "sha256": "e59036ce754ab959f70c3045743fc3076e12df52b912823df08e97ed29299d97",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
@@ -669,14 +706,23 @@
         "crates/convex/examples/curve_contracts.rs",
         "crates/convex-math/tests/least_squares.rs",
         "crates/convex-curves/tests/curve_numerics.rs",
-        "crates/convex/examples/curve_numerics.rs"
+        "crates/convex/examples/curve_numerics.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/contracts/inputs.rs",
-      "sha256": "c1a20c837e3bd2a5a04b4838a435999dcb21da37373e4924d6459ace95154a4b",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "sha256": "5f169b4f7ac8ef1b6342658139fdd051fbb539007c4609c6286f39906ad91b15",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
@@ -685,14 +731,23 @@
         "crates/convex/examples/curve_contracts.rs",
         "crates/convex-math/tests/least_squares.rs",
         "crates/convex-curves/tests/curve_numerics.rs",
-        "crates/convex/examples/curve_numerics.rs"
+        "crates/convex/examples/curve_numerics.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/contracts/mod.rs",
-      "sha256": "cee88e2b80ff2c63cfcdbd9241977bb2fa63e193d93a5bf5ca6d3367aa84d3c6",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged.",
+      "sha256": "6e4072554d6cd02bcf677dd4c74bf12731b6f189a3e3eb68275bddc7fa6e264a",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
@@ -701,7 +756,16 @@
         "crates/convex/examples/curve_contracts.rs",
         "crates/convex-math/tests/least_squares.rs",
         "crates/convex-curves/tests/curve_numerics.rs",
-        "crates/convex/examples/curve_numerics.rs"
+        "crates/convex/examples/curve_numerics.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
@@ -793,6 +857,25 @@
       "exceptions": [
         "ASR-004"
       ]
+    },
+    {
+      "path": "crates/convex-engine/src/curve_builder.rs",
+      "sha256": "936b6375c42d08b128e735fd6155da8628e1444aa56f6f42e993ffb45906fa2b",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts.",
+      "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
+      "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
+      "tests": [
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
+      ],
+      "exceptions": []
     },
     {
       "path": "crates/convex-engine/src/pricing_router.rs",
@@ -1288,14 +1371,61 @@
     },
     {
       "path": "crates/convex-rates/src/lib.rs",
-      "sha256": "e8920d3bb375ba8e58f767a6cb139811c20a54b634ac827288258a0d3a5b0aad",
-      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "sha256": "f415e442e39f852bbef360bb77a50f0eb92fb973a60666dec826d808be44b890",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
       "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
       "tests": [
         "crates/convex-rates/tests/contracts.rs",
         "crates/convex-rates/tests/fixtures/swaps.json",
-        "crates/convex/examples/rates_contracts.rs"
+        "crates/convex/examples/rates_contracts.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-rates/src/pricing.rs",
+      "sha256": "5bc1dab0eca79b8423801efdba4b48a922b0bdfad656077d1ac42444716751c5",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts.",
+      "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
+      "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
+      "tests": [
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-rates/src/results.rs",
+      "sha256": "ead4a666344eaa46e139d6ede1d0d53090e3fb7c212a325b0883273557a6c6d2",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts.",
+      "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
+      "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
+      "tests": [
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     },
@@ -1327,8 +1457,8 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "8eb7d3055b42eb4d4d88cc55ab69c7b1258b48c9106f38f0cb8a4634b37f0508",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
+      "sha256": "67b99c2ab1419b7ccce11b0ba9262fb94ab37f424ea4de68456489400e88e8ed",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -1339,7 +1469,16 @@
         "crates/convex-bonds/tests/bond_contracts.rs",
         "crates/convex-analytics/tests/bond_contracts.rs",
         "crates/convex-bonds/tests/hw1f.rs",
-        "crates/convex-analytics/tests/optional_bonds.rs"
+        "crates/convex-analytics/tests/optional_bonds.rs",
+        "crates/convex-core/tests/overnight_prefix.rs",
+        "crates/convex-curves/tests/product_composition.rs",
+        "crates/convex-rates/tests/pricing.rs",
+        "crates/convex-rates/tests/support/mod.rs",
+        "crates/convex-rates/tests/fixtures/valuation.json",
+        "crates/convex-analytics/tests/swap_calibration.rs",
+        "crates/convex-engine/tests/swap_curves.rs",
+        "crates/convex/examples/swap_valuation.rs",
+        "tests/scripts/swap_valuation_reference.py"
       ],
       "exceptions": []
     }

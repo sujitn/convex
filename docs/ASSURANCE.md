@@ -316,3 +316,24 @@ states actual units, bounds, callback and unsupported-economics contracts.
 Discounted pricing, accrued, fair rates, multi-curve calibration/rebuild, risk,
 lifecycle, host dispatch and independent market/library/production/latency
 certificates remain owning work. All 2,154 mandatory records remain Planned.
+
+CVX-019 adds [native multi-curve swap valuation and full-contract fitting](SWAP-VALUATION.md).
+Actual independent payment/reset/observation schedules, published fixes,
+amortizing and stepped coupons feed a single signed pricer. Product fitting
+composes exact dependencies through bounded Brent/least-squares kernels and
+retains original native quote units, tolerances and final helper cash. OIS
+discount fitting requires an explicit separate zero-basis index projection
+view. The core overnight prefix validates represented weights without shifting
+the valuation cutoff a second time. The common price bridge checks actual
+consumed revisions and its existing 256-record manifest ceiling.
+
+Eighteen new native tests and twenty independent manual Decimal(60) reference
+cases are engineering evidence, not a captured ORE/QuantLib comparison. AC2 is
+pending because a comparator runtime is unavailable; CVX-019 is not in the
+accepted harness set. Nine additional artifact pins preserve all prior 86 rows,
+bytes, expectations, tolerances and solver defaults. Critical sources are 108;
+the v9 library inventory records the new native route without changing any
+mandatory record's status, economics, surfaces or owner. Existing external lock
+identities/checksums and all 25 C exports are preserved. Only local dependency
+edges are added. Host/schema, calibrated quote risk, lifecycle, market packs,
+independent quantitative approval and production/latency gates remain pending.

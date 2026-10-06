@@ -5,8 +5,10 @@ CVX-018 adds the pure `convex-rates` crate, exposed as `convex::rates`.
 coupon schedules, term-reset slices or overnight observation weights.
 `SwapContract::cashflows` returns expected signed coupon cash with fixing and
 projection provenance. This is construction and contractual cash engineering
-evidence. Discounted PV, fair rate/spread, accrued, calibration and risk are
-CVX-019/057/061; lifecycle and host dispatch remain CVX-062/063.
+evidence. [CVX-019 valuation](SWAP-VALUATION.md) adds native discounted PV,
+fair rate/spread, accrued and multi-curve calibration candidates. Its external
+comparator gate is pending. Risk remains CVX-057/061; lifecycle and host dispatch
+remain CVX-062/063.
 
 No engine, server, DB, MQ, provider, global evaluation date or clock is needed.
 The existing tenor-only `convex_curves::Swap/Ois` helpers and hedge advisor
@@ -186,7 +188,8 @@ its weights; it is not an unqualified SOFR Index interpolation. The
 provides a design reference for anchored stubs/EOM. No external source code is
 copied; no QuantLib/ORE runtime or actual market pack is certified here.
 
-Full native/shared-host price, inverse, risk, calibration, lifecycle, exact
+Full shared-host price/inverse, risk, lifecycle, exact
 USD/EUR/GBP market-pack admission and independent LB1/production/colocation
 certification remain owning work. See [library coverage](LIBRARY-COVERAGE.md)
-and [assurance](ASSURANCE.md). CVX-019 is the next dependent implementation.
+and [assurance](ASSURANCE.md). Finish the CVX-019 external-engine comparison
+before accepting its native valuation/calibration implementation.

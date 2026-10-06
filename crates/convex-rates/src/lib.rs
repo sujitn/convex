@@ -11,6 +11,10 @@
 
 mod cashflows;
 mod contract;
+/// Supplied multi-curve valuation over the same dated cashflow contract.
+pub mod pricing;
+/// Checked common typed price results and truthful native capabilities.
+pub mod results;
 mod terms;
 
 pub use cashflows::{
@@ -37,6 +41,9 @@ pub enum SwapError {
     /// Shared date/profile/fixing/decimal failure, including complete missing lists.
     #[error(transparent)]
     Cashflow(#[from] CashflowError),
+    /// Exact dependency, curve-role, query-domain or numerical curve failure.
+    #[error(transparent)]
+    Curve(#[from] convex_curves::contracts::CurveContractError),
     /// Contract requires mathematics not supported by this domain route.
     #[error("unsupported {feature}: {reason}")]
     Unsupported {

@@ -431,6 +431,15 @@ pub enum CurveSource {
         /// must match. Only the output representation may change.
         base: CurveKey,
     },
+    /// Explicit zero-basis overnight-index model: the index projection discount
+    /// function equals a same-currency collateral discount function. This is a
+    /// declared economic mapping, never inferred from an index name or currency.
+    OvernightProjection {
+        /// Exact collateral discount curve version.
+        discount: CurveKey,
+        /// Actual overnight index, matching the output Projection role.
+        index_id: String,
+    },
     /// Explicit forward reference-date movement of an immutable rate curve.
     /// Output is DiscountFactors; no implicit sticky policy or date approximation.
     Rolled {
