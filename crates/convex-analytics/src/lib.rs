@@ -58,6 +58,7 @@ pub mod bond_contract;
 pub mod cashflows;
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
+pub mod optional_bond;
 pub mod risk;
 pub mod yields;
 

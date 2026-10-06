@@ -1,7 +1,9 @@
 //! Option-Adjusted Spread (OAS) calculator.
 //!
-//! Calculates OAS for callable bonds using a Hull-White trinomial-tree
-//! pricer (matching `ql.TreeCallableFixedRateBondEngine`'s lattice).
+//! Retained CallableBond compatibility calculation with its existing approximate
+//! lattice, workout inputs and rounded-bp inverse. It is not the checked complete
+//! supplied-contract model route. Use [`crate::optional_bond`] for declared model
+//! inputs, notice/exercise cash, fractional OAS and numerical diagnostics.
 //! OAS is the constant spread that, when added to the short rate at
 //! every tree node, makes the model price equal the market price.
 

@@ -89,7 +89,7 @@ pub struct OvernightRateTerms {
 }
 
 /// Closed initial set of coupon mechanics; no payoff language or inference.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BondCoupon {
     /// Deterministic coupon and spread; gearing must be zero.
@@ -98,6 +98,29 @@ pub enum BondCoupon {
     Term(TermRateTerms),
     /// Daily compounded index with simple spread outside the compound product.
     Overnight(OvernightRateTerms),
+}
+
+// Serde's internally tagged unit variant can ignore extra fields even with
+// deny_unknown_fields. Keep the public unit variant and its existing JSON bytes,
+// but decode Fixed as an empty struct so cap/floor/payoff fields cannot vanish.
+impl<'de> Deserialize<'de> for BondCoupon {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+        enum CheckedCoupon {
+            Fixed {},
+            Term(TermRateTerms),
+            Overnight(OvernightRateTerms),
+        }
+        Ok(match CheckedCoupon::deserialize(deserializer)? {
+            CheckedCoupon::Fixed {} => Self::Fixed,
+            CheckedCoupon::Term(terms) => Self::Term(terms),
+            CheckedCoupon::Overnight(terms) => Self::Overnight(terms),
+        })
+    }
 }
 
 /// Calendar identities retained in JSON. Actual pure calendars are supplied

@@ -173,9 +173,11 @@ Cash projections with options are labelled `conditional_on_no_exercise`.
 Plain valuation rejects optional terms instead of pricing them as a bullet.
 Make-whole/mandatory/change-of-control/death triggers require additional complete
 terms/state/model; unknown styles or unsupported existing provisions fail.
-Joint floating-option valuation, calibrated caps/floors and exercise diagnostics
-remain CVX-059. Yield/spread inversion, risk and complete workflow/client
-certificates remain their owning tasks.
+[CVX-059 optional-bond models](OPTIONAL-BONDS.md) provide separate checked
+HW1F calibration, fixed-price notice exercise and restricted aligned joint
+term-FRN pricing, fractional OAS and resolved/converged factor risk. General
+caps/floors, American/make-whole/triggered/overnight option models, small-bump
+accuracy and full market/lifecycle/client certificates remain owning work.
 
 ## Bounds and qualification
 

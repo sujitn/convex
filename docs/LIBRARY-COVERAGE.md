@@ -96,9 +96,20 @@ cases and 128 seeded exact step/principal cases. A standalone consumer prices
 plain cash with separate supplied projection/discount roles in three feature
 profiles. Native/JSON reconstruction preserves complete supported economics;
 optional pricing requires a model and is refused by the plain price route.
-The inventory now has 42 observations and 100 source pins. All 2,154 records
+At that revision the inventory had 42 observations and 100 source pins. All 2,154 records
 remain Planned; full model/market, inverse/risk/lifecycle and host/schema
 certificates remain required.
+
+CVX-059 adds [checked optional-bond models](OPTIONAL-BONDS.md): explicit HW1F
+assumptions or dated single-curve normal/shifted-lognormal sigma calibration;
+supported European/Bermudan call/put notice pricing and restricted genuine joint
+term-FRN state; fractional OAS and fixed-model factor risk. Independent analytic
+references and separate price/sensitivity refinements retain actual diagnostics.
+Undersampled 1bp option risk, American/make-whole/triggered/cap-floor/overnight
+option and off-cycle FRN combinations fail explicitly. The existing compatibility
+routes remain unqualified. The inventory now has 43 observations and 113 source
+pins. All 2,154 mandatory records remain Planned; full market/model, host/schema,
+lifecycle and independent quantitative/library certificates remain required.
 
 ## Evidence and missing operations
 
@@ -126,8 +137,8 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-005 | Plain floating-rate notes (LB1) | checked supplied term/overnight cash and model PV; old diagnostic shortcuts, full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
 | LC-006 | Amortizing and sinking bonds (LB1) | checked dated principal/coupon and priced repayments; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
 | LC-007 | Deterministically stepped coupons and notionals (LB1) | independent checked dated profiles and native JSON terms; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
-| LC-008 | Callable and putable bonds (LB1) | complete supported fixed-price exercise/notice/settlement terms; full model/workout/risk/lifecycle and host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
-| LC-009 | Callable floating-rate notes (LB1) | supported floating/exercise terms survive native JSON reconstruction; joint model and full host/inverse/risk/lifecycle certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
+| LC-008 | Callable and putable bonds (LB1) | checked fixed-price notice call/put HW1F pricing, OAS and resolved risk; unsupported models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
+| LC-009 | Callable floating-rate notes (LB1) | checked aligned term-FRN common HW1F state and eligible history; off-cycle/overnight models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
 | LC-010 | Vanilla term-rate IRS (LB1) | approximation, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-061, CVX-062 |
 | LC-011 | OIS (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
 | LC-012 | Single-name CDS (LB1) | missing dispatch, missing lifecycle, missing trade pricer | CVX-020, CVX-021, CVX-061, CVX-062 |
@@ -140,9 +151,9 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-019 | Credit survival and hazard curves (LB1) | checked supplied survival/domain queries; CDS calibration, quote rebuild and certificate pending | CVX-020, CVX-021 |
 | LC-020 | Issuer spread and bond-basis curves (LB1) | missing calibration, missing quote rebuild | CVX-058 |
 | LC-021 | Repo and carry term structures (LB1) | incomplete contract, missing calibration | CVX-058 |
-| LC-022 | Optional-bond model inputs and calibration (LB1) | incomplete contract, unverified model | CVX-059 |
+| LC-022 | Optional-bond model inputs and calibration (LB1) | checked explicit HW1F and dated native-volatility sigma calibration; full surface/model/market certification pending | CVX-059 |
 | LC-023 | Curve queries and numerical transformations (LB0) | checked queries/conversions and explicit rate roll/views; credit/model transforms and independent certificate pending | CVX-056, CVX-060 |
-| LC-024 | Quote, node and scenario sensitivity construction (LB1) | incomplete contract, missing quote rebuild | CVX-024, CVX-057, CVX-058, CVX-059, CVX-061 |
+| LC-024 | Quote, node and scenario sensitivity construction (LB1) | optional fixed-model factor risk checked; small-bump accuracy, quote rebuild and full sensitivity certificates pending | CVX-024, CVX-057, CVX-058, CVX-059, CVX-061 |
 | LC-025 | Complete native valuation and inverse facade (LB1) | incomplete facade, missing requirements, missing trade pricer | CVX-061 |
 | LC-026 | Pure cross-product lifecycle functions (LB1) | missing dispatch, missing lifecycle | CVX-062 |
 | LC-027 | Signed aggregation and cross-instrument hedge mathematics (LB1) | approximation, incomplete constraints, incomplete facade, missing credit hedge, missing dispatch | CVX-024, CVX-031, CVX-061 |
@@ -233,7 +244,7 @@ conservation, protects the tooling in candidate impact review, and requires
 mutation tests plus all three standalone consumer feature builds.
 
 CVX-040's recorded 392-measure comparison had 287 passes and 105 failures.
-CVX-017 repaired shared payment-step pricing; the current CVX-055 replay passes
+CVX-017 repaired shared payment-step pricing; the current CVX-059 replay passes
 392/392 with unchanged expectations, tolerances and retained-unqualified status.
 Historical failures remain evidence. See the [comparison contract](../reconciliation/COMPARISON.md) and
 [assurance policy](ASSURANCE.md). Passing this inventory task completes its

@@ -16,6 +16,13 @@ use serde::{Deserialize, Serialize};
 /// Registry handle. `0` denotes "no handle".
 pub type Handle = u64;
 
+/// Strict native optional-model input/settings JSON. Full host schemas and
+/// dispatch remain CVX-063; these reexports do not add a registry RPC.
+pub use crate::optional_bond::{
+    ExercisePriority, ExerciseState, GridSettings, Hw1fParameters, ModelKey, OasSolveSettings,
+    OptionalBondContext, OptionalBondSettings, RiskAxis, RiskSettings, SigmaCalibrationSettings,
+    SwaptionCalibrationQuote, SwaptionVolatility,
+};
 /// Lossless native/shared JSON economic terms. Reconstruct through the checked
 /// build API. C ABI and client dispatch migration is separately owned by CVX-063.
 pub use convex_bonds::contracts::{

@@ -31,6 +31,8 @@ pub use convex_curves::{
     Ois, RateCurve, RateCurveDyn, Swap, ValueType, ZeroCurve,
 };
 
+/// Pure optional-bond assumptions, calibration, OAS and factor risk.
+pub use convex_analytics::optional_bond;
 /// Complete supplied bond terms, profiles, resets, cash and exercise contracts.
 pub use convex_bonds::contracts as bond_contracts;
 pub use convex_bonds::instruments::{

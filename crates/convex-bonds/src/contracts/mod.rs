@@ -387,6 +387,19 @@ impl BondContract {
     pub fn periods(&self) -> impl Iterator<Item = &CouponPeriod> {
         self.coupons.iter().map(|p| &p.period)
     }
+    /// Actual prepared term-reset slices and requests, using the calendars
+    /// supplied at checked construction. Optional models must not regenerate
+    /// these with a compiled calendar that drops the caller's holiday versions.
+    pub fn term_reset_slices(
+        &self,
+    ) -> impl Iterator<Item = (&CouponPeriod, Date, Date, &ProjectionRequest)> {
+        self.coupons.iter().flat_map(|coupon| {
+            coupon
+                .resets
+                .iter()
+                .map(move |reset| (&coupon.period, reset.start, reset.end, &reset.request))
+        })
+    }
     /// Full expected principal changes, distinct from realized cash.
     pub fn principal_cashflows(&self) -> &[PrincipalCashflow] {
         &self.principal

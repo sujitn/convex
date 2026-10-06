@@ -37,6 +37,9 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example bond_contracts',
         'cargo run --locked -p convex --example bond_contracts --no-default-features',
         'cargo run --locked -p convex --example bond_contracts --features schemars',
+        'cargo run --locked -p convex --example optional_bonds',
+        'cargo run --locked -p convex --example optional_bonds --no-default-features',
+        'cargo run --locked -p convex --example optional_bonds --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -187,6 +190,8 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/contracts').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/options/hw1f').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/optional_bond').glob('*.rs'))
     paths.update(['crates/convex-analytics/src/bond_contract.rs',
                   'crates/convex-bonds/src/instruments/floating_rate.rs',
                   'crates/convex-bonds/src/instruments/sinking_fund.rs',

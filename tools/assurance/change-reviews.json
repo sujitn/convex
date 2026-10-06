@@ -341,6 +341,44 @@
         "tools/assurance/numeric-evidence.json": "6d7b820abe8997a39a988e784f4a54bc2593bfd0602ef56c04b0d0664a6f2349",
         "tools/library/library-inventory.json": "50e178c88c7389a8666a8615749d449a9dba31c8b9154bedd8482b6b9b530bc2"
       }
+    },
+    {
+      "base_commit": "8d8afdeb9a9deca6bf43c4b886212417f5210092",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-059 engineering impact: add a separate checked pure optional-bond HW1F/model calibration/pricing/OAS/factor-risk facade over existing supplied bonds, curves, schedules and fixings. Match exact OU moments and supplied Arrow-Debreu DFs on event-aligned bounded grids. Calibrate sigma with fixed mean reversion from strict native normal or shifted-lognormal physical single-curve European quotations using actual dated cash and existing bounded residual/rank solver. Fixed/stepped/amortizing European/Bermudan notice branches retain actual exercise/settlement/principal/accrued dates. Restricted aligned term FRNs use genuine conditional bond ratios with explicit deterministic projection basis and published history; future optional coupons are not deterministic forecasts. Price refinements and duration/convexity refinements are separate, undersampled bumps fail, and parameters/OAS/eligible fixings are held as declared. Unknown quotation/economic payoff fields, unsupported model structures, missing history/roles and numerical/solver/rank failures return checked errors without financial substitutes. Fixed unit-variant JSON decoding now rejects ignored extra payoff fields while retaining valid public encoding; cached term reset calendars are reused. Five independent analytic test/fixture/example pins append to all 78 unchanged existing rows/bytes/defaults; no original expectation or tolerance is refreshed. Manifests/lock/toolchain/dependency allowlist, 25 C exports, four exact expiring exception bytes and complete 30-area/174-combination/2154-Planned-record scope, owners, operations and gates remain intact. Existing OAS/tree compatibility APIs remain separately unqualified; full market/model/cap-floor/overnight/path-dependent/small-bump/lifecycle/host-schema certificates remain pending. This records agent engineering review only, not independent human quantitative approval, live market/latency qualification or an LB0/LB1/production certificate.",
+      "tests": [
+        "Twelve independent Python erfc European ZCB cases, dated swaption normal/shifted-log quotations, notice exchange option, joint term-FRN margin option and negative-convexity risk per explicit 50/100/200bp bump; no oracle uses Convex or copies external implementation code",
+        "Actual OU DF-fit and 128 seeded uneven negative/nonflat grids; notice/delay/amortization/step/crossed-right/exercise-state and eligible published-history controls; strict unknown payoff/volatility, unsupported cap-floor/American/off-cycle/overnight/rounding failures",
+        "Bounded OAS residual/attempt/plateau and separate price/risk refinement failures, rank/native-vol residual and calibration curve/root checks; undersampled 1bp risk returns a numerical limitation; deterministic/singular/nonfinite extremes never return a successful model or price",
+        "Required native bond/analytics/full-workspace suites, strict workspace and new test/example Clippy, fmt and strict rustdoc, standalone default/minimal/schemars consumers; fresh unchanged392 comparison and real optimized ABI controls plus assurance/library/comparison/harness conservation and rejection tests retained in private evidence"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d490ba3b6cf88e1934c9dc7792e9ed83ba239a8c899029191c54b2daba51a15c",
+        "crates/convex-analytics/src/dto.rs": "9896f15c324b25b769bfa51e45c24acb25c9e11850eb5943790330f5fee91908",
+        "crates/convex-analytics/src/lib.rs": "749a695e8477e2415cb5dad7a427c4fbdce8dc260fcbe64043ea1e37e103f970",
+        "crates/convex-analytics/src/optional_bond/calibration.rs": "dcd1e3acbc6a1f3b61ed1ddc358b030a96e45af41dcc336a8d2b79e571afe93b",
+        "crates/convex-analytics/src/optional_bond/mod.rs": "fd1901c5900bb8914942bb172c2a69d63fd0aa83d3aa283a0931cea071777120",
+        "crates/convex-analytics/src/optional_bond/pricing.rs": "d19a2a74f1c3f0b8bd525361a1cb445ee7c13ed1fbdf296f464e0d69ef61f374",
+        "crates/convex-analytics/src/spreads/oas.rs": "8e917ce2510d0d2f6a295e2bf314206aad8b142cbd1094ce409ecf261c3abca7",
+        "crates/convex-analytics/tests/fixtures/optional-bonds.json": "f0194a70a540b7006c8ad046c5148762aa693c7f56087367f18df09873f4b0d5",
+        "crates/convex-analytics/tests/optional_bonds.rs": "66fdd5878e8db860b3c704a3f5cdf7b41b45e10e12ef21e7c08b9c7865e67eb0",
+        "crates/convex-bonds/src/contracts/mod.rs": "ea87b6a1208e45760815ad5d81f5f3618b8653aae75a3b9ca49c2b9e4647edac",
+        "crates/convex-bonds/src/contracts/terms.rs": "0133ed9e8c3b63df8bbcf3e3784cf701aa11a0b20863cfda8ef377fedb806f5a",
+        "crates/convex-bonds/src/options/hw1f/european.rs": "f3625f6e6fbd39747b674abe5f253e677470e85e7a9b19b14816de56c95575b0",
+        "crates/convex-bonds/src/options/hw1f/lattice.rs": "919fe48155b6dfc2ff6306c631f02602841de970260f4667f3dee6f23e3cab9d",
+        "crates/convex-bonds/src/options/hw1f/mod.rs": "82cbbb8b834a4683932cbe20bb7cc2f26f2909e87c140e374ae54c68b2468c70",
+        "crates/convex-bonds/src/options/mod.rs": "34a286d50d747a677d19c7fb8db7ddf727fac60dca3942cb6bd4794320b0de31",
+        "crates/convex-bonds/tests/fixtures/hw1f-options.json": "5b7d1aafc4a8e981222f19f714b3f47e0cec3d82cc9d5c23450696ed8205fff7",
+        "crates/convex-bonds/tests/hw1f.rs": "8539f21f755fcd9b0c7d712c4b1d447e171f7f16893495bbd13e5f1982b0886d",
+        "crates/convex/examples/optional_bonds.rs": "24fe61cb7b7aff88115aa4fc39d0498bcdf1b9680ce0f9d5ebc5a9a05e82db1c",
+        "crates/convex/src/lib.rs": "2b89df97ad35d0fe3d568f087667f755a452a4bc1ce046efd41e246d5ef8194c",
+        "docs/ASSURANCE.md": "f0733044a9292f1ffc555e8277d590a478d6bbe003ebe579371ef87eff4198da",
+        "tools/assurance/check.py": "09f0be2a7aebddf87d24847b9eb9359090ae29a911b4364c91af25377e2a0747",
+        "tools/assurance/inventory.json": "e0cebcff5ff77c89f2eaa5fcbf6c2b94e5e577207c9d91f6bb4410a8803a7ffb",
+        "tools/assurance/numeric-evidence.json": "9caa65f1eca74cc45aebba9bd817b4b4ce2f793bc0c038cc716299dc949c7bc9",
+        "tools/library/library-inventory.json": "e07de42d910df7a4963c326a675157d75b1bdcfe894f4d756c2303435b0d1fd9"
+      }
     }
   ]
 }

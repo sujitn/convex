@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-05",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending.",
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
@@ -55,8 +55,8 @@
     },
     {
       "path": "crates/convex-analytics/src/lib.rs",
-      "sha256": "3c7fdc4367858e8f129346e214f8452a4cae4eaa1709f5da1abfc980dd90703a",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
+      "sha256": "749a695e8477e2415cb5dad7a427c4fbdce8dc260fcbe64043ea1e37e103f970",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -65,7 +65,45 @@
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs",
         "crates/convex-bonds/tests/bond_contracts.rs",
-        "crates/convex-analytics/tests/bond_contracts.rs"
+        "crates/convex-analytics/tests/bond_contracts.rs",
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/optional_bond/calibration.rs",
+      "sha256": "dcd1e3acbc6a1f3b61ed1ddc358b030a96e45af41dcc336a8d2b79e571afe93b",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/optional_bond/mod.rs",
+      "sha256": "fd1901c5900bb8914942bb172c2a69d63fd0aa83d3aa283a0931cea071777120",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/optional_bond/pricing.rs",
+      "sha256": "d19a2a74f1c3f0b8bd525361a1cb445ee7c13ed1fbdf296f464e0d69ef61f374",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
       ],
       "exceptions": []
     },
@@ -164,13 +202,15 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/mod.rs",
-      "sha256": "84d339b5114c298ca0901bb5a4783bd0f6878639d7e5113428cbdc8a29dc9fac",
-      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "sha256": "ea87b6a1208e45760815ad5d81f5f3618b8653aae75a3b9ca49c2b9e4647edac",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
       "tests": [
         "crates/convex-bonds/tests/bond_contracts.rs",
-        "crates/convex-analytics/tests/bond_contracts.rs"
+        "crates/convex-analytics/tests/bond_contracts.rs",
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
       ],
       "exceptions": []
     },
@@ -188,13 +228,15 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/terms.rs",
-      "sha256": "6c6d942a134cb7236a3a25b0a036013534addf84cc355d34c096acc7999b3026",
-      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "sha256": "0133ed9e8c3b63df8bbcf3e3784cf701aa11a0b20863cfda8ef377fedb806f5a",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
       "tests": [
         "crates/convex-bonds/tests/bond_contracts.rs",
-        "crates/convex-analytics/tests/bond_contracts.rs"
+        "crates/convex-analytics/tests/bond_contracts.rs",
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
       ],
       "exceptions": []
     },
@@ -288,6 +330,42 @@
         "tools/assurance/test_policy.py",
         "crates/convex-bonds/tests/bond_contracts.rs",
         "crates/convex-analytics/tests/bond_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/options/hw1f/european.rs",
+      "sha256": "f3625f6e6fbd39747b674abe5f253e677470e85e7a9b19b14816de56c95575b0",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/options/hw1f/lattice.rs",
+      "sha256": "919fe48155b6dfc2ff6306c631f02602841de970260f4667f3dee6f23e3cab9d",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/options/hw1f/mod.rs",
+      "sha256": "82cbbb8b834a4683932cbe20bb7cc2f26f2909e87c140e374ae54c68b2468c70",
+      "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
+      "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
+      "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
+      "tests": [
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
       ],
       "exceptions": []
     },
@@ -1197,8 +1275,8 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "440031d980d05f132177a5b78808b1b77a4f68f2bff272919e6bf6fb92c8a97a",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
+      "sha256": "2b89df97ad35d0fe3d568f087667f755a452a4bc1ce046efd41e246d5ef8194c",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -1207,7 +1285,9 @@
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs",
         "crates/convex-bonds/tests/bond_contracts.rs",
-        "crates/convex-analytics/tests/bond_contracts.rs"
+        "crates/convex-analytics/tests/bond_contracts.rs",
+        "crates/convex-bonds/tests/hw1f.rs",
+        "crates/convex-analytics/tests/optional_bonds.rs"
       ],
       "exceptions": []
     }

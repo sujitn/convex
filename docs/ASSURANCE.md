@@ -21,6 +21,8 @@ same scoped denial and retain the pure dependency direction.
 Checked [supplied bond terms/projection/valuation](BOND-CONTRACTS.md) apply the
 same denial over shared primitives. Their native checked adapters retain exact
 economic terms, eligible history and explicit unsupported model requirements.
+Checked [optional-bond models](OPTIONAL-BONDS.md) use the same scoped denial for
+HW1F, dated calibration/pricing, bounded OAS and resolved/converged factor risk.
 
 The dependency checker traverses all-feature, target-specific **normal**
 dependency edges using `cargo metadata --locked`. It rejects network,
@@ -54,6 +56,8 @@ API is already complete. Its C export list detects ABI inventory drift.
 | Eligible fixings/overnight | At most 65,536 revisions and 4,096 requests/compound terms; offsets ≤366 business/calendar days, calendar scans ≤3,660 steps | Publication and receipt cutoffs, immutable revisions, complete missing-history failure before any forecast; checked positive Decimal product. |
 | Checked curve contracts | At most 256 supplied/built curves, 1,024 nodes or 1,023 helpers plus origin; time ≤150 years; inverse ≤16 bisections | Exact dependency versions, finite typed queries and native quote repricing; unsupported methods/products, cycles, invalid domains and failed residuals return errors without partial output. |
 | Supplied bond composition | At most 4,096 entries per coupon/profile/exercise grid; 65,536 reset slices or overnight observations and unique fixing requirements per bond | Exact independent dated coupon/principal and eligible-history cash; all missing published history fails before forecasts. Plain PV requires separate declared curve roles and refuses optional valuation without a model. |
+| Checked optional-bond model | At most 2,048 events/intervals, 2 million nodes/tree, 8,193 per row; 128 exercise rights, 512 future FRN coupons, 32 million visits/grid | Explicit immutable HW1F/volatility/curve/calendar/history inputs; conserving finite probabilities and supplied DF fit; actual notice cash and stochastic aligned term resets; unsupported structures, residual/grid failures or unresolved risk return errors. |
+| Checked optional-bond calibration/inverse | At most 128 quotes, 512 dated payments each; 128 Jamshidian/64 implied-vol attempts, caller LM/SVD bounds ≤10,000; OAS closed bracket and ≤10,000 attempts | Strict native normal/shifted-lognormal residuals and rank; failed fitting yields no model. OAS holds parameters and projected index inputs fixed; risk refines duration/convexity separately with an explicit bump-resolution screen. |
 | Checked date arithmetic | Chrono's representable calendar; checked day/month/year addition | Overflow/out-of-range returns an error; signed month arithmetic uses Euclidean division. |
 
 Solver defaults remain `1e-10` and 100 iterations. Piecewise defaults remain
@@ -143,7 +147,9 @@ per-measure native units, complete contexts, future-known input rejection,
 evidence-scoped expiring mismatch records and a base guard that forbids wider
 absolute/relative bounds or removal of existing compared cases/measures.
 Tightening or refreshing existing evidence still requires independent review.
-The current retained replay has 105 failed measures; CI enforces that failure.
+The CVX-040 replay retained 105 failed measures. CVX-017 repaired the shared
+bond quote path; the fresh replay passes all 392 unchanged retained measures.
+The earlier failed captures remain evidence.
 Comparator capture and library/production certification remain explicit.
 
 CVX-053 adds a separate [library coverage inventory](LIBRARY-COVERAGE.md):
@@ -176,7 +182,8 @@ CI requires its standalone default, no-default and schema-feature consumers.
 The workspace enables serde_json `float_roundtrip` to preserve original f64
 quotes; locked package versions and normal dependency scope remain unchanged.
 Actual host/parser compatibility checks do not certify new schema dispatch.
-All library records and the 105 retained comparison failures remain pending.
+All library records remain Planned. The 105 failures at that revision remain
+historical evidence; the current retained replay is recorded below.
 
 CVX-060 adds [numerical fitting and transformation](CURVE-NUMERICS.md) candidates
 while preserving all 65 earlier quantitative rows/bytes/defaults. The new dense
@@ -231,6 +238,9 @@ cargo run --locked -p convex --example curve_contracts --features schemars
 cargo run --locked -p convex --example curve_numerics
 cargo run --locked -p convex --example curve_numerics --no-default-features
 cargo run --locked -p convex --example curve_numerics --features schemars
+cargo run --locked -p convex --example optional_bonds
+cargo run --locked -p convex --example optional_bonds --no-default-features
+cargo run --locked -p convex --example optional_bonds --features schemars
 python3 reconciliation/comparison.py check --base <base-sha>
 python3 -m unittest discover -s reconciliation -p 'test_comparison.py'
 cargo fmt --all -- --check
@@ -269,3 +279,19 @@ References: [Cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-meta
 [Clippy unwrap scope](https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used),
 [Rust FFI](https://doc.rust-lang.org/nomicon/ffi.html),
 [C string safety](https://doc.rust-lang.org/std/ffi/struct.CStr.html).
+
+CVX-059 adds [checked optional-bond model/calibration/pricing](OPTIONAL-BONDS.md)
+and five new engineering pins while preserving all 78 earlier artifact rows,
+bytes, expectations, tolerances and solver defaults. Actual-dated normal and
+shifted-lognormal swaption calibration holds mean reversion fixed and reports
+native residuals/identification. Fixed/stepped/amortizing notice branches and
+aligned term-FRN stochastic reset ratios share the supplied BondContract route.
+Independent analytic ZCB, dated swaption, notice, FRN and per-bump risk references
+exercise positive, boundary and explicit failure cases. Price and sensitivity
+refinement are independent postconditions; undersampled 1bp option-risk requests
+fail. The facade example runs in default/minimal/schema profiles without adding
+dependencies or v1 host dispatch. There are now 100 critical source files,
+83 quantitative pins and 43 candidate observations with 113 library source pins.
+All 2,154 mandatory records remain Planned; unsupported model combinations,
+small-bump option risk, full market/host/lifecycle and independent certificates
+remain pending. No low-latency or production/library certificate is inferred.
