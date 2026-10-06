@@ -177,7 +177,7 @@ class CoverageTests(unittest.TestCase):
     def test_noop_base_preserves_and_changed_metadata_needs_version(self):
         coverage.preserve(self.document, self.document)
         candidate = self.candidate()
-        candidate["reviewed_at"] = "2026-10-06"
+        candidate["reviewed_at"] = self.document["reviewed_at"] + "-mutation"
         with self.assertRaisesRegex(coverage.Failure, "increment"):
             coverage.preserve(self.document, candidate)
 

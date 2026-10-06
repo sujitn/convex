@@ -111,6 +111,16 @@ routes remain unqualified. The inventory now has 43 observations and 113 source
 pins. All 2,154 mandatory records remain Planned; full market/model, host/schema,
 lifecycle and independent quantitative/library certificates remain required.
 
+CVX-018 adds [pure supplied IRS/OIS contracts](RATES-CONTRACTS.md) through
+`convex::rates`: independent dated coupon/reset/observation and exact calendar
+versions, actual profile steps, strict native economics and signed expected
+cash with eligible history/forecast lineage. Fifteen native tests, 15 independent
+supplied-contract fixtures and 128 deterministic variations exercise positive,
+boundary and failure paths. The public inventory has 121 source pins and 44
+observations. Discounted trade pricing, accrued, fair rates, multi-curve fitting
+and quote risk, lifecycle, shared host schemas/dispatch, exact market packs and
+independent certificates remain pending. All mandatory records remain Planned.
+
 ## Evidence and missing operations
 
 `requirement_areas` maps requirements, minimum gate, operations, surfaces and
@@ -139,8 +149,8 @@ Source review did not establish line/branch coverage or quantitative approval.
 | LC-007 | Deterministically stepped coupons and notionals (LB1) | independent checked dated profiles and native JSON terms; full host/inverse/risk/lifecycle and certification pending | CVX-055, CVX-061, CVX-062, CVX-063 |
 | LC-008 | Callable and putable bonds (LB1) | checked fixed-price notice call/put HW1F pricing, OAS and resolved risk; unsupported models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
 | LC-009 | Callable floating-rate notes (LB1) | checked aligned term-FRN common HW1F state and eligible history; off-cycle/overnight models, full market/lifecycle/host certification pending | CVX-055, CVX-059, CVX-061, CVX-062, CVX-063 |
-| LC-010 | Vanilla term-rate IRS (LB1) | approximation, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-061, CVX-062 |
-| LC-011 | OIS (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
+| LC-010 | Vanilla term-rate IRS (LB1) | checked native supplied terms/reset/cash; discounted pricing, risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-061, CVX-062 |
+| LC-011 | OIS (LB1) | checked native supplied observation/compounding/cash; discounted pricing, calibration/risk, lifecycle, hosts and certificates pending | CVX-018, CVX-019, CVX-057, CVX-061, CVX-062 |
 | LC-012 | Single-name CDS (LB1) | missing dispatch, missing lifecycle, missing trade pricer | CVX-020, CVX-021, CVX-061, CVX-062 |
 | LC-013 | Government-bond futures (LB1) | approximation, incomplete contract, missing lifecycle | CVX-023, CVX-058, CVX-061, CVX-062 |
 | LC-014 | Rate futures (LB1) | incomplete contract, missing lifecycle, missing trade pricer | CVX-023, CVX-057, CVX-061, CVX-062 |

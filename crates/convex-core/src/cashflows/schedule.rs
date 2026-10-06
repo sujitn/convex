@@ -339,6 +339,21 @@ pub struct CouponSchedule {
     periods: Vec<CouponPeriod>,
 }
 
+/// Independently supplied immutable calendars for each date transformation.
+/// Calendar identity/version binding is the consuming product's responsibility.
+pub struct ScheduleCalendars<'a> {
+    /// Adjust accrual boundaries only.
+    pub accrual: &'a dyn Calendar,
+    /// Count payment lag and adjust payment dates.
+    pub payment: &'a dyn Calendar,
+    /// Count term fixing offsets.
+    pub fixing: &'a dyn Calendar,
+    /// Count independently shifted observation offsets.
+    pub observation: &'a dyn Calendar,
+    /// Count coupon entitlement offsets.
+    pub ex_coupon: &'a dyn Calendar,
+}
+
 impl CouponSchedule {
     /// Generate an anchored calendar-month grid and independent date schedules.
     /// Custom Calendar implementations must terminate without panicking.
@@ -347,14 +362,39 @@ impl CouponSchedule {
         rules: &DateRules,
         calendar: &dyn Calendar,
     ) -> Result<Self, CashflowError> {
+        Self::generate_with_calendars(
+            spec,
+            rules,
+            &ScheduleCalendars {
+                accrual: calendar,
+                payment: calendar,
+                fixing: calendar,
+                observation: calendar,
+                ex_coupon: calendar,
+            },
+        )
+    }
+
+    /// Generate the same anchored grid with separate accrual, payment, fixing,
+    /// observation and entitlement calendars. Existing `generate` uses one
+    /// supplied calendar for all five roles and retains its original behavior.
+    pub fn generate_with_calendars(
+        spec: &ScheduleSpec,
+        rules: &DateRules,
+        calendars: &ScheduleCalendars<'_>,
+    ) -> Result<Self, CashflowError> {
         validate_span(spec.start_date, spec.end_date)?;
         let (contractual_dates, anchor) = generate_dates(spec)?;
         let mut periods = Vec::with_capacity(contractual_dates.len().saturating_sub(1));
         for pair in contractual_dates.windows(2) {
-            let accrual_start = calendar.adjust(pair[0], rules.accrual_adjustment)?;
-            let accrual_end = calendar.adjust(pair[1], rules.accrual_adjustment)?;
+            let accrual_start = calendars
+                .accrual
+                .adjust(pair[0], rules.accrual_adjustment)?;
+            let accrual_end = calendars
+                .accrual
+                .adjust(pair[1], rules.accrual_adjustment)?;
             validate_span(accrual_start, accrual_end)?;
-            let payment_date = rules.payment_date(pair[1], calendar)?;
+            let payment_date = rules.payment_date(pair[1], calendars.payment)?;
             if payment_date < accrual_start {
                 return Err(CashflowError::terms(
                     "payment_date",
@@ -363,13 +403,13 @@ impl CouponSchedule {
             }
             let fixing_date = rules
                 .fixing_offset
-                .map(|offset| offset.apply(accrual_start, calendar))
+                .map(|offset| offset.apply(accrual_start, calendars.fixing))
                 .transpose()?;
             let observation_dates = rules
                 .observation_offset
                 .map(|offset| {
-                    let start = offset.apply(accrual_start, calendar)?;
-                    let end = offset.apply(accrual_end, calendar)?;
+                    let start = offset.apply(accrual_start, calendars.observation)?;
+                    let end = offset.apply(accrual_end, calendars.observation)?;
                     validate_span(start, end)?;
                     Ok::<_, CashflowError>((start, end))
                 })
@@ -390,7 +430,7 @@ impl CouponSchedule {
                         ExDateAnchor::ContractualEnd => pair[1],
                         ExDateAnchor::PaymentDate => payment_date,
                     };
-                    let ex_date = rule.offset.apply(anchor_date, calendar)?;
+                    let ex_date = rule.offset.apply(anchor_date, calendars.ex_coupon)?;
                     if ex_date > payment_date {
                         return Err(CashflowError::terms("ex_coupon", "date after payment"));
                     }
@@ -428,7 +468,9 @@ impl CouponSchedule {
                 ex_coupon,
                 reference_periods,
                 frequency: spec.frequency,
-                termination_date: calendar.adjust(spec.end_date, rules.accrual_adjustment)?,
+                termination_date: calendars
+                    .accrual
+                    .adjust(spec.end_date, rules.accrual_adjustment)?,
             });
         }
         Ok(Self {

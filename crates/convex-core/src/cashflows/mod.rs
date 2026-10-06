@@ -21,7 +21,8 @@ pub use overnight::{
 pub use profiles::{BoundarySide, DatedProfile, DatedValue, PrincipalChange, ProfileKind};
 pub use schedule::{
     settlement_date, CouponPeriod, CouponSchedule, DateOffset, DateRules, ExCouponBoundary,
-    ExCouponRule, ExDateAnchor, PaymentDateEntitlement, ReferencePeriod, ScheduleSpec, StubType,
+    ExCouponRule, ExDateAnchor, PaymentDateEntitlement, ReferencePeriod, ScheduleCalendars,
+    ScheduleSpec, StubType,
 };
 
 use crate::{error::ConvexError, fixings::FixingRequirement, types::Date};

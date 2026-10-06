@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-05",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending.",
+  "reviewed_on": "2026-10-06",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate.",
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
@@ -501,7 +501,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/mod.rs",
-      "sha256": "91dece06cfe3bf52169f0fc620b419306696f08b9f99842a5473514585938316",
+      "sha256": "422131969e870a711f62c394cc13ffbc7d12f60e05c944ab59de0a47445a874f",
       "invariants": "Pure shared immutable inputs; scoped unwrap/expect/panic denial; canonical dates and ordered bounded spans.",
       "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -534,7 +534,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/schedule.rs",
-      "sha256": "2b57fdcb77f80b623fb608154c6bd011caf27efdd6b922b09fa2f42615918bfc",
+      "sha256": "c73dd88f606f5bffe41e28ee64aab7d91857b9289fc7f89a49646abfcd3e95fe",
       "invariants": "Anchored grid; short/long front/back stubs; independent contractual/accrual/payment/fixing/observation/ex dates; complete ICMA reference partition; contract-aware 30E ISDA.",
       "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1261,6 +1261,58 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-rates/src/cashflows.rs",
+      "sha256": "83e0600b09bf6636ab0b2665e08da541e42bef5331b6353ebe29181621555cee",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
+      "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
+      "tests": [
+        "crates/convex-rates/tests/contracts.rs",
+        "crates/convex-rates/tests/fixtures/swaps.json",
+        "crates/convex/examples/rates_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-rates/src/contract.rs",
+      "sha256": "f623cea922a1be720e39f8ae263f527cce07f23f5bf34868b825cf0d65fa37bf",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
+      "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
+      "tests": [
+        "crates/convex-rates/tests/contracts.rs",
+        "crates/convex-rates/tests/fixtures/swaps.json",
+        "crates/convex/examples/rates_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-rates/src/lib.rs",
+      "sha256": "e8920d3bb375ba8e58f767a6cb139811c20a54b634ac827288258a0d3a5b0aad",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
+      "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
+      "tests": [
+        "crates/convex-rates/tests/contracts.rs",
+        "crates/convex-rates/tests/fixtures/swaps.json",
+        "crates/convex/examples/rates_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-rates/src/terms.rs",
+      "sha256": "0f6fde156d53b0eb0647fdc4ff8b67c5db1a9c6baffc1a4cafc478e151197a63",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
+      "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
+      "tests": [
+        "crates/convex-rates/tests/contracts.rs",
+        "crates/convex-rates/tests/fixtures/swaps.json",
+        "crates/convex/examples/rates_contracts.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-server/src/handlers.rs",
       "sha256": "06c330960f58c5a9eeafde174a4706bce8aa744ffa77e7ef0e465b5b7d938298",
       "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
@@ -1275,7 +1327,7 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "2b89df97ad35d0fe3d568f087667f755a452a4bc1ce046efd41e246d5ef8194c",
+      "sha256": "8eb7d3055b42eb4d4d88cc55ab69c7b1258b48c9106f38f0cb8a4634b37f0508",
       "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",

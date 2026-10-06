@@ -114,8 +114,23 @@ jobs:
       - name: Run supplied optional bond models with schema features
         run: cargo run --locked -p convex --example optional_bonds --features schemars
 
+      - name: Check supplied rates contract fixtures and fixing failures
+        run: cargo test --locked -p convex-rates
+
+      - name: Check bounded rates source and tests
+        run: cargo clippy --locked -p convex-rates --all-targets -- -D warnings
+
+      - name: Run supplied rates contracts
+        run: cargo run --locked -p convex --example rates_contracts
+
+      - name: Run supplied rates contracts with minimal features
+        run: cargo run --locked -p convex --example rates_contracts --no-default-features
+
+      - name: Run supplied rates contracts with schema features
+        run: cargo run --locked -p convex --example rates_contracts --features schemars
+
       - name: Check minimum pure feature combination
-        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features
+        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-analytics -p convex-portfolio --no-default-features
 
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features

@@ -573,6 +573,7 @@ dependencies = [
  "convex-bonds",
  "convex-core",
  "convex-curves",
+ "convex-rates",
 ]
 
 [[package]]
@@ -806,6 +807,19 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "convex-rates"
+version = "0.13.0"
+dependencies = [
+ "convex-core",
+ "convex-curves",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

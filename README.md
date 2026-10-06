@@ -39,6 +39,7 @@ convex-analytics = "0.13"
 
 The full set of published crates: `convex-core`, `convex-math`,
 `convex-curves`, `convex-bonds`, `convex-analytics`.
+The new workspace `convex-rates` crate provides [supplied IRS/OIS contracts](docs/RATES-CONTRACTS.md) and is not yet a published release.
 
 > **Note:** the `convex` umbrella crate is *not* on crates.io — that name
 > belongs to an unrelated project ([convex.dev](https://convex.dev)). The
@@ -192,6 +193,7 @@ convex/
 ├── convex-math        # Solvers and interpolators (Brent, Newton, LM)            [published]
 ├── convex-curves      # Yield/credit curves, bootstrapping, multi-curve          [published]
 ├── convex-bonds       # Bond instruments (fixed, FRN, callable, zero, sinker)    [published]
+├── convex-rates       # Supplied IRS/OIS contracts and expected cash           [new workspace crate]
 ├── convex-analytics   # Unified analytics: pricing, yields, spreads, risk        [published]
 ├── convex             # Single-import facade re-exporting the public API          (internal)
 ├── convex-portfolio   # Portfolio and ETF analytics                               (internal)

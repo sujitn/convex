@@ -224,3 +224,11 @@ performance or independent quantitative approval is inferred from these
 building-block checks. All 30 mandatory areas and 2,154 library records remain
 required; LB0/LB1 and production gates remain incomplete. See
 [library coverage](LIBRARY-COVERAGE.md) and [assurance](ASSURANCE.md).
+
+
+CVX-018 adds `CouponSchedule::generate_with_calendars` with distinct supplied
+accrual, payment, fixing, observation and ex-date calendars. `generate` delegates
+with its original single calendar, preserving existing date/reference behavior.
+Calendar content/version binding remains the consuming product's responsibility.
+The [rates contract guide](RATES-CONTRACTS.md) documents checked IRS/OIS use,
+explicit reset quotations and expected signed cash over these same primitives.

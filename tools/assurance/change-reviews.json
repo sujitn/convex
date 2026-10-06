@@ -379,6 +379,40 @@
         "tools/assurance/numeric-evidence.json": "9caa65f1eca74cc45aebba9bd817b4b4ce2f793bc0c038cc716299dc949c7bc9",
         "tools/library/library-inventory.json": "e07de42d910df7a4963c326a675157d75b1bdcfe894f4d756c2303435b0d1fd9"
       }
+    },
+    {
+      "base_commit": "b67878ce2ebeed03a465178bbe608499d914e067",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-018 engineering impact: add the justified pure rates domain and reuse a single checked core schedule/profile/overnight/fixing implementation. Preserve prior single-calendar semantics and 83 quantitative artifact rows/bytes/defaults, 25 exports and all mandatory scope/status/owners. Only a local convex-rates package/edge is added to manifests/lock/allowlist; no new external package or external adapter. Strict native exact economics and explicit unsupported combinations. New independent fixture tolerances are scoped engineering bounds, not widened old tolerance or independent human approval. Source/CI/dependency/conservation controls and actual command evidence are recorded; no market or release certificate.",
+      "tests": [
+        "CVX-018 requirement-to-test mapping: native construction/date/ref/cash, lookback/shift/lockout and missing-history/revision tests; actual logs in task evidence",
+        "Standalone feature, strict format/Clippy/docs, workspace, ABI, independent fixture, retained comparison and assurance/scope controls recorded in task result"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "2e43fd353f8bead9d0ea573021ec0a48b9741bc1b8abc5dba9972c2154cfb342",
+        "Cargo.lock": "47d97bab00e1f9f59b01920f5836e9ddf1937d5a3cb163ed64362256a7e08c10",
+        "Cargo.toml": "6976c003939cf4232848739f3d1aa824232c483b07d4b4231532ed2451d3bcdb",
+        "crates/convex-core/src/cashflows/mod.rs": "422131969e870a711f62c394cc13ffbc7d12f60e05c944ab59de0a47445a874f",
+        "crates/convex-core/src/cashflows/schedule.rs": "c73dd88f606f5bffe41e28ee64aab7d91857b9289fc7f89a49646abfcd3e95fe",
+        "crates/convex-rates/Cargo.toml": "d38ca4527e9567180b1e770721e2e27dbe60a027ba7236b996b3dc0a257c077f",
+        "crates/convex-rates/src/cashflows.rs": "83e0600b09bf6636ab0b2665e08da541e42bef5331b6353ebe29181621555cee",
+        "crates/convex-rates/src/contract.rs": "f623cea922a1be720e39f8ae263f527cce07f23f5bf34868b825cf0d65fa37bf",
+        "crates/convex-rates/src/lib.rs": "e8920d3bb375ba8e58f767a6cb139811c20a54b634ac827288258a0d3a5b0aad",
+        "crates/convex-rates/src/terms.rs": "0f6fde156d53b0eb0647fdc4ff8b67c5db1a9c6baffc1a4cafc478e151197a63",
+        "crates/convex-rates/tests/contracts.rs": "bd09f2b23988c9458cae0ffef5a5b291f472cf78f851ae20a6bcbdd7c9359d7f",
+        "crates/convex-rates/tests/fixtures/swaps.json": "825544e22ada59b6e8f5742fd2f41d7adb5b843f9d5b0cdd832221c86fd6bf20",
+        "crates/convex/Cargo.toml": "ce66e1f6bbaeb4bb677647547c03bef9b072957419f3c63332e7007f0ad08349",
+        "crates/convex/examples/rates_contracts.rs": "135aa46423388f068d4b5987e4f42d5ce6cd36d21bf8129054b0f16605907081",
+        "crates/convex/src/lib.rs": "8eb7d3055b42eb4d4d88cc55ab69c7b1258b48c9106f38f0cb8a4634b37f0508",
+        "docs/ASSURANCE.md": "3da248c61ce2ee61e105dfbbf0dd07f31401e8f552e08bbffd30f62c28a20519",
+        "tools/assurance/check.py": "b7acb7166d08d1c9aa60f5bb89d3fc5f276e41722d62eca5ae7829a9b68a4078",
+        "tools/assurance/dependencies.json": "d8af026d3d0c12de83ef9c8cbc12e30ef99dc6d055378012edb4117f4048f5ca",
+        "tools/assurance/inventory.json": "c33fabc38462da9870be35857920af88cf1bbebf73c528d5183f4132fce120e2",
+        "tools/assurance/numeric-evidence.json": "db8b51c5ef594759479d232cfcfb622d7e01678abf91bbe5f9a26c732f9d7209",
+        "tools/library/library-inventory.json": "c31525359a94865d7c974d2e775835e7e3288b5d032e3a3b35750f872c7b4ef9",
+        "tools/library/test_coverage.py": "d59facb557b1c8c9c51d5ba596cd66dd2a4e800bd1b21fc35a9da6d1065b70d2"
+      }
     }
   ]
 }

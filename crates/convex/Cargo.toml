@@ -20,4 +20,5 @@ schemars = ["convex-core/schemars", "convex-analytics/schemars"]
 convex-core = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
+convex-rates = { workspace = true }
 convex-analytics = { workspace = true }

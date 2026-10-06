@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tomllib
 
-DOMAIN = ('convex', 'convex-core', 'convex-math', 'convex-curves', 'convex-bonds', 'convex-analytics', 'convex-portfolio')
+DOMAIN = ('convex', 'convex-core', 'convex-math', 'convex-curves', 'convex-bonds', 'convex-rates', 'convex-analytics', 'convex-portfolio')
 FORBIDDEN = {'tokio', 'async-std', 'smol', 'reqwest', 'hyper', 'axum', 'tonic', 'sqlx', 'redb', 'rusqlite', 'postgres', 'tokio-postgres', 'rdkafka', 'lapin', 'async-nats', 'blpapi', 'convex-engine', 'convex-server', 'convex-ports'}
 REQUIRED_RUNS = {
     'assurance': (
@@ -40,7 +40,12 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example optional_bonds',
         'cargo run --locked -p convex --example optional_bonds --no-default-features',
         'cargo run --locked -p convex --example optional_bonds --features schemars',
-        'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-analytics -p convex-portfolio --no-default-features',
+        'cargo test --locked -p convex-rates',
+        'cargo clippy --locked -p convex-rates --all-targets -- -D warnings',
+        'cargo run --locked -p convex --example rates_contracts',
+        'cargo run --locked -p convex --example rates_contracts --no-default-features',
+        'cargo run --locked -p convex --example rates_contracts --features schemars',
+        'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
         'cargo test --locked -p convex-engine --test graph_regressions',
@@ -189,6 +194,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(['crates/convex-core/src/calendars/checked.rs', 'crates/convex-core/src/fixings.rs', 'crates/convex-core/src/daycounts/thirty360.rs', 'crates/convex-bonds/src/cashflows/schedule.rs', 'crates/convex-bonds/src/instruments/fixed_rate.rs', 'crates/convex-bonds/src/arrc.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-rates/src').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/contracts').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/options/hw1f').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/optional_bond').glob('*.rs'))

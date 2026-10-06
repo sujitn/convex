@@ -8,6 +8,7 @@ members = [
     "crates/convex-math",
     "crates/convex-curves",
     "crates/convex-bonds",
+    "crates/convex-rates",
     "crates/convex-analytics",
     "crates/convex-portfolio",
     "crates/convex-ffi",
@@ -40,8 +41,8 @@ categories = ["finance", "mathematics", "science"]
 [workspace.dependencies]
 # Internal crates.
 #
-# The five library crates (core, math, curves, bonds, analytics) are published
-# to crates.io, so they carry both `path` and `version`: cargo uses the path for
+# The six library crates (core, math, curves, bonds, rates, analytics) are configured
+# for crates.io publication with both `path` and `version`: cargo uses the path for
 # local builds and rewrites it to the version on `cargo publish`. Keep `version`
 # in sync with `workspace.package.version` above.
 #
@@ -53,6 +54,7 @@ convex-core = { path = "crates/convex-core", version = "0.13.0" }
 convex-math = { path = "crates/convex-math", version = "0.13.0" }
 convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
 convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
+convex-rates = { path = "crates/convex-rates", version = "0.13.0" }
 convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }

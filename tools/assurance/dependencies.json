@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-04",
-  "rationale": "Existing locked all-feature and all-target normal graph for seven pure crates; no runtime/database/network/provider implementations. Package identities remain locked. Dev/build edges excluded, including FFI proptest/cbindgen. New normal packages require explicit source/manifest impact review.",
+  "reviewed_on": "2026-10-06",
+  "rationale": "CVX-018 explicitly adds convex-rates as the eighth pure-domain root, with core/curves/Decimal/Serde/error dependencies already in the locked reviewed graph. No new external package/version, runtime/network/database/vendor dependency. Target-specific normal graph checked in all-feature metadata; dev/build edges remain outside calculation closure.",
   "allowed_normal_packages": [
     "ahash",
     "android_system_properties",
@@ -26,6 +26,7 @@
     "convex-curves",
     "convex-math",
     "convex-portfolio",
+    "convex-rates",
     "core-foundation-sys",
     "crossbeam-deque",
     "crossbeam-epoch",
