@@ -451,6 +451,28 @@
         "tools/assurance/numeric-evidence.json": "d59aafeab9a11e8b535b82757c60e97a81e33d39fa5fa23fae60cf4b85e7fda0",
         "tools/library/library-inventory.json": "e816672c0d698cf8dd74e47d6749c7d734f832d5d7b4b210deb79a9ffc1305c3"
       }
+    },
+    {
+      "base_commit": "ae44a27c72d4e536ccff41d753757e603381a134",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-019 AC2 engineering preparation only: add ten complete matched quarterly IRS/OIS inputs with actual fixed/calendars/history/zero-grid versions, a native export and test-only verified publisher/installed-byte QuantLib capture/build-provenance/offline replay workflow. Freeze only new economic inputs and declared zero-relative unit bounds as numerical evidence; review the unexecuted capture/export/control code through source pins. Preserve every prior 95 numerical row/byte/default, all production source, external lock/ABI, mandatory Planned scope and historical evidence. QuantLib coupon execution/captured comparison is pending, the task is not accepted, and no human quantitative approval or release certificate is declared.",
+      "tests": [
+        "Actual ten-case native export byte-identical in default/no-default/schema builds; strict consumer Clippy and formatting",
+        "370 required rates/curves/engine checks passed with 31 existing ignores; thirteen rejection/threshold controls",
+        "Actual official runtime TLS failures and pinned-wheel-missing capture refusal preserved; no external outputs invented",
+        "Task-base conservation/source/ABI/numerical/scope, assurance/library/comparison/harness and committed evidence checks recorded in CVX-019-AC2"
+      ],
+      "candidate_files": {
+        "crates/convex/examples/swap_comparison.rs": "c42d5b66acd62d7a883a990633ac7963ba1462b1350ed4afefdcf1042a733e13",
+        "docs/SWAP-COMPARISON.md": "f4562c660a69b3b6a1c7c10800fcaa28d924a8f7736d1306e5432829448c4380",
+        "docs/SWAP-VALUATION.md": "f2225a886ea2c7c5ac47ab8b5c69a50bec76ae21216b411bee575b8ab2f294ce",
+        "tests/fixtures/comparisons/swap-quantlib-inputs.json": "ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a",
+        "tests/scripts/swap_quantlib_compare.py": "258b5e064af6bf8b6a89d90f3830a97868ae5928dfb7f91fb0777c932747afc9",
+        "tests/scripts/test_swap_quantlib_compare.py": "2ef450bf334b68e0fde1f8a0d70a2214bf33490f834e6af9472418f9fc760697",
+        "tools/assurance/numeric-evidence.json": "0bffde288272b7e13cb92f40bd75683230bff83e2d3026a466c492bc36459a56",
+        "tools/library/library-inventory.json": "a423f36da2fed885fa6b60316e6523a30c47e6b0216f04bbdac388b320c09a05"
+      }
     }
   ]
 }

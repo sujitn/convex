@@ -187,6 +187,10 @@ environment; capture code, version/build identity, full inputs, conventions,
 outputs and raw execution provenance; independently review any differences;
 then consume that immutable capture in offline comparison tests with bounds
 declared before the run. Keep unsupported convention combinations explicit.
+The [prepared capture/replay runner](SWAP-COMPARISON.md) now supplies ten pinned
+matched full-term cases, a native exporter, publisher/installed-runtime checks,
+raw execution/build provenance and offline comparison controls. Its QuantLib
+coupon path remains unexecuted; preparation alone does not satisfy AC2.
 Only a passing captured comparison may close AC2 and add CVX-019 to the harness
 completion set. All 2,154 mandatory library records remain Planned and no
 library, production or low-latency release gate is awarded.

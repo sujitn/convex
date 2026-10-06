@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "inventory_version": 9,
+  "inventory_version": 10,
   "reviewed_at": "2026-10-06",
-  "reviewed_source_commit": "208cffdc1afcfddb3db31f9cfd0438445bf4b7b9",
-  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work.",
+  "reviewed_source_commit": "ae44a27c72d4e536ccff41d753757e603381a134",
+  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned.",
   "requirement_areas": [
     {
       "id": "LC-001",
@@ -996,10 +996,14 @@
     "crates/convex/examples/curve_numerics.rs": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7",
     "crates/convex/examples/optional_bonds.rs": "24fe61cb7b7aff88115aa4fc39d0498bcdf1b9680ce0f9d5ebc5a9a05e82db1c",
     "crates/convex/examples/rates_contracts.rs": "135aa46423388f068d4b5987e4f42d5ce6cd36d21bf8129054b0f16605907081",
+    "crates/convex/examples/swap_comparison.rs": "c42d5b66acd62d7a883a990633ac7963ba1462b1350ed4afefdcf1042a733e13",
     "crates/convex/examples/swap_valuation.rs": "2b8f69de2d65d1e002e61673b2522f221dd57acdc98bfb2af5b786ab77085e31",
     "crates/convex/src/lib.rs": "67b99c2ab1419b7ccce11b0ba9262fb94ab37f424ea4de68456489400e88e8ed",
     "excel/Convex.Excel/Cx.cs": "221f6ad5df978f7021615400e2cd9fd4af7223847654bb2f12b147b95af968a1",
-    "tests/scripts/swap_valuation_reference.py": "86d6e2261a34d111d4234888d9c05b4ac6d8a96738da95bfec73e2e0f5fb4387"
+    "tests/fixtures/comparisons/swap-quantlib-inputs.json": "ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a",
+    "tests/scripts/swap_quantlib_compare.py": "258b5e064af6bf8b6a89d90f3830a97868ae5928dfb7f91fb0777c932747afc9",
+    "tests/scripts/swap_valuation_reference.py": "86d6e2261a34d111d4234888d9c05b4ac6d8a96738da95bfec73e2e0f5fb4387",
+    "tests/scripts/test_swap_quantlib_compare.py": "2ef450bf334b68e0fde1f8a0d70a2214bf33490f834e6af9472418f9fc760697"
   },
   "observations": {
     "schedules": {
@@ -2428,7 +2432,7 @@
     },
     "swap_valuation": {
       "assessment": "candidate",
-      "note": "CVX-019 native supplied IRS/OIS candidate: signed actual coupon PV/accrued and admissible par replacements/profile shifts, separate exact index/discount roles, eligible-history preflight, normalized payment ratios and actual query/transitive revision lineage. Full-contract Piecewise/Global native quote fitting freezes publications, orders exact dependencies and explicitly declares a zero-basis overnight projection view. Atomic failures preserve missing-history/version/role/rank/work evidence. External ORE/QuantLib AC2 remains pending.",
+      "note": "CVX-019 native supplied IRS/OIS candidate: signed actual coupon PV/accrued and admissible par replacements/profile shifts, separate exact index/discount roles, eligible-history preflight, normalized payment ratios and actual query/transitive revision lineage. Full-contract Piecewise/Global native quote fitting freezes publications, orders exact dependencies and explicitly declares a zero-basis overnight projection view. Atomic failures preserve missing-history/version/role/rank/work evidence. External ORE/QuantLib AC2 remains pending. AC2 preparation supplies ten independently declared quarterly ACT/360 full-term seasoned/amortizing/negative/forward IRS and seasoned/amortizing/lookback/shift/lockout OIS inputs, a native exporter and a publisher/installed-byte-verified separate-process QuantLib 1.40 runner with actual command/build provenance and fail-closed offline replay. The QuantLib coupon path is unexecuted, so external_ore_quantlib_comparison_pending remains a required gap. This does not extend native economic or host/model coverage and does not substitute for the earlier manual or retained comparison packs.",
       "public_apis": [
         "convex::swap_pricing::price_swap",
         "convex::swap_pricing::forecast_from_curve",
@@ -2489,6 +2493,26 @@
           "path": "crates/convex-engine/tests/swap_curves.rs",
           "text": "fn supplied_engine_curve_entrypoint_has_native_repricing_and_failure_parity(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/swap_comparison.rs",
+          "text": "fn main() -> Result<(), Error>",
+          "kind": "code"
+        },
+        {
+          "path": "tests/scripts/swap_quantlib_compare.py",
+          "text": "def ql_case(ql, fixture, row):",
+          "kind": "code"
+        },
+        {
+          "path": "tests/scripts/swap_quantlib_compare.py",
+          "text": "def replay(directory):",
+          "kind": "code"
+        },
+        {
+          "path": "tests/scripts/test_swap_quantlib_compare.py",
+          "text": "class ComparisonControls(unittest.TestCase):",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2500,7 +2524,7 @@
         "missing_host_schema_dispatch",
         "canonical_manifest_bounded_256"
       ],
-      "test_execution": "Actual raw CVX-019 task logs record native price/fitting/consumer/assurance validation. Twenty independent manual Decimal(60) cases and eighteen new native tests are engineering checks, not an executed ORE/QuantLib comparison or a library/production certificate."
+      "test_execution": "Actual raw CVX-019 task logs record native price/fitting/consumer/assurance validation. Twenty independent manual Decimal(60) cases and eighteen new native tests are engineering checks, not an executed ORE/QuantLib comparison or a library/production certificate. AC2 preparation records thirteen Python rejection/threshold controls and ten actual native exports in default/minimal/schema profiles. No QuantLib coupon execution, matched external output or successful external replay is claimed."
     }
   },
   "combinations": [
