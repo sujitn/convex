@@ -148,7 +148,25 @@ jobs:
         run: cargo run --locked -p convex --example swap_valuation --features schemars
 
       - name: Check minimum pure feature combination
-        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-analytics -p convex-portfolio --no-default-features
+        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features
+
+      - name: Check supplied CDS contracts valuation and conversion
+        run: cargo test --locked -p convex-credit
+
+      - name: Check bounded CDS source and tests
+        run: cargo clippy --locked -p convex-credit --all-targets -- -D warnings
+
+      - name: Verify the complete original ISDA grid and actual model capture
+        run: python3 tests/scripts/isda_cds_compare.py check
+
+      - name: Run supplied CDS valuation
+        run: cargo run --locked -p convex --example cds_valuation
+
+      - name: Run supplied CDS valuation with minimal features
+        run: cargo run --locked -p convex --example cds_valuation --no-default-features
+
+      - name: Run supplied CDS valuation with schema features
+        run: cargo run --locked -p convex --example cds_valuation --features schemars
 
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
@@ -206,6 +224,15 @@ jobs:
       - name: Compare supplied swaps against captured QuantLib without live data
         run: python3 tests/scripts/swap_quantlib_compare.py offline --candidate-binary target/debug/examples/swap_comparison --report swap-comparison-report.json
 
+      - name: Check original CDS capture precision and failure controls
+        run: python3 -m unittest discover -s tests/scripts -p test_isda_cds_compare.py
+
+      - name: Build standalone native CDS comparison
+        run: cargo build --locked -p convex-credit --example cds_comparison
+
+      - name: Compare CDS with the original ISDA RFR grid without live data
+        run: python3 tests/scripts/isda_cds_compare.py offline --candidate-binary target/debug/examples/cds_comparison --report cds-comparison-report.json
+
       - name: Upload offline comparison report
         if: always()
         uses: actions/upload-artifact@v7
@@ -223,6 +250,17 @@ jobs:
             swap-comparison-report.json
             swap-comparison-report-native.stdout
             swap-comparison-report-native.stderr
+          retention-days: 14
+
+      - name: Upload supplied CDS comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-cds-comparison-report
+          path: |
+            cds-comparison-report.json
+            cds-comparison-report-native.stdout
+            cds-comparison-report-native.stderr
           retention-days: 14
 
   test:

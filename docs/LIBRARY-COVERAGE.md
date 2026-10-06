@@ -1,5 +1,13 @@
 # Standalone library capability inventory
 
+CVX-020 adds [native single-name CDS valuation and quote conversion](CDS-VALUATION.md)
+through `convex::credit`, with premium/protection/default accrual and explicit
+initial cash state. All 7,164 original USD SOFR ISDA 1.8.3 grid cases are checked
+at the declared bounds using actual original-model outputs and current native
+execution. The CDS observation now records this callable subset; calibration,
+quote risk/JTD, lifecycle, host dispatch and independent certificates remain
+owning work. All 2,154 mandatory records remain Planned.
+
 CVX-053 inventories actual implementation and missing work. The public
 [inventory](../tools/library/library-inventory.json) preserves 30 mandatory
 areas and expands them into 174 scoped combinations and 2,154 explicit

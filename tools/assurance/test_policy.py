@@ -149,6 +149,34 @@ class AssuranceMutations(unittest.TestCase):
         self.rejects(check.check_workflow, source.replace('Upload supplied swap comparison report\n        if: always()',
                                                         'Upload supplied swap comparison report\n        if: success()'))
 
+    def test_cds_native_grid_and_consumer_checks_cannot_be_skipped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'cargo test --locked -p convex-credit',
+            'cargo clippy --locked -p convex-credit --all-targets -- -D warnings',
+            'python3 tests/scripts/isda_cds_compare.py check',
+            'python3 -m unittest discover -s tests/scripts -p test_isda_cds_compare.py',
+            'cargo build --locked -p convex-credit --example cds_comparison',
+            'python3 tests/scripts/isda_cds_compare.py offline --candidate-binary target/debug/examples/cds_comparison --report cds-comparison-report.json',
+            'cargo run --locked -p convex --example cds_valuation',
+            'cargo run --locked -p convex --example cds_valuation --no-default-features',
+            'cargo run --locked -p convex --example cds_valuation --features schemars',
+        ]:
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
+            self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: echo skipped\n'))
+        for path in ('crates/convex-credit/src/pricing.rs', 'tests/scripts/isda_cds_compare.py',
+                     'tests/scripts/isda_cds_capture.c', 'licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt'):
+            self.assertTrue(check.protected(path))
+        self.assertIn('convex-credit',check.DOMAIN)
+
+    def test_cds_raw_outputs_must_be_uploaded_on_failure(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        self.rejects(check.check_workflow, source.replace('            cds-comparison-report-native.stdout\n', ''))
+        self.rejects(check.check_workflow, source.replace('            cds-comparison-report-native.stderr\n', ''))
+        self.rejects(check.check_workflow, source.replace('Upload supplied CDS comparison report\n        if: always()',
+                                                        'Upload supplied CDS comparison report\n        if: success()'))
+
     def test_shared_cashflow_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

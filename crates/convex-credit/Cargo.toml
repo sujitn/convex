@@ -1,0 +1,26 @@
+[package]
+name = "convex-credit"
+description = "Pure checked single-name CDS valuation and standard quote conversions"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "credit", "cds", "fixed-income"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+convex-core = { workspace = true }
+convex-curves = { workspace = true }
+convex-math = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+[features]
+default = []

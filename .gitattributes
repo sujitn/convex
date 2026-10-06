@@ -40,6 +40,8 @@ Cargo.lock  text eol=lf
 *.zip       binary
 *.xlsx      binary
 *.xls       binary
+# Preserve the original third-party license bytes, including CRLF.
+licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt -text
 tests/fixtures/library/causal-pnl-reference.json filter=lfs diff=lfs merge=lfs -text
 tests/fixtures/library/concurrent-claims-pnl-complete.json filter=lfs diff=lfs merge=lfs -text
 tests/fixtures/library/concurrent-claims-pnl-owned.json filter=lfs diff=lfs merge=lfs -text

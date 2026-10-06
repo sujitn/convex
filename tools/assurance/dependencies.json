@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-06",
-  "rationale": "CVX-018 explicitly adds convex-rates as the eighth pure-domain root, with core/curves/Decimal/Serde/error dependencies already in the locked reviewed graph. No new external package/version, runtime/network/database/vendor dependency. Target-specific normal graph checked in all-feature metadata; dev/build edges remain outside calculation closure.",
+  "rationale": "CVX-018 explicitly adds convex-rates as the eighth pure-domain root, with core/curves/Decimal/Serde/error dependencies already in the locked reviewed graph. No new external package/version, runtime/network/database/vendor dependency. Target-specific normal graph checked in all-feature metadata; dev/build edges remain outside calculation closure. CVX-020 explicitly adds convex-credit as the ninth pure-domain root, using only already locked core/curves/math/Decimal/Serde/error dependencies. No new external package, version, checksum, normal runtime/provider/database/MQ dependency or external engine linkage.",
   "allowed_normal_packages": [
     "ahash",
     "android_system_properties",
@@ -23,6 +23,7 @@
     "convex-analytics",
     "convex-bonds",
     "convex-core",
+    "convex-credit",
     "convex-curves",
     "convex-math",
     "convex-portfolio",

@@ -9,6 +9,7 @@ members = [
     "crates/convex-curves",
     "crates/convex-bonds",
     "crates/convex-rates",
+    "crates/convex-credit",
     "crates/convex-analytics",
     "crates/convex-portfolio",
     "crates/convex-ffi",
@@ -41,7 +42,7 @@ categories = ["finance", "mathematics", "science"]
 [workspace.dependencies]
 # Internal crates.
 #
-# The six library crates (core, math, curves, bonds, rates, analytics) are configured
+# The seven library crates (core, math, curves, bonds, rates, credit, analytics) are configured
 # for crates.io publication with both `path` and `version`: cargo uses the path for
 # local builds and rewrites it to the version on `cargo publish`. Keep `version`
 # in sync with `workspace.package.version` above.
@@ -55,6 +56,7 @@ convex-math = { path = "crates/convex-math", version = "0.13.0" }
 convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
 convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
 convex-rates = { path = "crates/convex-rates", version = "0.13.0" }
+convex-credit = { path = "crates/convex-credit", version = "0.13.0" }
 convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
@@ -166,4 +168,3 @@ strip = true
 # Cargo-deny configuration for dependency checking
 [workspace.metadata.cargo-deny]
 # See https://github.com/EmbarkStudios/cargo-deny for configuration
-

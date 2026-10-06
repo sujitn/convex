@@ -1,5 +1,5 @@
 //! Facade re-exporting the public API of `convex-core`, `convex-curves`,
-//! `convex-bonds`, `convex-rates`, and `convex-analytics`.
+//! `convex-bonds`, `convex-rates`, `convex-credit`, and `convex-analytics`.
 //!
 //! Depend on `convex` and import the flat names; the internal split is kept
 //! for compile-time parallelism but invisible to callers.
@@ -24,6 +24,8 @@ pub use convex_core::types::{
     PriceKind, Spread, SpreadType, Yield,
 };
 pub use convex_core::{cashflows, fixings};
+/// Pure supplied single-name CDS terms, standard valuation and conversions.
+pub use convex_credit as credit;
 /// Pure checked curve construction/query contracts.
 pub use convex_curves::contracts as curve_contracts;
 /// Complete supplied IRS/OIS terms, schedules and publication-aware cashflows.

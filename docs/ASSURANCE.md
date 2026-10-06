@@ -9,7 +9,7 @@ runtime policy framework is added to pricing.
 ## Scope and dependency direction
 
 The pure calculation crates are `convex`, `convex-core`, `convex-math`,
-`convex-curves`, `convex-bonds`, `convex-rates`, `convex-analytics`, and `convex-portfolio`.
+`convex-curves`, `convex-bonds`, `convex-rates`, `convex-credit`, `convex-analytics`, and `convex-portfolio`.
 Each forbids unsafe code and denies unchecked `must_use` results. Math and
 FFI production builds additionally deny Clippy's `unwrap_used`, `expect_used`,
 and `panic`; core contracts and global curve calibration apply the same
@@ -27,6 +27,13 @@ HW1F, dated calibration/pricing, bounded OAS and resolved/converged factor risk.
 Checked [IRS/OIS contracts](RATES-CONTRACTS.md) apply the same denial at the
 entire new pure rates crate. Independent calendars reuse the existing core
 generator, and all required history is checked before projection.
+
+Checked [single-name CDS valuation and conversion](CDS-VALUATION.md) apply the
+same denial throughout the new pure credit crate. Exact supplied discount/credit
+roles and dates, complete premium/protection/default accrual, explicit initial
+cash state and native-unit root residuals are enforced. The original USD SOFR
+ISDA RFR grid and actual model capture are separately pinned and checked against
+current native outputs offline; no external engine enters production dependencies.
 
 The dependency checker traverses all-feature, target-specific **normal**
 dependency edges using `cargo metadata --locked`. It rejects network,
@@ -59,6 +66,7 @@ API is already complete. Its C export list detects ABI inventory drift.
 | Shared schedules/profiles | At most 4,096 entries per validated schedule/profile; years 1–9999, span ≤150×366 days | Anchored date grids, reference periods, independent dated terms and explicit entitlement; invalid/overlapping/gapped profiles fail. |
 | Eligible fixings/overnight | At most 65,536 revisions and 4,096 requests/compound terms; offsets ≤366 business/calendar days, calendar scans ≤3,660 steps | Publication and receipt cutoffs, immutable revisions, complete missing-history failure before any forecast; checked positive Decimal product. |
 | Supplied IRS/OIS contracts | Core grids/profiles ≤4,096; swap reset/observation/requirement terms ≤65,536; conservative profile/join visits ≤16,777,216 | Exact native economic/calendar/curve pins, dated reset and overnight weights, complete missing-history preflight and signed expected coupon cash. Unknown/unsupported payoffs, bad mappings, bounds and Decimal failures return errors. |
+| Supplied single-name CDS | Core schedule/calendar/horizon limits; curves ≤1,024 nodes each; joint timeline ≤4,096 points; conversion ≤256 iterations, closed hazard bracket within [0,5] | Exact entity/seniority/recovery and discount/credit versions; complete leg integration and explicit cash state. Default conversion is [0,1], 1e-12 native residual, 100 iterations; unsupported/overdue cash, bad roles, failed native repricing or nonidentified hazard return errors. |
 | Checked curve contracts | At most 256 supplied/built curves, 1,024 nodes or 1,023 helpers plus origin; time ≤150 years; inverse ≤16 bisections | Exact dependency versions, finite typed queries and native quote repricing; unsupported methods/products, cycles, invalid domains and failed residuals return errors without partial output. |
 | Supplied bond composition | At most 4,096 entries per coupon/profile/exercise grid; 65,536 reset slices or overnight observations and unique fixing requirements per bond | Exact independent dated coupon/principal and eligible-history cash; all missing published history fails before forecasts. Plain PV requires separate declared curve roles and refuses optional valuation without a model. |
 | Checked optional-bond model | At most 2,048 events/intervals, 2 million nodes/tree, 8,193 per row; 128 exercise rights, 512 future FRN coupons, 32 million visits/grid | Explicit immutable HW1F/volatility/curve/calendar/history inputs; conserving finite probabilities and supplied DF fit; actual notice cash and stochastic aligned term resets; unsupported structures, residual/grid failures or unresolved risk return errors. |

@@ -21,6 +21,7 @@ convex-core = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
 convex-rates = { workspace = true }
+convex-credit = { workspace = true }
 convex-analytics = { workspace = true }
 
 [dev-dependencies]

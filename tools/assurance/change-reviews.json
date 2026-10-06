@@ -511,6 +511,61 @@
         "tools/assurance/test_policy.py": "3c6a4bf3b72bf119667c0fe30574bbc5e4d3805492dafd091e6cfb63cf40f2ca",
         "tools/library/library-inventory.json": "1233d2c466e9bcac8e9bcddf2ea92d12fc3c21825769ec3ed842ca10be1209fd"
       }
+    },
+    {
+      "base_commit": "912de3366475d8995ffb0e98f08d998729f32008",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-06",
+      "rationale": "CVX-020 scoped engineering impact: add one pure credit product crate over shared checked primitives/curves/math, explicit terms/cash/units and exact piecewise leg integration; validate all7164 original ISDA USD RFR cases and current native outputs at predeclared bounds. Only one new local workspace package; preserve all external Cargo packages/checksums,110 older quantitative rows/bytes/defaults, original108 critical sources except the facade re-export,25 C exports, all mandatory scope/owners/status and historical evidence. Preserve original source/license/calendar/workbook/capture bytes and required prior CI uploads; append separate CDS gates and reports. No independent quantitative reviewer identity, market/model/library/production certificate or low-latency promise is inferred. Owning calibration/risk/lifecycle/host work stays pending.",
+      "tests": [
+        "Required fmt and full credit/curves tests;13 native CDS tests with full7164-case grid and128 seeded properties",
+        "Actual verified original ISDA1.8.3 C execution/reproduction and35820 original/native measure comparisons",
+        "Strict Clippy/rustdoc, standalone default/minimal/schema features and affected existing regressions",
+        "Assurance/library/numeric/historical conservation and negative comparison/harness controls with actual recorded receipts"
+      ],
+      "candidate_files": {
+        ".gitattributes": "3e65c9777cd34b06581247aac64af2d24817e2f742c4d3d9599cb88844f4ee6a",
+        ".github/workflows/ci.yml": "4490bbb6161634b6b08954065b9cd208a8477ca6eb58c64c4abc02f3cebb9335",
+        "Cargo.lock": "2876ec0a436d4585d3c6cde79d0eed6de58bb88b23d133676721b5c5cc4fb382",
+        "Cargo.toml": "51f3c3cc4d20e09dcdc79d408375acb9359be12eee90ef1f023a01dec7cf1672",
+        "README.md": "e327a9174a5981b58b4372e1c7923ffaa348384383f9e4c895fbd3a6be063f48",
+        "crates/convex-credit/Cargo.toml": "1bfe9025a25ebc7b16d2ad51c9c78ddd5b1c05103ace913e630f3560ad5ba6c9",
+        "crates/convex-credit/examples/cds_comparison.rs": "55ac077c7c086253ab067a2d0e3620396f678ce45788ef6ff57a0e369c14a92e",
+        "crates/convex-credit/src/contract.rs": "6461b5a0bde18aa9616458d70e67d9cd9489d16bf4bad740fc0c78bc1057d43c",
+        "crates/convex-credit/src/conversion.rs": "b8c3113ff0c5dcbc4e01ba5cbb262a91ab53c820d2602ce2ba88c4b43d773023",
+        "crates/convex-credit/src/lib.rs": "60a2c7fabc910176ee378a4b1a642c49673643573251fb4d977036279809520d",
+        "crates/convex-credit/src/pricing.rs": "5c3d5ef215dc2018f9de28abb0920e07f76fe2b3df7bcb148947a7c0180d110e",
+        "crates/convex-credit/src/terms.rs": "389d186426559344ab9265b566ac707a310a8908b0709c53e1741eb79ebca7f4",
+        "crates/convex-credit/tests/common/mod.rs": "e576e51519281ab543280ef92851f6ab35ab7a76f52c831e34202ac98b35c065",
+        "crates/convex-credit/tests/contracts_and_valuation.rs": "ffdf8d8bdef06ae4852bafeedddd980d37f378618f1df4305dae7d1b43eb80d8",
+        "crates/convex-credit/tests/standard_grid.rs": "09311718816a52d165c2a329a0795019d9db63999853e2f4a17a461c65a13af2",
+        "crates/convex/Cargo.toml": "e6a2cd00603dccda298962360da79ebda192e7ba9ae09d00096dc46a997f8545",
+        "crates/convex/examples/cds_valuation.rs": "5b1d918e3d41aa01491f0a248bd5a453b0aefa33a17c7b72c6fb55e93e1ebc6d",
+        "crates/convex/src/lib.rs": "ed8c47fdde56235fe1323225a5212172d4d363fc55f77e0ac87c087922295fba",
+        "docs/ASSURANCE.md": "f42456dc99461ebca30ae5996d2dfe3226a92da8a3d0e792db5e5b503e463cc0",
+        "docs/CDS-VALUATION.md": "a9e47821804f1ab7d8ae9606ad9a796df0de18a8302617bef67ba33ea3940576",
+        "docs/LIBRARY-COVERAGE.md": "bf32439a0db2dd3806fa858fbf8fff207d51c3f4715a9182db34ddbbdd23d6b7",
+        "licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt": "fb51cb1bf23e2df84fad1d65fd45f3726335c0aa9c0c0e7fd6af7660126aeb28",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/NYM.csv": "063a3d24d8772d06281fc6252d40e0d4f5157e0c6ac8c3448eece13c458d2c4f",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/USD_SOFR_20220621.zip": "4ecf867697c1a6b4e0966743727820bf8b81f9db60e0e4fe55c1c804f4b981da",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/compiler.stdout": "f6a41663474c412322e565ec1a1aa27bcb42151b98d527dc401b7d744b9a4237",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/grid.json": "4454bc12f037d67a5e7a2061ad168b11c761fa3a41991ac315f6fc0a8622c7ef",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/inputs.json": "3d850ab14c7bf2e8c7aea98f16129e7a2a24ee3bc2b8ebce3458ee20f40704d2",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/isda-commands.json": "e9dea5d4c8e54781efe8b4e4661053e525e376f80328d35525be21a665f6b288",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/isda-manifest.json": "2f48ad9ddf544166c631f77cece997a879845d67334a9c00b836a6a4dce6a118",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/isda-reference.json": "abe06a7056dfbceb169718ae2d01aea5e08839b1ce0131aa7e6fbe5e3504b35b",
+        "tests/fixtures/comparisons/cds-isda-1.8.3/isda-reference.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tests/scripts/isda_cds_capture.c": "c21c9d6af1c672f06057cdf1af7e94e223c9d9d5972cd1b20f2ebcbc512f4064",
+        "tests/scripts/isda_cds_capture.py": "ed7aa17961faeefaa894e582182975e2ac4f60be495fd8962318a90bb2cd70db",
+        "tests/scripts/isda_cds_compare.py": "ad8ee4e90c81bcac894429318d0649e1dce26009b6805ca9c84d2e9debb6c57f",
+        "tests/scripts/test_isda_cds_compare.py": "a9f5e5d4ba8f4625eca769e157b19ed5c6be8e26aa3fd773675530bc2819c0ec",
+        "tools/assurance/check.py": "acd954ab64f46fc0513b45b208fce14bc8e6c7b91894537bf5b3fc936843ee0f",
+        "tools/assurance/dependencies.json": "7de3a8416efd695ad6dc9e804969d78d85b7cf6c082bd16387110654d78f6c15",
+        "tools/assurance/inventory.json": "d460d4c36640614c7c7def5c328f3a32a9516bdcb193ea92701cee5b8a66745f",
+        "tools/assurance/numeric-evidence.json": "de750541ae47e14326012e8f5f90ff36392c0020a27f33907788697bd88edd4e",
+        "tools/assurance/test_policy.py": "a8d238785725441de003a75c4d6ff29872fb29bd5723a213a1a17db0bf058e34",
+        "tools/library/library-inventory.json": "8b73ed124c7c90d2e8a3d5791523d37ee74a4134c40f921ffb793b2036836be4"
+      }
     }
   ]
 }

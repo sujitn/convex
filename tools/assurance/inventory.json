@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "reviewed_on": "2026-10-06",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate. CVX-019 native swap candidate, exact dependencies/fitted diagnostics and thin engine delegation; external comparison and independent certificates pending.",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate. CVX-019 native swap candidate, exact dependencies/fitted diagnostics and thin engine delegation; external comparison and independent certificates pending. CVX-020 single-name CDS native pricing/conversion and exact original-grid evidence; calibration/risk/lifecycle/host certificates remain owning work.",
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
@@ -679,6 +679,76 @@
       "exceptions": [
         "ASR-001"
       ]
+    },
+    {
+      "path": "crates/convex-credit/src/contract.rs",
+      "sha256": "6461b5a0bde18aa9616458d70e67d9cd9489d16bf4bad740fc0c78bc1057d43c",
+      "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
+      "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
+      "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
+      "tests": [
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-credit/src/conversion.rs",
+      "sha256": "b8c3113ff0c5dcbc4e01ba5cbb262a91ab53c820d2602ce2ba88c4b43d773023",
+      "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
+      "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
+      "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
+      "tests": [
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-credit/src/lib.rs",
+      "sha256": "60a2c7fabc910176ee378a4b1a642c49673643573251fb4d977036279809520d",
+      "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
+      "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
+      "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
+      "tests": [
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-credit/src/pricing.rs",
+      "sha256": "5c3d5ef215dc2018f9de28abb0920e07f76fe2b3df7bcb148947a7c0180d110e",
+      "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
+      "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
+      "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
+      "tests": [
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-credit/src/terms.rs",
+      "sha256": "389d186426559344ab9265b566ac707a310a8908b0709c53e1741eb79ebca7f4",
+      "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
+      "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
+      "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
+      "tests": [
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
+      ],
+      "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/calibration/global_fit.rs",
@@ -1457,8 +1527,8 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "67b99c2ab1419b7ccce11b0ba9262fb94ab37f424ea4de68456489400e88e8ed",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged.",
+      "sha256": "ed8c47fdde56235fe1323225a5212172d4d363fc55f77e0ac87c087922295fba",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. CVX-020 reviewed impact: re-export the independent pure credit crate through convex::credit, without modifying existing pricing or C ABI semantics.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -1478,7 +1548,11 @@
         "crates/convex-analytics/tests/swap_calibration.rs",
         "crates/convex-engine/tests/swap_curves.rs",
         "crates/convex/examples/swap_valuation.rs",
-        "tests/scripts/swap_valuation_reference.py"
+        "tests/scripts/swap_valuation_reference.py",
+        "crates/convex-credit/tests/contracts_and_valuation.rs",
+        "crates/convex-credit/tests/standard_grid.rs",
+        "tests/scripts/test_isda_cds_compare.py",
+        "crates/convex/examples/cds_valuation.rs"
       ],
       "exceptions": []
     }
