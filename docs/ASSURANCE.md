@@ -492,3 +492,5 @@ review. The facade adds one existing local `convex-portfolio` dependency; all
 nine pure roots remain provider/runtime/storage neutral. No new external
 dependency or C export is added. Mandatory library records and independent
 quantitative/market/model/host/production/latency gates remain open.
+
+CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.

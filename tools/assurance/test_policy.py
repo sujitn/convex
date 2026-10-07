@@ -50,6 +50,25 @@ class AssuranceMutations(unittest.TestCase):
         self.rejects(check.check_workflow, source.replace('  assurance:', '  obsolete:'))
         self.rejects(check.check_workflow, source.replace('cargo fmt --all -- --check', 'cargo fmt --all'))
 
+    def test_lifecycle_checks_sources_and_purity_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'lifecycle' in c]
+        self.assertEqual(len(commands), 5)
+        commands += ['cargo test --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics',
+                     'cargo clippy --locked -p convex-core --lib --all-features -- -D warnings',
+                     'cargo clippy --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex --all-targets --all-features -- -D warnings']
+        for command in commands:
+            self.rejects(check.check_workflow, source.replace(command, 'true'))
+        modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex-analytics/src/lifecycle').glob('*.rs')}
+        self.assertEqual(len(modules), 7)
+        self.assertTrue(modules <= check.inventory_paths(ROOT))
+        for path in modules:
+            check.check_lifecycle_source((ROOT/path).read_text())
+        for mutation in ['use std::fs::File;', 'let t = std::time::SystemTime::now();',
+                         'use convex_engine::Engine;', 'use std::net::TcpStream;', 'let t=Utc::now();']:
+            self.rejects(check.check_lifecycle_source, mutation)
+        check.check_lifecycle_source('// No SystemTime or File enters the pure API.\nuse convex_core::Date;')
+
     def test_standalone_workflow_checks_and_sources_cannot_be_dropped(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance']

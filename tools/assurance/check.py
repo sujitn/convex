@@ -96,6 +96,14 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example quote_risk --no-default-features',
         'cargo run --locked -p convex --example quote_risk --features schemars',
         'cargo run --locked -p convex-portfolio --example signed_risk',
+        'python3 tests/scripts/lifecycle_reference.py check',
+        'cargo test --locked -p convex-analytics -p convex --test lifecycle',
+        'cargo test --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics',
+        'cargo run --locked -p convex --example lifecycle',
+        'cargo run --locked -p convex --example lifecycle --no-default-features',
+        'cargo run --locked -p convex --example lifecycle --features schemars',
+        'cargo clippy --locked -p convex-core --lib --all-features -- -D warnings',
+        'cargo clippy --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex --all-targets --all-features -- -D warnings',
         'python3 tests/scripts/standalone_reference.py check',
         'cargo test --locked -p convex-analytics --test standalone_workflow',
         'cargo test --locked -p convex --test standalone_book',
@@ -311,6 +319,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_calibration').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))
     paths.add('crates/convex-portfolio/src/signed_risk.rs')
     paths.add('crates/convex-core/src/contracts/risk.rs')
     paths.update(['crates/convex-ports/src/futures_reference.rs',
@@ -438,6 +447,13 @@ def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt
     return len(changed)
 
 
+def check_lifecycle_source(source: str) -> None:
+    # Architectural regression guard, supplemental to checked normal dependencies,
+    # Rust lints and actual pure execution. It does not attest custom callbacks.
+    code = re.sub(r'//[^\n]*', '', source)
+    forbidden = r'\b(?:SystemTime|Instant|tokio|reqwest|convex_engine|convex_ports|convex_server|OpenOptions|File)\b|std::(?:fs|net|thread|env)|\b(?:Utc|Local)::now\s*\('
+    require(re.search(forbidden, code) is None, 'lifecycle must not contain clock, I/O or application dependencies')
+
 def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict:
     today = dt.datetime.now(dt.timezone.utc).date()
     directory = root / 'tools/assurance'
@@ -469,6 +485,8 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
     numeric = read_json(directory / 'numeric-evidence.json')
     check_numeric(root, numeric)
     check_workflow((root / '.github/workflows/ci.yml').read_text())
+    for path in (root/'crates/convex-analytics/src/lifecycle').glob('*.rs'):
+        check_lifecycle_source(path.read_text())
     changes = check_changes(root, base, read_json(directory / 'change-reviews.json'), numeric, today) if base else None
     comparison_command = [sys.executable, 'reconciliation/comparison.py', '--root', str(root), 'check']
     if base:

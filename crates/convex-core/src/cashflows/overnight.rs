@@ -149,6 +149,48 @@ fn compound_step(
 }
 
 impl OvernightSchedule {
+    /// Restrict original observation weights to an explicit accrual prefix.
+    /// The separate weight cutoff preserves shifted/lockout observations rather
+    /// than regenerating a shorter schedule with different fixing dates.
+    pub fn prefix(&self, accrual_end: Date, weight_end: Date) -> Result<Self, CashflowError> {
+        let first = self
+            .observations
+            .first()
+            .ok_or_else(|| CashflowError::terms("prefix", "empty schedule"))?
+            .weight_start;
+        let last = self
+            .observations
+            .last()
+            .ok_or_else(|| CashflowError::terms("prefix", "empty schedule"))?
+            .weight_end;
+        if accrual_end <= self.start
+            || accrual_end > self.end
+            || weight_end <= first
+            || weight_end > last
+        {
+            return Err(CashflowError::terms(
+                "prefix",
+                "accrual and weight cutoff must be inside original coverage",
+            ));
+        }
+        let observations = self
+            .observations
+            .iter()
+            .filter(|o| o.weight_start < weight_end)
+            .map(|o| {
+                let mut o = o.clone();
+                o.weight_end = o.weight_end.min(weight_end);
+                o
+            })
+            .collect();
+        Ok(Self {
+            start: self.start,
+            end: accrual_end,
+            day_count: self.day_count,
+            observations,
+        })
+    }
+
     /// Generate actual business-day weights, including a partial initial weekend.
     /// Observation shift requires business-day endpoints; nonbusiness shifted
     /// endpoints need a separately reviewed contract rather than implicit rounding.

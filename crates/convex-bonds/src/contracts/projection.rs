@@ -132,6 +132,186 @@ impl BondProjection {
 }
 
 impl BondContract {
+    /// Crystallize completed coupons on the supplied accrual boundary, retaining
+    /// each actual delayed payment date. No future coupon or forecast is included.
+    pub fn completed_cashflows<P>(
+        &self,
+        context: &BondProjectionContext,
+        history: &FixingSeries,
+        publication: P,
+    ) -> Result<BondProjection, BondContractError>
+    where
+        P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        if context.on_payment != PaymentDateEntitlement::Include
+            || !context.overnight_accrual_cutoffs.is_empty()
+        {
+            return Err(invalid(
+                "completed_cash",
+                "include same-day cash without partial cutoffs",
+            ));
+        }
+        let mut completed = self.clone();
+        completed
+            .coupons
+            .retain(|c| c.period.accrual_dates().1 == context.settlement);
+        completed.principal.clear();
+        completed.project(
+            context,
+            history,
+            publication,
+            BondProjectionPolicy::RequirePublished,
+        )
+    }
+
+    /// Original earned partial coupon at supplied exercise; completed coupons
+    /// remain separate claims. A shifted overnight prefix needs its actual weight
+    /// cutoff. Only published prefix history is admitted, never future forecasts.
+    pub fn exercise_accrued<P>(
+        &self,
+        date: Date,
+        weight_end: Option<Date>,
+        history: &FixingSeries,
+        fixing: FixingContext,
+        mut publication: P,
+    ) -> Result<Decimal, BondContractError>
+    where
+        P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        self.check_settlement(date)?;
+        let plan = self
+            .coupons
+            .iter()
+            .find(|c| c.period.accrual_dates().0 < date && date < c.period.accrual_dates().1);
+        let Some(plan) = plan else {
+            if weight_end.is_some() {
+                return Err(invalid("exercise.weight_end", "unused cutoff"));
+            }
+            return Ok(Decimal::ZERO);
+        };
+        let amount = if let (Some(schedule), BondCoupon::Overnight(terms)) =
+            (&plan.overnight, &self.terms.coupon)
+        {
+            let cutoff = if terms.convention.observation_shift {
+                weight_end.ok_or_else(|| {
+                    invalid(
+                        "exercise.weight_end",
+                        "shifted accrual needs explicit cutoff",
+                    )
+                })?
+            } else {
+                if weight_end.is_some() {
+                    return Err(invalid("exercise.weight_end", "unused unshifted cutoff"));
+                }
+                date
+            };
+            let prefix = schedule.prefix(date, cutoff)?;
+            let requirements =
+                prefix.requirements(&terms.index_id, |d| publication(&terms.index_id, d))?;
+            let required: BTreeMap<_, _> = requirements
+                .into_iter()
+                .map(|r| (r.observation_date, r))
+                .collect();
+            let compound = prefix.compound(
+                &terms.index_id,
+                history,
+                fixing,
+                |d| {
+                    required
+                        .get(&d)
+                        .map(|r| r.expected_publication)
+                        .ok_or_else(|| CashflowError::InvalidTerms {
+                            field: "exercise.publication",
+                            reason: "original requirement absent".into(),
+                        })
+                },
+                |d, _| {
+                    let r = required
+                        .get(&d)
+                        .ok_or_else(|| CashflowError::InvalidTerms {
+                            field: "exercise.fixing",
+                            reason: "original requirement absent".into(),
+                        })?;
+                    Err(CashflowError::MissingFixings(vec![r.clone()]))
+                },
+            )?;
+            self.overnight_amount(plan, &compound, date, None)?
+        } else {
+            if weight_end.is_some() {
+                return Err(invalid("exercise.weight_end", "not an overnight prefix"));
+            }
+            let mut requests = BTreeMap::new();
+            for r in &plan.resets {
+                if r.start < date {
+                    requests.insert(
+                        (r.request.index_id.clone(), r.request.observation_date),
+                        r.request.clone(),
+                    );
+                }
+            }
+            let requirements = requests
+                .values()
+                .map(|r| {
+                    Ok(FixingRequirement {
+                        index_id: r.index_id.clone(),
+                        observation_date: r.observation_date,
+                        expected_publication: publication(&r.index_id, r.observation_date)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, CashflowError>>()?;
+            let mut rates = BTreeMap::new();
+            for batch in requirements.chunks(MAX_FIXING_REQUIREMENTS) {
+                for r in history
+                    .resolve(batch, fixing)?
+                    .project(|r| Err(CashflowError::MissingFixings(vec![r.clone()])))?
+                {
+                    rates.insert(
+                        (
+                            r.requirement.index_id.clone(),
+                            r.requirement.observation_date,
+                        ),
+                        r,
+                    );
+                }
+            }
+            self.term_amount(plan, date, &rates)?
+        };
+        Ok(self.terms.rounding.apply(amount)?)
+    }
+
+    /// Calculate only cash due on the supplied day, using original coupon math.
+    /// Future coupons do not require forecasts. The ongoing holder's entitlement
+    /// is owned by lifecycle state; these amounts do not assert payment occurred.
+    pub fn due_cashflows<P>(
+        &self,
+        context: &BondProjectionContext,
+        history: &FixingSeries,
+        publication: P,
+    ) -> Result<BondProjection, BondContractError>
+    where
+        P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        if context.on_payment != PaymentDateEntitlement::Include
+            || !context.overnight_accrual_cutoffs.is_empty()
+        {
+            return Err(invalid(
+                "due_cash",
+                "include same-day cash without partial accrual cutoffs",
+            ));
+        }
+        let mut due = self.clone();
+        due.coupons
+            .retain(|c| c.period.payment_date() == context.settlement);
+        due.principal
+            .retain(|p| p.payment_date == context.settlement);
+        due.project(
+            context,
+            history,
+            publication,
+            BondProjectionPolicy::RequirePublished,
+        )
+    }
+
     fn check_settlement(&self, settlement: Date) -> Result<(), BondContractError> {
         if !(1..=9999).contains(&settlement.year()) || settlement < self.terms.issue_date {
             return Err(invalid("settlement", "invalid date or before issue"));

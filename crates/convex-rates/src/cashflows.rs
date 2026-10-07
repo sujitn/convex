@@ -128,6 +128,60 @@ pub struct SwapCashflows {
 }
 
 impl SwapContract {
+    /// Crystallize only coupons whose original accrual ends on this day. Delayed
+    /// payment dates and full native history/rounding evidence remain unchanged.
+    pub fn completed_cashflows<P>(
+        &self,
+        context: CashflowContext,
+        history: &FixingSeries,
+        publication: P,
+    ) -> Result<SwapCashflows, SwapError>
+    where
+        P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        if context.on_payment != PaymentDateEntitlement::Include {
+            return Err(invalid("completed_cash", "include same-day cash"));
+        }
+        let mut completed = self.clone();
+        completed
+            .floating
+            .retain(|c| c.period.accrual_dates().1 == context.fixings.valuation_date);
+        let mut result = completed.cashflows(context, history, publication, |r| {
+            Err(CashflowError::MissingFixings(vec![r.requirement.clone()]))
+        })?;
+        result
+            .fixed
+            .retain(|c| c.period.accrual_dates().1 == context.fixings.valuation_date);
+        Ok(result)
+    }
+
+    /// Original signed cash due on exactly the supplied valuation day. Only due
+    /// floating coupons consume history; unpublished rates cannot become payable
+    /// forecast cash. This neither discounts nor records any payment.
+    pub fn due_cashflows<P>(
+        &self,
+        context: CashflowContext,
+        history: &FixingSeries,
+        publication: P,
+    ) -> Result<SwapCashflows, SwapError>
+    where
+        P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        if context.on_payment != PaymentDateEntitlement::Include {
+            return Err(invalid("due_cash", "include same-day cash explicitly"));
+        }
+        let mut due = self.clone();
+        due.floating
+            .retain(|c| c.period.payment_date() == context.fixings.valuation_date);
+        let mut result = due.cashflows(context, history, publication, |r| {
+            Err(CashflowError::MissingFixings(vec![r.requirement.clone()]))
+        })?;
+        result
+            .fixed
+            .retain(|c| c.period.payment_date() == context.fixings.valuation_date);
+        Ok(result)
+    }
+
     /// Discover all unique outstanding floating requirements before valuation.
     /// Publication times are supplied from the actual administrator schedule;
     /// each unique observation calls the publication function once.

@@ -276,6 +276,30 @@ jobs:
       - name: Check supplied inverse cashflows scenario and native model guards
         run: cargo test --locked -p convex-analytics --test standalone_workflow
 
+      - name: Check independent exact lifecycle reference
+        run: python3 tests/scripts/lifecycle_reference.py check
+
+      - name: Check native lifecycle boundary ordering and settlement stages
+        run: cargo test --locked -p convex-analytics -p convex --test lifecycle
+
+      - name: Check original lifecycle product suites
+        run: cargo test --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics
+
+      - name: Exercise pure lifecycle facade with default features
+        run: cargo run --locked -p convex --example lifecycle
+
+      - name: Exercise pure lifecycle facade without default features
+        run: cargo run --locked -p convex --example lifecycle --no-default-features
+
+      - name: Exercise pure lifecycle facade with schema features
+        run: cargo run --locked -p convex --example lifecycle --features schemars
+
+      - name: Lint original core lifecycle schedule helpers
+        run: cargo clippy --locked -p convex-core --lib --all-features -- -D warnings
+
+      - name: Lint native lifecycle selectors and complete pure consumers
+        run: cargo clippy --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex --all-targets --all-features -- -D warnings
+
       - name: Check complete standalone mixed book and missing coverage
         run: cargo test --locked -p convex --test standalone_book
 

@@ -62,6 +62,8 @@ pub mod credit_calibration;
 pub mod credit_risk;
 /// Actual supplied futures/cash carry, observation pricing, signed risk and settlement effects.
 pub mod futures;
+/// Pure ordered economic lifecycle and proposed contractual cash/position effects.
+pub mod lifecycle;
 /// Checked pure futures/cash reference facts and execution-input eligibility.
 pub mod futures_reference {
     pub use convex_core::futures::*;

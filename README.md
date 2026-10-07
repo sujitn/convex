@@ -513,3 +513,5 @@ If you use Convex in academic work, please cite:
 ---
 
 Built with ❤️ in Rust 🦀
+
+Pure supplied lifecycle is available through `convex::lifecycle`; see [events, cash and pending settlement](docs/LIFECYCLE.md).

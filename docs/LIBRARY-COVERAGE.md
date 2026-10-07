@@ -398,3 +398,5 @@ Full market/convention/model packs, lifecycle/P&L, host/schema, executable hedge
 independent numerical admission and library/production/latency certification
 remain owning work. The new facade dependency is the existing pure local
 portfolio crate; no provider, storage, MQ or runtime enters calculation.
+
+CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.

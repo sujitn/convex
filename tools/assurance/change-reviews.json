@@ -873,6 +873,48 @@
         "tools/assurance/test_policy.py": "f18640d65b517683d4fe5fc91a239f7046ee89a75ea90df33179887b33ba00b3",
         "tools/library/library-inventory.json": "4acb9037d03a19975b0621f3ec5f6744325888f1ef25a2f78209a779baaee281"
       }
+    },
+    {
+      "base_commit": "943f033f58a6eab9f20be4915c2a8e7f9eb9dd89",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery. Preserve all180 original numerical rows/bytes/defaults,4329 historical evidence files and2154 Planned mandatory records/suffix/economics/owners/surfaces/gates. Existing mathematical function bodies unchanged; no Cargo/dependency/schema/ABI changes. Mandatory eight new CI checks/control mutations reject removed checks. Coding-agent review is not independent human quantitative approval.",
+      "tests": [
+        "24 native plus2 facade lifecycle tests; independent exact Decimal cash reference",
+        "Original product/workspace suites, strict lint/docs/fmt and three feature consumers",
+        "Fresh retained original comparisons and exact source/numeric/historical/requirement preservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "a24b71e54ec2b2fdf0dedaa6a85dfacd3a0942ddd71f31d70537ec9df7719751",
+        "README.md": "3432e82e656caf0513e4d9786fc20e0f373eb15ad185d647ea6fc53558d2ae73",
+        "crates/convex-analytics/src/lib.rs": "855251d9f4f278201da40151a808674ed91824ba9e76482efc7526bc16b96943",
+        "crates/convex-analytics/src/lifecycle/bond.rs": "4b2b99dcd967172744ab5abd11b877d39c0076c8f5b608b6c1d414276ea9068f",
+        "crates/convex-analytics/src/lifecycle/credit.rs": "ed417098b5ed1114001e19f10a6d76dc212b99c1be124fd6db6f5298a27446af",
+        "crates/convex-analytics/src/lifecycle/futures.rs": "a794cc918471bfccf71c10127dd67e071fbb35c33d44c7b8cb4e48b29bf48259",
+        "crates/convex-analytics/src/lifecycle/mod.rs": "75bf8a127d224a8d2ab4863f226a35fa92a3b80899d680cf88ad8995139fef01",
+        "crates/convex-analytics/src/lifecycle/rates.rs": "8bd931c35bc51026df1f295121efc768438740210a2422621137686a07da91eb",
+        "crates/convex-analytics/src/lifecycle/state.rs": "c6d822034db55ce58302ba8e55a21669e1f0174aa4b1224d0b6e5dbce822b784",
+        "crates/convex-analytics/src/lifecycle/types.rs": "97084c07a1604dc8a09dc0c27a424ed362e3c69f2802b2131cc4a3a2b36038cb",
+        "crates/convex-analytics/tests/lifecycle.rs": "39a872f7ec45c0c4f7df703bbd099f65de9a0075ac39d9de711286e9fac474aa",
+        "crates/convex-bonds/src/contracts/projection.rs": "4a2daf21684d89549bb20080ef8db8a1ea19b5dcef635f9bfb7196630e6c8db0",
+        "crates/convex-core/src/cashflows/overnight.rs": "a8a55e216c0f33c0cd50a1ec71d68602c06c9cf78b952cc2019505bc1dd6b53e",
+        "crates/convex-rates/src/cashflows.rs": "faa71d1704d16ade795737cb41d326b14cc70bf05d208587d517d12f97dc63c5",
+        "crates/convex/examples/lifecycle.rs": "4b6487c8204c2d02c8c3fbbfce68e130fc7711bd0f85258d78d9a369ff50d088",
+        "crates/convex/examples/support/lifecycle_fixture.rs": "011facfbf18b7a163276f3b0f9714b04c130c999d8730e019a357df6bdb6898d",
+        "crates/convex/src/lib.rs": "5bdf60772d44199e3213045e5e5ca3fb1d82101d5af7b65813f606e5558f283e",
+        "crates/convex/tests/lifecycle.rs": "86b674c937a3b827f7324483537f5ff10447c8484b9698c74ece8a508370c5c9",
+        "docs/ASSURANCE.md": "e1907d774d9ae7c6ecb52ae74dd3ff08aad91b0e195e9168826c1c32ce3a6d36",
+        "docs/LIBRARY-COVERAGE.md": "4f90447e71bbee3f76870af873eec44f6a9edfe6adcf66b8c3eb35c2ea43e2ae",
+        "docs/LIFECYCLE.md": "5bc42a52db44b859c61697805e8d52fdcfa9c4225588fb833612dac124883283",
+        "tests/fixtures/lifecycle/expected.json": "ed7f2a0521ffdf6e33c89fae37b5d0cd288c575952a048888cd3a78e80f7bce9",
+        "tests/fixtures/lifecycle/inputs.json": "a1acef35919fd7518a57a9de21c7afc3b538c1f6a871d3861c934cec29f188b0",
+        "tests/scripts/lifecycle_reference.py": "a4fbf7e15476a870c7decb5375eae55b2a5e2978ce796eccadc8fc5ee4223b15",
+        "tools/assurance/check.py": "6e4e9c12449ed01887a67fddbe24d4aeec4a2e11bc7899160efededb80424e33",
+        "tools/assurance/inventory.json": "134c5b69c35d4bd7b0f2daf323a0e19d1974bd5be426d722f8720333fed1f43b",
+        "tools/assurance/numeric-evidence.json": "54261789d6815d050eb66623e04298b1c086639340f46e4b5db668ea5d3f33df",
+        "tools/assurance/test_policy.py": "e47567e2d259faf4c9d0717860f5b49a2aa143d88919961c2d3a4d8785010407",
+        "tools/library/library-inventory.json": "1871ec92194c03eb38b4cf6d768636ac45c96e0391547addc91102a7cd811536"
+      }
     }
   ]
 }
