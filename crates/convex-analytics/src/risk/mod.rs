@@ -26,10 +26,10 @@ pub use hedging::{
     compare_hedges, duration_futures, duration_hedge_ratio, dv01_hedge_ratio, hedge_cost_bps,
     interest_rate_swap, interest_rate_swap_risk, key_rate_futures, narrate, position_contributions,
     residual_from, select_ctd, BondFuture, BondFutureRisk, CashBondLeg, ComparisonReport,
-    ComparisonRow, Constraints, CostFeed, CtdSelection, Deliverable, HedgeInstrument,
-    HedgeProposal, HedgeTrade, HeuristicCostFeed, InterestRateSwap, KeyRateBucketLimit, LegRisk,
-    PortfolioRisk, Position, PositionContribution, Recommendation, RecommendationReason,
-    ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
+    ComparisonRow, Constraints, CostFeed, CtdSelection, Deliverable, HedgeExecutionStatus,
+    HedgeInstrument, HedgeProposal, HedgeTrade, HeuristicCostFeed, InterestRateSwap,
+    KeyRateBucketLimit, LegRisk, PortfolioRisk, Position, PositionContribution, Recommendation,
+    RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes, COST_MODEL_NAME,
 };
 pub use profile::{
     aggregate_risk_profiles, compute_callable_position_risk, compute_position_risk, KeyRateBucket,

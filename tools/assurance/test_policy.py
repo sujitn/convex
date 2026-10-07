@@ -212,6 +212,26 @@ class AssuranceMutations(unittest.TestCase):
                      'tests/scripts/isda_credit_capture.py', 'tests/scripts/test_isda_credit_compare.py']:
             self.assertTrue(check.protected(path))
 
+    def test_futures_reference_checks_and_consumer_features_cannot_be_skipped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [
+            'cargo test --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference',
+            'cargo clippy --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference --all-features -- -D warnings',
+            'cargo run --locked -p convex --example futures_reference',
+            'cargo run --locked -p convex --example futures_reference --no-default-features',
+            'cargo run --locked -p convex --example futures_reference --features schemars',
+        ]
+        for command in commands:
+            for replacement in ['run: '+command+' || true\n', 'if: false\n        run: '+command+'\n', 'run: echo skipped\n']:
+                self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
+        for path in ['crates/convex-core/src/futures/eligibility.rs',
+                     'crates/convex-ports/src/futures_reference.rs',
+                     'crates/convex-ext-file/src/reference_repository.rs',
+                     'crates/convex-ext-redb/src/reference_repository.rs',
+                     'crates/convex-analytics/src/risk/hedging/types.rs']:
+            self.assertTrue(check.protected(path))
+            self.assertIn(path, check.inventory_paths(ROOT))
+
     def test_curve_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

@@ -60,6 +60,10 @@ pub mod cashflows;
 pub mod credit_calibration;
 /// Distinct credit scenarios, signed sensitivities and checked bond-CDS mappings.
 pub mod credit_risk;
+/// Checked pure futures/cash reference facts and execution-input eligibility.
+pub mod futures_reference {
+    pub use convex_core::futures::*;
+}
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
 pub mod optional_bond;

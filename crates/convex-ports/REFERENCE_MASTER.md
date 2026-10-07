@@ -77,8 +77,20 @@ This is reference admission, not a production or library certificate. The
 [immutable snapshot application](../convex-engine/SNAPSHOTS.md) now captures these
 resolved reference values together with exact configuration, quote continuity,
 published fixings and supplied curves. Generation-safe graph publication, real
-curve calibration/configuration, rates/CDS/futures terms, corporate-action
+curve calibration/configuration, complete product workflow admission, corporate-action
 lifecycles and provider sessions remain separate.
+
+CVX-022 adds closed `futures`, `basket` and `cash_universe` master definitions
+and a futures mapping target. Exact reciprocal contract/basket revisions,
+published factors, actual security versions, calendar coverage and source
+availability are checked atomically. Both backends reuse these tables and
+immutable history. Run the additional [futures conformance suite](tests/support/futures_conformance.rs)
+for another backend. The [futures guide](../../docs/FUTURES-REFERENCE.md) describes
+disjoint bond/rate terms, source qualification, cash prerequisites and the
+indicative-only advisor. `for_valuation` remains a bond-specific operation;
+futures pricing/input resolution remains subsequent work. Older binaries reject
+the new master kinds: upgrade all readers before importing them and retain the
+isolated backup/restore rollback procedure below.
 
 ## Transactions and bounds
 

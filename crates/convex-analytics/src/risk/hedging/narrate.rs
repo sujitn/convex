@@ -117,6 +117,7 @@ mod tests {
 
     fn proposal(strategy: &str, cost_bps: f64) -> HedgeProposal {
         HedgeProposal {
+            execution_status: Default::default(),
             strategy: strategy.into(),
             trades: vec![HedgeTrade {
                 instrument: HedgeInstrument::BondFuture(BondFuture {

@@ -373,3 +373,23 @@ valuations, 256 curves, 150-year horizons and shared bounded solvers are not a
 latency certificate. Actual source/command/raw output evidence is engineering
 review, not independent human quantitative approval or a complete market/model,
 host, lifecycle, library, production or colocation certificate.
+
+CVX-022 adds [dated futures and cash reference inputs](FUTURES-REFERENCE.md),
+with strict disjoint bond/rate terms, exact contract/basket/security revisions,
+dated tick/multiplier units and explicit source-quality/freshness gates. Pure
+core futures code forbids unsafe and denies unwrap/expect/panic. Existing
+memory/redb ports retain atomic corrections, known-at replay and exact receipts;
+the approximate advisor always labels proposals indicative only.
+
+Eight new engineering artifact pins preserve all 144 earlier quantitative rows,
+bytes, expectations and solver defaults. The published CME 2026-09-24 workbook
+supplies ten actual December ZN factors/identities, with original capture bytes
+and cell-level extraction evidence. Calendar/registration assumptions and
+historical-only eligibility remain explicit. Exact reference/invoice/tick/rate
+checks and 512 deterministic Decimal control cases are engineering evidence,
+not futures valuation, CTD, actual market, host or quantitative certification.
+CI requires new import/replay/gate tests, their strict Clippy checks and all
+three facade feature consumers. The critical inventory now covers the pure
+futures domain, reference admission/backends and indicative advisor paths.
+All 2,154 mandatory library records remain Planned; dependencies and all
+25 C exports remain unchanged. CVX-023 owns full futures valuation/risk.

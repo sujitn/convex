@@ -474,6 +474,7 @@ cargo bench
 ## Documentation
 
 - API Documentation — generate locally with `cargo doc --no-deps --workspace --open`
+- [Dated futures and cash hedge reference inputs](docs/FUTURES-REFERENCE.md)
 - [Live Demo](https://convex-demo.pages.dev/)
 - [WASM Demo](https://sujitn.github.io/convex/)
 

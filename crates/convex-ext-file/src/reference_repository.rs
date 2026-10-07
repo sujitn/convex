@@ -101,6 +101,12 @@ impl ReferenceRepository for MemoryReferenceRepository {
             &result,
             |id| Ok(state.current.get(id.as_str()).cloned()),
             |key, version| Ok(state.master_history.get(&(key.clone(), version)).cloned()),
+            |id, version| {
+                Ok(state
+                    .history
+                    .get(&(id.as_str().to_owned(), version))
+                    .cloned())
+            },
         )?;
         let creates = result
             .records
@@ -249,6 +255,18 @@ impl ReferenceRepository for MemoryReferenceRepository {
         };
         let target = definition.target.clone().ok_or(ReferenceError::NotFound)?;
         let target_version = match &target {
+            ReferenceTarget::Futures { instrument_id } => {
+                select_master_at(
+                    state
+                        .master_history
+                        .iter()
+                        .filter(|((key, _), _)| *key == MasterKey::Futures(instrument_id.clone()))
+                        .map(|(_, r)| r.clone()),
+                    lookup,
+                )?
+                .ok_or(ReferenceError::NotFound)?
+                .version
+            }
             ReferenceTarget::Instrument { instrument_id } => {
                 let record = select_bond_at(
                     state

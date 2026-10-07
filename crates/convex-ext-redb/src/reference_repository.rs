@@ -270,6 +270,13 @@ impl ReferenceRepository for RedbReferenceRepository {
                         .map(|v| decode(v.value()))
                         .transpose()
                 },
+                |id, version| {
+                    history
+                        .get((id.as_str(), version.get()))
+                        .map_err(|_| ReferenceError::Unavailable)?
+                        .map(|v| decode(v.value()))
+                        .transpose()
+                },
             )?;
             let mut creates = 0;
             for record in &result.records {
@@ -448,6 +455,11 @@ impl ReferenceRepository for RedbReferenceRepository {
         };
         let target = definition.target.clone().ok_or(ReferenceError::NotFound)?;
         let target_version = match &target {
+            ReferenceTarget::Futures { instrument_id } => {
+                master_at(&read, &MasterKey::Futures(instrument_id.clone()), lookup)?
+                    .ok_or(ReferenceError::NotFound)?
+                    .version
+            }
             ReferenceTarget::Instrument { instrument_id } => {
                 let record = bond_at(&read, &instrument_id.clone().into(), lookup)?
                     .ok_or(ReferenceError::NotFound)?;

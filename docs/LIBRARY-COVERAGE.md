@@ -296,3 +296,14 @@ Pending. Bond/CDS admission requires actual legal mapping and dated basis/liquid
 inputs; it is not a complete bond credit pricing or executable hedge workflow.
 All 2,154 mandatory records remain Planned; market/model packs, lifecycle,
 host/schema dispatch and independent certificates remain owning work.
+
+Version 14 records [dated futures and cash reference inputs](FUTURES-REFERENCE.md)
+through the pure facade and existing authoritative repository. Exact published
+December ZN identities/factors, contract/basket/security pins, dated ticks and
+disjoint rate observation windows survive import, correction, replay and redb
+reopen. Source quality/freshness and actual cash size/lot/funding/borrow/cost
+prerequisites have explicit blocking reasons. The approximate advisor labels
+all proposals indicative only. This extends reference admission rather than
+certifying CTD/carry, partly fixed rate valuation, margin/lifecycle or executable
+hedging. All 2,154 mandatory records remain Planned; CVX-023 owns the complete
+futures valuation and risk work, with host and certificate gates still pending.

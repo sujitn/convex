@@ -62,6 +62,11 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example credit_calibration',
         'cargo run --locked -p convex --example credit_calibration --no-default-features',
         'cargo run --locked -p convex --example credit_calibration --features schemars',
+        'cargo test --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference',
+        'cargo clippy --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference --all-features -- -D warnings',
+        'cargo run --locked -p convex --example futures_reference',
+        'cargo run --locked -p convex --example futures_reference --no-default-features',
+        'cargo run --locked -p convex --example futures_reference --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -265,6 +270,12 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(f'crates/{crate}/src/lib.rs' for crate in DOMAIN)
     paths.update(['crates/convex-core/src/types/date.rs', 'crates/convex-core/src/types/frequency.rs', 'crates/convex-core/src/calendars/mod.rs', 'crates/convex-core/src/calendars/conventions.rs', 'crates/convex-core/src/calendars/dynamic.rs', 'crates/convex-bonds/src/fixings.rs', 'crates/convex-core/src/daycounts/actact.rs', 'crates/convex-core/src/daycounts/act365.rs', 'crates/convex-core/src/contracts/mod.rs', 'crates/convex-curves/src/curves/discrete.rs', 'crates/convex-curves/src/curves/segmented.rs', 'crates/convex-curves/src/calibration/global_fit.rs', 'crates/convex-analytics/src/calibration/hw1f.rs', 'crates/convex-bonds/src/options/swaption_hw1f.rs', 'crates/convex-engine/src/calc_graph.rs', 'crates/convex-engine/src/runtime/mod.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/cashflows').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/futures').glob('*.rs'))
+    paths.update(['crates/convex-ports/src/futures_reference.rs',
+                  'crates/convex-ext-file/src/reference_repository.rs',
+                  'crates/convex-ext-redb/src/reference_repository.rs'])
+    paths.update(f'crates/convex-analytics/src/risk/hedging/{name}.rs'
+                 for name in ('types', 'strategies', 'compare', 'narrate'))
     paths.update(['crates/convex-core/src/calendars/checked.rs', 'crates/convex-core/src/fixings.rs', 'crates/convex-core/src/daycounts/thirty360.rs', 'crates/convex-bonds/src/cashflows/schedule.rs', 'crates/convex-bonds/src/instruments/fixed_rate.rs', 'crates/convex-bonds/src/arrc.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
@@ -331,7 +342,7 @@ def check_numeric(root: Path, document: dict) -> None:
 
 
 def protected(path: str) -> bool:
-    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
+    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi', 'convex-ports', 'convex-ext-file', 'convex-ext-redb')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
 
 def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt.date) -> int:
     # Include untracked candidate files: local validation cannot miss new modules.

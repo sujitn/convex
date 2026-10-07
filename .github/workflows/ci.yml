@@ -183,6 +183,21 @@ jobs:
       - name: Run supplied credit calibration with schema features
         run: cargo run --locked -p convex --example credit_calibration --features schemars
 
+      - name: Check actual futures reference import replay and input gates
+        run: cargo test --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference
+
+      - name: Check futures input sources and dedicated tests
+        run: cargo clippy --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference --all-features -- -D warnings
+
+      - name: Run archived actual futures reference consumer
+        run: cargo run --locked -p convex --example futures_reference
+
+      - name: Run futures reference consumer with minimal features
+        run: cargo run --locked -p convex --example futures_reference --no-default-features
+
+      - name: Run futures reference consumer with schema features
+        run: cargo run --locked -p convex --example futures_reference --features schemars
+
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
 

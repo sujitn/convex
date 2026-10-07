@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-06",
-  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate. CVX-019 native swap candidate, exact dependencies/fitted diagnostics and thin engine delegation; external comparison and independent certificates pending. CVX-020 single-name CDS native pricing/conversion and exact original-grid evidence; calibration/risk/lifecycle/host certificates remain owning work. CVX-021 full supplied CDS calibration/risk; actual immutable interpolation-grid exposure supports fitted credit integration without changing leg formulas or prior numerical bounds. Engine only delegates. New credit-specific global settings cannot be used as rate zero settings.",
+  "reviewed_on": "2026-10-07",
+  "review_scope": "Bounded engineering baseline; no unsafe pure implementations; FFI raw pointer blocks only. Legacy quantitative and API gaps explicitly excepted, not certified. Source changes require deliberate inventory impact review. CVX-054 adds checked shared schedule/profile/amount/fixing/overnight primitives and bounded calendar adjustment, with explicit supplied-contract units and new fixtures. Existing quantitative pins and compatibility kernels are preserved; full product integration and independent model/market certification remain pending. CVX-056 adds checked pure curve contracts and product helper composition; DiscreteCurve raw checked queries propagate failures and use checked UFR setup. Source hashes reviewed deliberately; old quantitative artifacts and exceptions preserved. CVX-060 adds bounded scaled identified numerical fitting, exact views/explicit rolling and stable checked conversions; 65 previous quantitative artifacts, compatibility kernels and four existing exceptions preserved. CVX-017 deliberately reviews unified checked fixed/zero quote economics and thin engine/REST/FFI translations, exact payment-time discount steps and actual government securities. Existing 69 numerical pin rows/defaults and expiring exceptions remain intact. Engineering candidates do not certify markets/models, execution or LB0/LB1. CVX-055 reviews pure supplied bond terms/projection/valuation over shared primitives and checked native instrument adapters. Preserve all 74 prior quantitative rows/bytes/defaults, manifests and expiring exceptions. Full host/schema, model/market, lifecycle/inverse/risk and LB certificates remain pending. CVX-059 reviews explicit pure optional-bond model/calibration, dated notice/exercise and restricted joint term-FRN valuation, bounded OAS and separately resolved/converged factor risk. All 78 prior numerical rows/bytes/defaults, manifests, exceptions and original ABI remain unchanged. Complete market/model/host, lifecycle and LB certificates remain pending. CVX-018: pure supplied IRS/OIS contracts and the existing core schedule generator with independent calendars; engineering candidates, no product certificate. CVX-019 native swap candidate, exact dependencies/fitted diagnostics and thin engine delegation; external comparison and independent certificates pending. CVX-020 single-name CDS native pricing/conversion and exact original-grid evidence; calibration/risk/lifecycle/host certificates remain owning work. CVX-021 full supplied CDS calibration/risk; actual immutable interpolation-grid exposure supports fitted credit integration without changing leg formulas or prior numerical bounds. Engine only delegates. New credit-specific global settings cannot be used as rate zero settings. CVX-022 exact dated futures/cash reference input admission, atomic history/import/replay in existing backends and indicative advisor qualification. Full futures analytics and executable hedges remain owning work.",
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
@@ -81,8 +81,8 @@
     },
     {
       "path": "crates/convex-analytics/src/lib.rs",
-      "sha256": "57bc2a4ea9494901167f75d940a693c634a2faccc95492a482638ed241ce9065",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph.",
+      "sha256": "c920f3be306bfa7383051fc1736c580adb48d11a8117a4b54ad17f21bfa471e4",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -105,7 +105,13 @@
         "tests/scripts/swap_valuation_reference.py",
         "crates/convex-analytics/tests/credit_calibration.rs",
         "tests/scripts/test_isda_credit_compare.py",
-        "crates/convex/examples/credit_calibration.rs"
+        "crates/convex/examples/credit_calibration.rs",
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
       ],
       "exceptions": []
     },
@@ -155,6 +161,70 @@
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/risk/hedging/compare.rs",
+      "sha256": "ca14bba611cea81f740e513826b40722f8e8ac87c7644ce6fe62fa020f7e0f99",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/risk/hedging/narrate.rs",
+      "sha256": "c5cef2afed39024d103f58a0a202596218b3bd1b3ed4f9e2ceeceb8919465d28",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/risk/hedging/strategies.rs",
+      "sha256": "c0dc8c945f56ab577b761a70305176f1280675bb0daa1d5355a79e79d6a1ea4a",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/risk/hedging/types.rs",
+      "sha256": "389746326e54918d769475ec8c87e604642da94d148dd51780b6984140992f69",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
       ],
       "exceptions": []
     },
@@ -672,13 +742,83 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-core/src/futures/eligibility.rs",
+      "sha256": "df7ff379dac18601016e64482b1dbdddeb9a1fdbd7c990e490f861172fb78b12",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/futures/mod.rs",
+      "sha256": "fbdc615a24e7f9d822c69eb1e2e2a5d3d1e8db34aada9185e60132d0cb1ad69c",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/futures/terms.rs",
+      "sha256": "79d12826e1cbf3c8c635be331d5110100e406008aec200bf8d89d8c8fa472d43",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/futures/validation.rs",
+      "sha256": "21970593839e8a3c6b50cf3ec754fb49b6412e26f30f2f66cff6aca53ac62935",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-core/src/lib.rs",
-      "sha256": "90a0a64633a6d147e78b06995270f07c8cb53d87674e99d4be4b26187dbde582",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned.",
+      "sha256": "7d9880084b736360b3b410b39690930a91a87c9651d7a360ce0a193a9c6c3f13",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
-        "tools/assurance/test_policy.py"
+        "tools/assurance/test_policy.py",
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
       ],
       "exceptions": []
     },
@@ -1030,6 +1170,38 @@
       "exceptions": [
         "ASR-004"
       ]
+    },
+    {
+      "path": "crates/convex-ext-file/src/reference_repository.rs",
+      "sha256": "74bfde2523a000214fe05d28687d3d49336b6a4f1861c2b2321ba917d8472c73",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-redb/src/reference_repository.rs",
+      "sha256": "b28d021adff3edfe6857bbe883cccc0fe34905c5f00a21c5419133f84a0ae75a",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
     },
     {
       "path": "crates/convex-ffi/src/build.rs",
@@ -1445,6 +1617,22 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-ports/src/futures_reference.rs",
+      "sha256": "f5590abe7931b5a4b35727bd9749715691f7a219ce16350cfa918fba228a3806",
+      "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
+      "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
+      "tests": [
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-ports/src/output.rs",
       "sha256": "30ef5ffbcdac97699a5b534e2ad47008fb93096d336cff8ed6b20ad9e79fb59f",
       "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
@@ -1459,14 +1647,20 @@
     },
     {
       "path": "crates/convex-ports/src/reference_master.rs",
-      "sha256": "b83426cf5c88bc32f825509ae8bfca6971cfa4a6286014ed79b37e5db36cbf23",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "sha256": "c72177783fe2ba30ed093e92902d27c3956009437755077cbb20bacbad497659",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
       ],
       "exceptions": []
     },
@@ -1584,8 +1778,8 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "7b0e35e6068e378620f47543f901affe3232406399761737ae4df5c1cd0ae3fe",
-      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. CVX-020 reviewed impact: re-export the independent pure credit crate through convex::credit, without modifying existing pricing or C ABI semantics. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph.",
+      "sha256": "7addc2b6d7d9412c4ce6b42d8717e4a12d72074f40e9ef91b4eec3f30494cbae",
+      "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. CVX-020 reviewed impact: re-export the independent pure credit crate through convex::credit, without modifying existing pricing or C ABI semantics. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
       "tests": [
@@ -1612,7 +1806,13 @@
         "crates/convex/examples/cds_valuation.rs",
         "crates/convex-analytics/tests/credit_calibration.rs",
         "tests/scripts/test_isda_credit_compare.py",
-        "crates/convex/examples/credit_calibration.rs"
+        "crates/convex/examples/credit_calibration.rs",
+        "crates/convex-analytics/tests/futures_reference.rs",
+        "crates/convex-ports/tests/futures_reference.rs",
+        "crates/convex-ports/tests/support/futures_conformance.rs",
+        "crates/convex-ext-file/tests/futures_reference.rs",
+        "crates/convex-ext-redb/tests/futures_reference.rs",
+        "crates/convex/examples/futures_reference.rs"
       ],
       "exceptions": []
     }

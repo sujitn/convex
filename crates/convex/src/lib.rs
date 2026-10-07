@@ -17,6 +17,7 @@ pub use convex_analytics::credit_calibration;
 pub use convex_analytics::credit_risk;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
+pub use convex_analytics::futures_reference;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
 pub use convex_analytics::swap_calibration;
 pub use convex_core::calendars::BusinessDayConvention;
@@ -65,9 +66,10 @@ pub use convex_analytics::risk::{
     compute_callable_position_risk, compute_position_risk, duration_futures, hedge_cost_bps,
     interest_rate_swap, key_rate_futures, narrate, position_contributions, select_ctd, BondFuture,
     CashBondLeg, ComparisonReport, ComparisonRow, Constraints, CostFeed, CtdSelection, Deliverable,
-    HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucket,
-    KeyRateBucketLimit, PositionContribution, Provenance, Recommendation, RecommendationReason,
-    ResidualRisk, RiskProfile, SwapSide, TradeoffNotes, ADVISOR_KEY_RATE_TENORS,
+    HedgeExecutionStatus, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap,
+    KeyRateBucket, KeyRateBucketLimit, PositionContribution, Provenance, Recommendation,
+    RecommendationReason, ResidualRisk, RiskProfile, SwapSide, TradeoffNotes,
+    ADVISOR_KEY_RATE_TENORS,
 };
 pub use convex_analytics::spreads::{
     GSpreadCalculator, ISpreadCalculator, OASCalculator, ZSpreadCalculator,

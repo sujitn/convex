@@ -181,6 +181,10 @@ pub struct TradeoffNotes {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct HedgeProposal {
+    /// Existing approximate advisor outputs are always indicative. Deserialization
+    /// cannot promote them to executable by supplying an unrecognized status.
+    #[serde(default)]
+    pub execution_status: HedgeExecutionStatus,
     pub strategy: String,
     pub trades: Vec<HedgeTrade>,
     pub residual: ResidualRisk,
@@ -192,6 +196,17 @@ pub struct HedgeProposal {
     pub tradeoffs: TradeoffNotes,
     #[serde(default)]
     pub provenance: Provenance,
+}
+
+/// Execution classification for the existing approximate advisor only.
+/// Checked reference inputs do not qualify these synthetic schedule/cost/risk models.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum HedgeExecutionStatus {
+    /// No order or executable recommendation may be derived from this advisor output.
+    #[default]
+    IndicativeOnly,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -214,6 +229,9 @@ pub struct ComparisonRow {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ComparisonReport {
+    /// A recommendation selected from this advisor remains indicative only.
+    #[serde(default)]
+    pub execution_status: HedgeExecutionStatus,
     pub currency: Currency,
     #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
     pub position_market_value: Decimal,
@@ -366,6 +384,7 @@ mod tests {
         let pos = position(500.0);
         let trade = future_trade(-500.0);
         let p = HedgeProposal {
+            execution_status: Default::default(),
             strategy: "DurationFutures".into(),
             trades: vec![trade.clone()],
             residual: residual_from(&pos, &[trade]),

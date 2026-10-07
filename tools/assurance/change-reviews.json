@@ -620,6 +620,57 @@
         "tools/assurance/test_policy.py": "fdd4f07ba5e31659312f712d2b115f1d67b8fe9b51412fa157f96738416d08c7",
         "tools/library/library-inventory.json": "f58e7530d216c6aa62e367c9471c8858eec29a40992d97a826a73bb5fce94086"
       }
+    },
+    {
+      "base_commit": "1743749bf2b0d06ca747953b780d779ed6c460ca",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-022 scoped additive reference engineering: actual dated disjoint futures/basket/cash terms, exact quote/tick/money/face units, resource/time/source-quality gates and authoritative master integration through existing atomic memory/redb history. Existing synthetic advisor formulas remain unchanged but every output is indicative only. Protect new production admission/adapter paths and additive required CI commands. Preserve144earlier numeric artifact rows/bytes/defaults, original captures,2154Planned mandatory library records/economics/owners/surfaces/gates, all previous historical evidence, exact Cargo manifests/lock/dependencies and25Cexports. Public archival exchange facts and engineering registration/control inputs do not infer an independent human quantitative review or full market/model/host/library/production/latency certificate.",
+      "tests": [
+        "Required full analytics/ports tests;12native futures tests with512seeded exact Decimal properties",
+        "Atomic memory/redb import/correction/known-at replay and exact missing-pin/no-prefix controls; actual separate-process reopen",
+        "Strict workspace/new-test Clippy and rustdoc; full workspace, minimal feature graph and three facade consumers",
+        "Assurance/library/source/history/ABI preservation, additive CI rejection controls, unchanged actual independent comparator regressions and next-task harness handoff"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d49dfb95158be075a22478ea18e56691a0b273a376ea91ffe8e5ac8c3de40e50",
+        "README.md": "ea414480497b9430fe0150a6a46d3e5a1a315ad686d87279048bcc3aed38b004",
+        "crates/convex-analytics/src/lib.rs": "c920f3be306bfa7383051fc1736c580adb48d11a8117a4b54ad17f21bfa471e4",
+        "crates/convex-analytics/src/risk/hedging/compare.rs": "ca14bba611cea81f740e513826b40722f8e8ac87c7644ce6fe62fa020f7e0f99",
+        "crates/convex-analytics/src/risk/hedging/mod.rs": "77a547345dd19ea790f5a0812b9ed6c1209ed33a29bce64dace2cb5163a9550b",
+        "crates/convex-analytics/src/risk/hedging/narrate.rs": "c5cef2afed39024d103f58a0a202596218b3bd1b3ed4f9e2ceeceb8919465d28",
+        "crates/convex-analytics/src/risk/hedging/strategies.rs": "c0dc8c945f56ab577b761a70305176f1280675bb0daa1d5355a79e79d6a1ea4a",
+        "crates/convex-analytics/src/risk/hedging/types.rs": "389746326e54918d769475ec8c87e604642da94d148dd51780b6984140992f69",
+        "crates/convex-analytics/src/risk/mod.rs": "b4102b67913b03464f1d31314c0acc1da50fb423cc4cfd540a052e3c66fab69b",
+        "crates/convex-analytics/tests/futures_reference.rs": "56bd79a53dbbf0315e039edef06169d4f184347d8c37d226bae27529dcf9719f",
+        "crates/convex-core/src/futures/eligibility.rs": "df7ff379dac18601016e64482b1dbdddeb9a1fdbd7c990e490f861172fb78b12",
+        "crates/convex-core/src/futures/mod.rs": "fbdc615a24e7f9d822c69eb1e2e2a5d3d1e8db34aada9185e60132d0cb1ad69c",
+        "crates/convex-core/src/futures/terms.rs": "79d12826e1cbf3c8c635be331d5110100e406008aec200bf8d89d8c8fa472d43",
+        "crates/convex-core/src/futures/validation.rs": "21970593839e8a3c6b50cf3ec754fb49b6412e26f30f2f66cff6aca53ac62935",
+        "crates/convex-core/src/lib.rs": "7d9880084b736360b3b410b39690930a91a87c9651d7a360ce0a193a9c6c3f13",
+        "crates/convex-ext-file/src/reference_repository.rs": "74bfde2523a000214fe05d28687d3d49336b6a4f1861c2b2321ba917d8472c73",
+        "crates/convex-ext-file/tests/futures_reference.rs": "8970a42d1e943a0e4222c1add0348357d7a3ad824de9841235bd7424d3d85a90",
+        "crates/convex-ext-redb/src/reference_repository.rs": "b28d021adff3edfe6857bbe883cccc0fe34905c5f00a21c5419133f84a0ae75a",
+        "crates/convex-ext-redb/tests/futures_reference.rs": "853a9314c2d358c17e61b50f62cdc03a176342476b9e165d551e5ada7fcdc241",
+        "crates/convex-ports/REFERENCE_MASTER.md": "b6f83dc0af48fab977220ad4e95cfa93dc4c28ad3f8ce43680f550de2cdf1f09",
+        "crates/convex-ports/src/futures_reference.rs": "f5590abe7931b5a4b35727bd9749715691f7a219ce16350cfa918fba228a3806",
+        "crates/convex-ports/src/lib.rs": "85e737b92cc07d17104ea1ecd7bae2990772183a15fdb4ed276aabfa322e6f2b",
+        "crates/convex-ports/src/reference_master.rs": "c72177783fe2ba30ed093e92902d27c3956009437755077cbb20bacbad497659",
+        "crates/convex-ports/tests/futures_reference.rs": "8e35fc676c566b38eb41f090960531eaa5dc5661a03fa4ad71066227d422c431",
+        "crates/convex-ports/tests/support/futures_conformance.rs": "a4676bc614309c28d649c23e48ec4814cd9ec0166e6b106f07315854bedcfc8c",
+        "crates/convex/examples/futures_reference.rs": "6ce01c29d37e56eafb246102c6fe3d39419712a8a1e8edb90403ed7138181570",
+        "crates/convex/src/lib.rs": "7addc2b6d7d9412c4ce6b42d8717e4a12d72074f40e9ef91b4eec3f30494cbae",
+        "docs/ASSURANCE.md": "0d30566c84a0dd0c5cca4b65d0aea3377a1d150f62ae339c7764192e2711a241",
+        "docs/FUTURES-REFERENCE.md": "a6e6c1f61fdd6a61546a358b87681874e1b06375120044098e2d0c15a80cf11f",
+        "docs/LIBRARY-COVERAGE.md": "4b25d822444ee27ef76a335bc63d00433ef859174dc0bafb00b28f732a4ee8db",
+        "tests/fixtures/futures/cme-2026-09-24.json": "c26189bc5efc0c262966ffea95355a896c07bac400e1144bc1a8d7bbd6935fa6",
+        "tests/fixtures/futures/reference-import.json": "8234c401913adb719f0eb57dcdb5617187af47a49260d0696a79cdb51000d292",
+        "tools/assurance/check.py": "68f3e517b97545c9a90b3b552cf6151fbf5bcf73dbdf928b4961cec406ec5a4f",
+        "tools/assurance/inventory.json": "72c6a608c125ee5d0290697c37ae92d3e3b5d01ced5b670d831222b77057e0d9",
+        "tools/assurance/numeric-evidence.json": "08c14472fe17f0402dab5af4af0ed9415743e1ef1912e9d218cd1cbe8f935fa6",
+        "tools/assurance/test_policy.py": "49341e3a4b6f080f45943a2ae0ac94d30b6f71d70b405906051ddb2309721efd",
+        "tools/library/library-inventory.json": "3489ea7d33d489f62718bfa315ae4ed7db0b2e7f799da0079bb9d88815114a34"
+      }
     }
   ]
 }

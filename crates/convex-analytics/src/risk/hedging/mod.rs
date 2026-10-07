@@ -31,6 +31,7 @@ pub use strategies::{
 };
 pub use types::{
     residual_from, BondFuture, CashBondLeg, ComparisonReport, ComparisonRow, Constraints,
-    HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucketLimit,
-    Recommendation, RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes,
+    HedgeExecutionStatus, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap,
+    KeyRateBucketLimit, Recommendation, RecommendationReason, ResidualRisk, SwapSide,
+    TradeoffNotes,
 };

@@ -30,6 +30,7 @@ pub mod configuration;
 pub mod configuration_schema;
 pub mod error;
 pub mod fixing;
+pub mod futures_reference;
 pub mod market_data;
 pub mod output;
 pub mod quote_event;

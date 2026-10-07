@@ -275,6 +275,11 @@ pub enum ReferenceTarget {
         /// Internal instrument.
         instrument_id: InstrumentId,
     },
+    /// Listed future identity, with exact master revisions selected independently.
+    Futures {
+        /// Internal exchange instrument identity.
+        instrument_id: InstrumentId,
+    },
     /// Entity identity.
     Entity {
         /// Internal entity.
@@ -316,6 +321,12 @@ pub enum MasterKey {
     Convention(ReferenceDataId),
     /// Mapping assertion key.
     Identifier(ReferenceDataId),
+    /// Dated exchange futures contract.
+    Futures(InstrumentId),
+    /// Eligible physical-delivery securities/CF revision.
+    Basket(ReferenceDataId),
+    /// Actual cash hedge candidates and their market/eligibility inputs.
+    CashUniverse(ReferenceDataId),
 }
 
 impl MasterKey {
@@ -326,6 +337,9 @@ impl MasterKey {
             Self::Calendar(id) => format!("calendar/{}", id.as_str()),
             Self::Convention(id) => format!("convention/{}", id.as_str()),
             Self::Identifier(id) => format!("identifier/{}", id.as_str()),
+            Self::Futures(id) => format!("futures/{}", id.as_str()),
+            Self::Basket(id) => format!("basket/{}", id.as_str()),
+            Self::CashUniverse(id) => format!("cash_universe/{}", id.as_str()),
         }
     }
 }
@@ -347,6 +361,12 @@ pub enum MasterDefinition {
     Convention(Box<ConventionDefinition>),
     /// External mapping assertion.
     Identifier(Box<IdentifierMapping>),
+    /// Full dated exchange contract; no instrument-family inference.
+    Futures(Box<crate::futures_reference::FuturesDefinition>),
+    /// Eligible securities and published conversion factors.
+    Basket(Box<crate::futures_reference::BasketDefinition>),
+    /// Exact cash hedge input universe.
+    CashUniverse(Box<crate::futures_reference::CashUniverseDefinition>),
 }
 
 impl MasterDefinition {
@@ -357,6 +377,9 @@ impl MasterDefinition {
             Self::Calendar(v) => MasterKey::Calendar(v.calendar_id.clone()),
             Self::Convention(v) => MasterKey::Convention(v.convention_id.clone()),
             Self::Identifier(v) => MasterKey::Identifier(v.mapping_id.clone()),
+            Self::Futures(v) => MasterKey::Futures(v.contract.instrument_id.clone()),
+            Self::Basket(v) => MasterKey::Basket(v.basket.stamp.id.clone()),
+            Self::CashUniverse(v) => MasterKey::CashUniverse(v.universe.stamp.id.clone()),
         }
     }
     /// Economic validity.
@@ -366,6 +389,9 @@ impl MasterDefinition {
             Self::Calendar(v) => v.effective,
             Self::Convention(v) => v.effective,
             Self::Identifier(v) => v.effective,
+            Self::Futures(v) => v.effective,
+            Self::Basket(v) => v.effective,
+            Self::CashUniverse(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -397,8 +423,36 @@ impl MasterDefinition {
                 v.identifier.validate()?;
                 &v.provenance
             }
+            Self::Futures(v) => {
+                v.contract
+                    .validate()
+                    .map_err(|e| ReferenceError::InvalidInput(e.reason))?;
+                &v.provenance
+            }
+            Self::Basket(v) => {
+                v.basket
+                    .validate()
+                    .map_err(|e| ReferenceError::InvalidInput(e.reason))?;
+                &v.provenance
+            }
+            Self::CashUniverse(v) => {
+                v.universe
+                    .validate()
+                    .map_err(|e| ReferenceError::InvalidInput(e.reason))?;
+                &v.provenance
+            }
         };
         bounded_text(&provenance.evidence_reference, 512)
+    }
+
+    /// Supplied source stamp for the closed futures/cash resource set.
+    pub fn futures_stamp(&self) -> Option<&convex_core::futures::ReferenceStamp> {
+        match self {
+            Self::Futures(v) => Some(&v.contract.stamp),
+            Self::Basket(v) => Some(&v.basket.stamp),
+            Self::CashUniverse(v) => Some(&v.universe.stamp),
+            _ => None,
+        }
     }
 }
 
@@ -688,6 +742,13 @@ pub fn plan_master_changes(
             recorded_at,
             definition: change.definition.clone(),
         });
+        if let Some(stamp) = change.definition.futures_stamp() {
+            if stamp.version.get() != number || stamp.available_at > recorded_at {
+                return Err(ReferenceError::InvalidInput(
+                    "supplied futures resource version/availability conflicts with committed revision",
+                ));
+            }
+        }
     }
     Ok(records)
 }
@@ -700,6 +761,10 @@ pub fn validate_reference_links(
         &convex_core::ids::InstrumentId,
     ) -> Result<Option<ReferenceRecord>, ReferenceError>,
     mut master_version: impl FnMut(&MasterKey, Version) -> Result<Option<MasterRecord>, ReferenceError>,
+    mut bond_version: impl FnMut(
+        &convex_core::ids::InstrumentId,
+        Version,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError>,
 ) -> Result<(), ReferenceError> {
     let mut resource =
         |key: &MasterKey, version: Version| -> Result<MasterRecord, ReferenceError> {
@@ -795,12 +860,27 @@ pub fn validate_reference_links(
                             resource(&key, version)?;
                         }
                     }
+                    Some(ReferenceTarget::Futures { instrument_id }) => {
+                        let key = MasterKey::Futures(instrument_id.clone());
+                        if !commit
+                            .master_records
+                            .iter()
+                            .any(|r| r.definition.key() == key)
+                        {
+                            resource(
+                                &key,
+                                Version::new(1)
+                                    .map_err(|_| ReferenceError::InvalidInput("invalid version"))?,
+                            )?;
+                        }
+                    }
                     None => {}
                 }
             }
             _ => {}
         }
     }
+    crate::futures_reference::validate_futures_links(commit, &mut resource, &mut bond_version)?;
     Ok(())
 }
 
