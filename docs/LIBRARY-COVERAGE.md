@@ -373,3 +373,28 @@ optional and failure scenarios qualify scoped engineering reuse. Legacy DV01/KRD
 semantics remain unchanged. Full convention/model/host/lifecycle/P&L, independent
 human quantitative, library, production and latency gates remain open; all2154
 mandatory records, economics, owners, surfaces and release gates are preserved.
+
+Version19 records [standalone supplied-input valuation, inverse and risk workflows](STANDALONE-WORKFLOWS.md).
+The `convex::workflow` facade exposes full native construction, requirements,
+cash projection, price, applicable inverse and full scenarios. It composes
+original graph risk and exposes the existing pure signed portfolio aggregation
+through `convex::portfolio`. Supplied values are immutable; IDs refer to exact
+values present in the bundle. Original due-history, currency, quantity, role,
+native residual/work and optional-model guards remain mandatory.
+
+Independent full stepped/amortizing cash yield/Z inverses, native IRS/OIS fair
+rate and CDS running/upfront roundtrips, FRN reprojection, optional OAS/scenarios,
+partly/fully fixed futures and missing/inapplicable/non-identification failures
+have actual focused tests. The complete synthetic mixed-book example builds
+eight curves, prices five trades, calculates quote risk/FX coverage and an
+indicative integer hedge. Unknown gross exposure and missing expected risk
+remain Incomplete. Futures monetary levels are labelled separately from PV;
+expected cash is not posted. Generic optional/bond-future graph dispatch cannot
+bypass the original model and all-member guards.
+
+The inventory has247 source pins and45 observations. All2154 mandatory records,
+original suffix/economics/owners/surfaces and gates remain unchanged and Planned.
+Full market/convention/model packs, lifecycle/P&L, host/schema, executable hedges,
+independent numerical admission and library/production/latency certification
+remain owning work. The new facade dependency is the existing pure local
+portfolio crate; no provider, storage, MQ or runtime enters calculation.

@@ -77,6 +77,8 @@ pub mod rate_calibration;
 pub mod risk;
 /// Native-quote IRS/OIS fitting with exact dependent curves and frozen history.
 pub mod swap_calibration;
+/// Standalone full native construction, price, inverse and revaluation workflows.
+pub mod workflow;
 pub mod yields;
 
 // Phase 3: Spreads (from convex-spreads/)

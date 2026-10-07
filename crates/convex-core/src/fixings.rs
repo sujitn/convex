@@ -130,6 +130,13 @@ impl FixingResolution {
     pub fn missing(&self) -> &[FixingRequirement] {
         &self.missing
     }
+    /// Permitted forecasts, without creating placeholder rate values. This
+    /// inspects eligibility only; missing history must still be supplied.
+    pub fn projected_requirements(&self) -> impl Iterator<Item = &FixingRequirement> {
+        self.selected.iter().filter_map(|(requirement, selection)| {
+            matches!(selection, Selection::Project(_)).then_some(requirement)
+        })
+    }
     /// Forecast only permitted observations. All missing history fails before any
     /// callback runs. Projection errors propagate without rate-to-zero fallback.
     pub fn project<F>(&self, mut forecast: F) -> Result<Vec<ResolvedRate>, CashflowError>

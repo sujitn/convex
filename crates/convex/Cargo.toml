@@ -23,6 +23,7 @@ convex-bonds = { workspace = true }
 convex-rates = { workspace = true }
 convex-credit = { workspace = true }
 convex-analytics = { workspace = true }
+convex-portfolio = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

@@ -474,3 +474,21 @@ references, native cross-product tests, coverage failures and four standalone
 consumers are mandatory CI checks. Seven new quantitative artifacts append to
 all167 prior rows/bytes/defaults. No dependency, manifest, lock or C export
 changes; all2154 mandatory records and independent certificates remain open.
+
+CVX-061 adds [standalone valuation, inverse and mixed-book workflows](STANDALONE-WORKFLOWS.md).
+The closed pure facade composes full native construction, resource/fixing
+requirements, cash projection, pricing, checked inverses, full scenarios and
+signed quote risk. Futures mark levels, economic PV and expected versus posted
+cash remain distinct. NonUnique, NoRoot, missing inputs, NotApplicable and
+unsupported model routes are explicit; original numerical/model guards remain
+mandatory. The mixed-book example builds actual rate/cash/CDS curves and shows
+complete and incomplete coverage, pinned FX and an indicative integer hedge.
+
+Six new quantitative artifact pins append to all174 previous rows/bytes/defaults.
+Independent Decimal(60) full cash/yield/Z references, eleven focused workflow
+tests, two facade integration tests, required product suites and three feature
+consumers are mandatory CI checks. Six workflow modules enter critical source
+review. The facade adds one existing local `convex-portfolio` dependency; all
+nine pure roots remain provider/runtime/storage neutral. No new external
+dependency or C export is added. Mandatory library records and independent
+quantitative/market/model/host/production/latency gates remain open.

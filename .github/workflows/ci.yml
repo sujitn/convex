@@ -270,6 +270,27 @@ jobs:
       - name: Check expected portfolio coverage and pinned FX conversion
         run: cargo test --locked -p convex-portfolio --test signed_risk
 
+      - name: Check independent complete cash workflow references
+        run: python3 tests/scripts/standalone_reference.py check
+
+      - name: Check supplied inverse cashflows scenario and native model guards
+        run: cargo test --locked -p convex-analytics --test standalone_workflow
+
+      - name: Check complete standalone mixed book and missing coverage
+        run: cargo test --locked -p convex --test standalone_book
+
+      - name: Check required standalone and original product suites
+        run: cargo test --locked -p convex -p convex-analytics -p convex-rates -p convex-credit
+
+      - name: Run full supplied quotes to mixed book consumer
+        run: cargo run --locked -p convex --example standalone_book
+
+      - name: Run mixed book consumer with minimal features
+        run: cargo run --locked -p convex --example standalone_book --no-default-features
+
+      - name: Run mixed book consumer with schema features
+        run: cargo run --locked -p convex --example standalone_book --features schemars
+
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
 

@@ -233,6 +233,7 @@ struct Grid {
 /// Prepared immutable pure pricer. OAS inversion reuses the same validated trees.
 #[derive(Debug, Clone)]
 pub struct PreparedOptionalBond {
+    currency: convex_core::Currency,
     context: OptionalBondContext,
     face: f64,
     accrued: f64,
@@ -784,6 +785,7 @@ fn assemble(
         });
     }
     Ok(PreparedOptionalBond {
+        currency: inputs.discount.recipe().currency,
         context,
         face,
         accrued,
@@ -800,6 +802,10 @@ fn assemble(
 }
 
 impl PreparedOptionalBond {
+    /// Contract currency, retained from the checked original discount mapping.
+    pub fn currency(&self) -> convex_core::Currency {
+        self.currency
+    }
     /// Price at a declared constant OAS, checking both final successive refinements.
     pub fn price(&self, oas_decimal: f64) -> Result<OptionalBondPrice, OptionalBondError> {
         self.price_scenario(oas_decimal, CurveShift::BASE)

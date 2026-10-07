@@ -27,6 +27,8 @@ pub use convex_analytics::quote_risk;
 pub use convex_analytics::rate_calibration;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
 pub use convex_analytics::swap_calibration;
+/// Pure complete native supplied-input workflows and distinct inverse outcomes.
+pub use convex_analytics::workflow;
 pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;
@@ -40,6 +42,8 @@ pub use convex_core::{cashflows, fixings};
 pub use convex_credit as credit;
 /// Pure checked curve construction/query contracts.
 pub use convex_curves::contracts as curve_contracts;
+/// Pure portfolio aggregation, including explicit signed-risk/FX coverage.
+pub use convex_portfolio as portfolio;
 /// Complete supplied IRS/OIS terms, schedules and publication-aware cashflows.
 pub use convex_rates as rates;
 /// Supplied multi-curve swap valuation with actual historical coupon provenance.

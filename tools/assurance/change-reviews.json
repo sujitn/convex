@@ -832,6 +832,47 @@
         "tools/assurance/test_policy.py": "14461127239a265c06f86f9f247330dd4182e978a82400770eb04a4118219f9e",
         "tools/library/library-inventory.json": "da49b07575b47252e8a939e2c3f8396a8680d31ec5e779b71d1f364e5e8894b0"
       }
+    },
+    {
+      "base_commit": "b32e2df7ac7aaf927982bab95728cfbae56ed00c",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification. Preserve all174 previous quantitative rows/bytes/defaults, 4201 historical private evidence files and2154 mandatory records with exact suffix/economics/owners/surfaces/gates. One new facade->existing pure local portfolio normal edge; Cargo.lock adds only that edge, normal closure146 and25Cexports preserved. Original product price/grid/risk arithmetic and native schemas unchanged. Mandatory new CI/control checks cannot skip or ignore failure. Coding-agent review is not independent human quantitative approval.",
+      "tests": [
+        "11 native workflow and2 mixed-book focused tests; six-case independent Decimal reference",
+        "Required original suites/all-feature workspace, strict affected/workspace lint/docs/fmt and three feature consumers",
+        "Fresh unchanged external captures; full numeric/historical/mandatory/normal-dependency/ABI preservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "e87950cad3c40cd6094af9b7add337f6e2c78d4e3718a1c663773b0a006c9d4f",
+        "Cargo.lock": "7f67a274dcf331ef81f51afbf58da91fb20365708d83c63afe896b8090829336",
+        "README.md": "66d1d51308d01fde803836a37c688bdd4100848aeb061438c6ac6a40edc7cab9",
+        "crates/convex-analytics/src/lib.rs": "46248882e73a6c2c0714d6db6f6727a962d3a31213201c9de6d413097aff7376",
+        "crates/convex-analytics/src/optional_bond/pricing.rs": "1d466d472a8562a69f09862a94e0d1bbad3bfe1e688cbba80de14d0e6c9602eb",
+        "crates/convex-analytics/src/workflow/bond.rs": "99abeca5da780c875c244cabe0087460f1d7abb5ca9ba88bf22e9f69f2a0c995",
+        "crates/convex-analytics/src/workflow/capability.rs": "02a14d232d808d4e074afe4215d0127bd13d7750c07e2a54f1e5307801f2db5f",
+        "crates/convex-analytics/src/workflow/inputs.rs": "d06b6870c6ea545b96544467c502c50bef6b0db4eb2045411ef2917243e11f61",
+        "crates/convex-analytics/src/workflow/inverse.rs": "bf8f323ffc0ad6b8792e30688ba79aeb832ca23037043770aa66e67f33486996",
+        "crates/convex-analytics/src/workflow/mod.rs": "d7126e4cafce5c3ae4f432ebff965ae75e919bff2a6b37aca95413b12c958a33",
+        "crates/convex-analytics/src/workflow/valuation.rs": "822abcddec89675c21c921bfc136f7e1dbe88e512127c8950985e7e10b622e62",
+        "crates/convex-analytics/tests/standalone_workflow.rs": "9a8bbace85b40f67a0d9352a9706d15b4dba804af1889614e76b105a7dfc3a0a",
+        "crates/convex-core/src/fixings.rs": "e9cdf8ee0fa748d886e1ee022ee982d99fa1602013fb88987cc28a482185f60b",
+        "crates/convex/Cargo.toml": "e32652005707f95a2e5900b9ee6f055e3fad23fb5f50b841b232a664c5316e2a",
+        "crates/convex/examples/standalone_book.rs": "fbd8ab8ca782e8fa1582338972e0179ab0a1f2e6c6d497ee1b54aea6925c69ac",
+        "crates/convex/src/lib.rs": "f5233786d98f10ba77ed0fed785106647501f922a769649f49559a65dcf6fb82",
+        "crates/convex/tests/standalone_book.rs": "e993afe697ec6eba4b3da751c6b9912a0ef2dacf3970fbaffa84ff801975cd3a",
+        "docs/ASSURANCE.md": "9677fbb103c121843aa21665627740d2e2eabcd8960d682e098e4dd63ed4c45c",
+        "docs/LIBRARY-COVERAGE.md": "a74ef236deef7641af2d51d7228fd9ec01935b04a061234bad0d32bd2d5cee31",
+        "docs/STANDALONE-WORKFLOWS.md": "74f3b98c789e7389db2811c2c91d4f0e8ca0b87571b2949e83484d4344fc2c31",
+        "tests/fixtures/workflow/mixed-book.json": "99ab8e74017ad99c7a13970a29cf2a3a8d04d9d0447da085eb325705f0a80b21",
+        "tests/fixtures/workflow/standalone.json": "95621e70ef049e1cbf19cf15b7e6decdca36dbaa980ee2ca59fb41dd355b7576",
+        "tests/scripts/standalone_reference.py": "85af955f2aa12b46781935d1674e0475b3b47ad02058638a9606958613353aa9",
+        "tools/assurance/check.py": "d602100ec1d95014453d6f8d91c3b753fdee531c17eaeba9a244cef98278d3e1",
+        "tools/assurance/inventory.json": "6b7a8b51b22a66e201e21062af06539f6e7b221b305873c9465ba4e6cf511467",
+        "tools/assurance/numeric-evidence.json": "f549354ea44da9e2f05c7056738fa9d9affa6c05ae1372b620af13777c48e348",
+        "tools/assurance/test_policy.py": "f18640d65b517683d4fe5fc91a239f7046ee89a75ea90df33179887b33ba00b3",
+        "tools/library/library-inventory.json": "4acb9037d03a19975b0621f3ec5f6744325888f1ef25a2f78209a779baaee281"
+      }
     }
   ]
 }

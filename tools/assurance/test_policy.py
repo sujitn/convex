@@ -50,6 +50,20 @@ class AssuranceMutations(unittest.TestCase):
         self.rejects(check.check_workflow, source.replace('  assurance:', '  obsolete:'))
         self.rejects(check.check_workflow, source.replace('cargo fmt --all -- --check', 'cargo fmt --all'))
 
+    def test_standalone_workflow_checks_and_sources_cannot_be_dropped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance']
+                    if 'standalone' in c or c == 'cargo test --locked -p convex -p convex-analytics -p convex-rates -p convex-credit']
+        self.assertEqual(len(commands), 7)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        paths = check.inventory_paths(ROOT)
+        modules = {p.relative_to(ROOT).as_posix() for p in
+                   (ROOT/'crates/convex-analytics/src/workflow').glob('*.rs')}
+        self.assertEqual(len(modules), 6)
+        self.assertTrue(modules <= paths)
+
     def test_workflow_rejects_conditionals_ignored_exits_and_optout(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for mutation in [source.replace('    name: Bounded Rust Assurance', '    if: false\n    name: Bounded Rust Assurance'),
