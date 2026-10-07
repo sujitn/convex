@@ -279,6 +279,28 @@ class AssuranceMutations(unittest.TestCase):
             self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
+    def test_signed_risk_reference_full_graph_coverage_and_consumers_are_mandatory(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [
+            'python3 tests/scripts/quote_risk_reference.py check',
+            'cargo test --locked -p convex-analytics --test quote_risk',
+            'cargo test --locked -p convex-portfolio --test signed_risk',
+            'cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings',
+            'cargo test --locked -p convex-analytics -p convex-portfolio -p convex-curves',
+            'cargo run --locked -p convex --example quote_risk',
+            'cargo run --locked -p convex --example quote_risk --no-default-features',
+            'cargo run --locked -p convex --example quote_risk --features schemars',
+            'cargo run --locked -p convex-portfolio --example signed_risk',
+        ]
+        for command in commands:
+            for replacement in ['run: '+command+' || true\n', 'if: false\n        run: '+command+'\n', 'run: echo skipped\n']:
+                self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
+        for path in ['crates/convex-portfolio/src/signed_risk.rs', 'crates/convex-core/src/contracts/risk.rs', *[
+                'crates/convex-analytics/src/quote_risk/'+name+'.rs'
+                for name in ('mod', 'types', 'finite', 'graph', 'optional')]]:
+            self.assertTrue(check.protected(path))
+            self.assertIn(path, check.inventory_paths(ROOT))
+
     def test_curve_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

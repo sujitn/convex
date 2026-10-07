@@ -21,6 +21,8 @@ pub use convex_analytics::curve_inputs;
 /// Pure contract-aware futures and actual cash hedge valuation/risk.
 pub use convex_analytics::futures;
 pub use convex_analytics::futures_reference;
+/// Pure signed quote risk, validation and full dependency rebuilding.
+pub use convex_analytics::quote_risk;
 /// Pure mixed-instrument OIS and independent index curve calibration.
 pub use convex_analytics::rate_calibration;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.

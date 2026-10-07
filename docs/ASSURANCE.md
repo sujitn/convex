@@ -454,3 +454,23 @@ analytics/credit suites and three facade feature consumers. The scope has145
 critical sources and167 quantitative pins. No dependency, manifest, Cargo lock
 or C export is added; all2154 mandatory records remain Planned and independent
 human/market/model/host/library/production/latency certification remains open.
+
+CVX-024 adds [signed quote risk and portfolio coverage](QUOTE-RISK.md). Complete
+factor keys retain original helper or actual grid coordinates, native units,
+conventions/model revisions and held versus dependent-rebuilt response. The
+reference route keeps five actual currency PVs, exact signed quantity applied
+once, Central normalization and an explicit versioned half-step stability
+policy. Full rate/CDS/cash graphs rebuild every original helper at unchanged
+native tolerances with frozen calibration history/publications. Optional OAS
+requires the existing model resolution and separate duration/convexity refinement
+at both bump sizes; scalar price convergence cannot bypass those controls.
+
+Expected trade manifests retain missing factor outcomes, unknown gross exposure,
+per-currency coverage and exact same-snapshot FX pins. Partial monetary sums stay
+Incomplete, all-missing values stay absent, and distinct quote bases/units never
+net. Quote bucket membership and actual node-grid completeness are required
+before explicit bucket/parallel checks. Bounds, independent Decimal full-cash
+references, native cross-product tests, coverage failures and four standalone
+consumers are mandatory CI checks. Seven new quantitative artifacts append to
+all167 prior rows/bytes/defaults. No dependency, manifest, lock or C export
+changes; all2154 mandatory records and independent certificates remain open.

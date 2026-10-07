@@ -790,6 +790,48 @@
         "tools/assurance/test_policy.py": "6de15a694c06768e011143167791c378138b68df895c0b9787e246fb7aedbb82",
         "tools/library/library-inventory.json": "dbcf2d8ca603bc971a38e3a15d7dca9a696ece18e0ff581ec11e8f5b63ac9bac"
       }
+    },
+    {
+      "base_commit": "e625b48fe274c382d3a1bc1bbb2cfa43f60bd7fc",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate. Preserve all167 earlier quantitative rows/bytes/defaults, 4000 historical private evidence files and2154 mandatory Planned records with exact suffix/economics/owners/surfaces/gates. No Cargo manifest/lock, dependency or25Cexport change. Core additions retain existing JSON variants and signed DV01/KRD meanings; exhaustive Rust enum consumers need new cases. The generated canonical schema changes only additive factor/quote enum alternatives; existing definitions/variants are verified unchanged. CurveKey and QuoteUnit gain only Hash derives. New CI/control steps cannot skip or ignore failure. Coding-agent engineering review is not independent human quantitative approval. Extra-scope all-target core test lint found an unchanged previously pinned manual_flatten issue; that old test is preserved.",
+      "tests": [
+        "20 full native reference risk and11 complete portfolio/FX focused tests",
+        "Required affected suites/all-feature workspace, strict source/consumer lint/docs/fmt and four native consumers",
+        "Fresh native against unchanged QuantLib/ISDA/retained captures; complete numeric/history/mandatory/dependency/ABI preservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "1cb9f0ddfd72ae95dec670c8a272ee2278c8ad3720b248b7f988492ce181032c",
+        "README.md": "ba7a1659ff29d0d94a48757967ef265f8745dc28e5f52a4d0ac5619538eb336f",
+        "crates/convex-analytics/src/lib.rs": "45647697e97de70f097d3c0161566bcb997e1741562dde3c0b60f0c2a2372e61",
+        "crates/convex-analytics/src/quote_risk/finite.rs": "d9cc80e24c82e576ab0f64fac571f78c4127e2c2b0c4c19c115ae0cb34381a52",
+        "crates/convex-analytics/src/quote_risk/graph.rs": "79f280128bf9a3d57280f5bdc2f9f0962c50e9ed56b0ed1cd3fd5eefd082a20c",
+        "crates/convex-analytics/src/quote_risk/mod.rs": "83f60bd4f8327f205ed447f6f0292bf3c54a1ca0768938b5964656d58339c70b",
+        "crates/convex-analytics/src/quote_risk/optional.rs": "5bfa1f0de6a548413503dc9a3829415f06d83a1b59d4ccb49d4871a6b312af8f",
+        "crates/convex-analytics/src/quote_risk/types.rs": "84090785e7d6bd6ff716538024861c68292509f245375fec93f11c9837719a4d",
+        "crates/convex-analytics/tests/quote_risk.rs": "3cd81640aee283566019f7d0897591c7991d6c64d4665eb3bae2a8caa9585650",
+        "crates/convex-core/schemas/canonical-contracts.json": "fc6d0d2235e0bf94c6a2b5075451018835711cfcc9c7be3522fb1c9d35fc3326",
+        "crates/convex-core/src/contracts/risk.rs": "322052b379f1d09a96ae2975a7675cc77b45faed3d8126fe955fb29a24abc710",
+        "crates/convex-curves/src/contracts/inputs.rs": "b99bb9ddfe1cfce4e3e3ae4f0a9505571e5193dc34424ca814697b503e236341",
+        "crates/convex-portfolio/examples/signed_risk.rs": "ac47c4f011dc968639a1136e63a4140ba55ca3b16bd2643422cd11008823ec21",
+        "crates/convex-portfolio/src/lib.rs": "9529a1033d22d79384894c70c239ce4fe430f409d8a257c0bf216b7313960f69",
+        "crates/convex-portfolio/src/signed_risk.rs": "f1095d9d8978d1f1b96a6bdf82303a37bdedc9af9501067ed42b032552988bf7",
+        "crates/convex-portfolio/tests/signed_risk.rs": "ee34b23da49d001ea8bee7b16f8ec20764640f55c9d49b6da74686777cea5f5f",
+        "crates/convex/examples/quote_risk.rs": "bcda08bdaeff151fe71ef49a0d2b477559a62d224188c669d2cf4997b4c73ec8",
+        "crates/convex/examples/support/quote_fixture.rs": "63d4e928770a60d6b69357944c5204524291cc719ff6bc833788e7a6a461eb72",
+        "crates/convex/src/lib.rs": "8413afcbc680b2c8e6674336d18966186346efcb7ea7a03f932422c4b558382a",
+        "docs/ASSURANCE.md": "39a257b8ceb12356f540c0c4f60a6ba3769b55ef1cc121e03face5c7abb00259",
+        "docs/LIBRARY-COVERAGE.md": "f83ee7b6f66ad70a9c7b92fa351849276e6b2b323b059061436216537a89aabc",
+        "docs/QUOTE-RISK.md": "a0f4c4880e1233bb8d759649b05d6ae771232b37fd3afa11c21958f74f1c08c4",
+        "tests/fixtures/risk/quote-risk.json": "6d2858502ee481a257f34abc43162eaae36b99a94b68ebe3be0417971a7b24fe",
+        "tests/scripts/quote_risk_reference.py": "14b7f4da0d2ebad7030865d363e58b4271c22de7bab1c855665c045fcba1ffd7",
+        "tools/assurance/check.py": "bb62483ba5840ba06f26fc1185f4c3248e606d189cdfc10320e34e44a34c0a46",
+        "tools/assurance/inventory.json": "0acb1515be21a3aedc9e2c36c5fb488efbdfdff4d383cc9b39b1d6973107aad7",
+        "tools/assurance/numeric-evidence.json": "fa1f1777e9ae530e05717dc66a4376e7f7054ec2fbeecbda56c61f7dba4072a2",
+        "tools/assurance/test_policy.py": "14461127239a265c06f86f9f247330dd4182e978a82400770eb04a4118219f9e",
+        "tools/library/library-inventory.json": "da49b07575b47252e8a939e2c3f8396a8680d31ec5e779b71d1f364e5e8894b0"
+      }
     }
   ]
 }

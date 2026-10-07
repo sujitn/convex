@@ -23,6 +23,8 @@ pub enum FactorFamily {
     Recovery,
     /// Futures price quote.
     FuturesPrice,
+    /// Cash security clean/dirty price quotation.
+    CashPrice,
 }
 
 /// Provider-neutral identity of the object being bumped.
@@ -69,6 +71,8 @@ pub enum QuoteType {
     CdsSpread,
     /// CDS upfront fraction.
     CdsUpfront,
+    /// Dirty CDS cash upfront, distinct from clean upfront.
+    CdsDirtyUpfront,
     /// Bond Z spread.
     ZSpread,
     /// Hazard parameter.
@@ -77,6 +81,28 @@ pub enum QuoteType {
     RecoveryRate,
     /// Quoted futures price; not a one-bp rate measure.
     FuturesPrice,
+    /// Dated deposit quotation.
+    DepositRate,
+    /// Publication-aware dated FRA quotation.
+    FraRate,
+    /// Uniform spread on a declared basis-swap leg.
+    BasisSwapSpread,
+    /// Coupon of a full original par cash bond.
+    BondParCoupon,
+    /// Actual dated simple repo quotation.
+    RepoRate,
+    /// Bill bank-discount yield, distinct from cashflow yield.
+    BankDiscountYield,
+    /// Rate-future implied annualized rate; native points move in the opposite direction.
+    RateFutureRate,
+    /// Residual promised-cash issuer basis, distinct from credit and recovery.
+    ResidualBasis,
+    /// Explicit optional-bond model OAS, distinct from deterministic Z spread.
+    OasSpread,
+    /// Clean price per100 of original face.
+    CashCleanPrice,
+    /// Dirty price per100 of original face.
+    CashDirtyPrice,
 }
 
 /// Definition of the bump/rebuild operation.
@@ -183,21 +209,38 @@ impl RiskFactorKey {
                     | QuoteType::ZeroRate
                     | QuoteType::OisParRate
                     | QuoteType::SwapParRate
+                    | QuoteType::DepositRate
+                    | QuoteType::FraRate
+                    | QuoteType::BasisSwapSpread
+                    | QuoteType::BondParCoupon
+                    | QuoteType::RepoRate
+                    | QuoteType::BankDiscountYield
+                    | QuoteType::RateFutureRate
             ),
             FactorFamily::CreditSpread => matches!(
                 value.quote_type,
-                QuoteType::CdsSpread | QuoteType::CdsUpfront | QuoteType::ZSpread
+                QuoteType::CdsSpread
+                    | QuoteType::CdsUpfront
+                    | QuoteType::CdsDirtyUpfront
+                    | QuoteType::ZSpread
+                    | QuoteType::ResidualBasis
+                    | QuoteType::OasSpread
             ),
             FactorFamily::Hazard => value.quote_type == QuoteType::HazardRate,
             FactorFamily::Recovery => value.quote_type == QuoteType::RecoveryRate,
             FactorFamily::FuturesPrice => value.quote_type == QuoteType::FuturesPrice,
+            FactorFamily::CashPrice => matches!(
+                value.quote_type,
+                QuoteType::CashCleanPrice | QuoteType::CashDirtyPrice
+            ),
         };
         let basis_valid = match value.quote_type {
             QuoteType::ZeroRate => value.basis == RiskBasis::ZeroNode,
             QuoteType::HazardRate | QuoteType::RecoveryRate => {
                 value.basis == RiskBasis::ModelParameter
             }
-            QuoteType::FuturesPrice | QuoteType::Yield => value.basis == RiskBasis::RawQuote,
+            QuoteType::FuturesPrice | QuoteType::OasSpread => value.basis == RiskBasis::RawQuote,
+            QuoteType::ResidualBasis => value.basis == RiskBasis::ZeroNode,
             _ => matches!(
                 value.basis,
                 RiskBasis::RawQuote | RiskBasis::MarketQuoteRecalibrated
@@ -210,6 +253,10 @@ impl RiskFactorKey {
             }
             FactorFamily::Recovery => matches!(value.target, FactorTarget::Entity { .. }),
             FactorFamily::FuturesPrice => matches!(value.target, FactorTarget::Instrument { .. }),
+            FactorFamily::CashPrice => matches!(
+                value.target,
+                FactorTarget::Curve { .. } | FactorTarget::Instrument { .. }
+            ),
         };
         if !valid || !basis_valid || !target_valid {
             return Err(ContractError::new(

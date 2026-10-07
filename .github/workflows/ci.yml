@@ -261,6 +261,33 @@ jobs:
       - name: Check calibration failure and repricing contracts
         run: cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics
 
+      - name: Check independent full cash signed risk references
+        run: python3 tests/scripts/quote_risk_reference.py check
+
+      - name: Check full native signed quote risk and dependent rebuilding
+        run: cargo test --locked -p convex-analytics --test quote_risk
+
+      - name: Check expected portfolio coverage and pinned FX conversion
+        run: cargo test --locked -p convex-portfolio --test signed_risk
+
+      - name: Check signed risk libraries and consumers with strict lint
+        run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
+
+      - name: Run standalone signed quote risk consumer
+        run: cargo run --locked -p convex --example quote_risk
+
+      - name: Run signed quote risk without default features
+        run: cargo run --locked -p convex --example quote_risk --no-default-features
+
+      - name: Run signed quote risk with schema features
+        run: cargo run --locked -p convex --example quote_risk --features schemars
+
+      - name: Run standalone signed portfolio coverage consumer
+        run: cargo run --locked -p convex-portfolio --example signed_risk
+
+      - name: Check required signed risk affected suites
+        run: cargo test --locked -p convex-analytics -p convex-portfolio -p convex-curves
+
       - name: Check graph generation and concurrent claims
         run: cargo test --locked -p convex-engine --test graph_regressions
 

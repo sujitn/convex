@@ -12,7 +12,7 @@ use crate::{ExtrapolationMethod, InterpolationMethod};
 
 /// Immutable caller-assigned identity. Version changes are explicit; no hashing
 /// of provider identifiers or automatic version selection occurs here.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CurveKey {
     /// Provider-neutral curve identity.
@@ -29,7 +29,7 @@ impl CurveKey {
 }
 
 /// Native units are preserved in diagnostics; normalization is explicit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum QuoteUnit {
     /// Annualized decimal rate (0.05 = 5%).
     DecimalRate,

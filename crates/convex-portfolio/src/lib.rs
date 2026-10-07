@@ -74,6 +74,8 @@ pub mod contribution;
 pub mod error;
 pub mod etf;
 pub mod portfolio;
+/// Complete-key signed monetary aggregation and explicit coverage/FX reporting.
+pub mod signed_risk;
 pub mod stress;
 pub mod types;
 

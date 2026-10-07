@@ -478,6 +478,7 @@ cargo bench
 - [Supplied futures and cash hedge valuation and risk](docs/FUTURES-VALUATION.md)
 - [Complete supplied mixed rate calibration and tenor basis](docs/RATE-CALIBRATION.md)
 - [Supplied government, issuer basis and repo cash curves](docs/CASH-CURVES.md)
+- [Signed quote risk, full rebuilding and portfolio coverage](docs/QUOTE-RISK.md)
 - [Live Demo](https://convex-demo.pages.dev/)
 - [WASM Demo](https://sujitn.github.io/convex/)
 

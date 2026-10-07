@@ -355,3 +355,21 @@ qualify this as native engineering work. Street/convention/model extensions,
 canonical risk, lifecycle/P&L, host integration and independent certificates
 remain owning work. Every required record/combination/exclusion/gate and all
 2154 Planned mandatory records are preserved.
+
+Version18 records [signed quote risk and complete expected portfolio coverage](QUOTE-RISK.md).
+The pure native route composes full original rate/CDS/cash graph rebuilds and
+complete product PVs, preserving original unit/tolerance/history/quote pins.
+Signed quantity, raw quote versus calibrated quote versus actual grid/model
+risk, recovery and monetary normalizations are explicit. Half-step stability,
+complete quote/node membership and actual simultaneous parallel repricing use
+caller-admitted policies. Optional OAS also retains native resolution and
+independent sensitivity-grid refinement checks.
+
+Per-currency expected trade/factor/exposure coverage and pinned reporting FX
+never hide missing risk or unknown size. Induced FX conversion exposure describes
+the converted risk result, without claiming full portfolio FX delta. Independent
+Decimal stepped/amortizing cash references and native bond/IRS/CDS/futures,
+optional and failure scenarios qualify scoped engineering reuse. Legacy DV01/KRD
+semantics remain unchanged. Full convention/model/host/lifecycle/P&L, independent
+human quantitative, library, production and latency gates remain open; all2154
+mandatory records, economics, owners, surfaces and release gates are preserved.

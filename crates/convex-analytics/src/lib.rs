@@ -70,6 +70,8 @@ pub mod cash_calibration;
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
 pub mod optional_bond;
+/// Explicit signed native quote reference risk and immutable dependency rebuilding.
+pub mod quote_risk;
 /// Complete mixed dated deposit/FRA/futures/IRS/OIS/tenor-basis curve workflows.
 pub mod rate_calibration;
 pub mod risk;

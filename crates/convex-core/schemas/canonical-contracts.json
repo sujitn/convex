@@ -536,6 +536,11 @@
             "description": "Futures price quote.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
           }
         ]
       },
@@ -985,6 +990,11 @@
             "const": "cds_upfront"
           },
           {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
             "description": "Bond Z spread.",
             "type": "string",
             "const": "z_spread"
@@ -1003,6 +1013,61 @@
             "description": "Quoted futures price; not a one-bp rate measure.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
           }
         ]
       },
@@ -1529,6 +1594,11 @@
             "description": "Futures price quote.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
           }
         ]
       },
@@ -1674,6 +1744,11 @@
             "const": "cds_upfront"
           },
           {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
             "description": "Bond Z spread.",
             "type": "string",
             "const": "z_spread"
@@ -1692,6 +1767,61 @@
             "description": "Quoted futures price; not a one-bp rate measure.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
           }
         ]
       },
@@ -2133,6 +2263,11 @@
             "description": "Futures price quote.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
           }
         ]
       },
@@ -2418,6 +2553,11 @@
             "const": "cds_upfront"
           },
           {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
             "description": "Bond Z spread.",
             "type": "string",
             "const": "z_spread"
@@ -2436,6 +2576,61 @@
             "description": "Quoted futures price; not a one-bp rate measure.",
             "type": "string",
             "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
           }
         ]
       },
