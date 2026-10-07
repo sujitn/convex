@@ -67,6 +67,11 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example futures_reference',
         'cargo run --locked -p convex --example futures_reference --no-default-features',
         'cargo run --locked -p convex --example futures_reference --features schemars',
+        'cargo test --locked -p convex-analytics --test futures_valuation',
+        'cargo clippy --locked -p convex-analytics --test futures_valuation --all-features -- -D warnings',
+        'cargo run --locked -p convex --example futures_valuation',
+        'cargo run --locked -p convex --example futures_valuation --no-default-features',
+        'cargo run --locked -p convex --example futures_valuation --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -271,6 +276,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(['crates/convex-core/src/types/date.rs', 'crates/convex-core/src/types/frequency.rs', 'crates/convex-core/src/calendars/mod.rs', 'crates/convex-core/src/calendars/conventions.rs', 'crates/convex-core/src/calendars/dynamic.rs', 'crates/convex-bonds/src/fixings.rs', 'crates/convex-core/src/daycounts/actact.rs', 'crates/convex-core/src/daycounts/act365.rs', 'crates/convex-core/src/contracts/mod.rs', 'crates/convex-curves/src/curves/discrete.rs', 'crates/convex-curves/src/curves/segmented.rs', 'crates/convex-curves/src/calibration/global_fit.rs', 'crates/convex-analytics/src/calibration/hw1f.rs', 'crates/convex-bonds/src/options/swaption_hw1f.rs', 'crates/convex-engine/src/calc_graph.rs', 'crates/convex-engine/src/runtime/mod.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/cashflows').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/futures').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/futures').glob('*.rs'))
     paths.update(['crates/convex-ports/src/futures_reference.rs',
                   'crates/convex-ext-file/src/reference_repository.rs',
                   'crates/convex-ext-redb/src/reference_repository.rs'])

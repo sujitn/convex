@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "inventory_version": 14,
+  "inventory_version": 15,
   "reviewed_at": "2026-10-07",
-  "reviewed_source_commit": "1743749bf2b0d06ca747953b780d779ed6c460ca",
-  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned. CVX-019 AC2 execution now records a publisher/installed-byte verified QuantLib 1.40 run: ten matched full-term cases,973 numeric values and exact coupon/reset/observation/payment lineage at unchanged predeclared bounds. A separately pinned complete capture supports current-native offline CI on other platforms without installing QuantLib. Scoped external_comparison_pending is closed; all mandatory records stay Planned and independent certificates, market packs, risk/lifecycle and hosts remain owning work. CVX-020 provides callable native single-name CDS terms/schedules, premium/protection/accrual-on-default and running/clean/dirty conversions through convex::credit. Original executed1.8.3 model and all7164 original USD RFR rows match at declared bounds. Full calibration/CS01/JTD, lifecycle, host/schema and independent market/model certificates remain owning work. Preserve all original mandatory economics/owners/surfaces/gates and the exact2154 Planned table suffix. CVX-021 adds actual full CDS quote calibration, signed rates/CS01/upfront/recovery scenarios, conditional immediate JTD and checked bond-CDS mapping/basis inputs. Original ISDA1.8.3 execution supplies23 engineering scenarios/276valuations/1150checks. Bond credit pricing, executable hedge optimization, lifecycle/hosts and independent market/model certificates remain owning work. Preserve the exact2154 Planned requirement suffix, economics, owners, surfaces and gates. CVX-022 adds actual dated futures/basket/cash reference inputs, native exact units and source/availability admission, authoritative import/replay and explicit indicative advisor status. Published exchange factors are archived; calendar/cash registration and modified test controls are engineering assumptions. Complete futures/CTD/carry/fixing/risk/lifecycle/host workflow and independent certificates remain pending. Preserve every2154 Planned requirement and exact suffix/economics/owner/surface/gate.",
+  "reviewed_source_commit": "8f8420a563600e4577ca4be093edd668de0966b9",
+  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned. CVX-019 AC2 execution now records a publisher/installed-byte verified QuantLib 1.40 run: ten matched full-term cases,973 numeric values and exact coupon/reset/observation/payment lineage at unchanged predeclared bounds. A separately pinned complete capture supports current-native offline CI on other platforms without installing QuantLib. Scoped external_comparison_pending is closed; all mandatory records stay Planned and independent certificates, market packs, risk/lifecycle and hosts remain owning work. CVX-020 provides callable native single-name CDS terms/schedules, premium/protection/accrual-on-default and running/clean/dirty conversions through convex::credit. Original executed1.8.3 model and all7164 original USD RFR rows match at declared bounds. Full calibration/CS01/JTD, lifecycle, host/schema and independent market/model certificates remain owning work. Preserve all original mandatory economics/owners/surfaces/gates and the exact2154 Planned table suffix. CVX-021 adds actual full CDS quote calibration, signed rates/CS01/upfront/recovery scenarios, conditional immediate JTD and checked bond-CDS mapping/basis inputs. Original ISDA1.8.3 execution supplies23 engineering scenarios/276valuations/1150checks. Bond credit pricing, executable hedge optimization, lifecycle/hosts and independent market/model certificates remain owning work. Preserve the exact2154 Planned requirement suffix, economics, owners, surfaces and gates. CVX-022 adds actual dated futures/basket/cash reference inputs, native exact units and source/availability admission, authoritative import/replay and explicit indicative advisor status. Published exchange factors are archived; calendar/cash registration and modified test controls are engineering assumptions. Complete futures/CTD/carry/fixing/risk/lifecycle/host workflow and independent certificates remain pending. Preserve every2154 Planned requirement and exact suffix/economics/owner/surface/gate. CVX-023 adds full supplied deterministic bond-future cash/carry/rank/switch risk and partly-fixed overnight/term rate valuation, explicit convexity/final precision, actual cash hedge model/side estimates, normal margin/tick/integer/supplied roll diagnostics. All outputs are indicative. Optional delivery/margin financing, complete convention/model packs, canonical portfolio risk, lifecycle/hosts and independent certificates remain pending. Preserve every2154 Planned requirement and mandatory suffix bytes/economics/owners/surfaces/gates.",
   "requirement_areas": [
     {
       "id": "LC-001",
@@ -878,7 +878,12 @@
     "crates/convex-analytics/src/credit_risk.rs": "8b4df16590cd1333963a29b9de8c3d18cdac3eed87d2752486fa62df976dfed3",
     "crates/convex-analytics/src/curve_inputs.rs": "5d2131743a3499fc60b2002e4cc62ac0c1957dbfc746f3b246b3ff3ca4e98392",
     "crates/convex-analytics/src/dto.rs": "9896f15c324b25b769bfa51e45c24acb25c9e11850eb5943790330f5fee91908",
-    "crates/convex-analytics/src/lib.rs": "c920f3be306bfa7383051fc1736c580adb48d11a8117a4b54ad17f21bfa471e4",
+    "crates/convex-analytics/src/futures/bond.rs": "b9a1d4b11e1061006c5495209bf78ecf65cea1d4d852808b7cebda75570d39c2",
+    "crates/convex-analytics/src/futures/cash.rs": "d4a1bc979bdc63c1e9044c4be9bed0fcab9229eb4582f917315a78e79babbb85",
+    "crates/convex-analytics/src/futures/mod.rs": "17569e35ed8579178efb695b9deacd3521d3303a5ac31be3c9493f10a28b625e",
+    "crates/convex-analytics/src/futures/rates.rs": "97cc17f3e2ff3cae993e416caa19f6f1798830017f25739278cf586c3233425f",
+    "crates/convex-analytics/src/futures/settlement.rs": "e7fe6263b19e79af6e0bcf8e8a493a7b86f723a7a292a304585b48480dbb3e50",
+    "crates/convex-analytics/src/lib.rs": "5bc3e6377c54fd6f351b6266b5d2249ea8d8263b9934a84d1d58920998a3a026",
     "crates/convex-analytics/src/optional_bond/calibration.rs": "dcd1e3acbc6a1f3b61ed1ddc358b030a96e45af41dcc336a8d2b79e571afe93b",
     "crates/convex-analytics/src/optional_bond/mod.rs": "fd1901c5900bb8914942bb172c2a69d63fd0aa83d3aa283a0931cea071777120",
     "crates/convex-analytics/src/optional_bond/pricing.rs": "d19a2a74f1c3f0b8bd525361a1cb445ee7c13ed1fbdf296f464e0d69ef61f374",
@@ -908,8 +913,10 @@
     "crates/convex-analytics/tests/fixtures/curve-helper-inputs.json": "07db36008e095c9b922bcc3b11e875502eaa01d78947d05ba4c81a19797ed109",
     "crates/convex-analytics/tests/fixtures/optional-bonds.json": "f0194a70a540b7006c8ad046c5148762aa693c7f56087367f18df09873f4b0d5",
     "crates/convex-analytics/tests/futures_reference.rs": "56bd79a53dbbf0315e039edef06169d4f184347d8c37d226bae27529dcf9719f",
+    "crates/convex-analytics/tests/futures_valuation.rs": "f3fcf1c66b2f9b7a54f4c07fb2d1f450fd0674ab90d2733a8a3f8f9ff611e719",
     "crates/convex-analytics/tests/optional_bonds.rs": "66fdd5878e8db860b3c704a3f5cdf7b41b45e10e12ef21e7c08b9c7865e67eb0",
     "crates/convex-analytics/tests/shared_primitives.rs": "cdd5ca407a9e0f3ce509f89444df40c009bfb77e6d53faa437757f2640c6469c",
+    "crates/convex-analytics/tests/support/futures.rs": "9307c3579230bf419005282b73f8048916f112342445cacf14210505a3fb0311",
     "crates/convex-analytics/tests/swap_calibration.rs": "58f9d8d6e18bb8276acf8dc84c979c3cc4979fa44266c8eee4f13da807eb0002",
     "crates/convex-bonds/src/arrc.rs": "8fb48d0615ddd7660d2485bafeee6b0708ccb4f77427f4cf163b2b3c990a187b",
     "crates/convex-bonds/src/cashflows/schedule.rs": "ec668e678abe00172941799edff5e52d8a54d96acd2fb926f2cb0ebd8e374cd2",
@@ -1030,14 +1037,16 @@
     "crates/convex/examples/curve_contracts.rs": "06f71fa366eb2e1cc5339095a12b6b0ce6c53bee89019ff50ead7efacb7a0bb0",
     "crates/convex/examples/curve_numerics.rs": "c6ff6862ce0c3d7f2345cb124de7ea90e161eb224d17c9d9ee246d7b539345b7",
     "crates/convex/examples/futures_reference.rs": "6ce01c29d37e56eafb246102c6fe3d39419712a8a1e8edb90403ed7138181570",
+    "crates/convex/examples/futures_valuation.rs": "3f2e6bc2d11f20e6940976dd38e3e61706acbe6dbbf55e3deef23e290d651a9a",
     "crates/convex/examples/optional_bonds.rs": "24fe61cb7b7aff88115aa4fc39d0498bcdf1b9680ce0f9d5ebc5a9a05e82db1c",
     "crates/convex/examples/rates_contracts.rs": "135aa46423388f068d4b5987e4f42d5ce6cd36d21bf8129054b0f16605907081",
     "crates/convex/examples/swap_comparison.rs": "c42d5b66acd62d7a883a990633ac7963ba1462b1350ed4afefdcf1042a733e13",
     "crates/convex/examples/swap_valuation.rs": "2b8f69de2d65d1e002e61673b2522f221dd57acdc98bfb2af5b786ab77085e31",
-    "crates/convex/src/lib.rs": "7addc2b6d7d9412c4ce6b42d8717e4a12d72074f40e9ef91b4eec3f30494cbae",
+    "crates/convex/src/lib.rs": "4ddddb18e93bb7cc25a447088de60b5bc297f48e63b16a307c4d8d5b65fc6db2",
     "docs/CDS-VALUATION.md": "400134279bbaf53c8e857cfee76edbb9f4d94375846a3f36692db3bf6d99ba79",
     "docs/CREDIT-CALIBRATION.md": "8bb22bc74f20d25e63ff2deb815bfb8fe3f3df557f24d2cdc410733195e28cc2",
     "docs/FUTURES-REFERENCE.md": "a6e6c1f61fdd6a61546a358b87681874e1b06375120044098e2d0c15a80cf11f",
+    "docs/FUTURES-VALUATION.md": "4eb2a117fb21f3498d48fc3d250c6cc94234d9ad67f058c5a782c30546c9ed78",
     "excel/Convex.Excel/Cx.cs": "221f6ad5df978f7021615400e2cd9fd4af7223847654bb2f12b147b95af968a1",
     "tests/fixtures/comparisons/swap-quantlib-inputs.json": "ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a",
     "tests/scripts/isda_cds_capture.py": "ed7aa17961faeefaa894e582182975e2ac4f60be495fd8962318a90bb2cd70db",
@@ -1534,7 +1543,7 @@
     },
     "bond_futures": {
       "assessment": "partial",
-      "note": "The older CTD/forward/net-basis advisor still uses incomplete synthetic schedules and flat carry and is explicitly indicative only. CVX-022 separately supplies exact dated contract/basket/security versions, published CF, native ticks/invoice units, cash prerequisites and strict atomic import/replay. Archived CME facts cannot become executable. Full carry/CTD/all-deliverable pricing, margins/roll/delivery lifecycle and switch risk remain CVX-023/owning work.",
+      "note": "CVX-023 supplies complete actual fixed nominal bullet cash/accrued/CF/carry, independent net-basis/IRR/fair-forward criteria, all-member reprice/risk/switch/frozen-basis diagnostics, cash hedge model/side/cost estimates and normal settlement/supplied roll/rounding. Old approximate advisor remains unchanged and unqualified. Fixed-date deterministic optional-delivery and margin financing limitations are explicit; every result is indicative. Complete model/market packs, canonical portfolio risk, lifecycle/P&L and host/execution/certificates remain owning work.",
       "public_apis": [
         "convex::select_ctd",
         "convex::BondFuture",
@@ -1546,7 +1555,16 @@
         "convex::futures_reference::assess_cash_hedge",
         "convex::futures_reference::bond_delivery_invoice",
         "convex::HedgeExecutionStatus",
-        "convex_ports::futures_reference::FuturesDefinition"
+        "convex_ports::futures_reference::FuturesDefinition",
+        "convex::futures::price_bond_future",
+        "convex::futures::bond_futures_risk",
+        "convex::futures::price_cash_hedge",
+        "convex::futures::cash_hedge_risk",
+        "convex::futures::futures_settlement_effect",
+        "convex::futures::futures_quote_risk",
+        "convex::futures::round_futures_price",
+        "convex::futures::round_futures_hedge",
+        "convex::futures::plan_futures_roll"
       ],
       "anchors": [
         {
@@ -1588,27 +1606,77 @@
           "path": "crates/convex-analytics/tests/futures_reference.rs",
           "text": "fn historical_synthetic_stale_incomplete_and_future_known_baskets_never_admit(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/settlement.rs",
+          "text": "pub fn futures_settlement_effect(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/settlement.rs",
+          "text": "pub fn plan_futures_roll(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/cash.rs",
+          "text": "pub fn price_cash_hedge(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex/examples/futures_valuation.rs",
+          "text": "fn main()",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/bond.rs",
+          "text": "pub fn price_bond_future(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/bond.rs",
+          "text": "pub fn bond_futures_risk(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/futures_valuation.rs",
+          "text": "fn ten_actual_pinned_members_have_independent_full_cash_carry_and_invoice_references(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/futures_valuation.rs",
+          "text": "fn close_ctd_switch_is_visible_and_frozen_risk_is_separate(",
+          "kind": "test"
         }
       ],
       "gaps": [
         "legacy_approximation_indicative_only",
-        "missing_full_carry_ctd_and_switch_risk",
+        "optional_delivery_and_margin_financing_unvalued",
+        "missing_full_market_model_packs",
+        "missing_canonical_portfolio_risk",
         "missing_lifecycle",
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "CVX-022 actual focused receipts:12native analytics,2port,3file and3redb tests plus1child-process reopen;512seeded exact Decimal controls; published complete10issue basket and Chapter19 invoice equality. Three native facade features execute. These are reference engineering evidence; full library/market/model/host/production/latency certificates remain pending."
+      "test_execution": "CVX-023 dedicated21native tests: ten complete manual cash/carry/CF/invoice references; nine bond/eighteen rate half/base/double risk references; published hypothetical SR3/SR1 final equality and two exact CME margin examples;512partition/telescoping/signed properties; missing history/first publications/convexity/final/roll/source/strict cached inverse failures. Strict dedicated Clippy and default/minimal/schema pure consumers are required. Existing quantitative regression gates remain unchanged; this is scoped engineering evidence, not complete library/market/model/host/production/latency certification."
     },
     "rate_futures": {
       "assessment": "partial",
-      "note": "The older curve Future helper remains an incomplete trade workflow. CVX-022 supplies strict overnight/term windows, actual fixing-versus-settlement semantics, dated multiplier/ticks, exact100-minus-rate transform and explicit absent/zero/supplied convexity policy. SR3 named month is separate from final settlement. Realized observations/projection/risk, partly fixed pricing, daily/final margin and lifecycle remain CVX-023/owning work.",
+      "note": "CVX-023 supplies exact shared overnight weights/full quotation intervals, arithmetic/compound and separate single-term fixing/value dates, due history before projection, first-published versus latest explicit clearing rules, retained revisions/cutoffs/queries, explicit zero/supplied/not-admitted convexity, known/unfixed risk and cached inverse checks. Final settlement rounding is separate from ticks; normal monetary-level margin and compatible named roll are indicative. Old curve helper remains separate. Complete stochastic convexity/convention packs, canonical portfolio risk, lifecycle/hosts and independent certificates remain pending.",
       "public_apis": [
         "convex_curves::Future",
         "convex::futures_reference::RateAccrual",
         "convex::futures_reference::FuturesSettlement",
         "convex::futures_reference::FuturesConvexityPolicy",
         "convex::futures_reference::FuturesContract::rate_from_price",
-        "convex::futures_reference::FuturesContract::calibration_rate"
+        "convex::futures_reference::FuturesContract::calibration_rate",
+        "convex::futures::FuturesFixings",
+        "convex::futures::FuturesClearingRules",
+        "convex::futures::rate_futures_requirements",
+        "convex::futures::price_rate_future",
+        "convex::futures::rate_futures_risk",
+        "convex::futures::remaining_rate_from_price",
+        "convex::futures::futures_settlement_effect",
+        "convex::futures::plan_futures_roll"
       ],
       "anchors": [
         {
@@ -1650,16 +1718,56 @@
           "path": "crates/convex-analytics/tests/futures_reference.rs",
           "text": "fn strict_bond_rate_and_observation_json_reject_inapplicable_or_dropped_terms(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/settlement.rs",
+          "text": "pub fn futures_settlement_effect(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/settlement.rs",
+          "text": "pub fn plan_futures_roll(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/cash.rs",
+          "text": "pub fn price_cash_hedge(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex/examples/futures_valuation.rs",
+          "text": "fn main()",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/rates.rs",
+          "text": "pub fn price_rate_future<",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/futures/rates.rs",
+          "text": "pub fn rate_futures_risk<",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/futures_valuation.rs",
+          "text": "fn published_hypothetical_cme_sofr_examples_have_exact_final_prices(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/futures_valuation.rs",
+          "text": "fn partly_fixed_overnight_risk_matches_independent_six_case_eighteen_bump_grid(",
+          "kind": "test"
         }
       ],
       "gaps": [
-        "missing_partly_fixed_trade_pricer",
-        "missing_projected_risk",
+        "missing_full_market_convexity_packs",
+        "missing_canonical_portfolio_risk",
         "missing_lifecycle",
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "CVX-022 actual focused receipts:12native analytics,2port,3file and3redb tests plus1child-process reopen;512seeded exact Decimal controls; published complete10issue basket and Chapter19 invoice equality. Three native facade features execute. These are reference engineering evidence; full library/market/model/host/production/latency certificates remain pending."
+      "test_execution": "CVX-023 dedicated21native tests: ten complete manual cash/carry/CF/invoice references; nine bond/eighteen rate half/base/double risk references; published hypothetical SR3/SR1 final equality and two exact CME margin examples;512partition/telescoping/signed properties; missing history/first publications/convexity/final/roll/source/strict cached inverse failures. Strict dedicated Clippy and default/minimal/schema pure consumers are required. Existing quantitative regression gates remain unchanged; this is scoped engineering evidence, not complete library/market/model/host/production/latency certification."
     },
     "core_curves": {
       "assessment": "partial",

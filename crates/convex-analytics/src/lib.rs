@@ -60,6 +60,8 @@ pub mod cashflows;
 pub mod credit_calibration;
 /// Distinct credit scenarios, signed sensitivities and checked bond-CDS mappings.
 pub mod credit_risk;
+/// Actual supplied futures/cash carry, observation pricing, signed risk and settlement effects.
+pub mod futures;
 /// Checked pure futures/cash reference facts and execution-input eligibility.
 pub mod futures_reference {
     pub use convex_core::futures::*;

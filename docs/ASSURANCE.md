@@ -393,3 +393,24 @@ three facade feature consumers. The critical inventory now covers the pure
 futures domain, reference admission/backends and indicative advisor paths.
 All 2,154 mandatory library records remain Planned; dependencies and all
 25 C exports remain unchanged. CVX-023 owns full futures valuation/risk.
+
+CVX-023 adds [supplied futures/cash valuation and risk](FUTURES-VALUATION.md)
+inside the existing pure analytics library. Full fixed-bond carry and independent
+CTD criteria retain actual security cash, published CF, explicit funding/haircut/
+coupon treatment and all alternatives. Weighted overnight/term rates retain due
+history before forecasts, explicit first-publication rules, known/unfixed risk
+and separate final precision. Normal monetary-level settlement rounding, exact
+ticks, integer residuals and supplied roll facts never post cash or authorize
+orders. All results remain indicative; deterministic delivery optionality, margin
+financing, cash carry estimates and raw risk bases retain their limitations.
+
+Five new production modules forbid unsafe and deny unwrap/expect/panic, with
+bounded inputs and checked arithmetic. Dedicated tests compare independent
+Decimal cash/carry and half/base/double risk scenarios, published hypothetical
+CME SOFR settlements and margin examples, and failure/lineage controls. New
+artifact pins are additive to all152 existing quantitative rows/bytes/defaults;
+no existing quantitative result or tolerance is changed. Strict CI requires
+new tests/Clippy and all three facade feature consumers. All2154 mandatory
+records remain Planned; no human, market/model/host/library/production/latency
+certificate or complete optional-delivery model is inferred. Pure dependencies,
+manifests/lock and all25 C exports remain unchanged.

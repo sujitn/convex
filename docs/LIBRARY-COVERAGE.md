@@ -307,3 +307,17 @@ all proposals indicative only. This extends reference admission rather than
 certifying CTD/carry, partly fixed rate valuation, margin/lifecycle or executable
 hedging. All 2,154 mandatory records remain Planned; CVX-023 owns the complete
 futures valuation and risk work, with host and certificate gates still pending.
+
+Version15 records [supplied futures/cash valuation](FUTURES-VALUATION.md): full
+fixed-bond deterministic carry/CF/invoice and independent CTD rankings; all-member
+zero/repo/basis repricing with switches; publication-aware arithmetic/compounded
+overnight and single-term pricing with remaining forward risk; actual cash hedge
+model/side/cost estimates; normal monetary-level settlement rounding and explicit
+tick/integer/supplied roll diagnostics. Source-quality/time blocks remain visible
+and every pure output is indicative. Independent published hypothetical settlement
+and Decimal cash/risk fixtures qualify only this scoped engineering behavior.
+Legacy approximate advisor formulas remain unchanged and unqualified. Full
+market/convexity/optional-delivery packs, canonical portfolio risk, lifecycle/P&L,
+host/schema dispatch, execution and independent certificates remain owning work.
+Every mandatory record, combination, exclusion and gate remains unchanged and
+all2154 required records remain Planned.

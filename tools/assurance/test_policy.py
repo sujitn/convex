@@ -232,6 +232,22 @@ class AssuranceMutations(unittest.TestCase):
             self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
+    def test_futures_valuation_checks_cannot_be_skipped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'cargo test --locked -p convex-analytics --test futures_valuation',
+            'cargo clippy --locked -p convex-analytics --test futures_valuation --all-features -- -D warnings',
+            'cargo run --locked -p convex --example futures_valuation',
+            'cargo run --locked -p convex --example futures_valuation --no-default-features',
+            'cargo run --locked -p convex --example futures_valuation --features schemars',
+        ]:
+            for replacement in ['run: '+command+' || true\n', 'if: false\n        run: '+command+'\n', 'run: echo skipped\n']:
+                self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
+        for name in ('mod', 'bond', 'rates', 'cash', 'settlement'):
+            path = 'crates/convex-analytics/src/futures/'+name+'.rs'
+            self.assertTrue(check.protected(path))
+            self.assertIn(path, check.inventory_paths(ROOT))
+
     def test_curve_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [

@@ -671,6 +671,41 @@
         "tools/assurance/test_policy.py": "49341e3a4b6f080f45943a2ae0ac94d30b6f71d70b405906051ddb2309721efd",
         "tools/library/library-inventory.json": "3489ea7d33d489f62718bfa315ae4ed7db0b2e7f799da0079bb9d88815114a34"
       }
+    },
+    {
+      "base_commit": "8f8420a563600e4577ca4be093edd668de0966b9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive. Preserve all152 prior quantitative artifact rows/bytes/defaults, all3564 historical evidence files, original independent captures,2154 Planned mandatory records/suffix/economics/owners/surfaces/gates, exact Cargo manifests/lock/normal dependencies and25 Cexports. Five new independent engineering pins and required CI controls are additive. No independent human quantitative approval or complete market/model/host/library/production/latency certificate is inferred.",
+      "tests": [
+        "21focused tests and independent fixed-cash/partly-fixed-risk grids plus exact published hypothetical exchange settlements and margin",
+        "Required analytics/rates and affected full workspace; strict Clippy/rustdoc/fmt; three feature consumers",
+        "All existing independent bond/swap/CDS/credit comparisons and immutable history/numeric/library/dependency/ABI controls; next harness handoff"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "834eeda2aeebff4576f1b42ba782e8a1e3c9164f814c3c87c07f72da95141405",
+        "README.md": "e03d64d9ceae4ec04d55e038ae1bd394307fb3d23d3b666193be6aee6425195f",
+        "crates/convex-analytics/src/futures/bond.rs": "b9a1d4b11e1061006c5495209bf78ecf65cea1d4d852808b7cebda75570d39c2",
+        "crates/convex-analytics/src/futures/cash.rs": "d4a1bc979bdc63c1e9044c4be9bed0fcab9229eb4582f917315a78e79babbb85",
+        "crates/convex-analytics/src/futures/mod.rs": "17569e35ed8579178efb695b9deacd3521d3303a5ac31be3c9493f10a28b625e",
+        "crates/convex-analytics/src/futures/rates.rs": "97cc17f3e2ff3cae993e416caa19f6f1798830017f25739278cf586c3233425f",
+        "crates/convex-analytics/src/futures/settlement.rs": "e7fe6263b19e79af6e0bcf8e8a493a7b86f723a7a292a304585b48480dbb3e50",
+        "crates/convex-analytics/src/lib.rs": "5bc3e6377c54fd6f351b6266b5d2249ea8d8263b9934a84d1d58920998a3a026",
+        "crates/convex-analytics/tests/futures_valuation.rs": "f3fcf1c66b2f9b7a54f4c07fb2d1f450fd0674ab90d2733a8a3f8f9ff611e719",
+        "crates/convex-analytics/tests/support/futures.rs": "9307c3579230bf419005282b73f8048916f112342445cacf14210505a3fb0311",
+        "crates/convex/examples/futures_valuation.rs": "3f2e6bc2d11f20e6940976dd38e3e61706acbe6dbbf55e3deef23e290d651a9a",
+        "crates/convex/src/lib.rs": "4ddddb18e93bb7cc25a447088de60b5bc297f48e63b16a307c4d8d5b65fc6db2",
+        "docs/ASSURANCE.md": "ccc94dc72212ec9ddb204853ca2e307672777523be8d2c085d4a81de538fa1d5",
+        "docs/FUTURES-VALUATION.md": "4eb2a117fb21f3498d48fc3d250c6cc94234d9ad67f058c5a782c30546c9ed78",
+        "docs/LIBRARY-COVERAGE.md": "d662ef4e7c99c04f4b68fec9f459ec06f9c2b4bb5b8c5c0dec1c09016c209eb3",
+        "tests/fixtures/futures/exchange-settlement.json": "82674e934ec7dba359892fc2268c0bd69b5dc97ca02e0b2a3926c60404eca73a",
+        "tests/fixtures/futures/valuation.json": "fa28e2f7eb7900e9a8f3f1802da56efe8688d94d2a2360b835a48adbdaed986d",
+        "tools/assurance/check.py": "9bda27e2281254452232da8b938585cac41cc5c233a80a9b8a622863e4b3832e",
+        "tools/assurance/inventory.json": "0ceb8cfdc277e8bb716f966ec02714ac22a143d108e1c39dfdaecf3b666aa4ce",
+        "tools/assurance/numeric-evidence.json": "8fb4bc7f8484a6adeaa84af1e0ec878d057ea33174f78e5ddfcd53039ceb0e0d",
+        "tools/assurance/test_policy.py": "dda28eff76113391ebcbe2ff9148a51b5d33e2e7f636340f9717a7d81245ada3",
+        "tools/library/library-inventory.json": "65c6f3cfcdae98f5f2e0fd592b59a82f2eb8ce58d6594a92c455764e8a47ec40"
+      }
     }
   ]
 }

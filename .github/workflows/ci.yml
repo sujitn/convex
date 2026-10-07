@@ -198,6 +198,21 @@ jobs:
       - name: Run futures reference consumer with schema features
         run: cargo run --locked -p convex --example futures_reference --features schemars
 
+      - name: Check full futures cash carry settlement and remaining-rate risk
+        run: cargo test --locked -p convex-analytics --test futures_valuation
+
+      - name: Check futures valuation source and dedicated tests
+        run: cargo clippy --locked -p convex-analytics --test futures_valuation --all-features -- -D warnings
+
+      - name: Run supplied futures valuation consumer
+        run: cargo run --locked -p convex --example futures_valuation
+
+      - name: Run futures valuation consumer with minimal features
+        run: cargo run --locked -p convex --example futures_valuation --no-default-features
+
+      - name: Run futures valuation consumer with schema features
+        run: cargo run --locked -p convex --example futures_valuation --features schemars
+
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
 

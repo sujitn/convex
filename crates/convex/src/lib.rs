@@ -17,6 +17,8 @@ pub use convex_analytics::credit_calibration;
 pub use convex_analytics::credit_risk;
 /// Full dated product helper inputs without application dependencies.
 pub use convex_analytics::curve_inputs;
+/// Pure contract-aware futures and actual cash hedge valuation/risk.
+pub use convex_analytics::futures;
 pub use convex_analytics::futures_reference;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
 pub use convex_analytics::swap_calibration;
