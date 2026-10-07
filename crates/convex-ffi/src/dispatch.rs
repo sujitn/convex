@@ -729,7 +729,7 @@ fn risk_profile_inner(request: serde_json::Value) -> Result<RiskProfile, Dispatc
         Some(ObjectKind::Bond(BondKind::ZeroCoupon)) => Err(DispatchError::input(
             "position risk is not yet wired for zero-coupon bonds",
         )),
-        // FixedRate + SinkingFund (bullet leg). Curve/None handled by the macro.
+        // FixedRate + full SinkingFund cash. Curve/None handled by the macro.
         _ => with_fixed_bond!(req.bond, bond, {
             compute_position_risk(
                 bond,
@@ -1163,7 +1163,7 @@ macro_rules! with_fixed_bond {
             }
             Some(ObjectKind::Bond(BondKind::SinkingFund)) => {
                 registry::with_object::<SinkingFundBond, _, _>(h, |sb| {
-                    let $bond = sb.base_bond();
+                    let $bond = sb;
                     $body
                 })
                 .ok_or_else(|| {

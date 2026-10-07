@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Economic role of an independently dated profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ProfileKind {
     /// Deterministic annualized decimal coupon component.
     Coupon,
@@ -20,6 +21,7 @@ pub enum ProfileKind {
 
 /// One caller-supplied [start, end) interval. No implicit sorting or truncation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DatedValue {
     /// Inclusive start of the economic value.
@@ -27,6 +29,8 @@ pub struct DatedValue {
     /// Exclusive end of the economic value.
     pub end: Date,
     /// Value in the units declared by ProfileKind.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub value: Decimal,
 }
 
@@ -40,13 +44,16 @@ pub enum BoundarySide {
 }
 
 /// Principal transition with an explicit pre/post-boundary amount.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct PrincipalChange {
     /// Principal immediately before the effective date.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub before: Decimal,
     /// Principal on/after the effective date (zero at profile maturity).
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub after: Decimal,
     /// Before minus after; negative means a principal advance.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub repayment: Decimal,
 }
 

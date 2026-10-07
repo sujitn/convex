@@ -13,6 +13,7 @@ use crate::{
 /// Choice of automatic irregular boundary. Explicit first/penultimate dates
 /// override automatic stub length at that boundary. `None` requires an exact grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum StubType {
     /// Require regular periods unless explicit boundary dates are supplied.
     #[default]
@@ -40,6 +41,7 @@ impl StubType {
 
 /// Immutable input terms for a shared coupon schedule, with no calendar lookup.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleSpec {
     /// Contractual accrual start; may differ from issue/trade date.
@@ -60,6 +62,7 @@ pub struct ScheduleSpec {
 
 /// A signed offset. Business-day counting excludes the starting date.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum DateOffset {
     /// Exact calendar days.
     CalendarDays(i32),
@@ -113,6 +116,7 @@ pub fn settlement_date(
 
 /// First date on which a settling buyer loses coupon entitlement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ExCouponBoundary {
     /// Settlement on the specified date is already ex-coupon.
     OnDate,
@@ -122,6 +126,7 @@ pub enum ExCouponBoundary {
 
 /// Date from which the supplied ex-coupon offset is counted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ExDateAnchor {
     /// Unadjusted contractual coupon date.
     ContractualEnd,
@@ -131,6 +136,7 @@ pub enum ExDateAnchor {
 
 /// Contract-specific coupon entitlement rule; principal entitlement is separate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExCouponRule {
     /// Nonpositive offset from the selected anchor.
@@ -143,6 +149,7 @@ pub struct ExCouponRule {
 
 /// Whether an unpaid cashflow on settlement date belongs to the buyer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum PaymentDateEntitlement {
     /// Include cash due on settlement, for a supplied pre-payment state.
     Include,
@@ -152,6 +159,7 @@ pub enum PaymentDateEntitlement {
 
 /// Independent date transformations. None leaves fixing/observation/ex dates absent.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DateRules {
     /// Adjustment applied only to accrual boundaries.
@@ -204,7 +212,7 @@ impl DateRules {
 }
 
 /// One regular notional period, preserved even when a long stub merges coupons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct ReferencePeriod {
     /// Inclusive notional start.
     pub start: Date,
@@ -213,7 +221,7 @@ pub struct ReferencePeriod {
 }
 
 /// A validated coupon period. Date adjustments do not rewrite contractual dates.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct CouponPeriod {
     pub(crate) unadjusted_start: Date,
     pub(crate) unadjusted_end: Date,

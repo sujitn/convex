@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 /// Quotation is an annualized decimal, never guessed from percentage or bp values.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "convention", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SwaptionVolatility {
     /// Absolute rate diffusion, e.g. 0.007 = 70 normal-vol bp.
@@ -68,6 +69,7 @@ impl SwaptionVolatility {
 
 /// Full supplied fixed-leg schedule, not a rounded expiry/tail proxy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SwaptionCalibrationQuote {
     /// Unique supplied instrument/source identity.
@@ -96,6 +98,7 @@ pub struct SwaptionCalibrationQuote {
 
 /// Numerical sigma bounds/start/identification, with exogenous mean reversion.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SigmaCalibrationSettings {
     /// Initial short-rate diffusion.
@@ -137,7 +140,7 @@ pub struct SigmaCalibrationInputs<'a> {
 }
 
 /// Complete source of model parameters; assumptions are never called calibration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum ModelOrigin {
     /// Caller chose parameters and supplied the reason/version.
     Assumption {
@@ -155,13 +158,14 @@ pub enum ModelOrigin {
         /// Original full quote inputs.
         quotes: Vec<SwaptionCalibrationQuote>,
         /// Actual bounded identification/convergence.
+        #[serde(serialize_with = "serialize_fit_diagnostics")]
         solver: FitDiagnostics,
         /// All native quote and premium results.
         residuals: Vec<SwaptionCalibrationResidual>,
     },
 }
 /// Immutable checked model; production pricing cannot construct default parameters.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OptionalBondModel {
     key: ModelKey,
     parameters: Hw1fParameters,
@@ -203,7 +207,7 @@ impl OptionalBondModel {
 }
 
 /// Every result retains its native quotation and premium per unit notional.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SwaptionCalibrationResidual {
     /// Original instrument ID.
     pub id: String,
@@ -541,4 +545,21 @@ pub fn calibrate_sigma(
             residuals: results,
         },
     })
+}
+
+// Retain every measured solver field without changing the numerical kernel.
+fn serialize_fit_diagnostics<S: serde::Serializer>(
+    d: &FitDiagnostics,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeStruct;
+    let mut output = s.serialize_struct("FitDiagnostics", 7)?;
+    output.serialize_field("iterations", &d.iterations)?;
+    output.serialize_field("evaluations", &d.evaluations)?;
+    output.serialize_field("scaled_rms", &d.scaled_rms)?;
+    output.serialize_field("native_residuals", &d.native_residuals)?;
+    output.serialize_field("rank", &d.rank)?;
+    output.serialize_field("condition_estimate", &d.condition_estimate)?;
+    output.serialize_field("active_bounds", &d.active_bounds)?;
+    output.end()
 }

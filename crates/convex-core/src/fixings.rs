@@ -18,6 +18,7 @@ pub const MAX_FIXING_REQUIREMENTS: usize = 4096;
 
 /// Administrator status supplied by the caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum FixingStatus {
     /// Available for policies allowing provisional values.
     Preliminary,
@@ -27,6 +28,7 @@ pub enum FixingStatus {
 
 /// One supplied revision. Rates are annualized decimals, never percent quotes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixingObservation {
     /// Provider-neutral index identity.
@@ -34,6 +36,8 @@ pub struct FixingObservation {
     /// Value/observation date, distinct from publication date.
     pub observation_date: Date,
     /// Annualized decimal rate; negative rates are valid within ±10.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub rate: Decimal,
     /// Actual administrator publication instant.
     pub published_at: UtcTimestamp,
@@ -49,6 +53,7 @@ pub struct FixingObservation {
 
 /// A required observation and its contractual expected publication instant.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixingRequirement {
     /// Exact required index.
@@ -61,6 +66,7 @@ pub struct FixingRequirement {
 
 /// Explicit treatment of a past observation that is not yet due for publication.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum UnpublishedFixingPolicy {
     /// Forecast, retaining an AwaitingPublication origin distinct from future dates.
     Forecast,
@@ -70,6 +76,7 @@ pub enum UnpublishedFixingPolicy {
 
 /// All time and admissibility policy supplied by the valuation caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixingContext {
     /// Future observation dates are projected, even in a restated history.
@@ -83,7 +90,7 @@ pub struct FixingContext {
 }
 
 /// Reason a curve may be used. Missing already-published history is never one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ProjectionReason {
     /// The observation date is after valuation date.
     FutureObservation,
@@ -92,7 +99,7 @@ pub enum ProjectionReason {
 }
 
 /// Provenance of a consumed or projected rate.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum RateOrigin {
     /// Exact published revision retained in an immutable result.
     Published(FixingObservation),
@@ -101,11 +108,12 @@ pub enum RateOrigin {
 }
 
 /// One resolved rate, preserving requirement and origin.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ResolvedRate {
     /// Original required observation and due time.
     pub requirement: FixingRequirement,
     /// Annualized decimal rate.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub rate: Decimal,
     /// Known revision or reason for forecast.
     pub origin: RateOrigin,

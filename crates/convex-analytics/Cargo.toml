@@ -53,7 +53,7 @@ criterion = { workspace = true }
 [features]
 default = []
 parallel = ["rayon"]
-schemars = ["dep:schemars", "convex-core/schemars"]
+schemars = ["dep:schemars", "convex-core/schemars", "convex-curves/schemars", "convex-bonds/schemars", "convex-rates/schemars", "convex-credit/schemars"]
 
 [[bench]]
 name = "spread_pv_kernel"

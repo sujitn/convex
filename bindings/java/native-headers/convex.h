@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define MAX_INPUT_BYTES ((2 * 1024) * 1024)
+
 /**
  * Opaque object handle. `0` is reserved as INVALID.
  */
@@ -24,6 +26,10 @@ extern "C" {
 
 /**
  * Free a string returned by any FFI function in this crate.
+ *
+ * # Safety
+ * `s` must be null or an unchanged owned pointer returned by this crate, freed
+ * exactly once. Never pass borrowed version/last-error or foreign allocations.
  */
 void convex_string_free(char *s);
 
@@ -47,11 +53,21 @@ const char *convex_version(void);
 
 /**
  * Build a bond from a `BondSpec` JSON. Returns `0` on failure.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 Handle convex_bond_from_json(const char *spec_json);
 
 /**
  * Build a curve from a `CurveSpec` JSON. Returns `0` on failure.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 Handle convex_curve_from_json(const char *spec_json);
 
@@ -84,30 +100,74 @@ char *convex_list_objects(void);
 void convex_clear_all(void);
 
 /**
+ * Registry mutation counter (idempotent re-registers do not bump it).
+ * Same value across two reads ⇒ every handle resolves to the same object;
+ * callers key response caches on it.
+ */
+uint64_t convex_generation(void);
+
+/**
  * Price a bond. Request: `PricingRequest`. Response: `PricingResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_price(const char *request_json);
 
 /**
  * Risk metrics. Request: `RiskRequest`. Response: `RiskResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_risk(const char *request_json);
 
 /**
  * Spread (Z/G/I/ASW/OAS/DM dispatch). Request: `SpreadRequest`. Response:
  * `SpreadResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_spread(const char *request_json);
 
 /**
  * Bond cashflow schedule. Request: `CashflowRequest`. Response: `CashflowResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_cashflows(const char *request_json);
 
 /**
  * Curve point query. Request: `CurveQueryRequest`. Response: `CurveQueryResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_curve_query(const char *request_json);
+
+/**
+ * Versioned complete supplied-input library call. No registry/server/provider
+ * state is consulted. Request: `LibraryRequest` (see `convex_schema`). The owned
+ * JSON envelope preserves exact monetary strings and original native diagnostics.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged through the call. Release the returned allocation exactly once
+ * with `convex_string_free`. Invalid/dangling pointers violate this ABI contract.
+ */
+char *convex_library(const char *request_json);
 
 /**
  * Make-whole call price. Request: `MakeWholeRequest`. Response: `MakeWholeResponse`.
@@ -115,14 +175,50 @@ char *convex_curve_query(const char *request_json);
  * Computes the make-whole call redemption price at a future call date for
  * a callable bond carrying a make-whole spread. Discount uses the bond's
  * own day count and frequency; treasury rate is supplied by the caller.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_make_whole(const char *request_json);
+
+/**
+ * One-call yield & spread analysis (Bloomberg-YAS style). Request:
+ * `YasRequest`. Response: `YasResponse` — every yield convention, G/Z/
+ * benchmark/ASW spreads, risk metrics, and the settlement invoice from a
+ * single computation.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
+ */
+char *convex_yas(const char *request_json);
+
+/**
+ * Curve scenario ladder in one call. Request: `ScenarioRequest` (N named
+ * scenarios of parallel/steepener/flattener/key-rate/credit bumps).
+ * Response: `ScenarioResponse` — base pricing + one repriced row per
+ * scenario, holding the mark-implied Z-spread fixed.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
+ */
+char *convex_scenario(const char *request_json);
 
 /**
  * Build a position risk profile. Request: `RiskProfileRequest`. Response:
  * `RiskProfile` (modified/Macaulay duration, convexity, DV01, key-rate
  * buckets, market value, provenance). The profile round-trips back into
  * [`convex_hedge`] and [`convex_compare`].
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_risk_profile(const char *request_json);
 
@@ -130,12 +226,22 @@ char *convex_risk_profile(const char *request_json);
  * Propose a hedge for a position profile. Request: `HedgeRequest` (carries a
  * `strategy` tag + the `RiskProfile` from [`convex_risk_profile`]). Response:
  * `HedgeProposal` (trades, residual risk, cost bps, tradeoff notes).
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_hedge(const char *request_json);
 
 /**
  * Compare hedge proposals against a position. Request: `CompareRequest`.
  * Response: `CompareResponse` (`ComparisonReport` + optional narrative).
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_compare(const char *request_json);
 
@@ -146,6 +252,11 @@ char *convex_compare(const char *request_json);
  * `PricingResponse`, `RiskRequest`, `RiskResponse`, `SpreadRequest`,
  * `SpreadResponse`, `CashflowRequest`, `CashflowResponse`,
  * `CurveQueryRequest`, `CurveQueryResponse`.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_schema(const char *type_name);
 
@@ -153,6 +264,11 @@ char *convex_schema(const char *type_name);
  * Parse a textual mark (e.g. `"99.5C"`, `"4.65%"`, `"+125bps@USD.SOFR"`).
  *
  * Returns a JSON envelope; on success, `result` is the canonical `Mark` JSON.
+ *
+ * # Safety
+ * Input must be null or a readable NUL-terminated C string in one allocation,
+ * unchanged for the whole call. Invalid/dangling pointers are outside the ABI
+ * contract. Returned owned strings must be released once with `convex_string_free`.
  */
 char *convex_mark_parse(const char *text);
 

@@ -21,6 +21,7 @@ convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
+convex = { workspace = true, features = ["schemars"] }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }

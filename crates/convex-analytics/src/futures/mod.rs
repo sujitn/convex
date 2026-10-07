@@ -182,6 +182,7 @@ impl FuturesCurve<'_> {
 
 /// Consumed actual input stamps, deterministic data blocks and execution status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesInputReport {
     /// Economic instant and information cutoff used throughout the result.

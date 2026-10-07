@@ -35,6 +35,7 @@ pub const MAX_CREDIT_PRICE_EVALUATIONS: usize = 8192;
 
 /// Native CDS quotation; clean and dirty amounts are never interchangeable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CdsQuoteKind {
     /// CLEAN par running spread; DecimalRate/PercentRate/BasisPoints.
     RunningSpread,
@@ -46,6 +47,7 @@ pub enum CdsQuoteKind {
 
 /// Full original economic and quote input. Nothing is reduced to a tenor proxy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsCalibrationHelper {
     /// Stable provider-neutral helper identity, unique within the curve.
@@ -68,6 +70,7 @@ pub struct CdsCalibrationHelper {
 
 /// Closed nonnegative intensity interval for each causal piecewise root.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsBootstrapSettings {
     /// Lower ACT/365F forward intensity, at least zero.
@@ -80,6 +83,7 @@ pub struct CdsBootstrapSettings {
 
 /// Complete credit recipe over an ACT/365F log-linear survival grid.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsCurveRecipe {
     /// Exact identity/entity/seniority/recovery/currency/dependencies and method.

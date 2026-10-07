@@ -19,6 +19,7 @@ fn error(s: impl Into<String>) -> SignedPortfolioRiskError {
 }
 /// Entity scope is part of the request. Multi-entity risk cannot net by accident.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RiskEntityScope {
     /// One explicitly selected legal entity.
@@ -36,6 +37,7 @@ pub enum RiskEntityScope {
 }
 /// One expected factor outcome; missing/failed trade risk is never a numeric zero.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TradeFactorRisk {
     /// Actual full native reference result with signed quantity already applied.
@@ -61,6 +63,7 @@ impl TradeFactorRisk {
 }
 /// Complete expected trade manifest. Even a failed valuation must have an entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TradeSignedRisk {
     /// Exact expected trade identity.
@@ -82,6 +85,7 @@ pub struct TradeSignedRisk {
 /// Exact supplied reporting FX. This converts monetary results; it is not an FX
 /// risk model or an authorization to trade cross-currency hedges.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RiskFxPin {
     /// Local monetary currency.
@@ -97,6 +101,7 @@ pub struct RiskFxPin {
 }
 /// Coverage status; known partial values never become Complete.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SignedRiskCoverageStatus {
     /// Every requested trade/factor/exposure/FX is supplied.
@@ -106,6 +111,7 @@ pub enum SignedRiskCoverageStatus {
 }
 /// One omitted or rejected trade-factor result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MissingSignedRisk {
     /// Original expected trade.
     pub trade_id: TradeId,
@@ -116,6 +122,7 @@ pub struct MissingSignedRisk {
 }
 /// Per-currency coverage, retaining unknown gross exposure separately.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SignedRiskCoverage {
     /// Local monetary currency.
     pub currency: Currency,
@@ -138,6 +145,7 @@ pub struct SignedRiskCoverage {
 }
 /// One complete-key monetary aggregate, never mixing currencies, units or bases.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SignedRiskAggregate {
     /// Exact coordinate, quote, convention, model and response semantics.
     pub key: QuoteRiskKey,
@@ -153,6 +161,7 @@ pub struct SignedRiskAggregate {
 /// Conversion exposure for one local monetary factor: d(reporting risk)/d(FX).
 /// This is conversion of this risk result, not the full portfolio's FX delta.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct RiskFxConversionExposure {
     /// Complete local factor being converted.
     pub key: QuoteRiskKey,
@@ -165,6 +174,7 @@ pub struct RiskFxConversionExposure {
 }
 /// Pure local and pinned-FX report over an explicit expected trade manifest.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SignedPortfolioRisk {
     /// Same original immutable input set.
     pub snapshot_id: SnapshotId,

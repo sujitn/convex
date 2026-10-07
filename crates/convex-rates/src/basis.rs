@@ -23,6 +23,7 @@ use crate::{
 
 /// Native absolute-spread quotation leg. Both leg names retain their economic sign.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BasisQuotedLeg {
     /// Spread on the paid floating leg.
     Pay,
@@ -32,6 +33,7 @@ pub enum BasisQuotedLeg {
 
 /// Complete same-currency basis trade; no manufactured fixed leg is an input.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BasisSwapTerms {
     /// Economic schema version, exactly 1.
@@ -194,7 +196,7 @@ impl BasisSwapContract {
 }
 
 /// Signed basis leg result with original coupons and actual consumed rates/curves.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BasisLegValuation {
     /// Signed leg PV in absolute currency.
     pub present_value: ModelMoney,
@@ -215,7 +217,7 @@ pub struct BasisLegValuation {
 }
 
 /// Both uniform replacement spreads and parallel shifts are explicit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum BasisParQuotes {
     /// Full unrounded linear cash with positive remaining spread exposure.
     Available {
@@ -240,7 +242,7 @@ pub enum BasisParQuotes {
 }
 
 /// Actual two-leg basis valuation. Positive PV is value to this pay/receive trade.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BasisSwapValuation {
     /// Original complete basis terms.
     pub terms: BasisSwapTerms,

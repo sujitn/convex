@@ -20,7 +20,7 @@ use crate::{
 
 /// A coupon accrual slice consuming one independently dated term observation.
 /// Rate interval and coupon accrual interval need not coincide (e.g. a stub).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ResetSlice {
     /// Actual coupon accrual slice start.
     pub accrual_start: Date,

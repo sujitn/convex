@@ -31,6 +31,7 @@ use std::collections::BTreeSet;
 /// Versioned supplied calendar/convention identity. It is independent of the
 /// source vendor, and cannot be replaced by a name-only calendar fallback.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReferencePin {
     /// Internal resource identity.
@@ -91,6 +92,7 @@ impl HelperResources<'_> {
 /// choose different calendars/rules; multi-calendar rules within a leg require
 /// an explicit future extension rather than silently reusing this calendar.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HelperSchedule {
     /// Exact contractual schedule and irregular reference periods.
@@ -119,6 +121,7 @@ impl HelperSchedule {
 
 /// Native bond quotation; yield carries its full convention, never a par-yield proxy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum BondHelperQuote {
     /// Price excludes accrued according to the declared ex-coupon rule.
@@ -138,6 +141,7 @@ pub enum BondHelperQuote {
 /// and floating bonds require their own product/model helper extensions; they
 /// cannot be accepted and priced as this fixed contract.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixedCouponBondHelper {
     /// Internal security identity, independent of a provider ticker.
@@ -152,15 +156,19 @@ pub struct FixedCouponBondHelper {
     pub coupon_schedule: HelperSchedule,
     /// Independently dated coupon rates in annualized decimals.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub coupons: Vec<DatedValue>,
     /// Independently dated absolute outstanding principal (not percentages).
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub notionals: Vec<DatedValue>,
     /// Face amount to which a per-100 input quote refers, independent of residual principal.
     #[serde(with = "exact_decimal")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub quoted_face: Decimal,
     /// Final principal redemption as a fraction, not per 100.
     #[serde(with = "exact_decimal")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub redemption_fraction: Decimal,
     /// Explicit pre/post coupon-boundary notional selection.
     pub coupon_principal: CouponPrincipal,
@@ -179,6 +187,7 @@ pub struct FixedCouponBondHelper {
 /// Declared convexity policy. Zero is an explicit assumption with a versioned
 /// rationale, not the result of missing volatility/model inputs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum FutureConvexity {
     /// Supplied annualized adjustment; forward rate = future rate - adjustment.
@@ -200,6 +209,7 @@ pub enum FutureConvexity {
 /// Rate-future settlement-rate definition; simple and compounded overnight
 /// products are distinct, and retain their exact observation window.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum FutureAccrual {
     /// Single term fixing for the contractual accrual period.
@@ -227,6 +237,7 @@ pub enum FutureAccrual {
 
 /// Full rate-future description; no assumed IMM/3M window or unqualified convexity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateFutureHelper {
     /// Exact contract identity.
@@ -251,12 +262,15 @@ pub struct RateFutureHelper {
     pub accrual: FutureAccrual,
     /// Contract quote tick in price points.
     #[serde(with = "exact_decimal")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub tick_size: Decimal,
     /// Money per one price point per contract, in helper currency.
     #[serde(with = "exact_decimal")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub price_multiplier: Decimal,
     /// Money per tick per contract; must equal tick_size * price_multiplier.
     #[serde(with = "exact_decimal")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub tick_value: Decimal,
     /// Explicit convexity policy.
     pub convexity: FutureConvexity,
@@ -268,6 +282,7 @@ pub struct RateFutureHelper {
 
 /// CDS original quotation, including sign and clean/dirty upfront semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CdsHelperQuote {
     /// Par running spread in an annualized rate unit.
     ParSpread,
@@ -279,6 +294,7 @@ pub enum CdsHelperQuote {
 
 /// Protection settlement convention; no accrual/cash date is inferred.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum ProtectionPayment {
     /// Payment at default plus a nonnegative calendar lag.
@@ -293,6 +309,7 @@ pub enum ProtectionPayment {
 /// Complete declared single-name premium/protection helper description. Standard
 /// date/model conversion and pricing are CVX-020/058, not a spread/LGD shortcut.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsHelper {
     /// Reference entity identity and exact definition version.
@@ -317,6 +334,7 @@ pub struct CdsHelper {
     pub premium_schedule: HelperSchedule,
     /// Independently dated absolute protection/premium notional.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub notionals: Vec<DatedValue>,
     /// Contractual fixed running premium, in an annualized rate unit.
     pub running_coupon: MarketQuote,
@@ -334,21 +352,25 @@ pub struct CdsHelper {
 
 /// Fixed swap leg with independently dated notional and coupon steps.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixedHelperLeg {
     /// Full fixed schedule.
     pub schedule: HelperSchedule,
     /// Annualized decimal coupons.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub coupons: Vec<DatedValue>,
     /// Absolute principal profile.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub notionals: Vec<DatedValue>,
 }
 
 /// Full floating-index definition for a leg. Historical publication/cutoff terms
 /// are retained in the leg instead of a date-only map.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum FloatingHelperIndex {
     /// Term index with explicit tenor; no default 3M assumption.
@@ -369,6 +391,7 @@ pub enum FloatingHelperIndex {
 
 /// Floating swap leg; projection and discount dependencies are separate.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FloatingHelperLeg {
     /// Full independent floating schedule.
@@ -377,12 +400,15 @@ pub struct FloatingHelperLeg {
     pub index: FloatingHelperIndex,
     /// Absolute principal profile.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub notionals: Vec<DatedValue>,
     /// Independent annualized decimal spread steps.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub spreads: Vec<DatedValue>,
     /// Independent dimensionless gearing steps.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub gearings: Vec<DatedValue>,
     /// Exact projection dependency.
     pub projection_curve: CurveKey,
@@ -394,6 +420,7 @@ pub struct FloatingHelperLeg {
 
 /// Which floating leg carries the market basis-spread quote.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BasisQuoteLeg {
     /// First/pay leg.
     Pay,
@@ -403,6 +430,7 @@ pub enum BasisQuoteLeg {
 
 /// Economic descriptions retained above the curve solver to avoid dependency cycles.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CurveHelperTerms {
     /// Dated deposit/FRA simple-rate terms; supported native construction.
@@ -437,6 +465,7 @@ pub enum CurveHelperTerms {
 
 /// Pillar date selection never rewrites maturity, settlement or payment dates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum HelperPillar {
     /// Contractual economic end.
     Maturity,
@@ -448,6 +477,7 @@ pub enum HelperPillar {
 
 /// Shared native helper DTO, with all economics and numerical quote semantics.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CurveHelperInput {
     /// Unique helper/observation identity.
@@ -470,6 +500,7 @@ pub struct CurveHelperInput {
 
 /// Pure product recipe; helper identities must exactly match recipe.source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HelperCurveRecipe {
     /// Full curve parameters, versions, methods and dependencies.
@@ -480,6 +511,7 @@ pub struct HelperCurveRecipe {
 
 /// Validated description, with actual generated dates and honest dispatch status.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct HelperDescription {
     /// Original identity.
     pub helper_id: String,

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 /// Side of a survival pillar for instantaneous hazard. Derivatives can jump;
 /// a caller must choose rather than receive an undocumented averaged intensity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum HazardSide {
     /// Interval ending at the queried pillar.
     Left,
@@ -25,6 +26,7 @@ pub enum HazardSide {
 /// Pure query inputs. Rates are decimal annualized; basis and compounding are
 /// required. No zero rate is fabricated at the zero-length origin.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CurveQuery {
     /// Actual interpolated representation value.
@@ -91,6 +93,7 @@ pub enum CurveQuery {
 
 /// Numeric result units; hazard is per year of the curve's declared axis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveQueryUnit {
     /// Annualized decimal rate.
     DecimalRate,
@@ -104,6 +107,7 @@ pub enum CurveQueryUnit {
 
 /// Result with actual conventions and extrapolation disclosure.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveQueryValue {
     /// Finite value in unit.
     pub value: f64,
@@ -124,6 +128,7 @@ pub struct CurveQueryValue {
 /// Raw grid domain and explicit extension policy. Positive time outside the grid
 /// fails with None; the discount origin is always P(0)=1 by definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveDomain {
     /// First raw pillar time.
     pub minimum_tenor: f64,
@@ -435,6 +440,7 @@ fn ordered(t1: f64, t2: f64) -> CurveContractResult<()> {
 }
 /// Explicit date rounding; nearest ties choose the earlier date.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum TenorRounding {
     /// Greatest representable date no later than tenor.
     AtOrBefore,
@@ -446,6 +452,7 @@ pub enum TenorRounding {
 
 /// A capability statement is implementation discovery, not a model certificate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveCapabilityStatus {
     /// Callable checked route for its stated inputs.
     Supported,
@@ -455,6 +462,7 @@ pub enum CurveCapabilityStatus {
 
 /// Pure static discovery for the checked contract route.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveCapability {
     /// Named construction/query family.
     pub name: &'static str,

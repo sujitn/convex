@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 /// Explicit contracted overnight observation mechanics. No universal SOFR,
 /// SONIA or EUR rule is inferred from an index name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OvernightConvention {
     /// Look back this many business days on the supplied observation calendar.
@@ -25,7 +26,7 @@ pub struct OvernightConvention {
 }
 
 /// One explicit term of the compound product.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct OvernightObservation {
     /// Index observation date after lookback/lockout.
     pub observation_date: Date,
@@ -47,26 +48,31 @@ pub struct OvernightSchedule {
 }
 
 /// One rate actually consumed in a compounded result, with its day weighting.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ResolvedOvernightObservation {
     /// Validated observation and weight dates.
     pub dates: OvernightObservation,
     /// Day-count weight in the product.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub year_fraction: Decimal,
     /// Annualized decimal rate.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub rate: Decimal,
     /// Exact fixing revision or explicit forecast reason.
     pub origin: RateOrigin,
 }
 
 /// Checked contractual compound product. This result does not record a payment.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct CompoundedCoupon {
     /// Product of (1 + rate * weight), including the initial unit investment.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub period_factor: Decimal,
     /// Unshifted interest-period year fraction, for spread/gearing composition.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub period_year_fraction: Decimal,
     /// (period_factor - 1) / period_year_fraction, in decimal annualized units.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub annualized_rate: Decimal,
     /// Every known/projected observation, including reused lockout rates.
     pub observations: Vec<ResolvedOvernightObservation>,

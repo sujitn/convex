@@ -13,6 +13,7 @@ use crate::{ExtrapolationMethod, InterpolationMethod};
 /// Immutable caller-assigned identity. Version changes are explicit; no hashing
 /// of provider identifiers or automatic version selection occurs here.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CurveKey {
     /// Provider-neutral curve identity.
@@ -30,6 +31,7 @@ impl CurveKey {
 
 /// Native units are preserved in diagnostics; normalization is explicit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum QuoteUnit {
     /// Annualized decimal rate (0.05 = 5%).
     DecimalRate,
@@ -51,6 +53,7 @@ pub enum QuoteUnit {
 
 /// Finite value in an explicitly named native unit. DTOs are validated on use.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MarketQuote {
     /// Native quote, without implicit scaling.
@@ -130,6 +133,7 @@ impl MarketQuote {
 
 /// Semantic curve role; identities and credit assumptions never come from a vendor.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CurveRole {
     /// Discounting under an explicit collateral currency.
@@ -217,6 +221,7 @@ impl CurveRole {
 
 /// Representation determines interpolation meaning; no spread-to-hazard shortcut.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveRepresentation {
     /// Positive discount factors with explicit P(0)=1.
     DiscountFactors,
@@ -236,6 +241,7 @@ pub enum CurveRepresentation {
 
 /// Exact calendar date or years in the recipe's declared time basis.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurvePoint {
     /// Actual date, with no tenor-to-calendar approximation.
     Date(Date),
@@ -245,6 +251,7 @@ pub enum CurvePoint {
 
 /// A pillar quote; sorted deterministically during construction, duplicates rejected.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CurveNode {
     /// Exact pillar date or time coordinate.
@@ -256,6 +263,7 @@ pub struct CurveNode {
 /// FRA payment convention retained even though a native fair-rate query is
 /// independent of notional and deterministic settlement scaling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum FraSettlement {
     /// Net settlement at accrual start.
     AtStart,
@@ -265,6 +273,7 @@ pub enum FraSettlement {
 
 /// Full dates for supported simple-rate calibration helpers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum MoneyMarketTerms {
     /// Deposit: principal exchanged at start, principal plus simple interest at end.
@@ -315,6 +324,7 @@ impl MoneyMarketTerms {
 
 /// Native quote and full terms, with an explicit absolute tolerance in that unit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MoneyMarketHelper {
     /// Unique helper/input identity.
@@ -378,6 +388,7 @@ impl MoneyMarketHelper {
 /// Explicit global objective configuration, preserved even when that combination
 /// is unsupported by this checked route. Existing global fitter remains separate.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct GlobalFitSettings {
     /// Maximum solver steps; no hidden unbounded iteration.
@@ -399,6 +410,7 @@ pub struct GlobalFitSettings {
 /// Credit objective over nonnegative piecewise ACT/365F forward intensities.
 /// These are intensities, not zero rates or CDS spreads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CreditGlobalFitSettings {
     /// Bounded LM attempt count.
@@ -419,6 +431,7 @@ pub struct CreditGlobalFitSettings {
 
 /// Construction method; no mode is silently replaced by another algorithm.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CalibrationMode {
     /// Direct nodes, without instrument calibration.
@@ -434,6 +447,7 @@ pub enum CalibrationMode {
 /// Source values are supplied, never fetched. Product helpers reside in analytics
 /// to avoid making curves depend on products that already use curves.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CurveSource {
     /// Full node grid in a declared representation.
@@ -478,6 +492,7 @@ pub enum CurveSource {
 /// Complete supplied recipe. Native construction supports the capability subset
 /// returned by curve_capabilities; all other methods return Unsupported.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CurveRecipe {
     /// Exact result identity/version.
@@ -506,6 +521,7 @@ pub struct CurveRecipe {
 
 /// Stable diagnostic for every original helper quote.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct QuoteRepricing {
     /// Original helper identity.
     pub helper_id: String,
@@ -523,6 +539,7 @@ pub struct QuoteRepricing {
 
 /// Construction diagnostics distinguish supplied nodes from calibrated quotes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveDiagnostics {
     /// Result identity/version.
     pub curve: CurveKey,

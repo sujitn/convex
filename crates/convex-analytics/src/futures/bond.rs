@@ -8,6 +8,7 @@ use rust_decimal::RoundingStrategy;
 
 /// Explicit simple reinvestment or own-cash opportunity-cost input.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesCarryRate {
     /// Original source and immutable assumptions/data revision.
@@ -63,6 +64,7 @@ impl FuturesCarryRate {
 
 /// Coupon treatment is an explicit model choice, separate from repo funding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FuturesCouponCarry {
     /// Coupons are retained as uninvested cash through delivery; no zero-rate guess.
@@ -97,6 +99,7 @@ pub struct BondFutureDeliverable<'a> {
 /// Independent deterministic selection criteria. They can disagree when funding,
 /// conversion factors or cash timing differ, so no equivalence is assumed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FuturesCtdMethod {
     /// Smallest clean net basis at each security's actual supplied funding.
@@ -133,6 +136,7 @@ pub struct BondFuturesInputs<'a> {
 
 /// Complete per-security carry/invoice diagnostics in explicitly named units.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondFuturesAlternative {
     /// Actual immutable deliverable revision.
@@ -179,6 +183,7 @@ pub struct BondFuturesAlternative {
 /// Indicative deterministic basket result; rankings and fair-price winner remain
 /// separate. Exact-score ties are broken by stable instrument ID/version.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondFuturesValuation {
     /// Exact actual futures revision.
@@ -545,6 +550,7 @@ pub enum BondFuturesRiskAxis<'a> {
 /// Signed risk with reselected and frozen fair-deliverable measures and both CTD
 /// diagnostics. Exact currency scaling uses integer contracts and multiplier once.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondFuturesRisk {
     /// Original actual basket price/carry.

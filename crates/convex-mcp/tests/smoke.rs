@@ -121,12 +121,8 @@ async fn end_to_end_happy_path() {
             .expect("price_bond");
     }
 
-    // 6. compute_spread for each kind.
-    for kind in [
-        SpreadKind::ZSpread,
-        SpreadKind::ISpread,
-        SpreadKind::GSpread,
-    ] {
+    // 6. Only admitted curve spread kinds; G needs actual government securities.
+    for kind in [SpreadKind::ZSpread, SpreadKind::ISpread] {
         server
             .compute_spread(Parameters(ComputeSpreadParams {
                 bond: BondRef::Id("UST.10Y".into()),
@@ -138,6 +134,17 @@ async fn end_to_end_happy_path() {
             .await
             .expect("compute_spread");
     }
+    let unsupported = server
+        .compute_spread(Parameters(ComputeSpreadParams {
+            bond: BondRef::Id("UST.10Y".into()),
+            curve: CurveRef::Id("USD.TSY".into()),
+            settlement: d(2025, 4, 15),
+            clean_price_per_100: 99.5,
+            kind: SpreadKind::GSpread,
+        }))
+        .await
+        .unwrap_err();
+    assert_eq!(unsupported.data.as_ref().unwrap()["code"], "unsupported");
 
     // 7. calculate_yield.
     server

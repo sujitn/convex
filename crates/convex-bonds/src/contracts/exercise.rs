@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// Party holding the redemption right.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseRight {
     /// Issuer call.
@@ -22,6 +23,7 @@ pub enum ExerciseRight {
 /// Explicit supported dated exercise styles. Triggered and make-whole
 /// contracts require terms/models outside this initial fixed-price schema.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "style", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ExerciseStyle {
     /// One exact date.
@@ -45,6 +47,7 @@ pub enum ExerciseStyle {
 
 /// Exercise price convention, independent from accrued cash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseAccrued {
     /// Redemption plus separately accrued coupon.
@@ -56,6 +59,7 @@ pub enum ExerciseAccrued {
 /// Complete fixed-price call/put terms, usable for callable FRNs as well as
 /// fixed bonds. Preserving terms is distinct from having an option model.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExerciseTerms {
     /// Issuer call or holder put.
@@ -63,6 +67,8 @@ pub struct ExerciseTerms {
     /// Discrete dates or inclusive continuous window.
     pub style: ExerciseStyle,
     /// Per 100 outstanding principal, Decimal contract price.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub price_per_100: Decimal,
     /// Nonpositive notice offset from contractual exercise date.
     pub notice_offset: DateOffset,
@@ -78,7 +84,7 @@ pub struct ExerciseTerms {
 
 /// Dated consequences of a permitted supplied exercise; it does not assert an
 /// exercise occurred, choose exercise optimally or book cash.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ExerciseDates {
     /// Last required notice date.
     pub notice: Date,

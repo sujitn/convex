@@ -400,3 +400,11 @@ remain owning work. The new facade dependency is the existing pure local
 portfolio crate; no provider, storage, MQ or runtime enters calculation.
 
 CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.
+
+Version21 adds [the shared supplied-input API and client qualification](LIBRARY-API.md),
+with 303 source pins and 46 observations. Its separate capability report retains
+every original 2,154 required operation/surface record and explicitly lists native
+and host gaps. The 110-case engineering corpus proves actual full-term transport
+for its admitted subsets; it does not prove every required convention/model or
+operation. All records remain Planned. CVX-063 AC2 remains open, as do complete
+Excel/browser and independent library/production/latency certificates.

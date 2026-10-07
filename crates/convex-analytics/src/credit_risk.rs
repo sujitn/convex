@@ -27,6 +27,7 @@ use std::collections::BTreeSet;
 
 /// Economic response held fixed or rebuilt under a parameter shock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CreditResponse {
     /// Hold the actual calibrated survival probabilities/intensities fixed.
     HoldSurvival,
@@ -35,6 +36,7 @@ pub enum CreditResponse {
 }
 /// One hypothetical quote change; the retained version is its original source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsQuoteMove {
     /// Exact original helper identity.
@@ -46,6 +48,7 @@ pub struct CdsQuoteMove {
 }
 /// Disjoint shock axes. A CDS quote move cannot also carry an interest-rate move.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CreditShock {
     /// Parallel continuous-zero shift of one actual collateral DF curve.
@@ -72,6 +75,7 @@ pub enum CreditShock {
 }
 /// Immutable hypothetical identity and exactly one shock axis.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CreditScenarioRequest {
     /// Caller-assigned scenario identity; no published quote version is invented.
@@ -383,6 +387,7 @@ pub fn evaluate_credit_scenario(
 
 /// Central finite-difference basis; upfront/recovery derivatives are not CS01.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CreditRiskBump {
     /// Continuous-zero node risk, normalized to a +1 bp rate move.
@@ -416,6 +421,7 @@ pub enum CreditRiskBump {
 }
 /// Caller-supplied immutable scenario revisions for both sides of a central bump.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CreditRiskRevisions {
     /// Positive scenario identity.
@@ -433,6 +439,7 @@ pub struct CreditRiskRevisions {
 }
 /// Explicit returned measure, including non-bp parameter/price risk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CreditRiskMeasure {
     /// Signed money for a +1 bp RATE move.
     Pv01Signed,
@@ -708,6 +715,7 @@ pub fn credit_sensitivity(
 /// Immediate conditional default assumptions. This is a scenario, not a ledger
 /// transition or an inferred auction result. Later dated paths require lifecycle.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ImmediateDefaultScenario {
     /// Actual/simulated scenario event identity.
@@ -729,6 +737,7 @@ pub struct ImmediateDefaultScenario {
 }
 /// Unknown recovery produces a pending state with NO fabricated monetary value.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum DefaultScenarioResult {
     /// Auction/recovery information is unknown; valuation cannot be completed.
     Pending {
@@ -870,6 +879,7 @@ pub fn immediate_jump_to_default(
 
 /// Resolved actual bond credit identity; BondTerms alone contain no issuer data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondCreditIdentity {
     /// Actual bond identity.
@@ -889,6 +899,7 @@ pub struct BondCreditIdentity {
 }
 /// Actual dated residual basis, not a CDS spread or a manufactured Z-spread.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondBasisInput {
     /// Immutable version/source of the residual basis observations/assumption.
@@ -914,6 +925,7 @@ pub struct BondBasisInput {
 /// Exact legal/economic mapping; price-risk and execution suitability remain
 /// separate. This admission never collapses a bond CS01 into CDS hedge notional.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondCdsMapping {
     /// Immutable actual mapping revision.
@@ -930,7 +942,7 @@ pub struct BondCdsMapping {
     pub liquidity_assumption: ReferencePin,
 }
 /// Checked reusable inputs; private construction prevents missing mapping bypass.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BondCdsHedgeInputs {
     mapping: BondCdsMapping,
     basis: BondBasisInput,

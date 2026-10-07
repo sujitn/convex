@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Validated local economic event/receipt identity, distinct from a market observation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(transparent)]
 pub struct EventId(convex_core::contracts::ObservationId);
 impl EventId {
@@ -27,6 +28,7 @@ impl EventId {
     rename_all = "snake_case",
     deny_unknown_fields
 )]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum LifecyclePosition {
     /// Signed face in the bond currency.
     BondFace(ExactDecimal),
@@ -39,6 +41,7 @@ pub enum LifecyclePosition {
 }
 /// Contractual life and cash settlement are independent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EconomicStatus {
     /// Remaining original contractual exposure.
@@ -58,6 +61,7 @@ pub enum EconomicStatus {
 }
 /// Exact source/destination of an obligation; never a generic cash balance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CashKind {
     /// Bond's full original coupon.
@@ -87,6 +91,7 @@ pub enum CashKind {
 }
 /// Stable local obligation key bound to one immutable trade state.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ObligationKey {
     /// Economic cash category.
@@ -98,6 +103,7 @@ pub struct ObligationKey {
 }
 /// Proposed receivable/payable; payment is represented only by supplied receipts.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CashObligation {
     /// Original immutable key.
     pub key: ObligationKey,
@@ -114,6 +120,7 @@ pub struct CashObligation {
 }
 /// Exact immutable legal bond credit mapping supplied separately from bond math.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondCreditTerms {
     /// Actual reference entity, not inferred from a ticker.
@@ -126,6 +133,7 @@ pub struct BondCreditTerms {
 }
 /// Explicit actual credit event facts; no assumed auction price or settlement.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CreditDefault {
     /// Exact supplied legal reference entity.
@@ -142,6 +150,7 @@ pub struct CreditDefault {
 }
 /// Actual externally supplied auction/recovery terms; these do not assert payment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySettlement {
     /// Exact default event this auction resolves.
@@ -155,6 +164,7 @@ pub struct RecoverySettlement {
 }
 /// Supplied recorded cash, separate from economic proposal generation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PaymentReceipt {
     /// Immutable external receipt identity, locally unique to the state.
@@ -176,6 +186,7 @@ pub struct PaymentReceipt {
     rename_all = "snake_case",
     deny_unknown_fields
 )]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum LifecycleAction {
     /// Ingest one actual fixing revision for this product's index.
     Fixing(FixingObservation),
@@ -242,6 +253,7 @@ pub enum LifecycleAction {
 }
 /// Ordered immutable economic input, with explicit knowledge cutoff.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LifecycleEvent {
     /// Stable event identity, locally unique; authoritative dedup is the engine's.
@@ -259,6 +271,7 @@ pub struct LifecycleEvent {
 }
 /// Every proposed effect retains its separate economic meaning.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum LifecycleEffect {
     /// Proposed payable/receivable, never posted cash.
     CashProposed(CashObligation),

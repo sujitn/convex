@@ -494,3 +494,14 @@ dependency or C export is added. Mandatory library records and independent
 quantitative/market/model/host/production/latency gates remain open.
 
 CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.
+
+CVX-063 adds [full supplied-term JSON/C ABI and generic clients](LIBRARY-API.md).
+Thirteen pure dispatcher modules and three schema modules enter critical review;
+the C export count becomes 26. Optional schema dependencies use existing locked
+packages; all nine pure roots retain the reviewed normal closure. Eleven new
+engineering request/adapter/schema pins append to all 187 original numerical
+rows/bytes/defaults. Fresh native parity outputs are transport controls, never
+financial oracles. Full schemas, strict ingress, actual adapter tests, three
+feature consumers and capability mutation checks are mandatory CI checks.
+Required operations, unsupported models and unavailable hosts remain explicit;
+AC2 and independent quantitative/library/production/latency gates stay open.

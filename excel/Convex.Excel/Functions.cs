@@ -18,6 +18,17 @@ namespace Convex.Excel
     // be IsThreadSafe.
     public static class Functions
     {
+        [ExcelFunction(Name = "CX.LIBRARY", IsThreadSafe = true,
+            Description = "Complete supplied LibraryRequest JSON. Returns the original native envelope, exact cash strings and diagnostics.",
+            Category = "Convex Library")]
+        public static object CxLibrary(string requestJson) => Safe(() => LibraryCells.Single(Cx.Library(requestJson)));
+
+        [ExcelFunction(Name = "CX.LIBRARY.RANGE", IsThreadSafe = true,
+            Description = "Concatenate JSON text cells in row order; return complete native JSON in one-column chunks. Exact monetary strings are preserved.",
+            Category = "Convex Library")]
+        public static object CxLibraryRange(object[,] requestCells) =>
+            Safe(() => LibraryCells.Split(Cx.Library(LibraryCells.Join(requestCells))));
+
         // ===================================================================
         // Bond construction
         // ===================================================================

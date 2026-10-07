@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// Exact collateral definition attached to an actual repo/funding curve.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RepoFundingCurve {
     /// Immutable original curve version.
@@ -19,6 +20,7 @@ pub struct RepoFundingCurve {
 }
 /// Coupon cash treatment distinct from principal financing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum RepoCouponCarry {
     /// Explicitly retain coupons uninvested until delivery.
@@ -34,6 +36,7 @@ pub enum RepoCouponCarry {
 }
 /// Full supplied cash purchase and delivery/funding assumptions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RepoBondForwardTerms {
     /// Original complete cash security and actual clean/dirty/yield observation.
@@ -63,7 +66,7 @@ pub struct RepoBondForwardInputs<'a> {
     pub curves: &'a CurveSet,
 }
 /// Actual repo factor/rate for an independently supplied dated interest period.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RepoPeriodRate {
     /// Exact funding identity/collateral.
     pub funding: RepoFundingCurve,
@@ -121,7 +124,7 @@ pub fn repo_rate_over_period(
     })
 }
 /// One original entitled coupon and its distinct reinvestment horizon.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RepoCouponValue {
     /// Actual coupon payment date, including contractual delay/adjustment.
     pub payment_date: Date,
@@ -133,7 +136,7 @@ pub struct RepoCouponValue {
     pub delivery_value_per100: f64,
 }
 /// Deterministic fixed-date carry; no delivery options or daily-margin financing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RepoBondForwardValuation {
     /// Full original economic assumptions and exact pins, retained verbatim.
     pub terms: RepoBondForwardTerms,

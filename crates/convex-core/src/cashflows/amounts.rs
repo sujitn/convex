@@ -10,6 +10,7 @@ use std::collections::BTreeSet;
 
 /// Contractual cash rounding, applied once after summing coupon segments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CashRounding {
     /// Preserve all available Decimal precision (maximum scale 28).
     Unrounded,
@@ -39,6 +40,7 @@ impl CashRounding {
 
 /// Principal convention for the amount due at a contractual coupon boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CouponPrincipal {
     /// Accrue each segment on its independently dated outstanding principal.
     AccrualProfile,
@@ -50,6 +52,7 @@ pub enum CouponPrincipal {
 
 /// Negative coupon handling is a contract choice; there is no implicit floor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum NegativeCouponPolicy {
     /// Preserve signed negative amounts.
     Allow,
@@ -59,9 +62,10 @@ pub enum NegativeCouponPolicy {
 
 /// Explicit coupon inputs in absolute principal and annualized decimal rates.
 /// An index rate must already have been resolved under the fixing policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct CouponCalculation {
     /// Resolved term index rate; zero only for an explicitly fixed coupon.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub index_rate: Decimal,
     /// Contractual day-count convention.
     pub day_count: DayCountConvention,
@@ -75,6 +79,7 @@ pub struct CouponCalculation {
 
 /// Ex-coupon accrued convention, independent of cash entitlement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ExCouponAccrual {
     /// Accrued-to-settlement minus the full unrounded coupon, then round once.
     SubtractCoupon,
@@ -264,7 +269,7 @@ impl CouponProfiles {
 }
 
 /// Expected principal cash, with economic and payment dates kept distinct.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct PrincipalCashflow {
     /// Effective notional change date.
     pub effective_date: Date,
@@ -273,6 +278,7 @@ pub struct PrincipalCashflow {
     /// Explicit principal before/after the change.
     pub principal: PrincipalChange,
     /// Signed absolute cash, rounded under the supplied policy.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub amount: Decimal,
     /// True for the final residual principal redemption.
     pub is_redemption: bool,

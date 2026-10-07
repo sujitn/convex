@@ -8,6 +8,7 @@ use super::{build::positive, CurveContractError as Error, CurveContractResult as
 /// Rolling is a scenario over supplied curves, not a prediction or lifecycle
 /// event. Currency/role/time basis and source interpolation remain unchanged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum RollPolicy {
     /// Preserve remaining forward discounts: P_new(t)=P_old(offset+t)/P_old(offset).
     /// Offset uses the actual old-reference/new-reference year fraction.

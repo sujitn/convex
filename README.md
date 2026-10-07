@@ -7,7 +7,9 @@
 
 **[Live Demo](https://convex-demo.pages.dev/)** | **[WASM Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
 
-Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics with industry-standard methodologies.
+Convex is a fixed income analytics library providing bond pricing, yield curve
+construction and risk analytics. Full mandatory library and production
+certification remain open; see [current API capabilities and gaps](docs/LIBRARY-API.md).
 
 ## Features
 
@@ -515,3 +517,6 @@ If you use Convex in academic work, please cite:
 Built with ❤️ in Rust 🦀
 
 Pure supplied lifecycle is available through `convex::lifecycle`; see [events, cash and pending settlement](docs/LIFECYCLE.md).
+
+Full supplied terms and resources can also use `convex::library` and the shared
+`convex_library` JSON/C ABI route. See [API, clients and explicit remaining gaps](docs/LIBRARY-API.md).

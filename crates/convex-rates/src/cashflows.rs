@@ -21,7 +21,9 @@ use crate::{
 
 /// Supplied time, eligibility and same-day payment ownership. Cash before the
 /// valuation date is excluded; this projection does not assert it was paid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CashflowContext {
     /// Complete valuation/known-at/history policy; must match contract policy.
     pub fixings: FixingContext,
@@ -30,7 +32,7 @@ pub struct CashflowContext {
 }
 
 /// Actual pure forecast request, with no tenor-to-date or index-name inference.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ProjectionRequest {
     /// Exact index/date/publication requirement, distinct from rate interval.
     pub requirement: FixingRequirement,
@@ -47,9 +49,10 @@ pub struct ProjectionRequest {
 }
 
 /// Supplied annualized decimal forecast and exact source identity/version.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ForecastRate {
     /// Annualized decimal rate, checked in ±10 including negatives.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub rate: Decimal,
     /// Caller-bound exact curve version; must match the requested dependency.
     pub projection_curve: CurveKey,
@@ -57,7 +60,7 @@ pub struct ForecastRate {
 
 /// Every actually consumed unique rate, with exact published revision or forecast
 /// reason. Published rates never acquire a projection curve lineage.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct RateUse {
     /// Original actual interval and exact dependency/publication requirement.
     pub request: ProjectionRequest,
@@ -68,18 +71,19 @@ pub struct RateUse {
 }
 
 /// Term observation consumed by one coupon slice, preserving actual accrual DC.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ResolvedResetSlice {
     /// Actual independent reset/value/observation and coupon-slice dates.
     pub dates: ResetSlice,
     /// Coupon slice year fraction, distinct from the index quotation fraction.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub year_fraction: Decimal,
     /// Exact resolved fixing/projection rate.
     pub rate: ResolvedRate,
 }
 
 /// Cash calculation evidence; this is not an option valuation or realized cash.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum CouponEvidence {
     /// Deterministic independently dated fixed rate/notional profile.
     Fixed,
@@ -91,17 +95,21 @@ pub enum CouponEvidence {
 
 /// One expected coupon in absolute contract-currency units. Negative rates may
 /// reverse payment direction; no implicit floor or notional exchange occurs.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct CouponCashflow {
     /// Distinct contractual/accrual/payment/reference dates.
     pub period: CouponPeriod,
     /// Full unshifted coupon year fraction.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub year_fraction: Decimal,
     /// Unrounded cash before applying trade direction.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub unrounded_amount: Decimal,
     /// Contract-rounded cash before applying trade direction.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub amount: Decimal,
     /// Rounded signed cash from this payer/receiver trade's perspective.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub signed_amount: Decimal,
     /// Actual rate/weight/reset calculation evidence.
     pub evidence: CouponEvidence,
@@ -109,7 +117,7 @@ pub struct CouponCashflow {
 
 /// Complete expected cash projection. It contains no discounted PV, fair rate,
 /// risk, recorded payment, amendment or termination effect.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct SwapCashflows {
     /// Exact economic input version and all immutable calendar/curve pins.
     pub terms: SwapTerms,

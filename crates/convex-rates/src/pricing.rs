@@ -32,7 +32,7 @@ pub struct SwapValuationInputs<'a> {
 }
 
 /// Analytic par quotes are valid for unrounded, signed linear coupon contracts.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum SwapParQuotes {
     /// Uniform replacement rates and parallel profile shifts, in decimal units.
     Available {
@@ -57,7 +57,7 @@ pub enum SwapParQuotes {
 }
 
 /// Per-coupon expected PV in absolute contract currency, normalized at valuation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct DiscountedCoupon {
     /// Actual cash payment date, distinct from accrual maturity.
     pub payment_date: Date,
@@ -70,7 +70,7 @@ pub struct DiscountedCoupon {
 }
 
 /// Complete native valuation, including cash and actually consumed market lineage.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SwapValuation {
     /// Signed net PV in absolute currency units; negative PV remains valid.
     pub present_value: ModelMoney,

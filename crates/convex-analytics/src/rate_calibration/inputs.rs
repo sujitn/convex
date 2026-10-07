@@ -25,6 +25,7 @@ use crate::futures::{
 
 /// Exact dated money market quotation, including an independently pinned calendar.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DatedRateHelper {
     /// Actual deposit or FRA dates, index, quotation and settlement convention.
@@ -37,6 +38,7 @@ pub struct DatedRateHelper {
 
 /// Full exchange rate futures and explicit native curve/model/source bindings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateFutureCalibrationTerms {
     /// Full dated strict overnight or single-term exchange contract.
@@ -55,6 +57,7 @@ pub struct RateFutureCalibrationTerms {
 
 /// Closed product composition; every branch uses original dated economics.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RateCalibrationTerms {
     /// Deposit or publication-aware term FRA.
@@ -74,6 +77,7 @@ pub enum RateCalibrationTerms {
 
 /// Original market instrument and diagnostic pillar; no quote is dropped.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateCalibrationHelper {
     /// Unique original identity.
@@ -146,6 +150,7 @@ impl RateCalibrationHelper {
 
 /// Duplicate-pillar handling is declared, rather than inferred from input order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum RateOverlapPolicy {
     /// Reject two original helpers with the same diagnostic pillar.
     Reject,
@@ -155,6 +160,7 @@ pub enum RateOverlapPolicy {
 
 /// Closed finite continuous-zero bracket for each linear piecewise root.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateBootstrapSettings {
     /// Lower decimal continuous zero endpoint.
@@ -167,6 +173,7 @@ pub struct RateBootstrapSettings {
 
 /// Explicit zero-basis overnight projection view of this collateral discount curve.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OvernightProjectionBinding {
     /// Separate immutable projection identity, included in build order.
@@ -177,6 +184,7 @@ pub struct OvernightProjectionBinding {
 
 /// Complete mixed-product curve definition; continuous zeros on dated parameters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateCurveRecipe {
     /// Exact curve/role/time/interpolation/extrapolation/dependency/fit contract.

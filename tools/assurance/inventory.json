@@ -5,7 +5,7 @@
   "files": [
     {
       "path": "crates/convex-analytics/src/bond_contract.rs",
-      "sha256": "d6448d66dca85fb45152254b29b1c4ee3dfbda85c4d559f5b2e53d5aeda4ebbf",
+      "sha256": "cbaafc7f8312f58ff96e1b46dc8797cd35a2a722cd92d1cdb2d23f4523fd0c46",
       "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
@@ -71,7 +71,7 @@
     },
     {
       "path": "crates/convex-analytics/src/cash_calibration/inputs.rs",
-      "sha256": "7e4525e7156c2774f47271570d8f5b055081d08a5d00296af8986c1f8bccba5f",
+      "sha256": "95bfd74f14fa36bf19269858bc486c7c4e5229b9f0a034106cebfbed931b7c62",
       "invariants": "CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "bounds": "128 total original helpers/parameters,256 curves including supplied,16384 actual helper valuations and1..256 root/global iterations; finite closed parameter bounds within[-10,10], positive scales/weights, shared numerical/date/curve bounds. 4096 profile/principal input entries checked before copies and4096 credit integration points; exact validated calendars and terminating bounded pricing. Actual helper counts do not imply inner-cash operation counts or latency SLA.",
       "failure_contract": "Typed original curve/bond/cash/credit/math/global errors; no partial accepted curve graph or mutation of supplied inputs. Missing/wrong versions/roles/entity/seniority/recovery/currency/calendar, unused dependencies/cycles/overlaps, truncated cash horizons, bad quote/terms/unit, unsupported interpolation/model/street-yield/floating/optional/rounded-par or delayed-credit-principal economics and bracket/rank/iteration/native residual/work failures cannot admit a curve. Absent haircut funding or coupon policy cannot become zero-rate assumptions. Basis raw queries cannot supply discount/survival; native JSON preserves exact new fixed-cash terms. No release gate or executable quote is awarded.",
@@ -110,7 +110,7 @@
     },
     {
       "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
-      "sha256": "f4586d866b5ab3181aecb02a2f539754af54537a86fae1a2cbd75c3e9ae0f466",
+      "sha256": "f4be513b69fe001b31bb309b4c237395028ca195bbb23b5faaef51a787968721",
       "invariants": "CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "bounds": "128 total original helpers/parameters,256 curves including supplied,16384 actual helper valuations and1..256 root/global iterations; finite closed parameter bounds within[-10,10], positive scales/weights, shared numerical/date/curve bounds. 4096 profile/principal input entries checked before copies and4096 credit integration points; exact validated calendars and terminating bounded pricing. Actual helper counts do not imply inner-cash operation counts or latency SLA.",
       "failure_contract": "Typed original curve/bond/cash/credit/math/global errors; no partial accepted curve graph or mutation of supplied inputs. Missing/wrong versions/roles/entity/seniority/recovery/currency/calendar, unused dependencies/cycles/overlaps, truncated cash horizons, bad quote/terms/unit, unsupported interpolation/model/street-yield/floating/optional/rounded-par or delayed-credit-principal economics and bracket/rank/iteration/native residual/work failures cannot admit a curve. Absent haircut funding or coupon policy cannot become zero-rate assumptions. Basis raw queries cannot supply discount/survival; native JSON preserves exact new fixed-cash terms. No release gate or executable quote is awarded.",
@@ -123,7 +123,7 @@
     },
     {
       "path": "crates/convex-analytics/src/credit_calibration.rs",
-      "sha256": "5ec78f05db96af128d7442965d0e132d2e584affe3bb8a4083bb06c420fc762d",
+      "sha256": "be3fea95f8c062265dbbe2ae2c379be9de793d8b5984d92ef79a97211d863067",
       "invariants": "CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph.",
       "bounds": "Inherited schedule4096, curve256/nodes1024, horizon150years and label/calendar bounds. Atomic batch128helpers/parameters and8192actual single-helper valuations. Hazards[0,5], shared solver iterations1..10000 (also subject to the8192valuation budget); nonnegative identified inputs and closed brackets; original per-helper native tolerances. Risk vector1..64 distinct canonical factors; quote bump>=32native tolerances; immediate default cash delay<=366days; actual calendar callbacks terminate without panic. Resource ceilings do not certify latency/capacity.",
       "failure_contract": "Typed exact-identity/unit/date/calendar/curve domain, missing mapping/auction state, unsupported lifecycle/grid, closed-bracket/identification/rank/native residual/convergence and bounded-work failures; no partial curve, zero substitute for missing risk, double-counted canonical factor or inferred executable bond-CDS hedge.",
@@ -136,7 +136,7 @@
     },
     {
       "path": "crates/convex-analytics/src/credit_risk.rs",
-      "sha256": "8b4df16590cd1333963a29b9de8c3d18cdac3eed87d2752486fa62df976dfed3",
+      "sha256": "303708f2bc084abc6c9e049e3de69be2de7b8eaa43a34e32778e43010696f4f9",
       "invariants": "CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph.",
       "bounds": "Inherited schedule4096, curve256/nodes1024, horizon150years and label/calendar bounds. Atomic batch128helpers/parameters and8192actual single-helper valuations. Hazards[0,5], shared solver iterations1..10000 (also subject to the8192valuation budget); nonnegative identified inputs and closed brackets; original per-helper native tolerances. Risk vector1..64 distinct canonical factors; quote bump>=32native tolerances; immediate default cash delay<=366days; actual calendar callbacks terminate without panic. Resource ceilings do not certify latency/capacity.",
       "failure_contract": "Typed exact-identity/unit/date/calendar/curve domain, missing mapping/auction state, unsupported lifecycle/grid, closed-bracket/identification/rank/native residual/convergence and bounded-work failures; no partial curve, zero substitute for missing risk, double-counted canonical factor or inferred executable bond-CDS hedge.",
@@ -149,7 +149,7 @@
     },
     {
       "path": "crates/convex-analytics/src/curve_inputs.rs",
-      "sha256": "5d2131743a3499fc60b2002e4cc62ac0c1957dbfc746f3b246b3ff3ca4e98392",
+      "sha256": "9f67426d41406aa6827ed567aa17b5c8e0b99a1dc94d0f4047c32ae2f6d64260",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. New Decimal economics serialize as exact strings and reject inexact or numeric ingress; wire adapters reuse core DatedValue without changing older serialization.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Decimal strings<=64bytes; serialized/deserialized profile entries<=4096; caller byte/depth admission remains required.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -162,7 +162,7 @@
     },
     {
       "path": "crates/convex-analytics/src/futures/bond.rs",
-      "sha256": "b9a1d4b11e1061006c5495209bf78ecf65cea1d4d852808b7cebda75570d39c2",
+      "sha256": "37ed42c8ec609d83ca33b8ab5eb0a6278115ecf4e603c098ff0b2f0a33d44831",
       "invariants": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive.",
       "bounds": "Reuse128 basket/cash members,32 ticks,366-day windows,512-byte evidence/rate/unit bounds;65536 history entries before clone,4096 shared schedule entries,1024 consumed stamps with conflicting revision rejection; signed integer counts<=1billion, bounded checked Decimal economics. Central decimal rates[1e-8,0.05], clean basis[1e-8,10]; original finite curve query bounds. No latency guarantee.",
       "failure_contract": "Typed original reference/bond/curve/history failures; missing due history before any projection; incompatible index/currency/versions/calendars/precision; no synthetic security/schedule/default economics or latest lookup. Missing execution quote/cost/funding/borrow/horizon yields absent estimates and visible blocks; explicit required missing model/own-cash/fee-base errors. Future/later-known source cannot enter valuation, historical/synthetic/stale retained as non-executable. Cached inverse aggregates, duplicate/nonbusiness/after-final settlement and incompatible roll fail.",
@@ -175,7 +175,7 @@
     },
     {
       "path": "crates/convex-analytics/src/futures/cash.rs",
-      "sha256": "d4a1bc979bdc63c1e9044c4be9bed0fcab9229eb4582f917315a78e79babbb85",
+      "sha256": "7a392da85cd841625a1ab69f017c127ef0b47ce689f10427374812aa5fd9a5b6",
       "invariants": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive.",
       "bounds": "Reuse128 basket/cash members,32 ticks,366-day windows,512-byte evidence/rate/unit bounds;65536 history entries before clone,4096 shared schedule entries,1024 consumed stamps with conflicting revision rejection; signed integer counts<=1billion, bounded checked Decimal economics. Central decimal rates[1e-8,0.05], clean basis[1e-8,10]; original finite curve query bounds. No latency guarantee.",
       "failure_contract": "Typed original reference/bond/curve/history failures; missing due history before any projection; incompatible index/currency/versions/calendars/precision; no synthetic security/schedule/default economics or latest lookup. Missing execution quote/cost/funding/borrow/horizon yields absent estimates and visible blocks; explicit required missing model/own-cash/fee-base errors. Future/later-known source cannot enter valuation, historical/synthetic/stale retained as non-executable. Cached inverse aggregates, duplicate/nonbusiness/after-final settlement and incompatible roll fail.",
@@ -188,7 +188,7 @@
     },
     {
       "path": "crates/convex-analytics/src/futures/mod.rs",
-      "sha256": "17569e35ed8579178efb695b9deacd3521d3303a5ac31be3c9493f10a28b625e",
+      "sha256": "42e47be4016877643e6d551ef1b121fee1967058a886383bfaef3120eec7d38a",
       "invariants": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive.",
       "bounds": "Reuse128 basket/cash members,32 ticks,366-day windows,512-byte evidence/rate/unit bounds;65536 history entries before clone,4096 shared schedule entries,1024 consumed stamps with conflicting revision rejection; signed integer counts<=1billion, bounded checked Decimal economics. Central decimal rates[1e-8,0.05], clean basis[1e-8,10]; original finite curve query bounds. No latency guarantee.",
       "failure_contract": "Typed original reference/bond/curve/history failures; missing due history before any projection; incompatible index/currency/versions/calendars/precision; no synthetic security/schedule/default economics or latest lookup. Missing execution quote/cost/funding/borrow/horizon yields absent estimates and visible blocks; explicit required missing model/own-cash/fee-base errors. Future/later-known source cannot enter valuation, historical/synthetic/stale retained as non-executable. Cached inverse aggregates, duplicate/nonbusiness/after-final settlement and incompatible roll fail.",
@@ -201,7 +201,7 @@
     },
     {
       "path": "crates/convex-analytics/src/futures/rates.rs",
-      "sha256": "89738ad7612b58b408b55fc7dcbad75477c574392f9ca39da06be986ae65d5c2",
+      "sha256": "e82e1d2c177e945d145c2732dd2f559de3e6091c504fa4c2d00be4995690e3eb",
       "invariants": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive. Reviewed CVX-057 impact: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
       "bounds": "Reuse128 basket/cash members,32 ticks,366-day windows,512-byte evidence/rate/unit bounds;65536 history entries before clone,4096 shared schedule entries,1024 consumed stamps with conflicting revision rejection; signed integer counts<=1billion, bounded checked Decimal economics. Central decimal rates[1e-8,0.05], clean basis[1e-8,10]; original finite curve query bounds. No latency guarantee.",
       "failure_contract": "Typed original reference/bond/curve/history failures; missing due history before any projection; incompatible index/currency/versions/calendars/precision; no synthetic security/schedule/default economics or latest lookup. Missing execution quote/cost/funding/borrow/horizon yields absent estimates and visible blocks; explicit required missing model/own-cash/fee-base errors. Future/later-known source cannot enter valuation, historical/synthetic/stale retained as non-executable. Cached inverse aggregates, duplicate/nonbusiness/after-final settlement and incompatible roll fail.",
@@ -217,7 +217,7 @@
     },
     {
       "path": "crates/convex-analytics/src/futures/settlement.rs",
-      "sha256": "e7fe6263b19e79af6e0bcf8e8a493a7b86f723a7a292a304585b48480dbb3e50",
+      "sha256": "e9de61c6bc52555e8f5de056372ac1cf21e4a989280ecae6b3f7460ac1657512",
       "invariants": "CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive.",
       "bounds": "Reuse128 basket/cash members,32 ticks,366-day windows,512-byte evidence/rate/unit bounds;65536 history entries before clone,4096 shared schedule entries,1024 consumed stamps with conflicting revision rejection; signed integer counts<=1billion, bounded checked Decimal economics. Central decimal rates[1e-8,0.05], clean basis[1e-8,10]; original finite curve query bounds. No latency guarantee.",
       "failure_contract": "Typed original reference/bond/curve/history failures; missing due history before any projection; incompatible index/currency/versions/calendars/precision; no synthetic security/schedule/default economics or latest lookup. Missing execution quote/cost/funding/borrow/horizon yields absent estimates and visible blocks; explicit required missing model/own-cash/fee-base errors. Future/later-known source cannot enter valuation, historical/synthetic/stale retained as non-executable. Cached inverse aggregates, duplicate/nonbusiness/after-final settlement and incompatible roll fail.",
@@ -357,7 +357,7 @@
     },
     {
       "path": "crates/convex-analytics/src/lifecycle/types.rs",
-      "sha256": "97084c07a1604dc8a09dc0c27a424ed362e3c69f2802b2131cc4a3a2b36038cb",
+      "sha256": "c32dddceefbace4f8de56fd1b0cc4fea21f1e466480890261c6664eea99eefb1",
       "invariants": "CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery.",
       "bounds": "State/event/effect/history/receipt/obligation work <=65536, original checked schedule/profile and futures source/basket bounds apply; nonzero signed quantity <=1e18, futures <=1e9 integer contracts. Checked Decimal operations and u64 revision. Exact trade/prior revision/local IDs, monotonic economic dates/known-at cutoffs, no skipped original boundary. Fractional default-day/recovery in[0,1], actual recovery cash date <=366 days after default. Partial termination only at joint IRS/OIS accrual boundaries; full termination agreement cash explicit. Original exercise notice/style/date/calendar/protection/price/accrued/lag and original futures reference/freshness/rounding/date/tick/invoice guards retained.",
       "failure_contract": "Failure returns no accepted partial state/effects. Native missing publication/eligible fixing remains typed and future forecast never creates earned cash. Wrong identity/revision, date/order/unit/currency/sign, duplicate or overpaid receipt, unknown obligation, unavailable reference, illegal exercise/default/auction/delivery and bounded arithmetic fail. Unknown recovery never becomes zero or settled. Zero claims need explicit completion receipts. Midperiod partial amendment, partial bond termination, successor/novation, accelerated/coupon bond recovery and multi-security/partial delivery remain Unsupported.",
@@ -369,7 +369,7 @@
     },
     {
       "path": "crates/convex-analytics/src/optional_bond/calibration.rs",
-      "sha256": "dcd1e3acbc6a1f3b61ed1ddc358b030a96e45af41dcc336a8d2b79e571afe93b",
+      "sha256": "f2888eb4849530b4574cd3ec17b8a89a47f3d3066905f04ae1a2f7636e5ec44b",
       "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
       "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
       "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
@@ -393,7 +393,7 @@
     },
     {
       "path": "crates/convex-analytics/src/optional_bond/pricing.rs",
-      "sha256": "1d466d472a8562a69f09862a94e0d1bbad3bfe1e688cbba80de14d0e6c9602eb",
+      "sha256": "71c890e4a0a3f7de071d49408837834b6c7555b19bcb7271327019c57571433d",
       "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations. Reviewed CVX-061 additive impact: CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
       "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
@@ -421,7 +421,7 @@
     },
     {
       "path": "crates/convex-analytics/src/quote_risk/finite.rs",
-      "sha256": "d9cc80e24c82e576ab0f64fac571f78c4127e2c2b0c4c19c115ae0cb34381a52",
+      "sha256": "07dd3b33b7c06bacd0ba8771c16c0a6a7d4f7ae9115fff0d4c95282aa5d20284",
       "invariants": "CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate.",
       "bounds": "64 full recipes,128 original helpers,256 total output/supplied curves (including explicit overnight aliases);32768 unique publication decisions. Reference +/-h,+/-h/2 plus baseline uses existing family/grid/history/cash and original bounded numerical controls; work counters are actual helper evaluations, not a latency SLA. Canonical bump>=1e-8, rate/hazard<=0.1, fraction<=0.5, price-point<=100; quantities/reference sizes<=1e15 and integer contracts. Risk reconciliation1..128 factors. Portfolio4096 trades,128 factors/trade,65536 total pairs,256 FX pins,128 authorized entities, 1024-byte missing reason. Finite/Decimal overflow and invalid policies fail.",
       "failure_contract": "Typed original curve/rate/credit/cash/optional failures propagate; no partial accepted sensitivity or replacement of immutable inputs. Wrong units/side scaling/currency/versions/roles/legal recovery, cycles/output overwrites, missing helper/history/publication, native residual/work/grid or half-step failures abort risk. Missing/duplicate grid/quote buckets fail even when risk is zero; failed additivity remains a failed diagnostic. Optional undersampled risk cannot pass by relaxing original model guards. Duplicate or unrequested trade factors, mixed snapshots/positions/basePV, invalid numerical records, unauthorized entity scope and overflow fail aggregation. Expected missing risk, unknown gross and absent FX produce explicit Incomplete coverage; missing PV/risk never becomes zero or Complete.",
@@ -481,7 +481,7 @@
     },
     {
       "path": "crates/convex-analytics/src/quote_risk/types.rs",
-      "sha256": "84090785e7d6bd6ff716538024861c68292509f245375fec93f11c9837719a4d",
+      "sha256": "c5d1fe1cf0e6d7ee8a563ffdf09f9bdf34602460411ebd40cb17c1cd382263e9",
       "invariants": "CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate.",
       "bounds": "64 full recipes,128 original helpers,256 total output/supplied curves (including explicit overnight aliases);32768 unique publication decisions. Reference +/-h,+/-h/2 plus baseline uses existing family/grid/history/cash and original bounded numerical controls; work counters are actual helper evaluations, not a latency SLA. Canonical bump>=1e-8, rate/hazard<=0.1, fraction<=0.5, price-point<=100; quantities/reference sizes<=1e15 and integer contracts. Risk reconciliation1..128 factors. Portfolio4096 trades,128 factors/trade,65536 total pairs,256 FX pins,128 authorized entities, 1024-byte missing reason. Finite/Decimal overflow and invalid policies fail.",
       "failure_contract": "Typed original curve/rate/credit/cash/optional failures propagate; no partial accepted sensitivity or replacement of immutable inputs. Wrong units/side scaling/currency/versions/roles/legal recovery, cycles/output overwrites, missing helper/history/publication, native residual/work/grid or half-step failures abort risk. Missing/duplicate grid/quote buckets fail even when risk is zero; failed additivity remains a failed diagnostic. Optional undersampled risk cannot pass by relaxing original model guards. Duplicate or unrequested trade factors, mixed snapshots/positions/basePV, invalid numerical records, unauthorized entity scope and overflow fail aggregation. Expected missing risk, unknown gross and absent FX produce explicit Incomplete coverage; missing PV/risk never becomes zero or Complete.",
@@ -535,7 +535,7 @@
     },
     {
       "path": "crates/convex-analytics/src/rate_calibration/inputs.rs",
-      "sha256": "f74353df7ae300b33c07f50dca060fca7a566f8c63fd8e6ff94966eada40466f",
+      "sha256": "3d87df7f33c79ce1ef3222b79f45afebc7fd45b4481db2b4d270effb654869f0",
       "invariants": "CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
       "bounds": "128 total original helpers and128 parameters per atomic graph, 256 curves including supplied/views,32768 unique frozen publications,16384 actual helper valuations including trials/final repricing; finite closed zero brackets within[-10,10], positive native scales/weights, existing bounded solver/SVD and curve horizons. Reuse4096 schedule/profile ingress,65536 reset/fixing plans and checked Decimal/date arithmetic; callbacks must terminate without panic. Profile bounds precede basis adapter copies. No latency guarantee.",
       "failure_contract": "Typed original curve/history/swap/futures/math/fit errors, complete missing due observations before trial forecasts, no partial accepted set or mutation of supplied curves. Wrong versions/roles/index/currency, unused aliases/dependencies, cycles, insufficient delayed/index horizons, rounded or clipped inverse helpers, missing convexity admission, quote/profile mismatch, unsupported representation/interpolation/simultaneous cycles, rank/iteration/native residual/work failures cannot admit a curve. Expired basis cash has zero PV with no fabricated inverse. Existing source quality blocks remain and calibration provides no order authority.",
@@ -683,7 +683,7 @@
     },
     {
       "path": "crates/convex-analytics/src/workflow/bond.rs",
-      "sha256": "99abeca5da780c875c244cabe0087460f1d7abb5ca9ba88bf22e9f69f2a0c995",
+      "sha256": "90ed1d4dcb8e6a3378767c77061b9d6616f8be8b42ac0087274144f59eab7f97",
       "invariants": "CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Publication schedule and requirements <=65536 unique observations; native bounded history batches and original family work limits. Bond annual yield within +/-10, spread +/-1, actual compounding/positive DF domain; closed ordered original inverse bracket, price tolerance(0,1], independent parameter tolerance(0,1e-6],1..256 iterations and final full native price postcondition. Mixed-sign cash unsupported; constant/insufficient exposure non-identified. Original native CDS intensity/residual/work, optional grid/risk resolution and remaining-futures snapshot guards unchanged. Actual work counters retained.",
       "failure_contract": "Exact missing curves/administrator decisions/due fixings/projection remain typed. No forecast substitution for published history, silent curve role/currency/default selection, arbitrary root/domain expansion, tolerance relaxation, width-only acceptance or zero fallback. Native original product failures propagate. Wrong signed units/reference/currency, nonfinite/overflow, strict inverse/publication/requirement violations and graph baseline mismatch fail. Generic optional/bond-future graph cannot bypass native model/CTD guards. Expected missing risk/unknown gross/FX remains Incomplete, never manufactured Complete.",
@@ -722,7 +722,7 @@
     },
     {
       "path": "crates/convex-analytics/src/workflow/inverse.rs",
-      "sha256": "bf8f323ffc0ad6b8792e30688ba79aeb832ca23037043770aa66e67f33486996",
+      "sha256": "d79e0a2faa31051103205596949aa6489bf8e07ee753b39907b5597536ed47f2",
       "invariants": "CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Publication schedule and requirements <=65536 unique observations; native bounded history batches and original family work limits. Bond annual yield within +/-10, spread +/-1, actual compounding/positive DF domain; closed ordered original inverse bracket, price tolerance(0,1], independent parameter tolerance(0,1e-6],1..256 iterations and final full native price postcondition. Mixed-sign cash unsupported; constant/insufficient exposure non-identified. Original native CDS intensity/residual/work, optional grid/risk resolution and remaining-futures snapshot guards unchanged. Actual work counters retained.",
       "failure_contract": "Exact missing curves/administrator decisions/due fixings/projection remain typed. No forecast substitution for published history, silent curve role/currency/default selection, arbitrary root/domain expansion, tolerance relaxation, width-only acceptance or zero fallback. Native original product failures propagate. Wrong signed units/reference/currency, nonfinite/overflow, strict inverse/publication/requirement violations and graph baseline mismatch fail. Generic optional/bond-future graph cannot bypass native model/CTD guards. Expected missing risk/unknown gross/FX remains Incomplete, never manufactured Complete.",
@@ -735,7 +735,7 @@
     },
     {
       "path": "crates/convex-analytics/src/workflow/mod.rs",
-      "sha256": "d7126e4cafce5c3ae4f432ebff965ae75e919bff2a6b37aca95413b12c958a33",
+      "sha256": "4d29f338de876afce1b54a8fe077db217a6630b5d8982170a9074cda55bbb3bb",
       "invariants": "CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Publication schedule and requirements <=65536 unique observations; native bounded history batches and original family work limits. Bond annual yield within +/-10, spread +/-1, actual compounding/positive DF domain; closed ordered original inverse bracket, price tolerance(0,1], independent parameter tolerance(0,1e-6],1..256 iterations and final full native price postcondition. Mixed-sign cash unsupported; constant/insufficient exposure non-identified. Original native CDS intensity/residual/work, optional grid/risk resolution and remaining-futures snapshot guards unchanged. Actual work counters retained.",
       "failure_contract": "Exact missing curves/administrator decisions/due fixings/projection remain typed. No forecast substitution for published history, silent curve role/currency/default selection, arbitrary root/domain expansion, tolerance relaxation, width-only acceptance or zero fallback. Native original product failures propagate. Wrong signed units/reference/currency, nonfinite/overflow, strict inverse/publication/requirement violations and graph baseline mismatch fail. Generic optional/bond-future graph cannot bypass native model/CTD guards. Expected missing risk/unknown gross/FX remains Incomplete, never manufactured Complete.",
@@ -748,7 +748,7 @@
     },
     {
       "path": "crates/convex-analytics/src/workflow/valuation.rs",
-      "sha256": "822abcddec89675c21c921bfc136f7e1dbe88e512127c8950985e7e10b622e62",
+      "sha256": "af234196555e0291d2442e3bc780fdf68802eb8029229709caa77fac9546ec77",
       "invariants": "CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Publication schedule and requirements <=65536 unique observations; native bounded history batches and original family work limits. Bond annual yield within +/-10, spread +/-1, actual compounding/positive DF domain; closed ordered original inverse bracket, price tolerance(0,1], independent parameter tolerance(0,1e-6],1..256 iterations and final full native price postcondition. Mixed-sign cash unsupported; constant/insufficient exposure non-identified. Original native CDS intensity/residual/work, optional grid/risk resolution and remaining-futures snapshot guards unchanged. Actual work counters retained.",
       "failure_contract": "Exact missing curves/administrator decisions/due fixings/projection remain typed. No forecast substitution for published history, silent curve role/currency/default selection, arbitrary root/domain expansion, tolerance relaxation, width-only acceptance or zero fallback. Native original product failures propagate. Wrong signed units/reference/currency, nonfinite/overflow, strict inverse/publication/requirement violations and graph baseline mismatch fail. Generic optional/bond-future graph cannot bypass native model/CTD guards. Expected missing risk/unknown gross/FX remains Incomplete, never manufactured Complete.",
@@ -790,7 +790,7 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/exercise.rs",
-      "sha256": "36526da74c00cd6897d2776a6c44728931127256021abbe77a33d0b4fd2f9c88",
+      "sha256": "04eee3d1ef01b39f39a5ae347f6ef72bc3ee1adf876619386cc4e41c636c1f0b",
       "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
@@ -802,7 +802,7 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/mod.rs",
-      "sha256": "ea87b6a1208e45760815ad5d81f5f3618b8653aae75a3b9ca49c2b9e4647edac",
+      "sha256": "1cd05d56c05e9c0cc2dc17a7fd23f3d524ece49b3b21d5ed63d5aed0b116b0b8",
       "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
@@ -816,7 +816,7 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/projection.rs",
-      "sha256": "4a2daf21684d89549bb20080ef8db8a1ea19b5dcef635f9bfb7196630e6c8db0",
+      "sha256": "9bd6dac7db13faeac0884c269a17ef199a60497aace222c5bed0e7bdbdc11000",
       "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. Reviewed CVX-062 additive impact: CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
@@ -829,8 +829,23 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-bonds/src/contracts/schema.rs",
+      "sha256": "87415f9a49f4c86edf684a3444056776ff13615f02d721b5bab628274271b58d",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-bonds/src/contracts/terms.rs",
-      "sha256": "0133ed9e8c3b63df8bbcf3e3784cf701aa11a0b20863cfda8ef377fedb806f5a",
+      "sha256": "b3fea3e2c280a58c342f39548d778c857cfba01ee8cd6707a3e5ad5b5f9f1f84",
       "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
@@ -937,7 +952,7 @@
     },
     {
       "path": "crates/convex-bonds/src/options/hw1f/european.rs",
-      "sha256": "f3625f6e6fbd39747b674abe5f253e677470e85e7a9b19b14816de56c95575b0",
+      "sha256": "5e94658c5bfbcac8aa230529a8b79a2da19af78be264e75975f616d599cf1218",
       "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
       "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
       "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
@@ -949,7 +964,7 @@
     },
     {
       "path": "crates/convex-bonds/src/options/hw1f/lattice.rs",
-      "sha256": "919fe48155b6dfc2ff6306c631f02602841de970260f4667f3dee6f23e3cab9d",
+      "sha256": "c13204f0070c0584530d585e0bd39d7d34510e7c1ce56425243cf8fdfff7c7e0",
       "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
       "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
       "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
@@ -961,7 +976,7 @@
     },
     {
       "path": "crates/convex-bonds/src/options/hw1f/mod.rs",
-      "sha256": "82cbbb8b834a4683932cbe20bb7cc2f26f2909e87c140e374ae54c68b2468c70",
+      "sha256": "d22303f0598acca4ea70195d3badd20b2446edc87dd7cc76aa78f23da0ebe7be",
       "invariants": "CVX-059 checked pure optional-bond HW1F uses explicit immutable model/curve/calendar/history/quote inputs, actual dated cash/notice branches, conserving OU moments and supplied DF fit. Genuine aligned term FRNs use conditional stochastic reset-payment discount ratios; no deterministic optional coupon forecast. OAS and risk freeze parameters, separate factor axes and known observations.",
       "bounds": "Mean reversion 0..10/year, sigma 0..1; time <=150 years, events/intervals <=2048, row <=8193, total nodes <=2 million/tree; <=128 rights, <=512 future coupons, <=32 million conservative visits/grid. Calibration <=128 quotes/512 payments, <=128 Jamshidian and 64 implied-vol attempts per evaluation; existing LM/SVD each <=10000. Closed OAS bracket within [-1,1], <=10000 attempts. These are work bounds, not capacity or latency guarantees.",
       "failure_contract": "Finite input/output and probability/DF-fit checks; strict normal/shifted-lognormal units and eligible whole-history preflight. Invalid or missing inputs, unsupported American/make-whole/triggered/overnight/cap-floor/off-cycle FRN terms, solver/rank/native-residual/grid failures return checked errors without a model or successful valuation. Risk independently requires resolved bump and final duration/convexity refinement. No financial defaults or zero fallback.",
@@ -1090,7 +1105,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/amounts.rs",
-      "sha256": "17cb42f9053caf7274fd06e560ea97f54cdae404af669976cb227ecb100bf193",
+      "sha256": "deebb5411f0dcdcea46e461d3c88146f9abfd740a2b61438b01aa39b12f430c1",
       "invariants": "Checked Decimal economic segment sums; explicit principal/negative-coupon/rounding/redemption/entitlement policies; expected cash never asserts realized payment. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified.",
       "bounds": "Four validated profiles<=4096entries each; combined cuts<=4*4096+2; canonical covered coupon dates; index\u00b110, rounding scale0..28, redemption multiplier0..10; checked Decimal operations.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1103,7 +1118,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/mod.rs",
-      "sha256": "422131969e870a711f62c394cc13ffbc7d12f60e05c944ab59de0a47445a874f",
+      "sha256": "76474069483044ddf3ae2af6502a792506b120eefc9a2e3e5c14b4a934e25604",
       "invariants": "Pure shared immutable inputs; scoped unwrap/expect/panic denial; canonical dates and ordered bounded spans.",
       "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1114,7 +1129,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/overnight.rs",
-      "sha256": "a8a55e216c0f33c0cd50a1ec71d68602c06c9cf78b952cc2019505bc1dd6b53e",
+      "sha256": "72ba7e8e2a7bfec21a183bf732ef89a45f72fb4700a5fc371fa38acefdf3e694",
       "invariants": "Explicit lookback/shift/lockout calendar weights; resolve complete eligible history before any forecast; positive compound factors and per-observation provenance. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-062 additive impact: CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery.",
       "bounds": "Canonical ordered span<=150*366days; <=4096 observation terms, lookback/lockout<=366, calendar search<=3660; unique requirements<=4096; inherited rate and history bounds; checked positive compound product; callbacks must terminate without panic.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1136,7 +1151,7 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/profiles.rs",
-      "sha256": "4dd6ce6df2a0e3c04ad34ad75c53442727a802b48e3201924b3559230a5ee391",
+      "sha256": "9311374884bcdde5fc8dcf41db83905b7fbb2121b5db58c851154923eafb8246",
       "invariants": "Immutable sorted contiguous independent coupon/spread/gearing/notional intervals; explicit before/after boundary principal and no unchecked deserialization.",
       "bounds": "Each profile<=4096 entries; canonical years1..9999/span<=150*366days; coupon/spread \u00b110, gearing magnitude<=1e6, notional0..1e18. Full nonempty contiguous coverage and private immutable fields bound access.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1147,12 +1162,27 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/schedule.rs",
-      "sha256": "c73dd88f606f5bffe41e28ee64aab7d91857b9289fc7f89a49646abfcd3e95fe",
+      "sha256": "d1fced4d1d4e069ed94d09c249b0d44083b9f32337828ca726f2eebefe47b8cd",
       "invariants": "Anchored grid; short/long front/back stubs; independent contractual/accrual/payment/fixing/observation/ex dates; complete ICMA reference partition; contract-aware 30E ISDA.",
       "bounds": "Dates1..9999; span<=150*366days; <=4096 schedule/profile/overnight/request entries, <=65536 fixing revisions; date offsets<=366 and calendar search<=3660; coupon/spread/index \u00b110, gearing<=1e6, principal0..1e18; checked Decimal arithmetic. Profile combined cuts<=4*4096+2. Callback termination is caller precondition.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
       "tests": [
         "crates/convex-core/tests/cashflow_primitives.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/cashflows/schema.rs",
+      "sha256": "a907c838334af5736f2c5827a6e56bfc82343f3f4a59eab8edf5c756916d2a86",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
       ],
       "exceptions": []
     },
@@ -1224,7 +1254,7 @@
     },
     {
       "path": "crates/convex-core/src/fixings.rs",
-      "sha256": "e9cdf8ee0fa748d886e1ee022ee982d99fa1602013fb88987cc28a482185f60b",
+      "sha256": "76872ab24fb57d44a4dfe544d31b98853ac59c44fa9c703b6ae56ae386b0809a",
       "invariants": "Immutable source-selected revision history; both publication and receipt <=cutoff; no future observation leakage or missing-published projection; duplicates and inconsistent histories rejected. Reviewed CVX-061 additive impact: CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
       "bounds": "Dates1..9999; <=65536 history revisions, <=4096 unique resolution requests; input rates \u00b110 annualized decimal. No clock/repository calls or implicit source arbitration. History sorting/scans bounded by input size; callback must terminate without panic.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
@@ -1238,7 +1268,7 @@
     },
     {
       "path": "crates/convex-core/src/futures/eligibility.rs",
-      "sha256": "df7ff379dac18601016e64482b1dbdddeb9a1fdbd7c990e490f861172fb78b12",
+      "sha256": "2e61a397e4703f6ede981a28b08e5f7af9b7be84633c1414932618e20eb5cc99",
       "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
       "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
@@ -1270,7 +1300,7 @@
     },
     {
       "path": "crates/convex-core/src/futures/terms.rs",
-      "sha256": "79d12826e1cbf3c8c635be331d5110100e406008aec200bf8d89d8c8fa472d43",
+      "sha256": "98f1676ff3ce2a3b8528ae256a53b5e3d86b01ac22381198625edffa45301562",
       "invariants": "CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
       "bounds": "Named years1900..2200; intervals100years; observation366days; term fixing offset31days;32tick regimes;128unique basket/cash securities;512-byte text;8cash decimal places; point multiplier/order count<=1billion and generic amounts<=1e15. Positive exact ticks/factors, factor<=10, cash/bond price<=1000, rate points[0,200], repo[-1,1], haircut[0,1), borrow fee[0,1]. Existing transaction256/history/store/import bounds retained. These limits do not certify latency.",
       "failure_contract": "Typed identity/version/month/currency/date/unit/family/calendar/known-at/bounds failures; absent data stays absent. Stable original-resource reasons for synthetic/indicative/historical/stale/incomplete/unknown input, missing quote/size/funding/borrow/cost and off-lot face. No latest-version fallback, partial atomic prefix, inferred forward convexity or executable advisor output.",
@@ -1360,7 +1390,7 @@
     },
     {
       "path": "crates/convex-credit/src/conversion.rs",
-      "sha256": "b8c3113ff0c5dcbc4e01ba5cbb262a91ab53c820d2602ce2ba88c4b43d773023",
+      "sha256": "0ab9449b8fb82b1596403c9ecb3eef627f63bfff21e89ee4d751d030bcb9919c",
       "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
       "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
       "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
@@ -1411,7 +1441,7 @@
     },
     {
       "path": "crates/convex-credit/src/terms.rs",
-      "sha256": "389d186426559344ab9265b566ac707a310a8908b0709c53e1741eb79ebca7f4",
+      "sha256": "af87aea8f7c0f8a0393ac9fbcb022b948e8937bae60882f5cc2864d89572f065",
       "invariants": "CVX-020: checked complete single-name terms and immutable actual calendar/discount/credit versions; exact entity/seniority/recovery, unsigned notional and signed legs/initial cash. Exact piecewise premium/protection/half-day default accrual, buyer-to-seller clean/dirty cash units; conversion fits the same full pricer, never a spread/recovery proxy. No runtime/provider dependency.",
       "bounds": "Canonical years1..9999; inherited schedule4096, horizon150*366days, nodes1024 per curve and checked calendar bounds. Joint timeline4096; closed hazard[0,5], iterations1..256, positive native residual tolerance<=1e-6; defaults[0,1]/1e-12/100. Custom calendar callbacks must terminate without panic. Resource ceilings are not latency/capacity certificates.",
       "failure_contract": "Typed invalid terms/reference/date/calendar/curve role/version/domain, unsupported representations/conventions/lifecycle, nonidentified/full-recovery or matured conversion, convergence and native residual failure. Overdue initial/completed-but-delayed premium cash is never dropped into a plausible zero PV. No result from failed conversion.",
@@ -1499,7 +1529,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/inputs.rs",
-      "sha256": "b99bb9ddfe1cfce4e3e3ae4f0a9505571e5193dc34424ca814697b503e236341",
+      "sha256": "8b866035550d1762c064b50d9374a10f0a2e6d40ad38ef509080aae773b9c8b2",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference. Reviewed CVX-024 impact: CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -1535,7 +1565,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/mod.rs",
-      "sha256": "1a079121b38371670e1f8569619f57df78f93cdb5ee3b0df71006af346d36433",
+      "sha256": "549449f278b288fea8f19f5a4f7d9736d30b80957a4998c8fd837587e847827b",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -1566,7 +1596,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/numerics.rs",
-      "sha256": "abbf5fe4766149527b3119e1ec447095fb06a6934b8fa9148b07a4172938786d",
+      "sha256": "bc2f552751cd494ea56243d38dac6b0074dd6f56902084fa62b5aa3edb181c3f",
       "invariants": "Pure checked caller-supplied inputs. Finite native residuals; objective and every native postcondition plus undamped identification required; no callback, method, rate or partial-output substitute. Exact view/roll conventions and old kernels conserved. Scoped deny unwrap/expect/panic inherited.",
       "bounds": "Fit parameters/residuals<=128; LM/SVD positive budgets<=10000; callback calls<=1+maxiter+2*n*(maxiter+1); dense augmented rows<=256; curve queries<=150years; derived views<=32; date inverse<=16 steps. Caller callbacks must terminate and not panic.",
       "failure_contract": "Typed contract or solver error, including original callback failure and measured rank/residual/budget diagnostics; no fitted vector/curve on failure.",
@@ -1579,7 +1609,7 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/query.rs",
-      "sha256": "c0ac6fcfc17e613acb1d7c8a2b83544397388341380198d0e1b1d2810389fedf",
+      "sha256": "ce899314e007a726e8dbba86ec1841bbc2855eb2e514118139aa287ceee968fb",
       "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
@@ -1597,8 +1627,23 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-curves/src/contracts/schema.rs",
+      "sha256": "ecf856e55d5d9046102c8b85aa2b68977c9daaba1baf5429f20dbfdc76fe9bcd",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-curves/src/contracts/transformations.rs",
-      "sha256": "db52929869da2e6e2b0c3763867777d83855e7baad6eefd016eaf8ad043263a1",
+      "sha256": "85490053dfe8779a1c638bf329391cc9b290dce28a48ab5a731a546de6afc127",
       "invariants": "Pure checked caller-supplied inputs. Finite native residuals; objective and every native postcondition plus undamped identification required; no callback, method, rate or partial-output substitute. Exact view/roll conventions and old kernels conserved. Scoped deny unwrap/expect/panic inherited.",
       "bounds": "Fit parameters/residuals<=128; LM/SVD positive budgets<=10000; callback calls<=1+maxiter+2*n*(maxiter+1); dense augmented rows<=256; curve queries<=150years; derived views<=32; date inverse<=16 steps. Caller callbacks must terminate and not panic.",
       "failure_contract": "Typed contract or solver error, including original callback failure and measured rank/residual/budget diagnostics; no fitted vector/curve on failure.",
@@ -1755,7 +1800,7 @@
     },
     {
       "path": "crates/convex-ffi/src/dispatch.rs",
-      "sha256": "f2eb2be99939ff1d1f01757a885ae3ef0b8f4c7e5b3821ea10b4ac32a7feb132",
+      "sha256": "108a7392f40802d072bd5a564bb890581eef2b4d518ea5713d0d6256fed8e997",
       "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
@@ -1802,7 +1847,7 @@
     },
     {
       "path": "crates/convex-ffi/src/lib.rs",
-      "sha256": "2bbc71fd16081b136163ed59d736257118a24cdb6c611abf3fe34d73fbd508cf",
+      "sha256": "ca5410f694cd21ceb853fa0882b556e06ba6a8d7c2ee297da3fa6febee4b4b95",
       "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
@@ -1828,7 +1873,7 @@
     },
     {
       "path": "crates/convex-ffi/src/schemas.rs",
-      "sha256": "1aebbcf70f45b62230ced42236b104b1bcc15a80f561d45ee61c3d7fb5a173aa",
+      "sha256": "8479c97e82f5ed81e7d11cdb35c0e254495933530f4b04dc1cda85781061484c",
       "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
@@ -2157,7 +2202,7 @@
     },
     {
       "path": "crates/convex-portfolio/src/signed_risk.rs",
-      "sha256": "f1095d9d8978d1f1b96a6bdf82303a37bdedc9af9501067ed42b032552988bf7",
+      "sha256": "15a0d8c024895549f868210faf3051b9f433643e682bafe089d955d7854dab6b",
       "invariants": "CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate.",
       "bounds": "64 full recipes,128 original helpers,256 total output/supplied curves (including explicit overnight aliases);32768 unique publication decisions. Reference +/-h,+/-h/2 plus baseline uses existing family/grid/history/cash and original bounded numerical controls; work counters are actual helper evaluations, not a latency SLA. Canonical bump>=1e-8, rate/hazard<=0.1, fraction<=0.5, price-point<=100; quantities/reference sizes<=1e15 and integer contracts. Risk reconciliation1..128 factors. Portfolio4096 trades,128 factors/trade,65536 total pairs,256 FX pins,128 authorized entities, 1024-byte missing reason. Finite/Decimal overflow and invalid policies fail.",
       "failure_contract": "Typed original curve/rate/credit/cash/optional failures propagate; no partial accepted sensitivity or replacement of immutable inputs. Wrong units/side scaling/currency/versions/roles/legal recovery, cycles/output overwrites, missing helper/history/publication, native residual/work/grid or half-step failures abort risk. Missing/duplicate grid/quote buckets fail even when risk is zero; failed additivity remains a failed diagnostic. Optional undersampled risk cannot pass by relaxing original model guards. Duplicate or unrequested trade factors, mixed snapshots/positions/basePV, invalid numerical records, unauthorized entity scope and overflow fail aggregation. Expected missing risk, unknown gross and absent FX produce explicit Incomplete coverage; missing PV/risk never becomes zero or Complete.",
@@ -2220,7 +2265,7 @@
     },
     {
       "path": "crates/convex-rates/src/basis.rs",
-      "sha256": "16e3ca18c4ac1f8ef23741e5d610a697739fae4788562b787d753981d109abd1",
+      "sha256": "a8e9a5b1bcfc70bda8ae046d6f3c118bda8705e0aec20ac6358eca202c8181b6",
       "invariants": "CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
       "bounds": "128 total original helpers and128 parameters per atomic graph, 256 curves including supplied/views,32768 unique frozen publications,16384 actual helper valuations including trials/final repricing; finite closed zero brackets within[-10,10], positive native scales/weights, existing bounded solver/SVD and curve horizons. Reuse4096 schedule/profile ingress,65536 reset/fixing plans and checked Decimal/date arithmetic; callbacks must terminate without panic. Profile bounds precede basis adapter copies. No latency guarantee.",
       "failure_contract": "Typed original curve/history/swap/futures/math/fit errors, complete missing due observations before trial forecasts, no partial accepted set or mutation of supplied curves. Wrong versions/roles/index/currency, unused aliases/dependencies, cycles, insufficient delayed/index horizons, rounded or clipped inverse helpers, missing convexity admission, quote/profile mismatch, unsupported representation/interpolation/simultaneous cycles, rank/iteration/native residual/work failures cannot admit a curve. Expired basis cash has zero PV with no fabricated inverse. Existing source quality blocks remain and calibration provides no order authority.",
@@ -2233,7 +2278,7 @@
     },
     {
       "path": "crates/convex-rates/src/cashflows.rs",
-      "sha256": "faa71d1704d16ade795737cb41d326b14cc70bf05d208587d517d12f97dc63c5",
+      "sha256": "e1d1057086e249238a30a163eda0b957e57f0ef11d8b75926d9f47aa7728a8e3",
       "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency. Reviewed CVX-062 additive impact: CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery.",
       "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
       "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
@@ -2248,7 +2293,7 @@
     },
     {
       "path": "crates/convex-rates/src/contract.rs",
-      "sha256": "f623cea922a1be720e39f8ae263f527cce07f23f5bf34868b825cf0d65fa37bf",
+      "sha256": "4b79a43fd3a22184b41c5c45e3a5ffbe67b6df0d0ead18b12d46786c5db09d50",
       "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
       "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
       "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
@@ -2286,7 +2331,7 @@
     },
     {
       "path": "crates/convex-rates/src/pricing.rs",
-      "sha256": "5bc1dab0eca79b8423801efdba4b48a922b0bdfad656077d1ac42444716751c5",
+      "sha256": "038bc88a6c44eb93f50bbdad71eb156d11bf4626a1452ddb7053832de11018e5",
       "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts.",
       "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
       "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
@@ -2324,7 +2369,7 @@
     },
     {
       "path": "crates/convex-rates/src/terms.rs",
-      "sha256": "0f6fde156d53b0eb0647fdc4ff8b67c5db1a9c6baffc1a4cafc478e151197a63",
+      "sha256": "0d0486077fe6102a57b148774e3e8bbf48db98d8ed076455b2026da9ef05268a",
       "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
       "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
       "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
@@ -2350,7 +2395,7 @@
     },
     {
       "path": "crates/convex/src/lib.rs",
-      "sha256": "5bdf60772d44199e3213045e5e5ca3fb1d82101d5af7b65813f606e5558f283e",
+      "sha256": "6a5da1a7c42a4169417a921df625b0614604bf888547a65b33075d8dfde385a5",
       "invariants": "Pure crate forbids unsafe and denies ignored must_use results; defaults and existing numerical test evidence remain pinned. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. CVX-055 reviewed impact: full supplied dated bond terms and actual coupon/principal composition; eligible fixing preflight and explicit option model requirements. Existing infallible flat/workout diagnostics remain unqualified. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. CVX-020 reviewed impact: re-export the independent pure credit crate through convex::credit, without modifying existing pricing or C ABI semantics. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime. Reviewed CVX-023 impact: CVX-023: pure complete resolved futures/cash economics; exact contract/basket/security/calendar/source revisions; actual security cash/accrued, explicit repo/haircut/own-cash/coupon carry; independent CTD/fair-forward selection; full alternative/switch/frozen-basis risk; original/latest publication-aware partly fixed arithmetic/compounded/term projection, explicit convexity and final rounding; actual cash side/model/cost distinction; normal monetary-level settlement, supplied compatible roll and integer residual. Every result is indicative and model limitations/source blocks survive. Reviewed CVX-057 impact: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference. Reviewed CVX-024 impact: CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate. Reviewed CVX-061 additive impact: CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification. Reviewed CVX-062 additive impact: CVX-062: closed deterministic pure previous-state/event/supplied-input transitions over full original checked bond/FRN/optional/zero/IRS/OIS/CDS/futures terms. Original profiles, principal, accrual/reset/weight/payment/exercise dates and eligible history preserved. Exact signed quantity/reference units scale once; actual current bond principal is separate from matured arrears. Earned coupon/principal obligations are proposals; actual external partial/full cash and security receipts alone record settlement. Default retains arrears, unknown auction stays DefaultPending and actual recovery stays cash pending until receipts. Original native futures rounded monetary levels and integer contracts, actual delivery-date invoice and separately confirmed security. Library has no I/O, clock, authority or delivery.",
       "bounds": "Module dispatch inherits validated operation ceilings; pure normal graph excludes runtime/database/network adapters.",
       "failure_contract": "Use scoped Result APIs for externally driven failures; compatibility exceptions do not authorize defaults.",
@@ -2406,6 +2451,201 @@
         "crates/convex/tests/lifecycle.rs"
       ],
       "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/credit.rs",
+      "sha256": "3056ac5921a7d3a57765c17ea9d70f09e383c5d80d79d116b164d7edcab74c22",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/curves.rs",
+      "sha256": "3d9fdf0a809847532f5099051798f223f5e092574bb0481908d8e023706c0c06",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/errors.rs",
+      "sha256": "153c4d453e8643bdd8bb90af701f846048f42c2cf5869c97de36a5b74c3c6976",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/events.rs",
+      "sha256": "a040a5d3ea39e956c559af77866f7670eb3e011413fcab9fe6c9b33e41e7f808",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/hedges.rs",
+      "sha256": "45b0b410e0a20524fd77e4704915794e8206d85e672233a3b7a714d741cfd153",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/helpers.rs",
+      "sha256": "11d8ade5e52e506ffe381d7354bf97cade1a92a31103b6fa7c879a8fc44b2c62",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/ingress.rs",
+      "sha256": "901352a3575b24c2d93573cc59ba2698c328768942d8f6126d6e8b188370f375",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/inputs.rs",
+      "sha256": "54d0190e8c6909b79261d78f586e7e96f5dae509249fa5026f37357e7cb43bf4",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/mod.rs",
+      "sha256": "e341bb12ec1072173637baa3260cf14172b3cec95aea28f24f789f1c66517118",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/products.rs",
+      "sha256": "9eb0969827e42cad5011e91ace9fb9439f3187a7348a2954ab1c62ee96748c4e",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/requests.rs",
+      "sha256": "794500947e6971a7fad7dbca515daf991d798851b39650ea4794bbdae365a99a",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/risk.rs",
+      "sha256": "c54d72ad491abcc99037b5456d1dbc34410f3962f6e2c791f87cc8c7ca89002b",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex/src/library/zero.rs",
+      "sha256": "af72e9852f87fa35d255366a7f5792d620bf4ea8e46cfade123cf9cc2db8ed7a",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
+      "tests": [
+        "crates/convex/tests/library.rs",
+        "crates/convex-ffi/tests/library.rs",
+        "crates/convex-mcp/tests/library.rs",
+        "crates/convex-wasm/tests/library.rs",
+        "tests/scripts/library_schema.py"
+      ],
+      "exceptions": []
     }
   ],
   "c_exports": [
@@ -2426,6 +2666,7 @@
     "convex_spread",
     "convex_cashflows",
     "convex_curve_query",
+    "convex_library",
     "convex_make_whole",
     "convex_yas",
     "convex_scenario",

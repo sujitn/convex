@@ -62,7 +62,7 @@ struct Layer {
 }
 
 /// Actual numerical curve-fit/resource information; not a convergence certificate.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct TreeDiagnostics {
     /// Actual event-aligned intervals.
     pub steps: usize,

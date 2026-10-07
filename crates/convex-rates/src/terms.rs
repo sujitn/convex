@@ -18,6 +18,7 @@ use crate::{SwapContract, SwapError};
 
 /// Exact immutable reference resource, independent of a provider.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReferencePin {
     /// Internal calendar or agreement identity.
@@ -37,6 +38,7 @@ pub struct CalendarBinding<'a> {
 
 /// Distinct leg accrual and payment calendar identities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LegCalendarPins {
     /// Calendar used only to adjust coupon accrual boundaries.
@@ -71,6 +73,7 @@ pub struct SwapCalendars<'a> {
 
 /// Direction from this trade's perspective; notionals remain unsigned.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SwapSide {
     /// Pay fixed and receive floating.
     PayFixed,
@@ -88,6 +91,7 @@ impl SwapSide {
 
 /// Shared coupon terms, without principal exchanges or bond entitlement rules.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LegTerms {
     /// Complete independent coupon grid, stubs and irregular reference periods.
@@ -100,6 +104,7 @@ pub struct LegTerms {
     pub day_count: DayCountConvention,
     /// Absolute outstanding notional on actual adjusted accrual dates; no exchange.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub notionals: Vec<DatedValue>,
     /// Applied once after all coupon/reset/spread slices have been summed.
     pub rounding: CashRounding,
@@ -109,29 +114,35 @@ pub struct LegTerms {
 
 /// Deterministic fixed leg with an independently dated rate profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixedLegTerms {
     /// Complete leg rules.
     pub leg: LegTerms,
     /// Annualized decimal rate (0.05 = 5%); may step independently of principal.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub rates: Vec<DatedValue>,
 }
 
 /// Independently dated floating spread and gearing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FloatingProfiles {
     /// Simple annualized decimal spread, outside overnight compounding.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub spreads: Vec<DatedValue>,
     /// Dimensionless multiplier of the resolved index or compounded interest.
     #[serde(with = "exact_profiles")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Vec<DatedValue>"))]
     pub gearings: Vec<DatedValue>,
 }
 
 /// Contractual eligibility policy; a calculation context cannot weaken it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FixingPolicy {
     /// Treatment of a past observation not yet due for publication.
@@ -142,6 +153,7 @@ pub struct FixingPolicy {
 
 /// Explicit quotation period for each term observation, including a stub.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum TermRatePeriod {
     /// Rate over the actual adjusted reset interval. This must be a contracted
     /// dated rate; no tenor interpolation is performed or claimed.
@@ -154,6 +166,7 @@ pub enum TermRatePeriod {
 /// Independent reset and term-rate definition. Multiple resets in a coupon
 /// sum simple accrued interest on their actual slices; they are not compounded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TermResetTerms {
     /// Provider-neutral index.
@@ -184,6 +197,7 @@ pub struct TermResetTerms {
 
 /// Term-rate IRS floating leg.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TermLegTerms {
     /// Coupon/payment/notional rules.
@@ -201,6 +215,7 @@ pub struct TermLegTerms {
 /// Daily compounded OIS floating leg; gearing multiplies compounded interest
 /// once, spread accrues simply on unshifted coupon dates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OvernightLegTerms {
     /// Coupon/payment/notional rules; day count must be ACT/360 or ACT/365 Fixed.
@@ -221,6 +236,7 @@ pub struct OvernightLegTerms {
 
 /// Closed initial floating mechanics; unknown optional/payoff fields fail JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FloatingLegTerms {
     /// Fixed/term-rate IRS.
@@ -268,6 +284,7 @@ impl FloatingLegTerms {
 
 /// Explicit same-currency collateral agreement and discount mapping.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CollateralTerms {
     /// Exact caller-resolved collateral agreement version.
@@ -281,6 +298,7 @@ pub struct CollateralTerms {
 /// Complete supplied vanilla swap trade economics. Profile steps change accrued
 /// interest; there is no initial, amortization or final principal exchange.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SwapTerms {
     /// Supported economic schema version, exactly 1.

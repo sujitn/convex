@@ -8,6 +8,9 @@
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 
+/// Versioned pure supplied-input JSON API shared by embedded client adapters.
+pub mod library;
+
 /// Pure fixed/floating contractual cash valuation with explicit curve roles.
 pub use convex_analytics::bond_contract;
 pub use convex_analytics::bond_quote;

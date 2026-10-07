@@ -24,6 +24,7 @@ const MAX_PRICE_WORK: usize = 32_000_000;
 
 /// Caller-supplied economic state; historical notice/exercise is not inferred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseState {
     /// The bond remains alive with no accepted outstanding exercise notice.
@@ -31,6 +32,7 @@ pub enum ExerciseState {
 }
 /// Cash-date inclusion is independent of model/valuation state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OptionalBondContext {
     /// Root of the model and price, using ACT/365F elapsed time.
@@ -42,6 +44,7 @@ pub struct OptionalBondContext {
 }
 /// Ordering of simultaneous rights, especially when put price exceeds call price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ExercisePriority {
     /// Issuer can override the holder's decision: min(max(V, put), call).
@@ -51,6 +54,7 @@ pub enum ExercisePriority {
 }
 /// Explicit model-specific price refinement policy; no universal callable bound.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct GridSettings {
     /// Desired coarse intervals, before exact event insertion.
@@ -85,6 +89,7 @@ impl GridSettings {
 }
 /// Complete optional model policy, separate from instrument terms.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OptionalBondSettings {
     /// Checked refinement policy.
@@ -105,6 +110,7 @@ pub struct OptionalBondInputs<'a> {
 }
 /// A declared parallel continuous-zero scenario, in decimal rate units.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CurveShift {
     /// Shift of currency discount zero rates on ACT/365F model time.
@@ -139,7 +145,7 @@ impl CurveShift {
     }
 }
 /// One actual grid result, including the initial-curve fit and resources.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct GridPrice {
     /// Desired resolution before actual dated event insertion.
     pub desired_steps: usize,
@@ -151,7 +157,7 @@ pub struct GridPrice {
     pub tree: TreeDiagnostics,
 }
 /// Exercise decisions on the finest grid; node counts are not probabilities.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ExerciseDiagnostic {
     /// Complete notice/exercise/settlement dates consumed.
     pub dates: ExerciseDates,
@@ -163,7 +169,7 @@ pub struct ExerciseDiagnostic {
     pub decision_nodes: usize,
 }
 /// Successful model quote with full assumptions and numerical convergence.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OptionalBondPrice {
     /// Exact supplied settlement, cash-date and alive state.
     pub context: OptionalBondContext,
@@ -1182,6 +1188,7 @@ impl PreparedOptionalBond {
 
 /// Native inverse controls; no bracket expansion or hidden price tolerance.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OasSolveSettings {
     /// Lower decimal OAS, at least -1.
@@ -1194,7 +1201,7 @@ pub struct OasSolveSettings {
     pub max_iterations: usize,
 }
 /// Successful unrounded inverse and its repriced model inputs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OasResult {
     /// Constant decimal discount spread.
     pub oas_decimal: f64,
@@ -1209,6 +1216,7 @@ pub struct OasResult {
 }
 /// Curve factor changed by a finite difference; not a quote bump/recalibration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RiskAxis {
     /// Discount only, with projection basis adjusted to hold index zeros fixed.
@@ -1221,7 +1229,7 @@ pub enum RiskAxis {
     Oas,
 }
 /// Complete bump/reprice outcomes; missing/unstable risk is never zero-filled.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OptionalBondRisk {
     /// Native sensitivity refinement policy actually enforced.
     pub settings: RiskSettings,
@@ -1250,6 +1258,7 @@ pub struct OptionalBondRisk {
 
 /// Separate sensitivity postconditions; price convergence cannot substitute.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RiskSettings {
     /// Absolute duration difference across final successive grids, in years.
@@ -1285,7 +1294,7 @@ impl RiskSettings {
     }
 }
 /// Actual fixed-model finite differences at one grid resolution.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct GridRisk {
     /// Desired resolution before exact event insertion.
     pub desired_steps: usize,

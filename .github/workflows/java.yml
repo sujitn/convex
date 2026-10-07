@@ -11,6 +11,15 @@ on:
       - 'crates/convex-core/**'
       - 'crates/convex-curves/**'
       - 'crates/convex-math/**'
+      - 'crates/convex/**'
+      - 'crates/convex-rates/**'
+      - 'crates/convex-credit/**'
+      - 'crates/convex-portfolio/**'
+      - 'tests/fixtures/library/**'
+      - 'tests/scripts/library_parity.py'
+      - 'tools/library/api-capabilities.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/java.yml'
   pull_request:
     branches: [main]
@@ -22,6 +31,15 @@ on:
       - 'crates/convex-core/**'
       - 'crates/convex-curves/**'
       - 'crates/convex-math/**'
+      - 'crates/convex/**'
+      - 'crates/convex-rates/**'
+      - 'crates/convex-credit/**'
+      - 'crates/convex-portfolio/**'
+      - 'tests/fixtures/library/**'
+      - 'tests/scripts/library_parity.py'
+      - 'tools/library/api-capabilities.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/java.yml'
 
 # Build + test only; no repo writes.
@@ -50,7 +68,7 @@ jobs:
 
       # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi cdylib
-        run: cargo build -p convex-ffi --profile excel
+        run: cargo build --locked -p convex-ffi --profile excel -p convex --lib --example library_workflow --features convex/schemars
 
       - name: Stage native library
         run: |
@@ -64,6 +82,9 @@ jobs:
           distribution: temurin
           java-version: '22'
           cache: maven
+
+      - name: Generate fresh native adapter expectations
+        run: python3 tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow --output bindings/java/target/library-parity.json
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

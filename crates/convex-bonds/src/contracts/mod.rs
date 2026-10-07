@@ -433,3 +433,6 @@ impl BondContract {
         }
     }
 }
+
+#[cfg(feature = "schemars")]
+mod schema;

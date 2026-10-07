@@ -19,6 +19,7 @@ use crate::types::CalendarId;
 
 /// Independently dated absolute principal and annualized decimal components.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondProfiles {
     /// Deterministic coupon component, not an average over future coupons.
@@ -62,6 +63,7 @@ impl BondProfiles {
 
 /// Independent term-rate reset intervals. Each reset carries one fixing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TermRateTerms {
     /// Provider-neutral supplied index identity; does not select a curve.
@@ -80,6 +82,7 @@ pub struct TermRateTerms {
 /// then add simple deterministic coupon/spread accrual. Intracoupon principal
 /// or gearing changes require a different explicit compounding contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OvernightRateTerms {
     /// Exact supplied index, independent of vendor identity.
@@ -90,6 +93,7 @@ pub struct OvernightRateTerms {
 
 /// Closed initial set of coupon mechanics; no payoff language or inference.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BondCoupon {
     /// Deterministic coupon and spread; gearing must be zero.
@@ -126,6 +130,7 @@ impl<'de> Deserialize<'de> for BondCoupon {
 /// Calendar identities retained in JSON. Actual pure calendars are supplied
 /// at construction. `build` resolves only checked compiled calendar names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondCalendarIds {
     /// Coupon accrual, payment, principal and settlement calendar.
@@ -166,20 +171,26 @@ pub struct BondCalendars<'a> {
 /// Non-par price for one internal principal reduction. Unlisted reductions
 /// pay at par. Effective notional and payment dates remain separate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalPrice {
     /// Exact effective internal reduction date.
     pub effective_date: Date,
     /// Redemption multiplier (1 = par), not a per-100 price.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub multiplier: Decimal,
     /// Optional absolute part retired at this price. The remaining part keeps
     /// its par/final residual price as a separate cashflow, never an average.
+    #[serde(serialize_with = "rust_decimal::serde::str_option::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<String>"))]
     pub amount: Option<Decimal>,
 }
 
 /// Full initial bond-family economic input schema. There are no silent defaults
 /// for dates, floating mechanics, exercise, principal, rounding or entitlement.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondTerms {
     /// Exact supported economic schema version (1).
@@ -189,6 +200,8 @@ pub struct BondTerms {
     /// Issue date, distinct from dated/accrual start.
     pub issue_date: Date,
     /// Original face, used for per-original-face quote normalization.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub face_value: Decimal,
     /// Complete coupon accrual grid with retained irregular references.
     pub schedule: ScheduleSpec,
@@ -209,6 +222,8 @@ pub struct BondTerms {
     /// Principal choice at coupon boundaries.
     pub coupon_principal: CouponPrincipal,
     /// Final residual principal multiplier, distinct from internal repayments.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub redemption_multiplier: Decimal,
     /// Explicit non-par internal repayments.
     pub principal_prices: Vec<PrincipalPrice>,

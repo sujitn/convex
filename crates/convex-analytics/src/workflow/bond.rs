@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 /// Explicit dated-cash yield convention. This is not an inferred Street yield.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DatedYieldConvention {
     /// Actual settlement-to-payment time basis; contextual ICMA needs a separate model.
@@ -23,7 +24,7 @@ pub struct DatedYieldConvention {
     pub compounding: Compounding,
 }
 /// Explicit reference role; government benchmark and collateral are distinct.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum BondDiscountRole {
     /// Same-currency collateral discounting.
     Collateral,
@@ -39,7 +40,7 @@ pub struct PreparedBondCash {
     projection: BondProjection,
 }
 /// Model price with original-face units and exact native projection.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BondValue {
     /// Absolute unrounded entitled-cash PV at settlement.
     pub present_value: ModelMoney,
@@ -55,7 +56,7 @@ pub struct BondValue {
     pub basis: BondValueBasis,
 }
 /// Observed representation and discount-spread semantics retained separately.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum BondValueBasis {
     /// Full fixed cash at an explicit dated yield.
     DatedYield {

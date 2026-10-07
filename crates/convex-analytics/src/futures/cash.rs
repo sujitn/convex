@@ -6,6 +6,7 @@ use convex_curves::contracts::CurveKey;
 
 /// Explicit base for an annualized stock-loan fee; an index/currency cannot choose it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FuturesBorrowFeeBasis {
     /// Borrowed original face, independently of cash price.
@@ -35,6 +36,7 @@ pub struct CashHedgePricingInputs<'a> {
 
 /// Actual model and side-quote values; expected estimates never mean realized cash.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashHedgeValuation {
     /// Exact original actual security revision.
@@ -284,6 +286,7 @@ pub fn price_cash_hedge(inputs: &CashHedgePricingInputs<'_>) -> FuturesResult<Ca
 
 /// Signed fixed-model discount-zero risk of the actual proposed cash security.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashHedgeRisk {
     /// Complete base model/side economics and all source blocks.

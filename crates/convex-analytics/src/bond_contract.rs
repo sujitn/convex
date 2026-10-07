@@ -22,7 +22,7 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 /// Expected-cash PV from explicitly supplied curves. This is a model quote,
 /// distinct from an observed trader price or an executable market quote.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ContractPrice {
     /// Absolute discounted entitled cash in contract currency.
     pub present_value: f64,

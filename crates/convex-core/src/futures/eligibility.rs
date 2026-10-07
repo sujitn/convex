@@ -6,6 +6,7 @@ use crate::contracts::{BusinessDate, ExactDecimal, ReferenceDataId, UtcTimestamp
 
 /// Supplied economic time and information cutoff. Later restatements remain explicit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EligibilityContext {
     /// Economic instant of the proposed input use.
@@ -16,6 +17,7 @@ pub struct EligibilityContext {
 
 /// Stable reasons why a reference/cash dependency cannot support executable output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HedgeInputBlock {
     /// Fabricated facts.
@@ -56,6 +58,7 @@ pub enum HedgeInputBlock {
 
 /// One failed prerequisite, retaining the affected original resource identity.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HedgeInputIssue {
     /// Original resource identity, not an invented fallback candidate.
@@ -66,6 +69,7 @@ pub struct HedgeInputIssue {
 
 /// Necessary reference/data admission only. It is neither order authority nor a hedge proposal.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HedgeInputEligibility {
     /// True only if every checked prerequisite passes; later risk/execution gates still apply.
@@ -153,6 +157,7 @@ pub fn assess_futures_reference(
 
 /// Proposed cash direction. Selling existing owned face need not claim borrowing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CashHedgeSide {
     /// Purchase at the actual ask.
@@ -165,6 +170,7 @@ pub enum CashHedgeSide {
 
 /// Actual face and holding horizon for one candidate; quantities never mean contract counts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashHedgeRequest {
     /// Side with separate shorting semantics.

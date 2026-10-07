@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Explicit caller-admitted comparison policy, never inferred from a model name.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RiskTolerance {
     /// Absolute bound in reported monetary units.
@@ -40,6 +41,7 @@ impl RiskTolerance {
 }
 /// Reference central bump and mandatory half-bump stability controls.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct QuoteRiskSettings {
     /// Positive canonical annual-rate/fraction/price-point bump, before normalization.
@@ -51,6 +53,7 @@ pub struct QuoteRiskSettings {
 }
 /// A signed stable central sensitivity, including every actual reference valuation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct QuoteSensitivity {
     /// Complete immutable factor/coordinate/unit/response key.
@@ -219,6 +222,7 @@ where
 }
 /// Checked reconciliation, retained even when nonlinear bucket additivity fails.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct RiskReconciliation {
     /// Signed sum of individual original coordinates.
     pub bucket_total: f64,

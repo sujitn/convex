@@ -13,6 +13,7 @@ use std::cell::{Cell, RefCell};
     rename_all = "snake_case",
     deny_unknown_fields
 )]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BondPriceTarget {
     /// Per100 original face, excluding original accrued/rebate.
     Clean(f64),
@@ -21,6 +22,7 @@ pub enum BondPriceTarget {
 }
 /// Caller-admitted closed inverse domain and native price residual tolerance.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondInverseSettings {
     /// Original lower annual decimal yield/spread.
@@ -36,7 +38,7 @@ pub struct BondInverseSettings {
     pub max_iterations: u32,
 }
 /// Accepted same-pricer bond inverse and actual work/postcondition evidence.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BondInverse {
     /// Annual decimal yield/Z/DM, retaining fractional basis points.
     pub decimal_parameter: f64,

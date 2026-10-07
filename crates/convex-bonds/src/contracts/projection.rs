@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 
 /// Exact interval passed to the supplied projection policy. Observation,
 /// rate-interval and settlement dates are not interchangeable.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ProjectionRequest {
     /// Exact index; no discount/projection role substitution.
     pub index_id: IndexId,
@@ -45,6 +45,7 @@ pub enum BondProjectionPolicy<'a> {
 
 /// Explicit accrual prefix end for a shifted overnight coupon.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OvernightAccrualCutoff {
     /// Actual unshifted coupon accrual start.
@@ -55,6 +56,7 @@ pub struct OvernightAccrualCutoff {
 
 /// Supplied payment/settlement and cutoff state; no system clock.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondProjectionContext {
     /// Settlement, distinct from valuation/information date.
@@ -68,7 +70,7 @@ pub struct BondProjectionContext {
 }
 
 /// Expected full coupon, entitlement and accrued cash.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CouponProjection {
     /// Unadjusted start.
     pub contractual_start: Date,
@@ -81,10 +83,12 @@ pub struct CouponProjection {
     /// Adjusted/delayed cash date.
     pub payment_date: Date,
     /// Full rounded absolute cash.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub amount: Decimal,
     /// Coupon entitlement independent of principal/rebate.
     pub entitled: bool,
     /// Rounded absolute accrued/rebate.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub accrued: Decimal,
     /// Exact rates/revisions and forecast reasons for term resets.
     pub rates: Vec<ResolvedRate>,
@@ -93,15 +97,17 @@ pub struct CouponProjection {
 }
 
 /// Expected contractual cash, not realized payment or an optional price.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BondProjection {
     /// Every unpaid coupon, including ex-coupon nonentitled amounts.
     pub coupons: Vec<CouponProjection>,
     /// Entitled principal with separate effective/cash dates.
     pub principal: Vec<PrincipalCashflow>,
     /// Absolute coupon accrual/rebate sum.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub accrued: Decimal,
     /// Principal after settlement-date effective changes.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub outstanding_principal: Decimal,
     /// Conditional straight cash when early exercise is contracted.
     pub conditional_on_no_exercise: bool,

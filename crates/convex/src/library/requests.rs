@@ -1,0 +1,325 @@
+//! Closed operation contracts; unsupported economics never become proxy inputs.
+use super::*;
+use convex_analytics::workflow::{BondInverseSettings, BondPriceTarget, DatedYieldConvention};
+use convex_bonds::contracts::BondProjectionContext;
+use convex_core::{cashflows::*, fixings::FixingContext};
+use convex_rates::{CashflowContext, SwapTerms};
+use serde::{Deserialize, Serialize};
+
+/// Complete versioned pure request, independent of service/registry state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct LibraryRequest {
+    /// Exactly LIBRARY_SCHEMA_VERSION; no guessed migration.
+    pub schema_version: u32,
+    /// All actual immutable resource values, not provider/repository handles.
+    pub inputs: LibraryInputs,
+    /// One closed financial operation.
+    pub operation: LibraryOperation,
+}
+/// Explicit price representation and financial role.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum BondMethod {
+    /// Full fixed entitled cash at an explicit dated yield.
+    Yield {
+        /// Annualized decimal yield.
+        decimal_rate: f64,
+        /// Explicit compounding and time basis.
+        convention: DatedYieldConvention,
+    },
+    /// Full fixed/projected cash on an exact reference and a constant Z/DM.
+    DiscountSpread {
+        /// Exact supplied curve revision.
+        curve: CurveKey,
+        /// Exact collateral/government meaning.
+        role: BondReferenceRole,
+        /// Annualized decimal spread, not rounded basis points.
+        decimal_spread: f64,
+    },
+}
+/// Reference meaning is separate from curve ID and from projection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum BondReferenceRole {
+    /// Same-currency collateral curve.
+    Collateral {},
+    /// Actual named government curve role.
+    Government {
+        /// Exact sovereign role, not a zero-rate proxy for G spread.
+        sovereign: String,
+    },
+}
+impl BondReferenceRole {
+    pub(super) fn native(&self) -> convex_analytics::workflow::BondDiscountRole {
+        match self {
+            Self::Collateral {} => convex_analytics::workflow::BondDiscountRole::Collateral,
+            Self::Government { sovereign } => {
+                convex_analytics::workflow::BondDiscountRole::Government(sovereign.clone())
+            }
+        }
+    }
+}
+/// Applicable full bond operations. Construction keeps optional terms; straight
+/// pricing of an optional contract fails in the original native pricer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum BondOperation {
+    /// Full checked original contract and generated dates/principal.
+    Construct {},
+    /// Actual missing/published/future fixing requirements without guessing rates.
+    Requirements {},
+    /// Complete projected expected cash, accrued and entitlement.
+    Cashflows {},
+    /// Full original native PV/clean/dirty/accrued and consumed lineage.
+    Price {
+        /// Original quotation.
+        method: BondMethod,
+    },
+    /// Full original cash quote risk, with native central and half-step stability.
+    QuoteRisk {
+        /// Explicit yield or frozen-cash spread representation.
+        method: BondMethod,
+        /// Actual raw instrument quote identity and native units.
+        key: Box<convex_analytics::quote_risk::QuoteRiskKey>,
+        /// Original signed face/trade quantity, scaled once.
+        position: convex_analytics::quote_risk::RiskPosition,
+        /// Exact immutable source snapshot.
+        snapshot_id: convex_core::contracts::SnapshotId,
+        /// Original native bump and stability policy.
+        settings: convex_analytics::quote_risk::QuoteRiskSettings,
+    },
+    /// Full actual fixed-cash dated yield inverse with final native residual.
+    YieldInverse {
+        /// Original clean/dirty target.
+        target: BondPriceTarget,
+        /// Explicit quotation.
+        convention: DatedYieldConvention,
+        /// Original closed domain and both price/parameter tolerances.
+        settings: BondInverseSettings,
+    },
+    /// Constant Z or frozen-projection DM inverse.
+    SpreadInverse {
+        /// Original clean/dirty target.
+        target: BondPriceTarget,
+        /// Exact discount reference.
+        curve: CurveKey,
+        /// Actual curve meaning.
+        role: BondReferenceRole,
+        /// Original unchanged domain/native residual bounds.
+        settings: BondInverseSettings,
+    },
+}
+/// IRS/OIS operations retain original leg signs, cash and par restrictions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SwapOperation {
+    /// Original full native contract and independently generated dates.
+    Construct {},
+    /// Original complete eligible-history manifest.
+    Requirements {},
+    /// Actual native cash projection and known/forecast origins.
+    Cashflows {},
+    /// Native leg/net PV, accrued and applicable fair rate/spread.
+    Price {},
+}
+/// Single-name credit operations preserve law, survival, initial cash and signs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CdsOperation {
+    /// Full original terms and premium dates.
+    Construct {},
+    /// Signed premium/protection/default accrual/upfront PV and native cash detail.
+    Price {},
+    /// Running/clean/dirty conversion using the original complete pricer.
+    Convert {
+        /// Explicit quote and native unit.
+        quote: convex_credit::CdsQuote,
+        /// Unchanged caller domain and native residual/work bounds.
+        settings: convex_credit::ConversionSettings,
+    },
+}
+/// Complete pure R1 requests. Product models and server operations remain distinct.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum LibraryOperation {
+    /// Discover actual public routes and explicit native/client limitations.
+    Capabilities {},
+    /// Validate and echo complete supplied inputs after checked reconstruction.
+    Roundtrip {},
+    /// Build and inspect complete native supplied curve recipes.
+    Curves {},
+    /// Fallible native date/tenor/DF/forward/survival/hazard queries.
+    CurveQuery {
+        /// Exact supplied immutable curve.
+        curve: CurveKey,
+        /// Actual native query convention and period.
+        query: CurveQuery,
+    },
+    /// Actual bounded dated global money-market fitter.
+    CurveFit {
+        /// Full native original recipe.
+        recipe: CurveRecipe,
+        /// Original dated parameter nodes.
+        pillars: Vec<Date>,
+        /// Original finite-difference/identification controls.
+        controls: FitNumericalControls,
+    },
+    /// Shared anchored schedules and exact irregular references.
+    Schedule {
+        /// Full original schedule terms.
+        terms: ScheduleSpec,
+        /// Independent contractual date transformations.
+        dates: DateRules,
+        /// Exact accrual calendar.
+        accrual: convex_rates::ReferencePin,
+        /// Exact payment calendar.
+        payment: convex_rates::ReferencePin,
+        /// Exact independently pinned fixing calendar.
+        fixing: convex_rates::ReferencePin,
+        /// Exact observation calendar.
+        observation: convex_rates::ReferencePin,
+        /// Exact ex-coupon calendar.
+        ex_coupon: convex_rates::ReferencePin,
+    },
+    /// Inspect actual eligible fixing revisions without making forecasts.
+    Fixings {
+        /// Complete original request manifest.
+        requirements: Vec<convex_core::fixings::FixingRequirement>,
+        /// Actual economic and information cutoff/policy.
+        context: FixingContext,
+    },
+    /// Full fixed, stepped, amortizing, floating or optional bond construction.
+    Bond {
+        /// Full original contract and versioned calendars.
+        bond: Box<BondInput>,
+        /// Complete settlement/entitlement/fixing/accrual-prefix state.
+        context: BondProjectionContext,
+        /// Exact projection role for actual permitted future observations.
+        projection: Option<CurveKey>,
+        /// One applicable full operation.
+        action: BondOperation,
+    },
+    /// Full term IRS or OIS.
+    Swap {
+        /// Exact native full trade/leg/collateral/reset terms.
+        terms: Box<SwapTerms>,
+        /// Actual known-at/history/payment state.
+        context: CashflowContext,
+        /// One native operation.
+        action: SwapOperation,
+    },
+    /// Full independently dated two-floating-leg basis trade.
+    BasisSwap {
+        /// Full native terms and explicit side/projection mappings.
+        terms: Box<convex_rates::basis::BasisSwapTerms>,
+        /// Actual original eligible history/cutoffs.
+        context: CashflowContext,
+    },
+    /// Full single-name CDS.
+    Cds {
+        /// Complete entity, law, dates, recovery and exact curve versions.
+        terms: Box<convex_credit::CdsTerms>,
+        /// Surviving state, valuation date and actual initial cash state.
+        context: convex_credit::CdsPricingContext,
+        /// One applicable native operation.
+        action: CdsOperation,
+    },
+    /// Original complete calibrated credit scenario/CS01/recovery/JTD workflow.
+    CreditRisk {
+        /// Full original calibration and surviving trade inputs.
+        input: Box<CreditRiskInput>,
+        /// One original native scenario/risk/default operation.
+        action: CreditRiskOperation,
+    },
+    /// Full product helper descriptions, native quotes and quote conversions.
+    Helper {
+        /// Original helper terms and actual resources.
+        input: Box<HelperInput>,
+    },
+    /// Actual independently funded nominal-bond repo/coupon carry.
+    RepoForward {
+        /// Full original helper, funding and calendar assumptions.
+        input: Box<RepoForwardInput>,
+    },
+    /// Full actual zero/bill terms and original quotation.
+    Zero {
+        /// Full original zero economics with exact decimal strings.
+        input: Box<ZeroInput>,
+        /// Complete original quote and settlement, or validation only.
+        action: ZeroOperation,
+    },
+    /// Full native option-aware model, price, inverse and resolved factor risk.
+    OptionalBond {
+        /// Complete original bond and immutable model inputs.
+        input: Box<super::products::OptionalInput>,
+        /// Original native operation/settings.
+        action: super::products::OptionalOperation,
+    },
+    /// Full dated rate-futures projection and clearing economics.
+    RateFuture {
+        /// Actual complete stamped exchange inputs.
+        input: Box<super::products::RateFutureInput>,
+        /// Original native projection/risk/inverse operation.
+        action: super::products::RateFutureOperation,
+    },
+    /// Full original calibration graphs and risk operations.
+    Calibration {
+        /// Complete original recipes, history policy and helper revisions.
+        input: Box<super::curves::CalibrationInput>,
+        /// Full build or original graph scenario.
+        action: super::curves::CalibrationOperation,
+    },
+    /// Pure original-state replay and one transition; no ledger commitment.
+    Lifecycle {
+        /// Full original opening terms and each supplied event/input.
+        input: Box<super::events::LifecycleInput>,
+    },
+    /// Full original government future all-member carry/invoice/CTD and risk.
+    BondFuture {
+        /// Exact original basket, cash bonds, financing and source stamps.
+        input: Box<super::products::BondFutureInput>,
+        /// Original native price/risk operation.
+        action: super::products::BondFutureOperation,
+    },
+    /// Expected portfolio manifest, signed quantity and reporting FX aggregation.
+    Aggregate {
+        /// Exact native supplied expected risk/FX/coverage inputs.
+        input: Box<super::risk::AggregateInput>,
+    },
+    /// Actual stamped cash-hedge prices and frozen-model risk.
+    CashHedge {
+        /// Full original security, universe, funding and ownership.
+        input: Box<CashHedgeInput>,
+        /// Original native price or central risk.
+        action: CashHedgeOperation,
+    },
+    /// Original pure futures settlement, tick/risk and indicative roll math.
+    FuturesMath {
+        /// Full original native inputs for exactly one operation.
+        action: Box<FuturesMathOperation>,
+    },
+    /// Full legal/entity/recovery/basis admission for an indicative bond-CDS hedge.
+    BondCdsHedge {
+        /// Original actual mapping, credit and liquidity inputs.
+        input: Box<BondCdsHedgeInput>,
+    },
+    /// Exact lattice rounding and residual for an indicative future hedge.
+    RoundHedge {
+        /// Complete dated native contract, retaining exact multiplier/ticks.
+        contract: Box<convex_core::futures::FuturesContract>,
+        /// Exact target risk in currency per +1bp.
+        target_currency_per_bp: convex_core::contracts::ExactDecimal,
+        /// Actual risk per long contract in the same currency/factor basis.
+        per_contract_currency_per_bp: convex_core::contracts::ExactDecimal,
+        /// Actual explicit rounding.
+        rounding: convex_analytics::futures::FuturesRounding,
+    },
+}

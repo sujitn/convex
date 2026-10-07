@@ -22,6 +22,19 @@ pub mod convert;
 pub mod dto;
 pub mod pricing;
 
+/// Complete versioned supplied-input library request. Returns the full native
+/// JSON envelope as text; exact cash strings never pass through JS Number.
+#[wasm_bindgen]
+pub fn library(request_json: &str) -> String {
+    convex::library::execute_json(request_json)
+}
+
+/// Actual generated schema for the complete request and original native terms.
+#[wasm_bindgen]
+pub fn library_schema() -> String {
+    convex::library::request_schema().to_string()
+}
+
 pub use analyze::{analyze_bond, calculate_accrued, calculate_simple_metrics, get_cash_flows};
 pub use conventions::{get_convention_options, get_default_conventions};
 pub use dto::{

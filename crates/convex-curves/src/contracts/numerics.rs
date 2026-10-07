@@ -17,6 +17,7 @@ use super::{
 /// Numerical identification/difference controls, separate from recipe economics
 /// and its objective/bounds/starting conditions. No hidden adaptive tolerance.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FitNumericalControls {
     /// Absolute zero-rate step; one-sided at a supplied closed bound.

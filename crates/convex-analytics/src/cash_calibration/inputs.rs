@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 /// Explicit dated-cash yield; no market-specific street convention is inferred.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashYieldConvention {
     /// Basis from settlement to each actual entitled cash date. ICMA requires a
@@ -31,6 +32,7 @@ pub struct CashYieldConvention {
 
 /// Native quote meaning; price versus yield versus coupon is never implicit.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CashQuoteKind {
     /// Clean currency price per100 ORIGINAL face.
@@ -54,6 +56,7 @@ pub enum CashQuoteKind {
 
 /// Complete cash security and its original immutable quotation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashBondHelper {
     /// Stable helper identity, unique within its curve.
@@ -143,6 +146,7 @@ impl CashBondHelper {
 /// Actual repo loan: start principal and end principal plus simple interest.
 /// Haircuts/reinvestment are separately supplied carry economics, never quotes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RepoLoanHelper {
     /// Original helper identity.
@@ -167,6 +171,7 @@ pub struct RepoLoanHelper {
 
 /// Closed helper families with no ignored inapplicable payoff fields.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CashCalibrationHelper {
     /// Full actual bond or bill cash and quote.
@@ -213,6 +218,7 @@ impl CashCalibrationHelper {
 
 /// Exact semantic reference to a named rate curve; roles cannot substitute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum BondReferenceRole {
     /// Same-currency collateral discounting.
@@ -226,6 +232,7 @@ pub enum BondReferenceRole {
 
 /// Explicit residual pricing model, distinct from CDS hazard or a raw Z quote.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum BondBasisModel {
     /// Discount actual promised cash by reference DF ratios and the dated
@@ -254,6 +261,7 @@ pub enum BondBasisModel {
 
 /// Closed root bracket for annualized continuous zeros or residual basis.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashBootstrapSettings {
     /// Closed lower annualized parameter bound within[-10,10].
@@ -265,6 +273,7 @@ pub struct CashBootstrapSettings {
 }
 /// Duplicate pillar policy; all retained global observations must reprice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CashOverlapPolicy {
     /// Reject overlapping observations explicitly.
     Reject,
@@ -273,6 +282,7 @@ pub enum CashOverlapPolicy {
 }
 /// Full government, issuer-basis or repo recipe.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashCurveRecipe {
     /// Complete exact role/currency/reference/method/dependencies/source contract.
@@ -310,7 +320,7 @@ pub struct CashCurveBuildInput<'a> {
     pub resources: &'a [CashHelperResources<'a>],
 }
 /// Original settlement/accrued conversion; no price/rate proxy.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CashQuoteConversion {
     /// Actual settlement date.
     pub settlement: Date,
@@ -326,7 +336,7 @@ pub struct CashQuoteConversion {
     pub dirty_per100: f64,
 }
 /// Full declared issuer model valuation, separately retaining recovery cash PV.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct BasisBondValuation {
     /// Full actual projected security cash, accrued and modeled clean/dirty price.
     pub price: ContractPrice,
@@ -341,7 +351,7 @@ pub struct BasisBondValuation {
     pub recovery_pv: f64,
 }
 /// Actual original helper model value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum CashHelperValuation {
     /// Full cash quote conversion and original model cash/price.
     Bond {

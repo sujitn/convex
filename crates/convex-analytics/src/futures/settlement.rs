@@ -6,6 +6,7 @@ use rust_decimal::RoundingStrategy;
 
 /// Explicit nearest/directional rounding, independently chosen for the operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FuturesRounding {
     /// Half ties increase magnitude, including negative numbers.
@@ -46,6 +47,7 @@ fn rounded(value: Decimal, increment: Decimal, rule: FuturesRounding) -> Futures
 /// monetary method is normal futures rounding: round each contract value before
 /// subtracting and multiplying quantity. Other clearing methods need new terms.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesClearingRules {
     /// Exact owner; a front/back or correction mismatch fails.
@@ -126,6 +128,7 @@ impl FuturesClearingRules {
 
 /// Meaning of a supplied price; settlement precision is distinct from order ticks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FuturesMarkKind {
     /// Actual execution price; exact dated outright tick required.
@@ -138,6 +141,7 @@ pub enum FuturesMarkKind {
 
 /// Actual dated price for an exact contract, never a continuous/root symbol.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesMark {
     /// Actual contract and revision.
@@ -228,6 +232,7 @@ fn monetary_value(contract: &FuturesContract, price: ExactDecimal) -> FuturesRes
 
 /// Proposed daily/final variation cash, not realized cash or an authoritative state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesSettlementEffect {
     /// Original supplied mark; the application retains it as the prior state.
@@ -304,6 +309,7 @@ pub fn futures_settlement_effect(
 
 /// Exact linear quote delta and dated tick economics; these are not rate PV01.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesQuoteRisk {
     /// Exact dated contract revision.
@@ -347,6 +353,7 @@ pub fn futures_quote_risk(
 
 /// Rounded price and retained exact residual, without an implicit limit-side choice.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesRoundedPrice {
     /// Exact original quoted points.
@@ -374,6 +381,7 @@ pub fn round_futures_price(
 
 /// Integer hedge solution in one explicitly supplied signed risk unit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesRoundedHedge {
     /// Continuous signed contracts before rounding.
@@ -431,6 +439,7 @@ pub fn round_futures_hedge(
 
 /// Supplied, dated per-contract risk used only to compare matching factor bases.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesRollRisk {
     /// Exact owner revision.
@@ -459,6 +468,7 @@ pub struct FuturesRollLeg<'a> {
 }
 /// Indicative supplied roll, preserving exact quantities, costs and risk residual.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesRollPlan {
     /// Signed closing trade on the current contract.

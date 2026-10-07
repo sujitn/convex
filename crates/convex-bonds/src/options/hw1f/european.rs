@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Holder option direction; a payer swaption corresponds to coupon-bond puts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum OptionSide {
     /// Buy a zero-coupon bond / receive fixed in a swaption.

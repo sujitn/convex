@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Economic response under the declared coordinate change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RiskResponse {
     /// Hold other calibrated curves/model parameters fixed.
@@ -18,6 +19,7 @@ pub enum RiskResponse {
 }
 /// Exact original coordinate. All fields participate in equality and hashing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RiskCoordinate {
     /// One complete original market helper, never an interpolated tenor proxy.
@@ -72,6 +74,7 @@ pub enum RiskCoordinate {
 }
 /// Canonical monetary normalization. Fraction and price-point deltas are not PV01.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum QuoteRiskUnit {
     /// Monetary change normalized to an annualized +1bp rate/spread move.
@@ -94,10 +97,12 @@ impl QuoteRiskUnit {
 }
 /// Checked complete factor key. Native quotation and response participate in netting.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(try_from = "QuoteRiskDefinition", into = "QuoteRiskDefinition")]
 pub struct QuoteRiskKey(QuoteRiskDefinition);
 /// Complete ingress for a checked signed quote key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct QuoteRiskDefinition {
     /// Existing provider-neutral canonical family/target/currency/tenor/semantics pins.
@@ -258,6 +263,7 @@ impl From<QuoteRiskKey> for QuoteRiskDefinition {
 
 /// Explicit units of an already signed native reference valuation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RiskQuantityUnit {
     /// Face or notional relative to the full original trade's positive reference size.
@@ -270,6 +276,7 @@ pub enum RiskQuantityUnit {
 /// Scale a full native reference trade exactly once. Side inside its economics
 /// remains inside the pricer; quantity is relative to that reference side.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RiskPosition {
     /// Actual signed position in declared units.

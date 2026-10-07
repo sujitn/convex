@@ -70,7 +70,7 @@ convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths"] }
+rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths", "serde-with-str"] }
 rust_decimal_macros = "1.40"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }

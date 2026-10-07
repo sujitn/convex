@@ -315,6 +315,33 @@ jobs:
       - name: Run mixed book consumer with schema features
         run: cargo run --locked -p convex --example standalone_book --features schemars
 
+      - name: Check every mandatory library surface and explicit capability gap
+        run: python3 tools/library/api.py
+
+      - name: Check complete raw native JSON C MCP and WASM adapter parity
+        run: cargo test --locked -p convex --all-features --test library -p convex-ffi --test library -p convex-mcp --test library -p convex-wasm --test library
+
+      - name: Check existing client contracts and full adapter suites
+        run: cargo test --locked -p convex-ffi -p convex-wasm -p convex-mcp
+
+      - name: Run supplied library requests with default features
+        run: cargo run --locked -p convex --example library_workflow
+
+      - name: Run supplied library requests with minimal features
+        run: cargo run --locked -p convex --example library_workflow --no-default-features
+
+      - name: Run supplied library requests with schema support
+        run: cargo run --locked -p convex --example library_workflow --features schemars
+
+      - name: Create isolated schema test environment
+        run: python3 -m venv /tmp/convex-library-schema
+
+      - name: Install pinned schema test tooling
+        run: /tmp/convex-library-schema/bin/python -m pip install -r tools/library/requirements-schema.txt
+
+      - name: Validate actual generated schema against full requests and rejected mutations
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_schema.py --binary target/debug/examples/library_workflow
+
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
 
@@ -567,7 +594,7 @@ jobs:
 
       # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi
-        run: cargo build --locked --profile excel -p convex-ffi
+        run: cargo build --locked --profile excel -p convex-ffi -p convex --lib --example library_workflow --features convex/schemars
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -577,7 +604,16 @@ jobs:
       - name: Build Excel Add-in
         run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
 
-      - name: Test Excel Add-in (headless)
+      - name: Stage native DLL for actual P/Invoke parity
+        run: |
+          New-Item -ItemType Directory -Force -Path excel/Convex.Excel.Tests/bin/Release/net472
+          Copy-Item target/excel/convex_ffi.dll excel/Convex.Excel.Tests/bin/Release/net472/
+        shell: pwsh
+
+      - name: Generate fresh native P/Invoke expectations
+        run: python tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-parity.json
+
+      - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
 
       - name: Copy native DLL

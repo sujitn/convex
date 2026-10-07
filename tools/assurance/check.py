@@ -111,6 +111,15 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example standalone_book',
         'cargo run --locked -p convex --example standalone_book --no-default-features',
         'cargo run --locked -p convex --example standalone_book --features schemars',
+        'python3 tools/library/api.py',
+        'cargo test --locked -p convex --all-features --test library -p convex-ffi --test library -p convex-mcp --test library -p convex-wasm --test library',
+        'cargo test --locked -p convex-ffi -p convex-wasm -p convex-mcp',
+        'cargo run --locked -p convex --example library_workflow',
+        'cargo run --locked -p convex --example library_workflow --no-default-features',
+        'cargo run --locked -p convex --example library_workflow --features schemars',
+        'python3 -m venv /tmp/convex-library-schema',
+        '/tmp/convex-library-schema/bin/python -m pip install -r tools/library/requirements-schema.txt',
+        '/tmp/convex-library-schema/bin/python tests/scripts/library_schema.py --binary target/debug/examples/library_workflow',
         'cargo test --locked -p convex-analytics -p convex-portfolio -p convex-curves',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
         'cargo test --locked -p convex-engine --test graph_regressions',
@@ -319,6 +328,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_calibration').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex/src/library').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))
     paths.add('crates/convex-portfolio/src/signed_risk.rs')
     paths.add('crates/convex-core/src/contracts/risk.rs')
@@ -486,6 +496,8 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
     check_numeric(root, numeric)
     check_workflow((root / '.github/workflows/ci.yml').read_text())
     for path in (root/'crates/convex-analytics/src/lifecycle').glob('*.rs'):
+        check_lifecycle_source(path.read_text())
+    for path in (root/'crates/convex/src/library').glob('*.rs'):
         check_lifecycle_source(path.read_text())
     changes = check_changes(root, base, read_json(directory / 'change-reviews.json'), numeric, today) if base else None
     comparison_command = [sys.executable, 'reconciliation/comparison.py', '--root', str(root), 'check']

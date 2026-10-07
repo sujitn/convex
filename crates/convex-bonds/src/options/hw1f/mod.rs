@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 /// Explicit annual model parameters. Rates/volatility are decimals, time is years.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Hw1fParameters {
     /// OU mean reversion per year, including the Ho–Lee limit of zero.

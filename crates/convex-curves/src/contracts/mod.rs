@@ -98,3 +98,6 @@ impl CurveContractError {
 
 /// Fallible result for the checked pure API.
 pub type CurveContractResult<T> = Result<T, CurveContractError>;
+
+#[cfg(feature = "schemars")]
+mod schema;

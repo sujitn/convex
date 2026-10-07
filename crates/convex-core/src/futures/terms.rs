@@ -9,6 +9,7 @@ use crate::Currency;
 
 /// A supplied resource revision, never an instruction to resolve latest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ResourcePin {
     /// Stable internal reference resource identity.
@@ -19,6 +20,7 @@ pub struct ResourcePin {
 
 /// Exact security or exchange instrument terms revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InstrumentPin {
     /// Provider-neutral instrument identity.
@@ -29,6 +31,7 @@ pub struct InstrumentPin {
 
 /// Source meaning is retained independently of freshness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReferenceQuality {
     /// Facts published by the exchange.
@@ -45,6 +48,7 @@ pub enum ReferenceQuality {
 
 /// Exact lineage and supplied data-validity interval; no wall-clock freshness guess.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReferenceStamp {
     /// Internal resource identity.
@@ -67,6 +71,7 @@ pub struct ReferenceStamp {
 
 /// Named exchange month; it need not be the final settlement month (e.g. SR3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ContractMonth {
     /// Four-digit year in the supported reference range 1900..2200.
@@ -77,6 +82,7 @@ pub struct ContractMonth {
 
 /// Dated outright minimum quotation increment. Spread/block regimes are separate contracts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TickRegime {
     /// Inclusive business date.
@@ -89,6 +95,7 @@ pub struct TickRegime {
 
 /// Explicit exchange posting convention; calendar rules are supplied separately.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DailySettlement {
     /// Immutable settlement calendar.
@@ -101,6 +108,7 @@ pub struct DailySettlement {
 
 /// Physical-delivery critical dates, inclusive delivery bounds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondDelivery {
     /// Exact delivery calendar; not inferred from currency.
@@ -117,6 +125,7 @@ pub struct BondDelivery {
 
 /// Contracted overnight rate averaging rule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RateAveraging {
     /// Calendar-day weighted arithmetic mean.
@@ -127,6 +136,7 @@ pub enum RateAveraging {
 
 /// Actual rate-futures observation/value interval. Bond CTD terms cannot decode here.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RateAccrual {
     /// Realized/remaining daily overnight window, half-open.
@@ -163,6 +173,7 @@ pub enum RateAccrual {
 
 /// Futures-to-forward calibration adjustment is always an explicit decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FuturesConvexityPolicy {
     /// No adjustment has been admitted; calibration must refuse this input.
@@ -185,6 +196,7 @@ pub enum FuturesConvexityPolicy {
 
 /// Initial disjoint payoff/reference families. Each payload rejects extra fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FuturesSettlement {
     /// Government-bond future quoted as clean points per100 face, physically delivered.
@@ -207,6 +219,7 @@ pub enum FuturesSettlement {
 
 /// Complete dated exchange reference facts for one immutable contract revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesContract {
     /// Stable internal instrument identity; independent of symbol remaps.
@@ -241,6 +254,7 @@ pub struct FuturesContract {
 
 /// One actual eligible bond and its published conversion factor, never computed from a proxy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BasketBond {
     /// Exact actual bond terms revision.
@@ -251,6 +265,7 @@ pub struct BasketBond {
 
 /// Immutable delivery universe for one exact physical futures revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeliveryBasket {
     /// Exact source/validity/classification and basket revision.
@@ -269,6 +284,7 @@ pub struct DeliveryBasket {
 
 /// Actual per-security funding terms, independent of a valuation curve.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FinancingInput {
     /// Funding source version, validity and quality.
@@ -291,6 +307,7 @@ pub struct FinancingInput {
 
 /// Quoted trading costs in currency per100 face, with separate provenance.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashTradingCost {
     /// Actual or estimated cost input; indicative estimates remain non-executable.
@@ -301,6 +318,7 @@ pub struct CashTradingCost {
 
 /// Supplied borrowing permission and available face; absence never implies shortability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BorrowInput {
     /// Source/version/freshness and actual versus indicative status.
@@ -317,6 +335,7 @@ pub struct BorrowInput {
 
 /// Cash hedge inputs for one actual security; no synthetic country/tenor bond.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashHedgeCandidate {
     /// Actual immutable security terms revision.
@@ -347,6 +366,7 @@ pub struct CashHedgeCandidate {
 
 /// Bounded actual cash hedge universe; retains all rejected candidates for diagnosis.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CashHedgeUniverse {
     /// Exact universe revision, source quality and validity.

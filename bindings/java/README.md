@@ -129,3 +129,9 @@ Required repository secrets:
 | `MAVEN_GPG_PASSPHRASE` | passphrase for that key |
 
 To cut a release: `git tag java-v0.13.0 && git push origin java-v0.13.0`.
+
+## Full supplied-input library API
+
+See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
+Generic JSON text calls preserve native diagnostics and decimal strings.
+Full mandatory operations and host certification remain open.

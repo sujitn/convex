@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// Exact supplied reference/calendar/document revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReferencePin {
     /// Provider-neutral resource identity.
@@ -35,6 +36,7 @@ pub struct CdsCalendars<'a> {
 }
 /// Initial closed single-name seniorities. Unknown wire values are rejected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Seniority {
     /// Senior unsecured obligation.
     SeniorUnsecured,
@@ -55,6 +57,7 @@ impl Seniority {
 }
 /// Complete reference obligation identity; provider mappings are outside pricing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CreditReference {
     /// Exact single reference entity.
@@ -70,6 +73,7 @@ pub struct CreditReference {
 }
 /// Direction; unsigned notional is independent of protection direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CdsSide {
     /// Receive protection, pay premium and positive initial cash.
     ProtectionBuyer,
@@ -86,12 +90,14 @@ impl CdsSide {
 }
 /// Explicit standard-model version, including its half-day default accrual rule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CdsModel {
     /// ISDA CDS Standard Model 1.8.3 convention, independently implemented in Rust.
     Standard183,
 }
 /// Maturity supplied as an actual date; no CDS2015 tenor/date mapping is inferred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CdsMaturityRule {
     /// Contract ends on an unadjusted March/June/September/December twentieth.
     QuarterlyTwentieth,
@@ -101,6 +107,7 @@ pub enum CdsMaturityRule {
 /// Surviving pre-credit-event contract. Default/auction/successor lifecycle states
 /// require a separate lifecycle route and cannot be smuggled into these inputs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsTerms {
     /// Internal trade identity.
@@ -152,6 +159,7 @@ pub struct CdsTerms {
 }
 /// Caller-supplied payment state. Future cash cannot be labelled already settled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum InitialPaymentState {
     /// The terms contain no contractual initial payment.
     NotContracted,
@@ -162,6 +170,7 @@ pub enum InitialPaymentState {
 }
 /// Explicit current valuation boundaries; no system clock or hidden trade state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CdsPricingContext {
     /// End-of-day valuation, conditional on a surviving reference entity.

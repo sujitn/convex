@@ -19,7 +19,7 @@ use convex_core::{cashflows::CashflowError, contracts::IndexId, fixings::FixingR
 use convex_curves::contracts::{CurveContractError, CurveKey};
 
 /// Actual missing values, independent of a repository or provider.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum MissingInput {
     /// Exact immutable curve version.
     Curve(CurveKey),

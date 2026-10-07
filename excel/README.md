@@ -331,3 +331,9 @@ pricing and risk, KRD, cashflow tag stability, schema introspection, mark
 parsing, and the error envelope.
 
 For a manual cell-side checklist see `excel/SMOKE_TEST.md`.
+
+## Full supplied-input library API
+
+See [the shared API, exact terms and capability limits](../docs/LIBRARY-API.md).
+Generic JSON text calls preserve native diagnostics and decimal strings.
+Full mandatory operations and host certification remain open.

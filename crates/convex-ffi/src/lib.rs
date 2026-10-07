@@ -332,6 +332,26 @@ pub unsafe extern "C" fn convex_curve_query(request_json: *const c_char) -> *mut
     unsafe { rpc(request_json, dispatch::curve_query) }
 }
 
+/// Versioned complete supplied-input library call. No registry/server/provider
+/// state is consulted. Request: `LibraryRequest` (see `convex_schema`). The owned
+/// JSON envelope preserves exact monetary strings and original native diagnostics.
+///
+/// # Safety
+/// Input must be null or a readable NUL-terminated C string in one allocation,
+/// unchanged through the call. Release the returned allocation exactly once
+/// with `convex_string_free`. Invalid/dangling pointers violate this ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn convex_library(request_json: *const c_char) -> *mut c_char {
+    guard_envelope(|| {
+        // SAFETY: this export forwards the caller's borrowed-string contract.
+        let response = match unsafe { read_input(request_json) } {
+            Ok(input) => convex::library::execute_json(input),
+            Err(error) => err_envelope("invalid_input", &error),
+        };
+        to_owned_c(response)
+    })
+}
+
 /// Make-whole call price. Request: `MakeWholeRequest`. Response: `MakeWholeResponse`.
 ///
 /// Computes the make-whole call redemption price at a future call date for

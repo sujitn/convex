@@ -83,6 +83,22 @@ class AssuranceMutations(unittest.TestCase):
         self.assertEqual(len(modules), 6)
         self.assertTrue(modules <= paths)
 
+    def test_library_dispatch_checks_and_purity_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance']
+                    if 'library_workflow' in c or 'library_schema' in c or 'library/api.py' in c
+                    or '--test library' in c or 'convex-wasm -p convex-mcp' in c
+                    or 'convex-library-schema' in c or 'requirements-schema' in c]
+        self.assertEqual(len(commands), 9)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
+        self.assertEqual(len(modules), 13)
+        self.assertTrue(modules <= check.inventory_paths(ROOT))
+        for path in modules:
+            check.check_lifecycle_source((ROOT/path).read_text())
+
     def test_workflow_rejects_conditionals_ignored_exits_and_optout(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for mutation in [source.replace('    name: Bounded Rust Assurance', '    if: false\n    name: Bounded Rust Assurance'),

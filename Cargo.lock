@@ -574,9 +574,14 @@ dependencies = [
  "convex-core",
  "convex-credit",
  "convex-curves",
+ "convex-math",
  "convex-portfolio",
  "convex-rates",
+ "rust_decimal",
+ "schemars",
+ "serde",
  "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -619,6 +624,7 @@ dependencies = [
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -652,6 +658,7 @@ dependencies = [
  "convex-math",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -671,6 +678,7 @@ dependencies = [
  "rayon",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -743,6 +751,7 @@ name = "convex-ffi"
 version = "0.13.0"
 dependencies = [
  "cbindgen",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
@@ -810,6 +819,7 @@ dependencies = [
  "rayon",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -837,6 +847,7 @@ dependencies = [
  "convex-curves",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -884,6 +895,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
@@ -894,6 +906,7 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",

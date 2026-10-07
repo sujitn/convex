@@ -92,3 +92,6 @@ pub(crate) fn validate_span(start: Date, end: Date) -> Result<(), CashflowError>
     }
     Ok(())
 }
+
+#[cfg(feature = "schemars")]
+mod schema;

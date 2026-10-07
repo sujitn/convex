@@ -92,7 +92,7 @@ pub enum ValuationInputs<'a> {
     BondFuture(&'a BondFuturesInputs<'a>),
 }
 /// Full product results; no flattening away leg/model/source/cash diagnostics.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum Valuation {
     /// Full fixed or floating model cash price.
     Bond(Box<BondValue>),
@@ -108,7 +108,7 @@ pub enum Valuation {
     BondFuture(Box<BondFuturesValuation>),
 }
 /// Stable distinction between discounted economic PV and a futures mark level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ValuationBasis {
     /// Bond/swap/CDS model PV at the supplied valuation/settlement boundary.
     CurrencyPresentValue,
@@ -419,7 +419,7 @@ impl ValuationInputs<'_> {
     }
 }
 /// Same-economics full scenario values; curves change, histories/terms do not.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ValuationScenario {
     /// Original immutable snapshot supplied by the caller.
     pub snapshot_id: SnapshotId,

@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 
 /// Contract-specific fixing revision treatment; no inferred administrator default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FuturesFixingSelection {
     /// Latest eligible revision at the supplied information cutoff.
@@ -106,6 +107,7 @@ pub struct RateFuturesInputs<'a> {
 
 /// Retained publication or explicit forecast meaning, without lossy rate JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum FuturesRateOrigin {
     /// Exact administrator/source revision actually consumed.
@@ -145,6 +147,7 @@ impl From<RateOrigin> for FuturesRateOrigin {
 
 /// One actual weighted rate. Holiday tails and clipped month starts stay exact.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FuturesRateObservation {
     /// Exact observation and expected publication time.
@@ -168,6 +171,7 @@ pub struct FuturesRateObservation {
 /// Complete indicative rate quote; model price and possible final settlement
 /// are distinct, and no discounted FRA PV is substituted for a futures mark.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateFuturesValuation {
     /// Exact actual contract revision.
@@ -557,6 +561,7 @@ where
 /// with published rates and quote-level convexity held fixed. This is a raw
 /// projection diagnostic, not recalibrated market-quote PV01 or discount risk.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RateFuturesRisk {
     /// Base original price/fixings/versions.

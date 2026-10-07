@@ -10,6 +10,7 @@ use std::cell::RefCell;
 
 /// Buyer-to-seller quote units. A standard coupon is retained in contract terms.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CdsQuote {
     /// Nonnegative conventional annualized spread; 0.01 means 100 bp.
@@ -30,6 +31,7 @@ pub enum CdsQuote {
 }
 /// Explicit closed intensity bracket and original native-quote convergence bound.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ConversionSettings {
     /// Nonnegative constant intensity lower bound per ACT/365F year.

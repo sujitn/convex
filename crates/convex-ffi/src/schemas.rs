@@ -5,6 +5,9 @@
 //! a `schema_for!` derive. Adding a new DTO is one match arm.
 
 pub fn lookup(name: &str) -> Result<String, String> {
+    if name == "LibraryRequest" {
+        return Ok(convex::library::request_schema().to_string());
+    }
     let body = match name {
         "Mark" => MARK,
         "BondSpec" => BOND_SPEC,
