@@ -505,3 +505,15 @@ financial oracles. Full schemas, strict ingress, actual adapter tests, three
 feature consumers and capability mutation checks are mandatory CI checks.
 Required operations, unsupported models and unavailable hosts remain explicit;
 AC2 and independent quantitative/library/production/latency gates stay open.
+
+The CVX-063 operation continuation adds checked date/tenor and compounding
+conversions plus computed native quote/node bucket reconciliation to the same
+dispatcher. Exact roll/representation/spread views retain original native
+recipes. All 198 previous numerical/transport rows, bytes and defaults remain
+unchanged; twelve supplemental input/consumer/adapter controls are additive,
+bringing the total to 210. No native financial source, Cargo manifest/lock,
+dependency or C export changes. Original 2,154 Planned requirements and historical
+evidence are preserved. Mandatory supplemental schema/adapter/feature checks and
+operation-map mutation controls supplement the original checks. Available host
+execution is recorded separately from unverified Windows/Excel/browser gates;
+no independent financial or production certificate is inferred.

@@ -60,6 +60,44 @@ def check_routes(routes, examples, root):
                         'wrong example outcome: ' + identifier)
 
 
+def check_operation_routes(routes, examples, required, root):
+    require(isinstance(routes, dict) and routes, 'exact operation routes omitted')
+    for identity, route in routes.items():
+        require(route['certified'] is False and route['qualification'].strip(),
+                'operation examples cannot certify financial coverage: ' + identity)
+        require(route['required_record_ids'] and set(route['required_record_ids']) <= required,
+                'operation moved or waived original required record: ' + identity)
+        require(len(set(route['required_record_ids'])) == len(route['required_record_ids']),
+                'duplicate required operation record: ' + identity)
+        require(route['entry_points'] == {'rust': 'convex::library::execute',
+                'shared_json': 'convex::library::execute_json', 'c_abi': 'convex_library'},
+                'exact operation needs native/JSON/C reachability')
+        require(route['selectors'], 'exact operation needs actual request selector')
+        for anchor in route['anchors']:
+            path = Path(anchor['path'])
+            require(not path.is_absolute() and '..' not in path.parts, 'unsafe operation source')
+            path = (root / path).resolve()
+            require(path.is_relative_to(root.resolve()) and path.is_file()
+                    and anchor['text'] in path.read_text(), 'missing native operation source: ' + identity)
+        require(route['anchors'], 'exact operation needs native and dispatcher anchors')
+        for kind in ('positive_examples', 'boundary_examples', 'negative_examples'):
+            require(route[kind] and len(set(route[kind])) == len(route[kind]),
+                    'missing or duplicate exact operation example: ' + identity)
+            for identifier in route[kind]:
+                require(identifier in examples, 'missing exact operation example: ' + identifier)
+                example = examples[identifier]
+                require((example['expected_error'] is None) == (kind != 'negative_examples'),
+                        'wrong operation example outcome: ' + identifier)
+                for selector, expected in route['selectors'].items():
+                    actual = example['request']
+                    try:
+                        for part in selector.split('.'):
+                            actual = actual[int(part)] if isinstance(actual, list) else actual[part]
+                    except (KeyError, IndexError, ValueError, TypeError) as error:
+                        raise ValueError('operation selector absent: ' + identifier) from error
+                    require(actual == expected, 'example calls another operation: ' + identifier)
+
+
 def check(matrix=None, root=ROOT):
     inventory = read(root / INVENTORY)
     matrix = matrix if matrix is not None else read(root / MATRIX)
@@ -74,9 +112,20 @@ def check(matrix=None, root=ROOT):
     actual = {record['record_id'] for record in matrix['records']}
     require(required == actual and len(actual) == len(matrix['records']), 'mandatory record missing or duplicated')
     cases = read(root / 'tests/fixtures/library/cases.json')['cases']
+    supplemental = matrix['supplemental_corpora']
+    require(supplemental and len(set(supplemental)) == len(supplemental), 'operation corpus omitted or duplicated')
+    for name in supplemental:
+        path = Path(name)
+        require(not path.is_absolute() and '..' not in path.parts and path.suffix == '.json'
+                and path.parent == Path('tests/fixtures/library'), 'unsafe supplemental operation corpus')
+        document = read(root / path)
+        require(document['schema_version'] == 1 and document['certified'] is False,
+                'input corpus cannot certify finance')
+        cases += document['cases']
     examples = {case['id']: case for case in cases}
     require(len(examples) == len(cases), 'duplicate example identity')
     check_routes(matrix['routes'], examples, root)
+    check_operation_routes(matrix['operation_routes'], examples, required, root)
     by_id = {record['id']: record for record in inventory['records']}
     for record in matrix['records']:
         require(record['certificate_status'] == 'Planned', 'engineering route cannot promote original mandatory status')
@@ -90,6 +139,7 @@ def check(matrix=None, root=ROOT):
         if record['dispatch_status'] == 'unsupported':
             require(record['remaining_owner_tasks'], 'unsupported required operation needs an owner')
     return {'status': 'passed', 'mandatory_records': len(actual), 'verified_records': 0, 'certified': False,
+            'exact_operation_routes': len(matrix['operation_routes']), 'engineering_examples': len(cases),
             'unsupported_records': sum(record['dispatch_status'] == 'unsupported' for record in matrix['records']),
             'qualification': 'Actual route examples are engineering subsets; every exact convention/model record remains Planned.'}
 

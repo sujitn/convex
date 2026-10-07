@@ -86,10 +86,10 @@ class AssuranceMutations(unittest.TestCase):
     def test_library_dispatch_checks_and_purity_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance']
-                    if 'library_workflow' in c or 'library_schema' in c or 'library/api.py' in c
+                    if 'library_workflow' in c or 'library_operations' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c]
-        self.assertEqual(len(commands), 9)
+        self.assertEqual(len(commands), 15)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))

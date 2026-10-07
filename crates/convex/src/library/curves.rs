@@ -7,6 +7,121 @@ use convex_analytics::{
 use convex_core::contracts::*;
 use serde::{Deserialize, Serialize};
 
+/// Exact native date/model-time conversion, independent of business-day rules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CurveTimeOperation {
+    /// Convert an actual date with the original curve's time basis.
+    DateToTenor {
+        /// Actual calendar date, on or after the curve reference.
+        date: Date,
+    },
+    /// Bounded inverse to a canonical date; rounding is never inferred.
+    TenorToDate {
+        /// Actual model tenor in years of the declared curve time basis.
+        tenor: f64,
+        /// Original native inverse rounding rule.
+        rounding: TenorRounding,
+    },
+}
+/// Annualization period is explicit, especially for Simple compounding.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RateConversionPeriod {
+    /// Actual accrual dates and a supported context-free native day count.
+    Dated {
+        /// Accrual start, without an inferred settlement rule.
+        start: Date,
+        /// Accrual end, strictly after start.
+        end: Date,
+        /// Actual annualization basis; missing ICMA references are unsupported.
+        day_count: convex_core::daycounts::DayCountConvention,
+    },
+    /// Supplied model year fraction with the original native span/domain guard.
+    YearFraction {
+        /// Nonnegative actual model fraction; inverse rates require positive time.
+        value: f64,
+    },
+}
+/// Original stable log/exponential conversions; negative rates retain domains.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RateConversionOperation {
+    /// Convert an annualized decimal rate to the actual period discount.
+    DiscountFromRate {
+        /// Original finite decimal rate.
+        rate: f64,
+        /// Actual input compounding.
+        compounding: convex_core::types::Compounding,
+    },
+    /// Convert a positive finite period discount to an annualized decimal rate.
+    RateFromDiscount {
+        /// Actual period discount; negative rates may give values above one.
+        discount: f64,
+        /// Explicit output compounding.
+        compounding: convex_core::types::Compounding,
+    },
+    /// Equivalent annualized decimal rate over the same actual period.
+    ConvertRate {
+        /// Original finite decimal rate.
+        rate: f64,
+        /// Actual input compounding.
+        from: convex_core::types::Compounding,
+        /// Explicit output compounding.
+        to: convex_core::types::Compounding,
+    },
+}
+pub(super) fn curve_time(curve: &BuiltCurve, action: &CurveTimeOperation) -> LibraryResult<Value> {
+    let (result, unit) = match *action {
+        CurveTimeOperation::DateToTenor { date } => {
+            (value(curve.date_to_tenor(date)?)?, "curve_time_years")
+        }
+        CurveTimeOperation::TenorToDate { tenor, rounding } => (
+            value(curve.tenor_to_date(tenor, rounding)?)?,
+            "calendar_date",
+        ),
+    };
+    Ok(
+        serde_json::json!({"curve":curve.recipe().key,"reference_date":curve.recipe().reference_date,
+        "time_basis":curve.recipe().time_basis,"action":action,"value":result,"unit":unit}),
+    )
+}
+pub(super) fn rate_conversion(
+    period: &RateConversionPeriod,
+    action: &RateConversionOperation,
+) -> LibraryResult<Value> {
+    let fraction = match *period {
+        RateConversionPeriod::Dated {
+            start,
+            end,
+            day_count,
+        } => year_fraction(start, end, day_count)?,
+        RateConversionPeriod::YearFraction { value } => value,
+    };
+    let (result, unit) = match *action {
+        RateConversionOperation::DiscountFromRate { rate, compounding } => (
+            discount_from_rate(rate, fraction, compounding)?,
+            "discount_factor",
+        ),
+        RateConversionOperation::RateFromDiscount {
+            discount,
+            compounding,
+        } => (
+            rate_from_discount(discount, fraction, compounding)?,
+            "decimal_rate",
+        ),
+        RateConversionOperation::ConvertRate { rate, from, to } => {
+            (convert_rate(rate, fraction, from, to)?, "decimal_rate")
+        }
+    };
+    Ok(
+        serde_json::json!({"period":period,"year_fraction":fraction,"action":action,"value":result,"unit":unit}),
+    )
+}
+
 /// Original rate recipe plus actual immutable source quote revisions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -116,6 +231,12 @@ pub enum CalibrationOperation {
         position: q::RiskPosition,
         /// Actual immutable snapshot identity.
         snapshot_id: SnapshotId,
+    },
+    /// Reprice each supplied bucket and the simultaneous move using the same
+    /// original native product/graph, then enforce exact native membership.
+    ReconcileBuckets {
+        /// Complete original product, factor manifest and numerical policy.
+        input: Box<super::risk::BucketReconciliationInput>,
     },
 }
 
@@ -401,6 +522,9 @@ pub(super) fn calibration(
                 resources,
             )?;
             Ok(serde_json::json!({"valuation":result,"graph":graph_value(&shocked)?}))
+        }
+        CalibrationOperation::ReconcileBuckets { input } => {
+            super::risk::graph_buckets(input, graph, resources)
         }
     })
 }

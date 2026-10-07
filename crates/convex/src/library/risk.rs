@@ -255,6 +255,86 @@ pub(super) fn graph_risk(
         )?)
     })
 }
+/// Original product and exact bucket scope; accepted sensitivities are computed
+/// here from the supplied graph, never read from cached caller-created records.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BucketReconciliationInput {
+    /// Full original product and quotation state.
+    pub product: RiskProductInput,
+    /// Every intended original single-quote or informative grid-node key.
+    pub buckets: Vec<q::QuoteRiskKey>,
+    /// Actual simultaneous quote/node move; scope is explicit in the key.
+    pub parallel: q::QuoteRiskKey,
+    /// Signed native quantity/reference basis, scaled once.
+    pub position: q::RiskPosition,
+    /// Exact caller-supplied immutable snapshot.
+    pub snapshot_id: SnapshotId,
+    /// Original central and half-step numerical policy, identical for all keys.
+    pub settings: q::QuoteRiskSettings,
+    /// Declared monetary additivity tolerance, separate from bump stability.
+    pub tolerance: q::RiskTolerance,
+}
+pub(super) fn graph_buckets(
+    input: &BucketReconciliationInput,
+    graph: &q::PreparedQuoteRiskGraph<'_>,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    if input.buckets.is_empty() || input.buckets.len() > 128 {
+        return Err(LibraryError::invalid(
+            "buckets",
+            "1..128 original coordinates required",
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    if input.buckets.iter().any(|key| !seen.insert(key)) {
+        return Err(LibraryError::invalid(
+            "buckets",
+            "duplicate original factor key",
+        ));
+    }
+    input.tolerance.validate()?;
+    let quotes = match input.parallel.definition().coordinate {
+        q::RiskCoordinate::ParallelQuotes { .. } => true,
+        q::RiskCoordinate::Zero { node: None, .. }
+        | q::RiskCoordinate::Basis { node: None, .. }
+        | q::RiskCoordinate::Hazard { node: None, .. } => false,
+        _ => {
+            return Err(LibraryError::invalid(
+                "parallel",
+                "explicit simultaneous quote/node scope required",
+            ))
+        }
+    };
+    let original = r.with_curves(graph.baseline().curves.clone());
+    with_product(&input.product, &original, |product| {
+        let sensitivity = |key: &q::QuoteRiskKey| {
+            w::curve_quote_risk(
+                product,
+                graph,
+                key.clone(),
+                input.position.clone(),
+                input.snapshot_id.clone(),
+                input.settings.clone(),
+            )
+        };
+        let parallel = sensitivity(&input.parallel)?;
+        let buckets = input
+            .buckets
+            .iter()
+            .map(sensitivity)
+            .collect::<Result<Vec<_>, _>>()?;
+        let reconciliation = if quotes {
+            q::reconcile_quote_buckets(&buckets, &parallel, input.tolerance)?
+        } else {
+            q::reconcile_curve_node_buckets(graph, &buckets, &parallel, input.tolerance)?
+        };
+        Ok(
+            serde_json::json!({"buckets":buckets,"parallel":parallel,"reconciliation":reconciliation}),
+        )
+    })
+}
 pub(super) fn graph_price(
     product: &RiskProductInput,
     baseline: &q::QuoteGraphScenario,

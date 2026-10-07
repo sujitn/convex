@@ -342,6 +342,24 @@ jobs:
       - name: Validate actual generated schema against full requests and rejected mutations
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_schema.py --binary target/debug/examples/library_workflow
 
+      - name: Check supplemental operation requests preserve original input corpus
+        run: python3 tests/scripts/library_operations_inputs.py
+
+      - name: Check exact conversion view and bucket native JSON C MCP WASM operations
+        run: cargo test --locked -p convex --all-features --test library_operations -p convex-ffi --test library_operations -p convex-mcp --test library_operations -p convex-wasm --test library_operations
+
+      - name: Run exact supplied operations with default features
+        run: cargo run --locked -p convex --example library_operations
+
+      - name: Run exact supplied operations with minimal features
+        run: cargo run --locked -p convex --example library_operations --no-default-features
+
+      - name: Run exact supplied operations with schema support
+        run: cargo run --locked -p convex --example library_operations --features schemars
+
+      - name: Validate exact generated schema against supplemental operations
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_operations_schema.py --binary target/debug/examples/library_operations
+
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
 
@@ -596,6 +614,9 @@ jobs:
       - name: Build convex-ffi
         run: cargo build --locked --profile excel -p convex-ffi -p convex --lib --example library_workflow --features convex/schemars
 
+      - name: Build supplemental native operation consumer
+        run: cargo build --locked --profile excel -p convex --example library_operations --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -612,6 +633,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke expectations
         run: python tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-parity.json
+
+      - name: Generate fresh native P/Invoke operation expectations
+        run: python tests/scripts/library_operations_parity.py prepare --binary target/excel/examples/library_operations.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-operations-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

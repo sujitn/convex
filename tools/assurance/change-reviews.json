@@ -1027,6 +1027,49 @@
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
         "tools/library/test_api.py": "db5fc5c48425ba635d002cf4d59ddccea7bb03dee1d83b70aee7618f8b5c685e"
       }
+    },
+    {
+      "base_commit": "1ccac733d042653fa1d6f57198b16e546c635659",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-063 operation continuation: exact checked native date/tenor and period/compounding conversion, original quote/node bucket reconciliation from actual full product/graph, explicit original roll/equivalent/spread recipe examples. Source calculations remain in unchanged native owners. Risk quantities, native units, five-PV/half-step/graph residual/history/baseline/model guards, complete actual node membership and explicit nonadditivity remain intact. 110 supplemental input-only cases (70 success/40 failures), 14 exact operation mappings and actual adapter/schema/feature mutation checks. All198 existing numerical/transport rows/bytes/defaults,4750 historical evidence files and30areas/174combinations/2154Planned mandatory records are preserved. Twelve new transport controls are not independent price expectations. No native financial source, Cargo manifest/lock/dependency or C export changes;181critical sources and26exports retained. No provider/DB/MQ/clock/authority, constrained optimizer, missing model substitute or certificate shortcut. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. CVX-063 AC2/AC3 remain partial; independent financial/library/production/latency certificates unawarded.",
+      "tests": [
+        "Actual supplemental110 request native/JSON/C/MCP/native-WASM parity and six native invariant/error tests",
+        "Three standalone feature consumers and actual generated schema mutations",
+        "Actual fresh Java FFM/C parity and original110 retained adapter requests",
+        "Strict affected/workspace lint, required client suites and original retained financial comparisons; missing local Excel/browser hosts remain unverified"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "b77ad8012810d569eebb226a1f109cdb211d57ef3e399a69c540afeb521178be",
+        ".github/workflows/java.yml": "d98408e36730f24347a82fc701170ef0e5f1d4a4ace24469d2bfa82bc4e352f3",
+        "bindings/java/src/test/java/com/convex/LibraryOperationsTest.java": "15e4ebc36d6778480da078a41cd6b217a4930772c116110d198d7bdd22d8d397",
+        "crates/convex-ffi/tests/library_operations.rs": "ab88a99ab3f76f4bfb9c7596f01a42955c1475436102070e34c0492fb6a44e4f",
+        "crates/convex-mcp/tests/library_operations.rs": "8e0341e052e229e25c22567743a5928ead297635fb4317f58a722ba1a168eb88",
+        "crates/convex-wasm/tests/library_operations.rs": "898ec67d26abe4e09d5b24dfeec5f7270ae1923574e0039670af5531821b25f5",
+        "crates/convex/examples/library_operations.rs": "6b53fb0d4e7259edc24e92e6fa973a1308e287f8fbbaaf8cc8b0572655366d5f",
+        "crates/convex/src/library/curves.rs": "668395787740093ceb41b279c94d172a828c9bcec4117a4c097ab9a745d7d72f",
+        "crates/convex/src/library/products.rs": "8c32d740361af4a5fc1ea94f076e1dc5692264bbe747138bd1e427c6dc286a7d",
+        "crates/convex/src/library/requests.rs": "50ae7d74ca564f286bf3552a6bd3a2247b88aa9313326307c076e8cd77dd7a60",
+        "crates/convex/src/library/risk.rs": "aa3357bc939eae1baadbee4dc4204d68f6857ea465cd7f97d28b53315920a958",
+        "crates/convex/tests/library_operations.rs": "af7d7ae9aae94bee3b447d75c1be8e8d1de31d53e086d571ea848e04e19a77cd",
+        "docs/ASSURANCE.md": "ae3c1e3f015446d49010f2a0bb2f1b9b46e53c1ffa0814190c75c797122e68d2",
+        "docs/LIBRARY-API.md": "a41ad26904ccd8f19295bdee8a30b062330d0f478f1c5537f53be9ec72399bf4",
+        "excel/Convex.Excel.Tests/LibraryOperationsTests.cs": "ba2fdedf64de06d9f3e8d463616aa0f6b282d516a6218e6b38939cd26214fba9",
+        "tests/fixtures/library/operations.json": "291dedeec606bcf4115a93934dc03483270b992e2dec2987ee831ed9ddd32714",
+        "tests/fixtures/library/operations_contract.rs": "4478aa843ddccde2d049c5f44a0f93eee28e4468047ff7e0bd1359e69108bb01",
+        "tests/scripts/library_operations_inputs.py": "263c3cbdb048a6ac1082f898c0d0082a0b4b8e9770442f0adceedb55ecd1d231",
+        "tests/scripts/library_operations_parity.py": "e14e6c26b85b2c8b6e23257693b1353f86774c08ed5ac3614f53457dad0c212f",
+        "tests/scripts/library_operations_schema.py": "561f1fcbf24f0ebf51d7255b21fd1a218560bebc5c7e3020ba2ec592b8f74d04",
+        "tools/assurance/check.py": "cdf5fbe2da7b3445dced564f65496166c845d66fd911896e52e55cd900faf189",
+        "tools/assurance/inventory.json": "34f22b688af213583c94d37ee5622d30cdf144c0029ad56135271025a28743e8",
+        "tools/assurance/numeric-evidence.json": "77d96ffaeca8b324331b3507342ead2fca0d3b9528f6ba2ba8054f83868e6492",
+        "tools/assurance/test_policy.py": "6880254b457e3c244ec840052fa979dc1776026866f293624fb32fe3f85ddc1e",
+        "tools/library/api-capabilities.json": "b5efba01246192879bc9aaa836d42d76585bf8ff5246bfd8071460f5eea03f01",
+        "tools/library/api.py": "9ae6c346d6db2eb13db095a8f0ddd00c243f054945e32663bc5c0554bd995ff8",
+        "tools/library/library-inventory.json": "f845634ca87dea12af88d710e3a66eac81ca42acb7b6a1eba109146a3103e349",
+        "tools/library/test_operations.py": "decbe49ffa2a884a2d3d80f876e7b3930dce85690eb872d3840341711ca5d045",
+        "docs/LIBRARY-COVERAGE.md": "dcd946a7a51256baa6947d0ad83e9163f8863259bf9a98a48241cbcd79847107"
+      }
     }
   ]
 }

@@ -17,6 +17,7 @@ on:
       - 'crates/convex-portfolio/**'
       - 'tests/fixtures/library/**'
       - 'tests/scripts/library_parity.py'
+      - 'tests/scripts/library_operations_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -37,6 +38,7 @@ on:
       - 'crates/convex-portfolio/**'
       - 'tests/fixtures/library/**'
       - 'tests/scripts/library_parity.py'
+      - 'tests/scripts/library_operations_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -70,6 +72,9 @@ jobs:
       - name: Build convex-ffi cdylib
         run: cargo build --locked -p convex-ffi --profile excel -p convex --lib --example library_workflow --features convex/schemars
 
+      - name: Build supplemental native operation consumer
+        run: cargo build --locked --profile excel -p convex --example library_operations --features schemars
+
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
@@ -85,6 +90,9 @@ jobs:
 
       - name: Generate fresh native adapter expectations
         run: python3 tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow --output bindings/java/target/library-parity.json
+
+      - name: Generate fresh native operation adapter expectations
+        run: python3 tests/scripts/library_operations_parity.py prepare --binary target/excel/examples/library_operations --output bindings/java/target/library-operations-parity.json
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

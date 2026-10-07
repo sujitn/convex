@@ -408,3 +408,12 @@ and host gaps. The 110-case engineering corpus proves actual full-term transport
 for its admitted subsets; it does not prove every required convention/model or
 operation. All records remain Planned. CVX-063 AC2 remains open, as do complete
 Excel/browser and independent library/production/latency certificates.
+
+Version22 extends that same partial API observation with 316 source pins and
+46 observations. A separate 110-request operation corpus and 14 exact request
+mappings cover actual date/tenor/compounding conversions, native representation/
+roll/spread views, and computed quote/zero/DF/hazard bucket reconciliation.
+Positive, boundary and failure examples execute the original full product and
+native numerical guards. All 198 prior numerical/transport pins and original
+mandatory scope remain unchanged; twelve supplemental controls bring pins to
+210. Original records stay Planned and full CVX-063 AC2/AC3 remain open.

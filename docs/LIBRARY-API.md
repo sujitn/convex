@@ -93,7 +93,8 @@ envelope; those boundary failures can precede request decoding.
 | `capabilities`, `roundtrip` | Complete required surface report; checked immutable input reconstruction/echo |
 | `schedule`, `fixings` | Independent actual date rules and eligible-history requirements |
 | `curves`, `curve_query`, `curve_fit` | Native construction, fallible date/tenor/DF/forward/survival/hazard queries and bounded dated money-market fitting |
-| `calibration` | Original full rate/CDS/cash graph build, product price, quote scenario and stable quote risk; preserves original helpers and history |
+| `curve_time`, `rate_conversion` | Native bounded date/tenor inverse with explicit rounding, and discount/rate/compounding conversions over actual dates/day count or a supplied year fraction |
+| `calibration` | Original full rate/CDS/cash graph build, product price, quote scenario, stable quote risk and calculated bucket reconciliation; preserves original helpers and history |
 | `bond` | Construction, requirements, full entitled cash, fixed/floating model PV, dated fixed-cash yield or spread/DM inverse, guarded raw quote risk |
 | `swap`, `basis_swap` | Original full IRS/OIS or two-floating-leg basis construction, requirements, projected cash and signed valuation |
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
@@ -121,6 +122,70 @@ use a contractual fixed-cash yield. Raw futures quote sensitivity is distinct
 from remaining-rate risk and posted variation margin. OAS risk must pass native
 price and duration/convexity refinement at both h and h/2. Price convergence
 alone does not admit risk.
+
+## Dated transformations and bucket reconciliation
+
+`curve_time` uses the exact supplied curve revision and time basis. Its
+`date_to_tenor` action takes an actual `date`; `tenor_to_date` takes `tenor` and
+explicit `AtOrBefore`, `AtOrAfter` or `Nearest` rounding. Results retain the
+curve key, reference date, time basis, original action and units. Leap years
+use the native day count. Business-day adjustment is a separate schedule rule.
+
+`rate_conversion` takes `period` as either
+`{"kind":"dated","start":"2024-02-28","end":"2024-03-01","day_count":"ActActIsda"}`
+or `{"kind":"year_fraction","value":0.5}`. Actions are `discount_from_rate`
+with `rate` and `compounding`, `rate_from_discount` with `discount` and
+`compounding`, or `convert_rate` with `rate`, `from` and `to`. Rates are annualized
+decimals. Results retain the actual fraction, period, conventions and either
+`discount_factor` or `decimal_rate` units. Native context-free day-count and
+positive compounding-base guards apply. Missing ICMA references are unsupported.
+The original native numerical-domain failures retain `no_convergence` and their
+cause; no value is returned for an invalid simple/periodic base or inverse at
+zero time. Discount at zero time is the native mathematical origin, one.
+
+Exact representation, continuous-spread and roll transformations use the
+existing full `CurveRecipe` in `inputs.curves`. `DiscountEquivalent` preserves
+the base discount function. `Rolled` takes `StickyForward` or `StickyZero`, an
+exact base dependency and a new reference date, with `DiscountFactors` output.
+Sticky forward uses the original discount ratio over the actual date offset;
+sticky zero preserves the remaining-tenor discount function. These are supplied
+scenarios. Original interpolation/extrapolation is inherited without resampling;
+backward rolls, changed methods, missing versions and an empty remaining original
+domain fail. Query the new exact key with `curve_query`.
+
+`calibration` action `reconcile_buckets` takes `input` containing a full `product`,
+`buckets` of original `QuoteRiskKey`s, an explicit `parallel` key, actual
+`position`, `snapshot_id`, original `settings` and a separate monetary
+`tolerance`. It calculates every bucket and the simultaneous sensitivity with
+the native product and graph. Each result keeps all five actual PVs, signed
+quantity, units and half-step policy. Quote IDs/versions/native units must match
+the declared parallel quote set. Node reconciliation checks every actual
+informative grid index, including nodes with zero exposure; DF and hazard origins
+are mathematical anchors. Duplicate, missing, incompatible or unstable inputs
+yield no accepted partial result. A complete nonlinear set may return
+`reconciliation.passed:false` with its actual discrepancy and bound.
+
+This operation admits 1–128 buckets plus one parallel sensitivity. Each uses
+the existing five-PV native reference route, with all nested helper/solver/work
+limits still enforced. It returns computed records, and does not accept cached
+bucket values. Optional-bond and bond-futures risk retain their dedicated native
+model/refinement paths. This generic operation cannot bypass those guards.
+
+Run the supplemental input-only corpus and inspect its 14 operation mappings:
+
+```sh
+cargo run --locked -p convex --example library_operations
+cargo run --locked -p convex --example library_operations --no-default-features
+cargo run --locked -p convex --example library_operations --features schemars
+python3 tests/scripts/library_operations_inputs.py
+python3 tools/library/api.py
+```
+
+The original 110 requests and evidence pins are unchanged. Another 110 supplied
+operation requests exercise conversions, exact views and computed quote/zero/DF/
+hazard reconciliation. Actual client outputs are compared to fresh native
+envelopes for transport parity. These are engineering subsets; every original
+required record remains Planned and CVX-063 remains partial.
 
 ## Clients and qualification
 

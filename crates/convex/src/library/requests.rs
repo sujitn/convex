@@ -163,6 +163,20 @@ pub enum LibraryOperation {
         /// Actual native query convention and period.
         query: CurveQuery,
     },
+    /// Convert actual dates and model tenors using the supplied curve time basis.
+    CurveTime {
+        /// Exact immutable curve; no nominal year approximation.
+        curve: CurveKey,
+        /// Native bounded conversion with explicit inverse rounding.
+        action: CurveTimeOperation,
+    },
+    /// Native discount/rate conversions over an explicit actual accrual period.
+    RateConversion {
+        /// Actual dates/day count or a caller-supplied model year fraction.
+        period: RateConversionPeriod,
+        /// Original checked compounding conversion.
+        action: RateConversionOperation,
+    },
     /// Actual bounded dated global money-market fitter.
     CurveFit {
         /// Full native original recipe.

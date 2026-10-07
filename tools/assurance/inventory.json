@@ -2469,15 +2469,16 @@
     },
     {
       "path": "crates/convex/src/library/curves.rs",
-      "sha256": "3d9fdf0a809847532f5099051798f223f5e092574bb0481908d8e023706c0c06",
-      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "sha256": "668395787740093ceb41b279c94d172a828c9bcec4117a4c097ab9a745d7d72f",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates. Reviewed CVX-063 operation impact: CVX-063 operation continuation: exact checked native date/tenor and period/compounding conversion, original quote/node bucket reconciliation from actual full product/graph, explicit original roll/equivalent/spread recipe examples. Source calculations remain in unchanged native owners. Risk quantities, native units, five-PV/half-step/graph residual/history/baseline/model guards, complete actual node membership and explicit nonadditivity remain intact. 110 supplemental input-only cases (70 success/40 failures), 14 exact operation mappings and actual adapter/schema/feature mutation checks. All198 existing numerical/transport rows/bytes/defaults,4750 historical evidence files and30areas/174combinations/2154Planned mandatory records are preserved. Twelve new transport controls are not independent price expectations. No native financial source, Cargo manifest/lock/dependency or C export changes;181critical sources and26exports retained. No provider/DB/MQ/clock/authority, constrained optimizer, missing model substitute or certificate shortcut. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. CVX-063 AC2/AC3 remain partial; independent financial/library/production/latency certificates unawarded.",
       "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
       "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
       "tests": [
-        "crates/convex/tests/library.rs",
         "crates/convex-ffi/tests/library.rs",
         "crates/convex-mcp/tests/library.rs",
         "crates/convex-wasm/tests/library.rs",
+        "crates/convex/tests/library.rs",
+        "crates/convex/tests/library_operations.rs",
         "tests/scripts/library_schema.py"
       ],
       "exceptions": []
@@ -2589,45 +2590,48 @@
     },
     {
       "path": "crates/convex/src/library/products.rs",
-      "sha256": "9eb0969827e42cad5011e91ace9fb9439f3187a7348a2954ab1c62ee96748c4e",
-      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "sha256": "8c32d740361af4a5fc1ea94f076e1dc5692264bbe747138bd1e427c6dc286a7d",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates. Reviewed CVX-063 operation impact: CVX-063 operation continuation: exact checked native date/tenor and period/compounding conversion, original quote/node bucket reconciliation from actual full product/graph, explicit original roll/equivalent/spread recipe examples. Source calculations remain in unchanged native owners. Risk quantities, native units, five-PV/half-step/graph residual/history/baseline/model guards, complete actual node membership and explicit nonadditivity remain intact. 110 supplemental input-only cases (70 success/40 failures), 14 exact operation mappings and actual adapter/schema/feature mutation checks. All198 existing numerical/transport rows/bytes/defaults,4750 historical evidence files and30areas/174combinations/2154Planned mandatory records are preserved. Twelve new transport controls are not independent price expectations. No native financial source, Cargo manifest/lock/dependency or C export changes;181critical sources and26exports retained. No provider/DB/MQ/clock/authority, constrained optimizer, missing model substitute or certificate shortcut. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. CVX-063 AC2/AC3 remain partial; independent financial/library/production/latency certificates unawarded.",
       "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
       "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
       "tests": [
-        "crates/convex/tests/library.rs",
         "crates/convex-ffi/tests/library.rs",
         "crates/convex-mcp/tests/library.rs",
         "crates/convex-wasm/tests/library.rs",
+        "crates/convex/tests/library.rs",
+        "crates/convex/tests/library_operations.rs",
         "tests/scripts/library_schema.py"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex/src/library/requests.rs",
-      "sha256": "794500947e6971a7fad7dbca515daf991d798851b39650ea4794bbdae365a99a",
-      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
+      "sha256": "50ae7d74ca564f286bf3552a6bd3a2247b88aa9313326307c076e8cd77dd7a60",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates. Reviewed CVX-063 operation impact: CVX-063 operation continuation: exact checked native date/tenor and period/compounding conversion, original quote/node bucket reconciliation from actual full product/graph, explicit original roll/equivalent/spread recipe examples. Source calculations remain in unchanged native owners. Risk quantities, native units, five-PV/half-step/graph residual/history/baseline/model guards, complete actual node membership and explicit nonadditivity remain intact. 110 supplemental input-only cases (70 success/40 failures), 14 exact operation mappings and actual adapter/schema/feature mutation checks. All198 existing numerical/transport rows/bytes/defaults,4750 historical evidence files and30areas/174combinations/2154Planned mandatory records are preserved. Twelve new transport controls are not independent price expectations. No native financial source, Cargo manifest/lock/dependency or C export changes;181critical sources and26exports retained. No provider/DB/MQ/clock/authority, constrained optimizer, missing model substitute or certificate shortcut. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. CVX-063 AC2/AC3 remain partial; independent financial/library/production/latency certificates unawarded.",
       "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
       "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
       "tests": [
-        "crates/convex/tests/library.rs",
         "crates/convex-ffi/tests/library.rs",
         "crates/convex-mcp/tests/library.rs",
         "crates/convex-wasm/tests/library.rs",
+        "crates/convex/tests/library.rs",
+        "crates/convex/tests/library_operations.rs",
         "tests/scripts/library_schema.py"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex/src/library/risk.rs",
-      "sha256": "c54d72ad491abcc99037b5456d1dbc34410f3962f6e2c791f87cc8c7ca89002b",
-      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates.",
-      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds.",
+      "sha256": "aa3357bc939eae1baadbee4dc4204d68f6857ea465cd7f97d28b53315920a958",
+      "invariants": "CVX-063: complete supplied economics reconstruct checked native terms; pure closed dispatch delegates original financial modules. Schema declarations preserve units, all profiles/reset/exercise/principal/history and exact revisions. No provider, storage, messaging, clock or authority. Engineering subsets are never certificates. Reviewed CVX-063 operation impact: CVX-063 operation continuation: exact checked native date/tenor and period/compounding conversion, original quote/node bucket reconciliation from actual full product/graph, explicit original roll/equivalent/spread recipe examples. Source calculations remain in unchanged native owners. Risk quantities, native units, five-PV/half-step/graph residual/history/baseline/model guards, complete actual node membership and explicit nonadditivity remain intact. 110 supplemental input-only cases (70 success/40 failures), 14 exact operation mappings and actual adapter/schema/feature mutation checks. All198 existing numerical/transport rows/bytes/defaults,4750 historical evidence files and30areas/174combinations/2154Planned mandatory records are preserved. Twelve new transport controls are not independent price expectations. No native financial source, Cargo manifest/lock/dependency or C export changes;181critical sources and26exports retained. No provider/DB/MQ/clock/authority, constrained optimizer, missing model substitute or certificate shortcut. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. CVX-063 AC2/AC3 remain partial; independent financial/library/production/latency certificates unawarded.",
+      "bounds": "JSON: 2 MiB,64 levels,32768 nodes,4096 collection items,8192 UTF-8 text bytes; 256 calendars/curves,4096 holidays/events,16 MiB output; original native solver/helper/model guards remain. Admission ceilings do not imply total nested CPU or latency bounds. Bucket reconciliation:1..128 buckets plus one parallel; each calls original five-PV/half-step native route, with every original nested work/solver limit.",
       "failure_contract": "Typed InvalidInput/MissingInput/Unsupported/NotApplicable/NoRoot/NonUnique/NoConvergence/ResourceLimit/native errors; preserve available original diagnostics and pending/incomplete results. No discarded nested terms, numeric cash, lossy Decimal, approximate substitution, partial accepted graph or unchecked cached state.",
       "tests": [
-        "crates/convex/tests/library.rs",
         "crates/convex-ffi/tests/library.rs",
         "crates/convex-mcp/tests/library.rs",
         "crates/convex-wasm/tests/library.rs",
+        "crates/convex/tests/library.rs",
+        "crates/convex/tests/library_operations.rs",
         "tests/scripts/library_schema.py"
       ],
       "exceptions": []

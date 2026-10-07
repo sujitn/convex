@@ -469,6 +469,12 @@ pub(super) fn execute(
         LibraryOperation::Roundtrip {} => value(r.input()),
         LibraryOperation::Curves {} => super::curves::describe_curves(&r.curves),
         LibraryOperation::CurveQuery { curve, query } => value(r.curves.get(curve)?.query(query)?),
+        LibraryOperation::CurveTime { curve, action } => {
+            super::curves::curve_time(r.curves.get(curve)?, action)
+        }
+        LibraryOperation::RateConversion { period, action } => {
+            super::curves::rate_conversion(period, action)
+        }
         LibraryOperation::CurveFit {
             recipe,
             pillars,
