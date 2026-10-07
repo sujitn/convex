@@ -237,6 +237,27 @@ jobs:
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
 
+      - name: Check independent cash curve references
+        run: python3 tests/scripts/cash_calibration_reference.py check
+
+      - name: Check full original cash helpers and dependency rebuilds
+        run: cargo test --locked -p convex-analytics --test cash_calibration
+
+      - name: Check bounded cash curve source and dedicated tests
+        run: cargo clippy --locked -p convex-curves -p convex-credit -p convex-analytics --all-targets --all-features -- -D warnings
+
+      - name: Check required cash curve analytics and credit suites
+        run: cargo test --locked -p convex-curves -p convex-analytics -p convex-credit
+
+      - name: Run full cash curve and dated repo carry consumer
+        run: cargo run --locked -p convex --example cash_calibration
+
+      - name: Run cash curve consumer with minimal features
+        run: cargo run --locked -p convex --example cash_calibration --no-default-features
+
+      - name: Run cash curve consumer with schema features
+        run: cargo run --locked -p convex --example cash_calibration --features schemars
+
       - name: Check calibration failure and repricing contracts
         run: cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics
 

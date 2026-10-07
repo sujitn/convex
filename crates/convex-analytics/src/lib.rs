@@ -66,6 +66,7 @@ pub mod futures;
 pub mod futures_reference {
     pub use convex_core::futures::*;
 }
+pub mod cash_calibration;
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
 pub mod optional_bond;

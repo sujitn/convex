@@ -746,6 +746,50 @@
         "tools/library/library-inventory.json": "f40eaa6f6b2e9999384d6219bca9f93f6ab218444f0b7181678e057aaa8bf219",
         "tools/library/test_coverage.py": "62eb3713c9e97fc9c21d1a9a3bba08cedc2ce095686b7109e210285f40afab5f"
       }
+    },
+    {
+      "base_commit": "07c94a36ed004a34a2121b0de000c4df83c0a605",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-07",
+      "rationale": "CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference. Preserve162 earlier numerical rows/bytes/defaults,3863 historical private evidence files and2154 Planned mandatory records/suffix/economics/owners/surfaces/gates. No Cargo manifest/lock/dependency/Cexport change. Existing curve fitting validation admits full cash-price residuals only for Government/IssuerSpread; old rate/future units and diagnostics stay checked. Existing collateral/plain bond arithmetic uses the same shared full cash normalization. The public default-mass function reuses the unchanged credit moment; original CDS pricing is untouched. Issuer construction/capability docs now describe actual raw grids while generic product description dispatch remains unsupported. New CI/control checks are mandatory and cannot be skipped or ignore failures. This is the coding agent engineering review; no independent human quantitative approval or certificate.",
+      "tests": [
+        "25 focused original cash, native quote, separated recovery/repo, exact dependent rebuild and failure tests",
+        "Required curves/analytics/credit and full workspace; strict source/consumer lint/docs/fmt and three public feature consumers",
+        "Unchanged actual QuantLib/ISDA and retained regressions; numeric/history/mandatory/dependency/ABI preservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "652818827de73ba43d8091a05ac9c7aa502d436c6e1ef92e5db9daca82c6eca0",
+        "README.md": "bc56bf9c3ec2cc13e4abc364585eeb5dd66941ae2200712f601ad601a2ece4f2",
+        "crates/convex-analytics/src/bond_contract.rs": "d6448d66dca85fb45152254b29b1c4ee3dfbda85c4d559f5b2e53d5aeda4ebbf",
+        "crates/convex-analytics/src/cash_calibration/build.rs": "7b33e15c5dfe25f7f4044c117f7186dbb9af7037b5683e670c4208be24b91a17",
+        "crates/convex-analytics/src/cash_calibration/fit.rs": "75faa4940b6a70a5d413a15a11f1fa61a7f51ff301d1d667d2f19bcca86d6a2f",
+        "crates/convex-analytics/src/cash_calibration/inputs.rs": "7e4525e7156c2774f47271570d8f5b055081d08a5d00296af8986c1f8bccba5f",
+        "crates/convex-analytics/src/cash_calibration/mod.rs": "2b92aa008670753a3fd1f861313aeee4780818c69b2111a7d754151083e04792",
+        "crates/convex-analytics/src/cash_calibration/pricing.rs": "2a2e0a93553c19416dbeae3c531328001e9c9f1786e597a3fb107e4bbfad2186",
+        "crates/convex-analytics/src/cash_calibration/repo.rs": "f4586d866b5ab3181aecb02a2f539754af54537a86fae1a2cbd75c3e9ae0f466",
+        "crates/convex-analytics/src/lib.rs": "2c0491f7494b7ece6b014284d9603ff3005b91234232e5f4c54a6ee28e503310",
+        "crates/convex-analytics/tests/cash_calibration.rs": "e19956c38196f46b6a69caaafac5dfacdc0113ca164164a91b87dd6dabec0013",
+        "crates/convex-credit/src/lib.rs": "7ed218c7ea55621b6bde18016baadad0e8820f50127c79c942f6253e377b720d",
+        "crates/convex-credit/src/pricing.rs": "0ceb3c662cd3ae43ceb1976f291260825421db348d79f57cfbc767bb94812a2e",
+        "crates/convex-curves/src/contracts/basis.rs": "d6874bac22224de100e6a93014903bf4b1f8ffbabebbb7b6f505642f168e81df",
+        "crates/convex-curves/src/contracts/build.rs": "2a37145a8e01c89a9a084f9f4b07d05c7eded4ad9cb6484cc29b4d1baadc5308",
+        "crates/convex-curves/src/contracts/inputs.rs": "672d419594977db5b1ca48f564ac31e301ba3b39e88d856502bd17164c302e84",
+        "crates/convex-curves/src/contracts/mod.rs": "1a079121b38371670e1f8569619f57df78f93cdb5ee3b0df71006af346d36433",
+        "crates/convex-curves/src/contracts/query.rs": "c0ac6fcfc17e613acb1d7c8a2b83544397388341380198d0e1b1d2810389fedf",
+        "crates/convex/examples/cash_calibration.rs": "e46b648f9dab826a3c60370e4c3f54822dee7b89189bc1b566b03d6dd00b8960",
+        "crates/convex/examples/support/cash_fixture.rs": "ffab3572b43aaa909d6ae49c1379bdd13998a62f025ae617f821a9ff005bf018",
+        "crates/convex/src/lib.rs": "100ed6cee78ac90e3f7d444052090ecaac256dcfa57e39ba11c2b52a1cf54d14",
+        "docs/ASSURANCE.md": "88036253a32f1a6c7fbcd2a913b4092136825bdf1df509fe01fa2f8212e8a1d6",
+        "docs/CASH-CURVES.md": "25d49ee26b4fcaf448452b9fafc0baa11083b4ec38a2a16a2bf16c9f57e18a71",
+        "docs/LIBRARY-COVERAGE.md": "503b34cdd5b43322a03e10a1c9ce32bab56025fae13215c33738c20db69f952b",
+        "tests/fixtures/curves/cash-curves.json": "e460ff72ef9865991f1f52f808a9147f157062f2169d35fd5370028b61388068",
+        "tests/scripts/cash_calibration_reference.py": "bc5708838af6ca86863e0194e6aaf35d640cb48e996ba4d607738b780c5d28e1",
+        "tools/assurance/check.py": "69e6a17c15b39f13eb079e849f5ef9c80e7000c6d0f710131e8dfd6d247a9361",
+        "tools/assurance/inventory.json": "6433873507d76e2ec2027a3346639678cd0152535376800b4015b1c0be0f8220",
+        "tools/assurance/numeric-evidence.json": "ce799328ea8c392ef987552d3f8f2b9de45b021b73ecf8fb4674461aec28657e",
+        "tools/assurance/test_policy.py": "6de15a694c06768e011143167791c378138b68df895c0b9787e246fb7aedbb82",
+        "tools/library/library-inventory.json": "dbcf2d8ca603bc971a38e3a15d7dca9a696ece18e0ff581ec11e8f5b63ac9bac"
+      }
     }
   ]
 }

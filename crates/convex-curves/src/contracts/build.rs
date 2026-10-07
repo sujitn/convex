@@ -17,6 +17,7 @@ use std::{
 #[derive(Debug, Clone)]
 enum CurveValues {
     Direct(DiscreteCurve),
+    Basis(super::basis::BasisGrid),
     Spread {
         base: Arc<BuiltCurve>,
         spread: f64,
@@ -55,6 +56,7 @@ impl BuiltCurve {
     pub fn interpolation_grid(&self) -> Result<(&[f64], &[f64])> {
         match &self.values {
             CurveValues::Direct(curve) => Ok((curve.tenors(), curve.values())),
+            CurveValues::Basis(grid) => Ok((&grid.tenors, &grid.values)),
             _ => Err(Error::unsupported(
                 "interpolation grid",
                 "derived views require their own exact integration contract",
@@ -64,6 +66,7 @@ impl BuiltCurve {
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
             CurveValues::Direct(curve) => curve.tenor_bounds(),
+            CurveValues::Basis(grid) => (grid.tenors[0], grid.tenors[grid.tenors.len() - 1]),
             CurveValues::Spread { base, .. } => base.bounds(),
             CurveValues::Equivalent { base } => base.bounds(),
             CurveValues::Rolled {
@@ -90,6 +93,7 @@ impl BuiltCurve {
             ));
         }
         let value = match &self.values {
+            CurveValues::Basis(grid) => grid.value(t, self.recipe.extrapolation)?,
             CurveValues::Direct(curve) => curve
                 .checked_value_at(t)
                 .map_err(|e| Error::Numerical(e.to_string()))?,
@@ -335,6 +339,39 @@ pub fn build_fitted_rate_curve(
     iterations: usize,
     supplied: &CurveSet,
 ) -> Result<BuiltCurve> {
+    if !recipe.role.is_rate() {
+        return Err(Error::invalid("fitted.role", "rate role required"));
+    }
+    build_fitted_product_curve(recipe, nodes, quotes, iterations, supplied)
+}
+
+/// Admit a complete cash-backed residual basis fit without changing it into a
+/// discount or credit curve. Product economics and its model remain in analytics.
+pub fn build_fitted_issuer_curve(
+    recipe: &CurveRecipe,
+    nodes: &[CurveNode],
+    quotes: Vec<QuoteRepricing>,
+    iterations: usize,
+    supplied: &CurveSet,
+) -> Result<BuiltCurve> {
+    if !matches!(recipe.role, CurveRole::IssuerSpread { .. })
+        || recipe.representation != CurveRepresentation::IssuerSpreads
+    {
+        return Err(Error::invalid(
+            "fitted.role",
+            "IssuerSpread/IssuerSpreads required",
+        ));
+    }
+    build_fitted_product_curve(recipe, nodes, quotes, iterations, supplied)
+}
+
+fn build_fitted_product_curve(
+    recipe: &CurveRecipe,
+    nodes: &[CurveNode],
+    quotes: Vec<QuoteRepricing>,
+    iterations: usize,
+    supplied: &CurveSet,
+) -> Result<BuiltCurve> {
     let CurveSource::Helpers(ids) = &recipe.source else {
         return Err(Error::invalid(
             "fitted.source",
@@ -360,8 +397,7 @@ pub fn build_fitted_rate_curve(
             ))
         }
     };
-    if !recipe.role.is_rate()
-        || ids.is_empty()
+    if ids.is_empty()
         || ids.len() > MAX_CURVE_INPUTS
         || quotes.len() != ids.len()
         || iterations > ids.len() * convex_math::bounds::MAX_SOLVER_ITERATIONS as usize
@@ -372,7 +408,7 @@ pub fn build_fitted_rate_curve(
         ));
     }
     validate_fitted_nodes(recipe, nodes, quotes.len(), ids.len())?;
-    validate_fitted_quotes(recipe.reference_date, ids, &quotes)?;
+    validate_fitted_quotes(recipe, ids, &quotes)?;
     let mut dependencies = BTreeSet::new();
     for dependency in &recipe.dependencies {
         if !dependencies.insert(&dependency.id) || dependency.id == recipe.key.id {
@@ -407,11 +443,18 @@ fn validate_fitted_nodes(
     quote_count: usize,
     helper_count: usize,
 ) -> Result<()> {
-    if recipe.representation
-        != (CurveRepresentation::ZeroRates {
-            compounding: Compounding::Continuous,
-        })
-        || nodes.len() < 2
+    if !matches!(recipe.representation, CurveRepresentation::IssuerSpreads)
+        && recipe.representation
+            != (CurveRepresentation::ZeroRates {
+                compounding: Compounding::Continuous,
+            })
+    {
+        return Err(Error::invalid(
+            "fitted.nodes",
+            "continuous-zero or residual basis grid required",
+        ));
+    }
+    if nodes.len() < 2
         || nodes
             .first()
             .is_none_or(|node| node.pillar != CurvePoint::Date(recipe.reference_date))
@@ -445,7 +488,7 @@ fn validate_fitted_nodes(
 }
 
 fn validate_fitted_quotes(
-    reference_date: Date,
+    recipe: &CurveRecipe,
     ids: &[String],
     quotes: &[QuoteRepricing],
 ) -> Result<()> {
@@ -457,13 +500,20 @@ fn validate_fitted_quotes(
         // Diagnostics retain original native units. The product layer already
         // priced the complete futures contract; price points are not a raw FRA
         // rate and must never be converted here by assuming a convexity model.
-        if !matches!(
-            quote.input.unit,
-            QuoteUnit::DecimalRate
-                | QuoteUnit::PercentRate
-                | QuoteUnit::BasisPoints
-                | QuoteUnit::FuturePrice100MinusRate
-        ) {
+        let cash_price = quote.input.unit == QuoteUnit::PricePer100
+            && matches!(
+                recipe.role,
+                CurveRole::Government { .. } | CurveRole::IssuerSpread { .. }
+            );
+        if !cash_price
+            && !matches!(
+                quote.input.unit,
+                QuoteUnit::DecimalRate
+                    | QuoteUnit::PercentRate
+                    | QuoteUnit::BasisPoints
+                    | QuoteUnit::FuturePrice100MinusRate
+            )
+        {
             return Err(Error::invalid(
                 "fitted.quote.unit",
                 "annualized rate or fully priced rate-futures native points required",
@@ -473,7 +523,7 @@ fn validate_fitted_quotes(
         quote.model.validate()?;
         if !seen.insert(id)
             || id != &quote.helper_id
-            || quote.pillar <= reference_date
+            || quote.pillar <= recipe.reference_date
             || quote.input.unit != quote.model.unit
             || !quote.residual.is_finite()
             || quote.residual != quote.model.value - quote.input.value
@@ -605,10 +655,11 @@ fn validate_representation(recipe: &CurveRecipe) -> Result<()> {
             "hazard node construction",
             "explicit hazard integration and CDS calibration remain CVX-021",
         )),
-        CurveRepresentation::IssuerSpreads => Err(Error::unsupported(
-            "issuer spread construction",
-            "declared basis model remains CVX-059",
-        )),
+        CurveRepresentation::IssuerSpreads
+            if matches!(recipe.role, CurveRole::IssuerSpread { .. }) =>
+        {
+            Ok(())
+        }
         _ => Err(Error::invalid(
             "representation",
             "incompatible with curve role",
@@ -712,6 +763,7 @@ fn normalize_nodes(recipe: &CurveRecipe, nodes: &[CurveNode]) -> Result<(Vec<f64
                 checked_zero_to_df(rate, t, compounding)?;
                 rate
             }
+            CurveRepresentation::IssuerSpreads => node.quote.decimal_rate()?,
             _ => {
                 return Err(Error::invalid(
                     "node.quote.unit",
@@ -757,6 +809,21 @@ pub(super) fn build_direct(
     quotes: Vec<QuoteRepricing>,
 ) -> Result<BuiltCurve> {
     let (tenors, values) = normalize_nodes(recipe, nodes)?;
+    if recipe.representation == CurveRepresentation::IssuerSpreads {
+        return Ok(BuiltCurve {
+            recipe: recipe.clone(),
+            values: CurveValues::Basis(super::basis::BasisGrid::new(tenors.clone(), values)?),
+            depth: 0,
+            diagnostics: CurveDiagnostics {
+                curve: recipe.key.clone(),
+                method: method.into(),
+                iterations: 0,
+                pillars: tenors,
+                dependencies: recipe.dependencies.clone(),
+                quotes,
+            },
+        });
+    }
     let value_type = match recipe.representation {
         CurveRepresentation::DiscountFactors => ValueType::DiscountFactor,
         CurveRepresentation::ZeroRates { compounding } => ValueType::ZeroRate {

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "inventory_version": 16,
+  "inventory_version": 17,
   "reviewed_at": "2026-10-07",
-  "reviewed_source_commit": "b7fea77bbc2074370d16a611a31968355fd82660",
-  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned. CVX-019 AC2 execution now records a publisher/installed-byte verified QuantLib 1.40 run: ten matched full-term cases,973 numeric values and exact coupon/reset/observation/payment lineage at unchanged predeclared bounds. A separately pinned complete capture supports current-native offline CI on other platforms without installing QuantLib. Scoped external_comparison_pending is closed; all mandatory records stay Planned and independent certificates, market packs, risk/lifecycle and hosts remain owning work. CVX-020 provides callable native single-name CDS terms/schedules, premium/protection/accrual-on-default and running/clean/dirty conversions through convex::credit. Original executed1.8.3 model and all7164 original USD RFR rows match at declared bounds. Full calibration/CS01/JTD, lifecycle, host/schema and independent market/model certificates remain owning work. Preserve all original mandatory economics/owners/surfaces/gates and the exact2154 Planned table suffix. CVX-021 adds actual full CDS quote calibration, signed rates/CS01/upfront/recovery scenarios, conditional immediate JTD and checked bond-CDS mapping/basis inputs. Original ISDA1.8.3 execution supplies23 engineering scenarios/276valuations/1150checks. Bond credit pricing, executable hedge optimization, lifecycle/hosts and independent market/model certificates remain owning work. Preserve the exact2154 Planned requirement suffix, economics, owners, surfaces and gates. CVX-022 adds actual dated futures/basket/cash reference inputs, native exact units and source/availability admission, authoritative import/replay and explicit indicative advisor status. Published exchange factors are archived; calendar/cash registration and modified test controls are engineering assumptions. Complete futures/CTD/carry/fixing/risk/lifecycle/host workflow and independent certificates remain pending. Preserve every2154 Planned requirement and exact suffix/economics/owner/surface/gate. CVX-023 adds full supplied deterministic bond-future cash/carry/rank/switch risk and partly-fixed overnight/term rate valuation, explicit convexity/final precision, actual cash hedge model/side estimates, normal margin/tick/integer/supplied roll diagnostics. All outputs are indicative. Optional delivery/margin financing, complete convention/model packs, canonical portfolio risk, lifecycle/hosts and independent certificates remain pending. Preserve every2154 Planned requirement and mandatory suffix bytes/economics/owners/surfaces/gates. CVX-057 adds complete supplied mixed rate and two-leg tenor-basis native routes, original native quote diagnostics, independent discount/projection fits and exact dependent rebuilds. Explicit overnight zero-basis views, duplicate retention, rank/work/history/horizon failures remain model assumptions and controls. Synthetic Decimal reference engineering is not ORE execution or market/model/host/quantitative/library/production/latency certification. Preserve every mandatory suffix byte, economics/owner/surface/gate and all2154 Planned records.",
+  "reviewed_source_commit": "07c94a36ed004a34a2121b0de000c4df83c0a605",
+  "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned. CVX-019 AC2 execution now records a publisher/installed-byte verified QuantLib 1.40 run: ten matched full-term cases,973 numeric values and exact coupon/reset/observation/payment lineage at unchanged predeclared bounds. A separately pinned complete capture supports current-native offline CI on other platforms without installing QuantLib. Scoped external_comparison_pending is closed; all mandatory records stay Planned and independent certificates, market packs, risk/lifecycle and hosts remain owning work. CVX-020 provides callable native single-name CDS terms/schedules, premium/protection/accrual-on-default and running/clean/dirty conversions through convex::credit. Original executed1.8.3 model and all7164 original USD RFR rows match at declared bounds. Full calibration/CS01/JTD, lifecycle, host/schema and independent market/model certificates remain owning work. Preserve all original mandatory economics/owners/surfaces/gates and the exact2154 Planned table suffix. CVX-021 adds actual full CDS quote calibration, signed rates/CS01/upfront/recovery scenarios, conditional immediate JTD and checked bond-CDS mapping/basis inputs. Original ISDA1.8.3 execution supplies23 engineering scenarios/276valuations/1150checks. Bond credit pricing, executable hedge optimization, lifecycle/hosts and independent market/model certificates remain owning work. Preserve the exact2154 Planned requirement suffix, economics, owners, surfaces and gates. CVX-022 adds actual dated futures/basket/cash reference inputs, native exact units and source/availability admission, authoritative import/replay and explicit indicative advisor status. Published exchange factors are archived; calendar/cash registration and modified test controls are engineering assumptions. Complete futures/CTD/carry/fixing/risk/lifecycle/host workflow and independent certificates remain pending. Preserve every2154 Planned requirement and exact suffix/economics/owner/surface/gate. CVX-023 adds full supplied deterministic bond-future cash/carry/rank/switch risk and partly-fixed overnight/term rate valuation, explicit convexity/final precision, actual cash hedge model/side estimates, normal margin/tick/integer/supplied roll diagnostics. All outputs are indicative. Optional delivery/margin financing, complete convention/model packs, canonical portfolio risk, lifecycle/hosts and independent certificates remain pending. Preserve every2154 Planned requirement and mandatory suffix bytes/economics/owners/surfaces/gates. CVX-057 adds complete supplied mixed rate and two-leg tenor-basis native routes, original native quote diagnostics, independent discount/projection fits and exact dependent rebuilds. Explicit overnight zero-basis views, duplicate retention, rank/work/history/horizon failures remain model assumptions and controls. Synthetic Decimal reference engineering is not ORE execution or market/model/host/quantitative/library/production/latency certification. Preserve every mandatory suffix byte, economics/owner/surface/gate and all2154 Planned records. CVX-058 adds full original cash government/issuer-basis/repo native fitting, settlement quote conversion, separate credit/par recovery model and actual dated repo/haircut/coupon carry. Original native residuals, graph role/model preflight and exact dependent rebuilds are scoped engineering. Synthetic Decimal cash references and retained actual CDS dependency are not ORE engine equivalence, complete convention/model/host integration or release certificates. Preserve every mandatory suffix byte/economics/owner/surface/gate and all2154 Planned records.",
   "requirement_areas": [
     {
       "id": "LC-001",
@@ -870,9 +870,15 @@
     "bindings/java/src/main/java/com/convex/ConvexAnalytics.java": "95fdb687ab040fba779ebb327eacffde47dc045961efeec38d6274b575bd3c94",
     "bindings/java/src/test/java/com/convex/SmokeTest.java": "5c75f5398b9ec0acdf9fa63791ce63725a3dfbf25d527d919acb45029bfb1639",
     "crates/convex-analytics/examples/credit_comparison.rs": "31f5f325c6404b5e79c7039884f3e1163bc6fb21bf6035b868b9f6b8f44a0468",
-    "crates/convex-analytics/src/bond_contract.rs": "cfa9b43440780e47e39b6cdbeef4eb34fe2fc13f918d429f6385264209832176",
+    "crates/convex-analytics/src/bond_contract.rs": "d6448d66dca85fb45152254b29b1c4ee3dfbda85c4d559f5b2e53d5aeda4ebbf",
     "crates/convex-analytics/src/bond_quote.rs": "4a9c63a7e347049fa491216b861ee8ceaceae2dda196a911cf4e5419b4bef445",
     "crates/convex-analytics/src/calibration/hw1f.rs": "46d4879e0ab203cab7230d4c5994e4c47bafd29197bf0f8e2581de386df60425",
+    "crates/convex-analytics/src/cash_calibration/build.rs": "7b33e15c5dfe25f7f4044c117f7186dbb9af7037b5683e670c4208be24b91a17",
+    "crates/convex-analytics/src/cash_calibration/fit.rs": "75faa4940b6a70a5d413a15a11f1fa61a7f51ff301d1d667d2f19bcca86d6a2f",
+    "crates/convex-analytics/src/cash_calibration/inputs.rs": "7e4525e7156c2774f47271570d8f5b055081d08a5d00296af8986c1f8bccba5f",
+    "crates/convex-analytics/src/cash_calibration/mod.rs": "2b92aa008670753a3fd1f861313aeee4780818c69b2111a7d754151083e04792",
+    "crates/convex-analytics/src/cash_calibration/pricing.rs": "2a2e0a93553c19416dbeae3c531328001e9c9f1786e597a3fb107e4bbfad2186",
+    "crates/convex-analytics/src/cash_calibration/repo.rs": "f4586d866b5ab3181aecb02a2f539754af54537a86fae1a2cbd75c3e9ae0f466",
     "crates/convex-analytics/src/cashflows/schedule.rs": "68a156cd140792e0ce53802b379a0f0cdedf3caadf09eff0063be6eee0ab1df9",
     "crates/convex-analytics/src/credit_calibration.rs": "5ec78f05db96af128d7442965d0e132d2e584affe3bb8a4083bb06c420fc762d",
     "crates/convex-analytics/src/credit_risk.rs": "8b4df16590cd1333963a29b9de8c3d18cdac3eed87d2752486fa62df976dfed3",
@@ -883,7 +889,7 @@
     "crates/convex-analytics/src/futures/mod.rs": "17569e35ed8579178efb695b9deacd3521d3303a5ac31be3c9493f10a28b625e",
     "crates/convex-analytics/src/futures/rates.rs": "89738ad7612b58b408b55fc7dcbad75477c574392f9ca39da06be986ae65d5c2",
     "crates/convex-analytics/src/futures/settlement.rs": "e7fe6263b19e79af6e0bcf8e8a493a7b86f723a7a292a304585b48480dbb3e50",
-    "crates/convex-analytics/src/lib.rs": "3160925e82208ca50cd8592d08a54af46be173190202d8794ffad3d457c11eee",
+    "crates/convex-analytics/src/lib.rs": "2c0491f7494b7ece6b014284d9603ff3005b91234232e5f4c54a6ee28e503310",
     "crates/convex-analytics/src/optional_bond/calibration.rs": "dcd1e3acbc6a1f3b61ed1ddc358b030a96e45af41dcc336a8d2b79e571afe93b",
     "crates/convex-analytics/src/optional_bond/mod.rs": "fd1901c5900bb8914942bb172c2a69d63fd0aa83d3aa283a0931cea071777120",
     "crates/convex-analytics/src/optional_bond/pricing.rs": "d19a2a74f1c3f0b8bd525361a1cb445ee7c13ed1fbdf296f464e0d69ef61f374",
@@ -911,6 +917,7 @@
     "crates/convex-analytics/src/yields/money_market.rs": "a162c9295a4c0876197c3bf49873e566c12d4dabc49d3dd8d93500385fc162a0",
     "crates/convex-analytics/tests/bond_contracts.rs": "15e31bb9e63e6e395d123bd7d3bdb29ed176fca50ea6db48f613018921f57275",
     "crates/convex-analytics/tests/bond_quotes.rs": "0e02cb6bd89bc30861630a1a398e662ba17ed077b8b9da689f6d364be4653cd8",
+    "crates/convex-analytics/tests/cash_calibration.rs": "e19956c38196f46b6a69caaafac5dfacdc0113ca164164a91b87dd6dabec0013",
     "crates/convex-analytics/tests/credit_calibration.rs": "b044dc4b2dc0293dd22c4b39428dd8345d75701d042c577952ce54459abf00a4",
     "crates/convex-analytics/tests/credit_support/mod.rs": "7a141d34f11c792e2dc7c2986c7d0d974fb6e6191694f2986b9a9d0895d6fe5e",
     "crates/convex-analytics/tests/curve_inputs.rs": "26bd64a0b6541739aa11b81a980fda6682e95241366fbb49b808e301f17c5b21",
@@ -972,20 +979,21 @@
     "crates/convex-credit/examples/cds_comparison.rs": "55ac077c7c086253ab067a2d0e3620396f678ce45788ef6ff57a0e369c14a92e",
     "crates/convex-credit/src/contract.rs": "6461b5a0bde18aa9616458d70e67d9cd9489d16bf4bad740fc0c78bc1057d43c",
     "crates/convex-credit/src/conversion.rs": "b8c3113ff0c5dcbc4e01ba5cbb262a91ab53c820d2602ce2ba88c4b43d773023",
-    "crates/convex-credit/src/lib.rs": "60a2c7fabc910176ee378a4b1a642c49673643573251fb4d977036279809520d",
-    "crates/convex-credit/src/pricing.rs": "d2efc13417dc69fa0078add0980b20f010b1b992d2ed8c1da4a44c2bfab01e4a",
+    "crates/convex-credit/src/lib.rs": "7ed218c7ea55621b6bde18016baadad0e8820f50127c79c942f6253e377b720d",
+    "crates/convex-credit/src/pricing.rs": "0ceb3c662cd3ae43ceb1976f291260825421db348d79f57cfbc767bb94812a2e",
     "crates/convex-credit/src/terms.rs": "389d186426559344ab9265b566ac707a310a8908b0709c53e1741eb79ebca7f4",
     "crates/convex-credit/tests/common/mod.rs": "e576e51519281ab543280ef92851f6ab35ab7a76f52c831e34202ac98b35c065",
     "crates/convex-credit/tests/contracts_and_valuation.rs": "ffdf8d8bdef06ae4852bafeedddd980d37f378618f1df4305dae7d1b43eb80d8",
     "crates/convex-credit/tests/standard_grid.rs": "09311718816a52d165c2a329a0795019d9db63999853e2f4a17a461c65a13af2",
     "crates/convex-curves/src/calibration/global_fit.rs": "0dc1b977a82884a123a789c094c73b0650405d1a9f9e86e0432d66bb4f06c554",
     "crates/convex-curves/src/calibration/instruments.rs": "50d7746036a1dae0735fe2718f31ca8bbf90e58fb7c7ab498a9869d5b20a92d2",
-    "crates/convex-curves/src/contracts/build.rs": "89fdf8a5223afbaa29456de6d0fcdbb7767a5bf709e31d4ad4f92c372886fda3",
+    "crates/convex-curves/src/contracts/basis.rs": "d6874bac22224de100e6a93014903bf4b1f8ffbabebbb7b6f505642f168e81df",
+    "crates/convex-curves/src/contracts/build.rs": "2a37145a8e01c89a9a084f9f4b07d05c7eded4ad9cb6484cc29b4d1baadc5308",
     "crates/convex-curves/src/contracts/credit_fit.rs": "fe6ac8b2fdb835bea153f34c9061ec7a333c612080fad95b0855bcdebfdda85f",
-    "crates/convex-curves/src/contracts/inputs.rs": "db1362436407c65ad2520d7f027c43fb05f15ab57b6203fac6d1f83364490a86",
-    "crates/convex-curves/src/contracts/mod.rs": "2803fc9fbd9069df9bb0f97a803b3e0c91475e8ea0c7c8aaeb81b6b2ee67b1ab",
+    "crates/convex-curves/src/contracts/inputs.rs": "672d419594977db5b1ca48f564ac31e301ba3b39e88d856502bd17164c302e84",
+    "crates/convex-curves/src/contracts/mod.rs": "1a079121b38371670e1f8569619f57df78f93cdb5ee3b0df71006af346d36433",
     "crates/convex-curves/src/contracts/numerics.rs": "abbf5fe4766149527b3119e1ec447095fb06a6934b8fa9148b07a4172938786d",
-    "crates/convex-curves/src/contracts/query.rs": "131f44a210c837a50efd7305a96e30d5b35a3b4282ae5a171e5004d9a77cae15",
+    "crates/convex-curves/src/contracts/query.rs": "c0ac6fcfc17e613acb1d7c8a2b83544397388341380198d0e1b1d2810389fedf",
     "crates/convex-curves/src/contracts/transformations.rs": "db52929869da2e6e2b0c3763867777d83855e7baad6eefd016eaf8ad043263a1",
     "crates/convex-curves/src/curves/derived.rs": "78eb0b29a218b64408e640c177f3de994e1f92f35e46b1410809a24a1aef973d",
     "crates/convex-curves/src/curves/discrete.rs": "c2424abdfc6a3d2b1cbd7ed6905b1dfa6a3a5963c4e9c413a61092f38b42a29d",
@@ -1038,6 +1046,7 @@
     "crates/convex-wasm/src/dto.rs": "335a154c8b4ed29da86d02f1070655b837bfacc47705ebc6db7fc7f8e304650c",
     "crates/convex/examples/bond_contracts.rs": "3ba6b5782c3620932056f4f6a6751687fcd90dbc8d7ac7f2e664e83079e63624",
     "crates/convex/examples/bond_quotes.rs": "6b7a7103962705dbcc654fe24cc680c7c9708ca499bc0ae73c63b10c8bbb146b",
+    "crates/convex/examples/cash_calibration.rs": "e46b648f9dab826a3c60370e4c3f54822dee7b89189bc1b566b03d6dd00b8960",
     "crates/convex/examples/cashflow_primitives.rs": "d78247fc67825b70b5f8a709186f7b624a69f02543c719bb2490cb4e00fde9d7",
     "crates/convex/examples/cds_valuation.rs": "5b1d918e3d41aa01491f0a248bd5a453b0aefa33a17c7b72c6fb55e93e1ebc6d",
     "crates/convex/examples/credit_calibration.rs": "f32b12bb09bcd851610c51e8047c8a52164aecf03490f65393ae0c6903093868",
@@ -1048,10 +1057,12 @@
     "crates/convex/examples/optional_bonds.rs": "24fe61cb7b7aff88115aa4fc39d0498bcdf1b9680ce0f9d5ebc5a9a05e82db1c",
     "crates/convex/examples/rate_calibration.rs": "86b763178e4962b042b6645b29d97b595a136fb09ee57a6f6793f12a84948952",
     "crates/convex/examples/rates_contracts.rs": "135aa46423388f068d4b5987e4f42d5ce6cd36d21bf8129054b0f16605907081",
+    "crates/convex/examples/support/cash_fixture.rs": "ffab3572b43aaa909d6ae49c1379bdd13998a62f025ae617f821a9ff005bf018",
     "crates/convex/examples/support/rate_fixture.rs": "d20446938ebccec902c058cd15ab84a1931b4f5fdf59816f26ab22594e53067b",
     "crates/convex/examples/swap_comparison.rs": "c42d5b66acd62d7a883a990633ac7963ba1462b1350ed4afefdcf1042a733e13",
     "crates/convex/examples/swap_valuation.rs": "2b8f69de2d65d1e002e61673b2522f221dd57acdc98bfb2af5b786ab77085e31",
-    "crates/convex/src/lib.rs": "b1d5a703ae073216765a01b96634354cc64c15d6fa48225fe9493414cf4b2a65",
+    "crates/convex/src/lib.rs": "100ed6cee78ac90e3f7d444052090ecaac256dcfa57e39ba11c2b52a1cf54d14",
+    "docs/CASH-CURVES.md": "25d49ee26b4fcaf448452b9fafc0baa11083b4ec38a2a16a2bf16c9f57e18a71",
     "docs/CDS-VALUATION.md": "400134279bbaf53c8e857cfee76edbb9f4d94375846a3f36692db3bf6d99ba79",
     "docs/CREDIT-CALIBRATION.md": "8bb22bc74f20d25e63ff2deb815bfb8fe3f3df557f24d2cdc410733195e28cc2",
     "docs/FUTURES-REFERENCE.md": "a6e6c1f61fdd6a61546a358b87681874e1b06375120044098e2d0c15a80cf11f",
@@ -1059,7 +1070,9 @@
     "docs/RATE-CALIBRATION.md": "e1f399687db32beaf4421d6437679a70a86e4906310b89e2d076ffc29d7302ff",
     "excel/Convex.Excel/Cx.cs": "221f6ad5df978f7021615400e2cd9fd4af7223847654bb2f12b147b95af968a1",
     "tests/fixtures/comparisons/swap-quantlib-inputs.json": "ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a",
+    "tests/fixtures/curves/cash-curves.json": "e460ff72ef9865991f1f52f808a9147f157062f2169d35fd5370028b61388068",
     "tests/fixtures/curves/mixed-rates.json": "f6ceb707e30e82a0ace4a94a72d25a352ffdb2e4e6d1fce713a5273ab89005c6",
+    "tests/scripts/cash_calibration_reference.py": "bc5708838af6ca86863e0194e6aaf35d640cb48e996ba4d607738b780c5d28e1",
     "tests/scripts/isda_cds_capture.py": "ed7aa17961faeefaa894e582182975e2ac4f60be495fd8962318a90bb2cd70db",
     "tests/scripts/isda_cds_compare.py": "ad8ee4e90c81bcac894429318d0649e1dce26009b6805ca9c84d2e9debb6c57f",
     "tests/scripts/isda_credit_capture.py": "beeadb2552058aa55cb1917e4c6b39f44d693b215d645021bd3487e06a01668e",
@@ -1555,7 +1568,7 @@
     },
     "bond_futures": {
       "assessment": "partial",
-      "note": "CVX-023 supplies complete actual fixed nominal bullet cash/accrued/CF/carry, independent net-basis/IRR/fair-forward criteria, all-member reprice/risk/switch/frozen-basis diagnostics, cash hedge model/side/cost estimates and normal settlement/supplied roll/rounding. Old approximate advisor remains unchanged and unqualified. Fixed-date deterministic optional-delivery and margin financing limitations are explicit; every result is indicative. Complete model/market packs, canonical portfolio risk, lifecycle/P&L and host/execution/certificates remain owning work.",
+      "note": "CVX-023 supplies complete actual fixed nominal bullet cash/accrued/CF/carry, independent net-basis/IRR/fair-forward criteria, all-member reprice/risk/switch/frozen-basis diagnostics, cash hedge model/side/cost estimates and normal settlement/supplied roll/rounding. Old approximate advisor remains unchanged and unqualified. Fixed-date deterministic optional-delivery and margin financing limitations are explicit; every result is indicative. Complete model/market packs, canonical portfolio risk, lifecycle/P&L and host/execution/certificates remain owning work. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::select_ctd",
         "convex::BondFuture",
@@ -1576,7 +1589,13 @@
         "convex::futures::futures_quote_risk",
         "convex::futures::round_futures_price",
         "convex::futures::round_futures_hedge",
-        "convex::futures::plan_futures_roll"
+        "convex::futures::plan_futures_roll",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -1658,6 +1677,46 @@
           "path": "crates/convex-analytics/tests/futures_valuation.rs",
           "text": "fn close_ctd_switch_is_visible_and_frozen_risk_is_separate(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -1669,7 +1728,7 @@
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "CVX-023 dedicated21native tests: ten complete manual cash/carry/CF/invoice references; nine bond/eighteen rate half/base/double risk references; published hypothetical SR3/SR1 final equality and two exact CME margin examples;512partition/telescoping/signed properties; missing history/first publications/convexity/final/roll/source/strict cached inverse failures. Strict dedicated Clippy and default/minimal/schema pure consumers are required. Existing quantitative regression gates remain unchanged; this is scoped engineering evidence, not complete library/market/model/host/production/latency certification."
+      "test_execution": "CVX-023 dedicated21native tests: ten complete manual cash/carry/CF/invoice references; nine bond/eighteen rate half/base/double risk references; published hypothetical SR3/SR1 final equality and two exact CME margin examples;512partition/telescoping/signed properties; missing history/first publications/convexity/final/roll/source/strict cached inverse failures. Strict dedicated Clippy and default/minimal/schema pure consumers are required. Existing quantitative regression gates remain unchanged; this is scoped engineering evidence, not complete library/market/model/host/production/latency certification. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "rate_futures": {
       "assessment": "partial",
@@ -1817,7 +1876,7 @@
     },
     "core_curves": {
       "assessment": "candidate",
-      "note": "Public typed nodes, dated Deposit/Fra and numerical global/piecewise solvers exist. Complete recipes/helper dates, native quote units, diagnostics and representation/interpolation combinations remain to certify. Approximate SequentialBootstrapper is not a repricing certificate. CVX-056 adds a separate checked pure recipe/dependency/query route and an exact dated deposit/FRA chain; full method/product/global certification is still pending. CVX-019 adds the separate swap_valuation native candidate route with actual two-leg coupon PV/accrued/par and full-contract dependent fitting. This does not qualify the older simplified helper/hedge/wire route or supply basis-swap economics, propagated quote risk, lifecycle, host dispatch, an external swap capture or independent certificates. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
+      "note": "Public typed nodes, dated Deposit/Fra and numerical global/piecewise solvers exist. Complete recipes/helper dates, native quote units, diagnostics and representation/interpolation combinations remain to certify. Approximate SequentialBootstrapper is not a repricing certificate. CVX-056 adds a separate checked pure recipe/dependency/query route and an exact dated deposit/FRA chain; full method/product/global certification is still pending. CVX-019 adds the separate swap_valuation native candidate route with actual two-leg coupon PV/accrued/par and full-contract dependent fitting. This does not qualify the older simplified helper/hedge/wire route or supply basis-swap economics, propagated quote risk, lifecycle, host dispatch, an external swap capture or independent certificates. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::DiscreteCurve::new",
         "convex::GlobalFitter::fit",
@@ -1826,7 +1885,13 @@
         "convex::rate_calibration::build_rate_curve_set",
         "convex::rate_calibration::RateCalibrationHelper::with_quote",
         "convex::rates::basis::BasisSwapTerms::build",
-        "convex::rates::basis::price_basis_swap"
+        "convex::rates::basis::price_basis_swap",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -1878,6 +1943,46 @@
           "path": "crates/convex/examples/rate_calibration.rs",
           "text": "fn main()",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -1887,7 +1992,7 @@
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "ois_curve": {
       "assessment": "candidate",
@@ -1959,14 +2064,20 @@
     },
     "basis": {
       "assessment": "candidate",
-      "note": "InstrumentType::BasisSwap is a label; the reviewed calibration module has no BasisSwap implementation. MultiCurveEnvironment stores curves; it is not joint/ordered multi-curve calibration or propagated quote risk. CVX-019 adds the separate swap_valuation native candidate route with actual two-leg coupon PV/accrued/par and full-contract dependent fitting. This does not qualify the older simplified helper/hedge/wire route or supply basis-swap economics, propagated quote risk, lifecycle, host dispatch, an external swap capture or independent certificates. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
+      "note": "InstrumentType::BasisSwap is a label; the reviewed calibration module has no BasisSwap implementation. MultiCurveEnvironment stores curves; it is not joint/ordered multi-curve calibration or propagated quote risk. CVX-019 adds the separate swap_valuation native candidate route with actual two-leg coupon PV/accrued/par and full-contract dependent fitting. This does not qualify the older simplified helper/hedge/wire route or supply basis-swap economics, propagated quote risk, lifecycle, host dispatch, an external swap capture or independent certificates. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex_curves::InstrumentType::BasisSwap",
         "convex_curves::MultiCurveEnvironment",
         "convex::rate_calibration::build_rate_curve_set",
         "convex::rate_calibration::RateCalibrationHelper::with_quote",
         "convex::rates::basis::BasisSwapTerms::build",
-        "convex::rates::basis::price_basis_swap"
+        "convex::rates::basis::price_basis_swap",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2008,6 +2119,46 @@
           "path": "crates/convex/examples/rate_calibration.rs",
           "text": "fn main()",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2017,14 +2168,20 @@
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "government_curve": {
-      "assessment": "partial",
-      "note": "GovernmentCurve interpolates supplied benchmark yields. Generic GovernmentCouponBond/TBill calibration labels have no concrete cash-security helpers here; supplied benchmark interpolation is not clean/dirty security quote calibration.",
+      "assessment": "candidate",
+      "note": "GovernmentCurve interpolates supplied benchmark yields. Generic GovernmentCouponBond/TBill calibration labels have no concrete cash-security helpers here; supplied benchmark interpolation is not clean/dirty security quote calibration. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex_analytics::spreads::GovernmentCurve",
-        "convex_curves::InstrumentType::GovernmentCouponBond"
+        "convex_curves::InstrumentType::GovernmentCouponBond",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2041,22 +2198,70 @@
           "path": "crates/convex-analytics/src/spreads/government_curve.rs",
           "text": "fn test_interpolated_yield(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
-        "type_only",
-        "missing_calibration",
-        "missing_quote_rebuild"
+        "missing_full_market_convention_model_packs",
+        "missing_canonical_calibrated_quote_risk",
+        "missing_host_schema_dispatch",
+        "missing_lifecycle_pnl_integration",
+        "independent_market_certificate_pending"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "credit_curve": {
       "assessment": "candidate",
-      "note": "The older CreditCurve wrapper still uses a spread/recovery approximation. A separate CVX-021 native path now fits full dated CDS helpers with native quote residuals, actual discount dependencies, piecewise/global intensities and quote-rebuilt CS01. Its exact original-model engineering comparison is scoped; full market/convention/model/host certificates remain pending.",
+      "note": "The older CreditCurve wrapper still uses a spread/recovery approximation. A separate CVX-021 native path now fits full dated CDS helpers with native quote residuals, actual discount dependencies, piecewise/global intensities and quote-rebuilt CS01. Its exact original-model engineering comparison is scoped; full market/convention/model/host certificates remain pending. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex_curves::CreditCurve",
         "convex::credit_calibration::build_credit_curve_set",
-        "convex::curve_contracts::build_fitted_credit_curve"
+        "convex::curve_contracts::build_fitted_credit_curve",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2088,6 +2293,46 @@
           "path": "crates/convex-curves/src/contracts/credit_fit.rs",
           "text": "pub fn credit_survival_nodes(",
           "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2095,46 +2340,144 @@
         "missing_host_schema_dispatch",
         "independent_certificate_pending"
       ],
-      "test_execution": "Actual CVX-021 full credit/curves/engine/analytics receipts and original-model comparison are retained separately; all mandatory requirement statuses remain Planned."
+      "test_execution": "Actual CVX-021 full credit/curves/engine/analytics receipts and original-model comparison are retained separately; all mandatory requirement statuses remain Planned. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "issuer_basis": {
-      "assessment": "missing",
-      "note": "Derived spread curves and raw bond Z-spreads exist, without an explicit issuer basis calibration separating CDS hazard and cash residuals in original units.",
+      "assessment": "candidate",
+      "note": "Derived spread curves and raw bond Z-spreads exist, without an explicit issuer basis calibration separating CDS hazard and cash residuals in original units. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex_curves::DerivedCurve",
-        "convex_analytics::spreads::ZSpreadCalculator"
+        "convex_analytics::spreads::ZSpreadCalculator",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
           "path": "crates/convex-curves/src/curves/derived.rs",
           "text": "pub struct DerivedCurve",
           "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
-        "missing_calibration",
-        "missing_quote_rebuild"
+        "missing_full_market_convention_model_packs",
+        "missing_canonical_calibrated_quote_risk",
+        "missing_host_schema_dispatch",
+        "missing_lifecycle_pnl_integration",
+        "independent_market_certificate_pending"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "repo": {
-      "assessment": "partial",
-      "note": "CTD accepts a single repo rate with fixed ACT/360 carry. No dated collateral-specific repo/funding structure and convention-complete coupon/carry construction route.",
+      "assessment": "candidate",
+      "note": "CTD accepts a single repo rate with fixed ACT/360 carry. No dated collateral-specific repo/funding structure and convention-complete coupon/carry construction route. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
-        "convex::select_ctd"
+        "convex::select_ctd",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
           "path": "crates/convex-analytics/src/risk/hedging/ctd.rs",
           "text": "let t = settlement.days_between(&delivery) as f64 / 360.0;",
           "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
-        "incomplete_contract",
-        "missing_calibration"
+        "missing_full_market_convention_model_packs",
+        "missing_canonical_calibrated_quote_risk",
+        "missing_host_schema_dispatch",
+        "missing_lifecycle_pnl_integration",
+        "independent_market_certificate_pending"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "model": {
       "assessment": "partial",
@@ -2164,10 +2507,16 @@
     },
     "queries": {
       "assessment": "partial",
-      "note": "Public date/tenor DF, zero, forwards and conversion kernels exist. Query day-count semantics, domain checks, roll/rebase behavior and all advertised representations require full fixtures. PiecewiseConstant silently selects linear interpolation.",
+      "note": "Public date/tenor DF, zero, forwards and conversion kernels exist. Query day-count semantics, domain checks, roll/rebase behavior and all advertised representations require full fixtures. PiecewiseConstant silently selects linear interpolation. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::RateCurve",
-        "convex_curves::ValueConverter"
+        "convex_curves::ValueConverter",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2184,6 +2533,46 @@
           "path": "crates/convex-curves/src/wrappers/rate_curve.rs",
           "text": "fn test_compounding_conversion(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2191,7 +2580,7 @@
         "unverified_domains",
         "missing_roll_semantics"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "risk": {
       "assessment": "partial",
@@ -2221,17 +2610,63 @@
     },
     "facade": {
       "assessment": "partial",
-      "note": "convex reexports a subset of pure APIs. Direct crate paths expose more; absent flat reexport is not absent native support. Missing resolved cross-product workflow and input discovery cannot be supplied by server cache/repositories.",
+      "note": "convex reexports a subset of pure APIs. Direct crate paths expose more; absent flat reexport is not absent native support. Missing resolved cross-product workflow and input discovery cannot be supplied by server cache/repositories. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex",
         "convex_analytics::functions",
-        "convex_analytics::pricing"
+        "convex_analytics::pricing",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
           "path": "crates/convex/src/lib.rs",
           "text": "pub use convex_bonds::instruments::",
           "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2239,7 +2674,7 @@
         "missing_trade_pricer",
         "missing_requirements"
       ],
-      "test_execution": "Not inferred from source; actual commands belong in task evidence."
+      "test_execution": "Not inferred from source; actual commands belong in task evidence. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "lifecycle": {
       "assessment": "missing",
@@ -2636,7 +3071,7 @@
     },
     "curve_contracts": {
       "assessment": "candidate",
-      "note": "CVX-056 checked native construction/query/dependency facade and actual standalone default/no-default/schemars consumer. Direct DF/zero/survival, exact deposit/FRA chain and continuous zero spread are callable. Full future/bond/CDS/IRS/basis descriptions preserve native terms and explicitly reject unimplemented calibration. This does not certify all required curve/model/surface records. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
+      "note": "CVX-056 checked native construction/query/dependency facade and actual standalone default/no-default/schemars consumer. Direct DF/zero/survival, exact deposit/FRA chain and continuous zero spread are callable. Full future/bond/CDS/IRS/basis descriptions preserve native terms and explicitly reject unimplemented calibration. This does not certify all required curve/model/surface records. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::curve_contracts::build_curve_set",
         "convex::curve_contracts::BuiltCurve::query",
@@ -2650,7 +3085,13 @@
         "convex::rate_calibration::build_rate_curve_set",
         "convex::rate_calibration::RateCalibrationHelper::with_quote",
         "convex::rates::basis::BasisSwapTerms::build",
-        "convex::rates::basis::price_basis_swap"
+        "convex::rates::basis::price_basis_swap",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2712,6 +3153,46 @@
           "path": "crates/convex/examples/rate_calibration.rs",
           "text": "fn main()",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2721,11 +3202,11 @@
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "Exact executed commands/logs and analytic units/assumptions are recorded in private CVX-056 evidence. Source anchors alone cannot certify a market convention/model or public host surface. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate."
+      "test_execution": "Exact executed commands/logs and analytic units/assumptions are recorded in private CVX-056 evidence. Source anchors alone cannot certify a market convention/model or public host surface. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "curve_numerics": {
       "assessment": "candidate",
-      "note": "CVX-060 actual bounded scaled dated deposit/FRA numerical fit, native quote postconditions and undamped rank/conditioning, stable all-compounding conversion and exact immutable DF/zero views with explicit sticky-forward/sticky-zero rolling. Actual standalone feature consumers preserve native reachability. Existing v1 Global dispatch and other method/product/host/certificate gaps remain explicit. No required coverage record is certified. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference.",
+      "note": "CVX-060 actual bounded scaled dated deposit/FRA numerical fit, native quote postconditions and undamped rank/conditioning, stable all-compounding conversion and exact immutable DF/zero views with explicit sticky-forward/sticky-zero rolling. Actual standalone feature consumers preserve native reachability. Existing v1 Global dispatch and other method/product/host/certificate gaps remain explicit. No required coverage record is certified. Inspected CVX-057 complete native route: CVX-057: pure full dated deposit/FRA/rate-futures/IRS/OIS/two-leg tenor-basis composition; actual independent floating schedules and exact discount/index versions; original native units including futures points; no raw-forward/convexity substitution. Entire graph publication freeze and due-history preflight before forecasts, deterministic exact topology, actual helper horizons, explicit zero-basis overnight view; Linear piecewise or Linear/CubicSpline identified per-curve global fit and full original repricing. Quote rebuild preserves economic steps, published revisions and last-good curves; ingestion owns new revisions. Explicit global overlaps retain all originals. Basis paid cash negative/received positive, replacement versus parallel step shift distinct. No host/lifecycle/execution/certificate inference. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::curve_contracts::fit_money_market_curve",
         "convex::curve_contracts::FitNumericalControls",
@@ -2738,7 +3219,13 @@
         "convex::rate_calibration::build_rate_curve_set",
         "convex::rate_calibration::RateCalibrationHelper::with_quote",
         "convex::rates::basis::BasisSwapTerms::build",
-        "convex::rates::basis::price_basis_swap"
+        "convex::rates::basis::price_basis_swap",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2800,6 +3287,46 @@
           "path": "crates/convex/examples/rate_calibration.rs",
           "text": "fn main()",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2809,16 +3336,22 @@
         "missing_host_schema_dispatch",
         "independent_market_certificate_pending"
       ],
-      "test_execution": "Actual receipts, analytic units/reference and failure outcomes recorded in private CVX-060 evidence; source anchors alone award no certificate. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate."
+      "test_execution": "Actual receipts, analytic units/reference and failure outcomes recorded in private CVX-060 evidence; source anchors alone award no certificate. CVX-05722focused native tests plus independent Decimal(60) full positive/negative curve/cash/quote references, arithmetic/term futures, eight complete piecewise/global bumped graph rebuilds, duplicate/inconsistent/rank/history/role/horizon/iteration/version/bound failures. Required curves/rates/math, affected analytics/full workspace, strict Clippy/docs/fmt, default/minimal/schema consumer and unchanged original captured regressions are recorded separately as actual command evidence. No release certificate. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "bond_quotes": {
       "assessment": "candidate",
-      "note": "CVX-017 pure shared supplied nominal fixed/zero pricing, curve roles, signed frozen-Z risk and bounded missing-input errors; 13 independent supplied dated cashflow cases, actual native/C ABI parity and eight REST-admitted boundary cases. Engine/REST do not invent prices/curves/volatility. Full model/convention/surface, bill and fixing-aware complex product certificates remain pending.",
+      "note": "CVX-017 pure shared supplied nominal fixed/zero pricing, curve roles, signed frozen-Z risk and bounded missing-input errors; 13 independent supplied dated cashflow cases, actual native/C ABI parity and eight REST-admitted boundary cases. Engine/REST do not invent prices/curves/volatility. Full model/convention/surface, bill and fixing-aware complex product certificates remain pending. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::bond_quote::quote_fixed",
         "convex::bond_quote::quote_zero",
         "convex::bond_quote::curve_risk",
-        "convex::bond_quote::government_curve"
+        "convex::bond_quote::government_curve",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2835,6 +3368,46 @@
           "path": "crates/convex-analytics/tests/bond_quotes.rs",
           "text": "fn supplied_contract_golden_coupon_ex_leap_stubs_eom_holiday_negative_yield(",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2843,16 +3416,22 @@
         "incomplete_surface_matrix",
         "missing_quote_rebuild"
       ],
-      "test_execution": "Actual commands, raw failures, Decimal(50) oracle and unchanged392-reference replay are recorded in private CVX-017 evidence. Engineering evidence is not quantitative approval or a production gate."
+      "test_execution": "Actual commands, raw failures, Decimal(50) oracle and unchanged392-reference replay are recorded in private CVX-017 evidence. Engineering evidence is not quantitative approval or a production gate. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "bond_contracts": {
       "assessment": "candidate",
-      "note": "CVX-055 pure supplied full dated bond cash/term/reset/overnight/exercise composition, fixed/term/overnight model PV with distinct actual supplied curve roles, 10 independently declared Decimal(50) cash/PV cases and 128 seeded exact step/principal cases. Complete original mandatory matrix and independent certification remain pending. Plain valuation refuses options, intrinsic averaging, missing eligible published history and unsupported model/contracts. CVX-059 supplies a separate checked model route for the documented supported optional combinations and reuses actual cached reset calendars; plain valuation still refuses options. General optional structures/caps/floors remain unsupported and lifecycle/host certificates remain pending.",
+      "note": "CVX-055 pure supplied full dated bond cash/term/reset/overnight/exercise composition, fixed/term/overnight model PV with distinct actual supplied curve roles, 10 independently declared Decimal(50) cash/PV cases and 128 seeded exact step/principal cases. Complete original mandatory matrix and independent certification remain pending. Plain valuation refuses options, intrinsic averaging, missing eligible published history and unsupported model/contracts. CVX-059 supplies a separate checked model route for the documented supported optional combinations and reuses actual cached reset calendars; plain valuation still refuses options. General optional structures/caps/floors remain unsupported and lifecycle/host certificates remain pending. Inspected CVX-058 native route: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference.",
       "public_apis": [
         "convex::bond_contracts::BondTerms",
         "convex::bond_contracts::BondContract::project",
         "convex::bond_contract::price_fixed",
-        "convex::bond_contract::price_floating"
+        "convex::bond_contract::price_floating",
+        "convex::cash_calibration::build_cash_curve_set",
+        "convex::cash_calibration::convert_cash_quote",
+        "convex::cash_calibration::price_basis_bond",
+        "convex::cash_calibration::price_repo_bond_forward",
+        "convex::cash_calibration::repo_rate_over_period",
+        "convex::curve_contracts::BuiltCurve::issuer_spread"
       ],
       "anchors": [
         {
@@ -2874,6 +3453,46 @@
           "path": "crates/convex-bonds/tests/bond_contracts.rs",
           "text": "fn exercise_and_callable_floating_terms_roundtrip_notice_settlement_and_model_requirement()",
           "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/build.rs",
+          "text": "pub fn build_cash_curve_set(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn price_basis_bond(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/repo.rs",
+          "text": "pub fn price_repo_bond_forward(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/basis.rs",
+          "text": "pub fn issuer_spread(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn original_full_cash_and_native_quotes_match_independent_positive_negative_piecewise(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-analytics/tests/cash_calibration.rs",
+          "text": "fn cds_quote_rebuild_changes_credit_and_residual_basis_without_merging_recovery_or_versions(",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex/examples/cash_calibration.rs",
+          "text": "fn main()",
+          "kind": "test"
         }
       ],
       "gaps": [
@@ -2883,7 +3502,7 @@
         "missing_lifecycle",
         "incomplete_facade"
       ],
-      "test_execution": "Actual receipt/log hashes, supplied Decimal oracle, positive/boundary/failure cases and retained unchanged comparison are recorded in private CVX-055 evidence; no certificate or latency guarantee is awarded."
+      "test_execution": "Actual receipt/log hashes, supplied Decimal oracle, positive/boundary/failure cases and retained unchanged comparison are recorded in private CVX-055 evidence; no certificate or latency guarantee is awarded. CVX-05825focused original cash/native quote/recovery/carry/rebuild/failure tests and independent Decimal(60) positive/negative full cash references. Government and CDS dependent rebuilds, native JSON exact profile roundtrips, all original CVX-023 cash-futures alternatives, actual role/model/grid/horizon/iteration/rank/overlap/version failures are tested. Required affected suites, full workspace and feature consumers, strict lint/docs/fmt and fresh unchanged captured regressions have separate actual task receipts. No release certificate."
     },
     "optional_bonds": {
       "assessment": "candidate",

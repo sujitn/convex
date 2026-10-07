@@ -470,6 +470,7 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
     vec![
         CurveCapability { name: "direct_rate_nodes", status: Supported, conditions: "DiscountFactors or ZeroRates; Linear, LogLinear on DF, CubicSpline; rate roles; validated compounding" },
         CurveCapability { name: "direct_credit_survival", status: Supported, conditions: "Credit role; positive nonincreasing Q with explicit origin; Linear/LogLinear; None/Flat extrapolation" },
+        CurveCapability { name: "direct_issuer_basis", status: Supported, conditions: "IssuerSpread/IssuerSpreads; signed annualized raw Linear grid; explicit None/Flat/Linear extension; no discount/survival query; analytics owns the declared cash/recovery model" },
         CurveCapability { name: "dated_deposit_fra_piecewise", status: Supported, conditions: "Unfixed simple rates; exact solved start pillars; DF Linear/LogLinear; native quote repricing; <=1023 helpers" },
         CurveCapability { name: "continuous_zero_spread", status: Supported, conditions: "Exact base version; same currency/reference/time basis and inherited methods; annualized rate spread" },
         CurveCapability { name: "discount_zero_forward_queries", status: Supported, conditions: "Explicit period/compounding/basis; different output basis requires dates; origin rates undefined" },
@@ -478,7 +479,7 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "discount_equivalent_views_and_rolling", status: Supported, conditions: "Immutable exact base; inherited role/currency/time basis/methods; explicit sticky-forward/sticky-zero; no resampling; <=32 derived views" },
         CurveCapability { name: "dated_money_market_global_fit", status: Supported, conditions: "Explicit fit_money_market_curve API; bounded scaled native objective and all-quote postconditions; identified continuous-zero parameters; original recipe dispatch remains v1" },
         CurveCapability { name: "extrapolation", status: Supported, conditions: "None, raw-value Flat, raw-value Linear for rate curves; valid output postconditions; ceiling 150 years" },
-        CurveCapability { name: "product_helper_global_calibration", status: Pending, conditions: "Full future/bond/CDS/rates descriptions in analytics; CVX-021/057/058/059 own dated product-backed bootstrap/global routes" },
+        CurveCapability { name: "product_helper_global_calibration", status: Pending, conditions: "Generic description-only recipe dispatch remains unsupported; explicit analytics credit/rate/cash_calibration APIs compose full supplied product helpers and bounded fits" },
         CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Existing segmented/parametric/monotone/flat-forward/UFR APIs remain separate with explicit model constraints; no method substitution" },
     ]
 }

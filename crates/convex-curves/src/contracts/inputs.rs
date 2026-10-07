@@ -156,7 +156,8 @@ pub enum CurveRole {
         /// Recovery fraction in `[0,1]`.
         recovery: f64,
     },
-    /// Explicit issuer/bond residual basis model (construction pending).
+    /// Explicit issuer/bond residual basis. Raw spread construction lives in
+    /// curves; full cash/model composition lives in analytics cash_calibration.
     IssuerSpread {
         /// Issuer identity.
         entity_id: String,
@@ -228,7 +229,8 @@ pub enum CurveRepresentation {
     SurvivalProbabilities,
     /// Instantaneous hazard nodes; integration contract pending CVX-021.
     HazardRates,
-    /// Residual issuer spreads; pricing model pending CVX-059.
+    /// Signed annualized residual basis nodes, distinct from discount factors
+    /// and hazard rates; valuation requires an explicit analytics pricing model.
     IssuerSpreads,
 }
 

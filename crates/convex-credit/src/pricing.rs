@@ -634,3 +634,34 @@ pub fn price_flat_hazard(
         },
     )
 }
+
+/// Exactly integrated discounted default probability on one segment where
+/// discount and survival are log-linear. Endpoints share a common normalization;
+/// survival must be positive, <=1 and nonincreasing. No calendar-day default
+/// accrual convention is introduced. Reuses the standard pricer's stable moment.
+pub fn discounted_default_mass(
+    start_discount: f64,
+    end_discount: f64,
+    start_survival: f64,
+    end_survival: f64,
+) -> Result<f64, CdsError> {
+    if !start_discount.is_finite()
+        || !end_discount.is_finite()
+        || start_discount <= 0.0
+        || end_discount <= 0.0
+        || !start_survival.is_finite()
+        || !end_survival.is_finite()
+        || end_survival <= 0.0
+        || start_survival > 1.0
+        || end_survival > start_survival
+    {
+        return Err(invalid(
+            "default_mass",
+            "positive finite discount and nonincreasing survival endpoints in (0,1] required",
+        ));
+    }
+    let mass = start_survival.ln() - end_survival.ln();
+    let exponent = mass + start_discount.ln() - end_discount.ln();
+    let (zero, _) = moments(exponent)?;
+    finite(mass * start_survival * start_discount * zero)
+}

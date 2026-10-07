@@ -135,6 +135,64 @@ fn discounted(
             .map(|q| q.value)
             .map_err(|e| error("discount_curve", e.to_string()))
     };
+    discounted_projection(
+        bond,
+        settlement,
+        projection,
+        discount.recipe().key.clone(),
+        df,
+        0.0,
+    )
+}
+
+/// Price complete supplied fixed cash against an explicitly named government
+/// benchmark. A government curve is never admitted by the collateral-only API.
+pub fn price_fixed_government(
+    bond: &BondContract,
+    settlement: Date,
+    on_payment: PaymentDateEntitlement,
+    government: &BuiltCurve,
+    benchmark_id: &str,
+) -> Result<ContractPrice, BondContractError> {
+    bond.require_plain_valuation()?;
+    if government.recipe().currency != bond.terms().currency
+        || !matches!(&government.recipe().role,
+            CurveRole::Government { benchmark_id: actual } if actual == benchmark_id)
+    {
+        return Err(error(
+            "government_curve",
+            "currency/benchmark/government role mismatch",
+        ));
+    }
+    let projection = bond.fixed_projection(settlement, on_payment)?;
+    discounted_projection(
+        bond,
+        settlement,
+        projection,
+        government.recipe().key.clone(),
+        |date| {
+            government
+                .query(&CurveQuery::DiscountFactor {
+                    point: CurvePoint::Date(date),
+                })
+                .map(|q| q.value)
+                .map_err(|e| error("government_curve", e.to_string()))
+        },
+        0.0,
+    )
+}
+
+// One normalized full cash calculation for collateral, government and the
+// explicitly declared cash-backed issuer model. Recovery is absolute settlement
+// PV supplied only by the owning credit model, never inferred here.
+pub(crate) fn discounted_projection(
+    bond: &BondContract,
+    settlement: Date,
+    projection: BondProjection,
+    reference: CurveKey,
+    mut df: impl FnMut(Date) -> Result<f64, BondContractError>,
+    recovery_pv: f64,
+) -> Result<ContractPrice, BondContractError> {
     let settlement_df = df(settlement)?;
     let mut pv = 0.0;
     for flow in projection.cashflows()? {
@@ -144,6 +202,7 @@ fn discounted(
             return Err(error("present_value", "nonfinite cash discounting"));
         }
     }
+    pv += recovery_pv;
     let face = number(bond.terms().face_value)?;
     let accrued = number(projection.accrued)? / face * 100.0;
     let dirty_price = pv / face * 100.0;
@@ -157,6 +216,6 @@ fn discounted(
         dirty_price,
         accrued,
         projection,
-        discount_curve: discount.recipe().key.clone(),
+        discount_curve: reference,
     })
 }

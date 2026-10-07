@@ -434,3 +434,23 @@ feature consumers are enforced by CI. This is scoped engineering evidence;
 all2154 mandatory records remain Planned, with full model/market/host/lifecycle/
 quantitative/library/production/latency certificates pending. No dependency,
 manifest, Cargo lock or C export is added.
+
+
+CVX-058 adds [full supplied cash curves and dated repo carry](CASH-CURVES.md).
+Original government cash/bill/par quotations, residual issuer basis and true
+repo loan factors reuse full BondContract economics and shared bounded solvers.
+Declared reference-only versus credit-survival/immediate-par-recovery models
+keep recovery and residual basis separate. Exact role/model/graph preflight,
+full original native-unit repricing and government/CDS dependent rebuilds
+return all-or-error outputs. Dated carry retains separate haircut and coupon
+funding with actual payment/delivery dates.
+
+Five new reference/test/consumer pins append to all162 earlier numerical rows,
+bytes and solver defaults. Independent Decimal(60) references include nonflat
+positive/negative government/repo curves, stepped/amortizing/par cash and
+separate promised/recovery PV. CI requires read-only reference verification,
+focused failures/rebuilds, strict affected all-target Clippy, required curves/
+analytics/credit suites and three facade feature consumers. The scope has145
+critical sources and167 quantitative pins. No dependency, manifest, Cargo lock
+or C export is added; all2154 mandatory records remain Planned and independent
+human/market/model/host/library/production/latency certification remains open.

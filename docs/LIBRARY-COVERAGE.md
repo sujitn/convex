@@ -334,5 +334,24 @@ caller's last-good set. Independent Decimal synthetic references and native
 failure/property controls qualify this route as engineering work; no new ORE
 execution or full convention/model/host/quantitative certificate is implied.
 Every required area/combination/record/exclusion/gate and all2154 Planned
-mandatory records remain byte-preserved. CVX-058 government/issuer/repo/bond
-basis, canonical risk, lifecycle/P&L, hosts and release certificates remain open.
+mandatory records remain byte-preserved. The following version adds CVX-058 cash curves; canonical risk, lifecycle/P&L,
+hosts and release certificates remain open.
+
+
+Version17 records [supplied government, issuer-basis and repo cash curves](CASH-CURVES.md).
+Full original bond/bill clean/dirty/dated-yield/par and dated repo loan helpers
+fit explicit Linear piecewise or identified Linear global grids. Par coupon
+observations retain actual cash rather than becoming zeros. Raw residual basis
+queries are distinct from discount/survival; named reference or explicit
+conditional promised cash plus immediate par recovery models retain independent
+credit, recovery and basis inputs. Exact graph/financial-role preflight, full
+native repricing and government/CDS dependent rebuilds fail atomically.
+
+Dated nominal-bullet repo carry separates actual purchase/delivery, haircut
+funding and each coupon reinvestment horizon, including negative rates, and
+reproduces the unchanged CVX-023 cash-futures alternatives. Independent Decimal
+synthetic cash/basis/carry controls and reuse of the retained CDS dependency
+qualify this as native engineering work. Street/convention/model extensions,
+canonical risk, lifecycle/P&L, host integration and independent certificates
+remain owning work. Every required record/combination/exclusion/gate and all
+2154 Planned mandatory records are preserved.
