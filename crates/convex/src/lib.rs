@@ -20,6 +20,8 @@ pub use convex_analytics::curve_inputs;
 /// Pure contract-aware futures and actual cash hedge valuation/risk.
 pub use convex_analytics::futures;
 pub use convex_analytics::futures_reference;
+/// Pure mixed-instrument OIS and independent index curve calibration.
+pub use convex_analytics::rate_calibration;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
 pub use convex_analytics::swap_calibration;
 pub use convex_core::calendars::BusinessDayConvention;

@@ -321,3 +321,18 @@ market/convexity/optional-delivery packs, canonical portfolio risk, lifecycle/P&
 host/schema dispatch, execution and independent certificates remain owning work.
 Every mandatory record, combination, exclusion and gate remains unchanged and
 all2154 required records remain Planned.
+
+Version16 records [complete supplied mixed rate calibration](RATE-CALIBRATION.md)
+and two-floating-leg tenor-basis construction/pricing. Original dated deposit,
+FRA, partly-fixed/arithmetic/compounded/single-term futures, IRS/OIS and basis
+quotes fit separate exact discount/projection graphs. Linear piecewise and
+Linear/CubicSpline global fits retain every original native residual, complete
+known/forecast cash and measured work/rank diagnostics. Explicit global overlap
+retains all quotes; inconsistent inputs, missing history/versions, insufficient
+pillars and cycles fail. Rebuilds preserve original fixing revisions and the
+caller's last-good set. Independent Decimal synthetic references and native
+failure/property controls qualify this route as engineering work; no new ORE
+execution or full convention/model/host/quantitative certificate is implied.
+Every required area/combination/record/exclusion/gate and all2154 Planned
+mandatory records remain byte-preserved. CVX-058 government/issuer/repo/bond
+basis, canonical risk, lifecycle/P&L, hosts and release certificates remain open.

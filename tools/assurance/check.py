@@ -72,6 +72,13 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example futures_valuation',
         'cargo run --locked -p convex --example futures_valuation --no-default-features',
         'cargo run --locked -p convex --example futures_valuation --features schemars',
+        'python3 tests/scripts/rate_calibration_reference.py check',
+        'cargo test --locked -p convex-analytics --test rate_calibration',
+        'cargo clippy --locked -p convex-analytics --test rate_calibration --all-features -- -D warnings',
+        'cargo test --locked -p convex-curves -p convex-rates -p convex-math',
+        'cargo run --locked -p convex --example rate_calibration',
+        'cargo run --locked -p convex --example rate_calibration --no-default-features',
+        'cargo run --locked -p convex --example rate_calibration --features schemars',
         'cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features',
         'cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
@@ -277,6 +284,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/cashflows').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/futures').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/futures').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/rate_calibration').glob('*.rs'))
     paths.update(['crates/convex-ports/src/futures_reference.rs',
                   'crates/convex-ext-file/src/reference_repository.rs',
                   'crates/convex-ext-redb/src/reference_repository.rs'])

@@ -31,6 +31,16 @@ pub struct FuturesFixings {
     selection: FuturesFixingSelection,
 }
 impl FuturesFixings {
+    /// Preflight full requirements with this history's clearing revision policy.
+    /// This never invokes a projection and preserves complete missing lists.
+    pub fn resolve_requirements(
+        &self,
+        requirements: &[FixingRequirement],
+        context: FixingContext,
+    ) -> Result<convex_core::fixings::FixingResolution, CashflowError> {
+        self.series.resolve(requirements, context)
+    }
+
     /// Validate all revisions and construct the explicitly selected history.
     pub fn new(
         observations: Vec<FixingObservation>,

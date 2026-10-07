@@ -69,6 +69,8 @@ pub mod futures_reference {
 /// Pure dated product helper descriptions and checked curve composition.
 pub mod curve_inputs;
 pub mod optional_bond;
+/// Complete mixed dated deposit/FRA/futures/IRS/OIS/tenor-basis curve workflows.
+pub mod rate_calibration;
 pub mod risk;
 /// Native-quote IRS/OIS fitting with exact dependent curves and frozen history.
 pub mod swap_calibration;

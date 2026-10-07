@@ -213,6 +213,27 @@ jobs:
       - name: Run futures valuation consumer with schema features
         run: cargo run --locked -p convex --example futures_valuation --features schemars
 
+      - name: Check independent mixed rate calibration references
+        run: python3 tests/scripts/rate_calibration_reference.py check
+
+      - name: Check complete original rate helpers and dependent rebuilds
+        run: cargo test --locked -p convex-analytics --test rate_calibration
+
+      - name: Check mixed rate calibration source and dedicated tests
+        run: cargo clippy --locked -p convex-analytics --test rate_calibration --all-features -- -D warnings
+
+      - name: Check required curve rates and numerical suites
+        run: cargo test --locked -p convex-curves -p convex-rates -p convex-math
+
+      - name: Run complete mixed rate calibration consumer
+        run: cargo run --locked -p convex --example rate_calibration
+
+      - name: Run mixed rate calibration with minimal features
+        run: cargo run --locked -p convex --example rate_calibration --no-default-features
+
+      - name: Run mixed rate calibration with schema features
+        run: cargo run --locked -p convex --example rate_calibration --features schemars
+
       - name: Check all library feature combination
         run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
 

@@ -454,8 +454,23 @@ fn validate_fitted_quotes(
         validate_label(id, "helper.id")?;
         validate_date(quote.pillar)?;
         validate_tolerance(quote.tolerance)?;
-        quote.input.decimal_rate()?;
-        quote.model.decimal_rate()?;
+        // Diagnostics retain original native units. The product layer already
+        // priced the complete futures contract; price points are not a raw FRA
+        // rate and must never be converted here by assuming a convexity model.
+        if !matches!(
+            quote.input.unit,
+            QuoteUnit::DecimalRate
+                | QuoteUnit::PercentRate
+                | QuoteUnit::BasisPoints
+                | QuoteUnit::FuturePrice100MinusRate
+        ) {
+            return Err(Error::invalid(
+                "fitted.quote.unit",
+                "annualized rate or fully priced rate-futures native points required",
+            ));
+        }
+        quote.input.validate()?;
+        quote.model.validate()?;
         if !seen.insert(id)
             || id != &quote.helper_id
             || quote.pillar <= reference_date

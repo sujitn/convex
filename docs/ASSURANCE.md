@@ -414,3 +414,23 @@ new tests/Clippy and all three facade feature consumers. All2154 mandatory
 records remain Planned; no human, market/model/host/library/production/latency
 certificate or complete optional-delivery model is inferred. Pure dependencies,
 manifests/lock and all25 C exports remain unchanged.
+
+CVX-057 adds [complete supplied mixed rate calibration](RATE-CALIBRATION.md),
+including full dated deposit/FRA/futures/IRS/OIS/basis helpers, independent exact
+discount/index versions and deterministic dependency rebuilds. The two-leg basis
+composition reuses the existing floating-leg engine. Curves retain original
+native futures price points without assuming a FRA conversion or convexity sign.
+Full graph history preflight, publication freezing, actual horizons, positive
+native scales/weights, rank/iteration/work bounds and final original repricing
+remain fail-closed. Linear piecewise and Linear/CubicSpline per-curve global
+fits are explicitly supported; cyclic simultaneous fits are unsupported.
+
+New fixture/test/consumer/builder pins are additive to all157 earlier numerical
+rows, bytes and solver defaults. Independent Decimal(60) synthetic cash/quotes
+cover nonflat positive/negative multi-curve graphs and separately derived
+arithmetic/single-term futures. Dedicated rebuild/failure tests, strict source
+and consumer checks, required curve/rates/math suites and all three facade
+feature consumers are enforced by CI. This is scoped engineering evidence;
+all2154 mandatory records remain Planned, with full model/market/host/lifecycle/
+quantitative/library/production/latency certificates pending. No dependency,
+manifest, Cargo lock or C export is added.

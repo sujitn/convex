@@ -31,14 +31,19 @@ class CoverageTests(unittest.TestCase):
             self.assertFalse(report["certified"])
             self.assertEqual(report["mandatory_records"], report["blocked_records"])
 
-    def test_real_type_only_and_missing_dispatch_are_gaps_ac1(self):
+    def test_native_basis_candidate_and_missing_host_dispatch_remain_gaps_ac1(self):
         report = coverage.report(self.document)
         areas = {r["id"]: r for r in report["areas"]}
-        self.assertIn("type_only", areas["LC-017"]["gaps"])
+        self.assertIn("missing_host_schema_dispatch", areas["LC-017"]["gaps"])
+        self.assertIn("independent_market_certificate_pending", areas["LC-017"]["gaps"])
         self.assertIn("missing_dispatch", areas["LC-015"]["gaps"])
         self.assertIn("lossy_schema", areas["LC-028"]["gaps"])
         self.assertIn("approximation", areas["LC-023"]["gaps"])
-        self.assertEqual(self.document["observations"]["basis"]["assessment"], "type_only")
+        basis = self.document["observations"]["basis"]
+        self.assertEqual(basis["assessment"], "candidate")
+        self.assertIn("convex::rates::basis::price_basis_swap", basis["public_apis"])
+        self.assertIn("legacy_helper_routes_not_certified", basis["gaps"])
+        self.assertFalse(report["certified"])
         self.assertEqual(self.document["observations"]["ffi_piecewise"]["assessment"], "missing_dispatch")
 
     def test_a_declaration_or_missing_dispatch_cannot_be_promoted(self):

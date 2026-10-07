@@ -9,6 +9,8 @@
 #![deny(unused_must_use)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+/// Complete two-floating-leg tenor/overnight basis composition.
+pub mod basis;
 mod cashflows;
 mod contract;
 /// Supplied multi-curve valuation over the same dated cashflow contract.

@@ -248,6 +248,25 @@ class AssuranceMutations(unittest.TestCase):
             self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
+    def test_mixed_rate_references_rebuild_checks_and_consumer_features_cannot_be_skipped(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        for command in [
+            'python3 tests/scripts/rate_calibration_reference.py check',
+            'cargo test --locked -p convex-analytics --test rate_calibration',
+            'cargo clippy --locked -p convex-analytics --test rate_calibration --all-features -- -D warnings',
+            'cargo test --locked -p convex-curves -p convex-rates -p convex-math',
+            'cargo run --locked -p convex --example rate_calibration',
+            'cargo run --locked -p convex --example rate_calibration --no-default-features',
+            'cargo run --locked -p convex --example rate_calibration --features schemars',
+        ]:
+            for replacement in ['run: '+command+' || true\n', 'if: false\n        run: '+command+'\n', 'run: echo skipped\n']:
+                self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
+        for path in ['crates/convex-rates/src/basis.rs', *[
+            'crates/convex-analytics/src/rate_calibration/'+name+'.rs'
+            for name in ('mod', 'build', 'fit', 'helpers', 'inputs')]]:
+            self.assertTrue(check.protected(path))
+            self.assertIn(path, check.inventory_paths(ROOT))
+
     def test_curve_consumer_feature_checks_are_mandatory(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for command in [
