@@ -450,6 +450,16 @@ pub enum CalibrationMode {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CurveSource {
+    /// Original analytic exponential forward-convergence tail joined to an
+    /// exact immutable continuous-zero model. Parameters are supplied in the
+    /// required UfrConvergence extrapolation policy, not inferred by currency.
+    UfrConvergence {
+        /// Full FlatForward or original parametric source at its exact version.
+        base: CurveKey,
+        /// Actual supplied date/model time inside the source's native domain.
+        /// The original left forward owns the join; no source tail is consumed.
+        last_liquid_point: CurvePoint,
+    },
     /// Exact supplied parametric model, not a sampled node-grid alias. Dated
     /// observations must all reprice; fitting uses `fit_parametric_curve`.
     Parametric {

@@ -355,22 +355,11 @@ impl DiscreteCurve {
                 // Use the checked FlatForward source for an integrated tail.
                 f64::NAN
             }
-            ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
-                if t < min_t {
-                    self.values[0]
-                } else {
-                    let llp = self.max_tenor;
-                    let last_value = *self.values.last().unwrap();
-                    let last_derivative = self.interpolator.derivative(llp).unwrap_or(0.0);
-                    let ext = convex_math::extrapolation::UfrConvergence::new(ufr, alpha, llp);
-                    convex_math::extrapolation::Extrapolator::extrapolate(
-                        &ext,
-                        t,
-                        llp,
-                        last_value,
-                        last_derivative,
-                    )
-                }
+            ExtrapolationMethod::UfrConvergence { .. } => {
+                // Propagate the checked parameter/derivative/domain contract.
+                // Compatibility reports NaN, never a fabricated short-end zero
+                // or a derivative-to-zero fallback.
+                self.checked_value_at(t).unwrap_or(f64::NAN)
             }
         }
     }

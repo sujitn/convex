@@ -1461,6 +1461,59 @@
         "tools/library/library-inventory.json": "d5116ba975b4aa04f8a35b2fa8fccfaee9422bf92eb02e61678520c6584b475f",
         "tools/library/test_operations.py": "2578f08e5163c55469240dfd14584ef2061983c59f2147aed25377029f4fd9c3"
       }
+    },
+    {
+      "base_commit": "ec2927f9813e17f3a0c7a24257df7e39127a2e97",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "Explicit original exponential UFR tail over a full exact-version FlatForward or original NS/Svensson continuous-zero source; actual supplied LLP, original analytic left boundary, UFR/alpha/time basis/native units/roles/versions, finite native queries and strict source/domain failures. Independent Decimal(60) controls remain separate from fresh transport expectations. No Smith-Wilson, derivative default, sampled grid, product fit/quote-risk replacement, independent approval or certificate. Original308 numerical rows/bytes/defaults and all prior evidence retained;13 additive controls. Original mandatory matrix and normal dependency/ABI scope preserved. Engineering analysis is not independent human quantitative approval.",
+      "tests": [
+        "Frozen independent Decimal(60) analytic/native/dated boundary controls",
+        "Full supplied native/JSON/C/client positive/boundary/failure corpus and actual schemas",
+        "Strict affected lint/docs/features and original protected financial evidence checks"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5afce4536ada4105e31b39f629243e403574499126390c89a7a31c11b7022e4f",
+        ".github/workflows/java.yml": "bc4c5344fd16da2f4c05782ab1ddd0087721a7b60de1b8f05416ec0fb77052c0",
+        "bindings/java/src/test/java/com/convex/LibraryUfrTest.java": "4889a9a26774a0d9aacd0f11a316d35adc831e940b88c2ffa1e2c90c193b97c4",
+        "crates/convex-curves/src/contracts/build.rs": "87b6355953ce5adad5646476e0ffbeb0f88dc5623d88bf4c9f9a8a1d19107e85",
+        "crates/convex-curves/src/contracts/inputs.rs": "4034a10563f1320dd609e574b465826d7b9f449e4d1c8dcbb4c7a2d9f9b98952",
+        "crates/convex-curves/src/contracts/mod.rs": "d48f214a7537b1f7bbd8362c75dc093812dedf9e04098659e5504729ed75148b",
+        "crates/convex-curves/src/contracts/query.rs": "735fba5c4b2822916264745a9bfb616908975dca573af2f518101272cc9c0ee7",
+        "crates/convex-curves/src/contracts/ufr.rs": "04ca75b27c0d0fda12cc9e1e15018985f62c762549d12a95ad0ebb4cb1970200",
+        "crates/convex-curves/src/curves/discrete.rs": "63211d9a3cebbe8441aba1a60683379102aec658310c89ce12762a25029a1897",
+        "crates/convex-curves/tests/ufr_contracts.rs": "aacf3128aec325d2d6337864f77b60d8cf0d0ae93acbeffc18e878eac8d7fc07",
+        "crates/convex-ffi/tests/library_ufr.rs": "9b8750e6107b5e772ae45e41d9ff7befa1a3002064d0c583df3dfcd721e8421d",
+        "crates/convex-math/src/extrapolation/ufr_convergence.rs": "b5616b7526afa71a865505630992e1092d1431d347f39d7b8884094d7638f99b",
+        "crates/convex-math/tests/ufr_tail.rs": "0e9aba925e1f970f71345fdb73189f817cf87938013e0a3b7eedd790b7be5281",
+        "crates/convex-mcp/tests/library_ufr.rs": "45026f98564dd03b36e85c76cc769878e9e319d770aa42718ba766ec0842cc94",
+        "crates/convex-wasm/tests/library_ufr.rs": "65c000596e9881dc1ce118e00d46fc3f72f2787bda2704b8e4637dfd94c69776",
+        "crates/convex/examples/library_ufr.rs": "4d8a589424b5989bce8754e2ecf8e328971d6b1070d0ae89da97b80bf2b348fb",
+        "crates/convex/src/library/curves.rs": "32ab5ee6fd1827027fe6f0b72d39075a2c9a68cd531a7308d22cbd2ca0bd9f90",
+        "crates/convex/tests/library_ufr.rs": "3c194893e7f32d742fb168416aa1a77a24690af589780fcdbf4a8c4d249f3a74",
+        "docs/CURVE-CONTRACTS.md": "82bfe74d25bd162617fde0eb38353eb6cb23cb5d4194da14bfd7e467acdb0daa",
+        "docs/CURVE-FAMILIES.md": "d4407eda395b5b10bf6a222dcc71731ecb62159ce54d53dc09d935df975eec62",
+        "docs/CURVE-UFR.md": "df02b9b50b5cb5111f65dee7ae94725e7a3c60a6ddd75df272a3f6b073a19bcb",
+        "docs/LIBRARY-API.md": "e4473c21477fefa38112aaa8db77d5bc2ec03f1b22175b4cc2526fab2b7ac74e",
+        "docs/ROUTE-MIGRATION.md": "4ca76f07751afa96a23a4a3585de79fe33a28e19541d620dee5fc36b75f55d0f",
+        "excel/Convex.Excel.Tests/LibraryUfrTests.cs": "93d32336dfa4d70ed232ccb4e72a06332917604b834be4edba30168c8baae2b8",
+        "tests/fixtures/library/ufr-reference.json": "b923281c56307c813ab270f6bfbaee785637afd2e95a335f39164f6926ceea05",
+        "tests/fixtures/library/ufr.json": "2ba4f651335e7c33717767e6f24f617f5d6b37253abc6c736b2961727eba0111",
+        "tests/fixtures/library/ufr_contract.rs": "a1aad3618fb409c659d1f679e7feec8641aa3fd9d5d61cb2d59fa6a3d30ecffa",
+        "tests/fixtures/library/ufr_reference.rs": "d7008e30b0e9ebac7562dc2d607d44860e9a309741367fcc3906bc49c92c936d",
+        "tests/scripts/library_ufr_inputs.py": "542dd2b7a12f86483fae1bacefbb069f7193535566892d49785139ad1eb0ab4d",
+        "tests/scripts/library_ufr_parity.py": "cc8d8db1e883c603c4d300253fc8de516c9ae8890799432a103c6a65eb73c481",
+        "tests/scripts/library_ufr_schema.py": "8b03d93d2b460e0ebb4cd21444546bbc9fd22b6eb1ad4543e0004f520684ba98",
+        "tests/scripts/ufr_math_fixture.py": "91d1493e208545dfca1ee16410f0ba979ebfd3a2c7cde4a6e77bc939f32862f8",
+        "tests/scripts/ufr_reference.py": "08099bbb78f4ad836580af6ea18d34a51d02b7dbe6c82cf36e193a079f689647",
+        "tools/assurance/check.py": "b5172f02cc5ee3558e98bcad165aa368154d84e864e77795df72f7386a9b2fd1",
+        "tools/assurance/inventory.json": "f316bf5eaff83851a842cc0c46f311a39710ade4d0d02631b182803b821121c7",
+        "tools/assurance/numeric-evidence.json": "c641ba2755c69e0a442402db837fc319b1acfb9a6dd8ac3a2876e51603137c4d",
+        "tools/assurance/test_policy.py": "d1cde5fee3d57d5f726dafb673fc6aa8eab0843e8ce12dc33b5667a482cd7c89",
+        "tools/library/api-capabilities.json": "8193ff08da3005549ece58cffa5b3aadbb6216685340b911fb94ed87dc436cde",
+        "tools/library/library-inventory.json": "172a69aadd28ac1403f8ac291349f9506ce13b67d0c673281834094640489787",
+        "tools/library/test_operations.py": "510539d3594d97f21814affee3e1e1619ebb02fde33feba1dc19bf7c5f0975fd"
+      }
     }
   ]
 }

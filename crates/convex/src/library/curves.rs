@@ -257,6 +257,9 @@ pub(super) fn describe_curve(curve: &BuiltCurve) -> Value {
     if let Some(structure) = curve.structured_diagnostics() {
         result["structure"] = serde_json::json!(structure);
     }
+    if let Some(tail) = curve.ufr_diagnostics() {
+        result["ufr"] = serde_json::json!(tail);
+    }
     result
 }
 pub(super) fn fit_parametric(

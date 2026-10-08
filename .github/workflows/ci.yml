@@ -449,6 +449,33 @@ jobs:
       - name: Validate actual complete curve-method schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_curve_methods_schema.py --binary target/debug/examples/library_curve_methods
 
+      - name: Check frozen independent UFR convergence controls
+        run: python3 tests/scripts/ufr_reference.py --check
+
+      - name: Check dependency-free frozen UFR math fixture
+        run: python3 tests/scripts/ufr_math_fixture.py --check
+
+      - name: Check full supplied UFR contracts
+        run: python3 tests/scripts/library_ufr_inputs.py --check
+
+      - name: Check native UFR joins and existing shared clients
+        run: cargo test --locked -p convex-math --test ufr_tail -p convex-curves --test ufr_contracts -p convex --test library_ufr -p convex-ffi --test library_ufr -p convex-mcp --test library_ufr -p convex-wasm --test library_ufr --all-features
+
+      - name: Lint checked UFR math and its frozen controls
+        run: cargo clippy --locked -p convex-math --lib --test ufr_tail --all-features -- -D warnings
+
+      - name: Run complete UFR consumer
+        run: cargo run --locked -p convex --example library_ufr
+
+      - name: Run complete UFR consumer with minimal features
+        run: cargo run --locked -p convex --example library_ufr --no-default-features
+
+      - name: Run complete UFR consumer with schema support
+        run: cargo run --locked -p convex --example library_ufr --features schemars
+
+      - name: Validate actual full UFR request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_ufr_schema.py --binary target/debug/examples/library_ufr
+
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
@@ -772,6 +799,9 @@ jobs:
       - name: Build native explicit curve-method consumer
         run: cargo build --locked --profile excel -p convex --example library_curve_methods --features schemars
 
+      - name: Build native complete UFR consumer
+        run: cargo build --locked --profile excel -p convex --example library_ufr --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -812,6 +842,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke curve-method expectations
         run: python tests/scripts/library_curve_methods_parity.py prepare --binary target/excel/examples/library_curve_methods.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-methods-parity.json
+
+      - name: Generate fresh native UFR P/Invoke expectations
+        run: python tests/scripts/library_ufr_parity.py prepare --binary target/excel/examples/library_ufr.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-ufr-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

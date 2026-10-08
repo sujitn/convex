@@ -88,6 +88,66 @@ impl UfrConvergence {
     pub fn llp(&self) -> f64 {
         self.last_liquid_point
     }
+
+    /// Exact integrated tail zero from the declared LLP and its actual left
+    /// zero/instantaneous forward. This checked route cannot ignore an LLP or
+    /// replace an unavailable derivative with zero. Rates are continuous per
+    /// year of the supplied time axis; negative rates remain valid.
+    pub fn try_zero_rate(&self, t: f64, zero_at_llp: f64, forward_at_llp: f64) -> MathResult<f64> {
+        self.validate_tail(t)?;
+        crate::bounds::finite(zero_at_llp, "LLP zero")?;
+        crate::bounds::finite(forward_at_llp, "LLP forward")?;
+        crate::bounds::finite(
+            self.integrated_zero(t, self.last_liquid_point, zero_at_llp, forward_at_llp),
+            "UFR zero",
+        )
+    }
+
+    /// Original analytic instantaneous tail forward, including the exact LLP
+    /// limit. Queries before the LLP fail; no sampled derivative is used.
+    pub fn try_forward_rate(&self, t: f64, forward_at_llp: f64) -> MathResult<f64> {
+        self.validate_tail(t)?;
+        crate::bounds::finite(forward_at_llp, "LLP forward")?;
+        if t == self.last_liquid_point {
+            return Ok(forward_at_llp);
+        }
+        let decay = (-self.convergence_speed * (t - self.last_liquid_point)).exp();
+        crate::bounds::finite(
+            self.ultimate_forward_rate + (forward_at_llp - self.ultimate_forward_rate) * decay,
+            "UFR forward",
+        )
+    }
+
+    fn validate_tail(&self, t: f64) -> MathResult<()> {
+        self.validate()?;
+        crate::bounds::finite(t, "UFR query time")?;
+        if t < self.last_liquid_point {
+            return Err(MathError::invalid_input(
+                "UFR query precedes the declared LLP",
+            ));
+        }
+        Ok(())
+    }
+
+    fn integrated_zero(&self, t: f64, last_t: f64, zero: f64, forward: f64) -> f64 {
+        if t <= last_t {
+            return zero;
+        }
+        let tau = t - last_t;
+        let alpha = self.convergence_speed;
+        let x = alpha * tau;
+        // Integral of exp(-alpha*s). expm1 retains small alpha*time changes;
+        // the zero limit also handles a product rounded to subnormal zero.
+        let integrated_decay = if x == 0.0 {
+            tau
+        } else if x.is_infinite() {
+            1.0 / alpha
+        } else {
+            tau * (-(-x).exp_m1() / x)
+        };
+        let ufr = self.ultimate_forward_rate;
+        (zero * last_t + ufr * tau + (forward - ufr) * integrated_decay) / t
+    }
 }
 
 impl Extrapolator for UfrConvergence {
@@ -104,17 +164,9 @@ impl Extrapolator for UfrConvergence {
             return last_value;
         }
 
-        let alpha = self.convergence_speed;
-        let ufr = self.ultimate_forward_rate;
-        let tau = t - last_t;
-
         // Instantaneous forward at the LLP: f = d/dt[t * z(t)] = z(LLP) + LLP * z'(LLP).
         let f_llp = last_value + last_t * last_derivative;
-
-        // z(t) * t = z(LLP) * LLP + integral over (LLP, t] of the converging forward
-        //          = z(LLP) * LLP + UFR * tau + (f_llp - UFR) * (1 - e^{-alpha*tau}) / alpha.
-        let integral = ufr * tau + (f_llp - ufr) * (1.0 - (-alpha * tau).exp()) / alpha;
-        (last_value * last_t + integral) / t
+        self.integrated_zero(t, last_t, last_value, f_llp)
     }
 
     fn name(&self) -> &'static str {

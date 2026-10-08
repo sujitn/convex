@@ -16,6 +16,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 enum CurveValues {
+    Ufr(super::ufr::UfrCurve),
     Grid(super::grid::MethodGrid),
     Structured(super::structured::StructuredCurve),
     Direct(DiscreteCurve),
@@ -56,11 +57,20 @@ impl BuiltCurve {
             _ => None,
         }
     }
+    /// Exact original source, supplied LLP and analytic join of a UFR tail.
+    /// Other sources have no UFR diagnostics; no boundary is fabricated.
+    pub fn ufr_diagnostics(&self) -> Option<&super::UfrCurveDiagnostics> {
+        match &self.values {
+            CurveValues::Ufr(curve) => Some(&curve.diagnostics),
+            _ => None,
+        }
+    }
     pub(crate) fn extension_used(&self, t: f64) -> bool {
         let (min, max) = self.bounds();
         let outer = t > 0.0 && (t < min || t > max);
         outer
             || match &self.values {
+                CurveValues::Ufr(curve) => curve.extension_used(t),
                 CurveValues::Grid(curve) => curve.extension_used(t),
                 CurveValues::Structured(curve) => {
                     curve.extension_used(t, self.recipe.extrapolation)
@@ -79,6 +89,13 @@ impl BuiltCurve {
                 }),
                 _ => false,
             }
+    }
+    pub(super) fn ufr_forward(&self, t: f64) -> Result<f64> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Ufr(curve) => curve.forward(t),
+            _ => Err(Error::unsupported("UFR forward", "requires the original joined UfrConvergence source; no derivative or family substitute")),
+        }
     }
     pub(super) fn flat_forward(&self, t: f64, side: super::ForwardSide) -> Result<(f64, bool)> {
         validate_tenor(t)?;
@@ -123,6 +140,7 @@ impl BuiltCurve {
     }
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
+            CurveValues::Ufr(curve) => curve.bounds(),
             CurveValues::Structured(curve) => curve.bounds(),
             CurveValues::Grid(curve) => curve.bounds(),
             CurveValues::Direct(curve) => curve.tenor_bounds(),
@@ -153,6 +171,7 @@ impl BuiltCurve {
             ));
         }
         let value = match &self.values {
+            CurveValues::Ufr(curve) => curve.value(t)?,
             CurveValues::Grid(curve) => curve.value(t)?,
             CurveValues::Structured(curve) => curve.value(t, self.recipe.extrapolation)?,
             CurveValues::Basis(grid) => grid.value(t, self.recipe.extrapolation)?,
@@ -622,6 +641,7 @@ pub(super) fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
         }
     }
     let expected: Vec<&CurveKey> = match &recipe.source {
+        CurveSource::UfrConvergence { base, .. } => vec![base],
         CurveSource::Delegated { base, .. } => vec![base],
         CurveSource::Segmented { segments, .. } => segments
             .iter()
@@ -737,6 +757,9 @@ fn validate_representation(recipe: &CurveRecipe) -> Result<()> {
 }
 
 fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
+    if matches!(recipe.source, CurveSource::UfrConvergence { .. }) {
+        return super::ufr::validate_shape(recipe);
+    }
     if matches!(
         recipe.source,
         CurveSource::PiecewiseConstant { .. } | CurveSource::FlatForward { .. }
@@ -794,6 +817,23 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
 
 fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
     match &recipe.source {
+        CurveSource::UfrConvergence { .. } => {
+            let (curve, depth) = super::ufr::UfrCurve::new(recipe, supplied)?;
+            let (min, max) = curve.bounds();
+            Ok(BuiltCurve {
+                recipe: recipe.clone(),
+                values: CurveValues::Ufr(curve),
+                depth,
+                diagnostics: CurveDiagnostics {
+                    curve: recipe.key.clone(),
+                    method: "supplied_ufr_convergence".into(),
+                    iterations: 0,
+                    pillars: vec![min, max],
+                    dependencies: recipe.dependencies.clone(),
+                    quotes: vec![],
+                },
+            })
+        }
         CurveSource::PiecewiseConstant { nodes } | CurveSource::FlatForward { nodes } => {
             let curve = super::grid::MethodGrid::new(recipe, nodes)?;
             let pillars = curve.grid().0.to_vec();

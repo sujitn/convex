@@ -98,3 +98,17 @@ silently rewritten as flat zero: supply the complete checked flat-forward recipe
 to the shared library. Full recipe integration into captured runtime snapshots
 remains pending. The fictional constant-zero snapshot fixture selects `FlatZero`;
 previous captured snapshot bytes and historical evidence are preserved.
+
+The older infallible `DiscreteCurve` UFR tail no longer substitutes a zero
+derivative, creates a short-end flat value, or calls a panicking constructor
+when its inputs are invalid. It delegates to `checked_value_at`; failures return
+NaN through the infallible compatibility signature. Callers should use checked
+errors. The native UFR integral now uses stable `expm1` evaluation so small
+alpha/time changes retain their integrated forward. Original numerical controls
+and tolerances are unchanged.
+
+Use the [explicit UFR source](CURVE-UFR.md) for the full supplied LLP/exact-base
+contract and analytic `UfrForward` dispatch. Existing `Nodes` admission is not
+widened. Other base families, complete method/product calibration and quote-risk
+rebuilding need their owning contracts; full engine/snapshot reconstruction of
+these new recipes remains pending.

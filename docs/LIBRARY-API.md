@@ -529,3 +529,10 @@ credit/basis segment integration, remaining curve-risk/method combinations and
 market/host certificates retain their original owners.
 
 Complete [step-zero and flat-forward method contracts](CURVE-METHODS.md) retain original nodes/units/time basis, method/representation/role/currency/version and exact source/side/tail guards through the existing shared adapters. Native PiecewiseConstant linear and older raw FlatForward tail substitutions are removed; see [migration](ROUTE-MIGRATION.md). Product calibration, full quote-risk and actual unavailable-host qualification remain separate.
+
+The [explicit UFR convergence contract](CURVE-UFR.md) retains the full exact
+FlatForward or parametric base, supplied LLP, UFR and alpha. Native analytic left
+forward/zero boundaries, stable integrated tails, tail-specific `UfrForward`
+queries, actual date/time/unit/extension diagnostics and strict missing/domain
+failures flow through the same generic clients. No derivative default, sampled
+grid, regulatory Smith–Wilson or product-fit substitute is admitted.

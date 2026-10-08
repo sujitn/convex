@@ -16,6 +16,7 @@ mod parametric_fit;
 mod query;
 mod structured;
 mod transformations;
+mod ufr;
 
 pub use build::{
     build_curve_set, build_fitted_issuer_curve, build_fitted_rate_curve, BuiltCurve,
@@ -29,6 +30,7 @@ pub use parametric_fit::*;
 pub use query::*;
 pub use structured::*;
 pub use transformations::*;
+pub use ufr::UfrCurveDiagnostics;
 
 /// Maximum recipes in one atomic curve build, including supplied dependencies.
 pub const MAX_CURVES: usize = 256;

@@ -93,7 +93,10 @@ forwards and declared exact extension. The native PiecewiseConstant tag now
 selects actual right-owned steps. The older raw FlatForward tail substitution
 is removed: checked queries reject it and infallible compatibility queries
 return NaN outside that unsupported tail. Checked UFR setup/evaluation retains
-its separate native constraints; full checked UFR/monotone recipes remain open.
+its separate native constraints. The complete [explicit UFR source](CURVE-UFR.md)
+joins an exact original FlatForward or parametric model at a supplied LLP with
+its analytic left forward. Complete MonotoneConvex and UFR joins over other
+native source families remain open.
 Original numerical controls and ordinary supported query paths are preserved.
 
 ## Full economic helper descriptions

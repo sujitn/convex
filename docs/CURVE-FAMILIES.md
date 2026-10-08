@@ -133,3 +133,7 @@ Windows/Excel and wasm32/browser execution remains unverified. No model, market,
 library, production or latency certificate is inferred.
 
 Remaining grid methods are documented in [explicit curve methods](CURVE-METHODS.md). Complete zero sources and one-sided original forwards do not extend product-price parametric fitting or quote-risk rebuilding.
+
+An [explicit UFR tail](CURVE-UFR.md) can join the original parametric model
+inside its declared native horizon. It retains the exact source and analytic
+left forward, rather than resampling its parameters into a node grid.
