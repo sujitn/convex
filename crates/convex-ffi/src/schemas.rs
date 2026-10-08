@@ -151,12 +151,11 @@ const SPREAD_REQUEST: &str = r##"{
     "settlement": {"type": "string", "format": "date"},
     "mark": {"$ref": "#/definitions/Mark"},
     "spread_type": {"enum": ["ZSpread","GSpread","ISpread","AssetSwapPar","AssetSwapProceeds","OAS","Credit","DiscountMargin"]},
-    "params": {"type":"object","properties":{
+    "params": {"type":"object","additionalProperties":false,"properties":{
         "volatility":{"type":"number","description":"OAS short-rate volatility (decimal, 0.01 = 1%)"},
         "forward_curve":{"type":"integer","description":"Explicit projection curve; fixing-aware FRN dispatch is pending"},
         "current_index":{"type":"number","description":"Simple-margin current index rate (decimal)"},
         "quote_frequency":{"enum":["Annual","SemiAnnual","Quarterly","Monthly"],"description":"Fixed-coupon quoted yield compounding; v1 default SemiAnnual"},
-        "govt_curve":{"type":"integer","description":"Unsupported zero-curve proxy; supply government benchmarks"},
         "government":{"type":"object","required":["reference_date","sovereign","benchmarks"],"description":"Actual GovernmentCurveSpec with 1..128 supplied securities and quoted yields; no zero-rate proxy"}
     }}
   }
@@ -240,13 +239,13 @@ const YAS_REQUEST: &str = r##"{
   "title": "YasRequest",
   "description": "One-call yield & spread analysis (Bloomberg-YAS style). References may be numeric handles or registered names (CUSIP/ISIN/curve name).",
   "type": "object",
+  "additionalProperties": false,
   "required": ["bond","settlement","mark","curve"],
   "properties": {
     "bond": {"type": ["integer","string"], "description": "Fixed-coupon bond handle or ticker"},
     "settlement": {"type": "string", "format": "date"},
     "mark": {"$ref": "#/definitions/Mark"},
-    "curve": {"type": ["integer","string"], "description": "Spot/discount curve (Z-spread; G-spread too unless govt_curve set)"},
-    "govt_curve": {"type": ["integer","string","null"], "description": "Government curve for G/benchmark spreads"},
+    "curve": {"type": ["integer","string"], "description": "Spot/discount curve for pricing and Z-spread"},
     "swap_curve": {"type": ["integer","string","null"], "description": "Swap curve for I-spread"},
     "quote_frequency": {"$ref": "#/definitions/Frequency"}
   }
@@ -256,7 +255,7 @@ const YAS_RESPONSE: &str = r##"{
   "title": "YasResponse",
   "description": "Yields in percent, spreads in basis points, prices/amounts per 100 face.",
   "type": "object",
-  "required": ["clean_price","dirty_price","accrued","accrued_days","ytm_pct","current_yield_pct","simple_yield_pct","g_spread_bps","z_spread_bps","benchmark_spread_bps","benchmark_tenor","modified_duration","macaulay_duration","convexity","dv01_per_100","principal_amount","accrued_amount","settlement_amount"],
+  "required": ["clean_price","dirty_price","accrued","accrued_days","ytm_pct","current_yield_pct","simple_yield_pct","z_spread_bps","modified_duration","macaulay_duration","convexity","dv01_per_100","principal_amount","accrued_amount","settlement_amount"],
   "properties": {
     "clean_price": {"type": "number"},
     "dirty_price": {"type": "number"},
@@ -266,10 +265,7 @@ const YAS_RESPONSE: &str = r##"{
     "current_yield_pct": {"type": "number"},
     "simple_yield_pct": {"type": "number"},
     "money_market_yield_pct": {"type": ["number","null"]},
-    "g_spread_bps": {"type": "number"},
     "z_spread_bps": {"type": "number"},
-    "benchmark_spread_bps": {"type": "number"},
-    "benchmark_tenor": {"type": "string"},
     "asw_spread_bps": {"type": ["number","null"]},
     "oas_bps": {"type": ["number","null"]},
     "modified_duration": {"type": "number"},

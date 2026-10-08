@@ -7,7 +7,6 @@ import SpreadAnalysis from './components/SpreadAnalysis';
 import RiskMetrics from './components/RiskMetrics';
 import CashFlowTable from './components/CashFlowTable';
 import PriceYieldChart from './components/PriceYieldChart';
-import Benchmark from './components/Benchmark';
 import Invoice from './components/Invoice';
 import TreasuryCurve from './components/TreasuryCurve';
 import CallSchedule from './components/CallSchedule';
@@ -673,75 +672,6 @@ function App({ wasmModule }) {
     }
   }, [wasmModule, bond, treasuryCurve]);
 
-  // Handle G-spread change - calculate price from target G-spread
-  const handleGSpreadChange = useCallback((targetGSpreadBps) => {
-    if (!wasmModule) return;
-
-    try {
-      const bondParams = {
-        coupon_rate: bond.couponRate,
-        maturity_date: bond.maturityDate,
-        issue_date: bond.issueDate,
-        settlement_date: bond.settlementDate,
-        face_value: bond.faceValue,
-        frequency: bond.frequency,
-        day_count: bond.dayCount,
-        currency: bond.currency,
-        first_coupon_date: bond.firstCouponDate || null,
-        call_schedule: null,
-      };
-
-      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
-      const result = wasmModule.price_from_g_spread(bondParams, targetGSpreadBps, curvePoints);
-
-      if (result.clean_price && !result.error) {
-        setPrice(result.clean_price);
-      } else if (result.error) {
-        setError(result.error);
-      }
-    } catch (err) {
-      console.error('G-spread solve error:', err);
-      setError('Failed to calculate price from G-spread');
-    }
-  }, [wasmModule, bond, treasuryCurve]);
-
-  // Handle Benchmark spread change - calculate price from target benchmark spread
-  const handleBenchmarkSpreadChange = useCallback((targetBenchmarkSpreadBps, benchmarkTenor) => {
-    if (!wasmModule) return;
-
-    try {
-      const bondParams = {
-        coupon_rate: bond.couponRate,
-        maturity_date: bond.maturityDate,
-        issue_date: bond.issueDate,
-        settlement_date: bond.settlementDate,
-        face_value: bond.faceValue,
-        frequency: bond.frequency,
-        day_count: bond.dayCount,
-        currency: bond.currency,
-        first_coupon_date: bond.firstCouponDate || null,
-        call_schedule: null,
-      };
-
-      const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
-      const result = wasmModule.price_from_benchmark_spread(
-        bondParams,
-        targetBenchmarkSpreadBps,
-        benchmarkTenor || '10Y',
-        curvePoints
-      );
-
-      if (result.clean_price && !result.error) {
-        setPrice(result.clean_price);
-      } else if (result.error) {
-        setError(result.error);
-      }
-    } catch (err) {
-      console.error('Benchmark spread solve error:', err);
-      setError('Failed to calculate price from benchmark spread');
-    }
-  }, [wasmModule, bond, treasuryCurve]);
-
   // Handle Treasury curve rate change
   const handleCurveChange = useCallback((tenor, rate) => {
     setTreasuryCurve(prev => ({
@@ -901,7 +831,7 @@ function App({ wasmModule }) {
           </div>
         </div>
 
-        {/* Row 2: Call Schedule | Spread Analysis | Benchmark */}
+        {/* Row 2: Call Schedule | Spread Analysis */}
         <div className="grid-row row-2">
           <div className="grid-cell">
             <CallSchedule
@@ -916,16 +846,6 @@ function App({ wasmModule }) {
             <SpreadAnalysis
               analysis={analysis}
               onSpreadChange={handleSpreadChange}
-              onGSpreadChange={handleGSpreadChange}
-            />
-          </div>
-          <div className="grid-cell">
-            <Benchmark
-              analysis={analysis}
-              treasuryCurve={treasuryCurve}
-              maturityDate={bond.maturityDate}
-              settlementDate={bond.settlementDate}
-              onBenchmarkSpreadChange={handleBenchmarkSpreadChange}
             />
           </div>
         </div>

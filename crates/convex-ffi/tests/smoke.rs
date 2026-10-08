@@ -937,57 +937,9 @@ fn scenario_ladder_reprices_under_bumps() {
 
 // A G-spread mark must price against the supplied government curve, not the
 // spot curve (the quote's benchmark is the govt curve).
-#[test]
-fn yas_g_spread_mark_prices_against_govt_curve() {
-    unsafe {
-        let h = build_handle(fixed_rate_5pct());
-        let curve = |name: String, level: f64| {
-            json!({
-                "type": "discrete",
-                "name": name,
-                "ref_date": "2025-01-15",
-                "tenors": [0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
-                "values": [level, level, level, level, level, level],
-                "value_kind": "zero_rate",
-                "interpolation": "linear",
-                "day_count": "Act365Fixed",
-                "compounding": "Continuous"
-            })
-        };
-        let spot = build_curve(curve(uid("SPOT."), 0.045));
-        let govt = build_curve(curve(uid("GOVT."), 0.030));
-
-        let yas = |govt_curve: Option<u64>| {
-            let mut req = json!({
-                "bond": h,
-                "settlement": "2025-04-15",
-                "mark": "125 G@USD.TSY",
-                "curve": spot
-            });
-            if let Some(g) = govt_curve {
-                req["govt_curve"] = json!(g);
-            }
-            rpc(convex_ffi::convex_yas, &req.to_string())
-        };
-
-        let with_govt = yas(Some(govt));
-        let without = yas(None);
-        assert_eq!(with_govt["ok"], "true", "resp: {with_govt}");
-        assert_eq!(without["ok"], "true", "resp: {without}");
-        let p_govt = with_govt["result"]["clean_price"].as_f64().unwrap();
-        let p_spot = without["result"]["clean_price"].as_f64().unwrap();
-        // 150bp of benchmark difference must move the marked price materially;
-        // identical prices would mean the govt curve was ignored.
-        assert!(
-            (p_govt - p_spot).abs() > 1.0,
-            "govt-curve pricing ignored: {p_govt} vs {p_spot}"
-        );
-    }
-}
-
 // CX.YAS backing verb: one call returns yields, spreads, risk and invoice.
 #[test]
-fn yas_returns_full_analysis_in_one_call() {
+fn yas_returns_supported_analysis_in_one_call() {
     unsafe {
         let h = build_handle(fixed_rate_5pct());
         let curve_spec = json!({
@@ -1019,10 +971,11 @@ fn yas_returns_full_analysis_in_one_call() {
         let ytm = r["ytm_pct"].as_f64().unwrap();
         assert!(ytm > 4.0 && ytm < 6.5, "ytm_pct = {ytm}");
         assert!(r["z_spread_bps"].as_f64().unwrap().is_finite());
-        assert!(r["g_spread_bps"].as_f64().unwrap().is_finite());
+        for field in ["g_spread_bps", "benchmark_spread_bps", "benchmark_tenor"] {
+            assert!(r.get(field).is_none(), "removed proxy emitted: {field}");
+        }
         assert!(r["modified_duration"].as_f64().unwrap() > 0.0);
         assert!(r["dv01_per_100"].as_f64().unwrap() > 0.0);
-        assert!(r["benchmark_tenor"].as_str().unwrap().len() >= 2);
         assert!(r["settlement_amount"].as_f64().unwrap() > 0.0);
     }
 }

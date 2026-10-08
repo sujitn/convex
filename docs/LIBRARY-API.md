@@ -283,11 +283,13 @@ units/limitations. In particular, the older FRN entry points cannot supply full
 history/publication/projection resources and fail explicitly. They do not gain
 complete FRN support from the addition of a generic route.
 
-The older MCP `g_spread` operation now reports `unsupported`: its request cannot
-supply actual government benchmark securities/yields. Its tenor-only bootstrap
-and synthetic hedge conveniences remain `compatibility_unverified`; they cannot
-establish AC3 for complete multi-curve or hedge behavior. The generic route does
-not silently upgrade them. Earlier quantitative fixtures and bounds stay protected.
+Government zero-curve convenience routes, fields and controls have been removed;
+use actual supplied securities through `government_spread`. See the
+[removed routes and caller migration](ROUTE-MIGRATION.md), including Excel
+positional arguments and WASM exports. Tenor-only bootstrap and indicative hedge
+conveniences remain `compatibility_unverified`; they cannot establish AC3 for
+complete multi-curve or hedge behavior. Earlier quantitative fixtures and bounds
+stay protected.
 
 ## Bounds and deployment
 

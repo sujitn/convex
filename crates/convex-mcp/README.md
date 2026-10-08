@@ -45,7 +45,7 @@ See [docs/integration-guide.md](docs/integration-guide.md) for additional client
 | `bootstrap_curve` | Bootstrap a curve from deposits / swaps / OIS. |
 | `price_bond` | Price a bond against a trader `Mark` (price / yield / spread). |
 | `calculate_yield` | Yield to maturity from clean price. |
-| `compute_spread` | Z-spread or I-spread against a curve. G-spread reports `unsupported` because this request cannot supply government benchmark securities/yields. |
+| `compute_spread` | Z-spread or I-spread against a curve. Government spread uses full supplied securities through `library`. |
 | `get_zero_rate` | Zero rate at a tenor. |
 | `list_all_bonds` | List stored bonds. |
 | `list_all_curves` | List stored curves. |
@@ -69,3 +69,4 @@ Options:
 See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
 Generic JSON text calls preserve native diagnostics and decimal strings.
 Full mandatory operations and host certification remain open.
+See [removed convenience routes and migration](../../docs/ROUTE-MIGRATION.md).

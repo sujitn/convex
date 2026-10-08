@@ -1817,17 +1817,18 @@
     },
     {
       "path": "crates/convex-ffi/src/dispatch.rs",
-      "sha256": "108a7392f40802d072bd5a564bb890581eef2b4d518ea5713d0d6256fed8e997",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
+      "sha256": "d0a12f4eb8034909ef5d5dfd9bab8ad3db814c458be170e263faffb82f8b4496",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. Reviewed route removal: CVX-063 government route cleanup authorized by the user: remove unavailable MCP G selection, C/Java/YAS government zero-curve fields and government-mark pricing, YAS/WASM government/benchmark outputs, two incorrect WASM inverse exports and their unused parser, Excel arguments/rows and browser editor/synthetic benchmark/styles. Browser engine failure is an admission error, not fake prices; absent OAS is not a Z-spread proxy. Removed JSON fields, including nulls and irrelevant spread-family combinations, fail closed before financial dispatch. Correct full supplied-security quotation/spread operations and 18 exact shared routes/284 supplied requests remain. C exports/ownership, Cargo manifests/lock, all223 numerical rows/bytes/defaults, all5089 historical evidence files and original30areas/174combinations/2154Planned requirements remain unchanged. Breaking Java/WASM/Excel/JSON migrations are explicit; no government-spread price inverse is implied. Other convenience/model/convention and actual Windows/Excel/wasm32/browser qualification remains CVX-063 owning work. No provider/DB/MQ/clock/authority, fabricated independent approval, certificate, push/merge/deployment or live orders.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
-        "crates/convex-ffi/tests/assurance.rs",
-        "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py",
         "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-ffi/tests/route_admission.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "tools/assurance/abi_smoke.py"
       ],
       "exceptions": [
         "ASR-004"
@@ -1864,12 +1865,13 @@
     },
     {
       "path": "crates/convex-ffi/src/lib.rs",
-      "sha256": "ca5410f694cd21ceb853fa0882b556e06ba6a8d7c2ee297da3fa6febee4b4b95",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock.",
+      "sha256": "b6039bc45a50cd02bb39f214f68c88ca667fd8e75e0ecf081a9dffc6e6665f42",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. Reviewed route removal: CVX-063 government route cleanup authorized by the user: remove unavailable MCP G selection, C/Java/YAS government zero-curve fields and government-mark pricing, YAS/WASM government/benchmark outputs, two incorrect WASM inverse exports and their unused parser, Excel arguments/rows and browser editor/synthetic benchmark/styles. Browser engine failure is an admission error, not fake prices; absent OAS is not a Z-spread proxy. Removed JSON fields, including nulls and irrelevant spread-family combinations, fail closed before financial dispatch. Correct full supplied-security quotation/spread operations and 18 exact shared routes/284 supplied requests remain. C exports/ownership, Cargo manifests/lock, all223 numerical rows/bytes/defaults, all5089 historical evidence files and original30areas/174combinations/2154Planned requirements remain unchanged. Breaking Java/WASM/Excel/JSON migrations are explicit; no government-spread price inverse is implied. Other convenience/model/convention and actual Windows/Excel/wasm32/browser qualification remains CVX-063 owning work. No provider/DB/MQ/clock/authority, fabricated independent approval, certificate, push/merge/deployment or live orders.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
         "crates/convex-ffi/tests/assurance.rs",
+        "crates/convex-ffi/tests/route_admission.rs",
         "crates/convex-ffi/tests/smoke.rs",
         "tools/assurance/abi_smoke.py"
       ],
@@ -1890,17 +1892,18 @@
     },
     {
       "path": "crates/convex-ffi/src/schemas.rs",
-      "sha256": "8479c97e82f5ed81e7d11cdb35c0e254495933530f4b04dc1cda85781061484c",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback.",
+      "sha256": "60bc9a37797210ef404944f0155f35aaa6d8dc45235d2b8c80a8be204f940871",
+      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. Reviewed route removal: CVX-063 government route cleanup authorized by the user: remove unavailable MCP G selection, C/Java/YAS government zero-curve fields and government-mark pricing, YAS/WASM government/benchmark outputs, two incorrect WASM inverse exports and their unused parser, Excel arguments/rows and browser editor/synthetic benchmark/styles. Browser engine failure is an admission error, not fake prices; absent OAS is not a Z-spread proxy. Removed JSON fields, including nulls and irrelevant spread-family combinations, fail closed before financial dispatch. Correct full supplied-security quotation/spread operations and 18 exact shared routes/284 supplied requests remain. C exports/ownership, Cargo manifests/lock, all223 numerical rows/bytes/defaults, all5089 historical evidence files and original30areas/174combinations/2154Planned requirements remain unchanged. Breaking Java/WASM/Excel/JSON migrations are explicit; no government-spread price inverse is implied. Other convenience/model/convention and actual Windows/Excel/wasm32/browser qualification remains CVX-063 owning work. No provider/DB/MQ/clock/authority, fabricated independent approval, certificate, push/merge/deployment or live orders.",
       "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
       "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
       "tests": [
-        "crates/convex-ffi/tests/assurance.rs",
-        "crates/convex-ffi/tests/smoke.rs",
-        "tools/assurance/abi_smoke.py",
         "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ffi/tests/assurance.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-ffi/tests/route_admission.rs",
+        "crates/convex-ffi/tests/smoke.rs",
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "tools/assurance/abi_smoke.py"
       ],
       "exceptions": []
     },

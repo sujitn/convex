@@ -292,9 +292,6 @@ pub(crate) fn convert_yas_result(
         convexity: Some(decimal_to_f64(result.convexity())),
         dv01: Some(decimal_to_f64(result.dv01())),
 
-        g_spread: Some(decimal_to_f64(result.g_spread.as_bps())),
-        benchmark_spread: Some(decimal_to_f64(result.benchmark_spread.as_bps())),
-        benchmark_tenor: Some(result.benchmark_tenor.clone()),
         z_spread: Some(decimal_to_f64(result.z_spread.as_bps())),
         asw_spread: result
             .asw_spread

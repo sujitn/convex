@@ -438,6 +438,7 @@ pub struct RiskResponse {
 /// Optional per-family parameters. Each field documents which spread family
 /// reads it; values are ignored for unrelated families.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SpreadParams {
     /// Quoted-yield compounding for fixed-coupon spreads; preserves the v1 default.
     #[serde(default)]
@@ -451,9 +452,6 @@ pub struct SpreadParams {
     /// Simple margin: current index rate (decimal, 0.05 = 5%).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_index: Option<f64>,
-    /// G-spread: government curve handle. Required for `GSpread` requests.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub govt_curve: Option<Handle>,
     /// Actual government benchmark yields; a generic zero curve is not a substitute.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub government: Option<GovernmentCurveSpec>,
@@ -581,19 +579,17 @@ pub struct CurveQueryResponse {
 
 // ---- YAS (one-call yield & spread analysis) --------------------------------
 
-/// Bloomberg-YAS-style analysis in one request: every yield convention,
-/// G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice.
+/// Convenience yield, Z/ASW spread, risk and settlement invoice analysis.
+/// Government-security spreads require separate supplied benchmark securities.
 /// Backed by `crate::yas::YASCalculator`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct YasRequest {
     pub bond: Handle,
     pub settlement: Date,
     pub mark: MarkInput,
-    /// Spot/discount curve (Z-spread; also G-spread unless `govt_curve` set).
+    /// Spot/discount curve for pricing and Z-spread.
     pub curve: Handle,
-    /// Government curve for G-spread and the benchmark spread.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub govt_curve: Option<Handle>,
     /// Swap curve for I-spread.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub swap_curve: Option<Handle>,
@@ -613,10 +609,7 @@ pub struct YasResponse {
     pub simple_yield_pct: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub money_market_yield_pct: Option<f64>,
-    pub g_spread_bps: f64,
     pub z_spread_bps: f64,
-    pub benchmark_spread_bps: f64,
-    pub benchmark_tenor: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asw_spread_bps: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

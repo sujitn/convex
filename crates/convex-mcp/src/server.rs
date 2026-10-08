@@ -414,9 +414,6 @@ pub enum SpreadKind {
     ZSpread,
     /// I-spread — bond YTM minus the swap-curve rate at maturity.
     ISpread,
-    /// Government-security G-spread requires actual benchmark securities/yields.
-    /// This convenience interface cannot supply them and reports unsupported.
-    GSpread,
 }
 
 /// `compute_position_risk` parameters.
@@ -592,7 +589,7 @@ pub struct ComputeSpreadParams {
     /// Bond reference — id or inline spec.
     pub bond: BondRef,
     /// Curve reference — id or inline spec. For Z-spread this is the discount curve;
-    /// for I-spread the swap curve; for G-spread the government curve.
+    /// for I-spread the swap curve.
     pub curve: CurveRef,
     /// Settlement date.
     pub settlement: DateInput,
@@ -1017,18 +1014,12 @@ impl ConvexMcpServer {
 
     #[tool(
         description = "Compute z_spread or i_spread for a bond against a curve. \
-            g_spread is unsupported here because this request cannot supply actual government benchmark securities/yields. \
             `bond` and `curve` accept either a stored id (string) or an inline spec (object)."
     )]
     pub async fn compute_spread(
         &self,
         Parameters(params): Parameters<ComputeSpreadParams>,
     ) -> Result<CallToolResult, McpError> {
-        if matches!(params.kind, SpreadKind::GSpread) {
-            return Err(McpToolError::Unsupported(
-                "G-spread requires actual supplied government benchmark securities/yields; an I-spread proxy is not a G-spread".into(),
-            ).into());
-        }
         let (bond, bond_id) = self.resolve_bond(&params.bond)?;
         let (curve, curve_id) = self.resolve_curve(&params.curve)?;
         let settlement = params.settlement.to_date()?;
@@ -1067,12 +1058,6 @@ impl ConvexMcpServer {
                     .as_bps()
                     .to_f64()
                     .unwrap_or(f64::NAN)
-            }
-            SpreadKind::GSpread => {
-                return Err(McpToolError::Unsupported(
-                    "actual government benchmarks unavailable in this interface".into(),
-                )
-                .into());
             }
         };
 

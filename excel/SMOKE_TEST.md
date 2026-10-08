@@ -58,13 +58,13 @@ The error taxonomy: `#VALUE!` malformed input · `#NAME?` unknown keyword
 B1: =CX.CURVE("USD.SOFR", DATE(2025,1,15), {0.5,1,2,5,10,30}, {0.04,0.04,0.04,0.04,0.04,0.04}, "zero_rate", "linear")
 B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")            ' ~80–120 bps
 B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "I")            ' I-spread bps, finite
-B4: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")            ' #VALUE!; CX.LASTERROR(B4) names params.govt_curve
+B4: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")            ' #VALUE!; CX.LASTERROR(B4) names params.government
 ```
 
-`B4` must error — G-spread only computes against an explicitly-supplied
-government curve; `=CX.LASTERROR(B4)` must name `params.govt_curve`. Use
-the **Spread Ticket** ribbon form, which threads `params.govt_curve`
-through, for the positive path.
+`B4` must error; `=CX.LASTERROR(B4)` must name `params.government`.
+Neither this UDF nor the Spread Ticket supplies actual government securities.
+Use `CX.LIBRARY.RANGE` with a full `government_spread` request for the positive
+path. A government zero-rate curve must not substitute for security yields.
 
 ## Risk + KRD
 
@@ -81,7 +81,7 @@ The sum of the three KRDs should fall well within `[0, 2 × mod_dur]`.
 ```excel
 D1: =CX.SCHEMA("Mark")                                           ' multi-line JSON schema text
 D2: =CX.SCHEMA("PricingRequest")                                 ' includes forward_curve field
-D3: =CX.SCHEMA("SpreadRequest")                                  ' includes params.govt_curve, params.volatility, ...
+D3: =CX.SCHEMA("SpreadRequest")                                  ' includes params.government, params.volatility, ...
 ```
 
 If any of these errors (`#VALUE!` with `CX.LASTERROR` naming the type)
@@ -98,7 +98,7 @@ E2: =CX.PRICE("NO_SUCH", DATE(2025,4,15), "99.5C")    ' #REF!; CX.LASTERROR(E2) 
 ## One-call grids
 
 ```excel
-F1: =CX.YAS(A1, DATE(2025,4,15), "99.5C", B1)                      ' spills ~18 rows: yields, G/Z/benchmark/ASW, risk, invoice
+F1: =CX.YAS(A1, DATE(2025,4,15), "99.5C", B1)                      ' yields, Z/ASW, risk, invoice; no government/benchmark output
 F2: =CX.SCENARIO(A1, B1, DATE(2025,4,15), "99.5C", {-50,0,50})     ' ladder; the 0bp row reproduces the base price exactly
 ```
 

@@ -111,18 +111,13 @@ fn to_envelope<T: serde::Serialize>(r: Result<T, DispatchError>) -> String {
 /// Field paths that carry registry references, per request shape.
 const PRICE_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["forward_curve"]];
 const RISK_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["forward_curve"]];
-const SPREAD_REFS: &[&[&str]] = &[
-    &["bond"],
-    &["curve"],
-    &["params", "forward_curve"],
-    &["params", "govt_curve"],
-];
+const SPREAD_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["params", "forward_curve"]];
 const CASHFLOWS_REFS: &[&[&str]] = &[&["bond"]];
 const CURVE_QUERY_REFS: &[&[&str]] = &[&["curve"]];
 const MAKE_WHOLE_REFS: &[&[&str]] = &[&["bond"]];
 const RISK_PROFILE_REFS: &[&[&str]] = &[&["bond"], &["curve"]];
 const HEDGE_REFS: &[&[&str]] = &[&["curve"]];
-const YAS_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["govt_curve"], &["swap_curve"]];
+const YAS_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["swap_curve"]];
 const SCENARIO_REFS: &[&[&str]] = &[&["bond"], &["curve"]];
 
 fn field_mut<'a>(
@@ -499,9 +494,6 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
         }
         SpreadType::GSpread => {
-            if req.params.govt_curve.is_some() {
-                return Err(DispatchError::input_field("params.govt_curve", "generic zero curve handles cannot represent actual government benchmark yields; supply params.government"));
-            }
             let supplied = req.params.government.as_ref().ok_or_else(|| {
                 DispatchError::input_field(
                     "params.government",
@@ -840,24 +832,19 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
         .map_err(|e| DispatchError::input(format!("YasRequest: {e}")))?;
     let mark = parse_mark(&req.mark)?;
 
+    // This convenience request cannot bind government benchmark securities.
+    if matches!(&mark, Mark::Spread { value, .. } if value.spread_type() == SpreadType::GSpread) {
+        return Err(DispatchError::input_field(
+            "mark",
+            "G-spread marks are not admitted here; library government_spread calculates spreads from supplied securities",
+        ));
+    }
     let spot = clone_typed_curve(req.curve)?;
-    let govt = match req.govt_curve {
-        Some(h) if h != 0 => Some(clone_typed_curve(h)?),
-        _ => None,
-    };
     let swap = match req.swap_curve {
         Some(h) if h != 0 => Some(clone_typed_curve(h)?),
         _ => None,
     };
-
-    // A spread mark is quoted over its own benchmark: G over the government
-    // curve, I over the swap curve (falling back to spot when not supplied,
-    // matching the YasRequest::curve doc).
     let price_curve: &dyn RateCurveDyn = match &mark {
-        Mark::Spread { value, .. } if value.spread_type() == SpreadType::GSpread => govt
-            .as_ref()
-            .map(|g| g as &dyn RateCurveDyn)
-            .unwrap_or(&spot),
         Mark::Spread { value, .. } if value.spread_type() == SpreadType::ISpread => swap
             .as_ref()
             .map(|s| s as &dyn RateCurveDyn)
@@ -876,10 +863,7 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
         let clean = Decimal::from_f64_retain(priced.clean_price_per_100)
             .ok_or_else(|| DispatchError::analytics("non-finite clean price"))?;
 
-        let mut calc = match &govt {
-            Some(g) => YASCalculator::with_curves(g, &spot),
-            None => YASCalculator::new(&spot),
-        };
+        let mut calc = YASCalculator::new(&spot);
         if let Some(s) = &swap {
             calc = calc.with_swap_curve(s);
         }
@@ -898,10 +882,7 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
             current_yield_pct: dec_to_f64(r.current_yield),
             simple_yield_pct: dec_to_f64(r.simple_yield),
             money_market_yield_pct: r.money_market_yield.map(dec_to_f64),
-            g_spread_bps: dec_to_f64(r.g_spread.as_bps()),
             z_spread_bps: dec_to_f64(r.z_spread.as_bps()),
-            benchmark_spread_bps: dec_to_f64(r.benchmark_spread.as_bps()),
-            benchmark_tenor: r.benchmark_tenor.clone(),
             asw_spread_bps: r.asw_spread.map(|s| dec_to_f64(s.as_bps())),
             oas_bps: r.oas.map(|s| dec_to_f64(s.as_bps())),
             modified_duration: dec_to_f64(r.risk.modified_duration.years()),

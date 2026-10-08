@@ -184,10 +184,10 @@ char *convex_library(const char *request_json);
 char *convex_make_whole(const char *request_json);
 
 /**
- * One-call yield & spread analysis (Bloomberg-YAS style). Request:
- * `YasRequest`. Response: `YasResponse` — every yield convention, G/Z/
- * benchmark/ASW spreads, risk metrics, and the settlement invoice from a
- * single computation.
+ * One-call yield, Z/ASW spread, risk and settlement invoice analysis.
+ * Request: `YasRequest`. Response: `YasResponse`. Government-security
+ * spreads require separate supplied benchmark securities; G-spread marks
+ * are not admitted by this convenience request.
  *
  * # Safety
  * Input must be null or a readable NUL-terminated C string in one allocation,

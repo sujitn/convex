@@ -414,20 +414,18 @@ namespace Convex.Excel
             });
 
         [ExcelFunction(Name = "CX.YAS",
-            Description = "One-call yield & spread analysis (Bloomberg-YAS style): every yield convention, " +
-                          "G/Z/benchmark/ASW spreads, risk metrics, and the settlement invoice as one spilled grid.",
+            Description = "One-call yield, Z/ASW spread, risk and settlement invoice analysis.",
             Category = "Convex Pricing", IsThreadSafe = true)]
         public static object CxYas(
             [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
             [ExcelArgument("Settlement date")] DateTime settlement,
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Spot/discount curve handle or name")] object curveRef,
-            [ExcelArgument("Government curve for G-spread (optional; defaults to the spot curve)")] object govtCurveRef,
             [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
             [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef) =>
             Safe(() =>
             {
-                var req = BuildYasRequest(bondRef, settlement, mark, curveRef, govtCurveRef,
+                var req = BuildYasRequest(bondRef, settlement, mark, curveRef,
                     quoteFrequency, swapCurveRef);
                 return YasToGrid(Cx.Yas(req));
             });
@@ -441,19 +439,18 @@ namespace Convex.Excel
             [ExcelArgument("Settlement date")] DateTime settlement,
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Spot/discount curve handle or name")] object curveRef,
-            [ExcelArgument("Government curve for G-spread (optional; defaults to the spot curve)")] object govtCurveRef,
             [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
             [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef) =>
             Safe(() =>
             {
-                var req = BuildYasRequest(bondRef, settlement, mark, curveRef, govtCurveRef,
+                var req = BuildYasRequest(bondRef, settlement, mark, curveRef,
                     quoteFrequency, swapCurveRef);
                 return CxLive.Observe("yas", req, YasToGrid);
             });
 
         private static JObject BuildYasRequest(
             object bondRef, DateTime settlement, object mark, object curveRef,
-            object govtCurveRef, object quoteFrequency, object swapCurveRef)
+            object quoteFrequency, object swapCurveRef)
         {
             var req = new JObject
             {
@@ -463,8 +460,6 @@ namespace Convex.Excel
                 ["curve"] = CxParse.AsHandleRef(curveRef, "curve"),
                 ["quote_frequency"] = CxParse.AsFrequency(quoteFrequency),
             };
-            var govt = CxParse.AsHandleRefOrNull(govtCurveRef);
-            if (govt != null) req["govt_curve"] = govt;
             var swap = CxParse.AsHandleRefOrNull(swapCurveRef);
             if (swap != null) req["swap_curve"] = swap;
             return req;
@@ -484,10 +479,7 @@ namespace Convex.Excel
                 };
                 var mmy = (double?)r["money_market_yield_pct"];
                 if (mmy.HasValue) rows.Add(("MM Yield (%)", mmy.Value));
-                rows.Add(("G-Spread (bps)", (double?)r["g_spread_bps"] ?? double.NaN));
                 rows.Add(("Z-Spread (bps)", (double?)r["z_spread_bps"] ?? double.NaN));
-                rows.Add(($"Benchmark {(string?)r["benchmark_tenor"] ?? "?"} (bps)",
-                    (double?)r["benchmark_spread_bps"] ?? double.NaN));
                 var asw = (double?)r["asw_spread_bps"];
                 if (asw.HasValue) rows.Add(("ASW (bps)", asw.Value));
                 var oas = (double?)r["oas_bps"];

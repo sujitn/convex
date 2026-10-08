@@ -87,9 +87,6 @@ pub struct AnalysisResult {
     pub dv01: Option<f64>,
 
     // Spread metrics (in basis points)
-    pub g_spread: Option<f64>,
-    pub benchmark_spread: Option<f64>,
-    pub benchmark_tenor: Option<String>,
     pub z_spread: Option<f64>,
     pub asw_spread: Option<f64>,
     pub oas: Option<f64>, // Option-Adjusted Spread (for callable bonds)

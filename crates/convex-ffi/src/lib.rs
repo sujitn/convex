@@ -368,10 +368,10 @@ pub unsafe extern "C" fn convex_make_whole(request_json: *const c_char) -> *mut 
     unsafe { rpc(request_json, dispatch::make_whole) }
 }
 
-/// One-call yield & spread analysis (Bloomberg-YAS style). Request:
-/// `YasRequest`. Response: `YasResponse` — every yield convention, G/Z/
-/// benchmark/ASW spreads, risk metrics, and the settlement invoice from a
-/// single computation.
+/// One-call yield, Z/ASW spread, risk and settlement invoice analysis.
+/// Request: `YasRequest`. Response: `YasResponse`. Government-security
+/// spreads require separate supplied benchmark securities; G-spread marks
+/// are not admitted by this convenience request.
 ///
 /// # Safety
 /// Input must be null or a readable NUL-terminated C string in one allocation,

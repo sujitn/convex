@@ -161,7 +161,8 @@ discount-to-projection default and current-index shortcut from active dispatch.
 
 `SpreadParams.quote_frequency` defaults to the unchanged v1 semiannual value.
 `params.government` supplies the same actual benchmark record as REST. The old
-`params.govt_curve` zero-curve proxy is explicitly refused. No C exports,
+`params.govt_curve` zero-curve proxy has been removed and fails as unknown input.
+See [caller migration](ROUTE-MIGRATION.md). No C exports,
 pointer ownership rules, allocation/admission ceilings or ABI symbols change.
 The existing introspection schemas describe these additions; full generated
 host schema parity remains CVX-063.

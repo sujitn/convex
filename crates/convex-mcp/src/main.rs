@@ -67,11 +67,6 @@ async fn run_stdio_server(server: ConvexMcpServer) -> anyhow::Result<()> {
     let service = server.serve(stdio()).await?;
 
     tracing::info!("Convex MCP Server ready");
-    tracing::info!(
-        "Available tools: create_bond, calculate_yield, calculate_price, bond_analytics, \
-         create_curve, bootstrap_curve, get_zero_rate, get_forward_rate, \
-         calculate_z_spread, calculate_i_spread, calculate_g_spread, and more"
-    );
 
     service.waiting().await?;
 

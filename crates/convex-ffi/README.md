@@ -168,13 +168,14 @@ The complete request / response shapes are defined in
 | `forward_curve` | DM | Explicit projection handle; fixing-aware dispatch remains pending. |
 | `current_index` | DM | Retained request field; current-index shortcuts cannot replace eligible history. |
 | `government` | G-spread | Actual `GovernmentCurveSpec` securities/yields, required. |
-| `govt_curve` | G-spread | Refused zero-curve proxy; supply actual benchmarks. |
 | `quote_frequency` | Fixed-coupon spread | Quoted-yield compounding; unchanged semiannual default. |
 
 See [shared bond quote contracts](../../docs/BOND-QUOTES.md) for complete fixed
 terms, actual zero redemption, explicit missing-fixing/ICMA failures, curve roles
 and the current convention/evidence matrix. FRN price/risk/DM/cash-flow calls
 fail with a `fixings` error until v1 can represent eligible history.
+Obsolete government zero-curve fields and YAS outputs have been removed;
+see [caller migration](../../docs/ROUTE-MIGRATION.md).
 
 ## C example
 

@@ -293,9 +293,12 @@ body {
 }
 
 .grid-row.row-1,
-.grid-row.row-2,
 .grid-row.row-3 {
   grid-template-columns: 1fr 1.5fr 1fr;
+}
+
+.grid-row.row-2 {
+  grid-template-columns: 1fr 1.5fr;
 }
 
 .grid-row.row-3 {
@@ -1129,7 +1132,6 @@ select {
 
   /* Grid layout responsive adjustments */
   .grid-row.row-1,
-  .grid-row.row-2,
   .grid-row.row-3 {
     grid-template-columns: 1fr 1.2fr 1fr;
   }
@@ -1146,7 +1148,6 @@ select {
   }
 
   .grid-row.row-1,
-  .grid-row.row-2,
   .grid-row.row-3 {
     grid-template-columns: 1fr 1fr 1fr;
   }
@@ -1257,193 +1258,6 @@ select {
   font-size: 10px;
   color: var(--text-muted);
   min-width: 50px;
-}
-
-/* ============================================================================
-   Benchmark Panel
-   ============================================================================ */
-
-.benchmark-panel {
-  background: var(--bg-panel);
-}
-
-.benchmark-panel.compact .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tenor-select-compact {
-  padding: 2px 6px;
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.benchmark-content-compact {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.benchmark-grid {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.benchmark-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.benchmark-cell .cell-label {
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.benchmark-cell .cell-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.benchmark-cell .cell-value.yield {
-  color: var(--accent-green);
-}
-
-.benchmark-cell.spread-cell .spread-input-compact {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.benchmark-cell.spread-cell input {
-  width: 55px;
-  padding: 2px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.benchmark-cell.spread-cell input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-cell.spread-cell .unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-.benchmark-content {
-  padding: var(--spacing-md);
-}
-
-.benchmark-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) 0;
-}
-
-.benchmark-row.ticker-row {
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--border-primary);
-  margin-bottom: var(--spacing-xs);
-}
-
-.benchmark-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 50px;
-}
-
-.benchmark-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.benchmark-value.spread-value {
-  color: var(--accent-green);
-  font-size: 14px;
-}
-
-.benchmark-value .unit {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-left: var(--spacing-xs);
-}
-
-.tenor-select {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.tenor-select:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-ticker {
-  font-size: 10px;
-  color: var(--text-secondary);
-  flex: 1;
-  text-align: right;
-}
-
-.benchmark-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.benchmark-input {
-  width: 80px;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-align: right;
-}
-
-.benchmark-input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-input.yield {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-}
-
-.benchmark-input.spread {
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
-  width: 70px;
-}
-
-.benchmark-input-wrapper .unit {
-  font-size: 10px;
-  color: var(--text-muted);
 }
 
 /* ============================================================================
