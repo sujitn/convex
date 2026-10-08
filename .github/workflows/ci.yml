@@ -384,11 +384,17 @@ jobs:
       - name: Check complete supplied CDS-helper inputs
         run: python3 tests/scripts/library_credit_helpers_inputs.py
 
+      - name: Check complete supplied cash-helper inputs
+        run: python3 tests/scripts/library_cash_helpers_inputs.py
+
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
       - name: Check native CDS-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test credit_helper_repricing -p convex --test library_credit_helpers -p convex-ffi --test library_credit_helpers -p convex-mcp --test library_credit_helpers -p convex-wasm --test library_credit_helpers
+
+      - name: Check native cash-helper guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test cash_helper_repricing -p convex --test library_cash_helpers -p convex-ffi --test library_cash_helpers -p convex-mcp --test library_cash_helpers -p convex-wasm --test library_cash_helpers
 
       - name: Run full rate-helper consumer with default features
         run: cargo run --locked -p convex --example library_rate_helpers
@@ -396,11 +402,17 @@ jobs:
       - name: Run full CDS-helper consumer with default features
         run: cargo run --locked -p convex --example library_credit_helpers
 
+      - name: Run full cash-helper consumer with default features
+        run: cargo run --locked -p convex --example library_cash_helpers
+
       - name: Run full rate-helper consumer with minimal features
         run: cargo run --locked -p convex --example library_rate_helpers --no-default-features
 
       - name: Run full CDS-helper consumer with minimal features
         run: cargo run --locked -p convex --example library_credit_helpers --no-default-features
+
+      - name: Run full cash-helper consumer with minimal features
+        run: cargo run --locked -p convex --example library_cash_helpers --no-default-features
 
       - name: Run full rate-helper consumer with schema support
         run: cargo run --locked -p convex --example library_rate_helpers --features schemars
@@ -408,11 +420,17 @@ jobs:
       - name: Run full CDS-helper consumer with schema support
         run: cargo run --locked -p convex --example library_credit_helpers --features schemars
 
+      - name: Run full cash-helper consumer with schema support
+        run: cargo run --locked -p convex --example library_cash_helpers --features schemars
+
       - name: Validate complete rate-helper schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_rate_helpers_schema.py --binary target/debug/examples/library_rate_helpers
 
       - name: Validate complete CDS-helper schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_credit_helpers_schema.py --binary target/debug/examples/library_credit_helpers
+
+      - name: Validate complete cash-helper schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_cash_helpers_schema.py --binary target/debug/examples/library_cash_helpers
 
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
@@ -680,6 +698,9 @@ jobs:
       - name: Build native full CDS-helper quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_credit_helpers --features schemars
 
+      - name: Build native full cash-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -708,6 +729,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke full CDS-helper expectations
         run: python tests/scripts/library_credit_helpers_parity.py prepare --binary target/excel/examples/library_credit_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-credit-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke full cash-helper expectations
+        run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

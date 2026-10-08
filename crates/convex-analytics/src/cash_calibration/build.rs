@@ -77,7 +77,7 @@ fn settings(input: &CashCurveRecipe) -> CashCalibrationResult<()> {
     }
     Ok(())
 }
-fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResult<Prepared<'a>> {
+pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResult<Prepared<'a>> {
     let r = input.recipe;
     let c = &r.curve;
     c.key.validate()?;

@@ -98,7 +98,7 @@ envelope; those boundary failures can precede request decoding.
 | `bond` | Construction, requirements, full entitled cash, fixed/floating model PV, dated fixed-cash yield or spread/DM inverse, guarded raw quote risk |
 | `swap`, `basis_swap` | Original full IRS/OIS or two-floating-leg basis construction, requirements, projected cash and signed valuation |
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
-| `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate/CDS helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
+| `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate/CDS/cash helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
 | `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
@@ -352,6 +352,57 @@ One exact USD credit mapping supplements the prior 24 mappings and 348 requests
 (25 mappings and 398 requests total). These are engineering subsets; all original
 2,154 mandatory records remain Planned. Actual unavailable Windows/Excel and
 wasm32/browser execution remains unverified. CVX-063 is partial.
+
+## Direct cash-helper repricing diagnostics
+
+`helper` input kind `cash_reprice` takes the existing full `CashCalibrationInput`
+in `input`: a complete original `CashCurveRecipe` and one exact calendar shape
+per helper. Supply the output and every reference/credit dependency in
+`inputs.curves`, or an admitted graph in `inputs.calibration`. The output key
+must already exist. The route delegates to
+`convex::cash_calibration::reprice_cash_helpers` and performs no fit or replacement.
+
+Government helpers retain complete bills, stepped/amortizing cash bonds and par
+coupon securities. Issuer helpers retain an explicit reference-zero-spread or
+credit-par-recovery model and legal mapping. Repo helpers retain actual business
+start/end dates, collateral and interest basis. Clean/dirty prices remain per
+100 original face; dated-cash yield, bank discount, par coupon and simple repo
+rates retain their decimal/percent/basis-point quotation units. Par coupons are
+derived from complete zero/unit coupon exposures, never interpreted as spot zeros.
+Promised and immediate recovery PV remain separate under the declared credit
+model; no coupon/accrual recovery is inferred.
+
+Original full recipe preparation checks every contract, quote, calendar,
+settlement, cash horizon, model and dependency before valuation. The supplied
+curve must match the exact key, role, currency, origin, time basis, representation
+and methods. Model metadata and credit principal timing are checked before any
+helper price. Fitting and diagnostics share one calendar resolver. There are at
+most 128 helpers; 129 fails before calendar resolution. Original nested cash,
+yield inverse, curve and work limits remain active even though no fit runs.
+
+The result retains the full `recipe`, source-order `quotes`, complete `valuations`,
+`within_tolerance` and actual `price_evaluations`. Signed residuals are model minus
+input in each original unit. A finite off-market result succeeds with
+`within_tolerance:false`; it does not accept a fitted curve. Any admission or
+native pricing failure returns no partial result. Existing calibration collision,
+identification and final residual guards remain unchanged.
+
+```sh
+python3 tests/scripts/library_cash_helpers_inputs.py
+cargo run --locked -p convex --example library_cash_helpers
+cargo run --locked -p convex --example library_cash_helpers --no-default-features
+cargo run --locked -p convex --example library_cash_helpers --features schemars
+```
+
+The 98 additional requests (28 successful diagnostics and 70 typed failures)
+reuse unchanged independent positive/negative cash controls and actual ISDA
+credit dependency. They cover both declared basis models, original cash and
+adjusted payment dates, all quoted rate units, source reversal, off-market
+residuals, 128-helper boundaries and missing/invalid inputs. Four exact USD
+mappings supplement the prior 25 mappings and 398 requests (29 mappings and
+496 requests total). These engineering subsets leave every original mandatory
+record Planned. Windows/Excel and actual wasm32/browser execution remain
+unverified. CVX-063 remains partial.
 
 ## Clients and qualification
 

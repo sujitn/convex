@@ -423,68 +423,11 @@ fn with_graph<T>(
         .zip(&credit_calendars)
         .map(|(recipe, calendars)| d::CdsCurveBuildInput { recipe, calendars })
         .collect::<Vec<_>>();
-    let mut cash_resources = Vec::new();
-    // Calendar version pins supplement the original full helper's names, without
-    // mutating any helper economics or replacing the original native builder.
-    let mut bond_inputs = Vec::new();
-    for i in &input.cash {
-        if i.calendars.len() != i.recipe.helpers.len() {
-            return Err(LibraryError::invalid(
-                "cash calendars",
-                "one exact resource shape per original helper required",
-            ));
-        }
-        let inputs = i
-            .recipe
-            .helpers
-            .iter()
-            .zip(&i.calendars)
-            .map(|(h, c)| match (h, c) {
-                (
-                    c::CashCalibrationHelper::Bond { input: h },
-                    CashHelperCalendars::Bond { pins },
-                ) => Ok(Some(BondInput {
-                    terms: h.terms.clone(),
-                    calendars: pins.clone(),
-                })),
-                (c::CashCalibrationHelper::Repo { .. }, CashHelperCalendars::Repo { .. }) => {
-                    Ok(None)
-                }
-                _ => Err(LibraryError::invalid(
-                    "cash calendars",
-                    "full original helper/resource family mismatch",
-                )),
-            })
-            .collect::<LibraryResult<Vec<_>>>()?;
-        bond_inputs.push(inputs);
-    }
-    for (ci, i) in input.cash.iter().enumerate() {
-        let mut bindings = Vec::new();
-        for (hi, (h, c)) in i.recipe.helpers.iter().zip(&i.calendars).enumerate() {
-            bindings.push(match (h, c) {
-                (c::CashCalibrationHelper::Bond { input: h }, CashHelperCalendars::Bond { .. }) => {
-                    c::CashHelperResources::Bond {
-                        ids: &h.terms.calendars,
-                        calendars: resources.bond_calendars(
-                            bond_inputs[ci][hi].as_ref().ok_or_else(|| {
-                                LibraryError::missing("bond calendars", Value::Null)
-                            })?,
-                        )?,
-                    }
-                }
-                (c::CashCalibrationHelper::Repo { .. }, CashHelperCalendars::Repo { pin }) => {
-                    c::CashHelperResources::Repo(resources.rate_binding(pin)?)
-                }
-                _ => {
-                    return Err(LibraryError::invalid(
-                        "cash resources",
-                        "native helper family mismatch",
-                    ))
-                }
-            });
-        }
-        cash_resources.push(bindings);
-    }
+    let cash_resources = input
+        .cash
+        .iter()
+        .map(|i| cash_resources(i, resources))
+        .collect::<LibraryResult<Vec<_>>>()?;
     let cash = input
         .cash
         .iter()
@@ -514,6 +457,45 @@ fn with_graph<T>(
         resources.publications.callback(),
     )?;
     consume(&graph)
+}
+/// Resolve full cash helper calendars for fitting and direct diagnostics alike.
+pub(super) fn cash_resources<'a>(
+    input: &'a CashCalibrationInput,
+    resources: &ResolvedInputs<'a>,
+) -> LibraryResult<Vec<c::CashHelperResources<'a>>> {
+    if input.recipe.helpers.len() > c::MAX_CASH_HELPERS {
+        return Err(LibraryError::limit("at most128 complete cash helpers"));
+    }
+    if input.calendars.len() != input.recipe.helpers.len() {
+        return Err(LibraryError::invalid(
+            "cash calendars",
+            "one exact resource shape per original helper required",
+        ));
+    }
+    input
+        .recipe
+        .helpers
+        .iter()
+        .zip(&input.calendars)
+        .map(|(h, calendars)| match (h, calendars) {
+            (c::CashCalibrationHelper::Bond { input: h }, CashHelperCalendars::Bond { pins }) => {
+                Ok(c::CashHelperResources::Bond {
+                    ids: &h.terms.calendars,
+                    calendars: resources.bond_calendars(&BondInput {
+                        terms: h.terms.clone(),
+                        calendars: pins.clone(),
+                    })?,
+                })
+            }
+            (c::CashCalibrationHelper::Repo { .. }, CashHelperCalendars::Repo { pin }) => {
+                Ok(c::CashHelperResources::Repo(resources.rate_binding(pin)?))
+            }
+            _ => Err(LibraryError::invalid(
+                "cash calendars",
+                "full original helper/resource family mismatch",
+            )),
+        })
+        .collect()
 }
 pub(super) fn calibration_market(
     input: &CalibrationInput,

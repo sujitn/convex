@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 25)
-        self.assertEqual(result['engineering_examples'], 398)
+        self.assertEqual(result['exact_operation_routes'], 29)
+        self.assertEqual(result['engineering_examples'], 496)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -80,6 +80,15 @@ class OperationRoutes(unittest.TestCase):
         self.rejects(lambda m: m['operation_routes']['credit_helpers.reprice'].update(
             boundary_examples=['credit_helpers.helper_limit']))
         self.rejects(lambda m: m['operation_routes']['credit_helpers.reprice'].update(certified=True))
+
+    def test_cash_helper_models_cannot_substitute_or_award_acceptance(self):
+        for family, other in [('government','repo'), ('repo','government'),
+                               ('reference_basis','credit_basis'), ('credit_basis','reference_basis')]:
+            self.rejects(lambda m: m['operation_routes']['cash_helpers.'+family].update(
+                positive_examples=['cash_helpers.'+other+'.positive']))
+            self.rejects(lambda m: m['operation_routes']['cash_helpers.'+family].update(
+                boundary_examples=['cash_helpers.'+family+'.missing_curve']))
+            self.rejects(lambda m: m['operation_routes']['cash_helpers.'+family].update(certified=True))
 
 
 if __name__ == '__main__': unittest.main()

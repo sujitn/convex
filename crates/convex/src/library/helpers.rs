@@ -20,6 +20,11 @@ pub struct HelperCalendarInput {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperInput {
+    /// Complete original government/issuer-basis/repo diagnostics; no fit.
+    CashReprice {
+        /// Full native recipe and exact source-order calendar revisions.
+        input: Box<CashCalibrationInput>,
+    },
     /// Full original CDS-helper diagnostics on exact supplied curves; no fit.
     CreditReprice {
         /// Complete original legal, quote, calendar, cash-state and curve terms.
@@ -112,6 +117,16 @@ fn resources<'a>(r: &'a ResolvedInputs<'_>) -> LibraryResult<h::HelperResources<
 }
 pub(super) fn helper(input: &HelperInput, r: &ResolvedInputs<'_>) -> LibraryResult<Value> {
     match input {
+        HelperInput::CashReprice { input } => {
+            let resources = super::curves::cash_resources(input, r)?;
+            value(c::reprice_cash_helpers(
+                &c::CashCurveBuildInput {
+                    recipe: &input.recipe,
+                    resources: &resources,
+                },
+                &r.curves,
+            )?)
+        }
         HelperInput::CreditReprice { recipe } => {
             if recipe.helpers.len() > d::MAX_CREDIT_FIT_HELPERS {
                 return Err(LibraryError::limit("at most128 complete CDS helpers"));

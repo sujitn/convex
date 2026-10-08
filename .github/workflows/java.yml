@@ -21,6 +21,7 @@ on:
       - 'tests/scripts/library_cash_parity.py'
       - 'tests/scripts/library_rate_helpers_parity.py'
       - 'tests/scripts/library_credit_helpers_parity.py'
+      - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -45,6 +46,7 @@ on:
       - 'tests/scripts/library_cash_parity.py'
       - 'tests/scripts/library_rate_helpers_parity.py'
       - 'tests/scripts/library_credit_helpers_parity.py'
+      - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -90,6 +92,9 @@ jobs:
       - name: Build native full CDS-helper quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_credit_helpers --features schemars
 
+      - name: Build native full cash-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
+
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
@@ -117,6 +122,9 @@ jobs:
 
       - name: Generate fresh native full CDS-helper adapter expectations
         run: python3 tests/scripts/library_credit_helpers_parity.py prepare --binary target/excel/examples/library_credit_helpers --output bindings/java/target/library-credit-helpers-parity.json
+
+      - name: Generate fresh native full cash-helper adapter expectations
+        run: python3 tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers --output bindings/java/target/library-cash-helpers-parity.json
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

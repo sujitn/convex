@@ -1250,6 +1250,48 @@
         "tools/library/library-inventory.json": "bc6f9b937978d781fcdd9fe16d30162626a59788bee7226c6e4fe538185a2c13",
         "tools/library/test_operations.py": "ecef304c60f3dca2040f0732820acb3470f46e20a488196d8b322e9383d08ebd"
       }
+    },
+    {
+      "base_commit": "77e59471ea1731c86583ecd310355194253651e8",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete government, reference-zero-spread/credit-par-recovery issuer-basis and repo-helper repricing diagnostics on immutable exact supplied curves. Reuse original full recipe/contract/model preparation and original cash/recovery/repo/native quote functions, with visibility-only changes to original owner bodies. Return full source-order recipe/revisions/quotes/valuations/native residuals/tolerances/work and within_tolerance; finite off-market diagnostics never accept calibration. One shared calendar resolver replaces duplicated graph staging and rejects129 helpers before resolution.98 full USD requests (28 successes/70 typed failures), four exact mappings and unchanged original independent positive/negative cash references and actual ISDA credit dependency are scoped engineering controls. All249 preceding numeric rows/bytes/defaults and5559 historical evidence files remain unchanged; thirteen additive controls bring pins to262. Original30areas/174combinations/2154Planned scope, Cargo/dependencies/normal closure146 and26Cexports are preserved. Actual Windows/Excel/wasm32/browser remain unverified. No provider/storage/MQ/clock/authority, independent approval, certificate, push/deployment or live orders.",
+      "tests": [
+        "Actual original independent positive/negative cash and credit-recovery values, strict term/revision roundtrip and resource/model/domain failures",
+        "Fresh C/Java/MCP/native-WASM parity, all three facade feature consumers and generated schema mutations",
+        "Strict affected lint/docs/fmt, full workspace/client suites and assurance/library/harness conservation controls",
+        "Actual Windows/Excel and wasm32/browser execution unverified"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "693eff5934da9cf73b0a63295b32e17800b7be5be0f3de8f03248f3ccd7f9d8d",
+        ".github/workflows/java.yml": "341d95f716258db9a6047c886806aea7518f0f844b52e1506f353c16d52fc09f",
+        "bindings/java/src/test/java/com/convex/LibraryCashHelpersTest.java": "356033a809421ad8a29f5b6ad094eaf11592fd4d5be285e1b871872b17148111",
+        "crates/convex-analytics/src/cash_calibration/build.rs": "a6f0ff4728405dfa65dddb669503fd9718df9aac5b73ee03f81e7f5edb325c4d",
+        "crates/convex-analytics/src/cash_calibration/fit.rs": "ee528564e8daaafbe76cf3cc0541cc853573ca4654cf7a73512414d6a85af1c3",
+        "crates/convex-analytics/src/cash_calibration/mod.rs": "7f2a0e2656548b6377e62bf0c7af4c2d6803de9f40571e004652d4db0830ae7f",
+        "crates/convex-analytics/src/cash_calibration/reprice.rs": "04f948f3158e80530d2964166267f7513455b324cdd0a9063eb84a9cd998238a",
+        "crates/convex-analytics/tests/cash_helper_repricing.rs": "dedae3934104b832950a341fd51ed268dd67d1c682de5e158387fa20a3868352",
+        "crates/convex-ffi/tests/library_cash_helpers.rs": "86b1f16aa08d713d2f8b3e71a48740817174601eddb769f500d72dbc6ce1eead",
+        "crates/convex-mcp/tests/library_cash_helpers.rs": "dfd9eb2ca06f68bf340ec9d148b43a1af851a1ed0e99578fe167d42769407882",
+        "crates/convex-wasm/tests/library_cash_helpers.rs": "774f8400ba169a1c02c273bf3324e6de1f72b5009f9909b835ae88bd74dc2a67",
+        "crates/convex/examples/library_cash_helpers.rs": "3be2fd1a66bee5332e91c46ba174360ce127a5e537ee7e1f7fb80f6787d1fc93",
+        "crates/convex/src/library/curves.rs": "c2ae023351b58c3b7b91666cce1dbcd2e618ecfea578996279dd34a8e5721acc",
+        "crates/convex/src/library/helpers.rs": "ef9c5a78758bb3e7af12a54f51af2eac2d2ea609163dfc72cbe4cd60f4f2b172",
+        "crates/convex/tests/library_cash_helpers.rs": "990c44b97a4a4bca1152be7902ea0cd6321089607b6d263f072d81c210f162b8",
+        "docs/CASH-CURVES.md": "403cb4d93060253cd7f285d7617acff03bf9a33fe237bdaca20deb0ffbce0f27",
+        "docs/LIBRARY-API.md": "ce97a7b910fb7e8490800cc65e393c1b8faa6802ef6a4624e682c416356e11cb",
+        "excel/Convex.Excel.Tests/LibraryCashHelpersTests.cs": "eb8ab92d909f4b843b9632e7fee6401528c19eb36b013454044c287377f357ff",
+        "tests/fixtures/library/cash-helpers.json": "b071f7973d3956e5554685d919b6bbdfb30e5d7e07c685c770c0845ed3690365",
+        "tests/fixtures/library/cash_helpers_contract.rs": "3059c48350a219c158331a01002319e01ddc6855c485f8723a6b563519e67747",
+        "tests/scripts/library_cash_helpers_inputs.py": "8dfe4d51ec83f59b00923e81c2c41956e5de20943364d178ac1974822e2bf8b1",
+        "tests/scripts/library_cash_helpers_parity.py": "fecdbb3b87cc5dfa5fc2505ea9f0424a26123d988cbe1a0ff12d3c6976cc0ce4",
+        "tests/scripts/library_cash_helpers_schema.py": "7df6d93a70ea48d13c39122c03ca50afdf967502eb4df4f353269fafce3927bf",
+        "tools/assurance/inventory.json": "e2a5c2f0fbe9274a1bfd51628c034b234db72abf26280248af9fdc276427f550",
+        "tools/assurance/numeric-evidence.json": "f4e9aba01b48d94538ecc038a98dd94acee9f49d0164205ee291f28370466a21",
+        "tools/library/api-capabilities.json": "55c275c0155effdebc1267a4056d4c0dafd4a833532c370e946dc9db56f872c5",
+        "tools/library/library-inventory.json": "417f7b4b26bf2b83e2a8fb06c5c4ea6e0c3ed4a21ae835c1bc0bf89f90408b3f",
+        "tools/library/test_operations.py": "c1e0424cd7992a2b33ff79bf8ef9f8eb77bff41d8a46b970c6f97597ac4024dd"
+      }
     }
   ]
 }

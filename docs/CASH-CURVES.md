@@ -18,6 +18,14 @@ python3 tests/scripts/cash_calibration_reference.py check
 cargo test --locked -p convex-analytics --test cash_calibration
 ```
 
+`reprice_cash_helpers` diagnoses one complete original recipe on exact supplied
+curves without fitting or replacing them. It reuses full contract/model admission
+and original native quote conversion, retaining source-order full valuations,
+revisions, residuals and work. Finite off-market results have
+`within_tolerance:false`; they do not accept a calibration. The
+[shared cash-helper route](LIBRARY-API.md#direct-cash-helper-repricing-diagnostics)
+adds strict full-term JSON/C and existing client dispatch.
+
 The consumer fits nonflat positive and negative government, residual-basis and
 repo curves, prices actual dated carry, and fits a separate credit-bond basis
 against the complete original six-quote CDS calibration. It checks independent

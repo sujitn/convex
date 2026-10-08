@@ -35,7 +35,7 @@ fn trial(
         .as_ref()
         .clone())
 }
-fn value(
+pub(super) fn value(
     p: &Prepared<'_>,
     i: usize,
     curve: &BuiltCurve,

@@ -9,11 +9,13 @@ mod fit;
 mod inputs;
 mod pricing;
 mod repo;
+mod reprice;
 
 pub use build::build_cash_curve_set;
 pub use inputs::*;
 pub use pricing::{convert_cash_quote, price_basis_bond};
 pub use repo::*;
+pub use reprice::{reprice_cash_helpers, CashHelperRepricing};
 
 use convex_bonds::contracts::BondContractError;
 use convex_core::{cashflows::CashflowError, Date};
