@@ -92,7 +92,7 @@ envelope; those boundary failures can precede request decoding.
 | --- | --- |
 | `capabilities`, `roundtrip` | Complete required surface report; checked immutable input reconstruction/echo |
 | `schedule`, `fixings` | Independent actual date rules and eligible-history requirements |
-| `curves`, `curve_query`, `curve_fit` | Native construction, fallible date/tenor/DF/forward/survival/hazard queries and bounded dated money-market fitting |
+| `curves`, `curve_query`, `curve_fit` | Native construction, explicit step-zero/flat-forward sources and one-sided grid forwards, fallible date/tenor/DF/forward/survival/hazard queries and bounded dated money-market fitting |
 | `parametric_fit` | Original Nelson–Siegel/Svensson continuous-zero observations, full initial parameters/bounds/native objective/rank/work controls and every native residual; no sampled-grid or product-price alias |
 | `curve_time`, `rate_conversion` | Native bounded date/tenor inverse with explicit rounding, and discount/rate/compounding conversions over actual dates/day count or a supplied year fraction |
 | `calibration` | Original full rate/CDS/cash graph build, product price, quote scenario, stable quote risk and calculated bucket reconciliation; preserves original helpers and history |
@@ -527,3 +527,5 @@ source domain/extension disclosure, strict schema and executable supplied cases.
 Bare parametric tags on discrete nodes still reject. Product-price parametric fits,
 credit/basis segment integration, remaining curve-risk/method combinations and
 market/host certificates retain their original owners.
+
+Complete [step-zero and flat-forward method contracts](CURVE-METHODS.md) retain original nodes/units/time basis, method/representation/role/currency/version and exact source/side/tail guards through the existing shared adapters. Native PiecewiseConstant linear and older raw FlatForward tail substitutions are removed; see [migration](ROUTE-MIGRATION.md). Product calibration, full quote-risk and actual unavailable-host qualification remain separate.

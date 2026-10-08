@@ -8,7 +8,7 @@ use std::sync::Arc;
 use convex_core::types::Date;
 use convex_math::interpolation::{
     CubicSpline, FlatForward, Interpolator, LinearInterpolator, LogLinearInterpolator,
-    MonotoneConvex,
+    MonotoneConvex, PiecewiseConstant,
 };
 
 use crate::error::{CurveError, CurveResult};
@@ -209,8 +209,7 @@ impl DiscreteCurve {
                 }
             }
             InterpolationMethod::PiecewiseConstant => {
-                // Use linear for now, will implement piecewise constant later
-                LinearInterpolator::new(tenors_vec, values_vec)
+                PiecewiseConstant::new(tenors_vec, values_vec)
                     .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
                     .map_err(|e| CurveError::interpolation_error(e.to_string()))
             }
@@ -352,13 +351,9 @@ impl DiscreteCurve {
                 }
             }
             ExtrapolationMethod::FlatForward => {
-                // For flat forward extrapolation, we use the last instantaneous forward rate
-                // This is complex and depends on value type; fall back to flat for now
-                if t < min_t {
-                    self.values[0]
-                } else {
-                    *self.values.last().unwrap()
-                }
+                // This older raw-value route has no exact tail contract.
+                // Use the checked FlatForward source for an integrated tail.
+                f64::NAN
             }
             ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
                 if t < min_t {

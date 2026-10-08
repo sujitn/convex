@@ -133,7 +133,7 @@ fn main() -> Result<()> {
         return Err("a negative construction control was accepted".into());
     }
 
-    // Characterize gaps without changing mathematics or blessing the fallback.
+    // Check the explicit right-owned step; historic fixing gaps remain separate.
     let hazard = DiscreteCurve::new(
         settlement,
         vec![1.0, 2.0],
@@ -142,7 +142,7 @@ fn main() -> Result<()> {
         InterpolationMethod::PiecewiseConstant,
     )?;
     let observed_hazard_midpoint = hazard.value_at(1.5);
-    close(observed_hazard_midpoint, 0.02, 1e-14)?;
+    close(observed_hazard_midpoint, 0.01, 1e-14)?;
     let mut historic_forecasts = 0;
     let forecast_rate = "0.04".parse()?;
     let _coupon = compound_in_arrears(
@@ -171,6 +171,6 @@ fn main() -> Result<()> {
         .maturity(maturity)
         .build()?;
     let _callable_frn = CallableFloatingRateNote::new(frn, CallSchedule::new(CallType::Bermudan));
-    println!("{{\"status\":\"reachability_controls_passed\",\"certified\":false,\"units\":{{\"prices\":\"per_100_face\",\"yield\":\"decimal\",\"duration\":\"years\",\"convexity\":\"years_squared\",\"dv01\":\"existing_positive_per_100_face_per_bp\"}},\"clean\":{clean},\"dirty\":{dirty},\"accrued\":{accrued},\"yield\":{},\"duration\":{duration},\"convexity\":{convexity_value},\"dv01\":{dv01_value},\"cashflows\":{},\"schedule_periods\":{},\"global_max_residual\":{},\"piecewise_max_residual\":{},\"negative_controls_passed\":3,\"observed_gaps\":{{\"piecewise_constant_hazard_midpoint\":{observed_hazard_midpoint},\"missing_historic_fixings_forecast\":{historic_forecasts}}}}}", ytm.yield_value, flows.len(), schedule.num_periods(), global.max_error(), piecewise.max_error());
+    println!("{{\"status\":\"reachability_controls_passed\",\"certified\":false,\"units\":{{\"prices\":\"per_100_face\",\"yield\":\"decimal\",\"duration\":\"years\",\"convexity\":\"years_squared\",\"dv01\":\"existing_positive_per_100_face_per_bp\"}},\"clean\":{clean},\"dirty\":{dirty},\"accrued\":{accrued},\"yield\":{},\"duration\":{duration},\"convexity\":{convexity_value},\"dv01\":{dv01_value},\"cashflows\":{},\"schedule_periods\":{},\"global_max_residual\":{},\"piecewise_max_residual\":{},\"negative_controls_passed\":3,\"step_controls\":{{\"piecewise_constant_hazard_midpoint\":{observed_hazard_midpoint}}},\"observed_gaps\":{{\"missing_historic_fixings_forecast\":{historic_forecasts}}}}}", ytm.yield_value, flows.len(), schedule.num_periods(), global.max_error(), piecewise.max_error());
     Ok(())
 }

@@ -153,7 +153,11 @@ impl BuiltCurve {
         };
         let extrapolation = match record.extrapolation {
             ZeroExtrapolation::FlatZero => ExtrapolationMethod::Flat,
-            ZeroExtrapolation::FlatForward => ExtrapolationMethod::FlatForward,
+            ZeroExtrapolation::FlatForward => {
+                return Err(convex_ports::TraitError::InvalidInput(
+                    "flat-forward snapshot reconstruction requires a complete curve-method contract",
+                ));
+            }
         };
         let points: Vec<_> = record
             .points
@@ -286,9 +290,9 @@ pub struct CurveBuilder {
     /// Built curves cache
     curves: DashMap<CurveId, BuiltCurve>,
 
-    /// Long-end extrapolation for built curves. Flat-forward by default; set a
-    /// `UfrConvergence` (with the appropriate per-currency UFR) explicitly for
-    /// liability curves rather than baking one in for every currency.
+    /// Explicit raw-zero tail policy. The default holds the boundary zero.
+    /// Exact flat-forward sources use the pure complete curve-method contract;
+    /// this older monotone-convex builder cannot supply that tail.
     extrapolation: ExtrapolationMethod,
 }
 
@@ -299,11 +303,12 @@ impl CurveBuilder {
             market_data,
             calc_graph,
             curves: DashMap::new(),
-            extrapolation: ExtrapolationMethod::FlatForward,
+            extrapolation: ExtrapolationMethod::Flat,
         }
     }
 
-    /// Sets the long-end extrapolation method used when building curves.
+    /// Sets the raw-zero extrapolation policy. Unsupported flat-forward policy
+    /// fails at construction before reading market data or publishing a curve.
     #[must_use]
     pub fn with_extrapolation(mut self, extrapolation: ExtrapolationMethod) -> Self {
         self.extrapolation = extrapolation;
@@ -316,6 +321,7 @@ impl CurveBuilder {
         curve_id: &CurveId,
         ref_date: Date,
     ) -> Result<BuiltCurve, EngineError> {
+        self.validate_extrapolation()?;
         info!("Building curve: {}", curve_id);
 
         // Fetch market data inputs
@@ -422,6 +428,7 @@ impl CurveBuilder {
         reference_date: Date,
         mut points: Vec<(f64, f64)>,
     ) -> Result<BuiltCurve, EngineError> {
+        self.validate_extrapolation()?;
         if points.is_empty() {
             return Err(EngineError::CurveBuildError(
                 "Cannot create curve with no points".to_string(),
@@ -481,6 +488,15 @@ impl CurveBuilder {
             built.points.len()
         );
         Ok(built)
+    }
+
+    fn validate_extrapolation(&self) -> Result<(), EngineError> {
+        if self.extrapolation == ExtrapolationMethod::FlatForward {
+            return Err(EngineError::CurveBuildError(
+                "flat-forward construction requires a complete curve-method contract".into(),
+            ));
+        }
+        Ok(())
     }
 
     /// Delete a curve from the cache.

@@ -428,6 +428,27 @@ jobs:
       - name: Validate actual complete curve-family schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_curve_families_schema.py --binary target/debug/examples/library_curve_families
 
+      - name: Check frozen analytic curve-method controls
+        run: python3 tests/scripts/curve_method_reference.py --check
+
+      - name: Check complete supplied curve-method inputs
+        run: python3 tests/scripts/library_curve_method_inputs.py --check
+
+      - name: Test explicit method native and shared adapters
+        run: cargo test --locked -p convex-curves --all-features --test curve_methods -p convex --test library_curve_methods -p convex-ffi --test library_curve_methods -p convex-mcp --test library_curve_methods -p convex-wasm --test library_curve_methods -p convex-engine --test curve_method_migration
+
+      - name: Run curve-method consumer with default features
+        run: cargo run --locked -p convex --example library_curve_methods
+
+      - name: Run curve-method consumer with minimal features
+        run: cargo run --locked -p convex --example library_curve_methods --no-default-features
+
+      - name: Run curve-method consumer with schema support
+        run: cargo run --locked -p convex --example library_curve_methods --features schemars
+
+      - name: Validate actual complete curve-method schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_curve_methods_schema.py --binary target/debug/examples/library_curve_methods
+
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
@@ -748,6 +769,9 @@ jobs:
       - name: Build native complete curve-family consumer
         run: cargo build --locked --profile excel -p convex --example library_curve_families --features schemars
 
+      - name: Build native explicit curve-method consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_methods --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -785,6 +809,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke curve-family expectations
         run: python tests/scripts/library_curve_families_parity.py prepare --binary target/excel/examples/library_curve_families.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-families-parity.json
+
+      - name: Generate fresh native P/Invoke curve-method expectations
+        run: python tests/scripts/library_curve_methods_parity.py prepare --binary target/excel/examples/library_curve_methods.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-methods-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

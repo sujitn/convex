@@ -16,6 +16,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 enum CurveValues {
+    Grid(super::grid::MethodGrid),
     Structured(super::structured::StructuredCurve),
     Direct(DiscreteCurve),
     Basis(super::basis::BasisGrid),
@@ -60,6 +61,7 @@ impl BuiltCurve {
         let outer = t > 0.0 && (t < min || t > max);
         outer
             || match &self.values {
+                CurveValues::Grid(curve) => curve.extension_used(t),
                 CurveValues::Structured(curve) => {
                     curve.extension_used(t, self.recipe.extrapolation)
                 }
@@ -77,6 +79,19 @@ impl BuiltCurve {
                 }),
                 _ => false,
             }
+    }
+    pub(super) fn flat_forward(&self, t: f64, side: super::ForwardSide) -> Result<(f64, bool)> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Grid(curve) => Ok((
+                curve.forward(t, side)?,
+                curve.forward_extension_used(t, side),
+            )),
+            _ => Err(Error::unsupported(
+                "one-sided flat forward",
+                "requires the exact FlatForward source; no derived/grid/parametric substitution",
+            )),
+        }
     }
     pub(super) fn instantaneous_forward(&self, t: f64) -> Result<f64> {
         validate_tenor(t)?;
@@ -97,6 +112,7 @@ impl BuiltCurve {
     /// Derived views have no such grid and fail instead of being resampled.
     pub fn interpolation_grid(&self) -> Result<(&[f64], &[f64])> {
         match &self.values {
+            CurveValues::Grid(curve) => Ok(curve.grid()),
             CurveValues::Direct(curve) => Ok((curve.tenors(), curve.values())),
             CurveValues::Basis(grid) => Ok((&grid.tenors, &grid.values)),
             _ => Err(Error::unsupported(
@@ -108,6 +124,7 @@ impl BuiltCurve {
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
             CurveValues::Structured(curve) => curve.bounds(),
+            CurveValues::Grid(curve) => curve.bounds(),
             CurveValues::Direct(curve) => curve.tenor_bounds(),
             CurveValues::Basis(grid) => (grid.tenors[0], grid.tenors[grid.tenors.len() - 1]),
             CurveValues::Spread { base, .. } => base.bounds(),
@@ -136,6 +153,7 @@ impl BuiltCurve {
             ));
         }
         let value = match &self.values {
+            CurveValues::Grid(curve) => curve.value(t)?,
             CurveValues::Structured(curve) => curve.value(t, self.recipe.extrapolation)?,
             CurveValues::Basis(grid) => grid.value(t, self.recipe.extrapolation)?,
             CurveValues::Direct(curve) => curve
@@ -721,6 +739,12 @@ fn validate_representation(recipe: &CurveRecipe) -> Result<()> {
 fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
     if matches!(
         recipe.source,
+        CurveSource::PiecewiseConstant { .. } | CurveSource::FlatForward { .. }
+    ) {
+        return super::grid::validate_shape(recipe);
+    }
+    if matches!(
+        recipe.source,
         CurveSource::Parametric { .. }
             | CurveSource::Segmented { .. }
             | CurveSource::Delegated { .. }
@@ -770,6 +794,23 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
 
 fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
     match &recipe.source {
+        CurveSource::PiecewiseConstant { nodes } | CurveSource::FlatForward { nodes } => {
+            let curve = super::grid::MethodGrid::new(recipe, nodes)?;
+            let pillars = curve.grid().0.to_vec();
+            Ok(BuiltCurve {
+                recipe: recipe.clone(),
+                values: CurveValues::Grid(curve),
+                depth: 0,
+                diagnostics: CurveDiagnostics {
+                    curve: recipe.key.clone(),
+                    method: "supplied_explicit_method_grid".into(),
+                    iterations: 0,
+                    pillars,
+                    dependencies: vec![],
+                    quotes: vec![],
+                },
+            })
+        }
         CurveSource::Parametric { .. }
         | CurveSource::Delegated { .. }
         | CurveSource::Segmented { .. } => {
@@ -810,7 +851,10 @@ fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
     }
 }
 
-fn normalize_nodes(recipe: &CurveRecipe, nodes: &[CurveNode]) -> Result<(Vec<f64>, Vec<f64>)> {
+pub(super) fn normalize_nodes(
+    recipe: &CurveRecipe,
+    nodes: &[CurveNode],
+) -> Result<(Vec<f64>, Vec<f64>)> {
     if nodes.len() < 2 {
         return Err(Error::invalid(
             "nodes",

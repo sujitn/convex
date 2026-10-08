@@ -92,7 +92,7 @@ pub fn curve() -> SnapshotCurve {
         quality: DataQuality::Valid,
         max_age_ms: 10_000,
         interpolation: ZeroInterpolation::MonotoneConvex,
-        extrapolation: ZeroExtrapolation::FlatForward,
+        extrapolation: ZeroExtrapolation::FlatZero,
         points: vec![1.0, 2.0, 5.0, 10.0]
             .into_iter()
             .map(|tenor| ZeroRatePoint {

@@ -24,6 +24,7 @@ on:
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
+      - 'tests/scripts/library_curve_methods_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -51,6 +52,7 @@ on:
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
+      - 'tests/scripts/library_curve_methods_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -105,6 +107,9 @@ jobs:
       - name: Build native complete curve-family consumer
         run: cargo build --locked --profile excel -p convex --example library_curve_families --features schemars
 
+      - name: Build native explicit curve-method consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_methods --features schemars
+
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
@@ -141,6 +146,9 @@ jobs:
 
       - name: Generate fresh native full curve-family adapter expectations
         run: python3 tests/scripts/library_curve_families_parity.py prepare --binary target/excel/examples/library_curve_families --output bindings/java/target/library-curve-families-parity.json
+
+      - name: Generate fresh native curve-method adapter expectations
+        run: python3 tests/scripts/library_curve_methods_parity.py prepare --binary target/excel/examples/library_curve_methods --output bindings/java/target/library-curve-methods-parity.json
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

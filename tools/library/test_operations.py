@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 42)
-        self.assertEqual(result['engineering_examples'], 852)
+        self.assertEqual(result['exact_operation_routes'], 46)
+        self.assertEqual(result['engineering_examples'], 1178)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -121,6 +121,18 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['curve_family.delegated.'+policy].update(
                 boundary_examples=['curve.failure.delegate_range.'+policy]))
             self.rejects(lambda m: m['operation_routes']['curve_family.delegated.'+policy].update(certified=True))
+
+
+    def test_explicit_curve_methods_and_sides_cannot_substitute_or_certify(self):
+        for method in ['PiecewiseConstant', 'FlatForward']:
+            self.rejects(lambda m: m['operation_routes']['curve_method.'+method].update(
+                selectors={'operation.kind':'curves','inputs.curves.0.interpolation':'Linear'}))
+            self.rejects(lambda m: m['operation_routes']['curve_method.'+method].update(certified=True))
+        for side in ['Left', 'Right']:
+            self.rejects(lambda m: m['operation_routes']['curve_method.forward.'+side].update(
+                selectors={'operation.kind':'curve_query','operation.query.kind':'FlatForwardRate',
+                           'operation.query.side':'Average'}))
+            self.rejects(lambda m: m['operation_routes']['curve_method.forward.'+side].update(certified=True))
 
 
 if __name__ == '__main__': unittest.main()

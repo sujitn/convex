@@ -41,7 +41,7 @@ fn create_test_curve(ref_date: Date) -> BuiltCurve {
         ],
         built_at: 0,
         inputs_hash: "bench".to_string(),
-        extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
+        extrapolation: convex_curves::ExtrapolationMethod::Flat,
         inner: None,
     };
     built.rebuild_inner();

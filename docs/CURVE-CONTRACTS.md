@@ -86,14 +86,15 @@ now use their actual supplied sources and native mathematics, with dated native
 zero fitting and exact domain/join/dependency diagnostics. A bare method tag on
 a node grid cannot construct those families.
 
-PiecewiseConstant, FlatForward, MonotoneConvex and UFR
-recipe selections return Unsupported in this checked route. Existing APIs
-remain separately callable under their documented capabilities; the older
-PiecewiseConstant/FlatForward substitutions cannot satisfy this route.
-`DiscreteCurve::checked_value_at` propagates interpolation failures, rejects
-the approximate FlatForward tail, and uses checked UFR setup/evaluation without
-a missing-derivative-to-zero substitution. Ordinary compatibility queries and
-existing numerical fixtures remain unchanged.
+The original `Nodes` route rejects PiecewiseConstant, FlatForward, MonotoneConvex
+and UFR method selections. Complete [explicit step-zero and flat-forward sources](CURVE-METHODS.md)
+now admit their own checked continuous-zero rate contracts, original segment
+forwards and declared exact extension. The native PiecewiseConstant tag now
+selects actual right-owned steps. The older raw FlatForward tail substitution
+is removed: checked queries reject it and infallible compatibility queries
+return NaN outside that unsupported tail. Checked UFR setup/evaluation retains
+its separate native constraints; full checked UFR/monotone recipes remain open.
+Original numerical controls and ordinary supported query paths are preserved.
 
 ## Full economic helper descriptions
 

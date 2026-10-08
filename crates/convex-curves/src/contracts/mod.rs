@@ -9,6 +9,7 @@
 mod basis;
 mod build;
 mod credit_fit;
+mod grid;
 mod inputs;
 mod numerics;
 mod parametric_fit;
@@ -21,6 +22,7 @@ pub use build::{
     CurveBuildOutput, CurveSet,
 };
 pub use credit_fit::{build_fitted_credit_curve, credit_survival_nodes};
+pub use grid::ForwardSide;
 pub use inputs::*;
 pub use numerics::*;
 pub use parametric_fit::*;

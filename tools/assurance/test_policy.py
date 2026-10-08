@@ -90,7 +90,7 @@ class AssuranceMutations(unittest.TestCase):
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c]
-        self.assertEqual(len(commands), 23)
+        self.assertEqual(len(commands), 25)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -113,6 +113,17 @@ class AssuranceMutations(unittest.TestCase):
                      'crates/convex-curves/src/contracts/parametric_fit.rs',
                      'crates/convex-curves/src/curves/segmented.rs',
                      'crates/convex-curves/src/curves/delegated.rs']:
+            self.assertIn(path, check.inventory_paths(ROOT))
+
+    def test_curve_method_checks_and_native_owners_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'curve_method' in c]
+        self.assertEqual(len(commands), 7)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        for path in ['crates/convex-curves/src/contracts/grid.rs',
+                     'crates/convex-math/src/interpolation/piecewise_constant.rs']:
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_workflow_rejects_conditionals_ignored_exits_and_optout(self):

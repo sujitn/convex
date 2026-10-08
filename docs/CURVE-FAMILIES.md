@@ -131,3 +131,5 @@ candidate valuation; generated native parity envelopes are transport expectation
 CVX-063 remains partial, all original mandatory records remain Planned, and actual
 Windows/Excel and wasm32/browser execution remains unverified. No model, market,
 library, production or latency certificate is inferred.
+
+Remaining grid methods are documented in [explicit curve methods](CURVE-METHODS.md). Complete zero sources and one-sided original forwards do not extend product-price parametric fitting or quote-risk rebuilding.

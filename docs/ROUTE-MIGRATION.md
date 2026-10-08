@@ -66,3 +66,35 @@ their complete native source contracts, exact dependencies, bounds/fallback and
 join rules. See [curve families](CURVE-FAMILIES.md). Older tenor-only bootstrap
 and native compatibility methods retain their separate unqualified scope; this
 addition does not waive their full helper/convention/host qualification.
+
+## Explicit step-zero and flat-forward sources
+
+The native `InterpolationMethod::PiecewiseConstant` tag now holds the preceding
+supplied value over each right-owned interval and changes at an exact knot.
+Callers that actually require linear interpolation must explicitly select
+`Linear`. The former linear proxy is removed. Jump derivatives fail.
+
+The older raw `DiscreteCurve` FlatForward tail no longer returns a flat raw
+value under a forward label. Its checked route remains Unsupported and its
+infallible compatibility query returns NaN there. Use complete
+`CurveSource::FlatForward { nodes }` with continuous-zero rate representation,
+matching method and explicit extension through native/shared `curves` and
+`curve_query`. It integrates the original native last forward. The original
+checked `Nodes` route retains its rejection constraints. An explicit
+`PiecewiseConstant { nodes }` source supplies the checked step-zero contract.
+Full recipe/units/time basis/roles/currency/versions remain required; there is
+no automatic migration, fallback field or sampled proxy. `FlatForwardRate`
+requires `Left`/`Right` and reports actual extension at boundary sides.
+See [curve methods](CURVE-METHODS.md). Full product-price calibration, quote-risk
+rebuilding, complete hazard integration and remaining method/host coverage
+retain their original owners and release requirements.
+
+The older engine's default and flat-zero pricing/benchmark fixtures explicitly
+select `Flat`, replacing their misleading `FlatForward` labels. Numerical input
+values and pricing assertions are unchanged. `CurveBuilder` with `FlatForward`
+now fails before provider access or publication, and `BuiltCurve::from_snapshot`
+rejects a `ZeroExtrapolation::FlatForward` record. Such a snapshot must not be
+silently rewritten as flat zero: supply the complete checked flat-forward recipe
+to the shared library. Full recipe integration into captured runtime snapshots
+remains pending. The fictional constant-zero snapshot fixture selects `FlatZero`;
+previous captured snapshot bytes and historical evidence are preserved.

@@ -1404,6 +1404,63 @@
         "tools/library/library-inventory.json": "4f120603a5381e6098b4e6a1e98c8a1d91112b5dcf11e216d2d89a87f8d0e35d",
         "tools/library/test_operations.py": "fae5c83be59232e61629e93ff6c9dca605c7c109d4f7aa0cc3cf3a90431b1b9f"
       }
+    },
+    {
+      "base_commit": "99149d9bce801f61f0a8f48a00823ae9e58dd33d",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 explicit step-zero/flat-forward continuation: correct native PiecewiseConstant to bounded right-owned constants, remove older raw-flat FlatForward tail substitution, and expose complete continuous-zero rate source contracts with full actual node dates/time/units, version, role/currency, method/source and origin/domain/side/extension guards. Reuse original normalization, discrete interpolation/storage/query converters and original FlatForward integration/segment forwards. Original Nodes/product calibration constraints stay unchanged. Side-specific forwards disclose actual extension at endpoints and zero; the discount origin identity consumes no source.326 supplied engineering requests (267 successes/59 typed failures) and four exact mappings extend42/852 to46/1178; no mandatory record is promoted. Independent predeclared Decimal(60)52 model points,30 tails and original period/side controls are separate from native transport expectations. All292 prior numeric rows/bytes/defaults and6209 historical evidence files, original30areas/174combinations/2154Planned records, manifests/normal dependencies and26Cexports remain. Original positive/negative rate domains stay finite with bounded1024 nodes,150-year queries and65536 math points. Actual Windows/Excel/wasm32/browser, complete remaining methods/product-price fitting/full quote-risk rebuilding/market/model/hedge/workout qualification remain open. Existing protected math test-only manual_flatten lint is recorded separately; production math and required affected checks remain strict. No quantitative approval/certificate/push/merge/deployment/live orders. Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap.",
+      "tests": [
+        "Original native linear-step regression reproduced, then independent frozen52 point/30 tail/period/side controls and complete strict326-request corpus",
+        "Actual native/shared/C/MCP/native-WASM adapters, three feature consumers, original numerical controls, fresh1178-request C/Java parity and generated schema mutations",
+        "Full workspace/client suites, strict affected all-target lint/production math lint/docs/format and exact source/dependency/mandatory-scope conservation",
+        "Existing protected math test-only lint and unavailable actual Windows/Excel/wasm32/browser retained explicitly"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "3eee2ad868f3eaf45680be7fb70a818b3a5fe5fefc2881e5345f6cfcf2856d14",
+        ".github/workflows/java.yml": "8fe64f44f1f5db741d68ba1ea3b05321d8c003967f97c56e7285a89649560a40",
+        "bindings/java/src/test/java/com/convex/LibraryCurveMethodsTest.java": "b4b4eb5207a6b95f0c10955796f591584cf4ab8acf4f42a978d3ffe5ee6d3e9e",
+        "crates/convex-curves/src/contracts/build.rs": "adb66e8e0f974c420525f1ba3b8bd8f205ac5743bedbf3cc7feb71edcb8e4cae",
+        "crates/convex-curves/src/contracts/grid.rs": "f7611c714ecc3ce2a2995918905d36260d9bfbef97975ff1865cef890a9a1035",
+        "crates/convex-curves/src/contracts/inputs.rs": "dac989e7fda19fc8f033aba5c288cbbcb798d72a5215d45ae0d6a60f68fe6307",
+        "crates/convex-curves/src/contracts/mod.rs": "02abdcf35991667c1433923e3b6aba90a5ecd8d931ee5a75f2f7d61fd529dd90",
+        "crates/convex-curves/src/contracts/query.rs": "e361b1ac99f6fa48bf6ba98ac676a8e42584d4409dcbd86d6977cd1ddef5a67e",
+        "crates/convex-curves/src/curves/discrete.rs": "5b5a9ff6ab78577cc11d4909eaa243a73ea5f9a4c25ead2e0059dc0da77566df",
+        "crates/convex-curves/tests/curve_methods.rs": "94b3978b686fcacb2868e1abdde3ad72b85f2e8a82e4ca912da64d222fe236f0",
+        "crates/convex-engine/benches/pricing_benchmarks.rs": "ee4c7ac8a5f957cac6c13e9e739372d0c8a602954d0ce0142e3e8a8f1e3fa53d",
+        "crates/convex-engine/src/curve_builder.rs": "6aaa35ad2111be70a2292e07d5896e7235fcc73b5876bc69fa3cc9651181d25e",
+        "crates/convex-engine/src/pricing_router.rs": "e71b028e0dd3abb699eb5d2ab6c7665f06e48234c2e6b7c8b6335475736620a0",
+        "crates/convex-engine/tests/curve_method_migration.rs": "2e2bd67282eb72492bb2f232456eac8b2d7739fd85508d82d348691754a3e826",
+        "crates/convex-ffi/tests/library_curve_methods.rs": "626add1447ebeba6cf8d60ac2292ea51e1aa592418113236491235d81488c113",
+        "crates/convex-math/src/interpolation/mod.rs": "a2c3ac607cbf093a025196dac69a395528a2012c69fe4002b9fd0b0da5d5105b",
+        "crates/convex-math/src/interpolation/piecewise_constant.rs": "3d461006a3747004eaca601b6aa8c7b34dc11cbb48ea5b38b9b0977207d6a9cf",
+        "crates/convex-mcp/tests/library_curve_methods.rs": "7b697f62547e0915f6a4d70329ad2d350ab47b017efee576d504448368483de5",
+        "crates/convex-ports/tests/support/snapshot_fixtures.rs": "7b8dc5aa1878da4254caf5a55cb2b082c7072737b1add2cdc79b1a0163467479",
+        "crates/convex-wasm/tests/library_curve_methods.rs": "932996b15ce4a34cc911511be0f4c4e1ab2c012bb22fc8a25fb579c19dfd161e",
+        "crates/convex/examples/inventory_probe.rs": "f0cf59fe2cce3017f17a4c6ca0a320bba1872629922d1e704fcdee0aa496bc0c",
+        "crates/convex/examples/library_curve_methods.rs": "7f6d2f74d69463f23551252fca1a0e719f6a5e9413aeb915c13c7b1157f5d76e",
+        "crates/convex/tests/library_curve_methods.rs": "144abe540a81ced571fba3f430f9fd0213146c73a91e442a3500697b5dc36a16",
+        "docs/CURVE-CONTRACTS.md": "ced1f559c0c30dd8ab47c30095e1af2d86c512f809a26e078e750dcf1980e442",
+        "docs/CURVE-FAMILIES.md": "65a3ca126f86c99a0b95af1f79aa189e1a210ec5955d415090d8fa8b4e919118",
+        "docs/CURVE-METHODS.md": "dc0920a4adca640a4c23c53cd031cc3848d413621166232ccc33eae006497c91",
+        "docs/LIBRARY-API.md": "0ba12634c6481427d7914b043928857c7fc0fc4381a7c38306e2979fbdfd4717",
+        "docs/ROUTE-MIGRATION.md": "52c7362c7c309ed4e86ca0ee2a9bd77640dc1dd19fadf5ab49bd110f5f05eff9",
+        "excel/Convex.Excel.Tests/LibraryCurveMethodsTests.cs": "54e9b1c7d2ceb0fcadb94bc4cc1e065c86533bcdcc46be2ef18fb83746c2755d",
+        "tests/fixtures/library/curve-method-reference.json": "0f7c3f1968000298dff8712f0d24cb79bf734be8e3909bc090ddcd96699a2983",
+        "tests/fixtures/library/curve-methods.json": "52f78d83548f1e28b38578e02e9bbf37a857077208515265e8c9e9a7cb1aeb76",
+        "tests/fixtures/library/curve_method_contract.rs": "177b1cdcde5ac0a7343f25a8844a7e8f0ab3ac14cf779017128fd153273e2f6d",
+        "tests/scripts/curve_method_reference.py": "4bbba68779ecccb9d2bc5d53837f181a32fd1be28f885420bd0bb8882e00c382",
+        "tests/scripts/library_curve_method_inputs.py": "100c87cdc2bbb09f19c4bdd315016259ba727d413b5baefe8211d82b5e33dca9",
+        "tests/scripts/library_curve_methods_parity.py": "e7dbc8cb9c24a48682cacd1e2d67cde4a680152734ea8f1361ab94ef5567b5a5",
+        "tests/scripts/library_curve_methods_schema.py": "82731aa3efcbe114595032d6cf66873c593faf3777f65f429bb02444ff91642d",
+        "tools/assurance/check.py": "a1316db712cc3e71f129cf2026627c4f17f2f0d1739b42a5b79f7162cdb1ae62",
+        "tools/assurance/inventory.json": "81bde9ed39ccdfb3740dfceeb2db88cccb22a77ab197276992eb3cdbcb485af1",
+        "tools/assurance/numeric-evidence.json": "8b9f83137011c6092c337506d27165145ef926c9800a7c673caa9b599f499822",
+        "tools/assurance/test_policy.py": "0a47d161b407bdd2faea07142a5cc42e08584b6b52d7a3a68c9228f4244c3804",
+        "tools/library/api-capabilities.json": "2c233949dfd22badc89a10d97b9ccc7a9cffc07d8b865e09f77f41c2eabd5ad0",
+        "tools/library/library-inventory.json": "d5116ba975b4aa04f8a35b2fa8fccfaee9422bf92eb02e61678520c6584b475f",
+        "tools/library/test_operations.py": "2578f08e5163c55469240dfd14584ef2061983c59f2147aed25377029f4fd9c3"
+      }
     }
   ]
 }

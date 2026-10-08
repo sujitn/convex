@@ -45,6 +45,7 @@ mod linear;
 mod log_linear;
 mod monotone_convex;
 mod parametric;
+mod piecewise_constant;
 
 pub use cubic_spline::CubicSpline;
 pub use flat_forward::FlatForward;
@@ -52,6 +53,7 @@ pub use linear::LinearInterpolator;
 pub use log_linear::LogLinearInterpolator;
 pub use monotone_convex::MonotoneConvex;
 pub use parametric::{NelsonSiegel, Svensson};
+pub use piecewise_constant::PiecewiseConstant;
 
 use crate::error::MathResult;
 

@@ -477,6 +477,16 @@ pub enum CurveSource {
         /// Absolute raw-value continuity bound at every join, never relaxed.
         join_tolerance: f64,
     },
+    /// Right-owned step continuous-zero rate grid; no linear interpolation proxy.
+    PiecewiseConstant {
+        /// Complete actual dates/model times and native rate-unit quotes.
+        nodes: Vec<CurveNode>,
+    },
+    /// Continuous-zero rate grid integrating the original native flat forwards.
+    FlatForward {
+        /// Complete actual dates/model times and native rate-unit quotes.
+        nodes: Vec<CurveNode>,
+    },
     /// Full node grid in a declared representation.
     Nodes(Vec<CurveNode>),
     /// Supported exact simple-rate helper chain.
