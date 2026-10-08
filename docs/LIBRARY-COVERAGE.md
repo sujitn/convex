@@ -417,3 +417,19 @@ Positive, boundary and failure examples execute the original full product and
 native numerical guards. All 198 prior numerical/transport pins and original
 mandatory scope remain unchanged; twelve supplemental controls bring pins to
 210. Original records stay Planned and full CVX-063 AC2/AC3 remain open.
+
+Version33 adds [complete native curve recipe capture and replay](CURVE-SNAPSHOT-REPLAY.md).
+Schema-2 immutable snapshots retain original sources, dated time bases, units,
+roles, models, exact dependencies and explicit record/definition revisions.
+Schema-1 canonical identity is preserved. Strict native graph reconstruction,
+actual file reopen, runtime/configuration recovery, published configuration schema
+and typed failure controls cover the selected direct-source slice. The unchanged
+2,563-request replay corpus supplies transport checks, alongside original
+independent financial controls. Full product calibration snapshots and original
+quote-risk graph rebuilding remain required.
+
+Ten additive controls bring quantitative/transport pins from334 to344. Critical
+sources204, library source pins528 and observations56; the original mandatory
+table bytes,30areas/174combinations/2154Planned records and50routes/3197requests
+remain unchanged. CVX-063 remains partial; actual unavailable hosts, independent
+financial/library/production/latency admission and remaining operations stay open.

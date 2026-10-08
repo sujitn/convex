@@ -1567,6 +1567,35 @@
         "tools/library/library-inventory.json": "1dad07fc6699dbe2f8605558fa07295bc77e1613d7d89f3c22813526bf05b32c",
         "tools/library/test_operations.py": "1a4ac4c98a56b264ff61d37338b579e35d963ccdc186f32593ae41ac7b916c15"
       }
+    },
+    {
+      "base_commit": "0d8111756e52058c8b100de46433c17b8a4ce230",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Published strict operator envelope schema plus original native recipe schema validation; no financial type duplication. Exact integer-day/365 roundtrip and checked-owner equality guard legacy graph publication. Existing finance sources, controls/defaults/tolerances and334 numerical rows/bytes remain exact; ten additive controls, seven added critical owners and five enforced CI gates. All mandatory table bytes remain exact. This is engineering review, not independent quantitative approval. Existing POST point constructor rejects fewer than two pillars with HTTP400 before installation. Two unpinned API setups receive explicit same-rate second pillars; every original API assertion/tolerance/date/first-pillar value and all334 quantitative rows/bytes remain exact. Before-fix HTTP500 and final rejection/no-cache regressions are retained.",
+      "tests": [
+        "2563 unchanged original native query/build outcomes through complete recipe roundtrip",
+        "Actual schema1 pre-edit identity, port/file/configuration/runtime/recovery/lineage/server/boundary failures",
+        "Exported operator/native schemas,33 missing/unknown mutation failures and original quantitative regression",
+        "Final strict affected lint/docs, full workspace, formatting, scope/source conservation and actual harness controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4aa73b1abc9259c40a78e39fec9120999e1c85166a2a8fba67a6e91cab9188b9",
+        "crates/convex-ports/src/configuration.rs": "40a9da4637f774368076a2feb31802dd6f9ee617a978126b42d2987bf62e60ac",
+        "crates/convex-ports/src/configuration_schema.rs": "698065df16ede1ced4a2bc4d76512f8fb4bc882011e67b71554e09ed74aa9b5c",
+        "crates/convex-ports/src/snapshot.rs": "943df4d61663e020ba5d4f5ea0debceda080aca9ed6b7b2cecc6736a3d21a301",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs": "b8618d9087489b998648d5b9ea7de1c84a7f09dbc97081b7d6749e56d8d14f34",
+        "crates/convex-ports/tests/support/configuration_fixtures.rs": "7fde90ff3213b59c4cea9d70d1d0b7bd7a3449ec2fad84fea4e45db7ddb5dde0",
+        "crates/convex-ports/tests/support/snapshot_fixtures.rs": "9e4b0b556aa55980412268c1b7fe60ccab63d243880934bd1bbc46b9f8c21814",
+        "tests/fixtures/library/curve-replay-schema-one.json": "1e99a5e83cf2ffd409081d9d02078c5b7bde4b202986c3ba659c2e8c365c873a",
+        "tests/fixtures/library/curve-replay.json": "d63f82b6ffaf8110af211d75087e7e3fc35d2f63ad8b6b59bc1ebfece9dd7ca9",
+        "tools/assurance/check.py": "3f9e1e3d96ebd5bbaf6fbf729c9cb9e37fd0525fa231c7371a7528bca40d46e8",
+        "tools/assurance/inventory.json": "4474ef5a3c5f9f9a2cb1dae4a1b0c9bdbd23c42f5c68ab05031aee6b8a2a8f79",
+        "tools/assurance/numeric-evidence.json": "5507f5f454c7b81e99576b2d514750081a8585c93eac138ed10440f18ad564b7",
+        "tools/assurance/test_policy.py": "7bb1ecd148c2e653074b9b464273fd38f59b50356531af226c35f431ffa3fa88",
+        "tools/library/library-inventory.json": "193e9f602fdd72ce557839ef072ac36229f2cd1f65d0847a4a6303bb1aa0845a",
+        "crates/convex-server/src/handlers.rs": "c78928000b940621ec03306bdb06a2368e72b8e1d0006afe22304836ee30cc3e"
+      }
     }
   ]
 }

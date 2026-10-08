@@ -234,3 +234,8 @@ CVX-059 optional models; CVX-063 schemas/C ABI/client parity; CVX-064/065 the
 library certificates. The existing 105 retained comparison failures remain
 enforced. No production, model, external data or latency gate is completed by
 this native contract task.
+
+The engine now retains and reconstructs complete original supplied recipes
+through [schema-2 snapshot replay](CURVE-SNAPSHOT-REPLAY.md), including native
+source/model/date/unit/role/time/method/tail and exact dependency versions.
+Full product-calibration snapshots and quote-risk graphs remain separate work.

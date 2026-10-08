@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "inventory_version": 32,
+  "inventory_version": 33,
   "reviewed_at": "2026-10-08",
-  "reviewed_source_commit": "99149d9bce801f61f0a8f48a00823ae9e58dd33d",
+  "reviewed_source_commit": "0d8111756e52058c8b100de46433c17b8a4ce230",
   "scope_note": "Reviewed pending coverage inventory, not a library certificate. Proposed contract packs require exact documents/fixtures/model approval in their owning tasks. All 30 mandatory areas are preserved. No record is Verified. CVX-054 inspects candidate shared primitive implementations and updates only affected source pins. Original mandatory dimensions/owners/statuses stay pending. New native APIs have engineering fixture evidence; full product migration, market packs, all surface parity and independent certificates remain required. CVX-056 adds checked native curve/dated helper candidate evidence. All 30 areas,174 combinations,2154 Planned operation/surface records,12 exclusions and original owner/gate scope remain. Complex product/global calibration, schema/host dispatch and independent certificates remain pending. CVX-060 numerical candidate evidence adds native scaled dated money-market fit and exact views/declared rolls. All original mandatory records remain Planned; full models, market packs, shared host dispatch and independent certificates remain pending. CVX-017 implements shared supplied fixed/zero quotes, exact payment-step pricing, checked explicit curve roles and missing inputs, actual government benchmark yields and native/FFI/admitted REST parity. The fresh retained comparison passes 392/392 at unchanged expected values/tolerances, but remains unqualified. All original requirements, combinations, operation/surface records and owners remain Planned; no independent model/market or LB0/LB1 certificate is inferred. CVX-055 adds checked full supplied BondTerms/native JSON reconstruction, independent stepped/amortizing/floating cash with eligible history, exact expected principal allocation and complete supported fixed-price exercise/notice terms. Pure facade prices plain expected cash on separate supplied projection/discount roles and rejects optional valuation without a model. Full product model/market, host/schema, inverse/risk/lifecycle and independent certificates remain pending; all mandatory records and owners remain Planned. CVX-059 adds checked optional-bond HW1F/sigma calibration, actual dated fixed notice/call/put branches, restricted joint term-FRN common-state pricing, fractional OAS and resolved/converged fixed-model factor risk. Explicit unsupported combinations remain gaps; prior compatibility paths retain separate qualification. Strict economic JSON rejects ignored fixed cap/floor fields. Full market/model/host, lifecycle and independent certificates remain pending; no mandatory record is promoted. CVX-018 adds supplied native IRS/OIS contracts and eligible expected cash engineering candidates. Full discounted pricing, curve calibration/rebuild, inverse/risk/lifecycle, host schemas/dispatch and market/model/library certificates remain owning work. CVX-019 adds native full-contract multi-curve IRS/OIS PV/accrued/par, checked common three-PV lineage and bounded product piecewise/global fitting with explicit overnight zero-basis view. Manual independent references do not satisfy external ORE/QuantLib AC2, which remains pending. All original scope, economics, models, owners, surfaces, gates and Planned records remain unchanged; risk/lifecycle/hosts and all certificates remain owning work. CVX-019 AC2 now has pinned matched full-contract inputs, a real native export and prepared checksum-verified QuantLib capture/build-provenance/offline replay tooling. QuantLib calls remain unexecuted; runtime connection failures do not satisfy AC2. All mandatory rows and delivery gates stay Planned. CVX-019 AC2 execution now records a publisher/installed-byte verified QuantLib 1.40 run: ten matched full-term cases,973 numeric values and exact coupon/reset/observation/payment lineage at unchanged predeclared bounds. A separately pinned complete capture supports current-native offline CI on other platforms without installing QuantLib. Scoped external_comparison_pending is closed; all mandatory records stay Planned and independent certificates, market packs, risk/lifecycle and hosts remain owning work. CVX-020 provides callable native single-name CDS terms/schedules, premium/protection/accrual-on-default and running/clean/dirty conversions through convex::credit. Original executed1.8.3 model and all7164 original USD RFR rows match at declared bounds. Full calibration/CS01/JTD, lifecycle, host/schema and independent market/model certificates remain owning work. Preserve all original mandatory economics/owners/surfaces/gates and the exact2154 Planned table suffix. CVX-021 adds actual full CDS quote calibration, signed rates/CS01/upfront/recovery scenarios, conditional immediate JTD and checked bond-CDS mapping/basis inputs. Original ISDA1.8.3 execution supplies23 engineering scenarios/276valuations/1150checks. Bond credit pricing, executable hedge optimization, lifecycle/hosts and independent market/model certificates remain owning work. Preserve the exact2154 Planned requirement suffix, economics, owners, surfaces and gates. CVX-022 adds actual dated futures/basket/cash reference inputs, native exact units and source/availability admission, authoritative import/replay and explicit indicative advisor status. Published exchange factors are archived; calendar/cash registration and modified test controls are engineering assumptions. Complete futures/CTD/carry/fixing/risk/lifecycle/host workflow and independent certificates remain pending. Preserve every2154 Planned requirement and exact suffix/economics/owner/surface/gate. CVX-023 adds full supplied deterministic bond-future cash/carry/rank/switch risk and partly-fixed overnight/term rate valuation, explicit convexity/final precision, actual cash hedge model/side estimates, normal margin/tick/integer/supplied roll diagnostics. All outputs are indicative. Optional delivery/margin financing, complete convention/model packs, canonical portfolio risk, lifecycle/hosts and independent certificates remain pending. Preserve every2154 Planned requirement and mandatory suffix bytes/economics/owners/surfaces/gates. CVX-057 adds complete supplied mixed rate and two-leg tenor-basis native routes, original native quote diagnostics, independent discount/projection fits and exact dependent rebuilds. Explicit overnight zero-basis views, duplicate retention, rank/work/history/horizon failures remain model assumptions and controls. Synthetic Decimal reference engineering is not ORE execution or market/model/host/quantitative/library/production/latency certification. Preserve every mandatory suffix byte, economics/owner/surface/gate and all2154 Planned records. CVX-058 adds full original cash government/issuer-basis/repo native fitting, settlement quote conversion, separate credit/par recovery model and actual dated repo/haircut/coupon carry. Original native residuals, graph role/model preflight and exact dependent rebuilds are scoped engineering. Synthetic Decimal cash references and retained actual CDS dependency are not ORE engine equivalence, complete convention/model/host integration or release certificates. Preserve every mandatory suffix byte/economics/owner/surface/gate and all2154 Planned records. CVX-024 adds complete-key signed reference risk, actual full native graph bump/recalibration, optional model guards and per-currency expected portfolio/FX coverage. Original numerical/model/market bounds and all mandatory records/suffix/economics/owners/surfaces/gates stay preserved. Scoped engineering does not certify all conventions/models/host/native facade/lifecycle/PnL, independently approved risk policies or deployment/latency. CVX-061 adds pure complete supplied workflow routes and a full quotes-to-curves-to-mixed-book facade example; original residual/history/quantity/model guards retained. Actual future quote levels differ from discounted PV, and expected cash from posted cash. Exact mandatory scope/suffix/owners/surfaces/gates remain unchanged; all2154 records Planned. Model/market/convention/host/lifecycle/PnL, executable hedge and independent certificate gaps remain. CVX-062 adds scoped pure original-contract lifecycle with actual proposed/recorded cash, pending default/auction/payment and native futures delivery facts. Exact mandatory scope/suffix/economics/owners/surfaces/gates remain unchanged; all2154 records Planned. Full amended/successor/legal conventions, authoritative ledger/PnL, host dispatch and independent quantitative/library/production/latency certificates remain open.",
   "requirement_areas": [
     {
@@ -866,7 +866,7 @@
     }
   },
   "source_pins": {
-    ".github/workflows/ci.yml": "04ff8b946b4bcbfdfb813894d66f1a9bfb5bc50a534c9eae1d16c17196f06b38",
+    ".github/workflows/ci.yml": "4aa73b1abc9259c40a78e39fec9120999e1c85166a2a8fba67a6e91cab9188b9",
     ".github/workflows/java.yml": "bc4c5344fd16da2f4c05782ab1ddd0087721a7b60de1b8f05416ec0fb77052c0",
     "Cargo.lock": "8aec828950b22dedc02d8bc21c7d841ce0efe43dea18ccc7d509eed6c49cb641",
     "Cargo.toml": "bb34a6e3f9872a62569c5aa9ca5ef3215790b631ba133b1994a1b7c123c73332",
@@ -1069,9 +1069,9 @@
     "crates/convex-curves/tests/monotone_contracts.rs": "2c7cd2410bdf722ae9cf0f94b358913d50fe21f31a674fcb25183a42422c1973",
     "crates/convex-curves/tests/product_composition.rs": "dfe3e5abaf3d674d0383ccecb0d11d93b26b1954c7c0c13f92efdd38bd871fff",
     "crates/convex-curves/tests/ufr_contracts.rs": "aacf3128aec325d2d6337864f77b60d8cf0d0ae93acbeffc18e878eac8d7fc07",
-    "crates/convex-engine/benches/pricing_benchmarks.rs": "ee4c7ac8a5f957cac6c13e9e739372d0c8a602954d0ce0142e3e8a8f1e3fa53d",
-    "crates/convex-engine/src/curve_builder.rs": "6aaa35ad2111be70a2292e07d5896e7235fcc73b5876bc69fa3cc9651181d25e",
-    "crates/convex-engine/src/pricing_router.rs": "e71b028e0dd3abb699eb5d2ab6c7665f06e48234c2e6b7c8b6335475736620a0",
+    "crates/convex-engine/benches/pricing_benchmarks.rs": "bc98c6071f5593c3df3c45ac8d9f34b2006ef45365fa3731b72c8e9d15536902",
+    "crates/convex-engine/src/curve_builder.rs": "da217d79002ce432f83288f64102f1d287e916a59db05683fb230e899cd1c391",
+    "crates/convex-engine/src/pricing_router.rs": "e5267ec7bd87ac0861c4a8f2429f22cfd60d33c488f71438a8796957f12e0c23",
     "crates/convex-engine/tests/curve_method_migration.rs": "2e2bd67282eb72492bb2f232456eac8b2d7739fd85508d82d348691754a3e826",
     "crates/convex-engine/tests/swap_curves.rs": "151ab9e9672a56bf095e8f65e0c40dbf43786a578539d1fd6180565279816fdf",
     "crates/convex-ext-file/src/reference_repository.rs": "74bfde2523a000214fe05d28687d3d49336b6a4f1861c2b2321ba917d8472c73",
@@ -1132,7 +1132,7 @@
     "crates/convex-ports/src/reference_master.rs": "c72177783fe2ba30ed093e92902d27c3956009437755077cbb20bacbad497659",
     "crates/convex-ports/tests/futures_reference.rs": "8e35fc676c566b38eb41f090960531eaa5dc5661a03fa4ad71066227d422c431",
     "crates/convex-ports/tests/support/futures_conformance.rs": "a4676bc614309c28d649c23e48ec4814cd9ec0166e6b106f07315854bedcfc8c",
-    "crates/convex-ports/tests/support/snapshot_fixtures.rs": "7b8dc5aa1878da4254caf5a55cb2b082c7072737b1add2cdc79b1a0163467479",
+    "crates/convex-ports/tests/support/snapshot_fixtures.rs": "9e4b0b556aa55980412268c1b7fe60ccab63d243880934bd1bbc46b9f8c21814",
     "crates/convex-rates/Cargo.toml": "410e882cb237bc0f3513997d3b696b4719bfecf9ffd5374b8b5db976a31df0a6",
     "crates/convex-rates/src/basis.rs": "a8e9a5b1bcfc70bda8ae046d6f3c118bda8705e0aec20ac6358eca202c8181b6",
     "crates/convex-rates/src/cashflows.rs": "e1d1057086e249238a30a163eda0b957e57f0ef11d8b75926d9f47aa7728a8e3",
@@ -1146,7 +1146,7 @@
     "crates/convex-rates/tests/fixtures/valuation.json": "91342b44961e5705bd013f9eb20c73e0daea16c96b49e8f710b30f5177964e6b",
     "crates/convex-rates/tests/pricing.rs": "3212e58eee76986e975ffeb6f7d5386c0d2af01510a79eae81e51b1e49e2944a",
     "crates/convex-rates/tests/support/mod.rs": "52b713b286c8f23338e859d05dc78235b91ab9f78eb72933d8d1cd3ea7bfa0e4",
-    "crates/convex-server/src/handlers.rs": "06c330960f58c5a9eeafde174a4706bce8aa744ffa77e7ef0e465b5b7d938298",
+    "crates/convex-server/src/handlers.rs": "c78928000b940621ec03306bdb06a2368e72b8e1d0006afe22304836ee30cc3e",
     "crates/convex-server/tests/support/bond_quotes.rs": "2f0ab4b14f1271cdaa1fbe3cb8869b6d47a793aed044f36aff863fc904b7d6ca",
     "crates/convex-wasm/src/analyze.rs": "c97ec553e0748c97e52efc91908e902f0fb69586a67345b19db70b8543cbf535",
     "crates/convex-wasm/src/bond.rs": "c804ded00453d95e595ac63d31be3710d46ddbab05cf67d43d0195e538c9ea7f",
@@ -1235,18 +1235,18 @@
     "docs/CASH-CURVES.md": "403cb4d93060253cd7f285d7617acff03bf9a33fe237bdaca20deb0ffbce0f27",
     "docs/CDS-VALUATION.md": "400134279bbaf53c8e857cfee76edbb9f4d94375846a3f36692db3bf6d99ba79",
     "docs/CREDIT-CALIBRATION.md": "86d94105d5a31c253090f1a3be881d99506d3558b8fd5a4da5adf68b7ae3b248",
-    "docs/CURVE-CONTRACTS.md": "f5dbc491624ed0c466cd2e5d9631c344be243cfb899b9e7efd899ac72eda782d",
-    "docs/CURVE-FAMILIES.md": "d4407eda395b5b10bf6a222dcc71731ecb62159ce54d53dc09d935df975eec62",
-    "docs/CURVE-METHODS.md": "dc0920a4adca640a4c23c53cd031cc3848d413621166232ccc33eae006497c91",
-    "docs/CURVE-MONOTONE-CONVEX.md": "9d992dbb0d3c218ee01a18fa688122b14af2ec9abc1132241e3e4c77ab3ee65e",
-    "docs/CURVE-UFR.md": "df02b9b50b5cb5111f65dee7ae94725e7a3c60a6ddd75df272a3f6b073a19bcb",
+    "docs/CURVE-CONTRACTS.md": "2719b0b77f4bf4692836700325cfcc015a5291d28ed2d3b5127ed8bff3c1b18b",
+    "docs/CURVE-FAMILIES.md": "e957a83bbf7e1234637f304a93524ddc1bfa883fad40e43d274bfeaaf4b76507",
+    "docs/CURVE-METHODS.md": "93336011e0706278b0bfc9598703736747da5a60c30e63659ebe3119bb51fc10",
+    "docs/CURVE-MONOTONE-CONVEX.md": "5af349be80f30b631aaa5fe17ddf6e0955b9c859ebd9ccbaa88d6c7c7edbe5f8",
+    "docs/CURVE-UFR.md": "860c602edc52c9c4d40432be4ce382d3998add683386ad3983269aa0b551c33f",
     "docs/FUTURES-REFERENCE.md": "a6e6c1f61fdd6a61546a358b87681874e1b06375120044098e2d0c15a80cf11f",
     "docs/FUTURES-VALUATION.md": "4eb2a117fb21f3498d48fc3d250c6cc94234d9ad67f058c5a782c30546c9ed78",
-    "docs/LIBRARY-API.md": "2e3a17cddc1dc77e12e6b69211170743bae7f317a6eccde772e72583984986cc",
+    "docs/LIBRARY-API.md": "656260a856d13454b815be9617631367824879df87680e4c5eff8eb7f83dea9e",
     "docs/LIFECYCLE.md": "5bc42a52db44b859c61697805e8d52fdcfa9c4225588fb833612dac124883283",
     "docs/QUOTE-RISK.md": "a0f4c4880e1233bb8d759649b05d6ae771232b37fd3afa11c21958f74f1c08c4",
     "docs/RATE-CALIBRATION.md": "8cc447b71f86efb1c74554a68a836d3a446072d9b6e0642124b36cecad9aa4a4",
-    "docs/ROUTE-MIGRATION.md": "63ebdd50cc0970697b49788aa92312aec34fb2a60cf3e39e375c851d33114b07",
+    "docs/ROUTE-MIGRATION.md": "8470334174ff5854d767067948e45069e548a8f2f9e835c50d92c756b5fd2ba6",
     "docs/STANDALONE-WORKFLOWS.md": "74f3b98c789e7389db2811c2c91d4f0e8ca0b87571b2949e83484d4344fc2c31",
     "docs/WORKOUT-QUOTATIONS.md": "0b1e0618081f9cd84fcba813f575721873981dc66bdb0cc991bfa4cbb850fc9f",
     "excel/Convex.Excel.Tests/LibraryCashHelpersTests.cs": "eb8ab92d909f4b843b9632e7fee6401528c19eb36b013454044c287377f357ff",
@@ -1368,7 +1368,32 @@
     "www/src/components/YieldAnalysis.jsx": "4ccde8cb21123d9c4b06437490c8cd75e9dc822d3b3b5408209da2bd6e78f0de",
     "www/src/index.js": "cd2188cb502287d33ffda53c43872c8ac0b00d1e13b5e6640446c7aa353c4dd5",
     "www/src/styles/bloomberg.css": "7023c0b47f3ecbd151a4414db8becaf34e4c9afdf26e829b25ccbd283242e314",
-    "www/tests/route-admission.cjs": "46ffdef6889f5183d3a2ed79c300b599e58913730a21da13d6229a4f9d75fd35"
+    "www/tests/route-admission.cjs": "46ffdef6889f5183d3a2ed79c300b599e58913730a21da13d6229a4f9d75fd35",
+    "crates/convex-engine/src/curve_replay.rs": "5ac44ee834f3fa1e9c3b9556d01bed54fe46c2082136a9354b5e3abea521ec13",
+    "crates/convex-engine/src/snapshot.rs": "60372c9b010d64d030d40c9c1709dc9578adcc222fc305eedf994e9482c3fe69",
+    "crates/convex-engine/src/configuration.rs": "7951b63130df99396c1c127a67b341436696e27f25ebe9039f52561a1c857470",
+    "crates/convex-engine/src/runtime/worker.rs": "c0b29440e27416550c509e30d69768fc96e8d3d171ad47b08006b3ebf7f0fff6",
+    "crates/convex-ports/src/snapshot.rs": "943df4d61663e020ba5d4f5ea0debceda080aca9ed6b7b2cecc6736a3d21a301",
+    "crates/convex-ports/src/configuration.rs": "40a9da4637f774368076a2feb31802dd6f9ee617a978126b42d2987bf62e60ac",
+    "tests/fixtures/library/curve-replay.json": "d63f82b6ffaf8110af211d75087e7e3fc35d2f63ad8b6b59bc1ebfece9dd7ca9",
+    "tests/fixtures/library/curve-replay-schema-one.json": "1e99a5e83cf2ffd409081d9d02078c5b7bde4b202986c3ba659c2e8c365c873a",
+    "tests/scripts/curve_replay_inputs.py": "743b3813bd57609b4a563ae654518dacc8f2237c2cec070e05d5fddd03a4b8ec",
+    "crates/convex-engine/tests/curve_recipe_replay.rs": "99273c84924e595badd271f303f0cccde58ef5cf024ffc8fd609dc3a0ff728f3",
+    "crates/convex-engine/tests/curve_recipe_runtime.rs": "c4e11da410c38072a147081d228424c5b29f81b213c8c7c0dd79fd4c836b766b",
+    "crates/convex-engine/tests/support/curve_replay.rs": "4870e66bfa10568c4abc67132fbc4213f263c52464f6880adf13ed1ff4c1f117",
+    "crates/convex-ports/tests/curve_recipe_snapshots.rs": "b8618d9087489b998648d5b9ea7de1c84a7f09dbc97081b7d6749e56d8d14f34",
+    "crates/convex-server/tests/curve_recipe_context_tests.rs": "8e2e828c6daa0c36d137ac95c84058302f700ca3a428f1821381a63ffd2c9162",
+    "crates/convex-engine/examples/curve_snapshot_replay.rs": "2dbd513ca8c3566835c5f3f56f4ea5b44eb09d63505e37833267f5103ea6a772",
+    "crates/convex-engine/examples/snapshot_replay.rs": "1e0348141a2c9418d6c18e966e8bc00951b9a7d424c9088dd9aa8f3731b86ac7",
+    "crates/convex-engine/SNAPSHOTS.md": "515f2894377c1bb6d45cc81623b5739fc44a7020e0bc6e02531d002e828403df",
+    "docs/CURVE-SNAPSHOT-REPLAY.md": "d52f81b81100c41a44b2fdb409ef39d4b5c7e60490ca256d192b0c377e29c2b6",
+    "crates/convex-engine/src/lib.rs": "42ad6326d2d8e757f500d90fe5bcf5112cf3a54e5fd245e169f38c7ecdcc5ada",
+    "crates/convex-engine/src/market_data_listener.rs": "a268c4bfe755398dd54f4fea9f7abc367580332d5c7f60deb1801edc2332f4e3",
+    "crates/convex-engine/tests/support/runtime_setup.rs": "38b19a2460dc347752caef15f63efbda9b6bb5abcf07a45d0f2271323a33721f",
+    "crates/convex-ports/tests/support/configuration_fixtures.rs": "7fde90ff3213b59c4cea9d70d1d0b7bd7a3449ec2fad84fea4e45db7ddb5dde0",
+    "crates/convex-engine/tests/snapshots.rs": "169528019da0208662474e603c914a23872475bf8b17e3a27955557a631c7ac5",
+    "tests/scripts/curve_replay_schema.py": "504d5895ddf9b833a8e3b5e151a7336a38a62cbbe839515fc3e35131519938e3",
+    "crates/convex-ports/src/configuration_schema.rs": "698065df16ede1ced4a2bc4d76512f8fb4bc882011e67b71554e09ed74aa9b5c"
   },
   "observations": {
     "schedules": {
@@ -7168,6 +7193,47 @@
         "actual_windows_excel_wasm32_browser_unverified"
       ],
       "test_execution": "Source-bound native/shared/client/schema and frozen independent controls in private CVX-063-MonotoneConvex evidence. All mandatory records remain Planned; AC2/AC3 and certification remain open."
+    },
+    "complete_curve_recipe_snapshot_replay": {
+      "assessment": "partial",
+      "note": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Existing point creation now rejects fewer than two pillars with HTTP400 before installation. Original deletion/compounding API assertions and tolerances remain exact; their setups supply an explicit second pillar with the same original rate. Actual before-fix rejection, successful endpoint regressions and exact setup conservation are retained.",
+      "public_apis": [
+        "convex_ports::snapshot::SnapshotCurveRecipe",
+        "convex_engine::curve_replay::rebuild_curve_recipes",
+        "convex_engine::curve_replay::replay_snapshot_curves",
+        "convex_engine::BuiltCurve::from_recipe"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-engine/src/curve_replay.rs",
+          "text": "pub fn replay_snapshot_curves(",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-ports/src/snapshot.rs",
+          "text": "pub struct SnapshotCurveRecipe {",
+          "kind": "code"
+        },
+        {
+          "path": "crates/convex-engine/tests/curve_recipe_replay.rs",
+          "text": "fn complete_original_native_pack_roundtrips_and_replays_exactly()",
+          "kind": "test"
+        },
+        {
+          "path": "crates/convex-engine/tests/curve_recipe_runtime.rs",
+          "text": "async fn actual_runtime_capture_value_and_restart_retain_complete_recipe_lineage()",
+          "kind": "test"
+        }
+      ],
+      "gaps": [
+        "complete_product_calibration_snapshot_graphs",
+        "full_original_quote_risk_rebuilding",
+        "other_required_curve_method_model_operations",
+        "remaining_raw_value_convenience_qualification",
+        "actual_windows_excel_wasm32_browser_unverified",
+        "independent_certificates"
+      ],
+      "test_execution": "Source-bound actual schema-1 capture/native/file/runtime/configuration/server/resource/regression evidence in private CVX-063-Curve-Replay. All2154mandatory records remain Planned; CVX-063 remains partial."
     }
   },
   "combinations": [

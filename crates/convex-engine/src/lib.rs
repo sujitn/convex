@@ -51,6 +51,7 @@ mod reference_terms;
 pub mod builder;
 pub mod calc_graph;
 pub mod curve_builder;
+pub mod curve_replay;
 pub mod error;
 pub mod etf_pricing;
 pub mod market_data_listener;
@@ -432,13 +433,18 @@ impl PricingEngine {
             curve_id: curve_id.clone(),
         };
 
+        let points = match curve.to_points() {
+            Ok(points) => points,
+            Err(error) => {
+                warn!("Curve input publication failed: {error}");
+                return;
+            }
+        };
         // Update curve in cache
-        if let Err(error) = self.calc_graph.publish_input(
-            &node_id,
-            NodeValue::Curve {
-                points: curve.to_points(),
-            },
-        ) {
+        if let Err(error) = self
+            .calc_graph
+            .publish_input(&node_id, NodeValue::Curve { points })
+        {
             warn!("Curve input publication failed: {error}");
         }
 

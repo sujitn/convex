@@ -1677,6 +1677,56 @@
       "path": "tests/scripts/library_monotone_inputs.py",
       "mode": "file",
       "sha256": "521958fe4293c6c7e2b53b7f9f0e28013a661dde3a05611d89620088906ca261"
+    },
+    {
+      "path": "tests/fixtures/library/curve-replay.json",
+      "mode": "file",
+      "sha256": "d63f82b6ffaf8110af211d75087e7e3fc35d2f63ad8b6b59bc1ebfece9dd7ca9"
+    },
+    {
+      "path": "tests/fixtures/library/curve-replay-schema-one.json",
+      "mode": "file",
+      "sha256": "1e99a5e83cf2ffd409081d9d02078c5b7bde4b202986c3ba659c2e8c365c873a"
+    },
+    {
+      "path": "tests/scripts/curve_replay_inputs.py",
+      "mode": "file",
+      "sha256": "743b3813bd57609b4a563ae654518dacc8f2237c2cec070e05d5fddd03a4b8ec"
+    },
+    {
+      "path": "crates/convex-engine/tests/curve_recipe_replay.rs",
+      "mode": "file",
+      "sha256": "99273c84924e595badd271f303f0cccde58ef5cf024ffc8fd609dc3a0ff728f3"
+    },
+    {
+      "path": "crates/convex-engine/tests/curve_recipe_runtime.rs",
+      "mode": "file",
+      "sha256": "c4e11da410c38072a147081d228424c5b29f81b213c8c7c0dd79fd4c836b766b"
+    },
+    {
+      "path": "crates/convex-engine/tests/support/curve_replay.rs",
+      "mode": "file",
+      "sha256": "4870e66bfa10568c4abc67132fbc4213f263c52464f6880adf13ed1ff4c1f117"
+    },
+    {
+      "path": "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+      "mode": "file",
+      "sha256": "b8618d9087489b998648d5b9ea7de1c84a7f09dbc97081b7d6749e56d8d14f34"
+    },
+    {
+      "path": "crates/convex-server/tests/curve_recipe_context_tests.rs",
+      "mode": "file",
+      "sha256": "8e2e828c6daa0c36d137ac95c84058302f700ca3a428f1821381a63ffd2c9162"
+    },
+    {
+      "path": "crates/convex-engine/examples/curve_snapshot_replay.rs",
+      "mode": "file",
+      "sha256": "2dbd513ca8c3566835c5f3f56f4ea5b44eb09d63505e37833267f5103ea6a772"
+    },
+    {
+      "path": "tests/scripts/curve_replay_schema.py",
+      "mode": "file",
+      "sha256": "504d5895ddf9b833a8e3b5e151a7336a38a62cbbe839515fc3e35131519938e3"
     }
   ]
 }

@@ -53,6 +53,8 @@ pub struct RuntimePlan {
 impl RuntimePlan {
     /// Validate the operational slice without substituting terms, curves, units or models.
     pub fn validate(&self) -> Result<(), RuntimeError> {
+        crate::curve_replay::rebuild_curve_recipes(&self.assembly.curve_recipes)
+            .map_err(TraitError::from)?;
         if self.schema_version != 1
             || self.assembly.generation.get() != 1
             || self.assembly.instruments.is_empty()

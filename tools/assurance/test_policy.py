@@ -90,7 +90,7 @@ class AssuranceMutations(unittest.TestCase):
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c]
-        self.assertEqual(len(commands), 37)
+        self.assertEqual(len(commands), 38)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -100,6 +100,24 @@ class AssuranceMutations(unittest.TestCase):
         self.assertTrue(modules <= check.inventory_paths(ROOT))
         for path in modules:
             check.check_lifecycle_source((ROOT/path).read_text())
+
+    def test_curve_recipe_replay_checks_and_capture_owners_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance']
+                    if any(name in c for name in ['curve_replay_', 'curve_recipe_', 'curve_snapshot_replay'])
+                    or c == 'cargo clippy --locked -p convex-ports -p convex-engine -p convex-server --all-targets --all-features -- -D warnings']
+        self.assertEqual(len(commands), 5)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        for path in ['crates/convex-engine/src/curve_replay.rs',
+                     'crates/convex-engine/src/snapshot.rs',
+                     'crates/convex-engine/src/configuration.rs',
+                     'crates/convex-engine/src/runtime/worker.rs',
+                     'crates/convex-ports/src/snapshot.rs',
+                     'crates/convex-ports/src/configuration.rs',
+                     'crates/convex-ports/src/configuration_schema.rs']:
+            self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_curve_family_checks_and_native_owners_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()

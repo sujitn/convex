@@ -68,6 +68,7 @@ async fn setup(fixings: Vec<convex_ports::fixing::PublishedFixing>) -> Setup {
         fixings: vec![],
         required_curves: vec![fixture::curve().curve_id],
         curves: vec![fixture::curve()],
+        curve_recipes: vec![],
         max_source_skew_ms: 1000,
     };
     let events = vec![fixture::event(

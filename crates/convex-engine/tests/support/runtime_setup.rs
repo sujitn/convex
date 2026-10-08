@@ -58,6 +58,7 @@ pub async fn setup() -> Setup {
             fixings: vec![],
             required_curves: content.required_curves,
             curves: content.curves,
+            curve_recipes: vec![],
             max_source_skew_ms: 1000,
         },
         seed_events: vec![content.quotes[0].delivery_watermark.clone().unwrap()],

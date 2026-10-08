@@ -112,6 +112,11 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example standalone_book --no-default-features',
         'cargo run --locked -p convex --example standalone_book --features schemars',
         'python3 tests/scripts/monotone_reference.py --check',
+        'python3 tests/scripts/curve_replay_inputs.py --check',
+        '/tmp/convex-library-schema/bin/python tests/scripts/curve_replay_schema.py --binary target/debug/examples/curve_snapshot_replay --native-binary target/debug/examples/library_workflow',
+        'cargo test --locked -p convex-ports --test curve_recipe_snapshots -p convex-engine --all-features --test curve_recipe_replay --test curve_recipe_runtime -p convex-server --test curve_recipe_context_tests',
+        'cargo clippy --locked -p convex-ports -p convex-engine -p convex-server --all-targets --all-features -- -D warnings',
+        'cargo run --locked -p convex-engine --example curve_snapshot_replay -- demo /tmp/convex-curve-snapshot-replay',
         'python3 tests/scripts/monotone_math_fixture.py --check',
         'python3 tests/scripts/library_monotone_inputs.py --check',
         'cargo test --locked -p convex-math --test monotone_complete -p convex-curves --test monotone_contracts -p convex --test library_monotone -p convex-ffi --test library_monotone -p convex-mcp --test library_monotone -p convex-wasm --test library_monotone --all-features',
@@ -396,6 +401,10 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(['crates/convex-analytics/src/credit_calibration.rs',
                   'crates/convex-analytics/src/credit_risk.rs'])
     paths.add('crates/convex-engine/src/curve_builder.rs')
+    paths.update(['crates/convex-engine/src/curve_replay.rs', 'crates/convex-engine/src/snapshot.rs',
+                  'crates/convex-engine/src/configuration.rs', 'crates/convex-engine/src/runtime/worker.rs',
+                  'crates/convex-ports/src/snapshot.rs', 'crates/convex-ports/src/configuration.rs',
+                  'crates/convex-ports/src/configuration_schema.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-rates/src').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-credit/src').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/contracts').glob('*.rs'))

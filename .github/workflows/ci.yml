@@ -506,6 +506,21 @@ jobs:
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
+      - name: Preserve original complete recipe replay inputs
+        run: python3 tests/scripts/curve_replay_inputs.py --check
+
+      - name: Check complete snapshot recipes and original identity migration
+        run: cargo test --locked -p convex-ports --test curve_recipe_snapshots -p convex-engine --all-features --test curve_recipe_replay --test curve_recipe_runtime -p convex-server --test curve_recipe_context_tests
+
+      - name: Lint complete recipe capture replay and callers
+        run: cargo clippy --locked -p convex-ports -p convex-engine -p convex-server --all-targets --all-features -- -D warnings
+
+      - name: Reopen complete recipe offline consumer
+        run: cargo run --locked -p convex-engine --example curve_snapshot_replay -- demo /tmp/convex-curve-snapshot-replay
+
+      - name: Validate complete recipe configuration and native schemas
+        run: /tmp/convex-library-schema/bin/python tests/scripts/curve_replay_schema.py --binary target/debug/examples/curve_snapshot_replay --native-binary target/debug/examples/library_workflow
+
       - name: Check native CDS-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test credit_helper_repricing -p convex --test library_credit_helpers -p convex-ffi --test library_credit_helpers -p convex-mcp --test library_credit_helpers -p convex-wasm --test library_credit_helpers
 

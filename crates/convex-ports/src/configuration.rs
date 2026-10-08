@@ -3,7 +3,7 @@
 
 use crate::{
     fixing::FixingKey,
-    snapshot::{content_digest, QuoteRequirement, SnapshotCurve},
+    snapshot::{content_digest, QuoteRequirement, SnapshotCurve, SnapshotCurveRecipe},
     storage::{BondPricingConfig, Page, Pagination},
     TraitError,
 };
@@ -67,6 +67,9 @@ pub struct SnapshotAssembly {
     pub required_curves: Vec<CurveId>,
     /// Explicit resolved supplied curve revisions (not current builder pointers).
     pub curves: Vec<SnapshotCurve>,
+    /// Complete schema-2 native curve recipe records; omitted by older requests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub curve_recipes: Vec<SnapshotCurveRecipe>,
     /// Maximum selected quote-field source skew.
     pub max_source_skew_ms: i64,
 }
@@ -266,7 +269,7 @@ impl ConfigurationDocument {
             || self.assembly.instruments.is_empty()
             || self.assembly.instruments.len() > 256
             || self.assembly.quotes.len() != self.assembly.instruments.len()
-            || self.assembly.curves.len() > 64
+            || self.assembly.curves.len() + self.assembly.curve_recipes.len() > 64
             || self.assembly.required_curves.len() > 64
             || self.assembly.fixings.len() > 1024
             || !(0..=86_400_000).contains(&self.assembly.max_source_skew_ms)
@@ -318,6 +321,28 @@ impl ConfigurationDocument {
             if !curves.insert(&curve.curve_id) {
                 return Err(TraitError::InvalidInput("duplicate curve pin"));
             }
+        }
+        for curve in &self.assembly.curve_recipes {
+            curve.validate()?;
+            if !curves.insert(&curve.curve_id) {
+                return Err(TraitError::InvalidInput("duplicate curve pin"));
+            }
+        }
+        if self
+            .assembly
+            .curves
+            .iter()
+            .map(|c| c.points.len())
+            .sum::<usize>()
+            + self
+                .assembly
+                .curve_recipes
+                .iter()
+                .map(SnapshotCurveRecipe::input_count)
+                .sum::<usize>()
+            > crate::snapshot::MAX_SNAPSHOT_PILLARS
+        {
+            return Err(TraitError::CapacityExceeded);
         }
         let mut ids = BTreeSet::new();
         let mut scopes = std::collections::HashSet::new();
@@ -437,6 +462,7 @@ pub fn configuration_diff(
     check(
         "assembly.curves",
         previous.assembly.curves != next.assembly.curves
+            || previous.assembly.curve_recipes != next.assembly.curve_recipes
             || previous.assembly.required_curves != next.assembly.required_curves,
         RestartRequired,
     );

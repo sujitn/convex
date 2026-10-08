@@ -23,7 +23,7 @@ The [snapshot port](../convex-ports/src/snapshot.rs) retains the following value
 | Configuration | Exact pricing revision/values; optional retained activation sequence/digest and actually applied policy exceptions |
 | Quotes | Explicit source/field requirements, retained field observations, accepted data watermark and latest state-affecting delivery watermark |
 | Fixings | Required source/index/date and the selected published revision, or explicit absence |
-| Curves | Required identities and complete supplied zero nodes, reference date, interpolation, extrapolation, model and input revisions |
+| Curves | Required identities; original explicit zero records or complete native recipe records with actual dates, roles, units, model/helper/LLP/settings and exact dependencies |
 | Policy | Positive input generation, economic `as_of`, information `known_at`, field/curve age bounds and selected-source skew bound |
 
 Assembly resolves exact repository versions. A missing version never becomes a
@@ -53,14 +53,17 @@ one nanosecond beyond it is stale. Reading a cache never renews its age.
 ## Identity, quality and bounds
 
 Snapshot identity is `sha256:<64 lowercase hexadecimal digits>` over canonical
-schema-1 content with domain `convex.snapshot.v1\0`. Unordered manifests are
+schema-1 content with domain `convex.snapshot.v1\0`, or complete recipe schema-2
+content with domain `convex.snapshot.v2\0`. Original schema-1 bytes remain exact.
+See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity
 and derived quality. The file adapter additionally requires exact canonical bytes.
 This verifies integrity; it does not authenticate a provider or licensing decision.
 
 Each snapshot is bounded to 16 MiB, 256 instruments/selected quote keys, 1,024
-fixings, 64 curves and **4,096 total curve pillars**. Each quote has at most 12
+fixings, 64 total original/complete curves and **4,096 total original pillars,
+observations, helpers or segments**. Each quote has at most 12
 fields. Quote and curve age budgets are explicit, between 1 ms and one day;
 source skew is between 0 ms and one day. Product owners must choose their actual
 budgets; these bounds do not certify a trading latency target.
@@ -128,12 +131,17 @@ units and shared JSON/FFI contracts are unchanged.
 
 `SnapshotCurve` represents supplied continuously compounded zero rates on
 ACT/365F year fractions. It preserves fractional pillars and an explicit reference
-date, with linear or monotone-convex interpolation and flat-zero or flat-forward
-extrapolation. At least two strictly increasing positive finite tenors and finite
-rates are required; negative rates are permitted. `BuiltCurve::from_snapshot`
+date, with linear or monotone-convex interpolation and an explicit flat-zero
+extension. Its older unsupported flat-forward selection rejects. At least two
+strictly increasing positive finite tenors and finite rates are required;
+signed rates require an admissible explicitly selected model. `BuiltCurve::from_snapshot`
 reconstructs these values without reading today's date or inferring a policy.
-Tradable quote calibration, expanded curve families and calibration certificates
-remain their owning implementations.
+`SnapshotCurveRecipe` retains every original native source, date, unit, role,
+currency, time basis, model, method/tail, observation/settings and dependency
+version. The engine reconstructs the entire checked native graph before publication
+or use. `BuiltCurve::from_recipe` delegates actual date/DF/zero/forward semantics
+without resampling; full method/side queries remain available. Original full
+product-calibration graph snapshots and certificates remain separate owning work.
 
 The new [fixing repository](../convex-ports/src/fixing.rs) requires separate actual
 publication and recording timestamps. `JsonFixingRepository` freezes a strict
@@ -192,6 +200,7 @@ The offline [snapshot_replay example](examples/snapshot_replay.rs) exposes:
 snapshot_replay store-config DATABASE CONFIG_JSON
 snapshot_replay assemble DATABASE FIXINGS_JSON QUOTES_JSONL ASSEMBLY_JSON DIRECTORY
 snapshot_replay verify DIRECTORY SNAPSHOT_ID
+snapshot_replay query-curves DIRECTORY SNAPSHOT_ID QUERIES_JSON
 snapshot_replay value DIRECTORY CONTEXT_JSON REQUEST_ID CALCULATED_AT BUILD_ID
 ```
 

@@ -185,7 +185,11 @@ impl SnapshotAssembler {
             });
         }
         let snapshot = MarketSnapshot::new(SnapshotContent {
-            schema_version: 1,
+            schema_version: if request.curve_recipes.is_empty() {
+                1
+            } else {
+                2
+            },
             as_of: request.as_of,
             known_at: request.known_at,
             generation: request.generation,
@@ -196,6 +200,7 @@ impl SnapshotAssembler {
             fixings,
             required_curves: request.required_curves.clone(),
             curves: request.curves.clone(),
+            curve_recipes: request.curve_recipes.clone(),
             max_source_skew_ms: request.max_source_skew_ms,
         })?;
         Ok(snapshot)
@@ -221,11 +226,21 @@ fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result
         || request.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
         || request.fixings.len() > MAX_SNAPSHOT_FIXINGS
         || request.required_curves.len() > MAX_SNAPSHOT_CURVES
-        || request.curves.len() > MAX_SNAPSHOT_CURVES
+        || request.curves.len() + request.curve_recipes.len() > MAX_SNAPSHOT_CURVES
         || events.len() > 100_000
-        || request.curves.iter().map(|c| c.points.len()).sum::<usize>() > MAX_SNAPSHOT_PILLARS
+        || request.curves.iter().map(|c| c.points.len()).sum::<usize>()
+            + request
+                .curve_recipes
+                .iter()
+                .map(SnapshotCurveRecipe::input_count)
+                .sum::<usize>()
+            > MAX_SNAPSHOT_PILLARS
     {
         return Err(TraitError::CapacityExceeded);
+    }
+    crate::curve_replay::rebuild_curve_recipes(&request.curve_recipes).map_err(TraitError::from)?;
+    for record in &request.curves {
+        BuiltCurve::from_snapshot(record)?;
     }
     let mut ids = BTreeSet::new();
     for pin in &request.instruments {
@@ -368,6 +383,8 @@ impl SnapshotValuator {
         calculated_at: UtcTimestamp,
     ) -> Result<SnapshotValuationResult, TraitError> {
         context.validate_snapshot(snapshot)?;
+        let recipe_curves =
+            crate::curve_replay::replay_snapshot_curves(snapshot).map_err(TraitError::from)?;
         let spec = context.spec();
         if calculated_at < spec.known_at || calculated_at < spec.valuation_time {
             return Err(TraitError::InvalidInput(
@@ -461,6 +478,35 @@ impl SnapshotValuator {
                 .map(|value| value.value.value)
         };
         let curve = |id: &convex_core::ids::CurveId| {
+            if let Some(record) = snapshot
+                .content()
+                .curve_recipes
+                .iter()
+                .find(|c| c.curve_id.as_str() == id.as_str())
+            {
+                let recipe: convex_curves::contracts::CurveRecipe =
+                    serde_json::from_value(record.recipe.clone()).map_err(|_| {
+                        TraitError::InvalidInput("invalid native curve recipe payload")
+                    })?;
+                let selected = recipe_curves
+                    .curves
+                    .get(&recipe.key)
+                    .map_err(|_| TraitError::InvalidInput("missing exact complete curve"))?;
+                let expected_role = if id == &configuration.analytics_curves.discount_curve {
+                    matches!(recipe.role, convex_curves::contracts::CurveRole::Discount { collateral_currency } if collateral_currency == bond.currency)
+                } else {
+                    matches!(
+                        recipe.role,
+                        convex_curves::contracts::CurveRole::Projection { .. }
+                    )
+                };
+                if !expected_role || recipe.currency != bond.currency {
+                    return Err(TraitError::InvalidInput(
+                        "snapshot pricing curve role/currency mismatch",
+                    ));
+                }
+                return BuiltCurve::from_recipe(record, selected.clone()).map(Some);
+            }
             snapshot
                 .content()
                 .curves
@@ -631,7 +677,41 @@ pub(crate) fn consumed_versions(
     for curve in &snapshot.content().curves {
         push("curve", curve.curve_id.as_str(), curve.version)?;
     }
-    Ok(versions)
+    for curve in &snapshot.content().curve_recipes {
+        push("curve", curve.curve_id.as_str(), curve.version)?;
+    }
+    let mut exact = BTreeMap::new();
+    for version in versions
+        .into_iter()
+        .chain(
+            snapshot
+                .content()
+                .curves
+                .iter()
+                .flat_map(|c| c.input_versions.iter().cloned()),
+        )
+        .chain(
+            snapshot
+                .content()
+                .curve_recipes
+                .iter()
+                .flat_map(|c| c.input_versions.iter().cloned()),
+        )
+    {
+        let key = (version.kind.clone(), version.id.clone());
+        if exact
+            .insert(key, version.version)
+            .is_some_and(|prior| prior != version.version)
+        {
+            return Err(TraitError::Conflict(
+                "incompatible consumed input revisions",
+            ));
+        }
+    }
+    Ok(exact
+        .into_iter()
+        .map(|((kind, id), version)| InputVersion { kind, id, version })
+        .collect())
 }
 fn contract_error(_: ContractError) -> TraitError {
     TraitError::InvalidInput("invalid canonical valuation value/lineage")

@@ -447,6 +447,9 @@ impl ConfigurationUseCases {
         }
     }
     fn check_curves(&self, document: &ConfigurationDocument, report: &mut ConfigurationValidation) {
+        if crate::curve_replay::rebuild_curve_recipes(&document.assembly.curve_recipes).is_err() {
+            issue(report, "assembly.curve_recipes", "INVALID_CURVE_RECIPE", "Complete native curve graph must reconstruct without missing versions or unsupported terms");
+        }
         let configured = &document.pricing.analytics_curves;
         let mut required = vec![configured.discount_curve.as_str()];
         required.extend(
@@ -467,11 +470,16 @@ impl ConfigurationUseCases {
                 .map(|id| id.as_str()),
         );
         for id in required {
-            if !document
+            if !(document
                 .assembly
                 .curves
                 .iter()
                 .any(|c| c.curve_id.as_str() == id)
+                || document
+                    .assembly
+                    .curve_recipes
+                    .iter()
+                    .any(|c| c.curve_id.as_str() == id))
                 || !document
                     .assembly
                     .required_curves
@@ -658,6 +666,14 @@ impl ConfigurationUseCases {
             quote.fields.sort();
         }
         expected.curves.sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
+        expected
+            .curve_recipes
+            .sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
+        for curve in &mut expected.curve_recipes {
+            curve
+                .input_versions
+                .sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
+        }
         for curve in &mut expected.curves {
             curve
                 .input_versions
@@ -674,6 +690,7 @@ impl ConfigurationUseCases {
                     .map(|q| q.requirement.clone())
                     .collect::<Vec<_>>()
             || expected.curves != content.curves
+            || expected.curve_recipes != content.curve_recipes
             || expected.required_curves != content.required_curves
             || expected.max_source_skew_ms != content.max_source_skew_ms
             || expected.instruments.len() != content.references.len()
@@ -730,6 +747,7 @@ impl ConfigurationUseCases {
             || old.instruments != new.instruments
             || old.fixings != new.fixings
             || old.curves != new.curves
+            || old.curve_recipes != new.curve_recipes
             || old.required_curves != new.required_curves
             || old.configuration.id != new.configuration.id
             || old

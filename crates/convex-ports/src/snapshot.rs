@@ -1,4 +1,4 @@
-//! Immutable resolved information sets. SHA-256 identifies canonical schema-1 content.
+//! Immutable resolved information sets with explicit schema-separated content identities.
 #![forbid(unsafe_code)]
 
 use async_trait::async_trait;
@@ -126,6 +126,111 @@ impl SnapshotCurve {
     }
 }
 
+/// Complete versioned native curve recipe at an application boundary. Ports
+/// retain JSON without depending on pricing crates; the engine must decode and
+/// build the entire exact dependency graph before numerical use or publication.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotCurveRecipe {
+    /// Payload format, currently 1 (the complete native CurveRecipe JSON).
+    pub schema_version: u32,
+    /// Exact identity matching the native recipe key's id.
+    pub curve_id: CurveId,
+    /// Supplied immutable record revision; never inferred from a model version string.
+    pub version: Version,
+    /// Actual economic source timestamp.
+    pub source_time: UtcTimestamp,
+    /// Actual recording/publication timestamp.
+    pub recorded_at: UtcTimestamp,
+    /// Provider-neutral provenance.
+    pub source: SourceId,
+    /// Explicit supplied construction/model revision.
+    pub model_id: ModelId,
+    /// Original consumed definition revisions; not fabricated by replay.
+    pub input_versions: Vec<InputVersion>,
+    /// Supplied numerical/data quality, without a calibration certificate inference.
+    pub quality: DataQuality,
+    /// Source and recording freshness budget, 1..=86,400,000 milliseconds.
+    pub max_age_ms: i64,
+    /// Full native recipe, including key version, roles, units, model, original
+    /// quotes/helper terms/settings and exact dependencies. No sampled nodes.
+    pub recipe: serde_json::Value,
+}
+
+impl SnapshotCurveRecipe {
+    /// Bounded structural admission. Financial validation belongs to the native
+    /// engine decoder, which rejects unknown/unsupported economics atomically.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if self.schema_version != 1
+            || !(1..=86_400_000).contains(&self.max_age_ms)
+            || self.source_time > self.recorded_at
+            || self.input_versions.len() > 256
+            || !self.recipe.is_object()
+            || self.recipe.pointer("/key/id").and_then(|v| v.as_str())
+                != Some(self.curve_id.as_str())
+        {
+            return Err(TraitError::InvalidInput(
+                "invalid complete curve recipe record",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for input in &self.input_versions {
+            if !seen.insert((&input.kind, &input.id)) {
+                return Err(TraitError::InvalidInput("duplicate curve input revision"));
+            }
+        }
+        let mut pending = vec![(&self.recipe, 0)];
+        let mut visited = 0;
+        while let Some((value, depth)) = pending.pop() {
+            visited += 1;
+            if visited > 32_768 || depth > 64 {
+                return Err(TraitError::CapacityExceeded);
+            }
+            match value {
+                serde_json::Value::Array(items) => {
+                    if items.len() > MAX_SNAPSHOT_PILLARS {
+                        return Err(TraitError::CapacityExceeded);
+                    }
+                    pending.extend(items.iter().map(|v| (v, depth + 1)));
+                }
+                serde_json::Value::Object(items) => {
+                    if items.len() > MAX_SNAPSHOT_PILLARS || items.keys().any(|k| k.len() > 8192) {
+                        return Err(TraitError::CapacityExceeded);
+                    }
+                    pending.extend(items.values().map(|v| (v, depth + 1)));
+                }
+                serde_json::Value::String(text) if text.len() > 8192 => {
+                    return Err(TraitError::CapacityExceeded);
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Original nodes/observations/helpers/segments counted against the shared
+    /// snapshot pillar budget. Dependencies are separately retained records.
+    pub fn input_count(&self) -> usize {
+        let Some(source) = self.recipe.get("source") else {
+            return 0;
+        };
+        [
+            "/Nodes",
+            "/MoneyMarket",
+            "/Helpers",
+            "/MonotoneConvex/nodes",
+            "/FlatForward/nodes",
+            "/PiecewiseConstant/nodes",
+            "/Parametric/observations",
+            "/Segmented/segments",
+        ]
+        .iter()
+        .filter_map(|path| source.pointer(path).and_then(|v| v.as_array()))
+        .map(Vec::len)
+        .sum()
+    }
+}
+
 /// A required selected source and fields, with a versioned per-product age policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -164,7 +269,7 @@ pub struct SnapshotFixing {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotContent {
-    /// Must be 1.
+    /// 1 for original zero records; 2 when complete recipe records are present.
     pub schema_version: u32,
     /// Economic market/valuation instant.
     pub as_of: UtcTimestamp,
@@ -189,6 +294,9 @@ pub struct SnapshotContent {
     pub required_curves: Vec<CurveId>,
     /// Complete reconstructible curve values, never mutable builder lookups.
     pub curves: Vec<SnapshotCurve>,
+    /// Schema-2 complete native recipes. Omitted for original schema-1 hashes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub curve_recipes: Vec<SnapshotCurveRecipe>,
     /// Maximum skew among required quote source-field timestamps, 0..=86,400,000 ms.
     pub max_source_skew_ms: i64,
 }
@@ -249,7 +357,7 @@ pub struct SnapshotQuality {
     pub issues: Vec<SnapshotIssue>,
 }
 
-/// Verified immutable content-addressed information set, schema 1.
+/// Verified immutable content-addressed information set, schema 1 or 2.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
 pub struct MarketSnapshot(SnapshotWire);
@@ -275,7 +383,14 @@ impl MarketSnapshot {
         }
         let id = SnapshotId::new(format!(
             "sha256:{}",
-            content_digest(b"convex.snapshot.v1\0", &bytes)
+            content_digest(
+                if content.schema_version == 1 {
+                    b"convex.snapshot.v1\0"
+                } else {
+                    b"convex.snapshot.v2\0"
+                },
+                &bytes
+            )
         ))
         .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))?;
         Ok(Self(SnapshotWire {
@@ -376,9 +491,15 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
     if content.references.len() > MAX_SNAPSHOT_INSTRUMENTS
         || content.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
         || content.fixings.len() > MAX_SNAPSHOT_FIXINGS
-        || content.curves.len() > MAX_SNAPSHOT_CURVES
+        || content.curves.len() + content.curve_recipes.len() > MAX_SNAPSHOT_CURVES
         || content.required_curves.len() > MAX_SNAPSHOT_CURVES
-        || content.curves.iter().map(|c| c.points.len()).sum::<usize>() > MAX_SNAPSHOT_PILLARS
+        || content.curves.iter().map(|c| c.points.len()).sum::<usize>()
+            + content
+                .curve_recipes
+                .iter()
+                .map(SnapshotCurveRecipe::input_count)
+                .sum::<usize>()
+            > MAX_SNAPSHOT_PILLARS
     {
         return Err(TraitError::CapacityExceeded);
     }
@@ -404,6 +525,14 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
     content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
     content.required_curves.sort();
     content.curves.sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
+    content
+        .curve_recipes
+        .sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
+    for curve in &mut content.curve_recipes {
+        curve
+            .input_versions
+            .sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
+    }
     for curve in &mut content.curves {
         curve
             .input_versions
@@ -414,7 +543,8 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
 
 fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
     use crate::reference_repository::validate_reference_id;
-    if content.schema_version != 1
+    if !((content.schema_version == 1 && content.curve_recipes.is_empty())
+        || (content.schema_version == 2 && !content.curve_recipes.is_empty()))
         || content.references.is_empty()
         || !(0..=86_400_000).contains(&content.max_source_skew_ms)
         || content.configuration.version == 0
@@ -551,6 +681,18 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         {
             return Err(TraitError::InvalidInput(
                 "duplicate/unrequested/later-known curve",
+            ));
+        }
+    }
+    for curve in &content.curve_recipes {
+        curve.validate()?;
+        if !curve_ids.insert(&curve.curve_id)
+            || !content.required_curves.contains(&curve.curve_id)
+            || curve.source_time > content.as_of
+            || curve.recorded_at > content.known_at
+        {
+            return Err(TraitError::InvalidInput(
+                "duplicate/unrequested/later-known curve recipe",
             ));
         }
     }
@@ -728,28 +870,40 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
     }
     for id in &content.required_curves {
         let dependency = format!("curve:{id}");
-        match content.curves.iter().find(|c| &c.curve_id == id) {
+        let retained = content
+            .curves
+            .iter()
+            .find(|c| &c.curve_id == id)
+            .map(|c| (c.source_time, c.recorded_at, c.max_age_ms, c.quality))
+            .or_else(|| {
+                content
+                    .curve_recipes
+                    .iter()
+                    .find(|c| &c.curve_id == id)
+                    .map(|c| (c.source_time, c.recorded_at, c.max_age_ms, c.quality))
+            });
+        match retained {
             None => {
                 complete = false;
                 add(dependency, K::MissingCurve);
             }
-            Some(curve) => {
+            Some((source_time, recorded_at, max_age_ms, curve_quality)) => {
                 if age_exceeded(
                     now_ms,
                     now_sub_ms,
-                    curve.source_time.datetime().timestamp_millis(),
-                    curve.source_time.datetime().timestamp_subsec_nanos() % 1_000_000,
-                    curve.max_age_ms,
+                    source_time.datetime().timestamp_millis(),
+                    source_time.datetime().timestamp_subsec_nanos() % 1_000_000,
+                    max_age_ms,
                 ) || age_exceeded(
                     now_ms,
                     now_sub_ms,
-                    curve.recorded_at.datetime().timestamp_millis(),
-                    curve.recorded_at.datetime().timestamp_subsec_nanos() % 1_000_000,
-                    curve.max_age_ms,
+                    recorded_at.datetime().timestamp_millis(),
+                    recorded_at.datetime().timestamp_subsec_nanos() % 1_000_000,
+                    max_age_ms,
                 ) {
                     add(dependency.clone(), K::Stale);
                 }
-                match curve.quality {
+                match curve_quality {
                     DataQuality::Valid => {}
                     DataQuality::Indicative => add(dependency, K::Indicative),
                     DataQuality::Delayed => add(dependency, K::Delayed),

@@ -538,7 +538,8 @@ pub struct CreateCurveRequest {
     pub curve_id: String,
     /// Reference date (YYYY-MM-DD)
     pub reference_date: String,
-    /// Curve points: [(tenor_years, zero_rate_decimal), ...]
+    /// At least two distinct positive ACT/365F continuous-zero pillars for
+    /// the checked MonotoneConvex builder: [(tenor_years, zero_rate_decimal), ...].
     pub points: Vec<CurvePointInput>,
 }
 
@@ -581,10 +582,10 @@ pub async fn create_curve(
     };
 
     // Validate points
-    if request.points.is_empty() {
+    if request.points.len() < 2 {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "At least one curve point is required" })),
+            Json(serde_json::json!({ "error": "At least two curve points are required" })),
         );
     }
 

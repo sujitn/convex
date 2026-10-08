@@ -803,7 +803,7 @@ mod tests {
             extrapolation: convex_curves::ExtrapolationMethod::Flat,
             inner: None,
         };
-        built.rebuild_inner();
+        built.rebuild_inner().unwrap();
         built
     }
 

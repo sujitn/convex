@@ -1736,7 +1736,8 @@ async fn test_delete_curve() {
         "curve_id": "TO_DELETE",
         "reference_date": "2025-06-17",
         "points": [
-            { "tenor": 1.0, "rate": 0.045 }
+            { "tenor": 1.0, "rate": 0.045 },
+            { "tenor": 2.0, "rate": 0.045 }
         ]
     });
 
@@ -1794,7 +1795,8 @@ async fn test_query_zero_rate_with_compounding() {
         "curve_id": "USD_COMP_TEST",
         "reference_date": "2025-06-17",
         "points": [
-            { "tenor": 1.0, "rate": 0.05 }
+            { "tenor": 1.0, "rate": 0.05 },
+            { "tenor": 2.0, "rate": 0.05 }
         ]
     });
 

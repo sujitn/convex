@@ -137,3 +137,8 @@ Remaining grid methods are documented in [explicit curve methods](CURVE-METHODS.
 An [explicit UFR tail](CURVE-UFR.md) can join the original parametric model
 inside its declared native horizon. It retains the exact source and analytic
 left forward, rather than resampling its parameters into a node grid.
+
+The engine now retains and reconstructs complete original supplied recipes
+through [schema-2 snapshot replay](CURVE-SNAPSHOT-REPLAY.md), including native
+source/model/date/unit/role/time/method/tail and exact dependency versions.
+Full product-calibration snapshots and quote-risk graphs remain separate work.

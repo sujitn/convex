@@ -1752,8 +1752,8 @@
     },
     {
       "path": "crates/convex-engine/src/calc_graph.rs",
-      "sha256": "48d87d94b996e0c01664e7d8276f78f2cc5907cda19dc6e2f1ffc73ef41a3597",
-      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown.",
+      "sha256": "3eaad94f4c5002171c53f4a0fbd40702c776e78176f771691e512dfbf1c48472",
+      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
       "bounds": "Graph hard ceilings100000nodes/500000edges/depth4096/fanout10000/ready1024/inflight64, work lifetime<=300sec; runtime IO10sec and configured bounded queues.",
       "failure_contract": "Typed claim/configuration/stale-commit/dependency errors; no empty calculation success. Existing process-local limits are not distributed capacity certification.",
       "tests": [
@@ -1766,8 +1766,8 @@
     },
     {
       "path": "crates/convex-engine/src/curve_builder.rs",
-      "sha256": "6aaa35ad2111be70a2292e07d5896e7235fcc73b5876bc69fa3cc9651181d25e",
-      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap.",
+      "sha256": "da217d79002ce432f83288f64102f1d287e916a59db05683fb230e899cd1c391",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
       "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
       "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
       "tests": [
@@ -1789,8 +1789,8 @@
     },
     {
       "path": "crates/convex-engine/src/pricing_router.rs",
-      "sha256": "e71b028e0dd3abb699eb5d2ab6c7665f06e48234c2e6b7c8b6335475736620a0",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap.",
+      "sha256": "e5267ec7bd87ac0861c4a8f2429f22cfd60d33c488f71438a8796957f12e0c23",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
       "tests": [
@@ -1803,8 +1803,8 @@
     },
     {
       "path": "crates/convex-engine/src/runtime/mod.rs",
-      "sha256": "e95fbad1ae8adacb3598f5155561540bedec0231c35b570cfa7a4d8c5ec42948",
-      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown.",
+      "sha256": "5b6b790365f9882a07c2edfedb682a303379866cf07ca1a531a3203b0f28da06",
+      "invariants": "Epoch/generation/attempt and exact captured input lineage fence writes; explicit work claims, cancellation and shutdown. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
       "bounds": "Graph hard ceilings100000nodes/500000edges/depth4096/fanout10000/ready1024/inflight64, work lifetime<=300sec; runtime IO10sec and configured bounded queues.",
       "failure_contract": "Typed claim/configuration/stale-commit/dependency errors; no empty calculation success. Existing process-local limits are not distributed capacity certification.",
       "tests": [
@@ -2452,14 +2452,15 @@
     },
     {
       "path": "crates/convex-server/src/handlers.rs",
-      "sha256": "06c330960f58c5a9eeafde174a4706bce8aa744ffa77e7ef0e465b5b7d938298",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
+      "sha256": "c78928000b940621ec03306bdb06a2368e72b8e1d0006afe22304836ee30cc3e",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Existing point creation now rejects fewer than two pillars with HTTP400 before installation. Original deletion/compounding API assertions and tolerances remain exact; their setups supply an explicit second pillar with the same original rate. Actual before-fix rejection, successful endpoint regressions and exact setup conservation are retained.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
       ],
       "exceptions": []
     },
@@ -2932,6 +2933,102 @@
         "crates/convex-math/tests/monotone_complete.rs",
         "crates/convex-curves/tests/monotone_contracts.rs",
         "crates/convex/tests/library_monotone.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/curve_replay.rs",
+      "sha256": "5ac44ee834f3fa1e9c3b9556d01bed54fe46c2082136a9354b5e3abea521ec13",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/snapshot.rs",
+      "sha256": "60372c9b010d64d030d40c9c1709dc9578adcc222fc305eedf994e9482c3fe69",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/configuration.rs",
+      "sha256": "7951b63130df99396c1c127a67b341436696e27f25ebe9039f52561a1c857470",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/runtime/worker.rs",
+      "sha256": "c0b29440e27416550c509e30d69768fc96e8d3d171ad47b08006b3ebf7f0fff6",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/snapshot.rs",
+      "sha256": "943df4d61663e020ba5d4f5ea0debceda080aca9ed6b7b2cecc6736a3d21a301",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/configuration.rs",
+      "sha256": "40a9da4637f774368076a2feb31802dd6f9ee617a978126b42d2987bf62e60ac",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
+      "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
+      "tests": [
+        "crates/convex-engine/tests/curve_recipe_replay.rs",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs",
+        "crates/convex-ports/tests/curve_recipe_snapshots.rs",
+        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/configuration_schema.rs",
+      "sha256": "698065df16ede1ced4a2bc4d76512f8fb4bc882011e67b71554e09ed74aa9b5c",
+      "invariants": "Published operator schema admits the optional strict complete curve-recipe capture envelope, preserves original omitted configuration fields and uses the original pure CurveRecipe schema/native decoder for financial admission. No financial schema duplication or backend/provider dependency.",
+      "bounds": "64 optional records; metadata256 versions and original time/age/identity bounds; aggregate/native/JSON bounds remain checked engine/port use cases.",
+      "failure_contract": "Unknown/missing wrapper fields and schema version mismatch fail schema validation; original native schema and engine independently reject missing/unknown financial terms. Schema acceptance alone is not financial admission.",
+      "tests": [
+        "tests/scripts/curve_replay_schema.py",
+        "crates/convex-engine/tests/curve_recipe_runtime.rs"
       ],
       "exceptions": []
     }

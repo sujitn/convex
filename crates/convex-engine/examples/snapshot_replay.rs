@@ -2,6 +2,7 @@
 use convex_core::contracts::{ModelId, RequestId, SnapshotId, UtcTimestamp};
 use convex_engine::{
     context::ValuationContext,
+    curve_replay::replay_snapshot_curves,
     snapshot::{SnapshotAssembler, SnapshotAssembly, SnapshotValuator},
 };
 use convex_ext_file::{FileQuoteReplay, FileSnapshotRepository, JsonFixingRepository};
@@ -58,7 +59,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         [mode, directory, id] if mode == "verify" => {
             let repository = FileSnapshotRepository::new(directory)?;
             let snapshot = repository.get(&SnapshotId::new(id)?).await?.ok_or("snapshot absent")?;
-            serde_json::json!({"snapshot_id":snapshot.id(),"generation":snapshot.content().generation,"quality":snapshot.quality(),"instruments":snapshot.content().references.len(),"curves":snapshot.content().curves.len(),"fixings":snapshot.content().fixings.len()})
+            replay_snapshot_curves(&snapshot)?;
+            serde_json::json!({"snapshot_id":snapshot.id(),"generation":snapshot.content().generation,"quality":snapshot.quality(),"instruments":snapshot.content().references.len(),"curves":snapshot.content().curves.len()+snapshot.content().curve_recipes.len(),"fixings":snapshot.content().fixings.len()})
+        }
+        [mode, directory, id, queries] if mode == "query-curves" => {
+            #[derive(serde::Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Query { curve: convex_curves::contracts::CurveKey, query: convex_curves::contracts::CurveQuery }
+            let queries: Vec<Query> = json(queries)?;
+            if queries.is_empty() || queries.len() > 4096 { return Err("supply 1..=4096 complete native curve queries".into()); }
+            let repository = FileSnapshotRepository::new(directory)?;
+            let snapshot = repository.get(&SnapshotId::new(id)?).await?.ok_or("snapshot absent")?;
+            let built = replay_snapshot_curves(&snapshot)?;
+            let results = queries.iter().map(|query| built.curves.get(&query.curve)?.query(&query.query))
+                .collect::<Result<Vec<_>, convex_curves::contracts::CurveContractError>>()?;
+            serde_json::json!({"snapshot_id":snapshot.id(),"results":results})
         }
         [mode, directory, context, request_id, calculated_at, build_id] if mode == "value" => {
             let context: ValuationContext = json(context)?;
@@ -67,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let valuator = SnapshotValuator::new(ModelId::new(build_id)?, 1)?;
             serde_json::to_value(valuator.value(&snapshot, &context, RequestId::new(request_id)?, UtcTimestamp::parse(calculated_at)?)?)?
         }
-        _ => return Err("usage: snapshot_replay store-config DATABASE CONFIG_JSON | assemble DATABASE FIXINGS_JSON QUOTES_JSONL ASSEMBLY_JSON DIRECTORY | verify DIRECTORY SNAPSHOT_ID | value DIRECTORY CONTEXT_JSON REQUEST_ID CALCULATED_AT BUILD_ID".into()),
+        _ => return Err("usage: snapshot_replay store-config DATABASE CONFIG_JSON | assemble DATABASE FIXINGS_JSON QUOTES_JSONL ASSEMBLY_JSON DIRECTORY | verify DIRECTORY SNAPSHOT_ID | query-curves DIRECTORY SNAPSHOT_ID QUERIES_JSON | value DIRECTORY CONTEXT_JSON REQUEST_ID CALCULATED_AT BUILD_ID".into()),
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())

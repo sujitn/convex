@@ -384,15 +384,20 @@ impl MarketDataListener {
     }
     /// Publish a supplied curve atomically; a calculated curve requires its own generation ticket.
     async fn on_curve_update(&self, update: CurveUpdate) {
+        let points = match update.curve.to_points() {
+            Ok(points) => points,
+            Err(error) => {
+                warn!("Curve input publication failed: {error}");
+                return;
+            }
+        };
         let node_id = NodeId::Curve {
             curve_id: update.curve_id,
         };
-        if self.graph_outcome(self.calc_graph.publish_input(
-            &node_id,
-            NodeValue::Curve {
-                points: update.curve.to_points(),
-            },
-        )) {
+        if self.graph_outcome(
+            self.calc_graph
+                .publish_input(&node_id, NodeValue::Curve { points }),
+        ) {
             self.notify_update(node_id, UpdateSource::Immediate);
         }
     }

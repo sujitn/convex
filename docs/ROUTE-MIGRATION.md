@@ -110,9 +110,37 @@ and tolerances are unchanged.
 Use the [explicit UFR source](CURVE-UFR.md) for the full supplied LLP/exact-base
 contract and analytic `UfrForward` dispatch. Existing `Nodes` admission is not
 widened. Other base families, complete method/product calibration and quote-risk
-rebuilding need their owning contracts; full engine/snapshot reconstruction of
-these new recipes remains pending.
+rebuilding need their owning contracts. Direct native recipes now use the
+[complete engine/snapshot replay contract](CURVE-SNAPSHOT-REPLAY.md).
 
 ## Complete MonotoneConvex source
 
 The original native MonotoneConvex owner now uses complete nonnegative Hagan–West regimes with one analytic forward/primitive. Query clipping, sampled zero derivatives and inconsistent flat-zero/flat-forward mathematics are removed. Exactly one zero endpoint-deviation axis uses the documented original quadratic; the native origin is derived analytically. `with_extrapolation()` now integrates the terminal instantaneous forward. Negative times and a negative first interval reject. Use `CurveSource::MonotoneConvex { nodes }`, continuous-zero rate representation and matching method for the complete dated contract; `MonotoneConvexForward { point, side }` exposes the actual native or declared terminal side. Original protected test sections remain unchanged. Bare Nodes/DF/hazard aliases, signed-forward or ameliorated variants, product calibration, other UFR joins and unqualified old host conveniences remain unsupported or have their original owner. See [full conventions and limits](CURVE-MONOTONE-CONVEX.md).
+
+## Complete curve recipe snapshot replay
+
+`SnapshotAssembly.curve_recipes` now carries full versioned native CurveRecipe
+payloads and explicit provenance into schema-2 snapshots. All original date,
+unit, role, time basis, model/LLP, helper/settings, method/tail and exact dependency
+versions survive capture and reconstruction. Schema-1 omitted fields and content
+identities remain unchanged; its unsupported FlatForward policy is rejected.
+Migration needs a genuinely supplied complete recipe and new identity, without
+sampling or relabelling old economics. Read [the replay contract](CURVE-SNAPSHOT-REPLAY.md).
+
+The engine's changed-input rebuild now returns Result and clears an invalid
+representation. Failed builds never attach the previous model to new points,
+substitute linear/zero rates or publish a failed candidate. Callers must handle
+the error. The older day/zero graph conversion now returns Result and rejects
+fractional pillars and full recipe curves. Use immutable snapshots for those
+inputs; no partial grid or integer-day truncation survives that route. Existing
+exact whole-day zero inputs keep their declared path. Full product-helper
+calibration snapshots, quote-risk graphs and remaining raw-value/convenience
+qualification retain their original owners.
+
+`POST /api/v1/curves` continues to use checked MonotoneConvex over supplied
+ACT/365F continuous-zero pillars. It requires at least two distinct positive
+pillars; empty and single-pillar inputs return HTTP 400 before installation.
+The former single-point success lacked a validated curve and depended on a
+fallback that is now removed. Supply valid original pillars or a complete
+native recipe with its explicit model; no synthetic second point or implicit
+flat model is constructed by the server.

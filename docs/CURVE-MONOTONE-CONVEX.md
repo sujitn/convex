@@ -107,6 +107,6 @@ positivity limits, zero slices, uneven nodes, origin/terminal derivatives,
 tails and three actual date bases. Fresh native envelopes validate transport;
 they do not supply the financial oracle. No external MonotoneConvex engine or
 independent human quantitative approval is claimed. Product/helper calibration,
-original quote-risk rebuilding, complete engine/snapshot recipes, other models,
+original quote-risk rebuilding, complete product-calibration snapshot graphs, other models,
 host and library/production/latency certificates remain required. CVX-063 stays
 partial and every mandatory coverage record stays Planned.
