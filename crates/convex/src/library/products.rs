@@ -499,6 +499,9 @@ pub(super) fn execute(
             pillars,
             controls,
         } => super::curves::fit_curve(recipe, pillars, *controls),
+        LibraryOperation::ParametricFit { recipe, settings } => {
+            super::curves::fit_parametric(recipe, settings)
+        }
         LibraryOperation::Fixings {
             requirements,
             context,

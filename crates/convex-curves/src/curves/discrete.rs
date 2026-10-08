@@ -220,6 +220,11 @@ impl DiscreteCurve {
                     "Parametric models require calibration, not direct construction",
                 ))
             }
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => {
+                Err(CurveError::interpolation_error(
+                    "Use the complete segmented or delegated source contract",
+                ))
+            }
         }
     }
 

@@ -29,6 +29,12 @@ pub enum HazardSide {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CurveQuery {
+    /// Original parametric instantaneous forward per curve-time year, including
+    /// its finite origin limit. Only inside the exact model horizon; no proxy.
+    InstantaneousForward {
+        /// Actual date or model time of the supplied parametric model.
+        point: CurvePoint,
+    },
     /// Actual interpolated representation value.
     Raw {
         /// Date or model time.
@@ -250,6 +256,12 @@ impl BuiltCurve {
             Ok(t)
         };
         let (value, unit) = match *query {
+            CurveQuery::InstantaneousForward { point } => {
+                let t = time(point)?;
+                day_count = Some(recipe.time_basis);
+                compounding = Some(Compounding::Continuous);
+                (self.instantaneous_forward(t)?, CurveQueryUnit::DecimalRate)
+            }
             CurveQuery::Raw { point } => {
                 let t = time(point)?;
                 (self.raw(t)?, self.raw_unit())
@@ -322,13 +334,26 @@ impl BuiltCurve {
                 CurveQueryUnit::HazardPerYear,
             ),
         };
+        // Discount/survival queries use the exact origin identity without a
+        // source evaluation. Raw queries do evaluate a delegated origin.
+        times.retain(|&t| t > 0.0 || matches!(query, CurveQuery::Raw { .. }));
+        self.query_value(value, unit, day_count, compounding, &times)
+    }
+    fn query_value(
+        &self,
+        value: f64,
+        unit: CurveQueryUnit,
+        day_count: Option<DayCountConvention>,
+        compounding: Option<Compounding>,
+        times: &[f64],
+    ) -> CurveContractResult<CurveQueryValue> {
+        let recipe = self.recipe();
         if !value.is_finite() {
             return Err(CurveContractError::Numerical(
                 "nonfinite query result".into(),
             ));
         }
-        let (min, max) = self.bounds();
-        let extrapolated = times.iter().any(|&t| t > 0.0 && (t < min || t > max));
+        let extrapolated = times.iter().any(|&t| self.extension_used(t));
         Ok(CurveQueryValue {
             value,
             unit,
@@ -477,6 +502,9 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
     use CurveCapabilityStatus::{DescribedUnsupported as Pending, Supported};
     vec![
         CurveCapability { name: "direct_rate_nodes", status: Supported, conditions: "DiscountFactors or ZeroRates; Linear, LogLinear on DF, CubicSpline; rate roles; validated compounding" },
+        CurveCapability { name: "dated_parametric_curves", status: Supported, conditions: "Complete original NelsonSiegel/Svensson continuous-zero parameters, actual time basis, explicit finite horizon, None/raw Flat tails and every supplied dated zero quote revision/native residual; exact model/DF/finite-period and in-horizon instantaneous forward queries; no sampled grid" },
+        CurveCapability { name: "native_parametric_zero_fit", status: Supported, conditions: "Explicit fit_parametric_curve; original four/six closed parameter bounds, 1..128 actual dated native-unit zeros/scales/weights, original bounded least squares; full undamped weighted identification and every native residual mandatory, including zero-weight quotes; measured solver failures return no curve" },
+        CurveCapability { name: "dated_segmented_delegated_curves", status: Supported, conditions: "Same-role/currency/reference/time basis/representation rate DF/zero sources at exact versions; complete native fallback/ranges; 1..128 contiguous segments from zero, explicit raw C0 join bounds; source tails disclosed, <=32 derivations; no grid/integration alias" },
         CurveCapability { name: "direct_credit_survival", status: Supported, conditions: "Credit role; positive nonincreasing Q with explicit origin; Linear/LogLinear; None/Flat extrapolation" },
         CurveCapability { name: "direct_issuer_basis", status: Supported, conditions: "IssuerSpread/IssuerSpreads; signed annualized raw Linear grid; explicit None/Flat/Linear extension; no discount/survival query; analytics owns the declared cash/recovery model" },
         CurveCapability { name: "dated_deposit_fra_piecewise", status: Supported, conditions: "Unfixed simple rates; exact solved start pillars; DF Linear/LogLinear; native quote repricing; <=1023 helpers" },
@@ -488,6 +516,6 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "dated_money_market_global_fit", status: Supported, conditions: "Explicit fit_money_market_curve API; bounded scaled native objective and all-quote postconditions; identified continuous-zero parameters; original recipe dispatch remains v1" },
         CurveCapability { name: "extrapolation", status: Supported, conditions: "None, raw-value Flat, raw-value Linear for rate curves; valid output postconditions; ceiling 150 years" },
         CurveCapability { name: "product_helper_global_calibration", status: Pending, conditions: "Generic description-only recipe dispatch remains unsupported; explicit analytics credit/rate/cash_calibration APIs compose full supplied product helpers and bounded fits" },
-        CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Existing segmented/parametric/monotone/flat-forward/UFR APIs remain separate with explicit model constraints; no method substitution" },
+        CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Monotone/flat-forward/UFR and credit/basis segmented hazard/integration contracts retain separate constraints; no method substitution" },
     ]
 }

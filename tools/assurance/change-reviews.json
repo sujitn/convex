@@ -1348,6 +1348,62 @@
         "www/src/components/YieldAnalysis.jsx": "4ccde8cb21123d9c4b06437490c8cd75e9dc822d3b3b5408209da2bd6e78f0de",
         "www/src/styles/bloomberg.css": "7023c0b47f3ecbd151a4414db8becaf34e4c9afdf26e829b25ccbd283242e314"
       }
+    },
+    {
+      "base_commit": "d94afeaac1c90b7b939a9f47151dfc6be9178e18",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete dated Nelson-Siegel/Svensson, segmented and delegated rate DF/zero curve contracts: original native parametric mathematics and segment/delegation owners retain full supplied models, finite horizons, method/representation/time basis/role/currency/exact dependency versions, native dated observations and C0 join/fallback/source domains. Direct in-horizon instantaneous forwards use original equations; no grid or derivative proxy. Native zero fitting reuses original bounded scaled solver, closed four/six parameter bounds and every native residual, including zero-weight inputs, with unchanged undamped weighted rank/work guards. Strict shared curve/parametric_fit dispatch contains no financial formula or runtime/provider/storage/MQ/clock/authority.249 supplied engineering requests (199 successes/50 typed failures) and nine exact mappings extend33/603 to42/852. Independent Decimal(60)44 zero/DF/forward cases and40 dated observations were frozen before candidate valuation; native envelopes are transport expectations only.128 segments/32 derivations retain exact limits; selected dependency evaluation is linear in nesting and source extensions are disclosed, including raw clamp at zero while P(0)=1 consumes no source. Original277 numeric rows/bytes/defaults and6002 historical evidence files, original30areas/174combinations/2154Planned records, dependencies/146 normal packages and26Cexports remain. Parametric product-price fitting, complete method/risk/helper/market/model/hedge/workout and actual Windows/Excel/wasm32/browser qualification remain open. No independent quantitative approval/certificate/push/merge/deployment/live orders. The public umbrella alias is convex::curve_contracts, preserving convex::contracts for original core contracts. Documentation states the inclusive model horizon consistently with original endpoint controls.",
+      "tests": [
+        "Independent predeclared44 model/DF/forward controls and40 original dated observations, bounded native parameter fits/full rank/all-quote residuals",
+        "All249 strict native/JSON/C/MCP/native-WASM outcomes, actual available852-request C/Java parity, three feature consumers and generated schema mutations",
+        "Affected strict lint/docs/fmt, full workspace/client suites and original independent controls/ISDA comparisons",
+        "Actual Windows/Excel/wasm32/browser qualification remains unverified"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "fb65489b2112affe2c5665514cb8b322ea8abd462b0890c908fc0f997b574abd",
+        ".github/workflows/java.yml": "379344564450a9b0479cec02cffa4822e2b831bc02bbc375b8cf8d7c1e719cd5",
+        "bindings/java/src/test/java/com/convex/LibraryCurveFamiliesTest.java": "f73f07b364633744969245b33442a15d9447b0729b240d673a5a24c048cae354",
+        "crates/convex-curves/src/contracts/build.rs": "7c375c8f7a04bb3db972cb375e1fdf82566fece57c50103b1261db44d4e21f18",
+        "crates/convex-curves/src/contracts/inputs.rs": "2eb54008a37cdb5913f1286c0a38bb02341a258fdbe29a3101a51831b68c333c",
+        "crates/convex-curves/src/contracts/mod.rs": "176cacf4a08902b2ecc01dde51b17905b8dc7e4c278dc27a45dbdc11637a50e5",
+        "crates/convex-curves/src/contracts/numerics.rs": "5a3bb3e0c5c0635d466c2db60aab94d61e7a334d3d0bdb800296ee94c248f011",
+        "crates/convex-curves/src/contracts/parametric_fit.rs": "4967ed7cc8167353bd28772f6ee3af027595bacd7a3edc63d926318752b5f1b4",
+        "crates/convex-curves/src/contracts/query.rs": "0db1aabe9982f44bbb8acbc23a2eea2e9986d973c910b6c3d74af5b8d2067ce0",
+        "crates/convex-curves/src/contracts/schema.rs": "0ec1984cb367f55a23cb1f94f423eda9fd693d34034b6531cb5b3f0331e4c926",
+        "crates/convex-curves/src/contracts/structured.rs": "f55c8bd09f7df6053c63250db8dd2c9cd1dfc5094fea19ccca547fe706810038",
+        "crates/convex-curves/src/curves/delegated.rs": "d61445266ff406f5780e8cd0f9e5c2482f5370bab271422a940b4d381ed84d55",
+        "crates/convex-curves/src/curves/discrete.rs": "151a0b5ebfe8f1ffb50e83d72ab9cb5cb8bf8c3a6ea5bdfd5ad396eb2a1975a5",
+        "crates/convex-curves/src/lib.rs": "f138a20dfc889be94a9c8b88e68687edef06dfe2df3b1dfab2887f8141bd5f15",
+        "crates/convex-curves/tests/curve_families.rs": "71d41fa5f56bf1c3439ddf2a22574f2c31f3257dad17601966d35cc55f42fcfd",
+        "crates/convex-ffi/tests/library_curve_families.rs": "551cda0252dc2c2f905b6a2a790d4d908784ea6df28b307e9140df35935fe610",
+        "crates/convex-mcp/tests/library_curve_families.rs": "325e1850fb95416e516525684e71be864b5da03ab0ed8dfd5d498242e14d97da",
+        "crates/convex-wasm/tests/library_curve_families.rs": "e4969c84226e7941e29a53622add8542459d2c4b8e1b89d05fde90b9b0fa2e6e",
+        "crates/convex/examples/library_curve_families.rs": "f9de75abceda04a9266f0954eae607f1ef3080df6fcbf86dffbe2e4a76354257",
+        "crates/convex/src/library/curves.rs": "9be449279a53c570205812991217761684c9a52907cdd526b602233fa9b33c5a",
+        "crates/convex/src/library/products.rs": "18f30645be28482d9dbb2fe4ce8e87b0b3da2714048e5443779b5f0e2614d9fa",
+        "crates/convex/src/library/requests.rs": "3186406244bff64ce4aea6b1e39dc825150bf571d4532a6796c82a5bc30ea627",
+        "crates/convex/tests/library_curve_families.rs": "e981df1d5b5edf6f8139d2844defb3576265c5f218948ca24c0dc53c0005bbee",
+        "docs/CURVE-CONTRACTS.md": "085658902ccb41f1eaa2d4a63e98d73a7c208616fa96a8ec5ee220ecbbc67fa2",
+        "docs/CURVE-FAMILIES.md": "d843cfa57ce4b277045e276981b8863316257ef158d44a82bbc64ce36cc1979e",
+        "docs/LIBRARY-API.md": "99ce8c58d70e05ca63779b4da1ff357e2695720b25636b0dcb46939e5c012735",
+        "docs/ROUTE-MIGRATION.md": "b0307bb280875140c58511b7d2721e033df03b77c8d5eded5d458e37d7afb3a9",
+        "excel/Convex.Excel.Tests/LibraryCurveFamiliesTests.cs": "47630ff656aa1398f756437a529be00e7b052b932b855463acdf40a0c77d343d",
+        "tests/fixtures/library/curve-families.json": "0f2b3649d10aedc55e39e7b7a9e77253295279713486884251a35e35dfa22387",
+        "tests/fixtures/library/curve-family-reference.json": "2f87eb8693b47b7534896e289c669315ede955434cd13378abe70f9b14892402",
+        "tests/fixtures/library/curve_family_contract.rs": "6df3b308d35982aee0cfabff3e68008bd4e67a86fbf51474e70fd203699fda1d",
+        "tests/scripts/curve_family_reference.py": "2de44466b8ac66c4065eb722ddc7ab8091176f4f93e80dad3d256c78257c793e",
+        "tests/scripts/library_curve_families_parity.py": "b84bc2e4022098ff265dd4f5fedf222c2c9c8baf665e3c4df1da383adbb53a9b",
+        "tests/scripts/library_curve_families_schema.py": "6793425ccd08fc7f613e38ebb020afc4ea25d08d79f92e57977951212991ea1c",
+        "tests/scripts/library_curve_family_inputs.py": "a418e40a64d8832cee23ad3d1afab189a48cc9156d8d366c829d4893898c0f03",
+        "tools/assurance/check.py": "75587eed3fd7cd165f4905ab60aafcc8aca85f1854885adbf2cc0e6c23b7139c",
+        "tools/assurance/inventory.json": "854ae6a52a5f674f966aed37023cb63a023ffa2af23ba6befaf6559ac73c998a",
+        "tools/assurance/numeric-evidence.json": "ae70338a27c60442696b1a71d207116530e027cc4c5a65ef54d6922c5f2c7d6c",
+        "tools/assurance/test_policy.py": "1609510875d40a23ace6369e7a28c82a18afc9190f2322de4f6a882a6ca057da",
+        "tools/library/api-capabilities.json": "b71f66c346c8d8e9d3b5a3c02df428c433b273888cd70001c629f0acefd27222",
+        "tools/library/library-inventory.json": "4f120603a5381e6098b4e6a1e98c8a1d91112b5dcf11e216d2d89a87f8d0e35d",
+        "tools/library/test_operations.py": "fae5c83be59232e61629e93ff6c9dca605c7c109d4f7aa0cc3cf3a90431b1b9f"
+      }
     }
   ]
 }

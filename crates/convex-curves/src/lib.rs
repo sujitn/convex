@@ -223,6 +223,10 @@ pub enum InterpolationMethod {
     NelsonSiegel,
     /// Svensson parametric model.
     Svensson,
+    /// Exact segment-specific methods in a complete checked composition.
+    Segmented,
+    /// Exact inherited raw method with an explicit native delegation policy.
+    Delegated,
 }
 
 impl InterpolationMethod {
@@ -250,6 +254,7 @@ impl InterpolationMethod {
             InterpolationMethod::MonotoneConvex => "C1",
             InterpolationMethod::PiecewiseConstant => "C-1",
             InterpolationMethod::NelsonSiegel | InterpolationMethod::Svensson => "C∞",
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => "source-dependent",
         }
     }
 }

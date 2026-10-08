@@ -450,6 +450,33 @@ pub enum CalibrationMode {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub enum CurveSource {
+    /// Exact supplied parametric model, not a sampled node-grid alias. Dated
+    /// observations must all reprice; fitting uses `fit_parametric_curve`.
+    Parametric {
+        /// Complete annualized continuous-zero parameters and model family.
+        parameters: super::ParametricModel,
+        /// Explicit finite supported model horizon, in this recipe's time basis.
+        horizon: CurvePoint,
+        /// All supplied native-unit zero observations and exact quote revisions.
+        observations: Vec<super::ParametricObservation>,
+    },
+    /// Original delegated raw-value semantics over an exact immutable version.
+    Delegated {
+        /// Same role/currency/reference/time basis/representation dependency.
+        base: CurveKey,
+        /// Explicit override of the native delegated interval.
+        range: super::CurveRange,
+        /// Original checked strict/trust/clamp/flat behavior, never inferred.
+        fallback: crate::curves::DelegationFallback,
+    },
+    /// Original segmented raw values; each segment resolves a complete exact
+    /// source recipe, so its actual interpolation and tail policy survive.
+    Segmented {
+        /// Contiguous ordered intervals; the right segment owns each join.
+        segments: Vec<super::CurveSegmentInput>,
+        /// Absolute raw-value continuity bound at every join, never relaxed.
+        join_tolerance: f64,
+    },
     /// Full node grid in a declared representation.
     Nodes(Vec<CurveNode>),
     /// Supported exact simple-rate helper chain.

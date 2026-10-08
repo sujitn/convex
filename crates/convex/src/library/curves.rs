@@ -253,7 +253,24 @@ pub(super) fn describe_curve(curve: &BuiltCurve) -> Value {
         Ok((tenors, values)) => serde_json::json!({"tenors":tenors,"values":values}),
         Err(e) => serde_json::json!({"status":"unsupported","reason":e.to_string()}),
     };
-    serde_json::json!({"recipe":curve.recipe(),"diagnostics":curve.diagnostics(),"domain":curve.domain(),"interpolation_grid":grid})
+    let mut result = serde_json::json!({"recipe":curve.recipe(),"diagnostics":curve.diagnostics(),"domain":curve.domain(),"interpolation_grid":grid});
+    if let Some(structure) = curve.structured_diagnostics() {
+        result["structure"] = serde_json::json!(structure);
+    }
+    result
+}
+pub(super) fn fit_parametric(
+    recipe: &CurveRecipe,
+    settings: &ParametricFitSettings,
+) -> LibraryResult<Value> {
+    let out =
+        convex_curves::contracts::fit_parametric_curve(recipe, settings).map_err(|e| match e {
+            convex_curves::contracts::CurveFitError::Contract(e) => LibraryError::from(e),
+            convex_curves::contracts::CurveFitError::Solver(e) => super::errors::fit_error(*e),
+        })?;
+    Ok(
+        serde_json::json!({"input_recipe":out.input_recipe,"settings":out.settings,"curve":describe_curve(&out.curve),"solver":super::errors::fit_diagnostics(&out.solver)}),
+    )
 }
 pub(super) fn fit_curve(
     recipe: &CurveRecipe,

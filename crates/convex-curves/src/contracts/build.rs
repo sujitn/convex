@@ -16,6 +16,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 enum CurveValues {
+    Structured(super::structured::StructuredCurve),
     Direct(DiscreteCurve),
     Basis(super::basis::BasisGrid),
     Spread {
@@ -43,6 +44,47 @@ pub struct BuiltCurve {
     depth: usize,
 }
 impl BuiltCurve {
+    pub(super) fn depth(&self) -> usize {
+        self.depth
+    }
+    /// Exact model parameters, native observation residuals and segment/source
+    /// domains. Ordinary grids and earlier views have no structured diagnostics.
+    pub fn structured_diagnostics(&self) -> Option<&super::StructuredCurveDiagnostics> {
+        match &self.values {
+            CurveValues::Structured(curve) => Some(&curve.diagnostics),
+            _ => None,
+        }
+    }
+    pub(crate) fn extension_used(&self, t: f64) -> bool {
+        let (min, max) = self.bounds();
+        let outer = t > 0.0 && (t < min || t > max);
+        outer
+            || match &self.values {
+                CurveValues::Structured(curve) => {
+                    curve.extension_used(t, self.recipe.extrapolation)
+                }
+                CurveValues::Spread { base, .. } | CurveValues::Equivalent { base } => {
+                    base.extension_used(t)
+                }
+                CurveValues::Rolled {
+                    base,
+                    offset,
+                    policy,
+                    ..
+                } => base.extension_used(match policy {
+                    RollPolicy::StickyForward => offset + t,
+                    RollPolicy::StickyZero => t,
+                }),
+                _ => false,
+            }
+    }
+    pub(super) fn instantaneous_forward(&self, t: f64) -> Result<f64> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Structured(curve) => curve.forward(t),
+            _ => Err(Error::unsupported("instantaneous forward", "requires the original parametric continuous-zero model; no numerical derivative proxy")),
+        }
+    }
     /// Complete immutable input contract, including native units and versions.
     pub fn recipe(&self) -> &CurveRecipe {
         &self.recipe
@@ -65,6 +107,7 @@ impl BuiltCurve {
     }
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
+            CurveValues::Structured(curve) => curve.bounds(),
             CurveValues::Direct(curve) => curve.tenor_bounds(),
             CurveValues::Basis(grid) => (grid.tenors[0], grid.tenors[grid.tenors.len() - 1]),
             CurveValues::Spread { base, .. } => base.bounds(),
@@ -93,6 +136,7 @@ impl BuiltCurve {
             ));
         }
         let value = match &self.values {
+            CurveValues::Structured(curve) => curve.value(t, self.recipe.extrapolation)?,
             CurveValues::Basis(grid) => grid.value(t, self.recipe.extrapolation)?,
             CurveValues::Direct(curve) => curve
                 .checked_value_at(t)
@@ -560,6 +604,13 @@ pub(super) fn validate_recipe(recipe: &CurveRecipe) -> Result<()> {
         }
     }
     let expected: Vec<&CurveKey> = match &recipe.source {
+        CurveSource::Delegated { base, .. } => vec![base],
+        CurveSource::Segmented { segments, .. } => segments
+            .iter()
+            .map(|segment| &segment.base)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
         CurveSource::ContinuousZeroSpread { base, .. }
         | CurveSource::DiscountEquivalent { base }
         | CurveSource::Rolled { base, .. } => vec![base],
@@ -668,6 +719,14 @@ fn validate_representation(recipe: &CurveRecipe) -> Result<()> {
 }
 
 fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
+    if matches!(
+        recipe.source,
+        CurveSource::Parametric { .. }
+            | CurveSource::Segmented { .. }
+            | CurveSource::Delegated { .. }
+    ) {
+        return super::structured::validate_shape(recipe);
+    }
     // A continuous zero spread consumes the actual base curve values; it does
     // not log-interpolate the output zero rates. build_spread checks exact
     // method inheritance from a previously validated immutable rate curve.
@@ -711,6 +770,24 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
 
 fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
     match &recipe.source {
+        CurveSource::Parametric { .. }
+        | CurveSource::Delegated { .. }
+        | CurveSource::Segmented { .. } => {
+            let (curve, depth, pillars) = super::structured::build(recipe, supplied)?;
+            Ok(BuiltCurve {
+                recipe: recipe.clone(),
+                diagnostics: CurveDiagnostics {
+                    curve: recipe.key.clone(),
+                    method: curve.diagnostics.family.clone(),
+                    iterations: 0,
+                    pillars,
+                    dependencies: recipe.dependencies.clone(),
+                    quotes: vec![],
+                },
+                values: CurveValues::Structured(curve),
+                depth,
+            })
+        }
         CurveSource::Nodes(nodes) => {
             if recipe.calibration != CalibrationMode::Direct {
                 return Err(Error::invalid("calibration", "nodes require Direct mode"));

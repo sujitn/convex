@@ -6,7 +6,7 @@ impl schemars::JsonSchema for crate::InterpolationMethod {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!({"type":"string", "enum":["Linear","LogLinear",
             "CubicSpline","MonotoneConvex","FlatForward","PiecewiseConstant",
-            "NelsonSiegel","Svensson"]})
+            "NelsonSiegel","Svensson","Segmented","Delegated"]})
     }
 }
 impl schemars::JsonSchema for crate::ExtrapolationMethod {

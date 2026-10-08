@@ -93,6 +93,7 @@ envelope; those boundary failures can precede request decoding.
 | `capabilities`, `roundtrip` | Complete required surface report; checked immutable input reconstruction/echo |
 | `schedule`, `fixings` | Independent actual date rules and eligible-history requirements |
 | `curves`, `curve_query`, `curve_fit` | Native construction, fallible date/tenor/DF/forward/survival/hazard queries and bounded dated money-market fitting |
+| `parametric_fit` | Original Nelson–Siegel/Svensson continuous-zero observations, full initial parameters/bounds/native objective/rank/work controls and every native residual; no sampled-grid or product-price alias |
 | `curve_time`, `rate_conversion` | Native bounded date/tenor inverse with explicit rounding, and discount/rate/compounding conversions over actual dates/day count or a supplied year fraction |
 | `calibration` | Original full rate/CDS/cash graph build, product price, quote scenario, stable quote risk and calculated bucket reconciliation; preserves original helpers and history |
 | `bond` | Construction, requirements, full entitled cash, fixed/floating model PV, dated fixed-cash yield or spread/DM inverse, guarded raw quote risk |
@@ -487,9 +488,9 @@ unchanged. The capability audit retains all 2,154 original required records,
 174 combinations and 30 areas with their owners/surfaces/gates. Family examples
 do not establish every model/convention/operation certificate.
 
-AC2 still needs full profile/notice-aware workout yields, admitted parametric and
-segmented/delegated constructions, required American/make-whole and FRN cap/floor/
-collar models, complete per-operation helper/aggregation/reconciliation coverage,
+AC2 still needs the remaining floating/Street/make-whole/trigger/ex-coupon workout
+conventions, required American/make-whole and FRN cap/floor/collar models, complete
+curve method/calibration/risk and per-operation helper/aggregation/reconciliation coverage,
 and constrained cross-instrument hedge optimization (CVX-031). Every exact
 combination still needs its original independent contract/model/convention pack.
 Excel and actual browser/WASM qualification need executable hosts. See each
@@ -509,3 +510,20 @@ cash quotations, with normal optional-model valuation guards unchanged. Read
 [workout quotations](WORKOUT-QUOTATIONS.md) for request fields, original rounding,
 complete diagnostics and unsupported conventions. Native envelopes remain
 transport expectations; CVX-063 and original mandatory certificates stay open.
+
+## Complete dated curve families
+
+`CurveRecipe.source` admits full `Parametric`, `Segmented` and `Delegated` inputs.
+Original Nelson–Siegel/Svensson parameters and native dated-zero residuals remain
+separate from sampled interpolation grids. Segment sources retain exact full
+dependency versions, finite coverage, fallback policies and checked C0 joins.
+`curve_query` adds the original in-horizon parametric `InstantaneousForward`.
+`parametric_fit` calls the original bounded solver with explicit native quote
+scales, weights, closed parameter bounds and undamped rank/work controls; every
+observation must pass its own residual bound, including zero-weight inputs.
+
+Read [curve families](CURVE-FAMILIES.md) for all fields, query units, fit diagnostics,
+source domain/extension disclosure, strict schema and executable supplied cases.
+Bare parametric tags on discrete nodes still reject. Product-price parametric fits,
+credit/basis segment integration, remaining curve-risk/method combinations and
+market/host certificates retain their original owners.

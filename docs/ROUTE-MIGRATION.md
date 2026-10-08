@@ -56,3 +56,13 @@ workout, floating/model/convention or actual browser qualification work.
 
 The existing browser yield-risk column is labelled `Yield`; it no longer
 advertises those ordinary yield sensitivities as workout risk.
+
+## Complete curve-family construction
+
+Bare `NelsonSiegel`/`Svensson` method tags on discrete nodes still fail rather
+than constructing a sampled substitute. Use complete `CurveSource::Parametric`
+or the shared `parametric_fit` operation. `Segmented`/`Delegated` tags require
+their complete native source contracts, exact dependencies, bounds/fallback and
+join rules. See [curve families](CURVE-FAMILIES.md). Older tenor-only bootstrap
+and native compatibility methods retain their separate unqualified scope; this
+addition does not waive their full helper/convention/host qualification.

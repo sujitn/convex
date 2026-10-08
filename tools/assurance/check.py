@@ -111,6 +111,13 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example standalone_book',
         'cargo run --locked -p convex --example standalone_book --no-default-features',
         'cargo run --locked -p convex --example standalone_book --features schemars',
+        'python3 tests/scripts/curve_family_reference.py check',
+        'python3 tests/scripts/library_curve_family_inputs.py',
+        'cargo test --locked -p convex-curves --all-features --test curve_families -p convex --test library_curve_families -p convex-ffi --test library_curve_families -p convex-mcp --test library_curve_families -p convex-wasm --test library_curve_families',
+        'cargo run --locked -p convex --example library_curve_families',
+        'cargo run --locked -p convex --example library_curve_families --no-default-features',
+        'cargo run --locked -p convex --example library_curve_families --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/library_curve_families_schema.py --binary target/debug/examples/library_curve_families',
         'python3 tools/library/api.py',
         'cargo test --locked -p convex --all-features --test library -p convex-ffi --test library -p convex-mcp --test library -p convex-wasm --test library',
         'cargo test --locked -p convex-ffi -p convex-wasm -p convex-mcp',
@@ -338,7 +345,7 @@ def check_exceptions(document: dict, today: dt.date) -> set[str]:
 def inventory_paths(root: Path) -> set[str]:
     paths = {str(p.relative_to(root)) for crate in ['convex-math', 'convex-ffi'] for p in (root / 'crates' / crate / 'src').rglob('*.rs')}
     paths.update(f'crates/{crate}/src/lib.rs' for crate in DOMAIN)
-    paths.update(['crates/convex-core/src/types/date.rs', 'crates/convex-core/src/types/frequency.rs', 'crates/convex-core/src/calendars/mod.rs', 'crates/convex-core/src/calendars/conventions.rs', 'crates/convex-core/src/calendars/dynamic.rs', 'crates/convex-bonds/src/fixings.rs', 'crates/convex-core/src/daycounts/actact.rs', 'crates/convex-core/src/daycounts/act365.rs', 'crates/convex-core/src/contracts/mod.rs', 'crates/convex-curves/src/curves/discrete.rs', 'crates/convex-curves/src/curves/segmented.rs', 'crates/convex-curves/src/calibration/global_fit.rs', 'crates/convex-analytics/src/calibration/hw1f.rs', 'crates/convex-bonds/src/options/swaption_hw1f.rs', 'crates/convex-engine/src/calc_graph.rs', 'crates/convex-engine/src/runtime/mod.rs'])
+    paths.update(['crates/convex-core/src/types/date.rs', 'crates/convex-core/src/types/frequency.rs', 'crates/convex-core/src/calendars/mod.rs', 'crates/convex-core/src/calendars/conventions.rs', 'crates/convex-core/src/calendars/dynamic.rs', 'crates/convex-bonds/src/fixings.rs', 'crates/convex-core/src/daycounts/actact.rs', 'crates/convex-core/src/daycounts/act365.rs', 'crates/convex-core/src/contracts/mod.rs', 'crates/convex-curves/src/curves/discrete.rs', 'crates/convex-curves/src/curves/segmented.rs', 'crates/convex-curves/src/curves/delegated.rs', 'crates/convex-curves/src/calibration/global_fit.rs', 'crates/convex-analytics/src/calibration/hw1f.rs', 'crates/convex-bonds/src/options/swaption_hw1f.rs', 'crates/convex-engine/src/calc_graph.rs', 'crates/convex-engine/src/runtime/mod.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/cashflows').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-core/src/futures').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/futures').glob('*.rs'))

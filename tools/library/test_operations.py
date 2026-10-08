@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 33)
-        self.assertEqual(result['engineering_examples'], 603)
+        self.assertEqual(result['exact_operation_routes'], 42)
+        self.assertEqual(result['engineering_examples'], 852)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -100,6 +100,27 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['workout.'+name].update(certified=True))
         self.rejects(lambda m: m['operation_routes']['workout.worst'].update(
             boundary_examples=['workout.failure.unselected_put_no_root']))
+
+    def test_curve_family_and_fitted_models_cannot_substitute_or_certify(self):
+        for family, other in [('nelson_siegel', 'sv'), ('svensson', 'ns')]:
+            self.rejects(lambda m: m['operation_routes']['curve_family.'+family].update(
+                positive_examples=['curve.model.observations.'+other+'.positive']))
+            self.rejects(lambda m: m['operation_routes']['parametric_fit.'+family].update(
+                positive_examples=['curve.model.fit.'+other+'.positive']))
+            for prefix in ['curve_family.', 'parametric_fit.']:
+                self.rejects(lambda m: m['operation_routes'][prefix+family].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['curve_family.segmented'].update(
+            boundary_examples=['curve.failure.segment129']))
+
+    def test_delegation_policy_needs_actual_bounded_source_examples(self):
+        policies = ['Strict', 'Clamp', 'FlatExtrapolation', 'Trust']
+        for i, policy in enumerate(policies):
+            other = policies[(i+1) % len(policies)]
+            self.rejects(lambda m: m['operation_routes']['curve_family.delegated.'+policy].update(
+                positive_examples=['curve.delegate.'+other+'.3']))
+            self.rejects(lambda m: m['operation_routes']['curve_family.delegated.'+policy].update(
+                boundary_examples=['curve.failure.delegate_range.'+policy]))
+            self.rejects(lambda m: m['operation_routes']['curve_family.delegated.'+policy].update(certified=True))
 
 
 if __name__ == '__main__': unittest.main()

@@ -81,7 +81,12 @@ or raw-value Flat; unrestricted linear probability tails are rejected.
 Cubic rate interpolation can overshoot; an invalid discount/compounding result
 fails at query. No global arbitrage/convergence certificate is implied.
 
-PiecewiseConstant, FlatForward, MonotoneConvex, Nelson–Siegel/Svensson and UFR
+Complete original [parametric, segmented and delegated rate contracts](CURVE-FAMILIES.md)
+now use their actual supplied sources and native mathematics, with dated native
+zero fitting and exact domain/join/dependency diagnostics. A bare method tag on
+a node grid cannot construct those families.
+
+PiecewiseConstant, FlatForward, MonotoneConvex and UFR
 recipe selections return Unsupported in this checked route. Existing APIs
 remain separately callable under their documented capabilities; the older
 PiecewiseConstant/FlatForward substitutions cannot satisfy this route.

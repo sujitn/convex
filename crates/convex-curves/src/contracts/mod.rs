@@ -11,7 +11,9 @@ mod build;
 mod credit_fit;
 mod inputs;
 mod numerics;
+mod parametric_fit;
 mod query;
+mod structured;
 mod transformations;
 
 pub use build::{
@@ -21,7 +23,9 @@ pub use build::{
 pub use credit_fit::{build_fitted_credit_curve, credit_survival_nodes};
 pub use inputs::*;
 pub use numerics::*;
+pub use parametric_fit::*;
 pub use query::*;
+pub use structured::*;
 pub use transformations::*;
 
 /// Maximum recipes in one atomic curve build, including supplied dependencies.
@@ -34,6 +38,8 @@ pub const MAX_CURVE_TENOR: f64 = 150.0;
 pub const MIN_PILLAR_SEPARATION: f64 = 1e-10;
 /// Maximum nested immutable derived views, independently of batch size.
 pub const MAX_CURVE_DERIVATIONS: usize = 32;
+/// Maximum full segments in a checked piecewise composition.
+pub const MAX_CURVE_SEGMENTS: usize = 128;
 
 /// Stable checked construction/query failures. No failure returns a curve.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

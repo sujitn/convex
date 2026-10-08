@@ -221,6 +221,13 @@ pub enum LibraryOperation {
         /// Original finite-difference/identification controls.
         controls: FitNumericalControls,
     },
+    /// Original bounded parametric continuous-zero fitting, never a node-grid fit.
+    ParametricFit {
+        /// Original complete model/initial parameters and dated observations.
+        recipe: CurveRecipe,
+        /// Original parameter bounds, native objective, rank and work policy.
+        settings: ParametricFitSettings,
+    },
     /// Shared anchored schedules and exact irregular references.
     Schedule {
         /// Full original schedule terms.
