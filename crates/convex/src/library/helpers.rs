@@ -1,7 +1,7 @@
 //! Native helper inspection/quote conversion and full dated repo financing.
 use super::inputs::ResolvedInputs;
 use super::*;
-use convex_analytics::{cash_calibration as c, curve_inputs as h};
+use convex_analytics::{cash_calibration as c, credit_calibration as d, curve_inputs as h};
 use serde::{Deserialize, Serialize};
 
 /// Explicit original opaque helper pin and the supplied exact calendar it uses.
@@ -20,6 +20,11 @@ pub struct HelperCalendarInput {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperInput {
+    /// Full original CDS-helper diagnostics on exact supplied curves; no fit.
+    CreditReprice {
+        /// Complete original legal, quote, calendar, cash-state and curve terms.
+        recipe: Box<d::CdsCurveRecipe>,
+    },
     /// Original rate-helper diagnostics on exact supplied curves; no curve fit.
     RateReprice {
         /// Full native recipe, original quote revisions and futures source pins.
@@ -107,6 +112,23 @@ fn resources<'a>(r: &'a ResolvedInputs<'_>) -> LibraryResult<h::HelperResources<
 }
 pub(super) fn helper(input: &HelperInput, r: &ResolvedInputs<'_>) -> LibraryResult<Value> {
     match input {
+        HelperInput::CreditReprice { recipe } => {
+            if recipe.helpers.len() > d::MAX_CREDIT_FIT_HELPERS {
+                return Err(LibraryError::limit("at most128 complete CDS helpers"));
+            }
+            let calendars = recipe
+                .helpers
+                .iter()
+                .map(|h| r.credit_calendars(&h.terms))
+                .collect::<LibraryResult<Vec<_>>>()?;
+            value(d::reprice_cds_helpers(
+                &d::CdsCurveBuildInput {
+                    recipe,
+                    calendars: &calendars,
+                },
+                &r.curves,
+            )?)
+        }
         HelperInput::RateReprice { input, context } => {
             super::curves::reprice_rate_helpers(input, context, r)
         }

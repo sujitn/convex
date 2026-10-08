@@ -1210,6 +1210,46 @@
         "tools/library/library-inventory.json": "6a3aab35315bcf88ba6e39216283ddcb1a21d73e39667ca6b3b0279c19041a16",
         "tools/library/test_operations.py": "c1e234fcd9570fbfaf596bea1dc8eb65be34706789d2659fec4c2ea61044ac13"
       }
+    },
+    {
+      "base_commit": "7f88808ea1fcf94c1df31e53e78a6c4f8cf1f9a2",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete CDS-helper repricing diagnostics on immutable exact supplied survival/discount curves, without fitting or publication. Reuse original full recipe admission, source-order complete Standard183 contracts, native pricing/model quote conversion and actual work/domain guards. Return complete original recipe/quote/legal/calendar/cash/resource revisions, source-order full valuations, native signed residuals/tolerances and within_tolerance. Finite off-market diagnostics never assert accepted fit; existing builder collision/final-residual checks remain. Shared recipe admission is factored without changing any original pricing, fitting or quote-conversion formula. 50 supplied requests (17 successes/33 typed failures) reuse original actual ISDA survival and mixed quotes; same-day cash boundaries declare zero lag and premature settlement rejects. 128 full observations survive and129 fail before calendar resolution. One exact USD credit mapping extends24 mappings/348 requests to25/398 without scope promotion. All236 previous artifact rows/bytes/defaults and5381 historical evidence files are preserved; thirteen additive engineering controls bring pins to249. Original30areas/174combinations/2154Planned records, Cargo manifests/lock/dependencies/26Cexports remain unchanged. Actual unavailable Windows/Excel and wasm32/browser execution remain unverified; available fresh transport checks never create independent price controls. No provider/storage/MQ/clock/authority, independent approval, certificate, push/deployment or live orders.",
+      "tests": [
+        "Actual direct native original ISDA full valuations, strict term/revision roundtrip and bounded/missing-history failures",
+        "Fresh C/Java/MCP/native-WASM parity, all three facade feature consumers and generated schema mutations",
+        "Strict affected lint/docs/fmt, full workspace/client suites and assurance/library/harness conservation controls",
+        "Actual Windows/Excel and wasm32/browser execution unverified"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "8c2eeaaf7a9ecf55717b65335278a9c5cf8a83bf70de248ba97757baf143600c",
+        ".github/workflows/java.yml": "b3c68dc145af605b04cdf33eca8c453a4bc869b7f69b024e760d99bb09589d16",
+        "bindings/java/src/test/java/com/convex/LibraryCreditHelpersTest.java": "f36df3a688ce108608d6eb5230132f54a41da521e202b78a4cca6f5eddf2c261",
+        "crates/convex-analytics/src/credit_calibration.rs": "808bb7a6b8378c7ca3b215bb0bbcd2a92f9bc3d97a703247d83e82e11e13a0c6",
+        "crates/convex-analytics/src/credit_calibration/reprice.rs": "52d1054ccd109e629d6d6fd3e1f31ac117d32636720be1c9f6d949841112ce3c",
+        "crates/convex-analytics/tests/credit_helper_repricing.rs": "76effcf9c6deb3312b57825d2cae05a8bb9e67f28ce59251be4738e27509e671",
+        "crates/convex-ffi/tests/library_credit_helpers.rs": "43856c855b01fd2f843949f98fc05ae0c4c530cbeb8e800f0c60e99057020ca6",
+        "crates/convex-mcp/tests/library_credit_helpers.rs": "4175ea327bb336dd1a60477b153ac3917d7b84693c08346c5403d05b070c00a6",
+        "crates/convex-wasm/tests/library_credit_helpers.rs": "373d98d0cc26a733e339ddb5984ce6a8230b54d1e020c69d46d1813515e7d744",
+        "crates/convex/examples/library_credit_helpers.rs": "e57f5f6701fdf6ee46cf6cb01e080095b6b24c5a56f703adefa1cd7e38103db0",
+        "crates/convex/src/library/helpers.rs": "1011db26e1fde0f06777b295d3acd36d8f882dbbfe936dea1de91a641d681dd2",
+        "crates/convex/tests/library_credit_helpers.rs": "dc867e2079820f8f93d8905c3faf930383f40e1f8d76f74cbf2690d055045f8d",
+        "docs/CREDIT-CALIBRATION.md": "86d94105d5a31c253090f1a3be881d99506d3558b8fd5a4da5adf68b7ae3b248",
+        "docs/LIBRARY-API.md": "a63ab78649c30a71263d5f0e718896aef6f7d54bfc26f290c1d8f9ebdf98148f",
+        "excel/Convex.Excel.Tests/LibraryCreditHelpersTests.cs": "452816ab458ad627c32add8221bb845fc4177753b40acbdb5ecb672ca4100ace",
+        "tests/fixtures/library/credit-helpers.json": "68ecb32c3493e476a2cd225d85305eb7fa2085b5d979023abf775686d00c55d0",
+        "tests/fixtures/library/credit_helpers_contract.rs": "392509bf6cedf85892f6d0b098743ac3279e7634ffc061d767782bb54fdab40b",
+        "tests/scripts/library_credit_helpers_inputs.py": "6e42bcbf159c7b18ea1a9a5e29932c7c01b7e3b786d0bfe8158ee042d5633332",
+        "tests/scripts/library_credit_helpers_parity.py": "8fa0a49c9f9c1d0bd0145e44f5fa57f5171f257eee21c568c19249c98a79b215",
+        "tests/scripts/library_credit_helpers_schema.py": "9570107aa3eb2b8135f7966fd5b46d17003ced3124a533540ae986f177637f60",
+        "tools/assurance/check.py": "bb94792ffdc05ca3cf7ce26667500712bce031addc59032637ecd5444b25064f",
+        "tools/assurance/inventory.json": "a3fdca02934de3f76ed41a4d9bd8a01075d4f7460f503230cd685d4904f28bde",
+        "tools/assurance/numeric-evidence.json": "02d94e02499958b62538ca14fe9eae130a8af91292f4966dcfb63d93190d0f6a",
+        "tools/library/api-capabilities.json": "8f22df58ab041f42a34b0844148ff407ccc05b26c607538c3645bf0bdce96e9f",
+        "tools/library/library-inventory.json": "bc6f9b937978d781fcdd9fe16d30162626a59788bee7226c6e4fe538185a2c13",
+        "tools/library/test_operations.py": "ecef304c60f3dca2040f0732820acb3470f46e20a488196d8b322e9383d08ebd"
+      }
     }
   ]
 }

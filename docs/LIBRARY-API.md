@@ -98,7 +98,7 @@ envelope; those boundary failures can precede request decoding.
 | `bond` | Construction, requirements, full entitled cash, fixed/floating model PV, dated fixed-cash yield or spread/DM inverse, guarded raw quote risk |
 | `swap`, `basis_swap` | Original full IRS/OIS or two-floating-leg basis construction, requirements, projected cash and signed valuation |
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
-| `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate-helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
+| `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate/CDS helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
 | `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
@@ -303,6 +303,55 @@ failures. Six exact helper mappings supplement the original 18 mappings and
 are reused without changing their quotes or bounds. Fresh client expectations
 test transport only. These USD synthetic examples do not qualify every market,
 helper recipe, fitting method or mandatory record. CVX-063 remains partial.
+
+## Direct CDS-helper repricing diagnostics
+
+`helper` input kind `credit_reprice` takes one complete original `CdsCurveRecipe`
+in `recipe`. Supply the exact survival and discount curves in `inputs.curves`,
+or an admitted graph in `inputs.calibration`. The output key must already exist.
+The route delegates to `convex::credit_calibration::reprice_cds_helpers` and
+performs no fit or curve replacement.
+
+Full source-order helpers retain quote revisions, native running/clean/dirty
+units, coupon/notional, legal entity/seniority/document/restructuring/recovery,
+premium and settlement calendars, actual cash state and exact curve dependencies.
+Shared native recipe admission is reused. The supplied survival curve must match
+the exact key, role/recovery, currency, reference date, time basis, representation
+and methods. Complete contracts are constructed before valuation; original
+Standard183 pricing, integration-domain and model-quote guards remain active.
+At most 128 helpers are admitted; 129 fails before adapter calendar resolution.
+Declared global iteration/objective settings stay bounded, although no solver runs.
+
+The result retains `recipe`, source-order `quotes`, full CDS `valuations`,
+`within_tolerance` and actual `price_evaluations`. Running spread remains in its
+declared decimal/percent/basis-point unit. Clean and dirty upfront remain distinct
+buyer-to-seller fractions. Protection direction signs PV; it does not reverse
+the quote convention. Pending versus settled contractual initial cash affects
+outstanding PV and remains separate from fair market upfront.
+The cash-state boundary cases supply an explicit zero-business-day settlement
+lag on the actual valuation date. Premature settlement remains a typed failure.
+
+Finite off-market residuals are successful diagnostics with
+`within_tolerance:false`. They do not accept a calibration, identify hazard
+parameters or replace curves. The existing builder still rejects supplied output
+collisions and every failed final native residual. Any missing/invalid resource
+or native failure returns no partial diagnostics.
+
+```sh
+python3 tests/scripts/library_credit_helpers_inputs.py
+cargo run --locked -p convex --example library_credit_helpers
+cargo run --locked -p convex --example library_credit_helpers --no-default-features
+cargo run --locked -p convex --example library_credit_helpers --features schemars
+```
+
+The 50 additional supplied requests reuse the unchanged actual ISDA survival
+capture and mixed quote controls. They include all three quote kinds, source
+reversal, seller direction, pending/settled cash, negative discount rates, zero
+hazard, maximum helpers and typed resource/unit/version/role/domain failures.
+One exact USD credit mapping supplements the prior 24 mappings and 348 requests
+(25 mappings and 398 requests total). These are engineering subsets; all original
+2,154 mandatory records remain Planned. Actual unavailable Windows/Excel and
+wasm32/browser execution remains unverified. CVX-063 is partial.
 
 ## Clients and qualification
 

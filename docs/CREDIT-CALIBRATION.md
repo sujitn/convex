@@ -66,6 +66,14 @@ are not throughput, latency or colocation certificates.
 
 ## Risk, recovery and default
 
+The pure `reprice_cds_helpers` API diagnoses one complete `CdsCurveBuildInput`
+against immutable supplied curves, without fitting them. It reuses original
+recipe/contract admission and Standard183 price/quote functions, retaining all
+source-order original terms, quote revisions, full valuations and signed native
+residuals. Finite off-market diagnostics carry `within_tolerance:false`; they
+are never an accepted fit. See the [shared API](LIBRARY-API.md#direct-cds-helper-repricing-diagnostics)
+for supplied inputs, bounds and host qualification.
+
 Prepare `PreparedCreditRisk` from the full supplied recipe, actual trade,
 calendars, curve set, context and a caller-selected risk model. Preparation
 performs the baseline fit and price. `CreditScenarioRequest` carries exactly one

@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 24)
-        self.assertEqual(result['engineering_examples'], 348)
+        self.assertEqual(result['exact_operation_routes'], 25)
+        self.assertEqual(result['engineering_examples'], 398)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -73,6 +73,13 @@ class OperationRoutes(unittest.TestCase):
             self.assertTrue(self.matrix['operation_routes']['rate_helpers.'+kind]['negative_examples'])
             self.rejects(lambda m: m['operation_routes']['rate_helpers.'+kind].update(
                 boundary_examples=['rate_helpers.'+kind+'.missing_curve']))
+
+    def test_credit_helper_mapping_requires_actual_full_terms_and_diagnostics(self):
+        self.rejects(lambda m: m['operation_routes']['credit_helpers.reprice'].update(
+            positive_examples=['rate_helpers.deposit.positive']))
+        self.rejects(lambda m: m['operation_routes']['credit_helpers.reprice'].update(
+            boundary_examples=['credit_helpers.helper_limit']))
+        self.rejects(lambda m: m['operation_routes']['credit_helpers.reprice'].update(certified=True))
 
 
 if __name__ == '__main__': unittest.main()

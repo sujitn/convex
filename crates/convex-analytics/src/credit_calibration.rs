@@ -28,6 +28,9 @@ use std::{
     collections::{BTreeMap, BTreeSet},
 };
 
+mod reprice;
+pub use reprice::{reprice_cds_helpers, CdsHelperRepricing};
+
 /// Total helpers/parameters in one atomic credit batch.
 pub const MAX_CREDIT_FIT_HELPERS: usize = MAX_FIT_DIMENSION;
 /// Total actual single-helper valuations, including final native repricing.
@@ -218,6 +221,20 @@ pub fn cds_model_quote(
 }
 
 fn validate(recipe: &CdsCurveRecipe, supplied: &CurveSet) -> Result<(), CreditCalibrationError> {
+    validate_recipe(recipe, supplied)?;
+    if supplied.keys().any(|key| key.id == recipe.curve.key.id) {
+        return Err(invalid(
+            "curve.id",
+            "cannot replace a supplied immutable curve",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_recipe(
+    recipe: &CdsCurveRecipe,
+    supplied: &CurveSet,
+) -> Result<(), CreditCalibrationError> {
     let c = &recipe.curve;
     c.key.validate()?;
     let CurveSource::Helpers(ids) = &c.source else {
@@ -255,12 +272,6 @@ fn validate(recipe: &CdsCurveRecipe, supplied: &CurveSet) -> Result<(), CreditCa
         &recipe.pillars,
         &vec![0.0; recipe.pillars.len()],
     )?;
-    if supplied.keys().any(|key| key.id == c.key.id) {
-        return Err(invalid(
-            "curve.id",
-            "cannot replace a supplied immutable curve",
-        ));
-    }
     match (&c.calibration,recipe.bootstrap) {
         (CalibrationMode::Piecewise,Some(b))=>{
             SolverConfig {tolerance:1e-12,max_iterations:b.max_iterations}.validate().map_err(|source|CreditCalibrationError::Root {helper_id:"settings".into(),source})?;
