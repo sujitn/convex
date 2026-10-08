@@ -475,6 +475,10 @@ fn supplied_curve_reconstruction_preserves_fractional_pillars_dates_and_policies
     let mut record = fixture::curve();
     record.points[0].tenor_years = FiniteF64::new(1.123456789).unwrap();
     record.points[0].continuous_zero = FiniteF64::new(-0.01).unwrap();
+    // Nonnegative MonotoneConvex cannot represent this signed-rate input.
+    // Reconstruction must reject its original policy rather than relabel it.
+    assert!(convex_engine::BuiltCurve::from_snapshot(&record).is_err());
+    record.interpolation = ZeroInterpolation::Linear;
     let curve = convex_engine::BuiltCurve::from_snapshot(&record).unwrap();
     assert_eq!(curve.reference_date, record.reference_date.date());
     assert_eq!(curve.points[0], (1.123456789, -0.01));

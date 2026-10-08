@@ -95,8 +95,7 @@ is removed: checked queries reject it and infallible compatibility queries
 return NaN outside that unsupported tail. Checked UFR setup/evaluation retains
 its separate native constraints. The complete [explicit UFR source](CURVE-UFR.md)
 joins an exact original FlatForward or parametric model at a supplied LLP with
-its analytic left forward. Complete MonotoneConvex and UFR joins over other
-native source families remain open.
+its analytic left forward. The complete [nonnegative MonotoneConvex source](CURVE-MONOTONE-CONVEX.md) now owns matching analytic forwards/integrals and explicit terminal sides. UFR joins over other native source families remain open.
 Original numerical controls and ordinary supported query paths are preserved.
 
 ## Full economic helper descriptions

@@ -476,6 +476,33 @@ jobs:
       - name: Validate actual full UFR request schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_ufr_schema.py --binary target/debug/examples/library_ufr
 
+      - name: Check frozen complete MonotoneConvex controls
+        run: python3 tests/scripts/monotone_reference.py --check
+
+      - name: Check dependency-free monotone math fixture
+        run: python3 tests/scripts/monotone_math_fixture.py --check
+
+      - name: Check full supplied MonotoneConvex contracts
+        run: python3 tests/scripts/library_monotone_inputs.py --check
+
+      - name: Check complete native monotone and shared client contracts
+        run: cargo test --locked -p convex-math --test monotone_complete -p convex-curves --test monotone_contracts -p convex --test library_monotone -p convex-ffi --test library_monotone -p convex-mcp --test library_monotone -p convex-wasm --test library_monotone --all-features
+
+      - name: Lint complete monotone math and frozen controls
+        run: cargo clippy --locked -p convex-math --lib --test monotone_complete --all-features -- -D warnings
+
+      - name: Run complete monotone consumer
+        run: cargo run --locked -p convex --example library_monotone
+
+      - name: Run complete monotone consumer with minimal features
+        run: cargo run --locked -p convex --example library_monotone --no-default-features
+
+      - name: Run complete monotone consumer with schema support
+        run: cargo run --locked -p convex --example library_monotone --features schemars
+
+      - name: Validate actual complete monotone request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_monotone_schema.py --binary target/debug/examples/library_monotone
+
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
@@ -802,6 +829,9 @@ jobs:
       - name: Build native complete UFR consumer
         run: cargo build --locked --profile excel -p convex --example library_ufr --features schemars
 
+      - name: Build native complete MonotoneConvex consumer
+        run: cargo build --locked --profile excel -p convex --example library_monotone --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -845,6 +875,9 @@ jobs:
 
       - name: Generate fresh native UFR P/Invoke expectations
         run: python tests/scripts/library_ufr_parity.py prepare --binary target/excel/examples/library_ufr.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-ufr-parity.json
+
+      - name: Generate fresh native monotone P/Invoke expectations
+        run: python tests/scripts/library_monotone_parity.py prepare --binary target/excel/examples/library_monotone.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-monotone-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

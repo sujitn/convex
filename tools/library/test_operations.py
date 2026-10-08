@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 48)
-        self.assertEqual(result['engineering_examples'], 1639)
+        self.assertEqual(result['exact_operation_routes'], 50)
+        self.assertEqual(result['engineering_examples'], 3197)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -140,6 +140,14 @@ class OperationRoutes(unittest.TestCase):
         self.rejects(lambda m: m['operation_routes']['curve_method.ufr_forward'].update(
             boundary_examples=['method.forward.Left.FlatForward.positive.2']))
         for identity in ['curve_method.ufr_convergence','curve_method.ufr_forward']:
+            self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
+
+    def test_monotone_model_and_forward_cannot_substitute_or_certify(self):
+        self.rejects(lambda m: m['operation_routes']['curve_method.monotone_convex'].update(
+            positive_examples=['method.describe.FlatForward.positive']))
+        self.rejects(lambda m: m['operation_routes']['curve_method.monotone_forward'].update(
+            boundary_examples=['monotone.last_left.steep']))
+        for identity in ['curve_method.monotone_convex','curve_method.monotone_forward']:
             self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
 
 

@@ -212,7 +212,8 @@ pub enum InterpolationMethod {
     LogLinear,
     /// Natural cubic spline.
     CubicSpline,
-    /// Monotone convex (production default, positive forwards).
+    /// Nonnegative Hagan–West continuous-zero model; requires nonnegative
+    /// interval means. Select the complete checked source for dated semantics.
     #[default]
     MonotoneConvex,
     /// Flat forward interpolation (constant forward rates between pillars).
@@ -230,7 +231,9 @@ pub enum InterpolationMethod {
 }
 
 impl InterpolationMethod {
-    /// Returns true if this method guarantees positive forward rates.
+    /// Returns true if the method's correctly represented admissible input
+    /// domain guarantees nonnegative forwards. This does not validate an
+    /// arbitrary raw-value representation or certify a market curve.
     #[must_use]
     pub fn guarantees_positive_forwards(&self) -> bool {
         matches!(

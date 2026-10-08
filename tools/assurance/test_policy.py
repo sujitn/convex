@@ -89,8 +89,8 @@ class AssuranceMutations(unittest.TestCase):
         commands = [c for c in check.REQUIRED_RUNS['assurance']
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
-                    or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c]
-        self.assertEqual(len(commands), 31)
+                    or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c]
+        self.assertEqual(len(commands), 37)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -125,6 +125,19 @@ class AssuranceMutations(unittest.TestCase):
         for path in ['crates/convex-curves/src/contracts/grid.rs',
                      'crates/convex-math/src/interpolation/piecewise_constant.rs']:
             self.assertIn(path, check.inventory_paths(ROOT))
+
+    def test_monotone_checks_and_complete_native_owner_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'monotone' in c]
+        self.assertEqual(len(commands), 9)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        for path in ['crates/convex-curves/src/contracts/monotone.rs',
+                     'crates/convex-math/src/interpolation/monotone_convex.rs',
+                     'crates/convex-math/src/interpolation/monotone_interval.rs']:
+            self.assertIn(path, check.inventory_paths(ROOT))
+
 
     def test_ufr_checks_and_original_native_boundary_owner_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()

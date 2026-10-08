@@ -11,6 +11,7 @@ mod build;
 mod credit_fit;
 mod grid;
 mod inputs;
+mod monotone;
 mod numerics;
 mod parametric_fit;
 mod query;
@@ -25,6 +26,7 @@ pub use build::{
 pub use credit_fit::{build_fitted_credit_curve, credit_survival_nodes};
 pub use grid::ForwardSide;
 pub use inputs::*;
+pub use monotone::MonotoneCurveDiagnostics;
 pub use numerics::*;
 pub use parametric_fit::*;
 pub use query::*;

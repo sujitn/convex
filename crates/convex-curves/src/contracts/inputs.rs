@@ -497,6 +497,12 @@ pub enum CurveSource {
         /// Complete actual dates/model times and native rate-unit quotes.
         nodes: Vec<CurveNode>,
     },
+    /// Complete nonnegative Hagan–West continuous-zero rate model. The native
+    /// origin is derived analytically; all supplied pillars must be positive.
+    MonotoneConvex {
+        /// Complete actual dates/model times and original native rate quotes.
+        nodes: Vec<CurveNode>,
+    },
     /// Full node grid in a declared representation.
     Nodes(Vec<CurveNode>),
     /// Supported exact simple-rate helper chain.

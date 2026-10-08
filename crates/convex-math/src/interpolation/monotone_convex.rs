@@ -1,231 +1,202 @@
-//! Monotone Convex interpolation (Hagan-West method).
+//! Nonnegative Hagan–West continuous-zero interpolation.
 //!
-//! This is the **production default** interpolation method for yield curve construction.
-//! It guarantees:
-//! - Positive forward rates (no negative forwards)
-//! - No spurious oscillations
-//! - C1 continuity (continuous first derivative)
+//! Uses the four original piecewise regimes and one common analytic primitive.
+//! Endpoint estimates precede simultaneous positivity bounds. Exactly one zero
+//! endpoint deviation uses the original zero-area quadratic, an explicit axis
+//! convention that avoids singular rational pieces. No amelioration is applied.
+//! Forward rates are continuous; their first derivative need not be continuous
+//! at pillars. Zero rates are C1 for positive time. This is an interpolation
+//! model, not a production or market-convention certificate.
 //!
-//! Reference: Hagan, P. & West, G. (2006) "Interpolation Methods for Curve Construction"
+//! Reference: Hagan & West (2006), equations (30)–(62), (81).
 
 use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
+#[path = "monotone_interval.rs"]
+mod interval;
+use interval::Interval;
 
-/// Monotone convex interpolation for yield curve construction.
+/// Complete nonnegative Hagan–West interpolation of continuous zero rates.
 ///
-/// This method interpolates on forward rates to ensure they remain positive
-/// and produces smooth, well-behaved curves suitable for production use.
-///
-/// The algorithm works by:
-/// 1. Computing discrete forward rates from input zero rates
-/// 2. Constructing a monotone convex function that passes through these forwards
-/// 3. Integrating the forward curve to get zero rates at arbitrary points
-///
-/// # Properties
-///
-/// - **Positive forwards**: Interpolated forward rates are always positive
-/// - **C1 continuity**: The curve has a continuous first derivative
-/// - **Local**: Changes to one data point only affect nearby regions
-/// - **Shape-preserving**: Maintains convexity/concavity of the underlying data
-///
-/// # Example
-///
-/// ```rust
-/// use convex_math::interpolation::{MonotoneConvex, Interpolator};
-///
-/// // Zero rates at different maturities
-/// let times = vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0];
-/// let zero_rates = vec![0.02, 0.025, 0.03, 0.035, 0.04, 0.045];
-///
-/// let interp = MonotoneConvex::new(times, zero_rates).unwrap();
-///
-/// // Interpolate zero rate at 1.5 years
-/// let rate = interp.interpolate(1.5).unwrap();
-///
-/// // Get the instantaneous forward rate
-/// let fwd = interp.forward_rate(1.5).unwrap();
-/// assert!(fwd > 0.0);  // Always positive!
-/// ```
+/// Inputs must have strictly positive, increasing times and nonnegative interval
+/// forwards, including the first interval from zero. Zero intervals are valid.
+/// Extrapolation, when enabled, integrates the terminal instantaneous forward.
 #[derive(Debug, Clone)]
 pub struct MonotoneConvex {
-    /// Time points (maturities)
     times: Vec<f64>,
-    /// Zero rates at each time point
     zero_rates: Vec<f64>,
-    /// Discrete forward rates `f_i` for interval `[t_{i-1}, t_i]`
     discrete_forwards: Vec<f64>,
-    /// Instantaneous forward rate estimates at each pillar
+    // Includes the analytic origin, followed by every original input pillar.
     f_inst: Vec<f64>,
+    intervals: Vec<Interval>,
     allow_extrapolation: bool,
 }
 
 impl MonotoneConvex {
-    /// Creates a new monotone convex interpolator from zero rates.
-    ///
-    /// # Arguments
-    ///
-    /// * `times` - Maturities in years (must be sorted, positive, and start > 0)
-    /// * `zero_rates` - Continuously compounded zero rates
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - There are fewer than 2 points
-    /// - Times are not positive or not sorted
-    /// - Zero rates would produce negative forwards
+    /// Construct the complete nonnegative model; no rate is clipped at query.
     pub fn new(times: Vec<f64>, zero_rates: Vec<f64>) -> MathResult<Self> {
         super::validate_points(&times, &zero_rates, 2)?;
-        // Check that times are sorted and positive
         if times[0] <= 0.0 {
+            return Err(MathError::invalid_input("first time must be positive"));
+        }
+        let mut discrete_forwards = Vec::with_capacity(times.len());
+        discrete_forwards.push(zero_rates[0]);
+        for i in 1..times.len() {
+            discrete_forwards.push(
+                (zero_rates[i] * times[i] - zero_rates[i - 1] * times[i - 1])
+                    / (times[i] - times[i - 1]),
+            );
+        }
+        finite_slice(&discrete_forwards, "discrete forwards")?;
+        if discrete_forwards.iter().any(|&f| f < 0.0) {
             return Err(MathError::invalid_input(
-                "first time must be positive (use t=0 extrapolation if needed)",
+                "negative interval forward, including origin interval",
             ));
         }
-        // Compute discrete forward rates
-        // f_i = (z_i * t_i - z_{i-1} * t_{i-1}) / (t_i - t_{i-1})
-        let n = times.len();
-        let mut discrete_forwards = Vec::with_capacity(n);
-
-        // For the first interval, use the first zero rate as forward
-        // This assumes flat forwards from t=0 to t[0]
-        discrete_forwards.push(zero_rates[0]);
-
-        for i in 1..n {
-            let t_prev = times[i - 1];
-            let t_curr = times[i];
-            let z_prev = zero_rates[i - 1];
-            let z_curr = zero_rates[i];
-
-            let f = (z_curr * t_curr - z_prev * t_prev) / (t_curr - t_prev);
-
-            if f < 0.0 {
-                return Err(MathError::invalid_input(format!(
-                    "negative forward rate {f} between t={t_prev} and t={t_curr}"
-                )));
-            }
-
-            discrete_forwards.push(f);
-        }
-
-        // Compute instantaneous forward rate estimates at each pillar
-        // Using weighted average of adjacent discrete forwards
-        let mut f_inst = Vec::with_capacity(n);
-
-        // First point: use first discrete forward
-        f_inst.push(discrete_forwards[0]);
-
-        // Interior points: weighted average
-        for i in 1..n - 1 {
-            let dt_left = times[i] - times[i - 1];
-            let dt_right = times[i + 1] - times[i];
-            let f_left = discrete_forwards[i];
-            let f_right = discrete_forwards[i + 1];
-
-            // Weighted average preserving monotonicity
-            let f_mid = (dt_right * f_left + dt_left * f_right) / (dt_left + dt_right);
-            f_inst.push(f_mid);
-        }
-
-        // Last point: use last discrete forward
-        f_inst.push(discrete_forwards[n - 1]);
-
-        finite_slice(&discrete_forwards, "discrete forwards")?;
-        finite_slice(&f_inst, "instantaneous forwards")?;
+        let f_inst = Self::node_forwards(&times, &discrete_forwards)?;
+        let intervals = discrete_forwards
+            .iter()
+            .enumerate()
+            .map(|(i, &mean)| Interval::new(mean, f_inst[i], f_inst[i + 1]))
+            .collect::<MathResult<Vec<_>>>()?;
         Ok(Self {
             times,
             zero_rates,
             discrete_forwards,
             f_inst,
+            intervals,
             allow_extrapolation: false,
         })
     }
 
-    /// Returns the instantaneous forward rate at time t.
-    ///
-    /// The forward rate f(t) satisfies:
-    /// ```text
-    /// z(t) * t = ∫₀ᵗ f(s) ds
-    /// ```
-    pub fn forward_rate(&self, t: f64) -> MathResult<f64> {
-        finite(t, "query coordinate")?;
-        if t <= 0.0 {
-            // At t=0, return the first forward rate
-            return Ok(self.discrete_forwards[0]);
+    fn node_forwards(times: &[f64], means: &[f64]) -> MathResult<Vec<f64>> {
+        let n = times.len();
+        let mut nodes = vec![0.0; n + 1];
+        for i in 1..n {
+            let left = times[i - 1] - if i == 1 { 0.0 } else { times[i - 2] };
+            let right = times[i] - times[i - 1];
+            nodes[i] = right / (left + right) * means[i - 1] + left / (left + right) * means[i];
         }
+        nodes[0] = 1.5 * means[0] - 0.5 * nodes[1];
+        nodes[n] = 1.5 * means[n - 1] - 0.5 * nodes[n - 1];
+        finite_slice(&nodes, "instantaneous forward estimates")?;
+        for i in 0..=n {
+            let cap = 2.0
+                * if i == 0 {
+                    means[0]
+                } else if i == n {
+                    means[n - 1]
+                } else {
+                    means[i - 1].min(means[i])
+                };
+            finite(cap, "instantaneous forward bound")?;
+            nodes[i] = nodes[i].clamp(0.0, cap);
+        }
+        Ok(nodes)
+    }
 
-        // Check bounds
-        if !self.allow_extrapolation && t > self.times[self.times.len() - 1] {
+    fn check_time(&self, t: f64) -> MathResult<()> {
+        finite(t, "query coordinate")?;
+        if t < 0.0 {
+            return Err(MathError::invalid_input("negative model time"));
+        }
+        if !self.allow_extrapolation && t > self.max_x() {
             return Err(MathError::ExtrapolationNotAllowed {
                 x: t,
                 min: 0.0,
-                max: self.times[self.times.len() - 1],
+                max: self.max_x(),
             });
         }
-
-        // Find the interval containing t
-        let i = self.find_interval(t);
-
-        // Get interval boundaries
-        let (t_lo, t_hi, f_lo, f_hi) = if i == 0 {
-            // Before first pillar: flat forward
-            (
-                0.0,
-                self.times[0],
-                self.discrete_forwards[0],
-                self.f_inst[0],
-            )
-        } else if i >= self.times.len() {
-            // After last pillar: flat extrapolation
-            let last = self.times.len() - 1;
-            return Ok(self.f_inst[last]);
-        } else {
-            (
-                self.times[i - 1],
-                self.times[i],
-                self.f_inst[i - 1],
-                self.f_inst[i],
-            )
-        };
-
-        let x = (t - t_lo) / (t_hi - t_lo);
-        let f_discrete = self.discrete_forwards[i];
-
-        let f = f_discrete
-            + (f_lo - f_discrete) * (1.0 - 4.0 * x + 3.0 * x * x)
-            + (f_hi - f_discrete) * (-2.0 * x + 3.0 * x * x);
-
-        finite(f, "monotone forward").map(|value| value.max(0.0)) // Ensure non-negative
+        Ok(())
     }
 
-    /// Finds the interval index containing time t.
-    fn find_interval(&self, t: f64) -> usize {
-        match self.times.binary_search_by(|probe| probe.total_cmp(&t)) {
-            Ok(i) => i + 1,
-            Err(i) => i,
+    fn interval_index(&self, t: f64) -> usize {
+        match self.times.binary_search_by(|p| p.total_cmp(&t)) {
+            Ok(i) | Err(i) => i,
         }
     }
 
-    /// Enables extrapolation beyond the data range.
+    fn coordinate(&self, i: usize, t: f64) -> (f64, f64, f64) {
+        let start = if i == 0 { 0.0 } else { self.times[i - 1] };
+        let width = self.times[i] - start;
+        (start, width, (t - start) / width)
+    }
+
+    /// Original analytic forward, continuous at every input pillar.
+    pub fn forward_rate(&self, t: f64) -> MathResult<f64> {
+        self.check_time(t)?;
+        let f = if t == 0.0 {
+            self.f_inst[0]
+        } else if t >= self.max_x() {
+            self.f_inst[self.times.len()]
+        } else if let Ok(i) = self.times.binary_search_by(|p| p.total_cmp(&t)) {
+            self.f_inst[i + 1]
+        } else {
+            let i = self.interval_index(t);
+            self.intervals[i].evaluate(self.coordinate(i, t).2).0
+        };
+        finite(f, "monotone forward")?;
+        if f < 0.0 {
+            return Err(MathError::invalid_input(
+                "negative arithmetic result in nonnegative model",
+            ));
+        }
+        Ok(f)
+    }
+
+    /// Exact analytic integral of the same forward used by forward_rate.
+    pub fn integrated_forward(&self, t: f64) -> MathResult<f64> {
+        self.check_time(t)?;
+        if t == 0.0 {
+            return Ok(0.0);
+        }
+        if t > self.max_x() {
+            let last = self.times.len() - 1;
+            return finite(
+                self.times[last] * self.zero_rates[last]
+                    + (t - self.times[last]) * self.f_inst[last + 1],
+                "monotone tail integral",
+            );
+        }
+        if let Ok(i) = self.times.binary_search_by(|p| p.total_cmp(&t)) {
+            return finite(t * self.zero_rates[i], "monotone node integral");
+        }
+        let i = self.interval_index(t);
+        let (start, width, x) = self.coordinate(i, t);
+        let previous = if i == 0 {
+            0.0
+        } else {
+            start * self.zero_rates[i - 1]
+        };
+        finite(
+            previous + width * self.intervals[i].evaluate(x).1,
+            "monotone integral",
+        )
+    }
+
+    /// Enable a terminal flat-forward tail with the same integrated economics.
     #[must_use]
     pub fn with_extrapolation(mut self) -> Self {
         self.allow_extrapolation = true;
         self
     }
-
-    /// Returns the discrete forward rates.
+    /// Original interval averages, including the origin interval.
     #[must_use]
     pub fn discrete_forwards(&self) -> &[f64] {
         &self.discrete_forwards
     }
-
-    /// Returns the time points.
+    /// Analytic origin followed by every supplied node forward.
+    #[must_use]
+    pub fn node_forward_rates(&self) -> &[f64] {
+        &self.f_inst
+    }
+    /// Original positive input times; no origin pillar is fabricated.
     #[must_use]
     pub fn times(&self) -> &[f64] {
         &self.times
     }
-
-    /// Returns the zero rates.
+    /// Original continuous zero quotes.
     #[must_use]
     pub fn zero_rates(&self) -> &[f64] {
         &self.zero_rates
@@ -234,89 +205,38 @@ impl MonotoneConvex {
 
 impl Interpolator for MonotoneConvex {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
-        finite(t, "query coordinate")?;
-        if t <= 0.0 {
-            // At t=0, the zero rate is undefined; return the short rate
-            return Ok(self.zero_rates[0]);
+        self.check_time(t)?;
+        if t == 0.0 {
+            return Ok(self.f_inst[0]);
         }
-
-        // Check bounds
-        if !self.allow_extrapolation && t > self.times[self.times.len() - 1] {
-            return Err(MathError::ExtrapolationNotAllowed {
-                x: t,
-                min: 0.0,
-                max: self.times[self.times.len() - 1],
-            });
+        if let Ok(i) = self.times.binary_search_by(|p| p.total_cmp(&t)) {
+            return Ok(self.zero_rates[i]);
         }
-
-        // Find the interval containing t
-        let i = self.find_interval(t);
-
-        if i == 0 {
-            // Before first pillar: constant zero rate
-            return Ok(self.zero_rates[0]);
+        if t < self.times[0] {
+            if let Some((average, _)) = self.intervals[0].origin_average(t / self.times[0]) {
+                return finite(average, "monotone origin zero");
+            }
         }
-
-        if i >= self.times.len() {
-            // After last pillar: flat extrapolation
-            return Ok(self.zero_rates[self.zero_rates.len() - 1]);
-        }
-
-        // Interpolate using the integral of forward rates
-        // z(t) = (1/t) * ∫₀ᵗ f(s) ds
-        //
-        // We approximate this by linearly interpolating the zero rate
-        // adjusted to preserve the forward rate structure
-        let t_lo = self.times[i - 1];
-        let t_hi = self.times[i];
-        let z_lo = self.zero_rates[i - 1];
-
-        // The discrete forward for this interval
-        let f_discrete = self.discrete_forwards[i];
-        let f_lo = self.f_inst[i - 1];
-        let f_hi = self.f_inst[i];
-
-        let x = (t - t_lo) / (t_hi - t_lo);
-
-        // Exact integral of the Hagan-West quadratic forward rate
-        let integral_x = (x - 2.0 * x * x + x * x * x) * f_lo
-            + (-x * x + x * x * x) * f_hi
-            + (3.0 * x * x - 2.0 * x * x * x) * f_discrete;
-
-        let zt_product = z_lo * t_lo + (t_hi - t_lo) * integral_x;
-
-        finite(zt_product / t, "monotone interpolation")
+        finite(self.integrated_forward(t)? / t, "monotone zero")
     }
-
     fn derivative(&self, t: f64) -> MathResult<f64> {
-        finite(t, "query coordinate")?;
-        if t <= 0.0 {
-            return Ok(0.0);
+        self.check_time(t)?;
+        if t < self.times[0] {
+            if let Some((_, slope)) = self.intervals[0].origin_average(t / self.times[0]) {
+                return finite(slope / self.times[0], "monotone origin derivative");
+            }
         }
-
-        // Use numerical derivative for accuracy since the interpolation
-        // involves blending that makes analytical derivative complex
-        let h = 1e-6;
-        let t_plus = t + h;
-        let t_minus = (t - h).max(1e-10);
-
-        let z_plus = self.interpolate(t_plus)?;
-        let z_minus = self.interpolate(t_minus)?;
-
         finite(
-            (z_plus - z_minus) / (t_plus - t_minus),
-            "monotone derivative",
+            (self.forward_rate(t)? - self.interpolate(t)?) / t,
+            "monotone zero derivative",
         )
     }
-
     fn allows_extrapolation(&self) -> bool {
         self.allow_extrapolation
     }
-
     fn min_x(&self) -> f64 {
-        0.0 // Can interpolate from t=0
+        0.0
     }
-
     fn max_x(&self) -> f64 {
         self.times[self.times.len() - 1]
     }

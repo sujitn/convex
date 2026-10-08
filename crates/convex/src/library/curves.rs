@@ -260,6 +260,9 @@ pub(super) fn describe_curve(curve: &BuiltCurve) -> Value {
     if let Some(tail) = curve.ufr_diagnostics() {
         result["ufr"] = serde_json::json!(tail);
     }
+    if let Some(model) = curve.monotone_diagnostics() {
+        result["monotone"] = serde_json::json!(model);
+    }
     result
 }
 pub(super) fn fit_parametric(

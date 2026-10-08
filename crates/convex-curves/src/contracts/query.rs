@@ -29,6 +29,14 @@ pub enum HazardSide {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CurveQuery {
+    /// Analytic continuous MonotoneConvex forward, with an explicit side for
+    /// the origin and any declared terminal tail. Other source families fail.
+    MonotoneConvexForward {
+        /// Original actual date or model time.
+        point: CurvePoint,
+        /// Original interval or the actual declared tail at a boundary.
+        side: ForwardSide,
+    },
     /// Original analytic UFR tail forward at/after its explicit LLP, including
     /// the right join limit. Other families and pre-LLP queries fail.
     UfrForward {
@@ -270,6 +278,9 @@ impl BuiltCurve {
             Ok(t)
         };
         let (value, unit) = match *query {
+            CurveQuery::MonotoneConvexForward { point, side } => {
+                return self.query_monotone_forward(point, side);
+            }
             CurveQuery::UfrForward { point } => {
                 return self.query_ufr_forward(point);
             }
@@ -358,6 +369,24 @@ impl BuiltCurve {
         // source evaluation. Raw queries do evaluate a delegated origin.
         times.retain(|&t| t > 0.0 || matches!(query, CurveQuery::Raw { .. }));
         self.query_value(value, unit, day_count, compounding, &times)
+    }
+    fn query_monotone_forward(
+        &self,
+        point: CurvePoint,
+        side: ForwardSide,
+    ) -> CurveContractResult<CurveQueryValue> {
+        let recipe = self.recipe();
+        let t = point_tenor(recipe.reference_date, recipe.time_basis, point)?;
+        let (value, extended) = self.monotone_forward(t, side)?;
+        let mut result = self.query_value(
+            value,
+            CurveQueryUnit::DecimalRate,
+            Some(recipe.time_basis),
+            Some(Compounding::Continuous),
+            &[t],
+        )?;
+        result.extrapolated |= extended;
+        Ok(result)
     }
     fn query_ufr_forward(&self, point: CurvePoint) -> CurveContractResult<CurveQueryValue> {
         let recipe = self.recipe();
@@ -563,6 +592,8 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "one_sided_flat_forward_queries", status: Supported, conditions: "Explicit FlatForwardRate Left/Right on original grid/extension, time basis and continuous units; absent sides fail, actual side/source extension disclosed including zero; no proxy on step/derived/parametric sources" },
         CurveCapability { name: "explicit_ufr_convergence", status: Supported, conditions: "Exact original FlatForward or NelsonSiegel/Svensson continuous-zero source and role/currency/reference/time basis/method/version; supplied LLP inside native domain, analytic left boundary, positive alpha and decimal UFR; integrated exponential tail, no short-end or derivative proxy; original finite query/depth bounds; heuristic, not Smith-Wilson" },
         CurveCapability { name: "analytic_ufr_forward", status: Supported, conditions: "Explicit UfrForward at/after declared LLP, original continuous rate per curve-time year; actual tail consumption disclosed even at right join; no pre-LLP or other-family derivative substitution" },
+        CurveCapability { name: "complete_monotone_convex", status: Supported, conditions: "Complete supplied continuous-zero rate source, original weighted/endpoint estimates, simultaneous nonnegative bounds and all four Hagan-West regimes; exact one-zero-deviation axes use the original zero-area quadratic, no amelioration; original positive nodes, nonnegative interval means including origin, finite work and native units/time basis; no DF/hazard/signed-forward reinterpretation" },
+        CurveCapability { name: "analytic_monotone_forward", status: Supported, conditions: "Explicit MonotoneConvexForward Left/Right over matching analytic forward/integral; origin Left and undeclared tail fail; None/raw Flat-zero or integrated FlatForward tail, actual terminal side consumption disclosed; no sampled derivative or family proxy" },
         CurveCapability { name: "direct_credit_survival", status: Supported, conditions: "Credit role; positive nonincreasing Q with explicit origin; Linear/LogLinear; None/Flat extrapolation" },
         CurveCapability { name: "direct_issuer_basis", status: Supported, conditions: "IssuerSpread/IssuerSpreads; signed annualized raw Linear grid; explicit None/Flat/Linear extension; no discount/survival query; analytics owns the declared cash/recovery model" },
         CurveCapability { name: "dated_deposit_fra_piecewise", status: Supported, conditions: "Unfixed simple rates; exact solved start pillars; DF Linear/LogLinear; native quote repricing; <=1023 helpers" },
@@ -574,6 +605,6 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "dated_money_market_global_fit", status: Supported, conditions: "Explicit fit_money_market_curve API; bounded scaled native objective and all-quote postconditions; identified continuous-zero parameters; original recipe dispatch remains v1" },
         CurveCapability { name: "extrapolation", status: Supported, conditions: "None, raw-value Flat, raw-value Linear for rate curves; valid output postconditions; ceiling 150 years" },
         CurveCapability { name: "product_helper_global_calibration", status: Pending, conditions: "Generic description-only recipe dispatch remains unsupported; explicit analytics credit/rate/cash_calibration APIs compose full supplied product helpers and bounded fits" },
-        CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Complete MonotoneConvex, UFR joins over other native families, regulatory Smith-Wilson, product-price method calibration, quote-risk rebuilding and credit/basis segmented hazard/integration contracts retain separate constraints; no method substitution" },
+        CurveCapability { name: "other_interpolation_extrapolation", status: Pending, conditions: "Signed-forward or ameliorated MonotoneConvex variants, UFR joins over other native families, regulatory Smith-Wilson, product-price method calibration, quote-risk rebuilding and credit/basis segmented hazard/integration contracts retain separate constraints; no method substitution" },
     ]
 }

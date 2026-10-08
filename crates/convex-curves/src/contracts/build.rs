@@ -16,6 +16,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 enum CurveValues {
+    Monotone(super::monotone::MonotoneCurve),
     Ufr(super::ufr::UfrCurve),
     Grid(super::grid::MethodGrid),
     Structured(super::structured::StructuredCurve),
@@ -46,6 +47,20 @@ pub struct BuiltCurve {
     depth: usize,
 }
 impl BuiltCurve {
+    /// Actual complete MonotoneConvex diagnostics; other sources have none.
+    pub fn monotone_diagnostics(&self) -> Option<&super::MonotoneCurveDiagnostics> {
+        match &self.values {
+            CurveValues::Monotone(curve) => Some(&curve.diagnostics),
+            _ => None,
+        }
+    }
+    pub(super) fn monotone_forward(&self, t: f64, side: super::ForwardSide) -> Result<(f64, bool)> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Monotone(curve) => curve.forward(t, side),
+            _ => Err(Error::unsupported("monotone forward", "requires the complete native MonotoneConvex source; no sampled derivative or other-family proxy")),
+        }
+    }
     pub(super) fn depth(&self) -> usize {
         self.depth
     }
@@ -129,6 +144,7 @@ impl BuiltCurve {
     /// Derived views have no such grid and fail instead of being resampled.
     pub fn interpolation_grid(&self) -> Result<(&[f64], &[f64])> {
         match &self.values {
+            CurveValues::Monotone(curve) => Ok(curve.grid()),
             CurveValues::Grid(curve) => Ok(curve.grid()),
             CurveValues::Direct(curve) => Ok((curve.tenors(), curve.values())),
             CurveValues::Basis(grid) => Ok((&grid.tenors, &grid.values)),
@@ -140,6 +156,7 @@ impl BuiltCurve {
     }
     pub(crate) fn bounds(&self) -> (f64, f64) {
         match &self.values {
+            CurveValues::Monotone(curve) => curve.bounds(),
             CurveValues::Ufr(curve) => curve.bounds(),
             CurveValues::Structured(curve) => curve.bounds(),
             CurveValues::Grid(curve) => curve.bounds(),
@@ -171,6 +188,7 @@ impl BuiltCurve {
             ));
         }
         let value = match &self.values {
+            CurveValues::Monotone(curve) => curve.value(t)?,
             CurveValues::Ufr(curve) => curve.value(t)?,
             CurveValues::Grid(curve) => curve.value(t)?,
             CurveValues::Structured(curve) => curve.value(t, self.recipe.extrapolation)?,
@@ -757,6 +775,9 @@ fn validate_representation(recipe: &CurveRecipe) -> Result<()> {
 }
 
 fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
+    if matches!(recipe.source, CurveSource::MonotoneConvex { .. }) {
+        return super::monotone::validate_shape(recipe);
+    }
     if matches!(recipe.source, CurveSource::UfrConvergence { .. }) {
         return super::ufr::validate_shape(recipe);
     }
@@ -817,6 +838,23 @@ fn validate_methods(recipe: &CurveRecipe) -> Result<()> {
 
 fn build_one(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<BuiltCurve> {
     match &recipe.source {
+        CurveSource::MonotoneConvex { nodes } => {
+            let curve = super::monotone::MonotoneCurve::new(recipe, nodes)?;
+            let pillars = curve.grid().0.to_vec();
+            Ok(BuiltCurve {
+                recipe: recipe.clone(),
+                values: CurveValues::Monotone(curve),
+                depth: 0,
+                diagnostics: CurveDiagnostics {
+                    curve: recipe.key.clone(),
+                    method: "supplied_complete_monotone_convex".into(),
+                    iterations: 0,
+                    pillars,
+                    dependencies: vec![],
+                    quotes: vec![],
+                },
+            })
+        }
         CurveSource::UfrConvergence { .. } => {
             let (curve, depth) = super::ufr::UfrCurve::new(recipe, supplied)?;
             let (min, max) = curve.bounds();

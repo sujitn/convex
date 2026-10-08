@@ -1514,6 +1514,59 @@
         "tools/library/library-inventory.json": "172a69aadd28ac1403f8ac291349f9506ce13b67d0c673281834094640489787",
         "tools/library/test_operations.py": "510539d3594d97f21814affee3e1e1619ebb02fde33feba1dc19bf7c5f0975fd"
       }
+    },
+    {
+      "base_commit": "54f00a3f7015485d118d46bf2c5c352f9074e222",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "Complete original nonnegative Hagan-West native owner and full supplied continuous-zero MonotoneConvex source; weighted/endpoint estimates before simultaneous positivity bounds, all four regimes with one analytic forward/primitive, exact-axis original quadratic explicitly disclosed, no amelioration or signed-forward alias. Original nodes reprice; analytic derivatives/origin, actual dates/units/time basis/roles/versions/terminal sides and bounded work survive thin shared clients. Frozen independent Decimal(60) controls are separate from native transport. Full fits/quote-risk/engine snapshots/other UFR joins and actual Windows/Excel/browser remain owning work. Existing signed-rate snapshot records selecting the nonnegative model reject; the unpinned replay test asserts that rejection and explicitly selects Linear without changing original dates, tenors, rates or replay assertions. No independent quantitative approval or certificate. Original321 quantitative rows/bytes/defaults and6662 preceding evidence files retained. Thirteen additive controls; mandatory scope, normal dependencies and ABI unchanged. Engineering review is not independent human quantitative approval.",
+      "tests": [
+        "Independent frozen425-point analytic/native/dated controls with unchanged bounds",
+        "Original numeric regression, complete strict native/JSON/C/client/schema/feature contracts",
+        "Strict affected lint/docs/format, full workspace and source/scope conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "04ff8b946b4bcbfdfb813894d66f1a9bfb5bc50a534c9eae1d16c17196f06b38",
+        "bindings/java/src/test/java/com/convex/LibraryMonotoneTest.java": "f5c936476c85968e12dc7fbf6f2f9cdf343ca37d683664f918cdfe17f40129bf",
+        "crates/convex-curves/src/contracts/build.rs": "df027c2337cf9bcf59c16f4b60322e37ec0318f6594c84ae65f7500da5ac28d6",
+        "crates/convex-curves/src/contracts/inputs.rs": "f8e3dbfefa4a20ab8c4236b373bb27f12c6a9b42e5c20f565361561ac1dfddbf",
+        "crates/convex-curves/src/contracts/mod.rs": "29f3ea1d94de121df42add0da03d26a473efc99b94f4bc8a1309ce463f5da3bd",
+        "crates/convex-curves/src/contracts/monotone.rs": "3f347161950f57a08b37e591f7d4ce044e4ec2b852b22244150ceaa2e8427574",
+        "crates/convex-curves/src/contracts/query.rs": "6f106bc917ee221e52500a52e5255ccf823c250e835969f443d43bd7e62b207a",
+        "crates/convex-curves/src/lib.rs": "8cd8d5b41d2b62cb617daec1416ecbfe5d89aebe4b7dc94ac42c805eb2edda43",
+        "crates/convex-curves/tests/monotone_contracts.rs": "2c7cd2410bdf722ae9cf0f94b358913d50fe21f31a674fcb25183a42422c1973",
+        "crates/convex-engine/tests/snapshots.rs": "1b1e30a290b6ce23bc0cd6f6f4cedf310af51dc8dab1bc45e5081c498a29f084",
+        "crates/convex-ffi/tests/library_monotone.rs": "eed194e47792304d17a2c521e6c5535924378a60af313f684a121d215373496c",
+        "crates/convex-math/src/interpolation/monotone_convex.rs": "1db8123b8b49205ac26e552f24ff658f6272cdaca008d96fc6a7943e54d2a7b2",
+        "crates/convex-math/src/interpolation/monotone_interval.rs": "5e4b4cee1b3f58f05d95e02981bfb205ea119202b3e48b3f500f33afebb25011",
+        "crates/convex-math/tests/monotone_complete.rs": "1f88cbf1cc9aa9cfdaccef2a83a2b2d7dfd9e08b592561fdef612a2fc01c0501",
+        "crates/convex-mcp/tests/library_monotone.rs": "65f9a85cdad82435f5d564c0ace36d55bb1cd8d2bc62041f0995accdbf72fb29",
+        "crates/convex-wasm/tests/library_monotone.rs": "0bc40db9769a9cfa8d5033007ca9e00fdfead5a8adf85fe351d993b7579954c8",
+        "crates/convex/examples/library_monotone.rs": "de74cebe9bbb6a94840952d43cf51fd02257ecdb54b95ee185e1d195dc077af5",
+        "crates/convex/src/library/curves.rs": "2a9d6183e7ea04313a9ab0ce750e7bb69a8330a0824294d411952a096a99176c",
+        "crates/convex/tests/library_monotone.rs": "ee4fa9b9943bfec90846ad2876e38537d420a1cf6a69195d064371043ddfbf95",
+        "docs/CURVE-CONTRACTS.md": "f5dbc491624ed0c466cd2e5d9631c344be243cfb899b9e7efd899ac72eda782d",
+        "docs/CURVE-MONOTONE-CONVEX.md": "9d992dbb0d3c218ee01a18fa688122b14af2ec9abc1132241e3e4c77ab3ee65e",
+        "docs/LIBRARY-API.md": "2e3a17cddc1dc77e12e6b69211170743bae7f317a6eccde772e72583984986cc",
+        "docs/ROUTE-MIGRATION.md": "63ebdd50cc0970697b49788aa92312aec34fb2a60cf3e39e375c851d33114b07",
+        "excel/Convex.Excel.Tests/LibraryMonotoneTests.cs": "642947e956c2aaa4535d8aca4d8d6b63c0381386e589c3ba54cfc478d06c85aa",
+        "tests/fixtures/library/monotone-reference.json": "befe120fbea874cf7579cf83050495e532437b81df2947dcb71eedc6735482f2",
+        "tests/fixtures/library/monotone.json": "a67d7c7cb08fe655ed208159122d1e0fbe909cbc75ab518d70b55121c7c6f469",
+        "tests/fixtures/library/monotone_contract.rs": "298f47406b9c970d8022251ee24d72ae5b08c2a9c865c4e82babae9f362f6083",
+        "tests/fixtures/library/monotone_reference.rs": "347020f93f3a18edd20de7240d246ea56a03228a566de52484affd8fe68afb86",
+        "tests/scripts/library_monotone_inputs.py": "521958fe4293c6c7e2b53b7f9f0e28013a661dde3a05611d89620088906ca261",
+        "tests/scripts/library_monotone_parity.py": "d596b5e7eaec7fa8c2a49a2b5b425865ea0ded79292e9c61158237f2daeb5d4a",
+        "tests/scripts/library_monotone_schema.py": "85122115ae8f5b26656da49630f67c82b206e5e5a93835957b77aa236cd406f9",
+        "tests/scripts/monotone_math_fixture.py": "33ef30c28555864f2fa514dd3dba2836ac2ce03807e89dd5d8a1b11edc9443fe",
+        "tests/scripts/monotone_reference.py": "dc1d25bcc0e0ab6e6a86c63bb3dfaaae9b8ee5ade5edc682567d03b8a726ec56",
+        "tools/assurance/check.py": "5bf944dd5de38ced596dab3af77537a8739b211f683f43e6aebab44eb7e77c82",
+        "tools/assurance/inventory.json": "76238f456ebef0a47361367343b6dc40c65b38fde62d41bf0cdf9ec2083d40ae",
+        "tools/assurance/numeric-evidence.json": "e13ae8cf808c6d7aca803a42cf09f483594a97ec9326c8bf54ab6c76ddd391d5",
+        "tools/assurance/test_policy.py": "6d4d7d5f94efdc01f2272b7de730ce220b9cae8086d624674a81223af0fd1a92",
+        "tools/library/api-capabilities.json": "dbd04ad1149f1f6ae2df238dfc6839db59d8ba8d3721a04d177f0a6b108064ce",
+        "tools/library/library-inventory.json": "1dad07fc6699dbe2f8605558fa07295bc77e1613d7d89f3c22813526bf05b32c",
+        "tools/library/test_operations.py": "1a4ac4c98a56b264ff61d37338b579e35d963ccdc186f32593ae41ac7b916c15"
+      }
     }
   ]
 }
