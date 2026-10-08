@@ -14,6 +14,7 @@ mod inputs;
 mod products;
 mod requests;
 mod risk;
+mod workout;
 mod zero;
 
 pub use cash::*;
@@ -30,6 +31,7 @@ pub use requests::*;
 pub use risk::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+pub use workout::*;
 pub use zero::*;
 
 /// Wire contract version, independent of server API and native term revisions.

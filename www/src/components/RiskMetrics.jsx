@@ -51,7 +51,7 @@ function RiskMetrics({ analysis, faceAmount = 1000000, benchmarkRisk }) {
       <div className="panel-header">
         <h3>Risk</h3>
         <div className="risk-header-labels">
-          <span className="workout-label">Workout</span>
+          <span className="yield-label">Yield</span>
           <span className="oas-label">OAS</span>
         </div>
       </div>
@@ -59,7 +59,7 @@ function RiskMetrics({ analysis, faceAmount = 1000000, benchmarkRisk }) {
       <div className="risk-table">
         <div className="risk-row">
           <span className="risk-label">M.Dur</span>
-          <span className="risk-value workout">{formatValue(macDuration, 3)}</span>
+          <span className="risk-value yield">{formatValue(macDuration, 3)}</span>
           <span className="risk-value oas">{oasModDuration ? formatValue(oasModDuration, 3) : 'N.A.'}</span>
         </div>
 
@@ -67,19 +67,19 @@ function RiskMetrics({ analysis, faceAmount = 1000000, benchmarkRisk }) {
           <span className="risk-label">
             <span className="radio-indicator">&#9679;</span> Dur
           </span>
-          <span className="risk-value workout highlight">{formatValue(modDuration, 3)}</span>
+          <span className="risk-value yield highlight">{formatValue(modDuration, 3)}</span>
           <span className="risk-value oas">{oasModDuration ? formatValue(oasModDuration, 3) : 'N.A.'}</span>
         </div>
 
         <div className="risk-row">
           <span className="risk-label">Risk</span>
-          <span className="risk-value workout">{formatValue(risk, 3)}</span>
+          <span className="risk-value yield">{formatValue(risk, 3)}</span>
           <span className="risk-value oas">{oasRisk ? formatValue(oasRisk, 3) : 'N.A.'}</span>
         </div>
 
         <div className="risk-row">
           <span className="risk-label">Convexity</span>
-          <span className="risk-value workout">{formatValue(convexity, 3)}</span>
+          <span className="risk-value yield">{formatValue(convexity, 3)}</span>
           <span className="risk-value oas">{oasConvexity ? formatValue(oasConvexity, 3) : 'N.A.'}</span>
         </div>
 
@@ -93,25 +93,25 @@ function RiskMetrics({ analysis, faceAmount = 1000000, benchmarkRisk }) {
             </select>
             <span className="dv-unit">on 1MM</span>
           </span>
-          <span className="risk-value workout dv01">{formatMoney(dv01 * 10000)}</span>
+          <span className="risk-value yield dv01">{formatMoney(dv01 * 10000)}</span>
           <span className="risk-value oas dv01">{formatMoney(dv01 * 10000)}</span>
         </div>
 
         <div className="risk-row">
           <span className="risk-label">Benchmark Risk</span>
-          <span className="risk-value workout">{formatValue(bmkRisk, 3)}</span>
+          <span className="risk-value yield">{formatValue(bmkRisk, 3)}</span>
           <span className="risk-value oas">{oasBmkRisk ? formatValue(oasBmkRisk, 3) : 'N.A.'}</span>
         </div>
 
         <div className="risk-row">
           <span className="risk-label">Risk Hedge</span>
-          <span className="risk-value workout">{formatMoney(riskHedge)}</span>
+          <span className="risk-value yield">{formatMoney(riskHedge)}</span>
           <span className="risk-value oas">{oasRiskHedge ? formatMoney(oasRiskHedge) : 'N.A.'}</span>
         </div>
 
         <div className="risk-row">
           <span className="risk-label">Proceeds Hedge</span>
-          <span className="risk-value workout">{formatMoney(proceedsHedge)}</span>
+          <span className="risk-value yield">{formatMoney(proceedsHedge)}</span>
           <span className="risk-value oas">{oasProceedsHedge ? formatMoney(oasProceedsHedge) : 'N.A.'}</span>
         </div>
       </div>

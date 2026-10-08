@@ -495,3 +495,17 @@ combination still needs its original independent contract/model/convention pack.
 Excel and actual browser/WASM qualification need executable hosts. See each
 report record for its remaining owner, and use the private CVX-063 follow-up
 harness prompt. CVX-064/065 may certify only actual completed mandatory scope.
+
+## Complete workout quotations
+
+The strict `workout` operation reconstructs complete original `BondInput` terms
+and independently versioned calendars, reference and quote revisions. Native
+workflow price/yield/worst actions retain explicit trade/purchase/notice state,
+full stepped/amortizing cash, delayed claims, original-face units and native
+inverse controls. Every actual continuous exercise date is inspected within
+caller-declared work budgets. Puts are reported separately from the issuer-call/
+maturity minimum; timely supplied notice forces its exact path. These are dated
+cash quotations, with normal optional-model valuation guards unchanged. Read
+[workout quotations](WORKOUT-QUOTATIONS.md) for request fields, original rounding,
+complete diagnostics and unsupported conventions. Native envelopes remain
+transport expectations; CVX-063 and original mandatory certificates stay open.

@@ -150,6 +150,17 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Full legal notice/principal-aware dated cash workout quotations.
+    Workout {
+        /// Complete original contract, calendars and independent source revisions.
+        input: Box<WorkoutInput>,
+        /// Actual information/purchase state and explicit notice policy or facts.
+        context: convex_analytics::workflow::WorkoutContext,
+        /// Explicit dated-cash compounding; no Street convention is inferred.
+        convention: DatedYieldConvention,
+        /// Original native single-path price/yield or complete all-date quotations.
+        action: WorkoutOperation,
+    },
     /// Full original cash quotation and signed settlement consideration.
     CashSecurity {
         /// Full native helper, quote revision and independent calendars.

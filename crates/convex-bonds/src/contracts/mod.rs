@@ -8,6 +8,7 @@
 mod exercise;
 mod projection;
 mod terms;
+mod workout;
 
 pub(crate) use exercise::{call_terms, put_terms};
 pub use exercise::{ExerciseAccrued, ExerciseDates, ExerciseRight, ExerciseStyle, ExerciseTerms};
@@ -19,6 +20,7 @@ pub use terms::{
     BondCalendarIds, BondCalendars, BondCoupon, BondProfiles, BondTerms, OvernightRateTerms,
     PrincipalPrice, TermRateTerms,
 };
+pub use workout::FixedWorkoutProjection;
 
 use convex_core::{
     cashflows::{

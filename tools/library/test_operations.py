@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 29)
-        self.assertEqual(result['engineering_examples'], 496)
+        self.assertEqual(result['exact_operation_routes'], 33)
+        self.assertEqual(result['engineering_examples'], 603)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -89,6 +89,17 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['cash_helpers.'+family].update(
                 boundary_examples=['cash_helpers.'+family+'.missing_curve']))
             self.rejects(lambda m: m['operation_routes']['cash_helpers.'+family].update(certified=True))
+
+    def test_workout_actions_rights_and_failure_examples_cannot_substitute(self):
+        for name, other in [('price', 'workout.yield.SemiAnnual.0.04125.exercise.0'),
+                            ('yield_call', 'workout.yield.SemiAnnual.0.04125.exercise.1'),
+                            ('yield_put', 'workout.yield.SemiAnnual.0.04125.exercise.0'),
+                            ('worst', 'workout.yield.SemiAnnual.0.04125.exercise.0')]:
+            self.rejects(lambda m: m['operation_routes']['workout.'+name].update(
+                positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes']['workout.'+name].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['workout.worst'].update(
+            boundary_examples=['workout.failure.unselected_put_no_root']))
 
 
 if __name__ == '__main__': unittest.main()

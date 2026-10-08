@@ -465,6 +465,12 @@ pub(super) fn execute(
     operation: &LibraryOperation,
 ) -> LibraryResult<Value> {
     match operation {
+        LibraryOperation::Workout {
+            input,
+            context,
+            convention,
+            action,
+        } => super::workout::execute(input, context, *convention, action, r),
         LibraryOperation::CashSecurity {
             input,
             reference_date,

@@ -74,12 +74,6 @@ pub struct AnalysisResult {
     pub simple_yield: Option<f64>,
     pub money_market_yield: Option<f64>,
 
-    // Callable bond yields
-    pub ytc: Option<f64>,             // Yield to first call
-    pub ytw: Option<f64>,             // Yield to worst
-    pub workout_date: Option<String>, // Date for YTW (call date or maturity)
-    pub workout_price: Option<f64>,   // Call price or par at workout
-
     // Risk metrics
     pub modified_duration: Option<f64>,
     pub macaulay_duration: Option<f64>,

@@ -490,7 +490,7 @@ impl BondContract {
             negative_coupons: self.terms.negative_coupons,
         }
     }
-    fn term_amount(
+    pub(super) fn term_amount(
         &self,
         plan: &CouponPlan,
         end: Date,

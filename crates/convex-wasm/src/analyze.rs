@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 use convex_analytics::spreads::OASCalculator;
 use convex_analytics::yas::YASCalculator;
 use convex_bonds::instruments::CallableBond;
-use convex_bonds::traits::{Bond, EmbeddedOptionBond, FixedCouponBond};
+use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_bonds::types::{CallEntry, CallSchedule, CallType};
 
 use crate::bond::{
@@ -126,27 +126,6 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
             }
 
             let callable = CallableBond::new(bond.clone(), call_schedule);
-            let price_decimal = f64_to_decimal(clean_price);
-
-            if let Ok(ytc) = callable.yield_to_first_call(price_decimal, settlement) {
-                result.ytc = Some(decimal_to_f64(ytc) * 100.0);
-            }
-
-            if let Ok((ytw, workout_date)) =
-                callable.yield_to_worst_with_date(price_decimal, settlement)
-            {
-                result.ytw = Some(decimal_to_f64(ytw) * 100.0);
-                result.workout_date = Some(format!("{}", workout_date));
-
-                if let Some(maturity) = bond.maturity() {
-                    if workout_date == maturity {
-                        result.workout_price = Some(100.0);
-                    } else if let Some(call_schedule) = callable.call_schedule() {
-                        result.workout_price = call_schedule.call_price_on(workout_date);
-                    }
-                }
-            }
-
             // OAS via Hull-White (default 1% vol if not provided).
             let volatility = bond_params.volatility.unwrap_or(1.0) / 100.0;
             let oas_calc = OASCalculator::default_hull_white(volatility);

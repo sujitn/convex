@@ -1292,6 +1292,62 @@
         "tools/library/library-inventory.json": "417f7b4b26bf2b83e2a8fb06c5c4ea6e0c3ed4a21ae835c1bc0bf89f90408b3f",
         "tools/library/test_operations.py": "c1e0424cd7992a2b33ff79bf8ef9f8eb77bff41d8a46b970c6f97597ac4024dd"
       }
+    },
+    {
+      "base_commit": "a6e18b2ce06eab5915d9b3b498d65f2ef763f8d7",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete original fixed-cash workout price/yield/all-date quotations: native BondContract owns exercise cash over original coupon/profile/principal/rounding bodies; pure workflow retains original terms/cash, purchase calendar/lag, notice facts/policy, exact actual legal dates and same-pricer closed-domain inverse work/residuals. Original scheduled principal precedes early retirement; delayed completed claims survive even after redemption. Every continuous-window date is inspected under bounded declared work; issuer calls plus maturity select worst, puts remain separate, supplied timely notice forces its exact path, and every unselected path must pass. Strict shared native/JSON/C dispatch adds no financial formula, provider/storage/MQ/clock/authority or lifecycle side effect.107 supplied engineering requests (65 successes/42 typed failures) and four exact mappings extend29/496 to33/603. Independent Decimal(60) 29 price/yield cases and13 eligible-date yields were declared before candidate valuation; native envelopes remain transport expectations. Remove incomplete WASM/browser ytc/ytw/workout date/price fields and callers; real migration is the full supplied workout path. All262 preceding numeric rows/bytes/defaults and5748 historical evidence files, original30areas/174combinations/2154Planned records, dependencies/146 normal packages and26Cexports remain unchanged. Windows/Excel/wasm32/browser execution, Street/floating/trigger/make-whole workouts and broader model/market/host qualification remain open. No independent approval, certificate, push/deployment or live orders. Existing assurance module-presence controls now require both new workflow/shared workout modules with exact counts7/15; original controls remain unchanged. Removed remaining browser workout-risk advertisement by renaming the unchanged ordinary yield-risk column and its CSS to Yield; documented migration. Existing assurance module-presence controls now require both new workflow/shared workout modules with exact counts7/15; original controls remain unchanged.",
+      "tests": [
+        "Predeclared independent29 complete cash/price/yield controls and13 actual eligible-date yields, original native inverse/quote/ownership/work guards",
+        "All107 strict native/JSON/C/MCP/native-WASM request outcomes, actual available C/Java parity, three feature consumers and full schema mutations",
+        "Strict affected lint/docs/fmt, full workspace/client suites and original independent controls/ISDA comparisons",
+        "Actual Windows/Excel/wasm32/browser qualification remains unverified; browser source/admission tests are separate"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "574cb8074070c0ff62d565b811532c0712e223c4db91a6ac0e6c4eb4450fbd02",
+        ".github/workflows/java.yml": "80aaf246f2ef07d00b35909dc4120c46442bec2bc12bbb120ed76dccb669f3b2",
+        "bindings/java/src/test/java/com/convex/LibraryWorkoutTest.java": "1bd0d1dbd29d88e0101eb625fb7544360d77578e9cb5569489c583006d4c202e",
+        "crates/convex-analytics/src/workflow/bond.rs": "a5c72c9386f7d83c368c440f892bbb062a17ffe50c333d0c6a043783ffd72cfe",
+        "crates/convex-analytics/src/workflow/mod.rs": "b564225790ca10fb42693f934fd85c6ef7b88c9228893193c1c49f516b8477d3",
+        "crates/convex-analytics/src/workflow/workout.rs": "b256637f81027f55f53c217f728006647f2e0d387fa36b02dd42b0579b1c1c77",
+        "crates/convex-analytics/tests/workout_quotation.rs": "3756f5cb13f3f1ae47ec9a67c9b40583f49e27ea70f2718a90d68dbdbc6264de",
+        "crates/convex-bonds/src/contracts/mod.rs": "8f16da56ef5194588fd9f89eb9ae2a6f958f03864bce2d644c1bf7c10a139521",
+        "crates/convex-bonds/src/contracts/projection.rs": "575bd7bd93565edfe757eda286e59ff857668670983f0e2064e6c26eabb49e02",
+        "crates/convex-bonds/src/contracts/workout.rs": "23340e6fbca1a2d215e53f10636a317611b6a0ab8c5d58ece1a1a3c7b21db926",
+        "crates/convex-ffi/tests/library_workout.rs": "4196c580b4b26dcdb1bccc8038c888e5d2d5e649b591f1f381a3ecfe43ba6b49",
+        "crates/convex-mcp/tests/library_workout.rs": "5963135b88962f89945d8584ab068a9007c5cd2c8f7c76a43ff4aa71fff4425f",
+        "crates/convex-wasm/src/analyze.rs": "c97ec553e0748c97e52efc91908e902f0fb69586a67345b19db70b8543cbf535",
+        "crates/convex-wasm/src/bond.rs": "c804ded00453d95e595ac63d31be3710d46ddbab05cf67d43d0195e538c9ea7f",
+        "crates/convex-wasm/src/dto.rs": "b7fbabfdea7f9468763fd8f50e41670fd98be7c52097d308efbce67f7f187123",
+        "crates/convex-wasm/tests/library_workout.rs": "b96e87c8e870451cd1ff0343a667cf30d5656b5fd3822939419c46dc45826dc7",
+        "crates/convex/examples/library_workout.rs": "bc7504b087cf2f2ded5427ca4877887cacd0f0da411db7e374423e8c844d583d",
+        "crates/convex/src/library/mod.rs": "c4050812e864feae2f92460f484faeb9591632f9f43bfaecc388d87ff46e487b",
+        "crates/convex/src/library/products.rs": "0cfc8b4ea482b539f41030ad27a879c7c215436a8e32a89a492e30a890725806",
+        "crates/convex/src/library/requests.rs": "eb3198522bbf94ef61ac1bbc897f3eb04c1c6746b8fde9eeadd9cc46dcf44059",
+        "crates/convex/src/library/workout.rs": "95eb357325a6fc7e79b5f4405f37f077799257b1223a01f8ca7d2a3d3c578640",
+        "crates/convex/tests/library_workout.rs": "5c60185b6661ff7911c26885824e1a852b7d4bccb0f8e4efb6761fcfa2493672",
+        "docs/LIBRARY-API.md": "3d6ea0e0b77ec8da9380c0c15d22eb4a16b369500ca5f207bd7f451d7fcf00b4",
+        "docs/ROUTE-MIGRATION.md": "f9ee6bc7ff211a2a3b86a750520bff68294a038edeb13614248ef383e532fcdd",
+        "docs/WORKOUT-QUOTATIONS.md": "0b1e0618081f9cd84fcba813f575721873981dc66bdb0cc991bfa4cbb850fc9f",
+        "excel/Convex.Excel.Tests/LibraryWorkoutTests.cs": "d9a5f6ccae20ab34e93445dea353dad8bf099213cea7bb0820cdf379305a5a48",
+        "tests/fixtures/library/workout-reference.json": "9dc63291db10d1383fae3158ac8bf18a17b7a714dc3e0169d387108131c36f7f",
+        "tests/fixtures/library/workout_contract.rs": "96aabfc7ae95f9e6c29b2b73bc6f709d695ee2c449a2cc795c0e38cddc22f4b5",
+        "tests/fixtures/library/workouts.json": "b80ce3353996ca27bf9d4c7909a597bac5476f8df65dcbdc0f5386ecc2b2f4f9",
+        "tests/scripts/library_workout_inputs.py": "aa23e12226efe7818594137d2df34b3d92c02345a0729c251b8f79e0768b2f29",
+        "tests/scripts/library_workout_parity.py": "16f317c492a610adeccd51851b88adba83b900873bf9ca93d8db07261caa60e0",
+        "tests/scripts/library_workout_schema.py": "9a48144930a0a6997eb6e2fc8bcf0891c818682f1d30169ea85e288753063cdf",
+        "tests/scripts/workout_quotation_reference.py": "620ef1578630db767708b6adae0e9d70298f3da340b95a6d5d88fd809c92364a",
+        "tools/assurance/inventory.json": "ae11f07d1374aea7d951d3a9a5b6177457de26f3d2a278e58df460a37c3d2cff",
+        "tools/assurance/numeric-evidence.json": "03e9809769ade11658ded8fb5e80bd10e9e7e96c81b60b93d053be5ca7478aa1",
+        "tools/assurance/test_policy.py": "2627f3063423382cb96b0d1a5cdd06bb9e446d9a697c543fcd95f696bfc1e861",
+        "tools/library/api-capabilities.json": "27e5ce4e8a5197f0cee2e1da2bc6dba823beb6240790fa170f0c47b3a2d13252",
+        "tools/library/library-inventory.json": "5225c7994d8e99f6f12914aa2bcb71327ac20dd9d2b41e51fbfbeba1a0fb1ce4",
+        "tools/library/test_operations.py": "3ba54d86fac2390e3e13f385e39542258f597e4b7cbfbf49303648fba91cdb01",
+        "www/src/components/RiskMetrics.jsx": "7f4d251becd8c66e778fb506e18c47ab323222b90d195631dded29e3ab516664",
+        "www/src/components/YieldAnalysis.jsx": "4ccde8cb21123d9c4b06437490c8cd75e9dc822d3b3b5408209da2bd6e78f0de",
+        "www/src/styles/bloomberg.css": "7023c0b47f3ecbd151a4414db8becaf34e4c9afdf26e829b25ccbd283242e314"
+      }
     }
   ]
 }

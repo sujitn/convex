@@ -78,6 +78,19 @@ pub enum BondValueBasis {
     },
 }
 impl PreparedBondCash {
+    // Only checked native workout composition can supply hypothetical cash.
+    // Kept private to workflow; no caller-created cached state is admitted.
+    pub(super) fn workout(
+        contract: &BondContract,
+        settlement: Date,
+        projection: BondProjection,
+    ) -> Self {
+        Self {
+            contract: contract.clone(),
+            settlement,
+            projection,
+        }
+    }
     /// Prepare actual fixed/stepped/amortizing/bill/zero cash and entitlement.
     pub fn fixed(
         contract: &BondContract,

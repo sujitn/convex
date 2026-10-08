@@ -80,7 +80,8 @@ class AssuranceMutations(unittest.TestCase):
         paths = check.inventory_paths(ROOT)
         modules = {p.relative_to(ROOT).as_posix() for p in
                    (ROOT/'crates/convex-analytics/src/workflow').glob('*.rs')}
-        self.assertEqual(len(modules), 6)
+        self.assertEqual(len(modules), 7)
+        self.assertIn('crates/convex-analytics/src/workflow/workout.rs', modules)
         self.assertTrue(modules <= paths)
 
     def test_library_dispatch_checks_and_purity_cannot_be_bypassed(self):
@@ -94,7 +95,8 @@ class AssuranceMutations(unittest.TestCase):
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 14)
+        self.assertEqual(len(modules), 15)
+        self.assertIn('crates/convex/src/library/workout.rs', modules)
         self.assertTrue(modules <= check.inventory_paths(ROOT))
         for path in modules:
             check.check_lifecycle_source((ROOT/path).read_text())

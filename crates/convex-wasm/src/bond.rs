@@ -282,11 +282,6 @@ pub(crate) fn convert_yas_result(
         simple_yield: Some(decimal_to_f64(result.simple_yield)),
         money_market_yield: result.money_market_yield.map(decimal_to_f64),
 
-        ytc: None,
-        ytw: None,
-        workout_date: None,
-        workout_price: None,
-
         modified_duration: Some(decimal_to_f64(result.modified_duration())),
         macaulay_duration: Some(decimal_to_f64(result.risk.macaulay_duration.years())),
         convexity: Some(decimal_to_f64(result.convexity())),

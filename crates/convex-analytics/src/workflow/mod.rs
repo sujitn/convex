@@ -8,12 +8,14 @@ mod capability;
 mod inputs;
 mod inverse;
 mod valuation;
+mod workout;
 
 pub use bond::*;
 pub use capability::*;
 pub use inputs::*;
 pub use inverse::*;
 pub use valuation::*;
+pub use workout::*;
 
 use convex_core::{cashflows::CashflowError, contracts::IndexId, fixings::FixingRequirement, Date};
 use convex_curves::contracts::{CurveContractError, CurveKey};

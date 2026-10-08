@@ -573,21 +573,6 @@ body {
   color: var(--accent-yellow);
 }
 
-.metric-value.ytc {
-  font-size: 14px;
-  color: var(--accent-blue);
-}
-
-.metric-value.ytw {
-  font-size: 16px;
-  color: var(--accent-green);
-}
-
-.metric-value.workout-date {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
 .metric-unit {
   font-size: 9px;
   color: var(--text-muted);
@@ -1261,7 +1246,7 @@ select {
 }
 
 /* ============================================================================
-   Enhanced Risk Table (Workout | OAS columns)
+   Enhanced Risk Table (Yield | OAS columns)
    ============================================================================ */
 
 .risk-metrics-panel .panel-header {
@@ -1281,7 +1266,7 @@ select {
   text-transform: uppercase;
 }
 
-.workout-label {
+.yield-label {
   color: var(--accent-yellow);
 }
 
@@ -1326,11 +1311,11 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-.risk-value.workout {
+.risk-value.yield {
   color: var(--accent-yellow);
 }
 
-.risk-value.workout.highlight {
+.risk-value.yield.highlight {
   color: var(--accent-orange);
   font-size: 14px;
 }

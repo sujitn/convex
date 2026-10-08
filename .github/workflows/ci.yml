@@ -387,6 +387,26 @@ jobs:
       - name: Check complete supplied cash-helper inputs
         run: python3 tests/scripts/library_cash_helpers_inputs.py
 
+      - name: Check predeclared workout references and complete supplied inputs
+        run: |
+          python3 tests/scripts/workout_quotation_reference.py check
+          python3 tests/scripts/library_workout_inputs.py
+
+      - name: Check full workout native guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test workout_quotation -p convex --test library_workout -p convex-ffi --test library_workout -p convex-mcp --test library_workout -p convex-wasm --test library_workout
+
+      - name: Run complete workout consumer with default features
+        run: cargo run --locked -p convex --example library_workout
+
+      - name: Run complete workout consumer with minimal features
+        run: cargo run --locked -p convex --example library_workout --no-default-features
+
+      - name: Run complete workout consumer with schema support
+        run: cargo run --locked -p convex --example library_workout --features schemars
+
+      - name: Validate actual full workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_workout_schema.py --binary target/debug/examples/library_workout
+
       - name: Check native rate-helper guards and JSON C MCP WASM reachability
         run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
 
@@ -701,6 +721,9 @@ jobs:
       - name: Build native full cash-helper quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
 
+      - name: Build native complete workout consumer
+        run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -732,6 +755,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke full cash-helper expectations
         run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke workout expectations
+        run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
