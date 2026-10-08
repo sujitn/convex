@@ -6,6 +6,13 @@ FRA, exchange-rate-futures, IRS, OIS and tenor-basis instruments. It composes th
 existing full product pricers and bounded numerical kernels. No provider,
 database, broker, runtime, registry or wall clock enters the calculation.
 
+`convex::rate_calibration::reprice_rate_helpers` separately diagnoses a complete
+recipe on exact supplied curves without fitting or changing them. It reuses the
+original admission, history preflight, product valuations and horizon guards,
+returning native-unit residuals, full product evidence and `within_tolerance`.
+An off-market diagnostic is not an accepted calibration. The shared request
+and client qualification are documented in [the library API](LIBRARY-API.md).
+
 Run the offline standalone consumer from the repository root:
 
 ```sh

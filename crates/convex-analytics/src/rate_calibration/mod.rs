@@ -8,9 +8,11 @@ mod build;
 mod fit;
 mod helpers;
 mod inputs;
+mod reprice;
 
 pub use build::build_rate_curve_set;
 pub use inputs::*;
+pub use reprice::{reprice_rate_helpers, RateHelperRepricing};
 
 use convex_core::{
     cashflows::CashflowError,

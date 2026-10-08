@@ -1169,6 +1169,47 @@
         "www/src/styles/bloomberg.css": "154464aad2a85efb12aa8944522072819344e2c5cf5e273f5264d3a24db37e36",
         "www/tests/route-admission.cjs": "46ffdef6889f5183d3a2ed79c300b599e58913730a21da13d6229a4f9d75fd35"
       }
+    },
+    {
+      "base_commit": "44381ab42360cd76e4ec000922443e2e4206d319",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 complete rate-helper repricing diagnostics against immutable supplied curves, without fitting or publishing. Reuse original recipe admission, exact resource/role/version and OIS zero-basis view checks, complete due-history preflight, publication freezing, native implied quote/product valuations and actual horizon guards. Return original native-unit signed residuals, full product/source evidence, quote revisions and within_tolerance; finite off-market diagnostic success never asserts accepted calibration. No existing pricing/calibration function body changes. 64 supplied requests (18 success/46 typed failures) include128 retained observations and129 rejection; six exact mappings extend the previous18 mappings/284 requests without any scope promotion. Original independent positive/negative mixed-rate controls and all223 previous artifact rows/bytes/defaults and5235 historical evidence files are preserved. Thirteen additive supplied/adapter/consumer/schema controls bring pins to236. Original30areas/174combinations/2154Planned records, Cargo manifests/lock/dependencies/26Cexports remain unchanged. Actual unavailable Windows/Excel and wasm32/browser remain unverified. No provider/storage/MQ/clock/authority, independent approval, certificate, push/deployment or live orders.",
+      "tests": [
+        "Actual direct native original independent positive/negative controls, strict term/revision roundtrip and bounded/missing-history failures",
+        "Fresh C/Java/MCP/native-WASM parity, all three facade feature consumers and generated schema mutations",
+        "Strict affected lint/docs/fmt, full workspace/client suites and assurance/library/harness conservation controls",
+        "Actual Windows/Excel and wasm32/browser execution unverified"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5ebb88cb182f333ec99e55efd99450b9e062aa0d9d07a9dc480174d2fd522785",
+        ".github/workflows/java.yml": "c8c025ab51ec82cf130ff0659d8396b133a23b332690ecf723e36f814013b0c6",
+        "bindings/java/src/test/java/com/convex/LibraryRateHelpersTest.java": "848d9e066bef6afbcdb09607afefcec521142c316410fc9a0bf1621a80dc1b51",
+        "crates/convex-analytics/src/rate_calibration/inputs.rs": "004c37917636b98f1662621ecfae728bae67db72a3708ccb3e4bf015ebc3e80e",
+        "crates/convex-analytics/src/rate_calibration/mod.rs": "f57d32d7717f5d58794cd63027b3053a23576d321864fc29379f798fa3a4fb97",
+        "crates/convex-analytics/src/rate_calibration/reprice.rs": "93fdb521b5e74b2cce54e3837002460ae661f66821fb7a32a6c64fab0bc580a4",
+        "crates/convex-analytics/tests/rate_helper_repricing.rs": "f4dd7ece4c7bdbac8557807acd628f7b9595e4315638839a90438e3cc499b2da",
+        "crates/convex-ffi/tests/library_rate_helpers.rs": "1a587a07b272af7624092433542227c8ea61af558ca5d21e4ac0bd0e1c01f266",
+        "crates/convex-mcp/tests/library_rate_helpers.rs": "d7056ce8e9b4789757074013674867270cd42a97015fea24e61e06dd2c9b911a",
+        "crates/convex-wasm/tests/library_rate_helpers.rs": "e0641c6024abe0beb3c5cd96a14314b5c5f9921d2ae83664c77611eb1eb76d59",
+        "crates/convex/examples/library_rate_helpers.rs": "fa351e55bd3687f76caf46830df9900f61364e776a387d580182c53c649bd3b7",
+        "crates/convex/src/library/curves.rs": "7c7eee5dd6a62f10f7ead120a31553ba5615bcdcac9dfe2a3089c0e55469fbdd",
+        "crates/convex/src/library/helpers.rs": "47da29e939f71cd46daee6643b3f43e010e8ddcbbeecd7916cd7f40c40c74048",
+        "crates/convex/tests/library_rate_helpers.rs": "3ecd1786c919c701bab7959b94af67e7930dbfeb5bb5b2a725cbbd6dcd33fcb0",
+        "docs/LIBRARY-API.md": "67b313130667a47426dadb5bb18eb44508a34d74f0a757e50db6ea7a8be30730",
+        "docs/RATE-CALIBRATION.md": "8cc447b71f86efb1c74554a68a836d3a446072d9b6e0642124b36cecad9aa4a4",
+        "excel/Convex.Excel.Tests/LibraryRateHelpersTests.cs": "a492540ba6b3f02a0c1fb07670f3dac3e44363a315eea1311ca25f65fb591289",
+        "tests/fixtures/library/rate-helpers.json": "d8fed450afe497ca2667d9c044e3a38692120c7eee4b7fa2cb5b3bba6ffe6d0d",
+        "tests/fixtures/library/rate_helpers_contract.rs": "d75e71c87d59e59c86f305f17aa6fe95b7cb5545e197d561c13d5fc40081a8e5",
+        "tests/scripts/library_rate_helpers_inputs.py": "ea7b444b8d138b9b62b66b1596553ed61c05f78a309d794df3a7f8e2e3110d81",
+        "tests/scripts/library_rate_helpers_parity.py": "3065f0ce7be2e1b686bffaf520ae02904f9f6c42d0c7c6e7f07f2cd949945c51",
+        "tests/scripts/library_rate_helpers_schema.py": "0ad2e300ec81cff99af41e0f415155700803625dfbbd963b46f570223c3a67de",
+        "tools/assurance/inventory.json": "cdb952f3a22a71d52013539d61913aca91a2f2bce37a0527102698ad79b797ef",
+        "tools/assurance/numeric-evidence.json": "46126db06d60ad3ec41a2b92382eedc7aa8299000dbaf9c663f8e32f3018cbe7",
+        "tools/library/api-capabilities.json": "dce5252eaa93e05ec52fb96fd943a969911da597e8c26ae724b969b63989f8e4",
+        "tools/library/library-inventory.json": "6a3aab35315bcf88ba6e39216283ddcb1a21d73e39667ca6b3b0279c19041a16",
+        "tools/library/test_operations.py": "c1e234fcd9570fbfaf596bea1dc8eb65be34706789d2659fec4c2ea61044ac13"
+      }
     }
   ]
 }

@@ -20,6 +20,13 @@ pub struct HelperCalendarInput {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HelperInput {
+    /// Original rate-helper diagnostics on exact supplied curves; no curve fit.
+    RateReprice {
+        /// Full native recipe, original quote revisions and futures source pins.
+        input: Box<RateCalibrationInput>,
+        /// Actual economic and publication/history eligibility instant.
+        context: CalibrationContext,
+    },
     /// Original checked helper requirements/pillar/capability, including pending models.
     Describe {
         /// Full original helper terms.
@@ -100,6 +107,9 @@ fn resources<'a>(r: &'a ResolvedInputs<'_>) -> LibraryResult<h::HelperResources<
 }
 pub(super) fn helper(input: &HelperInput, r: &ResolvedInputs<'_>) -> LibraryResult<Value> {
     match input {
+        HelperInput::RateReprice { input, context } => {
+            super::curves::reprice_rate_helpers(input, context, r)
+        }
         HelperInput::Describe {
             helper,
             reference_date,

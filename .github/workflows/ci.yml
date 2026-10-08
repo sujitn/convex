@@ -378,6 +378,24 @@ jobs:
       - name: Validate actual full cash quotation schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_cash_schema.py --binary target/debug/examples/library_cash
 
+      - name: Check complete supplied rate-helper inputs
+        run: python3 tests/scripts/library_rate_helpers_inputs.py
+
+      - name: Check native rate-helper guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
+
+      - name: Run full rate-helper consumer with default features
+        run: cargo run --locked -p convex --example library_rate_helpers
+
+      - name: Run full rate-helper consumer with minimal features
+        run: cargo run --locked -p convex --example library_rate_helpers --no-default-features
+
+      - name: Run full rate-helper consumer with schema support
+        run: cargo run --locked -p convex --example library_rate_helpers --features schemars
+
+      - name: Validate complete rate-helper schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_rate_helpers_schema.py --binary target/debug/examples/library_rate_helpers
+
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
 
@@ -638,6 +656,9 @@ jobs:
       - name: Build native full cash quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_cash --features schemars
 
+      - name: Build native full rate-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_rate_helpers --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -660,6 +681,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke full cash expectations
         run: python tests/scripts/library_cash_parity.py prepare --binary target/excel/examples/library_cash.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-parity.json
+
+      - name: Generate fresh native P/Invoke full rate-helper expectations
+        run: python tests/scripts/library_rate_helpers_parity.py prepare --binary target/excel/examples/library_rate_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-rate-helpers-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

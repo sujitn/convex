@@ -279,6 +279,102 @@ fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value> {
         "repricing":graph.repricing,"price_evaluations":graph.price_evaluations,"publications":graph.publications}),
     )
 }
+fn rate_histories(
+    rate: &RateCalibrationInput,
+    resources: &ResolvedInputs<'_>,
+) -> LibraryResult<Vec<Option<convex_analytics::futures::FuturesFixings>>> {
+    if rate.recipe.helpers.len() > r::MAX_RATE_FIT_HELPERS {
+        return Err(LibraryError::limit("at most128 complete rate helpers"));
+    }
+    if rate.quote_versions.len() != rate.recipe.helpers.len() {
+        return Err(LibraryError::invalid(
+            "quote_versions",
+            "one exact revision per original helper required",
+        ));
+    }
+    if rate.futures_calendar_stamps.len() != rate.recipe.helpers.len() {
+        return Err(LibraryError::invalid(
+            "futures_calendar_stamps",
+            "one entry per original rate helper required",
+        ));
+    }
+    let mut histories = Vec::new();
+    for helper in &rate.recipe.helpers {
+        histories.push(match &helper.terms {
+            r::RateCalibrationTerms::RateFuture(f) => {
+                Some(convex_analytics::futures::FuturesFixings::new(
+                    resources.fixing_observations().to_vec(),
+                    f.clearing.fixing_selection.ok_or_else(|| {
+                        LibraryError::invalid("clearing", "missing original revision selection")
+                    })?,
+                )?)
+            }
+            _ => None,
+        });
+    }
+    Ok(histories)
+}
+fn rate_bindings<'a>(
+    rate: &'a RateCalibrationInput,
+    histories: &'a [Option<convex_analytics::futures::FuturesFixings>],
+    resources: &'a ResolvedInputs<'_>,
+) -> LibraryResult<Vec<r::RateHelperResources<'a>>> {
+    let mut bindings = Vec::new();
+    for (hi, helper) in rate.recipe.helpers.iter().enumerate() {
+        let stamp = &rate.futures_calendar_stamps[hi];
+        if !matches!(&helper.terms, r::RateCalibrationTerms::RateFuture(_)) && stamp.is_some() {
+            return Err(LibraryError::invalid(
+                "futures_calendar_stamps",
+                "non-future helper cannot consume future calendar stamp",
+            ));
+        }
+        bindings.push(match &helper.terms {
+            r::RateCalibrationTerms::MoneyMarket(m) => {
+                r::RateHelperResources::MoneyMarket(resources.rate_binding(&m.calendar)?)
+            }
+            r::RateCalibrationTerms::Swap(t) => {
+                r::RateHelperResources::Swap(resources.swap_calendars(t)?)
+            }
+            r::RateCalibrationTerms::BasisSwap { terms, .. } => {
+                r::RateHelperResources::BasisSwap(resources.basis_calendars(terms)?)
+            }
+            r::RateCalibrationTerms::RateFuture(_) => r::RateHelperResources::RateFuture {
+                calendar: super::products::future_calendar(
+                    stamp.as_ref().ok_or_else(|| {
+                        LibraryError::missing("future calendar stamp", Value::Null)
+                    })?,
+                    resources,
+                )?,
+                fixings: histories[hi].as_ref().ok_or_else(|| {
+                    LibraryError::missing("original clearing history", Value::Null)
+                })?,
+            },
+        });
+    }
+    Ok(bindings)
+}
+pub(super) fn reprice_rate_helpers(
+    input: &RateCalibrationInput,
+    context: &CalibrationContext,
+    resources: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    let histories = rate_histories(input, resources)?;
+    let bindings = rate_bindings(input, &histories, resources)?;
+    let result = r::reprice_rate_helpers(
+        &r::RateCurveBuildInput {
+            recipe: &input.recipe,
+            resources: &bindings,
+        },
+        &resources.curves,
+        &resources.history,
+        r::RateCalibrationContext {
+            cashflows: context.cashflows,
+            as_of: context.as_of,
+        },
+        resources.publications.callback(),
+    )?;
+    Ok(serde_json::json!({"repricing": result, "quote_versions": input.quote_versions}))
+}
 fn with_graph<T>(
     input: &CalibrationInput,
     resources: &ResolvedInputs<'_>,
@@ -288,66 +384,17 @@ fn with_graph<T>(
         return Err(LibraryError::limit("at most256 curve recipes"));
     }
     // Each existing native builder is borrowed intact into the original graph.
-    let mut future_histories = Vec::new();
-    for rate in &input.rates {
-        if rate.futures_calendar_stamps.len() != rate.recipe.helpers.len() {
-            return Err(LibraryError::invalid(
-                "futures_calendar_stamps",
-                "one entry per original rate helper required",
-            ));
-        }
-        let mut histories = Vec::new();
-        for helper in &rate.recipe.helpers {
-            histories.push(match &helper.terms {
-                r::RateCalibrationTerms::RateFuture(f) => {
-                    Some(convex_analytics::futures::FuturesFixings::new(
-                        resources.fixing_observations().to_vec(),
-                        f.clearing.fixing_selection.ok_or_else(|| {
-                            LibraryError::invalid("clearing", "missing original revision selection")
-                        })?,
-                    )?)
-                }
-                _ => None,
-            });
-        }
-        future_histories.push(histories);
-    }
-    let mut rate_resources = Vec::new();
-    for (ri, rate) in input.rates.iter().enumerate() {
-        let mut bindings = Vec::new();
-        for (hi, helper) in rate.recipe.helpers.iter().enumerate() {
-            let stamp = &rate.futures_calendar_stamps[hi];
-            if !matches!(&helper.terms, r::RateCalibrationTerms::RateFuture(_)) && stamp.is_some() {
-                return Err(LibraryError::invalid(
-                    "futures_calendar_stamps",
-                    "non-future helper cannot consume future calendar stamp",
-                ));
-            }
-            bindings.push(match &helper.terms {
-                r::RateCalibrationTerms::MoneyMarket(m) => {
-                    r::RateHelperResources::MoneyMarket(resources.rate_binding(&m.calendar)?)
-                }
-                r::RateCalibrationTerms::Swap(t) => {
-                    r::RateHelperResources::Swap(resources.swap_calendars(t)?)
-                }
-                r::RateCalibrationTerms::BasisSwap { terms, .. } => {
-                    r::RateHelperResources::BasisSwap(resources.basis_calendars(terms)?)
-                }
-                r::RateCalibrationTerms::RateFuture(_) => r::RateHelperResources::RateFuture {
-                    calendar: super::products::future_calendar(
-                        stamp.as_ref().ok_or_else(|| {
-                            LibraryError::missing("future calendar stamp", Value::Null)
-                        })?,
-                        resources,
-                    )?,
-                    fixings: future_histories[ri][hi].as_ref().ok_or_else(|| {
-                        LibraryError::missing("original clearing history", Value::Null)
-                    })?,
-                },
-            });
-        }
-        rate_resources.push(bindings);
-    }
+    let future_histories = input
+        .rates
+        .iter()
+        .map(|rate| rate_histories(rate, resources))
+        .collect::<LibraryResult<Vec<_>>>()?;
+    let rate_resources = input
+        .rates
+        .iter()
+        .zip(&future_histories)
+        .map(|(rate, histories)| rate_bindings(rate, histories, resources))
+        .collect::<LibraryResult<Vec<_>>>()?;
     let rates = input
         .rates
         .iter()

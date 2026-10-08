@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 18)
-        self.assertEqual(result['engineering_examples'], 284)
+        self.assertEqual(result['exact_operation_routes'], 24)
+        self.assertEqual(result['engineering_examples'], 348)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -61,6 +61,18 @@ class OperationRoutes(unittest.TestCase):
         for identity in ('cash_security.quote', 'cash_security.invoice',
                          'government_spread.linear', 'government_spread.exact'):
             self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
+
+    def test_helper_mappings_require_the_actual_product_and_subtype(self):
+        for kind, other in [('deposit','fra'), ('fra','deposit'), ('irs','ois'), ('ois','irs'),
+                            ('basis','irs'), ('rate_future','deposit')]:
+            self.rejects(lambda m: m['operation_routes']['rate_helpers.'+kind].update(
+                positive_examples=['rate_helpers.'+other+'.positive']))
+
+    def test_helper_limits_and_missing_history_are_actual_examples(self):
+        for kind in ('deposit','fra','irs','ois','rate_future','basis'):
+            self.assertTrue(self.matrix['operation_routes']['rate_helpers.'+kind]['negative_examples'])
+            self.rejects(lambda m: m['operation_routes']['rate_helpers.'+kind].update(
+                boundary_examples=['rate_helpers.'+kind+'.missing_curve']))
 
 
 if __name__ == '__main__': unittest.main()

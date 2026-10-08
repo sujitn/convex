@@ -259,7 +259,7 @@ pub enum RateCalibrationError {
 }
 
 /// Native money-market implied quote, preserving due history or actual query.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DatedRateValuation {
     /// Original full dates/settlement/calendar/curve pin.
     pub terms: DatedRateHelper,
@@ -272,7 +272,8 @@ pub struct DatedRateValuation {
 }
 
 /// Full final product evidence, not only a residual against a tenor proxy.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", content = "valuation", rename_all = "snake_case")]
 pub enum RateHelperValuation {
     /// Actual dated simple rate or eligible known FRA.
     MoneyMarket(Box<DatedRateValuation>),

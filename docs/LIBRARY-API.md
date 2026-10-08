@@ -98,7 +98,7 @@ envelope; those boundary failures can precede request decoding.
 | `bond` | Construction, requirements, full entitled cash, fixed/floating model PV, dated fixed-cash yield or spread/DM inverse, guarded raw quote risk |
 | `swap`, `basis_swap` | Original full IRS/OIS or two-floating-leg basis construction, requirements, projected cash and signed valuation |
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
-| `helper`, `repo_forward` | Native helper descriptions/build where admitted, original cash quote conversions/basis-bond model and all dated repo cash horizons |
+| `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate-helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
 | `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
@@ -251,6 +251,58 @@ native execution. New routes add four exact operation mappings; the current
 report contains 18 mappings and 284 supplied requests across three unchanged or
 additive packs. Synthetic engineering controls do not certify market
 conventions, complete helper recipes or any original mandatory record.
+
+## Rate-helper repricing on supplied curves
+
+`helper` input kind `rate_reprice` takes a full `RateCalibrationInput` and an
+explicit `CalibrationContext`. Supply actual curves in `inputs.curves`, or a
+complete admitted graph in `inputs.calibration`. The helper recipe's output
+key must already exist in that resolved set. This operation calls
+`convex::rate_calibration::reprice_rate_helpers`; it performs no fit, publishes
+no curve and never changes the caller's supplied values.
+
+Each deposit, FRA, IRS/OIS, rate future and two-leg basis helper keeps its
+original dates, profiles, native quote unit/tolerance, pillar, calendars and
+exact curve/source revisions. The supplied curve must match the recipe's key,
+role, currency, reference date, time basis, representation, interpolation and
+extrapolation. A declared OIS zero-basis projection must be the actual named
+`OvernightProjection` view of the exact discount revision. A separately supplied
+node curve cannot impersonate that assumption.
+
+Native recipe admission and complete missing-history preflight run before
+valuation. Publication decisions are frozen once per index/date. Pricing uses
+the original helper functions, including actual query-horizon, quote-profile,
+linear par-exposure and exchange fixing/source guards. Known FRA observations
+retain their full revision and require no forward query. Optional payoffs,
+missing due fixings, mismatched resources and failed native calculations return
+no partial result.
+
+The result has `quote_versions` and `repricing` with the full original `recipe`,
+source-order `quotes`, full `valuations`, consumed `publications`, measured
+`price_evaluations` and `within_tolerance`. Each quote preserves its observed
+input, native-unit model quote, signed model-minus-input residual and original
+tolerance. An off-market finite residual is a diagnostic result with
+`within_tolerance:false`. A successful envelope confirms that the calculation
+completed; it does not assert that these curves are calibrated to the quotes.
+The original calibration builder still rejects failed final repricing.
+
+At most 128 helpers are admitted per recipe, with all original nested
+history/calendar/valuation limits. This is a resource ceiling, not a latency
+certificate. Keep prepared native inputs for repeated low-latency calculations.
+
+```sh
+python3 tests/scripts/library_rate_helpers_inputs.py
+cargo run --locked -p convex --example library_rate_helpers
+cargo run --locked -p convex --example library_rate_helpers --no-default-features
+cargo run --locked -p convex --example library_rate_helpers --features schemars
+```
+
+The additional 64 supplied requests have 18 successful diagnostics and 46 typed
+failures. Six exact helper mappings supplement the original 18 mappings and
+284 requests. The original independent positive/negative mixed-rate controls
+are reused without changing their quotes or bounds. Fresh client expectations
+test transport only. These USD synthetic examples do not qualify every market,
+helper recipe, fitting method or mandatory record. CVX-063 remains partial.
 
 ## Clients and qualification
 
