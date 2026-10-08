@@ -20,6 +20,15 @@ fn native<E: std::fmt::Debug + std::fmt::Display>(code: Code, e: &E) -> LibraryE
         details: json!({"native_kind":format!("{e:?}")}),
     }
 }
+impl From<convex_analytics::cash_quotation::CashQuotationError> for LibraryError {
+    fn from(e: convex_analytics::cash_quotation::CashQuotationError) -> Self {
+        use convex_analytics::cash_quotation::CashQuotationError as E;
+        match e {
+            E::Cash(e) => e.into(),
+            E::Workflow(e) => e.into(),
+        }
+    }
+}
 pub(super) fn fit_diagnostics(d: &FitDiagnostics) -> Value {
     json!({"iterations":d.iterations,"evaluations":d.evaluations,"scaled_rms":d.scaled_rms,
         "native_residuals":d.native_residuals,"rank":d.rank,

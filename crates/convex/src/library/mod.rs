@@ -2,6 +2,7 @@
 //! financial formulas remain in their original pure product/curve modules.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod cash;
 mod credit;
 mod curves;
 mod errors;
@@ -15,6 +16,7 @@ mod requests;
 mod risk;
 mod zero;
 
+pub use cash::*;
 use convex_core::{Currency, Date};
 use convex_curves::contracts::*;
 pub use credit::*;

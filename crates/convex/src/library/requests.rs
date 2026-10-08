@@ -150,6 +150,30 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Full original cash quotation and signed settlement consideration.
+    CashSecurity {
+        /// Full native helper, quote revision and independent calendars.
+        input: CashSecurityInput,
+        /// Actual supplied information origin.
+        reference_date: Date,
+        /// Explicit dated-cash output yield convention.
+        convention: DatedYieldConvention,
+        /// Original closed inverse controls and price postcondition.
+        settings: BondInverseSettings,
+        /// Original quote or quantity-scaled invoice consideration.
+        action: CashSecurityOperation,
+    },
+    /// G spread from actual full securities, never a zero-curve proxy.
+    GovernmentSpread {
+        /// Complete original target cash quotation.
+        target: CashSecurityInput,
+        /// Source securities and independent original calendar versions.
+        benchmarks: Vec<GovernmentSecurityInput>,
+        /// Exact supplied information origin.
+        reference_date: Date,
+        /// Common quotation, original inverse and explicit selection policy.
+        settings: convex_analytics::cash_quotation::GovernmentSpreadSettings,
+    },
     /// Discover actual public routes and explicit native/client limitations.
     Capabilities {},
     /// Validate and echo complete supplied inputs after checked reconstruction.

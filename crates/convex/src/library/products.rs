@@ -465,6 +465,19 @@ pub(super) fn execute(
     operation: &LibraryOperation,
 ) -> LibraryResult<Value> {
     match operation {
+        LibraryOperation::CashSecurity {
+            input,
+            reference_date,
+            convention,
+            settings,
+            action,
+        } => super::cash::security(input, *reference_date, *convention, *settings, action, r),
+        LibraryOperation::GovernmentSpread {
+            target,
+            benchmarks,
+            reference_date,
+            settings,
+        } => super::cash::government(target, benchmarks, *reference_date, settings, r),
         LibraryOperation::Capabilities {} => Ok(super::capabilities()),
         LibraryOperation::Roundtrip {} => value(r.input()),
         LibraryOperation::Curves {} => super::curves::describe_curves(&r.curves),

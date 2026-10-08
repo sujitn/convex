@@ -99,6 +99,7 @@ envelope; those boundary failures can precede request decoding.
 | `swap`, `basis_swap` | Original full IRS/OIS or two-floating-leg basis construction, requirements, projected cash and signed valuation |
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
 | `helper`, `repo_forward` | Native helper descriptions/build where admitted, original cash quote conversions/basis-bond model and all dated repo cash horizons |
+| `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
 | `rate_future`, `bond_future` | Remaining fixing/projection/convexity model, quote risk and all-member bond delivery/CTD valuation/risk |
@@ -186,6 +187,70 @@ operation requests exercise conversions, exact views and computed quote/zero/DF/
 hazard reconciliation. Actual client outputs are compared to fresh native
 envelopes for transport parity. These are engineering subsets; every original
 required record remains Planned and CVX-063 remains partial.
+
+## Full cash quotation, invoice and government spread
+
+`cash_security` takes `input` containing a complete native `CashBondHelper` and
+four independent `calendars` pins, an actual `reference_date`, an explicit
+`DatedYieldConvention`, original `BondInverseSettings`, and `action` with kind
+`quote` or `invoice`. Fixed, stepped, amortizing and bill securities retain their
+full supplied cash profiles, principal prices, redemption, settlement and coupon
+entitlement. Original clean/dirty/yield/bank-discount/par-rate quote conversion
+and native admission run first. The dated yield inverse then uses the same
+actual cash and observed dirty price, retaining its full final residual, original
+controls and work. This convention does not infer Street, workout, floating or
+optional-bond yields. Missing ICMA reference context remains unsupported.
+
+An invoice action supplies the original `RiskPosition` with decimal text
+`quantity` and `reference_quantity`, `quantity_unit:"notional"`, and exact
+currency. The reference must equal the original face. Consideration uses the
+original observed dirty price per100 times signed face quantity divided by100;
+it does not use the approximate inverse reprice. A positive quantity gives
+positive unrounded consideration, a short gives negative consideration, and
+zero still checks all terms and resources. Nonfinite or underflowed nonzero
+cash fails. `consideration` is native floating `ModelMoney`; it is not a rounded
+ledger entry, outgoing-payment sign, receipt, fee or settlement authorization.
+
+`government_spread` takes a full `target`, actual `benchmarks`, `reference_date`
+and `GovernmentSpreadSettings`. Each benchmark supplies a complete helper, its
+own calendar pins, an exact `security` reference pin and `benchmark_id`. The
+security ID must equal the helper ID. Reference and observed quote revisions
+remain separate. Benchmark membership is an explicit caller-resolved reference
+classification; the library performs no issuer or provider lookup. All
+securities must share target currency, settlement and coupon entitlement and
+have unique IDs and actual contractual maturities. Credit-mapped benchmarks
+are not admitted by this government operation.
+
+Every original observed price is inverted under the same supplied dated yield
+convention and original numerical controls, including unselected securities.
+`ExactMaturity` requires one security with the exact target maturity.
+`LinearMaturity` selects adjacent supplied maturities and weights their annual
+decimal yields by actual calendar days, admitting only the closed supplied
+maturity interval. Delayed cash-payment pillars do not replace contractual
+maturity. Original source order, selected indices, dates and weights are
+returned. G spread is target yield minus benchmark yield; both decimal spread
+and fractional basis points are retained without rounding. A government zero
+curve or an I-spread calculation cannot substitute for these actual securities.
+There are at most 128 benchmarks; all original nested native work limits apply.
+
+Run the 64-case supplied corpus and its separately declared 34 independent
+Decimal(60) controls:
+
+```sh
+python3 tests/scripts/cash_quotation_reference.py
+cargo run --locked -p convex --example library_cash
+cargo run --locked -p convex --example library_cash --no-default-features
+cargo run --locked -p convex --example library_cash --features schemars
+python3 tools/library/api.py
+```
+
+The corpus covers 34 successes and 30 typed failures. Independent actual cash,
+yield, invoice and actual-date spread expectations are declared separately in
+[cash-reference.json](../tests/fixtures/library/cash-reference.json), before
+native execution. New routes add four exact operation mappings; the current
+report contains 18 mappings and 284 supplied requests across three unchanged or
+additive packs. Synthetic engineering controls do not certify market
+conventions, complete helper recipes or any original mandatory record.
 
 ## Clients and qualification
 

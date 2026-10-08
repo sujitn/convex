@@ -15,6 +15,7 @@ pub mod library;
 pub use convex_analytics::bond_contract;
 pub use convex_analytics::bond_quote;
 pub use convex_analytics::cash_calibration;
+pub use convex_analytics::cash_quotation;
 /// Pure native-quote single-name CDS calibration and immutable curve sets.
 pub use convex_analytics::credit_calibration;
 /// Pure credit scenario/risk inputs and checked bond-CDS hedge mappings.

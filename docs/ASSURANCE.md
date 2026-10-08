@@ -517,3 +517,23 @@ evidence are preserved. Mandatory supplemental schema/adapter/feature checks and
 operation-map mutation controls supplement the original checks. Available host
 execution is recorded separately from unverified Windows/Excel/browser gates;
 no independent financial or production certificate is inferred.
+
+The CVX-063 cash continuation adds pure full-security quotation/invoice and
+actual-security government spread, with explicit dated yield and actual-maturity
+selection. Original conversion, cash, inverse and quantity guards remain in
+their native owners. Two new pure modules enter critical review, bringing the
+critical inventory to 183 files;26 C exports and the locked dependency closure
+are unchanged. Thirteen new supplied-input, independent Decimal-reference and
+adapter/consumer controls append to all 210 previous artifact rows/bytes/defaults,
+bringing the total to 223. Six new mandatory cash-reference/adapter/feature/schema
+CI checks supplement the existing checks. The 34 independent synthetic values
+were declared before native execution; fresh host outputs remain transport
+controls. Four new exact routes and64 supplied requests do not promote any of
+the original 2,154 Planned records. CVX-063 and unavailable host/full-market
+certificates remain open.
+
+Base-commit quantitative comparison also checks Git's declared checkout bytes,
+so an unchanged C# file with required CRLF is compared correctly with its stored
+LF blob. Physical artifact hashes remain exact; actual content edits still
+require independent quantitative review. A mutation control rejects a changed
+price and an unavailable checkout conversion.

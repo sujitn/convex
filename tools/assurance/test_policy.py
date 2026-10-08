@@ -86,15 +86,15 @@ class AssuranceMutations(unittest.TestCase):
     def test_library_dispatch_checks_and_purity_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance']
-                    if 'library_workflow' in c or 'library_operations' in c or 'library_schema' in c or 'library/api.py' in c
+                    if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c]
-        self.assertEqual(len(commands), 15)
+        self.assertEqual(len(commands), 21)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 13)
+        self.assertEqual(len(modules), 14)
         self.assertTrue(modules <= check.inventory_paths(ROOT))
         for path in modules:
             check.check_lifecycle_source((ROOT/path).read_text())
@@ -155,6 +155,29 @@ class AssuranceMutations(unittest.TestCase):
         candidate = copy.deepcopy(source)
         candidate['solver_defaults']['DEFAULT_TOLERANCE'] = '1e-6'
         self.rejects(check.check_numeric, ROOT, candidate)
+
+    def test_declared_checkout_line_endings_do_not_hide_economic_edits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = 'crates/convex-ffi/tests/control.cs'
+            file = root/path
+            file.parent.mkdir(parents=True)
+            file.write_bytes(b'price = 100;\r\n')
+            numeric = {'version': 1, 'artifacts': [{'path': path, 'mode': 'file', 'sha256': check.digest(file.read_bytes())}]}
+            review = {'schema_version': 1, 'reviews': [{'base_commit': 'base', 'actor': 'coding agent',
+                'rationale': 'Physical bytes remain original', 'reviewed_on': str(TODAY), 'tests': ['regression'],
+                'candidate_files': {path: check.digest(file.read_bytes())}}]}
+            def baseline(_, __, name):
+                return json.dumps(numeric).encode() if name.endswith('numeric-evidence.json') else b'price = 100;\n'
+            with patch.object(check, 'git', return_value=path.encode()), patch.object(check, 'git_source', side_effect=baseline), patch.object(check, 'git_checkout', return_value=b'price = 100;\r\n'):
+                self.assertEqual(check.check_changes(root, 'base', review, numeric, TODAY), 1)
+                file.write_bytes(b'price = 101;\r\n')
+                review['reviews'][0]['candidate_files'][path] = check.digest(file.read_bytes())
+                self.rejects(check.check_changes, root, 'base', review, numeric, TODAY)
+            file.write_bytes(b'price = 100;\r\n')
+            review['reviews'][0]['candidate_files'][path] = check.digest(file.read_bytes())
+            with patch.object(check, 'git', return_value=path.encode()), patch.object(check, 'git_source', side_effect=baseline), patch.object(check, 'git_checkout', return_value=None):
+                self.rejects(check.check_changes, root, 'base', review, numeric, TODAY)
 
     def test_comparison_pins_and_required_offline_job_cannot_be_removed(self):
         numeric = check.read_json(ROOT/'tools/assurance/numeric-evidence.json')

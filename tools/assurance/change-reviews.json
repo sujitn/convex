@@ -1070,6 +1070,53 @@
         "tools/library/test_operations.py": "decbe49ffa2a884a2d3d80f876e7b3930dce85690eb872d3840341711ca5d045",
         "docs/LIBRARY-COVERAGE.md": "dcd946a7a51256baa6947d0ad83e9163f8863259bf9a98a48241cbcd79847107"
       }
+    },
+    {
+      "base_commit": "fef5a5a84e72ffc4e702c8e28df1c3c0ee690345",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-08",
+      "rationale": "CVX-063 cash continuation: pure full-helper quotation, original observed-price signed invoice and actual-security government spread. Original cash conversion, entitled cash, inverse final residual, calendars, quote units/revisions, trade/settlement, position and work guards remain in native owners. Explicit common dated-cash convention and exact or closed-interval actual contractual maturity selection; every supplied benchmark is validated. Separate reference and quote revisions, source order and fractional basis points are retained. Finite/underflow cash and unique maturity guards fail explicitly. 64 complete supplied requests (34 successes/30 typed failures), 34 independent Decimal(60) controls declared before native execution and four exact operation mappings. Original 210 artifact rows/bytes/defaults, 4909 historical evidence files and 30 areas/174 combinations/2154 Planned mandatory records are preserved. Thirteen additive input/reference/adapter controls; no changed prior quantitative evidence or agent-claimed independent approval. Two pure modules bring critical files to183; original native calculation bodies, Cargo manifests/lock/dependencies and26 C exports remain unchanged. No provider, database, MQ, clock, ledger or execution authority. No Street/workout/optional-yield or government-zero-curve substitute. Windows/.NET/Excel and wasm32/browser local hosts remain unverified. Full AC2/AC3, library/market/model/production/latency certificates remain open. Base artifact comparison also admits only the exact Git-declared checkout representation (original CRLF physical C# pins versus LF blobs); economic edits and unavailable conversion still require independent review. Original physical pins remain exact.",
+      "tests": [
+        "34 separately declared independent Decimal cash/yield/invoice/spread controls and64 supplied native/JSON requests; five focused native roundtrip/error/quantity/date tests",
+        "Actual C/MCP/native-WASM adapters, fresh optimized C/Java parity, three feature consumers and generated schema admission/mutations",
+        "Strict affected all-target/workspace library lint, docs, required client/full workspace suites and original unmodified financial reference comparisons",
+        "Source/requirement/numerical/history conservation; Windows/.NET/Excel and wasm32/browser execution remain unverified",
+        "Quantitative base line-ending mutation: unchanged declared checkout succeeds; actual price edit and failed checkout conversion reject."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "8b92527f6aec2a025b40c969ffeda9ffa3dfe5df06870eb6b9754230a7a9f643",
+        ".github/workflows/java.yml": "6e2c5f7c0eafec897961daf95e64957d873f1a739409462ad9c2c75ed1b0cc77",
+        "bindings/java/src/test/java/com/convex/LibraryCashTest.java": "b9a87754a8b7296fbdcbe25a4718897666736256d89d503c239ffe83069b6df5",
+        "crates/convex-analytics/src/cash_quotation.rs": "b8244220e32bacc59bc6360db344f72d3bccd97099be4bc47c0a0ed76b0d3522",
+        "crates/convex-analytics/src/lib.rs": "9bdff6f75861fdf0e0cd1fa0c2b21e5f9194b6aa507a922aeb5ae63cb2531d60",
+        "crates/convex-ffi/tests/library_cash.rs": "3868609d12d1be6e95c2bc361e7c5541409f8be492013f53575d0a94258a5b45",
+        "crates/convex-mcp/tests/library_cash.rs": "ebb312f6d3c74efdd87fbfd1d67ae5b737cf12a792b1fedbfde24b17e47eae51",
+        "crates/convex-wasm/tests/library_cash.rs": "f85c7f45c944645d56ed8e383ac535b85044e37377cb165ecbb5c61e93e1d270",
+        "crates/convex/examples/library_cash.rs": "165cec0504a97884222e7798b08baa7d0ae583fc914f777224002ff245fce0ee",
+        "crates/convex/src/lib.rs": "34472d96fc7940b9e888b38f2d3077cc35f9b7d5443f2d47ddaef528fc272de9",
+        "crates/convex/src/library/cash.rs": "41d552866c9b089ee38b5a91ab74e2da9fd7032c225df441cbf697ce85824814",
+        "crates/convex/src/library/errors.rs": "f93df554be6fad7456c5ddcb7bd3ee0ff0786dfcbb2f213b463c05ad581eb470",
+        "crates/convex/src/library/mod.rs": "e642d43f9c41b13aafb1408acec9fac49c5f6c1ccd5d8911db42cf75a49cbe86",
+        "crates/convex/src/library/products.rs": "46bf55d9c3fa5ed5c017ff579091cd47e1686252f564dea455f0af743ce29753",
+        "crates/convex/src/library/requests.rs": "a55e88b0455e6a0ee791b9d953ce94fc50d2fc991b172964c36535f72a29c6c2",
+        "crates/convex/tests/library_cash.rs": "ea1845a048dcecb90eb3a97ffb74f7e6a2a9d3c8f6a0315527812c86eaf547c4",
+        "docs/ASSURANCE.md": "c93511ff77912dc73c2181a0012ad1fa5a48fac885c6ea4973904f8512a1b9e6",
+        "docs/LIBRARY-API.md": "715c2ec9691b20af35cce92b9db14621ae46c927b26bb6411e56b20c4d7edb99",
+        "excel/Convex.Excel.Tests/LibraryCashTests.cs": "cebbb4f168f4997584aae5ecb2c50c09de1f7c400e230a3ccbaf9658c24ac35a",
+        "tests/fixtures/library/cash-reference.json": "28b4a533cb94d80381a42c906a5228c22612e6339f11dc23d1e8e657626521ae",
+        "tests/fixtures/library/cash.json": "b8a953003ecc3169ea314b42e7a6fe43513fbbff33e9f55243899a2e60c5576a",
+        "tests/fixtures/library/cash_contract.rs": "cbb96e18bebdc65de6c585f3ad37d486a757191a1c6775379e830dcef4057fdf",
+        "tests/scripts/cash_quotation_reference.py": "c74f32d894b30dffa8d734230220f9f85cf1005d205f524b76c20e7b458be9c4",
+        "tests/scripts/library_cash_parity.py": "00edff1a35b31980de0ac851a6bad44770637378a219df8e7950b4b2092ac81d",
+        "tests/scripts/library_cash_schema.py": "217cda33951e5c564633d46c56e47abf3216fff1994bc172df0e8a02f80c6d86",
+        "tools/assurance/check.py": "ebc8f834de08a644e9bb36ae28e0370c3d828e73405a38a56b52fa4796f33403",
+        "tools/assurance/inventory.json": "3e16ef488c067e330de4bce10d407e77c839c13bd37e43494a2d790f1d776f3c",
+        "tools/assurance/numeric-evidence.json": "e582ccddc868e31dbd96e4d0ccf17c0dad124e57e42c83113848e47e30fa6a5e",
+        "tools/assurance/test_policy.py": "d9391af7a573b2eb51ebdebf3382a69f81c035fac3503e9b34eeeea7a7cd4192",
+        "tools/library/api-capabilities.json": "c7793c5ea5780cd9f7c212bb3a17b680c450f52a4754be31a1b11cf4a6644c05",
+        "tools/library/library-inventory.json": "2f99886ae7687f1221b782cf7b60adf89403d95502782babc55e111af9195207",
+        "tools/library/test_operations.py": "1ff4784b25ea18130896b11c5bac086f503e7d8b58b060614e37c5c7d034097b"
+      }
     }
   ]
 }

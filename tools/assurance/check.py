@@ -126,6 +126,12 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example library_operations --no-default-features',
         'cargo run --locked -p convex --example library_operations --features schemars',
         '/tmp/convex-library-schema/bin/python tests/scripts/library_operations_schema.py --binary target/debug/examples/library_operations',
+        'python3 tests/scripts/cash_quotation_reference.py',
+        'cargo test --locked -p convex --all-features --test library_cash -p convex-ffi --test library_cash -p convex-mcp --test library_cash -p convex-wasm --test library_cash',
+        'cargo run --locked -p convex --example library_cash',
+        'cargo run --locked -p convex --example library_cash --no-default-features',
+        'cargo run --locked -p convex --example library_cash --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/library_cash_schema.py --binary target/debug/examples/library_cash',
         'cargo test --locked -p convex-analytics -p convex-portfolio -p convex-curves',
         'cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics',
         'cargo test --locked -p convex-engine --test graph_regressions',
@@ -202,6 +208,12 @@ def git(root: Path, *args: str) -> bytes:
 
 def git_source(root: Path, revision: str, path: str) -> bytes | None:
     process = subprocess.run(['git', 'show', f'{revision}:{path}'], cwd=root, capture_output=True)
+    return process.stdout if process.returncode == 0 else None
+
+def git_checkout(root: Path, revision: str, path: str) -> bytes | None:
+    # Compare physical pins with Git's declared checkout representation as well
+    # as its stored blob. For example *.cs is LF in the index and CRLF on disk.
+    process = subprocess.run(['git', 'cat-file', '--filters', f'{revision}:{path}'], cwd=root, capture_output=True)
     return process.stdout if process.returncode == 0 else None
 
 def normal_closure(metadata: dict, root_names=DOMAIN) -> set[str]:
@@ -332,6 +344,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/futures').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/rate_calibration').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_calibration').glob('*.rs'))
+    paths.add('crates/convex-analytics/src/cash_quotation.rs')
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex/src/library').glob('*.rs'))
@@ -454,6 +467,9 @@ def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt
             continue
         current = (root / artifact['path']).read_bytes()
         if numeric_content(old, artifact['mode']) == numeric_content(current, artifact['mode']):
+            continue
+        checkout = git_checkout(root, base, artifact['path'])
+        if checkout is not None and numeric_content(checkout, artifact['mode']) == numeric_content(current, artifact['mode']):
             continue
         approvals = [r for r in reviews['reviews'] if r['base_commit'] == base and artifact['path'] in r['candidate_files'] and r.get('quantitative_review')]
         require(approvals, f'changed quantitative evidence needs owner review: {artifact["path"]}')

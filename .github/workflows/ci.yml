@@ -360,6 +360,24 @@ jobs:
       - name: Validate exact generated schema against supplemental operations
         run: /tmp/convex-library-schema/bin/python tests/scripts/library_operations_schema.py --binary target/debug/examples/library_operations
 
+      - name: Verify declared independent full cash quotation controls
+        run: python3 tests/scripts/cash_quotation_reference.py
+
+      - name: Check full cash quotation and government spread native JSON C MCP WASM routes
+        run: cargo test --locked -p convex --all-features --test library_cash -p convex-ffi --test library_cash -p convex-mcp --test library_cash -p convex-wasm --test library_cash
+
+      - name: Run full cash quotation consumer with default features
+        run: cargo run --locked -p convex --example library_cash
+
+      - name: Run full cash quotation consumer with minimal features
+        run: cargo run --locked -p convex --example library_cash --no-default-features
+
+      - name: Run full cash quotation consumer with schema support
+        run: cargo run --locked -p convex --example library_cash --features schemars
+
+      - name: Validate actual full cash quotation schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_cash_schema.py --binary target/debug/examples/library_cash
+
       - name: Check signed risk libraries and consumers with strict lint
         run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
 
@@ -617,6 +635,9 @@ jobs:
       - name: Build supplemental native operation consumer
         run: cargo build --locked --profile excel -p convex --example library_operations --features schemars
 
+      - name: Build native full cash quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash --features schemars
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -636,6 +657,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke operation expectations
         run: python tests/scripts/library_operations_parity.py prepare --binary target/excel/examples/library_operations.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-operations-parity.json
+
+      - name: Generate fresh native P/Invoke full cash expectations
+        run: python tests/scripts/library_cash_parity.py prepare --binary target/excel/examples/library_cash.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

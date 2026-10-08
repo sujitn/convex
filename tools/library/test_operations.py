@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 14)
-        self.assertEqual(result['engineering_examples'], 220)
+        self.assertEqual(result['exact_operation_routes'], 18)
+        self.assertEqual(result['engineering_examples'], 284)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -45,6 +45,22 @@ class OperationRoutes(unittest.TestCase):
                              ('certified', True), ('qualification', '')):
             self.rejects(lambda m: m['operation_routes']['curve_time.date_to_tenor'].update({field: value}))
         self.rejects(lambda m: m['operation_routes']['curve_time.date_to_tenor']['anchors'][0].update(text='invented function'))
+
+    def test_full_cash_quote_and_invoice_examples_cannot_be_substituted(self):
+        for identity, other in (('cash_security.quote', 'cash.invoice.long'),
+                                ('cash_security.invoice', 'cash.quote.USD.CashflowYield')):
+            self.rejects(lambda m: m['operation_routes'][identity].update(positive_examples=[other]))
+
+    def test_actual_government_selection_cannot_be_replaced_by_other_policy(self):
+        for identity, other in (('government_spread.linear', 'government.exact'),
+                                ('government_spread.exact', 'government.linear')):
+            self.rejects(lambda m: m['operation_routes'][identity].update(positive_examples=[other]))
+
+    def test_cash_oracle_is_not_a_supplied_request_or_certificate(self):
+        self.rejects(lambda m: m.update(supplemental_corpora=['tests/fixtures/library/cash-reference.json']))
+        for identity in ('cash_security.quote', 'cash_security.invoice',
+                         'government_spread.linear', 'government_spread.exact'):
+            self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
 
 
 if __name__ == '__main__': unittest.main()
