@@ -21,7 +21,7 @@ mod ufr;
 
 pub use build::{
     build_curve_set, build_fitted_issuer_curve, build_fitted_parametric_curve,
-    build_fitted_rate_curve, BuiltCurve, CurveBuildOutput, CurveSet,
+    build_fitted_rate_curve, build_fitted_ufr_curve, BuiltCurve, CurveBuildOutput, CurveSet,
 };
 pub use credit_fit::{build_fitted_credit_curve, credit_survival_nodes};
 pub use grid::ForwardSide;
@@ -32,7 +32,7 @@ pub use parametric_fit::*;
 pub use query::*;
 pub use structured::*;
 pub use transformations::*;
-pub use ufr::UfrCurveDiagnostics;
+pub use ufr::{ProductUfrSettings, UfrCurveDiagnostics, UfrParameters};
 
 /// Maximum recipes in one atomic curve build, including supplied dependencies.
 pub const MAX_CURVES: usize = 256;

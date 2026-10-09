@@ -84,7 +84,7 @@ execution or regulatory/market calibration is claimed.
 The original generic `Nodes` route still rejects UFR policy selections.
 Other native source families require their own complete analytic join contracts;
 numerical derivatives, supplied slope overrides and sampled-node aliases are
-rejected. The complete MonotoneConvex source and [full supplied recipe snapshot replay](CURVE-SNAPSHOT-REPLAY.md) are implemented. Parameter/product-price fitting, original quote-risk rebuilds and complete product-calibration snapshot graphs remain required work. See [route migration](ROUTE-MIGRATION.md).
+rejected. The complete MonotoneConvex source and [full supplied recipe snapshot replay](CURVE-SNAPSHOT-REPLAY.md) are implemented. Full original rate/Government/Repo product-price fitting, quote-risk and schema3 capture/replay use the separate [product UFR calibration contract](PRODUCT-UFR-CALIBRATION.md). Native-zero/forward and regulatory calibration remain separate requirements. See [route migration](ROUTE-MIGRATION.md).
 
 Run the standalone consumer and frozen controls:
 
@@ -100,3 +100,5 @@ Native/shared JSON/C/Java/MCP and native compiled WASM checks establish scoped
 engineering reachability. Actual Windows/.NET/Excel and wasm32/browser remain
 unverified. CVX-063 is partial; all mandatory records and independent financial,
 library, production and latency certificates remain open.
+
+Full-product fitted tails and explicit Left/Right `UfrJoinedForward` use the [product UFR contract](PRODUCT-UFR-CALIBRATION.md). Actual analytic NS/Svensson owners include previous product fits retaining Helpers; the native owner supplies the boundary, never a recipe label or sampled derivative.

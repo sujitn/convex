@@ -206,17 +206,40 @@ pub fn rebuild_captured_curves(
                     TraitError::Conflict("duplicate captured native curve identity").into(),
                 );
             }
+        }
+        // Keys are sorted by identity, not dependency. In particular a fitted
+        // tail can sort before its original supplied base. Install the complete
+        // already-validated native graph in bounded dependency order; neither
+        // independent captured records nor a sampled cache may supply its pins.
+        let mut pending: std::collections::BTreeSet<_> = built.curves().keys().cloned().collect();
+        for _ in 0..built.curves().len() {
+            let key = pending
+                .iter()
+                .find(|key| {
+                    built.curves().get(key).is_ok_and(|curve| {
+                        curve
+                            .recipe()
+                            .dependencies
+                            .iter()
+                            .all(|dependency| direct.curves.get(dependency).is_ok())
+                    })
+                })
+                .cloned()
+                .ok_or(TraitError::InvalidInput(
+                    "captured native graph dependency order unresolved",
+                ))?;
+            pending.remove(&key);
             direct.curves = direct
                 .curves
                 .with_curve(
                     built
                         .curves()
-                        .get(key)
+                        .get(&key)
                         .map_err(|_| TraitError::InvalidInput("missing rebuilt curve"))?
                         .as_ref()
                         .clone(),
                 )
-                .map_err(|_| TraitError::InvalidInput("duplicate captured curve"))?;
+                .map_err(crate::curve_replay::CurveReplayError::Native)?;
         }
         let order: Vec<CurveKey> =
             serde_json::from_value(built.diagnostics()["build_order"].clone())?;

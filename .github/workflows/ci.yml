@@ -515,6 +515,30 @@ jobs:
       - name: Preserve original product calibration requests and independent deposit controls
         run: python3 tests/scripts/calibration_replay_inputs.py --check
 
+      - name: Validate original independent product UFR controls
+        run: python3 tests/scripts/product_ufr_reference.py --check
+
+      - name: Validate explicit original UFR origin admission
+        run: python3 tests/scripts/product_ufr_admitted_reference.py --check
+
+      - name: Test full product UFR native and shared client contracts
+        run: cargo test --locked -p convex -p convex-analytics -p convex-engine -p convex-ffi -p convex-mcp -p convex-wasm --all-features --test product_ufr -- --test-threads=1
+
+      - name: Run supplied full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr
+
+      - name: Run minimal full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr --no-default-features
+
+      - name: Run schema full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr --features schemars
+
+      - name: Validate exported complete product UFR schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/product_ufr_schema.py --binary target/debug/examples/product_ufr
+
+      - name: Capture and reopen full product UFR graph
+        run: cargo run --locked -p convex-engine --example product_ufr_snapshot -- /tmp/convex-product-ufr-snapshots flat_forward.rate.positive
+
       - name: Preserve original independent parametric product controls
         run: python3 tests/scripts/product_parametric_reference.py --check
 

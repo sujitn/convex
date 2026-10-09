@@ -25,6 +25,14 @@ fn trial(
     parameters: &[f64],
     supplied: &CurveSet,
 ) -> CashCalibrationResult<BuiltCurve> {
+    if let CalibrationMode::Ufr(settings) = &r.curve.calibration {
+        let direct = settings.trial_recipe(&r.curve, parameters)?;
+        return Ok(build_curve_set(&[direct], supplied)?
+            .curves
+            .get(&r.curve.key)?
+            .as_ref()
+            .clone());
+    }
     let mut c = r.curve.clone();
     c.calibration = CalibrationMode::Direct;
     c.dependencies.clear();
@@ -148,6 +156,52 @@ pub(super) fn fit(
             (
                 native,
                 CashSolverDiagnostics::Parametric {
+                    parameters: model,
+                    diagnostics: fit.diagnostics,
+                },
+                iterations,
+            )
+        }
+        (CalibrationMode::Ufr(settings), None) => {
+            let parameters = settings.fit_parameters(r.helpers.len())?;
+            let residuals: Vec<_> = r
+                .helpers
+                .iter()
+                .enumerate()
+                .map(|(i, h)| FitResidual {
+                    scale: settings.quote_scales[i],
+                    weight: settings.weights[i],
+                    tolerance: h.tolerance(),
+                })
+                .collect();
+            let fit = bounded_least_squares(
+                &parameters,
+                &residuals,
+                LeastSquaresSettings {
+                    max_iterations: settings.max_iterations,
+                    objective_tolerance: settings.objective_tolerance,
+                    jacobian_step: controls.jacobian_step,
+                    minimum_singular_ratio: controls.minimum_singular_ratio,
+                    svd_iterations: controls.svd_iterations,
+                },
+                |values| {
+                    let native = settings.native_parameters(values)?;
+                    let curve = trial(r, &r.pillars, &native, supplied)?;
+                    (0..r.helpers.len())
+                        .map(|i| {
+                            value(p, i, &curve, supplied, evaluations)
+                                .map(|(q, _)| q.value - r.helpers[i].quote().value)
+                        })
+                        .collect::<CashCalibrationResult<Vec<_>>>()
+                },
+            )
+            .map_err(|e| CashCalibrationError::Global(Box::new(e)))?;
+            let iterations = fit.diagnostics.iterations;
+            let native = settings.native_parameters(&fit.parameters)?;
+            let model = UfrParameters::from_parameters(&native)?;
+            (
+                native,
+                CashSolverDiagnostics::Ufr {
                     parameters: model,
                     diagnostics: fit.diagnostics,
                 },
@@ -298,8 +352,13 @@ pub(super) fn fit(
         });
         values.push(priced);
     }
-    let is_parametric = matches!(r.curve.calibration, CalibrationMode::Parametric(_));
-    let curve = if is_parametric {
+    let is_parametric = matches!(
+        r.curve.calibration,
+        CalibrationMode::Parametric(_) | CalibrationMode::Ufr(_)
+    );
+    let curve = if matches!(r.curve.calibration, CalibrationMode::Ufr(_)) {
+        build_fitted_ufr_curve(&r.curve, &parameters, quotes, iterations, supplied)?
+    } else if is_parametric {
         build_fitted_parametric_curve(
             &r.curve,
             *r.pillars

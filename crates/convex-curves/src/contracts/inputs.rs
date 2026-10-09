@@ -443,6 +443,8 @@ pub enum CalibrationMode {
     /// Full original product quotes fitted to exact NS/Svensson parameters.
     /// The product composition supplies actual callbacks and numerical controls.
     Parametric(Box<super::ProductParametricSettings>),
+    /// Full original product quotes fitted to UFR/speed over an exact fixed base.
+    Ufr(Box<super::ProductUfrSettings>),
     /// Credit fit with explicitly different parameter semantics from rate zeros.
     CreditGlobal(CreditGlobalFitSettings),
 }

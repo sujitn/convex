@@ -19,6 +19,12 @@ pub(super) fn dependencies(model: Option<&BondBasisModel>) -> Vec<CurveKey> {
 }
 fn settings(input: &CashCurveRecipe) -> CashCalibrationResult<()> {
     match (&input.curve.calibration, input.bootstrap) {
+        (CalibrationMode::Ufr(s), None) => {
+            s.validate_recipe(&input.curve)?;
+            if input.basis_model.is_some() {
+                return Err(invalid("UFR cash model", "Government/Repo continuous-zero model required; residual basis has a separate owner"));
+            }
+        }
         (CalibrationMode::Parametric(s), None) => {
             s.validate(input.helpers.len())?;
             if input.basis_model.is_some()
@@ -128,12 +134,15 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
         }
     };
     if c.representation != expected_representation
-        || (!matches!(c.calibration, CalibrationMode::Parametric(_))
-            && c.interpolation != InterpolationMethod::Linear)
-        || !matches!(
-            c.extrapolation,
-            ExtrapolationMethod::None | ExtrapolationMethod::Flat | ExtrapolationMethod::Linear
-        )
+        || (!matches!(
+            c.calibration,
+            CalibrationMode::Parametric(_) | CalibrationMode::Ufr(_)
+        ) && c.interpolation != InterpolationMethod::Linear)
+        || (!matches!(c.calibration, CalibrationMode::Ufr(_))
+            && !matches!(
+                c.extrapolation,
+                ExtrapolationMethod::None | ExtrapolationMethod::Flat | ExtrapolationMethod::Linear
+            ))
         || c.time_basis != convex_core::daycounts::DayCountConvention::Act365Fixed
     {
         return Err(invalid("representation/method", "ACT365F Linear continuous-zero or signed residual basis with explicit extension required"));
@@ -151,7 +160,10 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
             "source must preserve every original helper in source order",
         ));
     }
-    let expected: BTreeSet<_> = dependencies(r.basis_model.as_ref()).into_iter().collect();
+    let mut expected: BTreeSet<_> = dependencies(r.basis_model.as_ref()).into_iter().collect();
+    if let CalibrationMode::Ufr(settings) = &c.calibration {
+        expected.insert(settings.base.clone());
+    }
     let declared: BTreeSet<_> = c.dependencies.iter().cloned().collect();
     if declared != expected
         || c.dependencies.len() != declared.len()

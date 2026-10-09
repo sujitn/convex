@@ -305,6 +305,13 @@ pub enum RateSolverDiagnostics {
         /// Complete measured work, rank, objective and original-unit residuals.
         diagnostics: FitDiagnostics,
     },
+    /// Actual full-product exponential-tail fit over its exact fixed base.
+    Ufr {
+        /// Solved continuous UFR and positive speed; no annualized node interpretation.
+        parameters: UfrParameters,
+        /// Complete measured work, rank, objective and original-unit residuals.
+        diagnostics: FitDiagnostics,
+    },
 }
 
 /// Successful complete fitted curve and every original helper's final valuation.

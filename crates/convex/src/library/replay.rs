@@ -127,6 +127,12 @@ pub(super) fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
                 } => {
                     serde_json::json!({"kind":"parametric","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
                 }
+                r::RateSolverDiagnostics::Ufr {
+                    parameters,
+                    diagnostics,
+                } => {
+                    serde_json::json!({"kind":"ufr","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
+                }
             };
             serde_json::json!({"kind":"rate","recipe":fit.recipe,"curve":curves::describe_curve(&fit.curve),"repriced_helpers":fit.repriced_helpers,"solver":solver})
         }
@@ -154,6 +160,12 @@ pub(super) fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
                     diagnostics,
                 } => {
                     serde_json::json!({"kind":"parametric","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
+                }
+                c::CashSolverDiagnostics::Ufr {
+                    parameters,
+                    diagnostics,
+                } => {
+                    serde_json::json!({"kind":"ufr","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
                 }
             };
             serde_json::json!({"kind":"cash","recipe":fit.recipe,"curve":curves::describe_curve(&fit.curve),"annualized_parameters":fit.annualized_parameters,"repriced_helpers":fit.repriced_helpers,"solver":solver,"price_evaluations":fit.price_evaluations})

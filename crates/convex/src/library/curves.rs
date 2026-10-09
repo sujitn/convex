@@ -304,10 +304,16 @@ pub(super) fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value>
     // measured solver/helper evidence, including on dependent quote rebuilds.
     if graph.calibrations.iter().any(|fit| match fit {
         q::QuoteGraphCalibration::Rate(f) => {
-            matches!(f.solver, r::RateSolverDiagnostics::Parametric { .. })
+            matches!(
+                f.solver,
+                r::RateSolverDiagnostics::Parametric { .. } | r::RateSolverDiagnostics::Ufr { .. }
+            )
         }
         q::QuoteGraphCalibration::Cash(f) => {
-            matches!(f.solver, c::CashSolverDiagnostics::Parametric { .. })
+            matches!(
+                f.solver,
+                c::CashSolverDiagnostics::Parametric { .. } | c::CashSolverDiagnostics::Ufr { .. }
+            )
         }
         q::QuoteGraphCalibration::Credit(_) => false,
     }) {

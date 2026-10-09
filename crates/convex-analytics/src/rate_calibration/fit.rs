@@ -31,20 +31,34 @@ fn trial(
     zeros: &[f64],
     supplied: &CurveSet,
 ) -> Result<CurveSet, RateCalibrationError> {
-    let mut direct = recipe.curve.clone();
-    direct.source = if let CalibrationMode::Parametric(settings) = &recipe.curve.calibration {
-        CurveSource::Parametric {
-            parameters: settings.initial.with_parameters(zeros)?,
-            horizon: CurvePoint::Date(*pillars.last().ok_or_else(|| invalid("horizon", "empty"))?),
-            observations: Vec::new(),
-        }
+    let direct = if let CalibrationMode::Ufr(settings) = &recipe.curve.calibration {
+        settings.trial_recipe(&recipe.curve, zeros)?
     } else {
-        CurveSource::Nodes(nodes(direct.reference_date, pillars, zeros))
+        let mut direct = recipe.curve.clone();
+        direct.source = if let CalibrationMode::Parametric(settings) = &recipe.curve.calibration {
+            CurveSource::Parametric {
+                parameters: settings.initial.with_parameters(zeros)?,
+                horizon: CurvePoint::Date(
+                    *pillars.last().ok_or_else(|| invalid("horizon", "empty"))?,
+                ),
+                observations: Vec::new(),
+            }
+        } else {
+            CurveSource::Nodes(nodes(direct.reference_date, pillars, zeros))
+        };
+        direct.dependencies.clear();
+        direct.calibration = CalibrationMode::Direct;
+        direct
     };
-    direct.dependencies.clear();
-    direct.calibration = CalibrationMode::Direct;
+    let trial_extrapolation = direct.extrapolation;
     let mut curves = build_curve_set(&[direct], supplied)?.curves;
-    if let Some(alias) = build::alias(recipe) {
+    if let Some(mut alias) = build::alias(recipe) {
+        // The explicit zero-basis view inherits this actual trial's policy.
+        // UFR parameters change during fitting; initial settings cannot replace
+        // the trial base or bypass exact method inheritance.
+        if matches!(recipe.curve.calibration, CalibrationMode::Ufr(_)) {
+            alias.extrapolation = trial_extrapolation;
+        }
         curves = build_curve_set(&[alias], &curves)?.curves;
     }
     Ok(curves)
@@ -112,6 +126,62 @@ pub(super) fn fit(
             (
                 native,
                 RateSolverDiagnostics::Parametric {
+                    parameters: model,
+                    diagnostics: fit.diagnostics,
+                },
+                iterations,
+            )
+        }
+        (CalibrationMode::Ufr(settings), None) => {
+            let parameters = settings.fit_parameters(prepared.helpers.len())?;
+            let residuals: Vec<_> = prepared
+                .helpers
+                .iter()
+                .enumerate()
+                .map(|(i, h)| FitResidual {
+                    scale: settings.quote_scales[i],
+                    weight: settings.weights[i],
+                    tolerance: h.helper.tolerance,
+                })
+                .collect();
+            let fit = bounded_least_squares(
+                &parameters,
+                &residuals,
+                LeastSquaresSettings {
+                    max_iterations: settings.max_iterations,
+                    objective_tolerance: settings.objective_tolerance,
+                    jacobian_step: controls.jacobian_step,
+                    minimum_singular_ratio: controls.minimum_singular_ratio,
+                    svd_iterations: controls.svd_iterations,
+                },
+                |values| {
+                    let native = settings.native_parameters(values)?;
+                    let curves = trial(input, &input.pillars, &native, supplied)?;
+                    prepared
+                        .helpers
+                        .iter()
+                        .map(|h| {
+                            let (model, value) = helpers::value(
+                                h,
+                                &curves,
+                                history,
+                                context,
+                                publications,
+                                evaluations,
+                            )?;
+                            helpers::horizon(&value, h.helper, input)?;
+                            Ok(model.value - h.helper.quote.value)
+                        })
+                        .collect::<Result<Vec<_>, RateCalibrationError>>()
+                },
+            )
+            .map_err(|e| RateCalibrationError::Global(Box::new(e)))?;
+            let iterations = fit.diagnostics.iterations;
+            let native = settings.native_parameters(&fit.parameters)?;
+            let model = UfrParameters::from_parameters(&native)?;
+            (
+                native,
+                RateSolverDiagnostics::Ufr {
                     parameters: model,
                     diagnostics: fit.diagnostics,
                 },
@@ -274,7 +344,9 @@ pub(super) fn fit(
         });
         repriced_helpers.push(value);
     }
-    let curve = if matches!(input.curve.calibration, CalibrationMode::Parametric(_)) {
+    let curve = if matches!(input.curve.calibration, CalibrationMode::Ufr(_)) {
+        build_fitted_ufr_curve(&input.curve, &zeros, quotes, iterations, supplied)?
+    } else if matches!(input.curve.calibration, CalibrationMode::Parametric(_)) {
         build_fitted_parametric_curve(
             &input.curve,
             *input

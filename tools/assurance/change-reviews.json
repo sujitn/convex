@@ -1724,6 +1724,63 @@
         "tools/assurance/test_policy.py": "a55628fe467145d5426202c129f465beb1aad8e801427ffd5b3ec60204a4635c",
         "tools/library/library-inventory.json": "6b1f97b41f6ac20951fa35742b4e9eae50ea1b36ea832967679d4b7417421656"
       }
+    },
+    {
+      "base_commit": "e4c77ddb9e6a5229f2f3d625651239ea66df7f1d",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "CVX-063 full original rate/Government/Repo exponential UFR parameter calibration over exact immutable analytic base/LLP. Explicit original mixed-unit starts/bounds/scales/weights/work/rank and every full-product residual survive native/shared/quote-risk/schema3 replay/runtime. Required one-sided native joined forwards and actual fitted domain policy retain exact original anchor and left LLP ownership. Incorrect recipe-source analytic admission is removed; prior complete parametric product fits retain Helpers with real analytic owners. Original exponential kernel/solvers/product formulas/defaults/dependencies/packages/26Cexports remain unchanged; no regulatory/zero/forward objective substitution, guesses, retries or partial accepted output. 18 independent Decimal60 graphs/36 full quotes/126 analytic points and all accuracy/domain controls were declared before execution; distinct original origin admission and retained failures preserve original expectations. Mixed FRA/IRS/OIS/futures/basis native-generated controls are integration only. Canonical 1bp tail risk and original failed larger/successful explicit smaller base scenarios remain distinct. All378 prior numerical rows/physical bytes/defaults and7868 preceding private evidence files, literal30areas/174combinations/2154Planned,50routes/3197oldrequests/146pure normal packages stay unchanged. CVX-063 remains partial/unaccepted/uncertified; complete market/method/model/host/operation and independent certificates open. Actual Windows/.NET/Excel/Java/JNI/wasm32/browser remain unverified. No provider/storage/MQ/clock/order authority or generic framework enters pure analytics. Declared engineering impact review only, never independent human quantitative approval. Actual reproduced OIS trial policy inheritance and schema3 identity-order dependency failures are repaired without widening any numeric policy or replacing full original graph inputs.",
+      "tests": [
+        "Predeclared independent Decimal60 complete UFR/product/join controls, original origin admission and retained failures",
+        "Actual full native product callbacks, signed quote-risk, exact capture/file-reopen/runtime/client/schema and failure guards",
+        "Original financial/control regressions, strict lint/docs/features/format, exact numerical/mandatory/history/source/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "9cf5aaad2d0bf4286b958a42db85e79e40778dbe88856ac9542d1514937d9b80",
+        "crates/convex-analytics/src/cash_calibration/build.rs": "71fe0410fd13b1ef7724042fd73587da2f6c244c91a74cae2374d503eb38648d",
+        "crates/convex-analytics/src/cash_calibration/fit.rs": "87df2a7bf7dfd6c3ff6a476f6f70a11ae127c0af3d6d124c407fc2808f2f0cca",
+        "crates/convex-analytics/src/cash_calibration/inputs.rs": "11eb705ba726ef54482f2e0077b0fb7ad757b0f33acf93c12a27e1cf96a019c8",
+        "crates/convex-analytics/src/rate_calibration/build.rs": "fc9c7979525c976cce3bbcfa4399612883949820fce40b197e2a62367dd32eb6",
+        "crates/convex-analytics/src/rate_calibration/fit.rs": "e8096666878f65a86c719b4b836904b76f0502faac7dd34fd0f85f9b4152b6fd",
+        "crates/convex-analytics/src/rate_calibration/helpers.rs": "4acd216a622e48c4ccc35de6554d1cde4cdaf18e4ec4a1e0311d651208b28cc0",
+        "crates/convex-analytics/src/rate_calibration/inputs.rs": "138dd9999ccde1b0cbddc71a9ccdf1987164308b1d2e8e7bc43e6877972b42ff",
+        "crates/convex-analytics/tests/product_ufr.rs": "f99609f5890da5916d0df650b89a22b2de2a455a8e17549a69198b85f57d5e2a",
+        "crates/convex-curves/src/contracts/build.rs": "1684f7abd47bf6044d44e918978209b4a52a9345d7760e444f60de9edb7a672c",
+        "crates/convex-curves/src/contracts/inputs.rs": "43a1aeb633146e21294d3c063e2a5ac8f61a7978d10cda5c73991a5e274eca8c",
+        "crates/convex-curves/src/contracts/mod.rs": "fbb18202dff4b8df5dcc8bfa7b2f890e829d87e0f9aaf0c941d423661e7e8e56",
+        "crates/convex-curves/src/contracts/query.rs": "86e210fe7b027dd75dbf9292a1e63fc47c90cfaea0e9e9b57e7f40303a28a4cc",
+        "crates/convex-curves/src/contracts/ufr.rs": "555145a80c082598f698438d29b93d08bb3e2414a115f43857f8c0db83949423",
+        "crates/convex-engine/examples/product_ufr_snapshot.rs": "2dcf9dccae412dd9aed3b600474c8c4a3db91297bd4c369ce690a2ffb462dfa7",
+        "crates/convex-engine/src/calibration_replay.rs": "062929b9ed5fd6c4978aaaef9d9f304631da857d01132793b150cac6d9bb5ffd",
+        "crates/convex-engine/src/curve_replay.rs": "9ec8b14152477a7138cdeeca3951c8da703e8d060f5fea544e73ed938b72ae31",
+        "crates/convex-engine/tests/product_ufr.rs": "cd5ab6d1316a4f613e713cc47db19ca63a750243afd9fa56b1711c3ac21bf074",
+        "crates/convex-ffi/tests/product_ufr.rs": "0e0c0b2ed41f76721da549ec66b4cc7740338a0b89b8a21ba302f124db82dca9",
+        "crates/convex-mcp/tests/product_ufr.rs": "a2510ff83fcd619232b9e7798b811ee61cff65b89ca9dc220d5b8053910058ae",
+        "crates/convex-wasm/tests/product_ufr.rs": "03de6703d8fb1a8a4c3caf0e3745800c878f8dee1a4878096ecfea5508247058",
+        "crates/convex/examples/product_ufr.rs": "bc3a2a8bd08e7a8ddba806911e4bfbcdfed203a0b383ece1fd921110275a4a85",
+        "crates/convex/src/library/curves.rs": "fdbb7fd504e5e5dedb469db66c12ae1cab32acbe84f0c88adfa1c7cb17e16861",
+        "crates/convex/src/library/replay.rs": "1dccb2802a96922b1111723349981cdbb0a7384eea527e45d65d14699aa1af86",
+        "crates/convex/tests/product_ufr.rs": "fdfe8b0681855291d52c934fb8e6e99325560cc8c1c941292e0ffe48bade52c5",
+        "docs/CALIBRATION-SNAPSHOT-REPLAY.md": "0f2b2f5bd1a41d31dc0a062f883f224cd2883fd3726a6570f6fae877f0873910",
+        "docs/CASH-CURVES.md": "f0cb62a78c7d7cd0cfdc37d5fd7b903e5dffe8e42bd8179e68c8fd205dfb6614",
+        "docs/CURVE-UFR.md": "99600b7597abd7ada91aa03cbc8de713a59b4195ece75dfb60170d0ee6636db9",
+        "docs/LIBRARY-API.md": "4611b3a3679e4ed6a696852b7ab5a6662615e0246c9eb2c589af1d61171ca879",
+        "docs/PRODUCT-UFR-CALIBRATION.md": "6b0d923c6f0e348f143b36c84e385635429ff32618040db8520d63fb4fe0c88b",
+        "docs/QUOTE-RISK.md": "01457a966264cd080f35cbb1d43382d5189b77e4bdcd41e0bb4af7052fd65606",
+        "docs/RATE-CALIBRATION.md": "adb5f765c3f207656e277bea45380f7e95eec9e960c42aff985ef42cd074d6ed",
+        "docs/ROUTE-MIGRATION.md": "67181f2648d291b94e3bc1d16ce559bea52ca8587c4bd82b2f87ccacc8b0af84",
+        "tests/fixtures/curves/product-ufr-admitted.json": "7ac1029bee8b59c41eeccbbc40fb5e8f89cc819e3c8e2e3a1ab03b7cbff2650c",
+        "tests/fixtures/curves/product-ufr.json": "03e1f5481539ed4a2f96e45644c513ed99276ff53cb20619aa9c5b7514d8dc93",
+        "tests/fixtures/library/product_ufr.rs": "44c01793d59de2af4a8385121f4c3f68a3ddf610577af4613c6a39d4daed5670",
+        "tests/scripts/product_ufr_admitted_reference.py": "b9c37fa38be8d07b7aaefc00e6d33dce5c3155c8a4af754a17e12abd09e1b039",
+        "tests/scripts/product_ufr_reference.py": "a9e2906ac34693cd1518e73882b89f276f0d7565686175662621cd7f05f85ac2",
+        "tests/scripts/product_ufr_schema.py": "89d5a85c776a481195207fb50f0ba59f62a55f8279d92c08c9c6e55d394d8ac8",
+        "tools/assurance/check.py": "2556317a6f4fa0002300a040fb87bcd4b31988e2d961dc808fbb37d031640e62",
+        "tools/assurance/inventory.json": "3220ac6b3d2a6391cab9f462efd2d3238f70a500173285e6043afee468e9566c",
+        "tools/assurance/numeric-evidence.json": "f475d689897094cb8c5e876ba1192edc5622eb6158ef2110faa6714e67bfa14a",
+        "tools/assurance/test_policy.py": "33395c6053904c8fa4f51e5636aa2b3486c6fc27f5b00363f2bc5c069da056f8",
+        "tools/library/library-inventory.json": "300cdfdfd0fe8cf089e21b6de3b317901e03a99fbf808305ff150ef481d18924"
+      }
     }
   ]
 }

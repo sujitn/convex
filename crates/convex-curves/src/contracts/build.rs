@@ -80,6 +80,18 @@ impl BuiltCurve {
             _ => None,
         }
     }
+    pub(super) fn extrapolation_policy(&self) -> ExtrapolationMethod {
+        match &self.values {
+            CurveValues::Ufr(curve) => ExtrapolationMethod::UfrConvergence {
+                ufr: curve.diagnostics.ultimate_forward_rate,
+                alpha: curve.diagnostics.convergence_speed,
+            },
+            CurveValues::Equivalent { base } | CurveValues::Spread { base, .. } => {
+                base.extrapolation_policy()
+            }
+            _ => self.recipe.extrapolation,
+        }
+    }
     pub(crate) fn extension_used(&self, t: f64) -> bool {
         let (min, max) = self.bounds();
         let outer = t > 0.0 && (t < min || t > max);
@@ -110,6 +122,28 @@ impl BuiltCurve {
         match &self.values {
             CurveValues::Ufr(curve) => curve.forward(t),
             _ => Err(Error::unsupported("UFR forward", "requires the original joined UfrConvergence source; no derivative or family substitute")),
+        }
+    }
+    pub(super) fn ufr_joined_forward(
+        &self,
+        t: f64,
+        side: super::ForwardSide,
+    ) -> Result<(f64, bool)> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Ufr(curve) => curve.joined_forward(t, side),
+            _ => Err(Error::unsupported(
+                "joined UFR forward",
+                "requires the original UFR query owner",
+            )),
+        }
+    }
+    pub(super) fn ufr_base_forward(&self, t: f64, side: super::ForwardSide) -> Result<(f64, bool)> {
+        validate_tenor(t)?;
+        match &self.values {
+            CurveValues::Grid(curve) => Ok((curve.forward(t, side)?, curve.forward_extension_used(t, side))),
+            CurveValues::Structured(curve) => Ok((curve.forward(t)?, false)),
+            _ => Err(Error::unsupported("UFR boundary model", "requires original analytic FlatForward or NS/Svensson; no sampled derivative, stepped, derived or generic Nodes proxy")),
         }
     }
     pub(super) fn flat_forward(&self, t: f64, side: super::ForwardSide) -> Result<(f64, bool)> {
@@ -515,6 +549,59 @@ pub fn build_fitted_parametric_curve(
     Ok(curve)
 }
 
+/// Admit a full-product UFR fit with its exact fixed base, analytic left join and
+/// every original quote. Product callbacks and identification stay in analytics.
+pub fn build_fitted_ufr_curve(
+    recipe: &CurveRecipe,
+    parameters: &[f64],
+    quotes: Vec<QuoteRepricing>,
+    iterations: usize,
+    supplied: &CurveSet,
+) -> Result<BuiltCurve> {
+    let (CalibrationMode::Ufr(settings), CurveSource::Helpers(ids)) =
+        (&recipe.calibration, &recipe.source)
+    else {
+        return Err(Error::invalid(
+            "fitted UFR input",
+            "complete original Helpers and explicit full-product UFR settings required",
+        ));
+    };
+    settings.validate_recipe(recipe)?;
+    if quotes.len() != ids.len() || iterations > settings.max_iterations {
+        return Err(Error::invalid(
+            "fitted UFR dimensions",
+            "every original quote and bounded attempts required",
+        ));
+    }
+    validate_fitted_quotes(recipe, ids, &quotes)?;
+    if recipe.dependencies.len() > MAX_CURVES {
+        return Err(Error::BoundExceeded("dependencies"));
+    }
+    let mut dependencies = BTreeSet::new();
+    for key in &recipe.dependencies {
+        key.validate()?;
+        if key.id == recipe.key.id || !dependencies.insert(&key.id) {
+            return Err(Error::invalid(
+                "dependencies",
+                "unique external exact versions required",
+            ));
+        }
+        supplied.get(key)?;
+    }
+    let direct = settings.trial_recipe(recipe, parameters)?;
+    let output = build_curve_set(&[direct], supplied)?;
+    let mut curve = output.curves.get(&recipe.key)?.as_ref().clone();
+    curve.recipe = recipe.clone();
+    curve.diagnostics.method = "product_ufr_bounded_least_squares".into();
+    curve.diagnostics.quotes = quotes;
+    curve.diagnostics.iterations = iterations;
+    curve
+        .diagnostics
+        .dependencies
+        .clone_from(&recipe.dependencies);
+    Ok(curve)
+}
+
 /// Admit a complete cash-backed residual basis fit without changing it into a
 /// discount or credit curve. Product economics and its model remain in analytics.
 pub fn build_fitted_issuer_curve(
@@ -566,10 +653,10 @@ fn build_fitted_product_curve(
                 "credit intensity settings cannot fit a rate curve",
             ))
         }
-        CalibrationMode::Parametric(_) => {
+        CalibrationMode::Parametric(_) | CalibrationMode::Ufr(_) => {
             return Err(Error::invalid(
                 "fitted.calibration",
-                "parametric product fits require their exact model owner, never a node grid",
+                "parametric/UFR product fits require their exact analytic model owner, never a node grid",
             ))
         }
     };

@@ -6,7 +6,7 @@
 use convex_curves::{
     contracts::{
         build_curve_set, BuiltCurve, CurveBuildOutput, CurvePoint, CurveQuery, CurveRecipe,
-        CurveRepresentation, CurveRole, CurveSet, TenorRounding,
+        CurveRepresentation, CurveRole, CurveSet, ForwardSide, TenorRounding,
     },
     Compounding, CurveError, CurveResult, RateCurveDyn,
 };
@@ -175,6 +175,14 @@ impl RateCurveDyn for RecipeRateCurve {
         })
     }
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
+        // The bridge's scalar forward selects the original right interval.
+        // Side-sensitive callers use the complete native joined query directly.
+        if self.curve.ufr_diagnostics().is_some() {
+            return self.value(CurveQuery::UfrJoinedForward {
+                point: CurvePoint::Tenor(t),
+                side: ForwardSide::Right,
+            });
+        }
         self.value(CurveQuery::InstantaneousForward {
             point: CurvePoint::Tenor(t),
         })

@@ -127,3 +127,7 @@ remain partial/Planned. [Full product-price parametric fits](PRODUCT-PARAMETRIC-
 now retain exact models and full graph diagnostics through this schema3 owner.
 Other method/model/hedge/workout operations, actual Windows/Excel/wasm32/browser execution and independent
 financial/library/production/latency certificates remain open.
+
+Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+
+Reconstruction installs every original supplied dependency and product output in bounded dependency order. Curve identity sorting cannot place a fitted tail before its own base. Identity collisions with independent captured records still reject before installation; missing or invalid native dependencies retain their original errors.

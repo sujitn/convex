@@ -43,6 +43,14 @@ pub enum CurveQuery {
         /// Actual date/model time of the declared tail.
         point: CurvePoint,
     },
+    /// Analytic forward over the original joined UFR curve. At the LLP Left
+    /// consumes the source's ending interval; Right consumes the declared tail.
+    UfrJoinedForward {
+        /// Actual date/model time inside the original joined domain.
+        point: CurvePoint,
+        /// Required side at original source knots, origin and exact LLP.
+        side: ForwardSide,
+    },
     /// Exact original segment forward with caller-selected knot side. Available
     /// only on the explicit native FlatForward grid and its declared extension.
     FlatForwardRate {
@@ -179,7 +187,7 @@ impl BuiltCurve {
             maximum_tenor,
             query_ceiling: MAX_CURVE_TENOR,
             time_basis: self.recipe().time_basis,
-            extrapolation: self.recipe().extrapolation,
+            extrapolation: self.extrapolation_policy(),
         }
     }
     /// Convert an actual date using the recipe's day count, including leap years.
@@ -281,8 +289,9 @@ impl BuiltCurve {
             CurveQuery::MonotoneConvexForward { point, side } => {
                 return self.query_monotone_forward(point, side);
             }
-            CurveQuery::UfrForward { point } => {
-                return self.query_ufr_forward(point);
+            CurveQuery::UfrForward { point } => return self.query_ufr_forward(point),
+            CurveQuery::UfrJoinedForward { point, side } => {
+                return self.query_ufr_joined_forward(point, side);
             }
             CurveQuery::FlatForwardRate { point, side } => {
                 return self.query_flat_forward(point, side);
@@ -386,6 +395,24 @@ impl BuiltCurve {
             &[t],
         )?;
         result.extrapolated |= extended;
+        Ok(result)
+    }
+    fn query_ufr_joined_forward(
+        &self,
+        point: CurvePoint,
+        side: ForwardSide,
+    ) -> CurveContractResult<CurveQueryValue> {
+        let recipe = self.recipe();
+        let t = point_tenor(recipe.reference_date, recipe.time_basis, point)?;
+        let (value, extended) = self.ufr_joined_forward(t, side)?;
+        let mut result = self.query_value(
+            value,
+            CurveQueryUnit::DecimalRate,
+            Some(recipe.time_basis),
+            Some(Compounding::Continuous),
+            &[t],
+        )?;
+        result.extrapolated = extended;
         Ok(result)
     }
     fn query_ufr_forward(&self, point: CurvePoint) -> CurveContractResult<CurveQueryValue> {
@@ -590,7 +617,7 @@ pub fn curve_capabilities() -> Vec<CurveCapability> {
         CurveCapability { name: "explicit_step_zero_grid", status: Supported, conditions: "Complete PiecewiseConstant source/method; continuous-zero rate roles, right-owned steps/final supplied endpoint, 2..1024 native-unit nodes; no hazard/DF/basis reinterpretation or derivative at a jump" },
         CurveCapability { name: "explicit_flat_forward_grid", status: Supported, conditions: "Complete FlatForward source/method; original continuous-zero forward integrals, original finite negative-rate domain, explicit origin consistency; None/raw Flat/Linear or exact original forward extension" },
         CurveCapability { name: "one_sided_flat_forward_queries", status: Supported, conditions: "Explicit FlatForwardRate Left/Right on original grid/extension, time basis and continuous units; absent sides fail, actual side/source extension disclosed including zero; no proxy on step/derived/parametric sources" },
-        CurveCapability { name: "explicit_ufr_convergence", status: Supported, conditions: "Exact original FlatForward or NelsonSiegel/Svensson continuous-zero source and role/currency/reference/time basis/method/version; supplied LLP inside native domain, analytic left boundary, positive alpha and decimal UFR; integrated exponential tail, no short-end or derivative proxy; original finite query/depth bounds; heuristic, not Smith-Wilson" },
+        CurveCapability { name: "explicit_ufr_convergence", status: Supported, conditions: "Exact original analytic FlatForward or NelsonSiegel/Svensson query owner (including full product fits) and role/currency/reference/time basis/method/version; supplied LLP inside native domain, analytic left boundary, positive alpha and decimal UFR; integrated exponential tail, no short-end or derivative proxy; original finite query/depth bounds; heuristic, not Smith-Wilson" },
         CurveCapability { name: "analytic_ufr_forward", status: Supported, conditions: "Explicit UfrForward at/after declared LLP, original continuous rate per curve-time year; actual tail consumption disclosed even at right join; no pre-LLP or other-family derivative substitution" },
         CurveCapability { name: "complete_monotone_convex", status: Supported, conditions: "Complete supplied continuous-zero rate source, original weighted/endpoint estimates, simultaneous nonnegative bounds and all four Hagan-West regimes; exact one-zero-deviation axes use the original zero-area quadratic, no amelioration; original positive nodes, nonnegative interval means including origin, finite work and native units/time basis; no DF/hazard/signed-forward reinterpretation" },
         CurveCapability { name: "analytic_monotone_forward", status: Supported, conditions: "Explicit MonotoneConvexForward Left/Right over matching analytic forward/integral; origin Left and undeclared tail fail; None/raw Flat-zero or integrated FlatForward tail, actual terminal side consumption disclosed; no sampled derivative or family proxy" },

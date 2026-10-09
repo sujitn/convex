@@ -94,6 +94,9 @@ pub(super) fn validate(
         }
     }
     match (&curve.calibration,recipe.bootstrap) {
+        (CalibrationMode::Ufr(s),None) => {
+            s.validate_recipe(curve)?;
+        }
         (CalibrationMode::Parametric(s),None) => {
             s.validate(recipe.helpers.len())?;
             if curve.interpolation != s.initial.method()

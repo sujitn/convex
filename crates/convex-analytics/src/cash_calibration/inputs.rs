@@ -398,6 +398,13 @@ pub enum CashSolverDiagnostics {
         /// Complete measured work/rank/conditioning/original-unit residuals.
         diagnostics: FitDiagnostics,
     },
+    /// Actual full-product exponential-tail fit over its exact fixed base.
+    Ufr {
+        /// Solved continuous UFR and positive speed, in original curve-time units.
+        parameters: UfrParameters,
+        /// Complete measured work/rank/conditioning/original-unit residuals.
+        diagnostics: FitDiagnostics,
+    },
 }
 /// Complete accepted immutable fit.
 #[derive(Debug, Clone)]
@@ -406,8 +413,8 @@ pub struct CalibratedCashCurve {
     pub recipe: CashCurveRecipe,
     /// Full admitted curve with every original native repricing record.
     pub curve: BuiltCurve,
-    /// Solved grid zeros/basis in dated order. Empty for Parametric; exact mixed
-    /// loading/decay units remain in CashSolverDiagnostics::Parametric.
+    /// Solved grid zeros/basis in dated order. Empty for Parametric/Ufr; exact mixed
+    /// model units remain in the corresponding solver diagnostics.
     pub annualized_parameters: Vec<f64>,
     /// Original source-order actual helper valuations.
     pub repriced_helpers: Vec<CashHelperValuation>,

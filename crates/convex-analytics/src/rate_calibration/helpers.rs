@@ -323,6 +323,9 @@ where
         });
     }
     dependencies.remove(&recipe.curve.key);
+    if let CalibrationMode::Ufr(settings) = &recipe.curve.calibration {
+        dependencies.insert(settings.base.clone());
+    }
     if let Some(p) = &recipe.overnight_projection {
         dependencies.remove(&p.key);
         if !used_alias {
