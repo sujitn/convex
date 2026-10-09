@@ -203,3 +203,11 @@ No existing correctly owned route is removed. Actual government benchmark
 selection, market Street and stochastic OAS require their distinct full owners;
 this contextual time composition grants none of those certificates.
 See [ICMA quotations](ICMA-QUOTATIONS.md).
+
+Contextual ICMA actual-government-security spread and inverse now have the
+explicit `icma_government_spread` / `icma_government_price` shared operations.
+Supply every target/benchmark's own complete context, observed helper/source
+revisions and original quantity, plus an explicit common output policy and
+compounding. See [the full contract](ICMA-GOVERNMENT-SPREADS.md). The original
+context-free government operations and direct `icma_quotation` remain correctly
+owned; changing a context-free day-count tag cannot supply missing ICMA context.

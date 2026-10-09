@@ -544,3 +544,12 @@ comparison and original quote-risk replay are documented in
 [the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
 Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
+
+
+Source pins match exact physical bytes or the exact LF/CRLF representations
+under Git's explicitly declared text/eol=crlf checkout policy. The shared
+`tools/source_pins.py` verifier also protects original source-test pins recorded
+before their first checkout. It rejects mixed endings, undeclared/binary
+conversion and every content change. Original pin rows/hashes, raw numerical
+JSON, test-section bytes, licenses and solver defaults are preserved; this does
+not normalize financial inputs or weaken numerical tolerances.

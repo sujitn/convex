@@ -46,7 +46,7 @@ pub enum CashSecurityOperation {
         position: convex_analytics::quote_risk::RiskPosition,
     },
 }
-fn resources<'a>(
+pub(super) fn resources<'a>(
     terms: &'a convex_bonds::contracts::BondTerms,
     calendars: &BondCalendarPins,
     r: &'a ResolvedInputs<'_>,

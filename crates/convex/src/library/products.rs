@@ -484,6 +484,19 @@ pub(super) fn execute(
             reference_date,
             settings,
         } => super::cash::government(target, benchmarks, *reference_date, settings, r),
+        LibraryOperation::IcmaGovernmentSpread {
+            target,
+            benchmarks,
+            reference_date,
+            settings,
+        } => super::icma_government::spread(target, benchmarks, *reference_date, settings, r),
+        LibraryOperation::IcmaGovernmentPrice {
+            target,
+            benchmarks,
+            reference_date,
+            settings,
+            quote,
+        } => super::icma_government::price(target, benchmarks, *reference_date, settings, quote, r),
         LibraryOperation::GovernmentSpreadPrice {
             target,
             benchmarks,

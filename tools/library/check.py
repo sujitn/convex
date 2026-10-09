@@ -11,6 +11,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from source_pins import matches_source_pin
+
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "tools/library/library-inventory.json"
 SURFACES = {"rust", "shared_json", "c_abi", "java_advertised",
@@ -102,7 +105,7 @@ def validate(document, root=ROOT):
     contents = {}
     for path, expected in pins.items():
         data = file_path(root, path).read_bytes()
-        require(hashlib.sha256(data).hexdigest() == expected,
+        require(matches_source_pin(root, path, data, expected),
                 f"stale inspected source: {path}; review before refreshing evidence")
         contents[path] = data.decode("utf-8")
     observations = document["observations"]

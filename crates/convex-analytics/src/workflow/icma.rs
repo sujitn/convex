@@ -163,6 +163,11 @@ pub struct IcmaQuotation {
     pub reserved_reference_evaluations: u64,
 }
 impl PreparedIcmaQuotation {
+    /// Original checked one-time reference-entry preparation reservation.
+    /// Used by bounded multi-security quotation compositions before inverses.
+    pub fn reserved_reference_evaluations(&self) -> u64 {
+        self.reserved_reference_evaluations
+    }
     /// Build full original plain or conditional cash and admit every time/source.
     /// Missing, overlapping, conflicting or uncovered context never falls back.
     pub fn new(

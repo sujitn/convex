@@ -9,6 +9,9 @@ use convex_rates::ReferencePin;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+mod icma;
+pub use icma::*;
+
 /// Original conversion or inverse failure, without an accepted partial quote.
 #[derive(Debug, thiserror::Error)]
 pub enum CashQuotationError {
@@ -305,16 +308,29 @@ fn validate_government_securities(
     securities: &[GovernmentSecurityInputs<'_>],
     settings: &GovernmentSpreadSettings,
 ) -> CashQuotationResult<()> {
-    if !label(&settings.benchmark_id) {
+    validate_government_quotes(
+        target,
+        securities.iter().map(|s| s.quote),
+        &settings.benchmark_id,
+        settings.selection,
+    )
+}
+fn validate_government_quotes<'a>(
+    target: &GovernmentTargetState,
+    securities: impl ExactSizeIterator<Item = &'a GovernmentSecurityQuote>,
+    benchmark_id: &str,
+    selection: GovernmentSelection,
+) -> CashQuotationResult<()> {
+    if !label(benchmark_id) {
         return Err(invalid(
             "benchmark",
             "bounded exact benchmark identity required",
         ));
     }
-    if securities.is_empty() || securities.len() > 128 {
+    if securities.len() == 0 || securities.len() > 128 {
         return Err(invalid("benchmarks", "1..128 actual securities required"));
     }
-    if settings.selection == GovernmentSelection::ExactMaturity && securities.len() != 1 {
+    if selection == GovernmentSelection::ExactMaturity && securities.len() != 1 {
         return Err(invalid(
             "benchmarks",
             "exact selection requires one supplied security",
@@ -330,10 +346,9 @@ fn validate_government_securities(
     }
     let mut ids = std::collections::BTreeSet::new();
     let mut maturities = std::collections::BTreeSet::new();
-    for input in securities {
-        let quote = input.quote;
+    for quote in securities {
         if quote.security.id.as_str() != quote.helper.id
-            || quote.benchmark_id != settings.benchmark_id
+            || quote.benchmark_id != benchmark_id
             || quote.helper.credit_identity.is_some()
             || quote.helper.terms.currency != target.currency
             || quote.helper.settlement != target.settlement
@@ -374,9 +389,24 @@ fn select_government_security(
     benchmarks: &[GovernmentBenchmarkQuotation],
     selection: GovernmentSelection,
 ) -> CashQuotationResult<(GovernmentSelectionResult, f64)> {
-    let exact = benchmarks
+    let yields: Vec<_> = benchmarks
         .iter()
-        .position(|b| b.quotation.source.terms.schedule.end_date == target_maturity);
+        .map(|b| {
+            (
+                b.quotation.source.terms.schedule.end_date,
+                b.quotation.yield_inverse.decimal_parameter,
+            )
+        })
+        .collect();
+    select_government_yields(target_maturity, settlement, &yields, selection)
+}
+fn select_government_yields(
+    target_maturity: Date,
+    settlement: Date,
+    yields: &[(Date, f64)],
+    selection: GovernmentSelection,
+) -> CashQuotationResult<(GovernmentSelectionResult, f64)> {
+    let exact = yields.iter().position(|b| b.0 == target_maturity);
     let (lower, upper, upper_weight) = if let Some(index) = exact {
         (index, None, 0.0)
     } else if selection == GovernmentSelection::ExactMaturity {
@@ -385,32 +415,27 @@ fn select_government_security(
             "selected security must have the exact target maturity",
         ));
     } else {
-        let mut ordered: Vec<_> = (0..benchmarks.len()).collect();
-        ordered.sort_by_key(|i| benchmarks[*i].quotation.source.terms.schedule.end_date);
+        let mut ordered: Vec<_> = (0..yields.len()).collect();
+        ordered.sort_by_key(|i| yields[*i].0);
         let pair = ordered
             .windows(2)
-            .find(|p| {
-                benchmarks[p[0]].quotation.source.terms.schedule.end_date < target_maturity
-                    && target_maturity < benchmarks[p[1]].quotation.source.terms.schedule.end_date
-            })
+            .find(|p| yields[p[0]].0 < target_maturity && target_maturity < yields[p[1]].0)
             .ok_or_else(|| {
                 invalid(
                     "maturity",
                     "target outside the closed supplied benchmark interval",
                 )
             })?;
-        let low = benchmarks[pair[0]].quotation.source.terms.schedule.end_date;
-        let high = benchmarks[pair[1]].quotation.source.terms.schedule.end_date;
+        let low = yields[pair[0]].0;
+        let high = yields[pair[1]].0;
         (
             pair[0],
             Some(pair[1]),
             low.days_between(&target_maturity) as f64 / low.days_between(&high) as f64,
         )
     };
-    let low_yield = benchmarks[lower].quotation.yield_inverse.decimal_parameter;
-    let high_yield = upper.map_or(low_yield, |i| {
-        benchmarks[i].quotation.yield_inverse.decimal_parameter
-    });
+    let low_yield = yields[lower].1;
+    let high_yield = upper.map_or(low_yield, |i| yields[i].1);
     let benchmark_decimal_yield = finite(
         low_yield + upper_weight * (high_yield - low_yield),
         "government yield",

@@ -1949,6 +1949,49 @@
         "tools/library/library-inventory.json": "4202ef5549031fc3ba5f3c16b7498cc2c191b980180e7873300d9357439841da",
         "tools/library/test_operations.py": "cc96b54096995cbc175e70ab79104333253b10f390a2d63a273e68e18892710b"
       }
+    },
+    {
+      "base_commit": "de1615f2cdef1605825b35f5e5fbdba19f0d480c",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "Complete contextual ICMA actual-government-security spread/inverse over original full observed cash conversion, checked PreparedIcmaQuotation and original exact/closed actual-contractual-maturity selection. Every target/benchmark independently retains original terms/quote/reference/context/calendar/policy/quantity, normal frequency, compounding, cash dates/accrued/principal and source order. Explicit common annual-decimal policy and compounding admit differing normal frequencies only under that policy. All source preparation precedes inverses; original price and separate decimal spread residuals, signed ORIGINAL dirty consideration and per-source plus total reference-entry bounds remain. No inferred periods, sampled government curve, unselected-source dropping, fallback, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Original cash/invoice/forward/reverse financial bodies are byte unchanged; existing government admission and actual-maturity selection are factored without changing checks/interpolation. Original ICMA body changes only by a work-reservation accessor. Full old financial/numeric/scope/dependency/history conservation enforced. Every failure and separately declared boundary/qualification control remains. Source-impact engineering review only, no independent human financial approval; accepted through062 unchanged, CVX-063 partial/unaccepted/uncertified.",
+      "tests": [
+        "Predeclared independent full-source Decimal60 cash/time/price/yield/spread/invoice controls and explicit typed errors",
+        "Actual native/shared/C/MCP/native-WASM plus schema/default/minimal and original financial/regression checks",
+        "Strict lint/docs/format/workspace and exact public/private source/scope/history/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "26bd23a9764ad310a7c23b2d507469be947e491c363259acaa1a59ebff3d8b7e",
+        ".github/workflows/java.yml": "8932ee374e322638a545e56c5f5221dd050bfddd4573749a6f0155db4290a912",
+        "crates/convex-analytics/src/cash_quotation.rs": "095211942496910b93d07dd76c4f291854419282bbf3e29aaa1a0175cceeae5f",
+        "crates/convex-analytics/src/cash_quotation/icma.rs": "a622995582a9e8ab9442621aa172bfb93a5d13b52788b52c9f18df3533986feb",
+        "crates/convex-analytics/src/workflow/icma.rs": "58f4b6506ec6d9137f1525a2d7898678e8bf78a3196f80ab57520af9ffdc0e4e",
+        "crates/convex-ffi/tests/icma_government.rs": "3241e9782da12909ba2b8eaf554359692a06b8e6e7b65da25bf861b9e98bdd6c",
+        "crates/convex/examples/icma_government.rs": "98474f2420c9f3a415bfe87c86521d6be79de56744aba775a0282e9b5cccdb0c",
+        "crates/convex/src/library/cash.rs": "dd122029a91cfd21d5a7624a9797aaf819f0230a3dfd9cd865deb3cdc30ee1bd",
+        "crates/convex/src/library/icma_government.rs": "9c065dbc6276ab10a0289b739c9aeeb65b501fdfceefc22a75ada4581f02f129",
+        "crates/convex/src/library/mod.rs": "0bb8b1ed20c59c335dd2ccb5b68603bd940a5dd5503f54b39bc2c98cb90e2848",
+        "crates/convex/src/library/products.rs": "0c82305f17d26acbf10d46eb770e0145cb6732778a42530e56ecc43bd6b2ea3f",
+        "crates/convex/src/library/requests.rs": "907e176cac1387045fa61b37428052561aaa2ee33bc6b5bc038e5e475a7f9f63",
+        "crates/convex/tests/icma_government.rs": "e4a1472203b32063bf1bf9bbdd9a76d6bdcd0d53b43dbf357bd2ba835a2edd4d",
+        "docs/ASSURANCE.md": "9c0fac9a8ba829e89cc6501f9083cf1e25e942cbb80d070164addeb63be3b6b6",
+        "tests/fixtures/library/icma-government-additional-reference.json": "cc9996ad5b96dc700fda8367bae78ffab2a487a9a80c434effd8c39bf91298a5",
+        "tests/fixtures/library/icma-government-api-cases.json": "61205768035615d26cc803b1497f5ed5965710681892edce1220e92ec6cdaed2",
+        "tests/fixtures/library/icma-government-entitlement-reference.json": "40b6e2d75292415ed2d83fa4b125eb1cbec226bebcd3051d4d2dbc3cae966400",
+        "tests/fixtures/library/icma-government-qualified.json": "63ad901229893f53fe8ad09b93c7079dfe9930e5dc78038bf64e370f1c545e48",
+        "tests/fixtures/library/icma-government-reference.json": "f4eb660a2a1b336b5aad21b7293b1a4b3c7bc956d19f2bbddb2e5ab10071a10a",
+        "tests/fixtures/library/icma-government.json": "3fa48faff6cf37536c56587c1756829ee5b2ee64605da0f51b8d207eb4e0a60c",
+        "tests/fixtures/library/icma_government_contract.rs": "73437129f36aef59d5b645570191cc65a92a40fc10dda4aa723e5b8958ce5821",
+        "tools/assurance/check.py": "46cdeaa8110e488d296cd690c2688a0ff9847fccd871feb45013200bc10f2142",
+        "tools/assurance/inventory.json": "d8d130e6885ac16c3dfab563938f7086f4bd0f063d2004a54993df7654f35bd9",
+        "tools/assurance/numeric-evidence.json": "311d0f43aa5be29ff7286a4fc49ced441e1061b62e0a23a332cf234f73045e56",
+        "tools/assurance/test_policy.py": "5c4ec11301dd61632c2491e59544fef322c730ef156811d288461141e53467c2",
+        "tools/library/api-capabilities.json": "38dc12f87eb01e8c5eed64de28105131707b78c1a74c6d4b512bac7a2f6477ef",
+        "tools/library/check.py": "f86b67948e1cfd40fe12887b83ea16173a297bfcef0d418bc237824e7b8977e2",
+        "tools/library/library-inventory.json": "1c1010093064dc40003f79206d99370ca683cebef94d6bf7f665fe09299fbb39",
+        "tools/library/test_operations.py": "edc491d52cfa48cae92189cc1db240df0c934c8a9a58ece545859dbf436a2c01",
+        "tools/source_pins.py": "540fc4e81e98dba9eb206f7bad94fab7539228bb32ca0a2151d9dfe0f209e572"
+      }
     }
   ]
 }

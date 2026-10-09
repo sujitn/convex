@@ -11,6 +11,9 @@ import subprocess
 import sys
 import tomllib
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from source_pins import matches_source_pin
+
 DOMAIN = ('convex', 'convex-core', 'convex-math', 'convex-curves', 'convex-bonds', 'convex-rates', 'convex-credit', 'convex-analytics', 'convex-portfolio')
 FORBIDDEN = {'tokio', 'async-std', 'smol', 'reqwest', 'hyper', 'axum', 'tonic', 'sqlx', 'redb', 'rusqlite', 'postgres', 'tokio-postgres', 'rdkafka', 'lapin', 'async-nats', 'blpapi', 'convex-engine', 'convex-server', 'convex-ports'}
 REQUIRED_RUNS = {
@@ -121,6 +124,16 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example government_inverse --no-default-features',
         'cargo run --locked -p convex --example government_inverse --features schemars',
         '/tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse',
+        'python3 tests/scripts/icma_government_reference.py',
+        'python3 tests/scripts/icma_government_qualification.py',
+        'python3 tests/scripts/icma_government_entitlement_reference.py',
+        'python3 tests/scripts/icma_government_api_corpus.py',
+        'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_government -- --test-threads=1',
+        'cargo run --locked -p convex --example icma_government',
+        'cargo run --locked -p convex --example icma_government --no-default-features',
+        'cargo run --locked -p convex --example icma_government --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/icma_government_schema.py --binary target/debug/examples/icma_government',
+        'python3 tests/scripts/icma_government_parity.py --binary target/debug/examples/icma_government --library target/debug/libconvex_ffi.so',
         'python3 tests/scripts/icma_reference.py',
         'python3 tests/scripts/icma_qualification.py',
         'python3 tests/scripts/icma_cash_components.py',
@@ -447,6 +460,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/credit_calibration').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_calibration').glob('*.rs'))
     paths.add('crates/convex-analytics/src/cash_quotation.rs')
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_quotation').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
@@ -495,7 +509,7 @@ def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None
     require(len(rows) == len({r['path'] for r in rows}), 'duplicate inventory path')
     require({r['path'] for r in rows} == inventory_paths(root), 'missing or unexpected critical inventory source')
     for row in rows:
-        require(row['sha256'] == digest((root / row['path']).read_bytes()), f'critical source changed without inventory review: {row["path"]}')
+        require(matches_source_pin(root, row['path'], (root / row['path']).read_bytes(), row['sha256']), f'critical source changed without inventory review: {row["path"]}')
         require(row['invariants'] and row['bounds'] and row['failure_contract'], f'incomplete inventory: {row["path"]}')
         require(set(row['exceptions']) <= exception_ids, f'unregistered exception: {row["path"]}')
         for path in row['tests']:
@@ -521,7 +535,7 @@ def check_numeric(root: Path, document: dict) -> None:
     require(required <= {r['path'] for r in rows}, 'required comparator/tolerance artifact removed')
     for row in rows:
         content = numeric_content((root / row['path']).read_bytes(), row['mode'])
-        require(digest(content) == row['sha256'], f'quantitative evidence changed without version/review: {row["path"]}')
+        require((matches_source_pin(root, row['path'], content, row['sha256']) if row['mode'] == 'file' else digest(content) == row['sha256']), f'quantitative evidence changed without version/review: {row["path"]}')
     source = (root / 'crates/convex-math/src/solvers/mod.rs').read_text()
     for name, value in document['solver_defaults'].items():
         require(re.search(rf'pub const {re.escape(name)}:\s*\w+\s*=\s*{re.escape(value)}\s*;', source) is not None, f'reviewed solver default changed: {name}')
@@ -529,7 +543,7 @@ def check_numeric(root: Path, document: dict) -> None:
 
 
 def protected(path: str) -> bool:
-    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi', 'convex-ports', 'convex-ext-file', 'convex-ext-redb')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
+    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes', 'tools/source_pins.py'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi', 'convex-ports', 'convex-ext-file', 'convex-ext-redb')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
 
 def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt.date) -> int:
     # Include untracked candidate files: local validation cannot miss new modules.
@@ -548,7 +562,7 @@ def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt
             if path in changed:
                 require(path not in covered, f'duplicate change review: {path}')
                 candidate = (root / path).read_bytes() if (root / path).is_file() else b''
-                require(digest(candidate) == sha256, f'candidate changed after impact review: {path}')
+                require(matches_source_pin(root, path, candidate, sha256), f'candidate changed after impact review: {path}')
                 covered.add(path)
     require(changed == covered, f'unreviewed assurance/numerical changes against {base}: {sorted(changed-covered)}')
     # Refreshing a hash cannot quietly widen or delete old quantitative fixtures.

@@ -15,6 +15,22 @@ ROOT = Path(__file__).resolve().parents[2]
 TODAY = dt.date(2026, 10, 5)
 
 class AssuranceMutations(unittest.TestCase):
+    def test_source_pins_admit_only_exact_declared_checkout_line_endings(self):
+        self.assertTrue(check.protected('tools/source_pins.py'))
+        import hashlib
+        from source_pins import matches_source_pin
+        text=b'first\nsecond\n'; crlf=text.replace(b'\n',b'\r\n')
+        digest=lambda value: hashlib.sha256(value).hexdigest()
+        attributes=b'control.cs\0text\0set\0control.cs\0eol\0crlf\0'
+        with patch('source_pins.subprocess.run',return_value=subprocess.CompletedProcess([],0,attributes,b'')):
+            self.assertTrue(matches_source_pin(ROOT,'control.cs',crlf,digest(text)))
+            self.assertTrue(matches_source_pin(ROOT,'control.cs',text,digest(crlf)))
+            for data in [b'first\nchanged\n',b'first\nsecond\r\n',b'first\rsecond\n',text+b' ']:
+                self.assertFalse(matches_source_pin(ROOT,'control.cs',data,digest(crlf)))
+        attributes=b'control.json\0text\0set\0control.json\0eol\0lf\0'
+        with patch('source_pins.subprocess.run',return_value=subprocess.CompletedProcess([],0,attributes,b'')):
+            self.assertFalse(matches_source_pin(ROOT,'control.json',crlf,digest(text)))
+
     def rejects(self, function, *args):
         with self.assertRaises(check.Failure):
             function(*args)
@@ -93,12 +109,12 @@ class AssuranceMutations(unittest.TestCase):
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c
                     or 'government_inverse' in c or 'constrained_hedge' in c or 'floating_workout' in c or 'icma' in c
                     or c == 'cargo build --locked -p convex-ffi --lib']
-        self.assertEqual(len(commands), 80)
+        self.assertEqual(len(commands), 90)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 18)
+        self.assertEqual(len(modules), 19)
         self.assertIn('crates/convex/src/library/workout.rs', modules)
         self.assertIn('crates/convex/src/library/floating_workout.rs', modules)
         self.assertTrue(modules <= check.inventory_paths(ROOT))

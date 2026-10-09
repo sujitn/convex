@@ -212,6 +212,30 @@ pub enum LibraryOperation {
         /// Common quotation, original inverse and explicit selection policy.
         settings: convex_analytics::cash_quotation::GovernmentSpreadSettings,
     },
+    /// Full independently contextual ICMA actual-government-security G-spread.
+    IcmaGovernmentSpread {
+        /// Complete observed target terms, quote and independent context/pins.
+        target: Box<convex_analytics::cash_quotation::IcmaCashSecurityQuote>,
+        /// Every actual benchmark with independently supplied nominal mesh.
+        benchmarks: Vec<convex_analytics::cash_quotation::IcmaGovernmentSecurityQuote>,
+        /// Actual supplied information origin.
+        reference_date: Date,
+        /// Common output representation, selection and original bounded inverses.
+        settings: convex_analytics::cash_quotation::IcmaGovernmentSpreadSettings,
+    },
+    /// Full contextual ICMA G-spread-to-price with price/spread postconditions.
+    IcmaGovernmentPrice {
+        /// Full actual target without a fabricated observed price or yield.
+        target: Box<convex_analytics::cash_quotation::IcmaGovernmentSpreadTarget>,
+        /// Every actual original government security/context/source revision.
+        benchmarks: Vec<convex_analytics::cash_quotation::IcmaGovernmentSecurityQuote>,
+        /// Actual supplied information origin.
+        reference_date: Date,
+        /// Complete common convention, inverse and separate spread residual bound.
+        settings: convex_analytics::cash_quotation::IcmaGovernmentSpreadPriceSettings,
+        /// Actual independent spread quote/revision and DecimalRate/BasisPoints unit.
+        quote: convex_analytics::cash_quotation::GovernmentSpreadQuote,
+    },
     /// Complete dated-cash price/invoice from an actual-security G-spread quote.
     GovernmentSpreadPrice {
         /// Actual target reference/terms/settlement and independent calendars.

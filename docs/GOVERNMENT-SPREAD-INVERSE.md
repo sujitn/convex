@@ -90,3 +90,7 @@ preserved. Fresh native/client results establish transport agreement only.
 Actual Windows/.NET/Excel/Java/JNI/wasm32/browser qualification and independent
 market/model/library/production/latency certificates remain open. CVX-063 remains
 partial, unaccepted and uncertified; mandatory library records remain Planned.
+
+The explicit contextual ACT/ACT ICMA composition is separately available as
+`icma_government_spread` / `icma_government_price`; see
+[its full source and common-policy contract](ICMA-GOVERNMENT-SPREADS.md).

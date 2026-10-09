@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 59)
-        self.assertEqual(result['engineering_examples'], 3576)
+        self.assertEqual(result['exact_operation_routes'], 61)
+        self.assertEqual(result['engineering_examples'], 3667)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -78,6 +78,14 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['icma.'+name].update(certified=True))
         self.rejects(lambda m: m['operation_routes']['icma.price'].update(
             selectors={'operation.kind': 'workout', 'operation.action.kind': 'price'}))
+
+    def test_contextual_government_routes_preserve_full_sources_and_actions(self):
+        for name, other in [('spread', 'icma_gov.regular.ExactMaturity.price'),
+                            ('price', 'icma_gov.regular.ExactMaturity.spread')]:
+            self.rejects(lambda m: m['operation_routes']['icma_government.'+name].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes']['icma_government.'+name].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['icma_government.price'].update(
+            negative_examples=['icma_gov.regular.LinearMaturity.price']))
 
     def test_floating_workout_actions_preserve_original_paths_and_failures(self):
         for name, other in [('price', 'floating.term.dm'),

@@ -101,6 +101,7 @@ envelope; those boundary failures can precede request decoding.
 | `cds`, `credit_risk` | Original full single-name pricing/conversion, calibrated scenarios, signed quote/recovery risk and pending or supplied JTD |
 | `helper`, `repo_forward` | Native helper descriptions/build where admitted, complete rate/CDS/cash helper repricing against supplied curves, original cash quote conversions/basis-bond model and all dated repo cash horizons |
 | `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
+| `icma_government_spread`, `icma_government_price` | Independently contextual ICMA actual-security spread and inverse; common policy/compounding, every benchmark, price/spread residuals and original signed consideration; see [contract](ICMA-GOVERNMENT-SPREADS.md) |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
 | `workout`, `floating_workout` | Complete original conditional fixed cash/yield and floating projected cash/DM, full legal paths and purchase state; floating paths retain all puts without a worst-DM selection |

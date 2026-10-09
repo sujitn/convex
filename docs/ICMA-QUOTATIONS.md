@@ -101,7 +101,7 @@ Separate predeclared plain, component and entitlement controls admit147requests:
 yield/invoice answers and every numerical bound remain; six explicit accrued/
 clean boundary answers account for the original unpaid receivable. Fresh native envelopes validate transport only. CVX-063 stays
 partial, unaccepted and uncertified; remaining Street/model/market, benchmark
-context integration, full operation matrix and host/release certificates remain
+context helper/risk integration, full operation matrix and host/release certificates remain
 open. This pure composition adds no package, service, provider, storage, MQ,
 clock, runtime state or executable authority.
 
@@ -114,3 +114,6 @@ also splits across its supplied nominal dates and checks coverage. This review
 supports the time kernel, not an independently executed market-price comparator
 or a blanket Street certificate. Original market-specific yield treatment and
 rounding retain their separate qualification requirements.
+
+Actual-government-security contextual spread and inverse composition uses this
+same checked owner; see [the complete contract](ICMA-GOVERNMENT-SPREADS.md).

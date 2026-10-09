@@ -30031,7 +30031,8 @@
     "tests/fixtures/library/government-inverse-protocol.json",
     "tests/fixtures/library/constrained-hedge-protocol.json",
     "tests/fixtures/library/floating-workout-qualified.json",
-    "tests/fixtures/library/icma-api-cases.json"
+    "tests/fixtures/library/icma-api-cases.json",
+    "tests/fixtures/library/icma-government-api-cases.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -32741,6 +32742,98 @@
       ],
       "certified": false,
       "qualification": "Full original contextual ACT/ACT ICMA fixed/stub/stepped/amortizing and legal conditional workout cash price/yield/invoice. Explicit exact original nominal reference mesh, complete coupon/payment coverage, independent frequency/compounding/accrual, exact security/context/policy/calendar/quote pins and signed original-face quantity survive. Core original Decimal coupon fraction, native cash/kernel/closed solver/invoice and legal workout owners are reused. Prepared private state validates all times once under original bounded reference-entry reservation; no inferred context or extrapolation. Original optional/floating guards remain. No Street/market/model certificate, provider/storage/MQ/runtime/clock or live authority. Supplied USD engineering subset only; full market Street/optional model/general operation and actual host certificates remain open. Original mandatory records stay Planned."
+    },
+    "icma_government.spread": {
+      "required_record_ids": [
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/rust",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/shared_json",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/c_abi",
+        "LC-003/fixed_bullet/USD/deterministic/price_yield_and_supported_spread_inverse/rust",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/rust",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/shared_json",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_government_spread"
+      },
+      "positive_examples": [
+        "icma_gov.regular.ExactMaturity.spread",
+        "icma_gov.long_front.LinearMaturity.spread",
+        "icma_gov.stepped.LinearMaturity.spread"
+      ],
+      "boundary_examples": [
+        "icma_gov.payment_include.LinearMaturity.spread",
+        "icma_gov.ex_coupon.ExactMaturity.spread",
+        "icma_gov.monthly.LinearMaturity.spread"
+      ],
+      "negative_examples": [
+        "icma_gov.invalid.unselected_context.spread",
+        "icma_gov.invalid.unselected_calendar.spread",
+        "icma_gov.invalid.inverse_work.spread"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/cash_quotation/icma.rs",
+          "text": "pub fn icma_government_spread("
+        },
+        {
+          "path": "crates/convex/src/library/icma_government.rs",
+          "text": "pub(super) fn spread("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete contextual ICMA actual-government-security spread/inverse over original full observed cash conversion, checked PreparedIcmaQuotation and original exact/closed actual-contractual-maturity selection. Every target/benchmark independently retains original terms/quote/reference/context/calendar/policy/quantity, normal frequency, compounding, cash dates/accrued/principal and source order. Explicit common annual-decimal policy and compounding admit differing normal frequencies only under that policy. All source preparation precedes inverses; original price and separate decimal spread residuals, signed ORIGINAL dirty consideration and per-source plus total reference-entry bounds remain. No inferred periods, sampled government curve, unselected-source dropping, fallback, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; full actual-host/market/Street/model/library/production/latency certificates remain open. Mandatory records remain Planned."
+    },
+    "icma_government.price": {
+      "required_record_ids": [
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/rust",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/shared_json",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/c_abi",
+        "LC-003/fixed_bullet/USD/deterministic/price_yield_and_supported_spread_inverse/rust",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/rust",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/shared_json",
+        "LC-025/cross_product_valuation_inverse/SUPPLIED/workflow/price_and_solve_applicable_inverses/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_government_price"
+      },
+      "positive_examples": [
+        "icma_gov.regular.ExactMaturity.price",
+        "icma_gov.long_front.LinearMaturity.price",
+        "icma_gov.stepped.LinearMaturity.price"
+      ],
+      "boundary_examples": [
+        "icma_gov.payment_include.LinearMaturity.price",
+        "icma_gov.ex_coupon.ExactMaturity.price",
+        "icma_gov.monthly.LinearMaturity.price"
+      ],
+      "negative_examples": [
+        "icma_gov.invalid.unselected_context.price",
+        "icma_gov.invalid.unselected_calendar.price",
+        "icma_gov.invalid.inverse_work.price"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/cash_quotation/icma.rs",
+          "text": "pub fn price_icma_government_spread("
+        },
+        {
+          "path": "crates/convex/src/library/icma_government.rs",
+          "text": "pub(super) fn price("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete contextual ICMA actual-government-security spread/inverse over original full observed cash conversion, checked PreparedIcmaQuotation and original exact/closed actual-contractual-maturity selection. Every target/benchmark independently retains original terms/quote/reference/context/calendar/policy/quantity, normal frequency, compounding, cash dates/accrued/principal and source order. Explicit common annual-decimal policy and compounding admit differing normal frequencies only under that policy. All source preparation precedes inverses; original price and separate decimal spread residuals, signed ORIGINAL dirty consideration and per-source plus total reference-entry bounds remain. No inferred periods, sampled government curve, unselected-source dropping, fallback, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; full actual-host/market/Street/model/library/production/latency certificates remain open. Mandatory records remain Planned."
     }
   }
 }

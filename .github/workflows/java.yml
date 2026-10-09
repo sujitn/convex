@@ -25,6 +25,7 @@ on:
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/floating_workout_parity.py'
       - 'tests/scripts/icma_parity.py'
+      - 'tests/scripts/icma_government_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -56,6 +57,7 @@ on:
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/floating_workout_parity.py'
       - 'tests/scripts/icma_parity.py'
+      - 'tests/scripts/icma_government_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -113,6 +115,9 @@ jobs:
       - name: Build contextual ICMA host consumer
         run: cargo build --locked --profile excel -p convex --example icma_quotation --features schemars
 
+      - name: Build contextual government native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_government --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -161,6 +166,9 @@ jobs:
 
       - name: Prepare fresh contextual ICMA host transport expectations
         run: python3 tests/scripts/icma_parity.py --binary target/excel/examples/icma_quotation --output bindings/java/target/icma-parity.json
+
+      - name: Generate contextual government Java expectations
+        run: python3 tests/scripts/icma_government_parity.py --binary target/excel/examples/icma_government --output bindings/java/target/icma-government-parity.json
 
       - name: Generate fresh native full workout adapter expectations
         run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json
