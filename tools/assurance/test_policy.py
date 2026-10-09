@@ -89,8 +89,9 @@ class AssuranceMutations(unittest.TestCase):
         commands = [c for c in check.REQUIRED_RUNS['assurance']
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
-                    or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c]
-        self.assertEqual(len(commands), 42)
+                    or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c
+                    or 'government_inverse' in c]
+        self.assertEqual(len(commands), 50)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))

@@ -26,6 +26,19 @@ impl From<convex_analytics::cash_quotation::CashQuotationError> for LibraryError
         match e {
             E::Cash(e) => e.into(),
             E::Workflow(e) => e.into(),
+            E::SpreadResidual {
+                decimal_residual,
+                decimal_tolerance,
+                iterations,
+                price_evaluations,
+            } => Self {
+                code: Code::NoConvergence,
+                message: format!(
+                    "G-spread roundtrip residual {decimal_residual} exceeds {decimal_tolerance}"
+                ),
+                details: json!({"decimal_residual":decimal_residual,"decimal_tolerance":decimal_tolerance,
+                    "residual_unit":"annual_decimal_rate","iterations":iterations,"price_evaluations":price_evaluations}),
+            },
         }
     }
 }

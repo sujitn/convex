@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 50)
-        self.assertEqual(result['engineering_examples'], 3197)
+        self.assertEqual(result['exact_operation_routes'], 52)
+        self.assertEqual(result['engineering_examples'], 3268)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -55,6 +55,15 @@ class OperationRoutes(unittest.TestCase):
         for identity, other in (('government_spread.linear', 'government.exact'),
                                 ('government_spread.exact', 'government.linear')):
             self.rejects(lambda m: m['operation_routes'][identity].update(positive_examples=[other]))
+
+    def test_government_inverse_preserves_selection_operation_and_failure_scope(self):
+        for identity, other in [('government_spread_price.exact','gov_inverse.linear.SemiAnnual'),
+                                ('government_spread_price.linear','gov_inverse.exact')]:
+            self.rejects(lambda m: m['operation_routes'][identity].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
+            self.rejects(lambda m: m['operation_routes'][identity].update(selectors={'operation.kind':'government_spread'}))
+        self.rejects(lambda m: m['operation_routes']['government_spread_price.linear'].update(
+            negative_examples=['gov_inverse.linear.SemiAnnual']))
 
     def test_cash_oracle_is_not_a_supplied_request_or_certificate(self):
         self.rejects(lambda m: m.update(supplemental_corpora=['tests/fixtures/library/cash-reference.json']))

@@ -1781,6 +1781,44 @@
         "tools/assurance/test_policy.py": "33395c6053904c8fa4f51e5636aa2b3486c6fc27f5b00363f2bc5c069da056f8",
         "tools/library/library-inventory.json": "300cdfdfd0fe8cf089e21b6de3b317901e03a99fbf808305ff150ef481d18924"
       }
+    },
+    {
+      "base_commit": "266123c82f1ea73e7c9089e47288b9455e3efaf1",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "CVX-063 complete actual-security G-spread-to-price over full fixed dated target cash. Original cash admission, independent calendars, coupon/notional/principal allocations, settlement/entitlement/accrual, benchmark price inverses and exact/closed actual-maturity selection are reused. Target reference and original spread quote revisions are distinct; no fabricated observed target price. DecimalRate/BasisPoints, full source-order diagnostics, original computed signed consideration and separate native price/decimal-spread postconditions remain explicit and fail closed. 71 supplied requests (30 successes/41 typed failures), 30 admitted independent Decimal60 controls and actual native/shared/C/MCP/native-compiled WASM, schemas and feature consumers. The original27 raw independent controls precede first execution; three original expired benchmark inputs remain rejection controls. Separate future-benchmark/boundary controls are declared before their comparison; all24 preceding admissible answers and every accuracy bound stay unchanged. Original negative-clean input fails before inversion; separate valid-price no-root control. All392 original numerical rows/physical bytes/defaults,8616 historical evidence files, literal30areas/174combinations/2154Planned tables,50 old routes/3197 oldrequests and146pure normal packages remain. Fifteen additive numerical pins;52 current exact routes/3268 supplied engineering requests. Native financial formulas/solvers/defaults, dependency manifests/lock and26Cexports are unchanged. No provider/storage/MQ/clock/authority, legacy proxy or generic inversion framework. CVX-063 stays partial/unaccepted/uncertified; Street/floating/optional/market conventions, required methods/models/hedges and actual Windows/.NET/Excel/Java/JNI/wasm32/browser/independent certificates remain open. Engineering source-impact review only; no independent human quantitative approval.",
+      "tests": [
+        "Independent predeclared Decimal60 controls and preserved rejection/admission/protocol evidence",
+        "Actual native/shared/C/MCP/native-WASM/schema/feature/price-spread roundtrip controls",
+        "Original cash/workout/financial regressions, strict checks and exact history/numerical/mandatory/dependency/source conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "ac3ce7c52ffdfc9080c3aa4dbced4000e465b3e3e50cdfe91c27681f9d6a1602",
+        "crates/convex-analytics/src/cash_calibration/inputs.rs": "9e49d48a50b082d5f8332f0618eff21facb6b7e98c8d89bde22aec159a0f52b2",
+        "crates/convex-analytics/src/cash_calibration/mod.rs": "ae4f68bd204f7c2ec2fa9a0b919456fa9e65292420cf63ca26ddbcb64631681f",
+        "crates/convex-analytics/src/cash_calibration/pricing.rs": "4390ab5ac20d2052fcc1de49c2afe96ca634acdb946401cbfe9061a4b342542d",
+        "crates/convex-analytics/src/cash_quotation.rs": "9f5596260eafb4f7303ee1e9c1d2fcdd2b86ddb2c36b9ac333a414996377bcbf",
+        "crates/convex-ffi/tests/government_inverse.rs": "99fe9703ef2c587a95910e7a052077adbe52b70b61637bd5cb53fc93b1f4431e",
+        "crates/convex/examples/government_inverse.rs": "a5e8f0658255919bb25497e6359203a8a84dfedb9486dcc0892d2ddd1a5fee6e",
+        "crates/convex/src/library/cash.rs": "82b9c6f3a6359241891b0a6c97db4cd8e03d6612d26f01f4d6d398f519d758a2",
+        "crates/convex/src/library/errors.rs": "767a3821f7ba3e0960d821494e6e2cda1eba5f5ca7a4c9481571238540b11b56",
+        "crates/convex/src/library/products.rs": "88dce6d9a3acd410b00155403be99fb8d7d4dc93910c46ccc31154294b1e9063",
+        "crates/convex/src/library/requests.rs": "af49d200a8dd8c0402205b345b26be23d559e508d1e30be9f60313c7b048e11c",
+        "crates/convex/tests/government_inverse.rs": "7ad8733b38cff741d331b56909cbd1088de808b67de8f5dc83e869a163a5f17b",
+        "tests/fixtures/library/government-inverse-admitted-reference.json": "8c631cc3908d859d584d1fd32f7159371bb18337a1d9838f598bf393bfa96b0c",
+        "tests/fixtures/library/government-inverse-admitted.json": "fa4a19f43714005eba823fe5f87ff255ac2ffeb3864c536fe41271eefe9b56b0",
+        "tests/fixtures/library/government-inverse-protocol.json": "3ae6f4f96bc0a55c0b630da76eebb2653d62e23bd61453117df572593d3844a9",
+        "tests/fixtures/library/government-inverse-reference.json": "9e8ff1cb35935a272230f9d6c37806900e7bdca68406e4ead3580b779d08484d",
+        "tests/fixtures/library/government-inverse.json": "ce167e5619a4bc71e58bdf439a10e96b4ebd4937b03ad5acb651ee829f21c01c",
+        "tests/fixtures/library/government_inverse.rs": "3d8f60b19e0c00ef28aa8edfc40e8efd59d791b2310d3473499ee19ae78ee32d",
+        "tools/assurance/check.py": "3e7819d9ba727de058c0af599c3953143e6cacc9e03b78c2f622dc71324d5a51",
+        "tools/assurance/inventory.json": "494f2fe4bdeda7750e2605331ccb7882e5862b4836237761287236df26da63d0",
+        "tools/assurance/numeric-evidence.json": "b289fa85df235081327245210daa05b7cd2e38b5ff95c8100309d0bb613b6bd3",
+        "tools/assurance/test_policy.py": "43bf52025171a68fffe4a9720832d81303900064c7ccda56b14233242ae3ceb6",
+        "tools/library/api-capabilities.json": "655b77b0bb711b3f6ebb5dbc71a1de071e9b72fc41ae921045db60acf6d8596c",
+        "tools/library/library-inventory.json": "d103d6b40a4c7611689b2ae698b46e5462506f8ecd1e986680c75f1e5096ea23",
+        "tools/library/test_operations.py": "7dd8d6c50a3884b29bc1ba4b95c0d50152bcf543c23ff0328a3138b880960d6d"
+      }
     }
   ]
 }

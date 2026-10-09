@@ -88,7 +88,7 @@ pub struct CashBondHelper {
 // full cash helper preserves its supplied contractual Decimal fields as strings
 // instead of allowing an intermediate JSON Value to round away economic steps.
 // This adapter is private to the checked fixed-cash route; no host schema changes.
-fn serialize_cash_terms<S: serde::Serializer>(
+pub(crate) fn serialize_cash_terms<S: serde::Serializer>(
     terms: &BondTerms,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {

@@ -171,28 +171,23 @@ pub(super) fn term_bounds(t: &convex_bonds::contracts::BondTerms) -> CashCalibra
     }
     Ok(())
 }
-pub(super) fn prepare(
-    h: &CashBondHelper,
+pub(crate) fn prepare_cash_contract(
+    terms: &convex_bonds::contracts::BondTerms,
+    trade_date: Date,
+    settlement: Date,
     resources: &CashHelperResources<'_>,
     reference: Date,
-) -> CashCalibrationResult<PreparedBond> {
+) -> CashCalibrationResult<BondContract> {
     let CashHelperResources::Bond { ids, calendars } = resources else {
         return Err(invalid("resources", "actual full bond calendars required"));
     };
-    if *ids != &h.terms.calendars {
+    if *ids != &terms.calendars {
         return Err(invalid(
             "calendars",
             "exact supplied identities/versions differ",
         ));
     }
-    h.quote.validate()?;
-    if !label(&h.id)
-        || !(1..=9999).contains(&h.trade_date.year())
-        || h.trade_date > reference
-        || h.settlement < reference
-        || !h.tolerance.is_finite()
-        || h.tolerance <= 0.0
-        || h.tolerance > 1.0
+    if !(1..=9999).contains(&trade_date.year()) || trade_date > reference || settlement < reference
     {
         return Err(invalid(
             "cash helper",
@@ -200,23 +195,41 @@ pub(super) fn prepare(
         ));
     }
     let expected = convex_core::cashflows::settlement_date(
-        h.trade_date,
-        h.terms.settlement_lag,
-        h.terms.settlement_adjustment,
+        trade_date,
+        terms.settlement_lag,
+        terms.settlement_adjustment,
         calendars.payment,
     )?;
-    if expected != h.settlement {
+    if expected != settlement {
         return Err(invalid(
             "settlement",
             "does not match original trade/lag/calendar/adjustment",
         ));
     }
-    term_bounds(&h.terms)?;
-    let bond = h.terms.clone().build_with_calendars(calendars)?;
+    term_bounds(terms)?;
+    let bond = terms.clone().build_with_calendars(calendars)?;
     bond.require_plain_valuation()?;
     if !matches!(bond.terms().coupon, BondCoupon::Fixed) {
         return Err(invalid("cash coupon", "supplied fixed/stepped/zero coupon cash required; floating/optional helpers unsupported"));
     }
+    Ok(bond)
+}
+pub(super) fn prepare(
+    h: &CashBondHelper,
+    resources: &CashHelperResources<'_>,
+    reference: Date,
+) -> CashCalibrationResult<PreparedBond> {
+    let CashHelperResources::Bond { calendars, .. } = resources else {
+        return Err(invalid("resources", "actual full bond calendars required"));
+    };
+    h.quote.validate()?;
+    if !label(&h.id) || !h.tolerance.is_finite() || h.tolerance <= 0.0 || h.tolerance > 1.0 {
+        return Err(invalid(
+            "cash helper",
+            "bounded identity and positive original tolerance required",
+        ));
+    }
+    let bond = prepare_cash_contract(&h.terms, h.trade_date, h.settlement, resources, reference)?;
     let projection = bond.fixed_projection(h.settlement, h.on_payment)?;
     let flows = projection.cashflows()?;
     if flows.is_empty()

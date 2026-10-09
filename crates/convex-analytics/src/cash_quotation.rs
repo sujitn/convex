@@ -18,6 +18,18 @@ pub enum CashQuotationError {
     /// Original product, inverse, position or explicit selection failure.
     #[error(transparent)]
     Workflow(#[from] w::WorkflowError),
+    /// Reverse spread's separately declared decimal-rate postcondition failed.
+    #[error("G-spread roundtrip residual {decimal_residual} exceeds {decimal_tolerance}")]
+    SpreadResidual {
+        /// Actual solved spread minus requested spread, in annual decimals.
+        decimal_residual: f64,
+        /// Original caller-declared absolute annual-decimal bound.
+        decimal_tolerance: f64,
+        /// Actual target inverse iterations, without an automatic retry.
+        iterations: u32,
+        /// Actual complete target cash valuations.
+        price_evaluations: usize,
+    },
 }
 /// Pure quotation without lookup, posting or execution authority.
 pub type CashQuotationResult<T> = Result<T, CashQuotationError>;
@@ -107,37 +119,46 @@ pub fn cash_security_invoice(
     settings: w::BondInverseSettings,
     position: &q::RiskPosition,
 ) -> CashQuotationResult<CashSecurityInvoice> {
-    if position.currency != helper.terms.currency
+    let scale = invoice_scale(&helper.terms, position)?;
+    let quotation = quote_cash_security(helper, resources, reference_date, convention, settings)?;
+    let consideration =
+        invoice_consideration(&helper.terms, quotation.conversion.dirty_per100, scale)?;
+    Ok(CashSecurityInvoice {
+        quotation,
+        position: position.clone(),
+        consideration,
+    })
+}
+fn invoice_scale(
+    terms: &convex_bonds::contracts::BondTerms,
+    position: &q::RiskPosition,
+) -> CashQuotationResult<f64> {
+    if position.currency != terms.currency
         || position.quantity_unit != q::RiskQuantityUnit::Notional
-        || position.reference_quantity.decimal() != helper.terms.face_value
+        || position.reference_quantity.decimal() != terms.face_value
     {
         return Err(invalid(
             "position",
             "exact currency, Notional units and original face reference required",
         ));
     }
-    let scale = position.scale().map_err(w::WorkflowError::from)?;
-    let quotation = quote_cash_security(helper, resources, reference_date, convention, settings)?;
-    let face = helper
-        .terms
+    Ok(position.scale().map_err(w::WorkflowError::from)?)
+}
+fn invoice_consideration(
+    terms: &convex_bonds::contracts::BondTerms,
+    dirty_per100: f64,
+    scale: f64,
+) -> CashQuotationResult<ModelMoney> {
+    let face = terms
         .face_value
         .to_f64()
         .filter(|v| v.is_finite() && *v > 0.0)
         .ok_or_else(|| invalid("face", "finite positive original face required"))?;
-    let value = finite(
-        quotation.conversion.dirty_per100 * face / 100.0 * scale,
-        "consideration",
-    )?;
+    let value = finite(dirty_per100 * face / 100.0 * scale, "consideration")?;
     if scale != 0.0 && value == 0.0 {
         return Err(invalid("consideration", "nonzero position cash underflow"));
     }
-    let consideration =
-        q::risk_reference_pv(value, helper.terms.currency).map_err(w::WorkflowError::from)?;
-    Ok(CashSecurityInvoice {
-        quotation,
-        position: position.clone(),
-        consideration,
-    })
+    Ok(q::risk_reference_pv(value, terms.currency).map_err(w::WorkflowError::from)?)
 }
 
 /// Caller-resolved government reference classification and complete actual quote.
@@ -236,6 +257,54 @@ pub fn government_spread(
     reference_date: Date,
     settings: &GovernmentSpreadSettings,
 ) -> CashQuotationResult<GovernmentSpreadQuotation> {
+    let state = GovernmentTargetState {
+        currency: target.terms.currency,
+        settlement: target.settlement,
+        on_payment: target.on_payment,
+        maturity: target.terms.schedule.end_date,
+    };
+    validate_government_securities(&state, securities, settings)?;
+    let target = quote_cash_security(
+        target,
+        target_resources,
+        reference_date,
+        settings.convention,
+        settings.inverse,
+    )?;
+    let benchmarks = quote_government_securities(securities, reference_date, settings)?;
+    let (selected, benchmark_decimal_yield) = select_government_security(
+        state.maturity,
+        state.settlement,
+        &benchmarks,
+        settings.selection,
+    )?;
+    let decimal_spread = finite(
+        target.yield_inverse.decimal_parameter - benchmark_decimal_yield,
+        "G spread",
+    )?;
+    Ok(GovernmentSpreadQuotation {
+        reference_date,
+        settings: settings.clone(),
+        target,
+        benchmarks,
+        selected,
+        benchmark_decimal_yield,
+        decimal_spread,
+        basis_points: finite(decimal_spread * 10_000.0, "G spread bp")?,
+    })
+}
+
+struct GovernmentTargetState {
+    currency: convex_core::Currency,
+    settlement: Date,
+    on_payment: convex_core::cashflows::PaymentDateEntitlement,
+    maturity: Date,
+}
+fn validate_government_securities(
+    target: &GovernmentTargetState,
+    securities: &[GovernmentSecurityInputs<'_>],
+    settings: &GovernmentSpreadSettings,
+) -> CashQuotationResult<()> {
     if !label(&settings.benchmark_id) {
         return Err(invalid(
             "benchmark",
@@ -251,7 +320,7 @@ pub fn government_spread(
             "exact selection requires one supplied security",
         ));
     }
-    let target_maturity = target.terms.schedule.end_date;
+    let target_maturity = target.maturity;
     let days = target.settlement.days_between(&target_maturity);
     if days <= 0 {
         return Err(invalid(
@@ -266,7 +335,7 @@ pub fn government_spread(
         if quote.security.id.as_str() != quote.helper.id
             || quote.benchmark_id != settings.benchmark_id
             || quote.helper.credit_identity.is_some()
-            || quote.helper.terms.currency != target.terms.currency
+            || quote.helper.terms.currency != target.currency
             || quote.helper.settlement != target.settlement
             || quote.helper.on_payment != target.on_payment
             || quote.helper.terms.schedule.end_date <= target.settlement
@@ -276,14 +345,14 @@ pub fn government_spread(
             return Err(invalid("benchmarks", "unique original securities/maturities, benchmark, currency, settlement and entitlement required"));
         }
     }
-    let target = quote_cash_security(
-        target,
-        target_resources,
-        reference_date,
-        settings.convention,
-        settings.inverse,
-    )?;
-    let benchmarks = securities
+    Ok(())
+}
+fn quote_government_securities(
+    securities: &[GovernmentSecurityInputs<'_>],
+    reference_date: Date,
+    settings: &GovernmentSpreadSettings,
+) -> CashQuotationResult<Vec<GovernmentBenchmarkQuotation>> {
+    securities
         .iter()
         .map(|input| {
             Ok(GovernmentBenchmarkQuotation {
@@ -297,13 +366,20 @@ pub fn government_spread(
                 )?,
             })
         })
-        .collect::<CashQuotationResult<Vec<_>>>()?;
+        .collect::<CashQuotationResult<Vec<_>>>()
+}
+fn select_government_security(
+    target_maturity: Date,
+    settlement: Date,
+    benchmarks: &[GovernmentBenchmarkQuotation],
+    selection: GovernmentSelection,
+) -> CashQuotationResult<(GovernmentSelectionResult, f64)> {
     let exact = benchmarks
         .iter()
         .position(|b| b.quotation.source.terms.schedule.end_date == target_maturity);
     let (lower, upper, upper_weight) = if let Some(index) = exact {
         (index, None, 0.0)
-    } else if settings.selection == GovernmentSelection::ExactMaturity {
+    } else if selection == GovernmentSelection::ExactMaturity {
         return Err(invalid(
             "maturity",
             "selected security must have the exact target maturity",
@@ -339,25 +415,197 @@ pub fn government_spread(
         low_yield + upper_weight * (high_yield - low_yield),
         "government yield",
     )?;
-    let decimal_spread = finite(
-        target.yield_inverse.decimal_parameter - benchmark_decimal_yield,
-        "G spread",
-    )?;
-    Ok(GovernmentSpreadQuotation {
-        reference_date,
-        settings: settings.clone(),
-        target,
-        benchmarks,
-        selected: GovernmentSelectionResult {
+    Ok((
+        GovernmentSelectionResult {
             lower_index: lower,
             upper_index: upper,
             lower_weight: 1.0 - upper_weight,
             upper_weight,
             target_maturity,
-            target_remaining_days: days,
+            target_remaining_days: settlement.days_between(&target_maturity),
         },
         benchmark_decimal_yield,
+    ))
+}
+
+/// Complete target economics without an invented observed target price.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentSpreadTarget {
+    /// Actual target security identity and independent reference revision.
+    pub security: ReferencePin,
+    /// Full original fixed coupon/notional/principal/entitlement economics.
+    #[serde(serialize_with = "c::serialize_cash_terms")]
+    pub terms: convex_bonds::contracts::BondTerms,
+    /// Actual trade date for the unchanged settlement-rule admission.
+    pub trade_date: Date,
+    /// Actual quote settlement, checked against trade/lag/calendar/adjustment.
+    pub settlement: Date,
+    /// Explicit ownership of unpaid settlement-date cash.
+    pub on_payment: convex_core::cashflows::PaymentDateEntitlement,
+}
+/// Original spread observation, separate from security reference revisions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentSpreadQuote {
+    /// Actual immutable quote revision.
+    pub quote_version: convex_core::contracts::Version,
+    /// Fractional DecimalRate or BasisPoints; other native quote units fail.
+    pub spread: convex_curves::contracts::MarketQuote,
+}
+/// Common benchmark quotation plus an explicit reverse-spread postcondition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentSpreadPriceSettings {
+    /// Original unchanged convention, benchmark selection and inverse controls.
+    pub government: GovernmentSpreadSettings,
+    /// Absolute annual-decimal spread residual in (0,1e-6], distinct from
+    /// per100 price acceptance and parameter stopping precision.
+    pub decimal_spread_tolerance: f64,
+}
+/// Full same-pricer reverse quote, without posting or execution authority.
+#[derive(Debug, Clone, Serialize)]
+pub struct GovernmentSpreadPrice {
+    /// Exact supplied information origin.
+    pub reference_date: Date,
+    /// Complete original target economics and reference revision.
+    pub target: GovernmentSpreadTarget,
+    /// Separate original spread value, native unit and quote revision.
+    pub quote: GovernmentSpreadQuote,
+    /// Original quotation and numerical policy actually used.
+    pub settings: GovernmentSpreadPriceSettings,
+    /// Every original benchmark and full native inverse in source order.
+    pub benchmarks: Vec<GovernmentBenchmarkQuotation>,
+    /// Actual contractual-maturity selection and calendar-day weights.
+    pub selected: GovernmentSelectionResult,
+    /// Common annual-decimal actual-security benchmark yield.
+    pub benchmark_decimal_yield: f64,
+    /// Benchmark yield plus requested fractional spread.
+    pub target_decimal_yield: f64,
+    /// Original spread converted once to annual decimals.
+    pub decimal_spread: f64,
+    /// Original spread times10,000 without basis-point rounding.
+    pub basis_points: f64,
+    /// Original complete target price/accrued/cash at the requested spread.
+    pub valuation: w::BondValue,
+    /// Actual signed original-face position; zero is an explicit flat position.
+    pub position: q::RiskPosition,
+    /// Signed unrounded consideration from the ORIGINAL computed dirty price.
+    pub consideration: ModelMoney,
+    /// Same complete target cash, original closed domain and inverse diagnostics.
+    pub yield_inverse: w::BondInverse,
+    /// Solved target yield minus the same selected benchmark yield.
+    pub roundtrip_decimal_spread: f64,
+    /// Actual roundtrip spread minus the original requested decimal spread.
+    pub decimal_spread_residual: f64,
+}
+/// Price full fixed dated cash from actual-security G-spread. Every benchmark,
+/// including unselected quotes, must pass the original conversion/inverse.
+/// This composes dated-cash yields; no Street, zero-curve or option model is inferred.
+pub fn price_government_spread(
+    target: &GovernmentSpreadTarget,
+    target_resources: &c::CashHelperResources<'_>,
+    securities: &[GovernmentSecurityInputs<'_>],
+    reference_date: Date,
+    settings: &GovernmentSpreadPriceSettings,
+    quote: &GovernmentSpreadQuote,
+    position: &q::RiskPosition,
+) -> CashQuotationResult<GovernmentSpreadPrice> {
+    use convex_curves::contracts::QuoteUnit;
+    if !settings.decimal_spread_tolerance.is_finite()
+        || settings.decimal_spread_tolerance <= 0.0
+        || settings.decimal_spread_tolerance > 1e-6
+        || !matches!(
+            quote.spread.unit,
+            QuoteUnit::DecimalRate | QuoteUnit::BasisPoints
+        )
+    {
+        return Err(invalid("G-spread settings", "explicit decimal residual bound in (0,1e-6] and DecimalRate/BasisPoints quote required"));
+    }
+    let decimal_spread = quote
+        .spread
+        .decimal_rate()
+        .map_err(w::WorkflowError::from)?;
+    if decimal_spread.abs() > 1.0 {
+        return Err(invalid(
+            "G spread",
+            "fractional annual spread within +/-1 required",
+        ));
+    }
+    let scale = invoice_scale(&target.terms, position)?;
+    let state = GovernmentTargetState {
+        currency: target.terms.currency,
+        settlement: target.settlement,
+        on_payment: target.on_payment,
+        maturity: target.terms.schedule.end_date,
+    };
+    let common = &settings.government;
+    validate_government_securities(&state, securities, common)?;
+    let contract = c::prepare_cash_contract(
+        &target.terms,
+        target.trade_date,
+        target.settlement,
+        target_resources,
+        reference_date,
+    )?;
+    let cash = w::PreparedBondCash::fixed(&contract, target.settlement, target.on_payment)?;
+    let benchmarks = quote_government_securities(securities, reference_date, common)?;
+    let (selected, benchmark_decimal_yield) = select_government_security(
+        state.maturity,
+        state.settlement,
+        &benchmarks,
+        common.selection,
+    )?;
+    let target_decimal_yield = finite(benchmark_decimal_yield + decimal_spread, "target yield")?;
+    let valuation = cash.price_yield(target_decimal_yield, common.convention)?;
+    if valuation.dirty_per100 <= 0.0 || valuation.clean_per100 < 0.0 {
+        return Err(invalid(
+            "cash quote",
+            "positive dirty and nonnegative clean original price required",
+        ));
+    }
+    let yield_inverse = w::solve_bond_yield(
+        &cash,
+        common.convention,
+        w::BondPriceTarget::Dirty(valuation.dirty_per100),
+        common.inverse,
+    )?;
+    let roundtrip_decimal_spread = finite(
+        yield_inverse.decimal_parameter - benchmark_decimal_yield,
+        "roundtrip G spread",
+    )?;
+    let decimal_spread_residual = finite(
+        roundtrip_decimal_spread - decimal_spread,
+        "G spread residual",
+    )?;
+    if decimal_spread_residual.abs() > settings.decimal_spread_tolerance {
+        return Err(CashQuotationError::SpreadResidual {
+            decimal_residual: decimal_spread_residual,
+            decimal_tolerance: settings.decimal_spread_tolerance,
+            iterations: yield_inverse.iterations,
+            price_evaluations: yield_inverse.price_evaluations,
+        });
+    }
+    let consideration = invoice_consideration(&target.terms, valuation.dirty_per100, scale)?;
+    Ok(GovernmentSpreadPrice {
+        reference_date,
+        target: target.clone(),
+        quote: quote.clone(),
+        settings: settings.clone(),
+        benchmarks,
+        selected,
+        benchmark_decimal_yield,
+        target_decimal_yield,
         decimal_spread,
         basis_points: finite(decimal_spread * 10_000.0, "G spread bp")?,
+        valuation,
+        position: position.clone(),
+        consideration,
+        yield_inverse,
+        roundtrip_decimal_spread,
+        decimal_spread_residual,
     })
 }

@@ -185,6 +185,21 @@ pub enum LibraryOperation {
         /// Common quotation, original inverse and explicit selection policy.
         settings: convex_analytics::cash_quotation::GovernmentSpreadSettings,
     },
+    /// Complete dated-cash price/invoice from an actual-security G-spread quote.
+    GovernmentSpreadPrice {
+        /// Actual target reference/terms/settlement and independent calendars.
+        target: GovernmentSpreadTargetInput,
+        /// Every full actual benchmark quotation in its original source order.
+        benchmarks: Vec<GovernmentSecurityInput>,
+        /// Exact supplied information origin, separate from settlement.
+        reference_date: Date,
+        /// Common quotation/inverse policy and explicit decimal spread residual.
+        settings: convex_analytics::cash_quotation::GovernmentSpreadPriceSettings,
+        /// Original fractional spread observation and its separate quote revision.
+        quote: convex_analytics::cash_quotation::GovernmentSpreadQuote,
+        /// Exact signed original-face notional and currency, applied once.
+        position: convex_analytics::quote_risk::RiskPosition,
+    },
     /// Discover actual public routes and explicit native/client limitations.
     Capabilities {},
     /// Validate and echo complete supplied inputs after checked reconstruction.

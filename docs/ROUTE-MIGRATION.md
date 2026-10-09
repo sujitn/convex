@@ -12,7 +12,7 @@ alias or approximate fallback.
 | C/JSON `YasRequest.govt_curve` and YAS G-spread marks | Use a supported price/yield/Z/I mark for the convenience analysis and calculate government spreads separately with actual supplied securities. YAS cannot price a G-spread mark. |
 | YAS `g_spread_bps`, `benchmark_spread_bps`, `benchmark_tenor` | These fields are absent from `YasResponse` and its schema. Update parsers and displays. |
 | Excel `CX.YAS` / `CX.YAS.LIVE` government-curve argument | Signature is now `(bond, settle, mark, curve, [quoteFreq], [swapCurve])`. Remove the old fifth argument and shift following arguments left. The grid omits government/benchmark spreads. |
-| WASM `price_from_g_spread`, `price_from_benchmark_spread` | These exports are absent. Rebuild the WASM package and consuming application together. A complete government-spread price inverse is still pending; no replacement inverse is implied. |
+| WASM `price_from_g_spread`, `price_from_benchmark_spread` | These exports are absent. Rebuild the WASM package and consuming application together. Use generic `library` with the full supplied `government_spread_price` dated-cash operation; see [the inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Street/market conventions and actual wasm32/browser qualification remain open. |
 | WASM `AnalysisResult.g_spread`, `benchmark_spread`, `benchmark_tenor` | These result fields are absent. Use `library(request_json)` for actual-security government-spread calculation. |
 | Browser G-spread editor and synthetic benchmark-bond panel | Removed with their callbacks. The remaining spread panel displays actual Z/ASW/OAS results; unavailable OAS is not replaced by Z-spread. |
 | Browser mock analytics after engine-load failure | Removed. Failure to load the engine displays an error and does not mount the analytics application. |
@@ -21,7 +21,9 @@ The [full supplied-input API](LIBRARY-API.md) calculates government spreads from
 complete cash securities, actual quote/calendar/reference revisions, a common
 explicit dated-cash yield convention and exact or adjacent contractual maturity
 dates. It preserves fractional basis points. It does not assert Street/workout
-convention coverage or implement a government-spread price inverse.
+convention coverage. The separate full supplied dated-cash inverse is now
+available through generic `government_spread_price`; see
+[G-spread-to-price](GOVERNMENT-SPREAD-INVERSE.md).
 
 The C symbol set and pointer ownership contract are unchanged. JSON result
 shapes, Java source calls, WASM exports and Excel positional arguments above

@@ -23,6 +23,16 @@ pub struct GovernmentSecurityInput {
     /// Independently supplied exact calendars for this security.
     pub calendars: BondCalendarPins,
 }
+/// Full reverse-spread target and independently supplied calendar bindings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentSpreadTargetInput {
+    /// Complete actual target/reference state without an observed price proxy.
+    pub target: q::GovernmentSpreadTarget,
+    /// Independent exact original calendars.
+    pub calendars: BondCalendarPins,
+}
 /// Full quotation or signed original-price consideration, without posting.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -37,16 +47,16 @@ pub enum CashSecurityOperation {
     },
 }
 fn resources<'a>(
-    helper: &'a c::CashBondHelper,
+    terms: &'a convex_bonds::contracts::BondTerms,
     calendars: &BondCalendarPins,
     r: &'a ResolvedInputs<'_>,
 ) -> LibraryResult<c::CashHelperResources<'a>> {
     let bound = r.bond_calendars(&BondInput {
-        terms: helper.terms.clone(),
+        terms: terms.clone(),
         calendars: calendars.clone(),
     })?;
     Ok(c::CashHelperResources::Bond {
-        ids: &helper.terms.calendars,
+        ids: &terms.calendars,
         calendars: bound,
     })
 }
@@ -58,7 +68,7 @@ pub(super) fn security(
     action: &CashSecurityOperation,
     r: &ResolvedInputs<'_>,
 ) -> LibraryResult<Value> {
-    let resources = resources(&input.helper, &input.calendars, r)?;
+    let resources = resources(&input.helper.terms, &input.calendars, r)?;
     match action {
         CashSecurityOperation::Quote {} => value(q::quote_cash_security(
             &input.helper,
@@ -89,10 +99,10 @@ pub(super) fn government(
             "at most128 original government securities",
         ));
     }
-    let target_resources = resources(&target.helper, &target.calendars, r)?;
+    let target_resources = resources(&target.helper.terms, &target.calendars, r)?;
     let bound = securities
         .iter()
-        .map(|s| resources(&s.quote.helper, &s.calendars, r))
+        .map(|s| resources(&s.quote.helper.terms, &s.calendars, r))
         .collect::<LibraryResult<Vec<_>>>()?;
     let inputs: Vec<_> = securities
         .iter()
@@ -108,5 +118,42 @@ pub(super) fn government(
         &inputs,
         reference,
         settings,
+    )?)
+}
+pub(super) fn government_price(
+    target: &GovernmentSpreadTargetInput,
+    securities: &[GovernmentSecurityInput],
+    reference: Date,
+    settings: &q::GovernmentSpreadPriceSettings,
+    quote: &q::GovernmentSpreadQuote,
+    position: &convex_analytics::quote_risk::RiskPosition,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    if securities.len() > 128 {
+        return Err(LibraryError::limit(
+            "at most128 original government securities",
+        ));
+    }
+    let target_resources = resources(&target.target.terms, &target.calendars, r)?;
+    let bound = securities
+        .iter()
+        .map(|s| resources(&s.quote.helper.terms, &s.calendars, r))
+        .collect::<LibraryResult<Vec<_>>>()?;
+    let inputs: Vec<_> = securities
+        .iter()
+        .zip(&bound)
+        .map(|(s, resources)| q::GovernmentSecurityInputs {
+            quote: &s.quote,
+            resources,
+        })
+        .collect();
+    value(q::price_government_spread(
+        &target.target,
+        &target_resources,
+        &inputs,
+        reference,
+        settings,
+        quote,
+        position,
     )?)
 }

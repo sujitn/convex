@@ -213,3 +213,11 @@ Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
 Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+
+Full actual-security G-spread-to-price is available through the additive
+`government_spread_price` shared operation. It retains complete dated target
+cash, independent reference/spread-quote revisions, every actual benchmark
+inverse, signed consideration and separate price/spread roundtrip bounds.
+See [the full inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Original removed
+convenience proxies remain absent; market/Street and unavailable host
+qualification stay open. CVX-063 remains partial and uncertified.

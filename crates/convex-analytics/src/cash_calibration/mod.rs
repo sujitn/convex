@@ -12,7 +12,9 @@ mod repo;
 mod reprice;
 
 pub use build::build_cash_curve_set;
+pub(crate) use inputs::serialize_cash_terms;
 pub use inputs::*;
+pub(crate) use pricing::prepare_cash_contract;
 pub use pricing::{convert_cash_quote, price_basis_bond};
 pub use repo::*;
 pub use reprice::{reprice_cash_helpers, CashHelperRepricing};

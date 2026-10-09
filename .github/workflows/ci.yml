@@ -515,6 +515,30 @@ jobs:
       - name: Preserve original product calibration requests and independent deposit controls
         run: python3 tests/scripts/calibration_replay_inputs.py --check
 
+      - name: Check preserved raw independent government-spread controls
+        run: python3 tests/scripts/government_inverse_reference.py
+
+      - name: Check separately admitted government-spread boundary controls
+        run: python3 tests/scripts/government_inverse_admitted_reference.py
+
+      - name: Check original government quote error admission
+        run: python3 tests/scripts/government_inverse_protocol.py
+
+      - name: Check complete government inverse native JSON C MCP and WASM routes
+        run: cargo test --locked --all-features -p convex --test government_inverse -p convex-ffi --test government_inverse -p convex-mcp --test government_inverse -p convex-wasm --test government_inverse -- --test-threads=1
+
+      - name: Run complete government inverse consumer
+        run: cargo run --locked -p convex --example government_inverse
+
+      - name: Run complete government inverse consumer without default features
+        run: cargo run --locked -p convex --example government_inverse --no-default-features
+
+      - name: Run complete government inverse consumer with schema support
+        run: cargo run --locked -p convex --example government_inverse --features schemars
+
+      - name: Validate actual complete government inverse schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse
+
       - name: Validate original independent product UFR controls
         run: python3 tests/scripts/product_ufr_reference.py --check
 

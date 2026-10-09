@@ -215,3 +215,11 @@ Continue with CVX-055 for complete bond family contracts/dispatch. Independently
 reviewed product, market-pack and standalone certificates remain CVX-061..065;
 rates/CDS/futures, calibrated quote risk, live provider composition, measured
 latency and multi-host deployment retain their owning tasks in the inventory.
+
+Full actual-security G-spread-to-price is available through the additive
+`government_spread_price` shared operation. It retains complete dated target
+cash, independent reference/spread-quote revisions, every actual benchmark
+inverse, signed consideration and separate price/spread roundtrip bounds.
+See [the full inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Original removed
+convenience proxies remain absent; market/Street and unavailable host
+qualification stay open. CVX-063 remains partial and uncertified.
