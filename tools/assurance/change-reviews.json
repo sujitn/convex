@@ -1819,6 +1819,48 @@
         "tools/library/library-inventory.json": "d103d6b40a4c7611689b2ae698b46e5462506f8ecd1e986680c75f1e5096ea23",
         "tools/library/test_operations.py": "7dd8d6c50a3884b29bc1ba4b95c0d50152bcf543c23ff0328a3138b880960d6d"
       }
+    },
+    {
+      "base_commit": "311591c17d4400f55aa23572416754f50f72afa4",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "CVX-063 original LC-027 pure complete-factor current/pending aggregation and constrained cash/CDS/IRS/futures proposal mathematics. Original five-PV central/half risk, full key/settings/reference/native units, economics/calculation pins, legal credit scope, exact same-snapshot FX, signed quantities, supplied eligibility/costs, hard factor/holding/trade/liquidity/cost/lot policies and independent final bounds remain. Bounded identified scaled4candidate/16factor active-set search and full native-lot enumeration condition remaining continuous quantities; singular/conditioning/infeasible/discrete-infeasible/numerical/work outcomes never promote incumbents. Exact post-conversion constraints and original continuous versus discrete diagnostics retain rank/work/authority:proposal_only. Empty later axes preflight before huge outer enumeration. Original heuristic advisor stays indicative, with corrected MCP advertising and documented real owner/migration.72requests (31diagnostic successes/41typed failures),25 separately declared independent Decimal60 analytic/finite-lattice controls. Raw integer CurveKey-version spelling and failure preserved; separate correct original string admission changes no financial answer/bound. Original407numeric rows/physical bytes/defaults,8855prior history files, literal30areas/174combinations/2154Planned definitions,52oldroutes/3268requests,146pure normal packages, manifests/lock and26Cexports remain. No provider/storage/MQ/clock/order authority, new dependency or universal optimizer. Supplied matrices do not certify original product pricing or live limit/order state. CVX-025/031 server prerequisites, actual Windows/.NET/Excel/Java/JNI/wasm32/browser and independent certificates remain open. CVX-063 stays partial/unaccepted/uncertified; engineering source-impact review only, no independent human approval.",
+      "tests": [
+        "Original predeclared independent Decimal60 analytic/finite-lattice controls; wire admission separate and original answers/bounds preserved",
+        "Complete native/shared/C/MCP/native-WASM/schema/default/minimal consumers; explicit failures/rounding/pending/credit/FX/work/rank",
+        "Original risk/advisor/workflow/financial regressions, strict lint/docs/features/format/workspace and exact source/history/scope/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4212ec1b31f34e9978ecfca61e2b3edac29054563222a48e7383f420d3d4c303",
+        "crates/convex-analytics/src/quote_risk/finite.rs": "f92bcd2dcc504f7ff06ec0a8545260c44945dbae295dc28a6218ec173a26de9c",
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "52dd6d4aa1aec62746da85b923884a50a5f81b1c5adbc1d0f433b7491aeb4379",
+        "crates/convex-analytics/src/risk/hedging/constrained/mod.rs": "ea4e43370aac1fe96330593dc1a67199f810a3d0dd36cf5f1961fcb7307d854d",
+        "crates/convex-analytics/src/risk/hedging/constrained/solver.rs": "a3382626d4402e3a8e924f0736f7ced0226913a17418f543d869bfcfb73f0e01",
+        "crates/convex-analytics/src/risk/hedging/constrained/types.rs": "5df3d28c6fa7df5e81e2a7252c99955c10db791489f689fac19a1688999d0b9f",
+        "crates/convex-analytics/src/risk/hedging/mod.rs": "b1a38d4c69468a59e64388de06a181eb7d0f2069f042f0811cb0253971cd34bf",
+        "crates/convex-ffi/tests/constrained_hedge.rs": "af6348b60087420f46bd7d895a5920397c0a3dae2131afd590f73c76a299a179",
+        "crates/convex/examples/constrained_hedge.rs": "604987c09dae5cfeeca74f1d27cafc24ef4818a6f8c040a514f3cb458438ddd8",
+        "crates/convex/src/lib.rs": "0ed39b0e5f9ad230eb8dbd79cf8e1740b8af1e23650d9f3b53030ec63c38bdb0",
+        "crates/convex/src/library/errors.rs": "809ba039dc44c9e7d9e936bde7050e0e5e23955557f75c7d404562527044c084",
+        "crates/convex/src/library/hedges.rs": "3fccbfbb4d3c65822e52cc5f5422949a8349ae1ddd73e33bc3314c9526baab72",
+        "crates/convex/src/library/products.rs": "188b1ce0782010963be89cbca8497b7700e8c8f9be884dc94fb7e521dc1eba6e",
+        "crates/convex/src/library/requests.rs": "d858db98064c40129aab3639d774e85e0b07a50b0de27a3f43887ac5429a97f2",
+        "crates/convex/tests/constrained_hedge.rs": "16291ecca3198e4ba35b0a4f44d2c5dabfa3dd15f96ccd6ec89a719c4825c5c0",
+        "tests/fixtures/library/constrained-hedge-admitted.json": "4045659150df32652df58f640708122a9b8f44badcb9c1ceb5cff35965763d58",
+        "tests/fixtures/library/constrained-hedge-lots-reference.json": "ff9283a0185c0c6b4234d105cc06761bdb1b6ac9dc29f86d23e6ade7b07d8864",
+        "tests/fixtures/library/constrained-hedge-lots.json": "84df11194ea85b5abe3a3965ec464a08b51e814c9051f7ecd5303fb7438fe9f9",
+        "tests/fixtures/library/constrained-hedge-protocol.json": "87e89307b0394bedb8129a26f005824b692d98edf50dc619bb318cd3e62267f0",
+        "tests/fixtures/library/constrained-hedge-reference.json": "3db2af77fdc9c918bbb8785c76777d0cbb0c14b5df0c6fbd442861803b7b580f",
+        "tests/fixtures/library/constrained-hedge.json": "63dd8868667680ec2a89b839e727a2d2324aac6e9ae21679a70cff6fe58f9e93",
+        "tests/fixtures/library/constrained_hedge.rs": "4191aa9c93908e8fa99b638a2a78358aa62b3f0e4cec9e59b85eb7d5b77c801d",
+        "tools/assurance/check.py": "f58cd81582c0a05db848b9384b8124b7efc095207f2fd22bd787ecb956817ac2",
+        "tools/assurance/inventory.json": "e3c489bb648d3ead194276923df4d44c4cca08f055a7419de50e9f007af46451",
+        "tools/assurance/numeric-evidence.json": "23de62cb7a09d19fae2a77480f4bb1d1e7802b482c0fb72fe05864e1ce797ca4",
+        "tools/assurance/test_policy.py": "9fbcaaf059b8738cb84828378ce7367c1d7e259f15d4a8a3e825b5cf5f5b2f37",
+        "tools/library/api-capabilities.json": "55ec3e267daeb98f38475a33166c86683c7df82aa6fef8b14ae5d5486c1e19ba",
+        "tools/library/library-inventory.json": "c38bce11ad06143c7715b6c867bbd088431d2e58f12534e9908d3196773a5652",
+        "tools/library/test_operations.py": "190b59c1b4c3a556c26d83caf1a0d82fec11ac0e0e90d1040dc58c2c4fed83ad"
+      }
     }
   ]
 }

@@ -150,6 +150,13 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Complete supplied common-factor aggregation or constrained native-lot proposals.
+    Hedge {
+        /// Original risk vectors, revisions, current/pending native quantities and limits.
+        problem: Box<convex_analytics::risk::hedging::constrained::HedgeProblem>,
+        /// Actual pure operation; no live-order authority.
+        action: super::hedges::HedgeOperation,
+    },
     /// Full legal notice/principal-aware dated cash workout quotations.
     Workout {
         /// Complete original contract, calendars and independent source revisions.

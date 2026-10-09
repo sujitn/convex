@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 52)
-        self.assertEqual(result['engineering_examples'], 3268)
+        self.assertEqual(result['exact_operation_routes'], 54)
+        self.assertEqual(result['engineering_examples'], 3340)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -64,6 +64,12 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes'][identity].update(selectors={'operation.kind':'government_spread'}))
         self.rejects(lambda m: m['operation_routes']['government_spread_price.linear'].update(
             negative_examples=['gov_inverse.linear.SemiAnnual']))
+
+    def test_complete_hedge_actions_cannot_substitute_or_certify(self):
+        for name,other in [('aggregate','hedge.mixed'),('solve','hedge.aggregate')]:
+            self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['hedge.solve'].update(negative_examples=['hedge.mixed']))
 
     def test_cash_oracle_is_not_a_supplied_request_or_certificate(self):
         self.rejects(lambda m: m.update(supplemental_corpora=['tests/fixtures/library/cash-reference.json']))

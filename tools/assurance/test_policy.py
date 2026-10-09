@@ -90,8 +90,8 @@ class AssuranceMutations(unittest.TestCase):
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c
-                    or 'government_inverse' in c]
-        self.assertEqual(len(commands), 50)
+                    or 'government_inverse' in c or 'constrained_hedge' in c]
+        self.assertEqual(len(commands), 59)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -101,6 +101,10 @@ class AssuranceMutations(unittest.TestCase):
         self.assertTrue(modules <= check.inventory_paths(ROOT))
         for path in modules:
             check.check_lifecycle_source((ROOT/path).read_text())
+        constrained = {p.relative_to(ROOT).as_posix() for p in
+                       (ROOT/'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs')}
+        self.assertEqual(len(constrained), 4)
+        self.assertTrue(constrained <= check.inventory_paths(ROOT))
 
     def test_complete_calibration_replay_checks_and_owners_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()

@@ -539,6 +539,33 @@ jobs:
       - name: Validate actual complete government inverse schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse
 
+      - name: Validate preserved independent hedge controls
+        run: python3 tests/scripts/constrained_hedge_reference.py
+
+      - name: Validate explicit original hedge wire admission
+        run: python3 tests/scripts/constrained_hedge_admission.py
+
+      - name: Validate independent interacting and conditional lot controls
+        run: python3 tests/scripts/constrained_hedge_lots.py
+
+      - name: Validate complete hedge protocol preserves original controls
+        run: python3 tests/scripts/constrained_hedge_protocol.py
+
+      - name: Test complete native shared C MCP and WASM hedge proposals
+        run: cargo test --locked --all-features -p convex --test constrained_hedge -p convex-ffi --test constrained_hedge -p convex-mcp --test constrained_hedge -p convex-wasm --test constrained_hedge -- --test-threads=1
+
+      - name: Run complete supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge
+
+      - name: Run minimal supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge --no-default-features
+
+      - name: Run schema supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge --features schemars
+
+      - name: Validate actual complete supplied hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/constrained_hedge_schema.py --binary target/debug/examples/constrained_hedge
+
       - name: Validate original independent product UFR controls
         run: python3 tests/scripts/product_ufr_reference.py --check
 

@@ -121,6 +121,15 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example government_inverse --no-default-features',
         'cargo run --locked -p convex --example government_inverse --features schemars',
         '/tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse',
+        'python3 tests/scripts/constrained_hedge_reference.py',
+        'python3 tests/scripts/constrained_hedge_admission.py',
+        'python3 tests/scripts/constrained_hedge_lots.py',
+        'python3 tests/scripts/constrained_hedge_protocol.py',
+        'cargo test --locked --all-features -p convex --test constrained_hedge -p convex-ffi --test constrained_hedge -p convex-mcp --test constrained_hedge -p convex-wasm --test constrained_hedge -- --test-threads=1',
+        'cargo run --locked -p convex --example constrained_hedge',
+        'cargo run --locked -p convex --example constrained_hedge --no-default-features',
+        'cargo run --locked -p convex --example constrained_hedge --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/constrained_hedge_schema.py --binary target/debug/examples/constrained_hedge',
         'python3 tests/scripts/product_ufr_reference.py --check',
         'python3 tests/scripts/product_ufr_admitted_reference.py --check',
         'cargo test --locked -p convex -p convex-analytics -p convex-engine -p convex-ffi -p convex-mcp -p convex-wasm --all-features --test product_ufr -- --test-threads=1',
@@ -418,6 +427,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_calibration').glob('*.rs'))
     paths.add('crates/convex-analytics/src/cash_quotation.rs')
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex/src/library').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))

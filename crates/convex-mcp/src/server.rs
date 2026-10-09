@@ -1438,10 +1438,11 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Per-sleeve book hedge. Each `BookGroup` carries its own positions, \
+        description = "Indicative scalar advisor per sleeve. Each `BookGroup` carries its own positions, \
         curve, constraints, and basket overrides; groups are aggregated and hedged \
         independently. Output per group: aggregate RiskProfile, per-position contribution \
-        decomposition (signed DV01 + share of gross), proposals, skipped strategies."
+        decomposition (signed DV01 + share of gross), indicative proposals, skipped strategies. \
+        Complete supplied-factor constrained calculations use library hedge solve. No order authority."
     )]
     pub async fn propose_book_hedges(
         &self,

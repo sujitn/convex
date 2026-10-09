@@ -31,6 +31,8 @@ pub use convex_analytics::lifecycle;
 pub use convex_analytics::quote_risk;
 /// Pure mixed-instrument OIS and independent index curve calibration.
 pub use convex_analytics::rate_calibration;
+/// Pure bounded complete-factor, native-quantity/cost/lot hedge proposals.
+pub use convex_analytics::risk::hedging::constrained as constrained_hedge;
 /// Pure supplied IRS/OIS native-quote calibration and dependency graph building.
 pub use convex_analytics::swap_calibration;
 /// Pure complete native supplied-input workflows and distinct inverse outcomes.

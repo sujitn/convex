@@ -182,3 +182,11 @@ Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
 Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+
+Complete checked original risk vectors compose through the pure
+[constrained hedge proposal operation](CONSTRAINED-HEDGES.md). It preserves
+original full key/bump/model/reference semantics and central/half PVs, with
+complete current/pending exposure, exact native quantity and legal credit/FX
+admission. Explicit bounded constrained/lot searches return measured residual,
+cost/constraint/rank/work diagnostics without execution authority. Original
+pricing/risk owners and every existing financial reference remain unchanged.

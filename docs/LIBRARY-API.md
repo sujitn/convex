@@ -558,3 +558,14 @@ inverse, signed consideration and separate price/spread roundtrip bounds.
 See [the full inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Original removed
 convenience proxies remain absent; market/Street and unavailable host
 qualification stay open. CVX-063 remains partial and uncertified.
+
+Complete supplied-factor `hedge` actions `aggregate` and `solve` use
+[the native constrained proposal owner](CONSTRAINED-HEDGES.md). Full original
+five-PV risk/keys/settings/source pins, legal credit scope, explicit FX, signed
+current/pending/reference quantities, costs, eligibility, hard factor/holding/
+liquidity constraints and actual lot lattices survive strict shared/native/C
+and generic clients. Only a completed `feasible` diagnostic carries a proposal;
+inspect status, original constraints, rank and work. Every outcome remains
+`proposal_only`. Separate provider freshness, authoritative limits, orders and
+CVX-025/031 server tasks remain pending; the original scalar advisor stays
+indicative. Original mandatory records and CVX-063 acceptance remain unchanged.

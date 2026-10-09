@@ -5,6 +5,27 @@ use convex_analytics::futures as f;
 use convex_core::{contracts::*, futures::*};
 use serde::{Deserialize, Serialize};
 
+/// Complete-factor supplied-risk operations; the existing scalar advisor is separate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HedgeOperation {
+    /// Validate and aggregate all current and pending factors/quantities.
+    Aggregate {},
+    /// Bounded continuous/lot solve with full original constraint diagnostics.
+    Solve {},
+}
+pub(super) fn hedge(
+    problem: &convex_analytics::risk::hedging::constrained::HedgeProblem,
+    action: &HedgeOperation,
+) -> LibraryResult<Value> {
+    use convex_analytics::risk::hedging::constrained as h;
+    match action {
+        HedgeOperation::Aggregate {} => value(h::aggregate_hedge_risk(problem)?),
+        HedgeOperation::Solve {} => value(h::solve_hedge_proposal(problem)?),
+    }
+}
+
 /// Actual checked full security/universe and separate model/execution assumptions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

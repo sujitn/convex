@@ -51,6 +51,12 @@ pub struct QuoteRiskSettings {
     /// Exact caller-admitted numerical policy revision.
     pub policy_version: Version,
 }
+impl QuoteRiskSettings {
+    /// Validate the original factor-specific bump/stability policy without inventing a risk result.
+    pub fn validate_for(&self, key: &QuoteRiskKey) -> QuoteRiskResult<()> {
+        validate_settings(key, self)
+    }
+}
 /// A signed stable central sensitivity, including every actual reference valuation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

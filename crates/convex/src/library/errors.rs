@@ -13,6 +13,18 @@ use convex_math::{
 };
 use serde_json::{json, Value};
 
+impl From<convex_analytics::risk::hedging::constrained::HedgeError> for LibraryError {
+    fn from(e: convex_analytics::risk::hedging::constrained::HedgeError) -> Self {
+        use convex_analytics::risk::hedging::constrained::HedgeError as E;
+        let code = match e {
+            E::Missing(_) => Code::MissingInput,
+            E::Bound(_) => Code::ResourceLimit,
+            E::Invalid { .. } => Code::InvalidInput,
+        };
+        native(code, &e)
+    }
+}
+
 fn native<E: std::fmt::Debug + std::fmt::Display>(code: Code, e: &E) -> LibraryError {
     LibraryError {
         code,

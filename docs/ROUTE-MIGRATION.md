@@ -158,3 +158,16 @@ Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
 Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+
+## Complete-factor proposals versus indicative advisor
+
+Shared `hedge` (`aggregate` / `solve`) is the real remaining owner for supplied
+complete-factor constrained proposals; see [its contract](CONSTRAINED-HEDGES.md).
+Existing `propose_hedges`, `propose_book_hedges`, scalar ratios and per-instrument
+round/roll math keep their explicitly indicative meanings. They do not implement
+common-factor constrained solving, legal credit coverage or authoritative pending
+orders. Migrate callers requiring those calculations to complete original
+`HedgeProblem` inputs through the generic library entry point. The source-risk
+and economics/calculation manifests remain original native/application owners;
+no guessed CDS risk, tenor-only future or heuristic cost is introduced. The new
+operation never grants order authority or waives separate server/host work.
