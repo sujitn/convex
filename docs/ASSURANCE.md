@@ -537,3 +537,10 @@ so an unchanged C# file with required CRLF is compared correctly with its stored
 LF blob. Physical artifact hashes remain exact; actual content edits still
 require independent quantitative review. A mutation control rejects a changed
 price and an unavailable checkout conversion.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

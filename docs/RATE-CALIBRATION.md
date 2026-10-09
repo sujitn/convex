@@ -205,3 +205,10 @@ strict host construction/schema dispatch, independent quantitative approval and
 library/production/multi-host/colocation certificates remain their owning work.
 Existing legacy helper routes retain their earlier qualification; this task
 adds the complete native route without certifying those separate paths.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

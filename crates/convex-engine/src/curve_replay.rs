@@ -26,11 +26,15 @@ pub enum CurveReplayError {
     /// Original native build failure, without a partial accepted graph.
     #[error(transparent)]
     Native(#[from] convex_curves::contracts::CurveContractError),
+    /// Original complete product-calibration admission failure.
+    #[error(transparent)]
+    Calibration(Box<crate::calibration_replay::CalibrationReplayError>),
 }
 impl From<CurveReplayError> for TraitError {
     fn from(value: CurveReplayError) -> Self {
         match value {
             CurveReplayError::Record(error) => error,
+            CurveReplayError::Calibration(error) => (*error).into(),
             CurveReplayError::Native(
                 convex_curves::contracts::CurveContractError::BoundExceeded(_),
             ) => Self::CapacityExceeded,
@@ -90,7 +94,16 @@ pub fn replay_snapshot_curves(
     for record in &snapshot.content().curves {
         crate::BuiltCurve::from_snapshot(record)?;
     }
-    rebuild_curve_recipes(&snapshot.content().curve_recipes)
+    if snapshot.content().calibration.is_none() {
+        return rebuild_curve_recipes(&snapshot.content().curve_recipes);
+    }
+    crate::calibration_replay::rebuild_captured_curves(
+        &snapshot.content().curve_recipes,
+        snapshot.content().calibration.as_ref(),
+        snapshot.content().as_of,
+        snapshot.content().known_at,
+    )
+    .map_err(|e| CurveReplayError::Calibration(Box::new(e)))
 }
 
 /// Thin bridge to older object-safe rate pricing. Full queries still expose

@@ -101,6 +101,16 @@ pub(super) struct ResolvedInputs<'a> {
 }
 impl<'a> ResolvedInputs<'a> {
     pub fn new(input: &'a LibraryInputs) -> LibraryResult<Self> {
+        let mut resolved = Self::resources(input)?;
+        if let Some(calibration) = &input.calibration {
+            let (curves, diagnostics) = super::curves::calibration_market(calibration, &resolved)?;
+            resolved.curves = curves;
+            resolved.calibration = Some(diagnostics);
+        }
+        Ok(resolved)
+    }
+    /// Original supplied resources, excluding the fitted graph's output identities.
+    pub(super) fn resources(input: &'a LibraryInputs) -> LibraryResult<Self> {
         if input.calendars.len() > 256 || input.curves.len() > 256 {
             return Err(LibraryError::limit("at most 256 calendars/curves"));
         }
@@ -137,7 +147,7 @@ impl<'a> ResolvedInputs<'a> {
         let history = FixingSeries::new(input.fixings.clone())?;
         let publications =
             convex_analytics::workflow::PublicationSchedule::new(input.publications.clone())?;
-        let mut resolved = Self {
+        let resolved = Self {
             input,
             calendars,
             curves,
@@ -145,11 +155,6 @@ impl<'a> ResolvedInputs<'a> {
             history,
             publications,
         };
-        if let Some(calibration) = &input.calibration {
-            let (curves, diagnostics) = super::curves::calibration_market(calibration, &resolved)?;
-            resolved.curves = curves;
-            resolved.calibration = Some(diagnostics);
-        }
         Ok(resolved)
     }
     pub fn calendar(&self, pin: &ReferencePin) -> LibraryResult<&'a dyn Calendar> {

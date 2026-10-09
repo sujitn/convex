@@ -173,3 +173,10 @@ informed the separation of factors and scenario composition here; this task
 does not claim an ORE runtime comparison or reproduce every ORE model.
 [ORE sensitivity workflow](https://github.com/OpenSourceRisk/Engine/blob/master/OREAnalytics/orea/engine/sensitivityanalysis.cpp),
 [ORE factor scenario generation](https://github.com/OpenSourceRisk/Engine/blob/master/OREAnalytics/orea/scenario/sensitivityscenariogenerator.cpp).
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

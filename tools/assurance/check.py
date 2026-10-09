@@ -112,6 +112,12 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example standalone_book --no-default-features',
         'cargo run --locked -p convex --example standalone_book --features schemars',
         'python3 tests/scripts/monotone_reference.py --check',
+        'python3 tests/scripts/calibration_replay_inputs.py --check',
+        'cargo test --locked -p convex --all-features --test calibration_replay -p convex-engine --test calibration_snapshot_replay --test calibration_snapshot_runtime -p convex-ports --test calibration_snapshots',
+        'cargo clippy --locked -p convex -p convex-analytics -p convex-ports -p convex-engine --all-targets --all-features -- -D warnings',
+        'cargo run --locked -p convex-engine --example calibration_snapshot_replay -- demo /tmp/convex-calibration-snapshot-replay',
+        'cargo build --locked -p convex-engine --example calibration_snapshot_replay -p convex --example library_workflow --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/calibration_replay_schema.py --binary target/debug/examples/calibration_snapshot_replay --native-binary target/debug/examples/library_workflow',
         'python3 tests/scripts/curve_replay_inputs.py --check',
         '/tmp/convex-library-schema/bin/python tests/scripts/curve_replay_schema.py --binary target/debug/examples/curve_snapshot_replay --native-binary target/debug/examples/library_workflow',
         'cargo test --locked -p convex-ports --test curve_recipe_snapshots -p convex-engine --all-features --test curve_recipe_replay --test curve_recipe_runtime -p convex-server --test curve_recipe_context_tests',
@@ -401,7 +407,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(['crates/convex-analytics/src/credit_calibration.rs',
                   'crates/convex-analytics/src/credit_risk.rs'])
     paths.add('crates/convex-engine/src/curve_builder.rs')
-    paths.update(['crates/convex-engine/src/curve_replay.rs', 'crates/convex-engine/src/snapshot.rs',
+    paths.update(['crates/convex-engine/src/calibration_replay.rs', 'crates/convex-ports/src/calibration.rs', 'crates/convex-engine/src/curve_replay.rs', 'crates/convex-engine/src/snapshot.rs',
                   'crates/convex-engine/src/configuration.rs', 'crates/convex-engine/src/runtime/worker.rs',
                   'crates/convex-ports/src/snapshot.rs', 'crates/convex-ports/src/configuration.rs',
                   'crates/convex-ports/src/configuration_schema.rs'])

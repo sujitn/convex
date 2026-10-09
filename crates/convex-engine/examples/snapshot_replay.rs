@@ -11,7 +11,7 @@ use convex_ports::{
 };
 use std::{io::Read, path::Path, sync::Arc};
 
-fn json<T: serde::de::DeserializeOwned>(path: &str) -> Result<T, Box<dyn std::error::Error>> {
+fn json_bytes(path: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let metadata = std::fs::symlink_metadata(path)?;
     if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > 16 * 1024 * 1024
     {
@@ -24,7 +24,10 @@ fn json<T: serde::de::DeserializeOwned>(path: &str) -> Result<T, Box<dyn std::er
     if bytes.len() > 16 * 1024 * 1024 {
         return Err("input grew beyond JSON bound".into());
     }
-    Ok(serde_json::from_slice(&bytes)?)
+    Ok(bytes)
+}
+fn json<T: serde::de::DeserializeOwned>(path: &str) -> Result<T, Box<dyn std::error::Error>> {
+    Ok(serde_json::from_slice(&json_bytes(path)?)?)
 }
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let repository = FileSnapshotRepository::new(directory)?;
             let snapshot = repository.get(&SnapshotId::new(id)?).await?.ok_or("snapshot absent")?;
             replay_snapshot_curves(&snapshot)?;
-            serde_json::json!({"snapshot_id":snapshot.id(),"generation":snapshot.content().generation,"quality":snapshot.quality(),"instruments":snapshot.content().references.len(),"curves":snapshot.content().curves.len()+snapshot.content().curve_recipes.len(),"fixings":snapshot.content().fixings.len()})
+            serde_json::json!({"snapshot_id":snapshot.id(),"generation":snapshot.content().generation,"quality":snapshot.quality(),"instruments":snapshot.content().references.len(),"curves":snapshot.content().curves.len()+snapshot.content().curve_recipes.len()+snapshot.content().calibration.as_ref().map_or(0, |c| c.curves.len()),"fixings":snapshot.content().fixings.len()})
         }
         [mode, directory, id, queries] if mode == "query-curves" => {
             #[derive(serde::Deserialize)]
@@ -75,6 +78,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Result<Vec<_>, convex_curves::contracts::CurveContractError>>()?;
             serde_json::json!({"snapshot_id":snapshot.id(),"results":results})
         }
+        [mode, directory, id, action] if mode == "calibration" => {
+            let repository = FileSnapshotRepository::new(directory)?;
+            let snapshot = repository.get(&SnapshotId::new(id)?).await?.ok_or("snapshot absent")?;
+            let record = snapshot.content().calibration.as_ref().ok_or("complete calibration absent")?;
+            let inputs = convex::library::decode_calibration_inputs(&record.inputs)?;
+            let bytes = json_bytes(action)?;
+            let action = convex::library::decode_calibration_action(&inputs, std::str::from_utf8(&bytes)?)?;
+            convex_engine::calibration_replay::replay_calibration_operation(&snapshot, &action)?
+        }
         [mode, directory, context, request_id, calculated_at, build_id] if mode == "value" => {
             let context: ValuationContext = json(context)?;
             let repository = FileSnapshotRepository::new(directory)?;
@@ -82,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let valuator = SnapshotValuator::new(ModelId::new(build_id)?, 1)?;
             serde_json::to_value(valuator.value(&snapshot, &context, RequestId::new(request_id)?, UtcTimestamp::parse(calculated_at)?)?)?
         }
-        _ => return Err("usage: snapshot_replay store-config DATABASE CONFIG_JSON | assemble DATABASE FIXINGS_JSON QUOTES_JSONL ASSEMBLY_JSON DIRECTORY | verify DIRECTORY SNAPSHOT_ID | query-curves DIRECTORY SNAPSHOT_ID QUERIES_JSON | value DIRECTORY CONTEXT_JSON REQUEST_ID CALCULATED_AT BUILD_ID".into()),
+        _ => return Err("usage: snapshot_replay store-config DATABASE CONFIG_JSON | assemble DATABASE FIXINGS_JSON QUOTES_JSONL ASSEMBLY_JSON DIRECTORY | verify DIRECTORY SNAPSHOT_ID | query-curves DIRECTORY SNAPSHOT_ID QUERIES_JSON | calibration DIRECTORY SNAPSHOT_ID ACTION_JSON | value DIRECTORY CONTEXT_JSON REQUEST_ID CALCULATED_AT BUILD_ID".into()),
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())

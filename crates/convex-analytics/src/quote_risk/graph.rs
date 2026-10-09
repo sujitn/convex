@@ -52,6 +52,19 @@ pub struct QuoteGraphScenario {
     pub price_evaluations: usize,
     /// Actual frozen rate publication decisions consumed in the baseline.
     pub publications: Vec<convex_core::fixings::FixingRequirement>,
+    /// Original full family fits, including source recipes, product valuations
+    /// and measured solver diagnostics. Frozen-node scenarios have no new fit.
+    pub calibrations: Vec<QuoteGraphCalibration>,
+}
+/// Lossless original family output; no serialization or fitted-node alias.
+#[derive(Debug, Clone)]
+pub enum QuoteGraphCalibration {
+    /// Complete mixed-rate fit.
+    Rate(Box<CalibratedRateCurve>),
+    /// Complete single-name credit fit.
+    Credit(Box<CalibratedCdsCurve>),
+    /// Complete government, issuer-basis or repo fit.
+    Cash(Box<CalibratedCashCurve>),
 }
 /// Privately prepared actual graph. Baseline data and publication decisions cannot
 /// be replaced with fabricated accepted fits.
@@ -315,6 +328,7 @@ where
         repricing: Vec::new(),
         price_evaluations: 0,
         publications: Vec::new(),
+        calibrations: Vec::new(),
     };
     let mut moved = 0;
     for &(family, i) in order {
@@ -360,6 +374,12 @@ where
                         .calibrations
                         .iter()
                         .flat_map(|c| c.curve.diagnostics().quotes.clone()),
+                );
+                out.calibrations.extend(
+                    result
+                        .calibrations
+                        .into_iter()
+                        .map(|c| QuoteGraphCalibration::Rate(Box::new(c))),
                 );
                 curves = result.curves;
             }
@@ -432,6 +452,12 @@ where
                         .iter()
                         .flat_map(|c| c.curve.diagnostics().quotes.clone()),
                 );
+                out.calibrations.extend(
+                    result
+                        .calibrations
+                        .into_iter()
+                        .map(|c| QuoteGraphCalibration::Credit(Box::new(c))),
+                );
                 curves = result.curves;
             }
             2 => {
@@ -488,6 +514,12 @@ where
                         .calibrations
                         .iter()
                         .flat_map(|c| c.curve.diagnostics().quotes.clone()),
+                );
+                out.calibrations.extend(
+                    result
+                        .calibrations
+                        .into_iter()
+                        .map(|c| QuoteGraphCalibration::Cash(Box::new(c))),
                 );
                 curves = result.curves;
             }
@@ -691,6 +723,7 @@ pub fn evaluate_quote_graph(
                     repricing: Vec::new(),
                     price_evaluations: 0,
                     publications: prepared.baseline.publications.clone(),
+                    calibrations: Vec::new(),
                 });
             }
             build(
@@ -726,6 +759,7 @@ pub fn evaluate_quote_graph(
                     repricing: Vec::new(),
                     price_evaluations: 0,
                     publications: prepared.baseline.publications.clone(),
+                    calibrations: Vec::new(),
                 })
             }
         }
@@ -787,6 +821,7 @@ pub fn evaluate_quote_graph(
                 repricing: Vec::new(),
                 price_evaluations: 0,
                 publications: prepared.baseline.publications.clone(),
+                calibrations: Vec::new(),
             })
         }
         RiskCoordinate::Raw { .. } => Err(invalid(

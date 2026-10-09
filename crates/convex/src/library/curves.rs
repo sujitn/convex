@@ -296,7 +296,7 @@ pub(super) fn fit_curve(
     let curves = CurveSet::new().with_curve(out.curve)?;
     Ok(serde_json::json!({"result":describe_curves(&curves)?,"solver":diagnostics}))
 }
-fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value> {
+pub(super) fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value> {
     Ok(
         serde_json::json!({"result":describe_curves(&graph.curves)?,"build_order":graph.build_order,
         "repricing":graph.repricing,"price_evaluations":graph.price_evaluations,"publications":graph.publications}),
@@ -398,7 +398,7 @@ pub(super) fn reprice_rate_helpers(
     )?;
     Ok(serde_json::json!({"repricing": result, "quote_versions": input.quote_versions}))
 }
-fn with_graph<T>(
+pub(super) fn with_graph<T>(
     input: &CalibrationInput,
     resources: &ResolvedInputs<'_>,
     consume: impl FnOnce(&q::PreparedQuoteRiskGraph<'_>) -> LibraryResult<T>,

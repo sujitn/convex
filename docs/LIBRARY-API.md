@@ -537,4 +537,12 @@ queries, actual date/time/unit/extension diagnostics and strict missing/domain
 failures flow through the same generic clients. No derivative default, sampled
 grid, regulatory Smith–Wilson or product-fit substitute is admitted.
 
-The complete [nonnegative MonotoneConvex contract](CURVE-MONOTONE-CONVEX.md) exposes original positive dated/model-time nodes, exact native units, checked nonnegative means and all local regimes with a common analytic primitive. `MonotoneConvexForward` requires a side; native origin and declared terminal tails retain actual provenance. Strict schema rejects lost fields and undisclosed model policies. Full product calibration/quote-risk snapshot graphs and host certificates remain required. Complete original supplied recipes now survive [schema-2 engine snapshot replay](CURVE-SNAPSHOT-REPLAY.md).
+The complete [nonnegative MonotoneConvex contract](CURVE-MONOTONE-CONVEX.md) exposes original positive dated/model-time nodes, exact native units, checked nonnegative means and all local regimes with a common analytic primitive. `MonotoneConvexForward` requires a side; native origin and declared terminal tails retain actual provenance. Strict schema rejects lost fields and undisclosed model policies. Full original product calibration and quote-risk graphs now have
+[schema-3 capture/replay](CALIBRATION-SNAPSHOT-REPLAY.md); host certificates remain required. Complete original supplied recipes now survive [schema-2 engine snapshot replay](CURVE-SNAPSHOT-REPLAY.md).
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

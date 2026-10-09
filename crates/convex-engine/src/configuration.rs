@@ -447,8 +447,19 @@ impl ConfigurationUseCases {
         }
     }
     fn check_curves(&self, document: &ConfigurationDocument, report: &mut ConfigurationValidation) {
-        if crate::curve_replay::rebuild_curve_recipes(&document.assembly.curve_recipes).is_err() {
-            issue(report, "assembly.curve_recipes", "INVALID_CURVE_RECIPE", "Complete native curve graph must reconstruct without missing versions or unsupported terms");
+        if crate::calibration_replay::rebuild_captured_curves(
+            &document.assembly.curve_recipes,
+            document.assembly.calibration.as_ref(),
+            document.assembly.as_of,
+            document.assembly.known_at,
+        )
+        .is_err()
+        {
+            if document.assembly.calibration.is_some() {
+                issue(report, "assembly.calibration", "INVALID_CALIBRATION_CAPTURE", "Complete original calibration must rebuild and match all captured outputs/diagnostics");
+            } else {
+                issue(report, "assembly.curve_recipes", "INVALID_CURVE_RECIPE", "Complete native curve graph must reconstruct without missing versions or unsupported terms");
+            }
         }
         let configured = &document.pricing.analytics_curves;
         let mut required = vec![configured.discount_curve.as_str()];
@@ -479,7 +490,12 @@ impl ConfigurationUseCases {
                     .assembly
                     .curve_recipes
                     .iter()
-                    .any(|c| c.curve_id.as_str() == id))
+                    .any(|c| c.curve_id.as_str() == id)
+                || document
+                    .assembly
+                    .calibration
+                    .as_ref()
+                    .is_some_and(|c| c.curves.iter().any(|p| p.curve_id.as_str() == id)))
                 || !document
                     .assembly
                     .required_curves
@@ -679,6 +695,9 @@ impl ConfigurationUseCases {
                 .input_versions
                 .sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
         }
+        if let Some(calibration) = &mut expected.calibration {
+            calibration.normalize();
+        }
         expected.required_curves.sort();
         expected.fixings.sort();
         if selected.staged.document.pricing != content.configuration
@@ -691,6 +710,7 @@ impl ConfigurationUseCases {
                     .collect::<Vec<_>>()
             || expected.curves != content.curves
             || expected.curve_recipes != content.curve_recipes
+            || expected.calibration != content.calibration
             || expected.required_curves != content.required_curves
             || expected.max_source_skew_ms != content.max_source_skew_ms
             || expected.instruments.len() != content.references.len()
@@ -748,6 +768,7 @@ impl ConfigurationUseCases {
             || old.fixings != new.fixings
             || old.curves != new.curves
             || old.curve_recipes != new.curve_recipes
+            || old.calibration != new.calibration
             || old.required_curves != new.required_curves
             || old.configuration.id != new.configuration.id
             || old

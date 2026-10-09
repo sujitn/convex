@@ -690,6 +690,7 @@ version = "0.13.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",

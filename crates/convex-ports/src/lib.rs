@@ -25,6 +25,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod calibration;
 pub mod config;
 pub mod configuration;
 pub mod configuration_schema;

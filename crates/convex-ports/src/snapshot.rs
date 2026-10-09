@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
+use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
@@ -211,7 +212,10 @@ impl SnapshotCurveRecipe {
     /// Original nodes/observations/helpers/segments counted against the shared
     /// snapshot pillar budget. Dependencies are separately retained records.
     pub fn input_count(&self) -> usize {
-        let Some(source) = self.recipe.get("source") else {
+        Self::recipe_input_count(&self.recipe)
+    }
+    pub(crate) fn recipe_input_count(recipe: &serde_json::Value) -> usize {
+        let Some(source) = recipe.get("source") else {
             return 0;
         };
         [
@@ -269,7 +273,7 @@ pub struct SnapshotFixing {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotContent {
-    /// 1 for original zero records; 2 when complete recipe records are present.
+    /// 1 for original zero records, 2 for direct recipes, 3 for product calibration.
     pub schema_version: u32,
     /// Economic market/valuation instant.
     pub as_of: UtcTimestamp,
@@ -297,6 +301,9 @@ pub struct SnapshotContent {
     /// Schema-2 complete native recipes. Omitted for original schema-1 hashes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub curve_recipes: Vec<SnapshotCurveRecipe>,
+    /// Complete original product calibration, requiring schema 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration: Option<SnapshotCalibration>,
     /// Maximum skew among required quote source-field timestamps, 0..=86,400,000 ms.
     pub max_source_skew_ms: i64,
 }
@@ -357,7 +364,7 @@ pub struct SnapshotQuality {
     pub issues: Vec<SnapshotIssue>,
 }
 
-/// Verified immutable content-addressed information set, schema 1 or 2.
+/// Verified immutable content-addressed information set, schema 1, 2 or 3.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
 pub struct MarketSnapshot(SnapshotWire);
@@ -384,10 +391,10 @@ impl MarketSnapshot {
         let id = SnapshotId::new(format!(
             "sha256:{}",
             content_digest(
-                if content.schema_version == 1 {
-                    b"convex.snapshot.v1\0"
-                } else {
-                    b"convex.snapshot.v2\0"
+                match content.schema_version {
+                    1 => b"convex.snapshot.v1\0",
+                    2 => b"convex.snapshot.v2\0",
+                    _ => b"convex.snapshot.v3\0",
                 },
                 &bytes
             )
@@ -491,7 +498,10 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
     if content.references.len() > MAX_SNAPSHOT_INSTRUMENTS
         || content.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
         || content.fixings.len() > MAX_SNAPSHOT_FIXINGS
-        || content.curves.len() + content.curve_recipes.len() > MAX_SNAPSHOT_CURVES
+        || content.curves.len()
+            + content.curve_recipes.len()
+            + content.calibration.as_ref().map_or(0, |c| c.curves.len())
+            > MAX_SNAPSHOT_CURVES
         || content.required_curves.len() > MAX_SNAPSHOT_CURVES
         || content.curves.iter().map(|c| c.points.len()).sum::<usize>()
             + content
@@ -499,6 +509,10 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
                 .iter()
                 .map(SnapshotCurveRecipe::input_count)
                 .sum::<usize>()
+            + content
+                .calibration
+                .as_ref()
+                .map_or(0, SnapshotCalibration::input_count)
             > MAX_SNAPSHOT_PILLARS
     {
         return Err(TraitError::CapacityExceeded);
@@ -523,6 +537,9 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
         quote.requirement.fields.sort();
     }
     content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
+    if let Some(calibration) = &mut content.calibration {
+        calibration.normalize();
+    }
     content.required_curves.sort();
     content.curves.sort_by(|a, b| a.curve_id.cmp(&b.curve_id));
     content
@@ -543,9 +560,14 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
 
 fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
     use crate::reference_repository::validate_reference_id;
-    if !((content.schema_version == 1 && content.curve_recipes.is_empty())
-        || (content.schema_version == 2 && !content.curve_recipes.is_empty()))
-        || content.references.is_empty()
+    if !((content.schema_version == 1
+        && content.curve_recipes.is_empty()
+        && content.calibration.is_none())
+        || (content.schema_version == 2
+            && !content.curve_recipes.is_empty()
+            && content.calibration.is_none())
+        || (content.schema_version == 3 && content.calibration.is_some()))
+        || (content.references.is_empty() && content.calibration.is_none())
         || !(0..=86_400_000).contains(&content.max_source_skew_ms)
         || content.configuration.version == 0
         || !content.configuration.active
@@ -696,6 +718,21 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
             ));
         }
     }
+    if let Some(calibration) = &content.calibration {
+        calibration.validate()?;
+        if calibration.source_time > content.as_of || calibration.recorded_at > content.known_at {
+            return Err(TraitError::InvalidInput("later-known calibration"));
+        }
+        for pin in &calibration.curves {
+            if !curve_ids.insert(&pin.curve_id) || !content.required_curves.contains(&pin.curve_id)
+            {
+                return Err(TraitError::InvalidInput(
+                    "duplicate/unrequested calibration curve",
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -880,6 +917,13 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
                     .curve_recipes
                     .iter()
                     .find(|c| &c.curve_id == id)
+                    .map(|c| (c.source_time, c.recorded_at, c.max_age_ms, c.quality))
+            })
+            .or_else(|| {
+                content
+                    .calibration
+                    .as_ref()
+                    .filter(|c| c.curves.iter().any(|p| &p.curve_id == id))
                     .map(|c| (c.source_time, c.recorded_at, c.max_age_ms, c.quality))
             });
         match retained {

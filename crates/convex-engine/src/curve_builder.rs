@@ -193,6 +193,41 @@ impl BuiltCurve {
         })
     }
 
+    /// Only the verified snapshot path can bridge a complete product graph.
+    pub(crate) fn from_calibration(
+        record: &convex_ports::calibration::SnapshotCalibration,
+        pin: &convex_ports::calibration::CalibrationCurvePin,
+        curve: Arc<convex_curves::contracts::BuiltCurve>,
+    ) -> Result<Self, convex_ports::TraitError> {
+        if curve.recipe().key.id != pin.curve_id.as_str()
+            || curve.recipe().key.version != pin.definition_version
+        {
+            return Err(convex_ports::TraitError::Conflict(
+                "calibration curve differs from exact pin",
+            ));
+        }
+        let reference_date = curve.recipe().reference_date;
+        let extrapolation = curve.recipe().extrapolation;
+        let model = crate::curve_replay::RecipeRateCurve::new(curve).map_err(|_| {
+            convex_ports::TraitError::InvalidInput("unsupported calibrated rate representation")
+        })?;
+        let bytes = serde_json::to_vec(&(record, pin)).map_err(|_| {
+            convex_ports::TraitError::InvalidInput("calibration serialization failed")
+        })?;
+        Ok(Self {
+            curve_id: pin.curve_id.clone().into(),
+            reference_date,
+            points: vec![],
+            built_at: record.recorded_at.datetime().timestamp_millis(),
+            inputs_hash: convex_ports::snapshot::content_digest(
+                b"convex.calibrated-curve.v1\0",
+                &bytes,
+            ),
+            extrapolation,
+            inner: Some(Arc::new(BuiltCurveModel::Recipe(model))),
+        })
+    }
+
     /// Reconstruct the exact supplied reference date, continuous-zero ACT/365F values and policies.
     /// This path validates before construction, reads no clock and never falls back after failure.
     pub fn from_snapshot(

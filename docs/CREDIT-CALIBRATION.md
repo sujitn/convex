@@ -155,3 +155,10 @@ This is scoped engineering evidence. Full market/convention packs, native RFR
 discount calibration, lifecycle, all host surfaces, independent human quantitative
 approval and production/library/latency certificates remain pending. All 2,154
 mandatory library requirements retain their existing Planned status.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

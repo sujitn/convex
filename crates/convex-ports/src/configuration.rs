@@ -70,6 +70,9 @@ pub struct SnapshotAssembly {
     /// Complete schema-2 native curve recipe records; omitted by older requests.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub curve_recipes: Vec<SnapshotCurveRecipe>,
+    /// Optional complete original product-calibration capture.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration: Option<crate::calibration::SnapshotCalibration>,
     /// Maximum selected quote-field source skew.
     pub max_source_skew_ms: i64,
 }
@@ -269,7 +272,14 @@ impl ConfigurationDocument {
             || self.assembly.instruments.is_empty()
             || self.assembly.instruments.len() > 256
             || self.assembly.quotes.len() != self.assembly.instruments.len()
-            || self.assembly.curves.len() + self.assembly.curve_recipes.len() > 64
+            || self.assembly.curves.len()
+                + self.assembly.curve_recipes.len()
+                + self
+                    .assembly
+                    .calibration
+                    .as_ref()
+                    .map_or(0, |c| c.curves.len())
+                > 64
             || self.assembly.required_curves.len() > 64
             || self.assembly.fixings.len() > 1024
             || !(0..=86_400_000).contains(&self.assembly.max_source_skew_ms)
@@ -328,6 +338,14 @@ impl ConfigurationDocument {
                 return Err(TraitError::InvalidInput("duplicate curve pin"));
             }
         }
+        if let Some(calibration) = &self.assembly.calibration {
+            calibration.validate()?;
+            for pin in &calibration.curves {
+                if !curves.insert(&pin.curve_id) {
+                    return Err(TraitError::InvalidInput("duplicate calibration curve pin"));
+                }
+            }
+        }
         if self
             .assembly
             .curves
@@ -340,6 +358,11 @@ impl ConfigurationDocument {
                 .iter()
                 .map(SnapshotCurveRecipe::input_count)
                 .sum::<usize>()
+            + self
+                .assembly
+                .calibration
+                .as_ref()
+                .map_or(0, |c| c.input_count())
             > crate::snapshot::MAX_SNAPSHOT_PILLARS
         {
             return Err(TraitError::CapacityExceeded);
@@ -463,6 +486,7 @@ pub fn configuration_diff(
         "assembly.curves",
         previous.assembly.curves != next.assembly.curves
             || previous.assembly.curve_recipes != next.assembly.curve_recipes
+            || previous.assembly.calibration != next.assembly.calibration
             || previous.assembly.required_curves != next.assembly.required_curves,
         RestartRequired,
     );

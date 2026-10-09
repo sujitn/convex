@@ -29,8 +29,8 @@ spread/equivalence/projection/roll dependencies. Native units, source order,
 actual dates, time basis, roles, currency, representations, compounding, numerical
 settings, methods and tail policies remain intact. Unsupported native combinations
 fail with their original typed build diagnostics; no sampled model or fitted-node
-alias is installed. Full product-helper calibration snapshots and quote-risk
-graph reconstruction remain separate owning work. Retaining helper IDs/settings
+alias is installed. Full product-helper calibration and quote-risk graphs use the separate complete
+[schema-3 capture/replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Retaining helper IDs/settings
 does not reconstruct missing original instruments, calendars or published history.
 
 ## Wire and identity

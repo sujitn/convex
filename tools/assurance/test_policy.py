@@ -90,16 +90,26 @@ class AssuranceMutations(unittest.TestCase):
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c]
-        self.assertEqual(len(commands), 38)
+        self.assertEqual(len(commands), 40)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 15)
+        self.assertEqual(len(modules), 16)
         self.assertIn('crates/convex/src/library/workout.rs', modules)
         self.assertTrue(modules <= check.inventory_paths(ROOT))
         for path in modules:
             check.check_lifecycle_source((ROOT/path).read_text())
+
+    def test_complete_calibration_replay_checks_and_owners_cannot_be_bypassed(self):
+        source = (ROOT/'.github/workflows/ci.yml').read_text()
+        commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'calibration_replay' in c or 'calibration_snapshot' in c or c == 'cargo clippy --locked -p convex -p convex-analytics -p convex-ports -p convex-engine --all-targets --all-features -- -D warnings']
+        self.assertEqual(len(commands), 6)
+        for command in commands:
+            with self.subTest(command=command):
+                self.rejects(check.check_workflow, source.replace(command, 'true'))
+        for path in ['crates/convex/src/library/replay.rs', 'crates/convex-engine/src/calibration_replay.rs', 'crates/convex-ports/src/calibration.rs', 'crates/convex-analytics/src/quote_risk/graph.rs']:
+            self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_curve_recipe_replay_checks_and_capture_owners_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()

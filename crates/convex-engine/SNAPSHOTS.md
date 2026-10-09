@@ -242,3 +242,10 @@ publishes consistent snapshot/context/results, retains stale/error states and
 restores accepted work before readiness. The older coordinator is removed. Complete
 calibration, synthetic v1 server curves, expanded products and release certificates
 remain unresolved production work.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](../../docs/CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

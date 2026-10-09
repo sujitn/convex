@@ -401,6 +401,17 @@ pub(super) fn expiry(snapshot: &MarketSnapshot) -> Result<Option<UtcTimestamp>, 
                 .map_err(|_| RuntimeError::Configuration("curve deadline overflow"))?,
         );
     }
+    if let Some(calibration) = &snapshot.content().calibration {
+        let deadline = calibration
+            .source_time
+            .datetime()
+            .checked_add_signed(chrono::Duration::milliseconds(calibration.max_age_ms))
+            .ok_or(RuntimeError::Configuration("calibration deadline overflow"))?;
+        deadlines.push(
+            UtcTimestamp::from_datetime(deadline)
+                .map_err(|_| RuntimeError::Configuration("calibration deadline overflow"))?,
+        );
+    }
     for quote in &snapshot.content().quotes {
         if let Some(image) = &quote.image {
             for field in &quote.requirement.fields {

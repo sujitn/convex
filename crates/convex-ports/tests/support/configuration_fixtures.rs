@@ -59,6 +59,7 @@ pub fn document(version: u64) -> ConfigurationDocument {
             required_curves: content.required_curves,
             curves: content.curves,
             curve_recipes: vec![],
+            calibration: None,
             max_source_skew_ms: 1000,
         },
         pricing,

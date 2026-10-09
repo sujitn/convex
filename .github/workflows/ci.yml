@@ -512,6 +512,24 @@ jobs:
       - name: Check complete snapshot recipes and original identity migration
         run: cargo test --locked -p convex-ports --test curve_recipe_snapshots -p convex-engine --all-features --test curve_recipe_replay --test curve_recipe_runtime -p convex-server --test curve_recipe_context_tests
 
+      - name: Preserve original product calibration requests and independent deposit controls
+        run: python3 tests/scripts/calibration_replay_inputs.py --check
+
+      - name: Check complete product calibration capture risk runtime and recovery
+        run: cargo test --locked -p convex --all-features --test calibration_replay -p convex-engine --test calibration_snapshot_replay --test calibration_snapshot_runtime -p convex-ports --test calibration_snapshots
+
+      - name: Check strict complete product calibration replay owners
+        run: cargo clippy --locked -p convex -p convex-analytics -p convex-ports -p convex-engine --all-targets --all-features -- -D warnings
+
+      - name: Execute complete original calibration and quote risk file reopen
+        run: cargo run --locked -p convex-engine --example calibration_snapshot_replay -- demo /tmp/convex-calibration-snapshot-replay
+
+      - name: Build complete product capture and original native schema consumers
+        run: cargo build --locked -p convex-engine --example calibration_snapshot_replay -p convex --example library_workflow --features schemars
+
+      - name: Validate complete product capture and original native financial schemas
+        run: /tmp/convex-library-schema/bin/python tests/scripts/calibration_replay_schema.py --binary target/debug/examples/calibration_snapshot_replay --native-binary target/debug/examples/library_workflow
+
       - name: Lint complete recipe capture replay and callers
         run: cargo clippy --locked -p convex-ports -p convex-engine -p convex-server --all-targets --all-features -- -D warnings
 

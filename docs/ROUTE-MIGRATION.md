@@ -95,8 +95,8 @@ values and pricing assertions are unchanged. `CurveBuilder` with `FlatForward`
 now fails before provider access or publication, and `BuiltCurve::from_snapshot`
 rejects a `ZeroExtrapolation::FlatForward` record. Such a snapshot must not be
 silently rewritten as flat zero: supply the complete checked flat-forward recipe
-to the shared library. Full recipe integration into captured runtime snapshots
-remains pending. The fictional constant-zero snapshot fixture selects `FlatZero`;
+to the shared library. Full direct recipes use [schema-2 replay](CURVE-SNAPSHOT-REPLAY.md); full original
+product/risk graphs use [schema-3 replay](CALIBRATION-SNAPSHOT-REPLAY.md). The fictional constant-zero snapshot fixture selects `FlatZero`;
 previous captured snapshot bytes and historical evidence are preserved.
 
 The older infallible `DiscreteCurve` UFR tail no longer substitutes a zero
@@ -134,8 +134,9 @@ the error. The older day/zero graph conversion now returns Result and rejects
 fractional pillars and full recipe curves. Use immutable snapshots for those
 inputs; no partial grid or integer-day truncation survives that route. Existing
 exact whole-day zero inputs keep their declared path. Full product-helper
-calibration snapshots, quote-risk graphs and remaining raw-value/convenience
-qualification retain their original owners.
+calibration and original quote-risk graphs use
+[schema-3 replay](CALIBRATION-SNAPSHOT-REPLAY.md). Remaining raw-value/convenience
+qualification retains its original owners.
 
 `POST /api/v1/curves` continues to use checked MonotoneConvex over supplied
 ACT/365F continuous-zero pillars. It requires at least two distinct positive
@@ -144,3 +145,10 @@ The former single-point success lacked a validated curve and depended on a
 fallback that is now removed. Supply valid original pillars or a complete
 native recipe with its explicit model; no synthetic second point or implicit
 flat model is constructed by the server.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.

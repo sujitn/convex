@@ -185,7 +185,9 @@ impl SnapshotAssembler {
             });
         }
         let snapshot = MarketSnapshot::new(SnapshotContent {
-            schema_version: if request.curve_recipes.is_empty() {
+            schema_version: if request.calibration.is_some() {
+                3
+            } else if request.curve_recipes.is_empty() {
                 1
             } else {
                 2
@@ -201,6 +203,7 @@ impl SnapshotAssembler {
             required_curves: request.required_curves.clone(),
             curves: request.curves.clone(),
             curve_recipes: request.curve_recipes.clone(),
+            calibration: request.calibration.clone(),
             max_source_skew_ms: request.max_source_skew_ms,
         })?;
         Ok(snapshot)
@@ -226,7 +229,10 @@ fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result
         || request.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
         || request.fixings.len() > MAX_SNAPSHOT_FIXINGS
         || request.required_curves.len() > MAX_SNAPSHOT_CURVES
-        || request.curves.len() + request.curve_recipes.len() > MAX_SNAPSHOT_CURVES
+        || request.curves.len()
+            + request.curve_recipes.len()
+            + request.calibration.as_ref().map_or(0, |c| c.curves.len())
+            > MAX_SNAPSHOT_CURVES
         || events.len() > 100_000
         || request.curves.iter().map(|c| c.points.len()).sum::<usize>()
             + request
@@ -234,11 +240,18 @@ fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result
                 .iter()
                 .map(SnapshotCurveRecipe::input_count)
                 .sum::<usize>()
+            + request.calibration.as_ref().map_or(0, |c| c.input_count())
             > MAX_SNAPSHOT_PILLARS
     {
         return Err(TraitError::CapacityExceeded);
     }
-    crate::curve_replay::rebuild_curve_recipes(&request.curve_recipes).map_err(TraitError::from)?;
+    crate::calibration_replay::rebuild_captured_curves(
+        &request.curve_recipes,
+        request.calibration.as_ref(),
+        request.as_of,
+        request.known_at,
+    )
+    .map_err(TraitError::from)?;
     for record in &request.curves {
         BuiltCurve::from_snapshot(record)?;
     }
@@ -478,20 +491,16 @@ impl SnapshotValuator {
                 .map(|value| value.value.value)
         };
         let curve = |id: &convex_core::ids::CurveId| {
-            if let Some(record) = snapshot
-                .content()
-                .curve_recipes
-                .iter()
-                .find(|c| c.curve_id.as_str() == id.as_str())
+            if let Some(key) = recipe_curves
+                .curves
+                .keys()
+                .find(|key| key.id == id.as_str())
             {
-                let recipe: convex_curves::contracts::CurveRecipe =
-                    serde_json::from_value(record.recipe.clone()).map_err(|_| {
-                        TraitError::InvalidInput("invalid native curve recipe payload")
-                    })?;
                 let selected = recipe_curves
                     .curves
-                    .get(&recipe.key)
+                    .get(key)
                     .map_err(|_| TraitError::InvalidInput("missing exact complete curve"))?;
+                let recipe = selected.recipe();
                 let expected_role = if id == &configuration.analytics_curves.discount_curve {
                     matches!(recipe.role, convex_curves::contracts::CurveRole::Discount { collateral_currency } if collateral_currency == bond.currency)
                 } else {
@@ -505,7 +514,25 @@ impl SnapshotValuator {
                         "snapshot pricing curve role/currency mismatch",
                     ));
                 }
-                return BuiltCurve::from_recipe(record, selected.clone()).map(Some);
+                if let Some(record) = snapshot
+                    .content()
+                    .curve_recipes
+                    .iter()
+                    .find(|r| r.curve_id.as_str() == id.as_str())
+                {
+                    return BuiltCurve::from_recipe(record, selected.clone()).map(Some);
+                }
+                let capture = snapshot
+                    .content()
+                    .calibration
+                    .as_ref()
+                    .ok_or(TraitError::InvalidInput("missing complete calibration"))?;
+                let pin = capture
+                    .curves
+                    .iter()
+                    .find(|p| p.curve_id.as_str() == id.as_str())
+                    .ok_or(TraitError::InvalidInput("missing calibration curve pin"))?;
+                return BuiltCurve::from_calibration(capture, pin, selected.clone()).map(Some);
             }
             snapshot
                 .content()
@@ -680,6 +707,16 @@ pub(crate) fn consumed_versions(
     for curve in &snapshot.content().curve_recipes {
         push("curve", curve.curve_id.as_str(), curve.version)?;
     }
+    if let Some(calibration) = &snapshot.content().calibration {
+        push(
+            "calibration",
+            calibration.graph_id.as_str(),
+            calibration.version,
+        )?;
+        for pin in &calibration.curves {
+            push("curve", pin.curve_id.as_str(), pin.version)?;
+        }
+    }
     let mut exact = BTreeMap::new();
     for version in versions
         .into_iter()
@@ -694,6 +731,13 @@ pub(crate) fn consumed_versions(
             snapshot
                 .content()
                 .curve_recipes
+                .iter()
+                .flat_map(|c| c.input_versions.iter().cloned()),
+        )
+        .chain(
+            snapshot
+                .content()
+                .calibration
                 .iter()
                 .flat_map(|c| c.input_versions.iter().cloned()),
         )

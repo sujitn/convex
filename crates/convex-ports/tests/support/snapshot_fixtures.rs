@@ -164,6 +164,7 @@ pub fn content() -> SnapshotContent {
         required_curves: vec![curve().curve_id],
         curves: vec![curve()],
         curve_recipes: vec![],
+        calibration: None,
         max_source_skew_ms: 1000,
     }
 }

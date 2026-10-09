@@ -13,6 +13,7 @@ categories = ["finance"]
 
 [dependencies]
 # Existing pure library
+convex = { workspace = true }
 convex-core = { workspace = true }
 convex-bonds = { workspace = true }
 convex-curves = { workspace = true }

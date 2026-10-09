@@ -200,3 +200,10 @@ evidence. Independent human quantitative approval, complete market/convention/
 model packs, canonical risk, lifecycle/P&L, host/schema dispatch, distributed
 publication, production/library approval and latency certification remain
 separate owning work.
+
+
+Complete original product graph capture, fitted-output/solver/helper diagnostic
+comparison and original quote-risk replay are documented in
+[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+Existing schema1/2 identities and original numerical controls remain; CVX-063
+and all mandatory library/market/model/host/production/latency certificates stay open.
