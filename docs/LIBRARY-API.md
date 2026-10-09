@@ -579,3 +579,11 @@ inspect status, original constraints, rank and work. Every outcome remains
 `proposal_only`. Separate provider freshness, authoritative limits, orders and
 CVX-025/031 server tasks remain pending; the original scalar advisor stays
 indicative. Original mandatory records and CVX-063 acceptance remain unchanged.
+
+Explicit contextual ACT/ACT ICMA price and same-cash yield inversion are now
+available over full original fixed/stepped/amortizing and legal workout cash.
+The checked owner requires an independently versioned complete nominal reference
+mesh, exact original policy/security/quote/calendar pins, payment coverage and
+signed original-face quantities. See [the full contract](ICMA-QUOTATIONS.md).
+Contractual accrual, quotation compounding and actual cash dates stay separate;
+Street/model/market and unavailable host qualification remains open.

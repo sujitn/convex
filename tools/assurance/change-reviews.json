@@ -1905,6 +1905,50 @@
         "tools/library/library-inventory.json": "c3c85af1549e8027decdfb107db166ec9ed064bc70ee64c2cabe5dfcadd40298",
         "tools/library/test_operations.py": "36810461e61c69dc771e52482381c73f7ac489341d196aabd4df52d2d81e9552"
       }
+    },
+    {
+      "base_commit": "5f64d38900ea645068083548b9772b29679236a4",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "Full original contextual ACT/ACT ICMA fixed/stub/stepped/amortizing and legal conditional workout cash price/yield/invoice. Explicit exact original nominal reference mesh, complete coupon/payment coverage, independent frequency/compounding/accrual, exact security/context/policy/calendar/quote pins and signed original-face quantity survive. Core original Decimal coupon fraction, native cash/kernel/closed solver/invoice and legal workout owners are reused. Prepared private state validates all times once under original bounded reference-entry reservation; no inferred context or extrapolation. Original optional/floating guards remain. No Street/market/model certificate, provider/storage/MQ/runtime/clock or live authority. Core coupon ICMA arithmetic extracted unchanged into one checked shared function. Original inverse and workout financial bodies change visibility only. Original context-free, optional/floating and financial/default/dependency behavior remains. Complete independent controls precede candidate runs; raw import and correct option-guard failures remain. Separate plain contracts explicitly omit exercise rights without modifying original references/answers/bounds. All original mandatory and quantitative/history bytes remain. No independent human financial approval; accepted engineering through062 unchanged, CVX-063 partial/unaccepted/uncertified.",
+      "tests": [
+        "Original predeclared independent full reference-time/cash/PV/yield/invoice controls, failures and same native/shared owner",
+        "Actual C/MCP/native-WASM/schema/default/minimal and original coupon/workout/history/financial regressions",
+        "Strict lint/docs/features/format/workspace and exact source/history/scope/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5958b9ba0e2a5140a0402ef080e0d523409e6263bcb313f82c08fc0f1c914b1e",
+        ".github/workflows/java.yml": "1daf0831e5768ea6cca4a3ac9b4dd24f3cf4ae522a650a0af50390f50dd51ac2",
+        "crates/convex-analytics/src/workflow/bond.rs": "244d561d5c24d4548f7ee3a6f67b5a437edf1b3a183a4d2e516524e3f47faf10",
+        "crates/convex-analytics/src/workflow/icma.rs": "a909a359ce0e2507df62958fa5ad43d121b19035e4dd27f43aa085fe3894cab8",
+        "crates/convex-analytics/src/workflow/inverse.rs": "4b08063a46f3403cf7b7c9df91b1ee900e6859c709602987096d9d4500c9326a",
+        "crates/convex-analytics/src/workflow/mod.rs": "9181504776db7ceb7ba5cd5e8b384fd6d12bc791c378c112b3879c72fabc97ac",
+        "crates/convex-analytics/src/workflow/workout.rs": "2d4334b375e43051e1b751a03801b68faece7bbd03ac42fe10eaabde403a93b9",
+        "crates/convex-core/src/cashflows/mod.rs": "c3f6cab8c83531df86020ecba834295bac3fe2cf88fac59e97e5aebc9795f680",
+        "crates/convex-core/src/cashflows/schedule.rs": "f49fca0c3a26483c0434b2165345d1c5541c56e8a21557fc7b289109605a11dc",
+        "crates/convex-ffi/tests/icma.rs": "de9751ead94e2673f409eb11740ace48ab02e403aa5b23029ea6887f2050c84d",
+        "crates/convex/examples/icma_quotation.rs": "f01bdef4c431a83395e832b79bc4114da9ff364f2cc49e1af9df2d151753ea91",
+        "crates/convex/src/library/icma.rs": "fd1f8e8e2bc679bb02f898d501ce9c1931e9a3a9a64815c563e2c4db492b2cae",
+        "crates/convex/src/library/mod.rs": "57dedab0207944df6c8bc2efb17d277e61056f483a24bccdf58ff5061baa4067",
+        "crates/convex/src/library/products.rs": "77fb4252a1819c11bc3318239820b22569cecd5af4e0d5ff06f97cfa993dd3df",
+        "crates/convex/src/library/requests.rs": "11fa4fac8029047a788f187bf55411f7dcd93548a394ffed6127d85699568212",
+        "crates/convex/tests/icma.rs": "4ee5bbb24b644d523beb52f8000d9b8702278db3ecd62c7f348a5b485b5b51a7",
+        "tests/fixtures/library/icma-additional-reference.json": "825c128a39b879888e2c1f399a7aa08d73fc216f687e43d553cca97c1e5b9c65",
+        "tests/fixtures/library/icma-api-cases.json": "f3c6765845b51ee7a8ce2c3a7428ae562efee92d0748addc82adb657b07c0640",
+        "tests/fixtures/library/icma-cash-components.json": "dec73892728d2f0a4c1745ad8d4f0215c20f85f87e129c47a98a35b9f6d47786",
+        "tests/fixtures/library/icma-entitlement-reference.json": "1fa7742fd0400dbf836ddb4587b8b90cf02545afea894385d4cab55306712951",
+        "tests/fixtures/library/icma-qualified.json": "98038b83b502e9920939b02bb20c2b7fd3d3aff1e7877c7c21cae6144e47fee6",
+        "tests/fixtures/library/icma-quotations.json": "23db06b77ebf7aff9ef23c8abebcd793f665cc9c24915e9ce8fed77af9d32745",
+        "tests/fixtures/library/icma-reference.json": "85b9b6bab40ec4644da34bc3a20e06498ba0aae8698a429037d4c46458ac478a",
+        "tests/fixtures/library/icma_contract.rs": "24cfd833c99f86c34758a8c1f6fde75d9d4609037ddb4c7d6ea6e3f9c359f23e",
+        "tools/assurance/check.py": "88ec1856df6ed6fb0edc7a5782c43aaa256bd5a102bd32e20e1785c2a1f40154",
+        "tools/assurance/inventory.json": "401ebb2b7a85f2baeecaa494481b42bcd6c588ff26a0e637de664f73d455e556",
+        "tools/assurance/numeric-evidence.json": "e411c2a5600af3e7d741852faeb44b1ccea030648cbc7a685c4f5f7945880b58",
+        "tools/assurance/test_policy.py": "ebbfc759f491f8a2ec0a15751f726d9fda7da4c1af97598df8edb7cbd42e2008",
+        "tools/library/api-capabilities.json": "e87a4236dca49616618bb39948bf6766b0c97feae7d2e73add3c1a0d550e443b",
+        "tools/library/library-inventory.json": "4202ef5549031fc3ba5f3c16b7498cc2c191b980180e7873300d9357439841da",
+        "tools/library/test_operations.py": "cc96b54096995cbc175e70ab79104333253b10f390a2d63a273e68e18892710b"
+      }
     }
   ]
 }

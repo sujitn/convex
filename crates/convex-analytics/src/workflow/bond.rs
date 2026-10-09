@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DatedYieldConvention {
-    /// Actual settlement-to-payment time basis; contextual ICMA needs a separate model.
+    /// Actual context-free settlement-to-payment basis; use PreparedIcmaQuotation for ICMA.
     pub day_count: DayCountConvention,
     /// Annualized yield compounding.
     pub compounding: Compounding,
@@ -64,6 +64,15 @@ pub enum BondValueBasis {
         decimal_rate: f64,
         /// Explicit quotation convention.
         convention: DatedYieldConvention,
+    },
+    /// Full original fixed cash at explicitly supplied contextual ICMA time.
+    ContextualIcma {
+        /// Original annual decimal quotation rate.
+        decimal_rate: f64,
+        /// Exact versioned quotation and work policy used.
+        convention: super::IcmaYieldConvention,
+        /// Original supplied full economic reference mesh, without inference.
+        reference_context: super::IcmaReferenceContext,
     },
     /// Complete cash on an exact reference curve plus a continuous annual spread.
     DiscountSpread {

@@ -80,7 +80,7 @@ class AssuranceMutations(unittest.TestCase):
         paths = check.inventory_paths(ROOT)
         modules = {p.relative_to(ROOT).as_posix() for p in
                    (ROOT/'crates/convex-analytics/src/workflow').glob('*.rs')}
-        self.assertEqual(len(modules), 8)
+        self.assertEqual(len(modules), 9)
         self.assertIn('crates/convex-analytics/src/workflow/workout.rs', modules)
         self.assertIn('crates/convex-analytics/src/workflow/floating_workout.rs', modules)
         self.assertTrue(modules <= paths)
@@ -91,14 +91,14 @@ class AssuranceMutations(unittest.TestCase):
                     if 'library_workflow' in c or 'library_operations' in c or 'library_cash' in c or 'cash_quotation_reference' in c or 'library_schema' in c or 'library/api.py' in c
                     or '--test library' in c or 'convex-wasm -p convex-mcp' in c
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c
-                    or 'government_inverse' in c or 'constrained_hedge' in c or 'floating_workout' in c
+                    or 'government_inverse' in c or 'constrained_hedge' in c or 'floating_workout' in c or 'icma' in c
                     or c == 'cargo build --locked -p convex-ffi --lib']
-        self.assertEqual(len(commands), 69)
+        self.assertEqual(len(commands), 80)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 17)
+        self.assertEqual(len(modules), 18)
         self.assertIn('crates/convex/src/library/workout.rs', modules)
         self.assertIn('crates/convex/src/library/floating_workout.rs', modules)
         self.assertTrue(modules <= check.inventory_paths(ROOT))

@@ -217,3 +217,11 @@ integration is introduced. All 30 mandatory areas, 174 combinations and 2,154
 Planned records remain; full model/market, LB0/LB1 and production certificates
 are pending. See [library coverage](LIBRARY-COVERAGE.md) and
 [assurance](ASSURANCE.md).
+
+Explicit contextual ACT/ACT ICMA price and same-cash yield inversion are now
+available over full original fixed/stepped/amortizing and legal workout cash.
+The checked owner requires an independently versioned complete nominal reference
+mesh, exact original policy/security/quote/calendar pins, payment coverage and
+signed original-face quantities. See [the full contract](ICMA-QUOTATIONS.md).
+Contractual accrual, quotation compounding and actual cash dates stay separate;
+Street/model/market and unavailable host qualification remains open.

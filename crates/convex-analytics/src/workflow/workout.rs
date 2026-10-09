@@ -124,10 +124,10 @@ pub struct WorkoutQuotation {
     /// Original native price or inverse, including complete used workout cash.
     pub quotation: WorkoutValue,
 }
-struct PreparedWorkout {
-    cash: PreparedBondCash,
-    source_cash: BondProjection,
-    exercise: Option<WorkoutCashDetails>,
+pub(super) struct PreparedWorkout {
+    pub(super) cash: PreparedBondCash,
+    pub(super) source_cash: BondProjection,
+    pub(super) exercise: Option<WorkoutCashDetails>,
 }
 /// Complete checked immutable native inputs; calendar identity is explicit.
 pub struct WorkoutInputs<'a> {
@@ -196,7 +196,7 @@ pub(super) fn context(contract: &BondContract, c: &WorkoutContext) -> WorkflowRe
     }
     Ok(())
 }
-fn prepare(
+pub(super) fn prepare(
     contract: &BondContract,
     c: &WorkoutContext,
     choice: &WorkoutSelection,

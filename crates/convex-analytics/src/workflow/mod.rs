@@ -6,6 +6,7 @@
 mod bond;
 mod capability;
 mod floating_workout;
+mod icma;
 mod inputs;
 mod inverse;
 mod valuation;
@@ -14,6 +15,7 @@ mod workout;
 pub use bond::*;
 pub use capability::*;
 pub use floating_workout::*;
+pub use icma::*;
 pub use inputs::*;
 pub use inverse::*;
 pub use valuation::*;

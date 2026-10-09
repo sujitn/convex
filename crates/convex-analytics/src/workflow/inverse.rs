@@ -55,7 +55,7 @@ pub struct BondInverse {
     /// Full final cash/model quote.
     pub valuation: BondValue,
 }
-fn solve_bond(
+pub(super) fn solve_bond(
     cash: &PreparedBondCash,
     target: BondPriceTarget,
     settings: BondInverseSettings,

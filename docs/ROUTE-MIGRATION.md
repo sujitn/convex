@@ -188,3 +188,18 @@ imports of the removed `FixedWorkoutProjection` name; its full cash/date/amount
 layout is retained. There is one checked composition, without a compatibility
 type alias or duplicated floating financial formulas. No C symbol or generic
 Java/Excel/MCP/WASM call changes. See [fields and controls](FLOATING-WORKOUTS.md).
+
+## Explicit contextual ICMA cash quotation
+
+Use `workflow::PreparedIcmaQuotation` or strict `icma_quotation` price/yield
+for full original fixed/workout cash with an explicit versioned nominal mesh.
+Supply complete original reference periods, independent quote/reference/policy/
+calendar pins, frequency, compounding, coverage and original-face quantity.
+The existing context-free `DatedYieldConvention` route still rejects missing
+ICMA context; it cannot become an implicit ISDA, fixed365 or coupon-count proxy.
+Its other admitted conventions are unchanged. Low-level approximate day-count
+helpers are not an alternative to this checked original-cash quotation owner.
+No existing correctly owned route is removed. Actual government benchmark
+selection, market Street and stochastic OAS require their distinct full owners;
+this contextual time composition grants none of those certificates.
+See [ICMA quotations](ICMA-QUOTATIONS.md).

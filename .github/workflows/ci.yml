@@ -539,6 +539,36 @@ jobs:
       - name: Validate actual complete government inverse schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse
 
+      - name: Validate original contextual ICMA controls
+        run: python3 tests/scripts/icma_reference.py
+
+      - name: Validate original contextual ICMA option and plain qualification
+        run: python3 tests/scripts/icma_qualification.py
+
+      - name: Validate original contextual ICMA workout components
+        run: python3 tests/scripts/icma_cash_components.py
+
+      - name: Validate original contextual ICMA unpaid purchase accrual
+        run: python3 tests/scripts/icma_entitlement_reference.py
+
+      - name: Validate original contextual ICMA versioned operation corpus
+        run: python3 tests/scripts/icma_api_corpus.py
+
+      - name: Test complete contextual ICMA adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma -- --test-threads=1
+
+      - name: Run contextual ICMA consumer
+        run: cargo run --locked -p convex --example icma_quotation
+
+      - name: Run contextual ICMA consumer without default features
+        run: cargo run --locked -p convex --example icma_quotation --no-default-features
+
+      - name: Run contextual ICMA consumer with schema support
+        run: cargo run --locked -p convex --example icma_quotation --features schemars
+
+      - name: Validate actual contextual ICMA schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_schema.py --binary target/debug/examples/icma_quotation
+
       - name: Validate preserved floating workout controls
         run: python3 tests/scripts/floating_workout_reference.py check
 
@@ -568,6 +598,9 @@ jobs:
 
       - name: Verify actual separate-process C floating workout parity
         run: python3 tests/scripts/floating_workout_parity.py --binary target/debug/examples/floating_workout --library target/debug/libconvex_ffi.so
+
+      - name: Validate actual contextual ICMA C parity
+        run: python3 tests/scripts/icma_parity.py --binary target/debug/examples/icma_quotation --library target/debug/libconvex_ffi.so
 
       - name: Validate preserved independent hedge controls
         run: python3 tests/scripts/constrained_hedge_reference.py
@@ -994,6 +1027,9 @@ jobs:
       - name: Build native complete floating workout consumer
         run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
 
+      - name: Build contextual ICMA host consumer
+        run: cargo build --locked --profile excel -p convex --example icma_quotation --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1043,6 +1079,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke floating workout expectations
         run: python tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/floating-workout-parity.json
+
+      - name: Prepare fresh contextual ICMA host transport expectations
+        run: python tests/scripts/icma_parity.py --binary target/excel/examples/icma_quotation.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

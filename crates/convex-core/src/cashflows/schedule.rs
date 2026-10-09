@@ -212,7 +212,9 @@ impl DateRules {
 }
 
 /// One regular notional period, preserved even when a long stub merges coupons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ReferencePeriod {
     /// Inclusive notional start.
     pub start: Date,
@@ -305,39 +307,107 @@ impl CouponPeriod {
         if day_count != DayCountConvention::ActActIcma {
             return Ok(day_count.to_day_count().year_fraction(start, end));
         }
-        if self.frequency.is_zero() {
-            return Err(CashflowError::terms(
-                "day_count",
-                "ICMA requires a coupon frequency",
-            ));
-        }
-        let mut total = Decimal::ZERO;
-        let mut covered = 0_i64;
-        for reference in &self.reference_periods {
-            let left = start.max(reference.start);
-            let right = end.min(reference.end);
-            if right > left {
-                let days = left.days_between(&right);
-                covered += days;
-                let denominator = Decimal::from(self.frequency.periods_per_year())
-                    .checked_mul(Decimal::from(reference.start.days_between(&reference.end)))
-                    .ok_or(CashflowError::Arithmetic("ICMA denominator"))?;
-                let fraction = Decimal::from(days)
-                    .checked_div(denominator)
-                    .ok_or(CashflowError::Arithmetic("ICMA division"))?;
-                total = total
-                    .checked_add(fraction)
-                    .ok_or(CashflowError::Arithmetic("ICMA sum"))?;
-            }
-        }
-        if covered != start.days_between(&end) {
+        icma_year_fraction(start, end, self.frequency, &self.reference_periods)
+    }
+}
+
+/// Actual ICMA time split over explicitly supplied economic reference periods.
+/// No context, frequency or extension is inferred. Coupon accrual and quotations
+/// share this checked Decimal arithmetic; zero intervals have zero time.
+pub fn icma_year_fraction(
+    start: Date,
+    end: Date,
+    frequency: Frequency,
+    reference_periods: &[ReferencePeriod],
+) -> Result<Decimal, CashflowError> {
+    validate_date(start)?;
+    validate_date(end)?;
+    if end < start {
+        return Err(CashflowError::terms("ICMA interval", "end precedes start"));
+    }
+    if start == end {
+        return Ok(Decimal::ZERO);
+    }
+    if reference_periods.len() > MAX_SCHEDULE_PERIODS {
+        return Err(CashflowError::BoundExceeded("ICMA reference periods"));
+    }
+    for (i, p) in reference_periods.iter().enumerate() {
+        validate_span(p.start, p.end)?;
+        if i > 0 && reference_periods[i - 1].end != p.start {
             return Err(CashflowError::terms(
                 "reference_periods",
-                "incomplete ICMA coverage",
+                "ordered contiguous periods required",
             ));
         }
-        Ok(total)
     }
+    if frequency.is_zero() {
+        return Err(CashflowError::terms(
+            "day_count",
+            "ICMA requires a coupon frequency",
+        ));
+    }
+    let mut total = Decimal::ZERO;
+    let mut covered = 0_i64;
+    for reference in reference_periods {
+        let left = start.max(reference.start);
+        let right = end.min(reference.end);
+        if right > left {
+            let days = left.days_between(&right);
+            covered += days;
+            let denominator = Decimal::from(frequency.periods_per_year())
+                .checked_mul(Decimal::from(reference.start.days_between(&reference.end)))
+                .ok_or(CashflowError::Arithmetic("ICMA denominator"))?;
+            let fraction = Decimal::from(days)
+                .checked_div(denominator)
+                .ok_or(CashflowError::Arithmetic("ICMA division"))?;
+            total = total
+                .checked_add(fraction)
+                .ok_or(CashflowError::Arithmetic("ICMA sum"))?;
+        }
+    }
+    if covered != start.days_between(&end) {
+        return Err(CashflowError::terms(
+            "reference_periods",
+            "incomplete ICMA coverage",
+        ));
+    }
+    Ok(total)
+}
+
+/// Check a complete supplied nominal mesh against the ORIGINAL schedule anchor.
+/// This only validates supplied context; it does not manufacture missing dates.
+/// Independent payments beyond maturity require explicit additional periods.
+pub fn validate_icma_reference_periods(
+    spec: &ScheduleSpec,
+    periods: &[ReferencePeriod],
+) -> Result<(), CashflowError> {
+    let (Some(first), Some(last)) = (periods.first(), periods.last()) else {
+        return Err(CashflowError::terms(
+            "reference_periods",
+            "explicit context required",
+        ));
+    };
+    if spec.frequency.is_zero() || periods.len() > MAX_SCHEDULE_PERIODS {
+        return Err(CashflowError::BoundExceeded(
+            "ICMA frequency or reference periods",
+        ));
+    }
+    validate_span(first.start, last.end)?;
+    let (_, anchor) = generate_dates(spec)?;
+    let expected = references(
+        first.start,
+        last.end,
+        anchor,
+        spec.frequency.months_per_period() as i32,
+        spec.end_of_month,
+    )?;
+    if expected != periods {
+        return Err(CashflowError::terms(
+            "reference_periods",
+            "complete original anchored nominal periods required",
+        ));
+    }
+    Ok(())
 }
 
 /// A reusable validated schedule for bonds, rates and credit legs.

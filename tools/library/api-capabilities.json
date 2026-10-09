@@ -30030,7 +30030,8 @@
     "tests/fixtures/library/monotone.json",
     "tests/fixtures/library/government-inverse-protocol.json",
     "tests/fixtures/library/constrained-hedge-protocol.json",
-    "tests/fixtures/library/floating-workout-qualified.json"
+    "tests/fixtures/library/floating-workout-qualified.json",
+    "tests/fixtures/library/icma-api-cases.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -32645,6 +32646,101 @@
       ],
       "certified": false,
       "qualification": "Full original conditional term/overnight workout cash, exact history/publication/known-at and independent calendar/curve revisions; original purchase accrued, profiles, principal and rounding. One checked native composition uses actual original reset/profile slices and original overnight prefixes/lockout. Scheduled principal precedes retirement; completed unpaid claims survive original dates. Shared workflow freezes projection once, retains every legal date/put/notice, original inverse domains/residual/work and signed original-face consideration. All paths/prefixes admitted before inverses; bounded prefix maps/ordered original observation access avoid quadratic new scans. No worst-DM, Street/YTM/OAS, model or live authority inference. Conditional supplied USD floating cash/DM engineering subset only; LC-009 joint stochastic exercise and effective model risk are not qualified by these frozen projections. Independent Decimal60 cash/DM/invoice controls are separate from native transport envelopes. Original mandatory records stay Planned and actual unavailable host/market/model/library certificates remain open."
+    },
+    "icma.price": {
+      "required_record_ids": [
+        "LC-003/fixed_bullet/USD/deterministic/accrued_clean_dirty_invoice/rust",
+        "LC-003/fixed_bullet/USD/deterministic/price_yield_and_supported_spread_inverse/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_quotation",
+        "operation.action.kind": "price",
+        "operation.input.security.bond.terms.currency": "USD"
+      },
+      "positive_examples": [
+        "icma.regular.SemiAnnual.0.04125",
+        "icma.long_front.Continuous.0.04125",
+        "icma.qualified.stepped.Annual"
+      ],
+      "boundary_examples": [
+        "icma.short_back.Simple.-0.0075",
+        "icma.partial.Annual",
+        "icma.delayed_claim",
+        "icma.separate_accrual"
+      ],
+      "negative_examples": [
+        "icma.invalid.empty_context",
+        "icma.invalid.stale_context",
+        "icma.invalid.truncated_payment",
+        "icma.invalid.reference_work",
+        "icma.stepped.Annual"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma.rs",
+          "text": "pub fn quote_price("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "IcmaQuotationOperation::Price {"
+        }
+      ],
+      "certified": false,
+      "qualification": "Full original contextual ACT/ACT ICMA fixed/stub/stepped/amortizing and legal conditional workout cash price/yield/invoice. Explicit exact original nominal reference mesh, complete coupon/payment coverage, independent frequency/compounding/accrual, exact security/context/policy/calendar/quote pins and signed original-face quantity survive. Core original Decimal coupon fraction, native cash/kernel/closed solver/invoice and legal workout owners are reused. Prepared private state validates all times once under original bounded reference-entry reservation; no inferred context or extrapolation. Original optional/floating guards remain. No Street/market/model certificate, provider/storage/MQ/runtime/clock or live authority. Supplied USD engineering subset only; full market Street/optional model/general operation and actual host certificates remain open. Original mandatory records stay Planned."
+    },
+    "icma.yield": {
+      "required_record_ids": [
+        "LC-003/fixed_bullet/USD/deterministic/accrued_clean_dirty_invoice/rust",
+        "LC-003/fixed_bullet/USD/deterministic/price_yield_and_supported_spread_inverse/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_quotation",
+        "operation.action.kind": "yield",
+        "operation.input.security.bond.terms.currency": "USD"
+      },
+      "positive_examples": [
+        "icma.regular.SemiAnnual.0.04125.inverse",
+        "icma.qualified.stepped.Annual.inverse",
+        "icma.partial.Annual.inverse"
+      ],
+      "boundary_examples": [
+        "icma.long_back.Continuous.-0.0075.inverse",
+        "icma.qualified.boundary.Monthly.inverse"
+      ],
+      "negative_examples": [
+        "icma.invalid.no_root",
+        "icma.non_unique",
+        "icma.invalid.mixed_sign",
+        "icma.invalid.inverse_work"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma.rs",
+          "text": "pub fn quote_yield("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "IcmaQuotationOperation::Yield {"
+        }
+      ],
+      "certified": false,
+      "qualification": "Full original contextual ACT/ACT ICMA fixed/stub/stepped/amortizing and legal conditional workout cash price/yield/invoice. Explicit exact original nominal reference mesh, complete coupon/payment coverage, independent frequency/compounding/accrual, exact security/context/policy/calendar/quote pins and signed original-face quantity survive. Core original Decimal coupon fraction, native cash/kernel/closed solver/invoice and legal workout owners are reused. Prepared private state validates all times once under original bounded reference-entry reservation; no inferred context or extrapolation. Original optional/floating guards remain. No Street/market/model certificate, provider/storage/MQ/runtime/clock or live authority. Supplied USD engineering subset only; full market Street/optional model/general operation and actual host certificates remain open. Original mandatory records stay Planned."
     }
   }
 }

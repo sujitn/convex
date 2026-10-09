@@ -24,6 +24,7 @@ on:
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/floating_workout_parity.py'
+      - 'tests/scripts/icma_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -54,6 +55,7 @@ on:
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
       - 'tests/scripts/floating_workout_parity.py'
+      - 'tests/scripts/icma_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -108,6 +110,9 @@ jobs:
       - name: Build native complete floating workout consumer
         run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
 
+      - name: Build contextual ICMA host consumer
+        run: cargo build --locked --profile excel -p convex --example icma_quotation --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -153,6 +158,9 @@ jobs:
 
       - name: Generate fresh native floating workout adapter expectations
         run: python3 tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout --output bindings/java/target/floating-workout-parity.json
+
+      - name: Prepare fresh contextual ICMA host transport expectations
+        run: python3 tests/scripts/icma_parity.py --binary target/excel/examples/icma_quotation --output bindings/java/target/icma-parity.json
 
       - name: Generate fresh native full workout adapter expectations
         run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json

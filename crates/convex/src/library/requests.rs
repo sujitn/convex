@@ -150,6 +150,17 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Full supplied contextual ICMA fixed/workout quotations, without a Street alias.
+    IcmaQuotation {
+        /// Complete original terms, context, independent revisions and signed face.
+        input: Box<IcmaQuotationInput>,
+        /// Exact contextual time/compounding and bounded preparation policy.
+        convention: convex_analytics::workflow::IcmaYieldConvention,
+        /// Original plain cash or legally permitted conditional workout.
+        cash: convex_analytics::workflow::IcmaCashSelection,
+        /// Full price or unchanged closed-domain native inverse.
+        action: IcmaQuotationOperation,
+    },
     /// Full original floating conditional cash and frozen-projection DM inverses.
     FloatingWorkout {
         /// Complete original floating terms, resources, revisions and signed face.

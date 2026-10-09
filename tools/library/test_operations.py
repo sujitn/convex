@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 57)
-        self.assertEqual(result['engineering_examples'], 3429)
+        self.assertEqual(result['exact_operation_routes'], 59)
+        self.assertEqual(result['engineering_examples'], 3576)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -70,6 +70,14 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(positive_examples=[other]))
             self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(certified=True))
         self.rejects(lambda m: m['operation_routes']['hedge.solve'].update(negative_examples=['hedge.mixed']))
+
+    def test_icma_price_and_inverse_cannot_drop_context_or_substitute_actions(self):
+        for name, other in [('price', 'icma.regular.SemiAnnual.0.04125.inverse'),
+                            ('yield', 'icma.regular.SemiAnnual.0.04125')]:
+            self.rejects(lambda m: m['operation_routes']['icma.'+name].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes']['icma.'+name].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['icma.price'].update(
+            selectors={'operation.kind': 'workout', 'operation.action.kind': 'price'}))
 
     def test_floating_workout_actions_preserve_original_paths_and_failures(self):
         for name, other in [('price', 'floating.term.dm'),

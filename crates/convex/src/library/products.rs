@@ -757,6 +757,12 @@ pub(super) fn execute(
         }
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
+        LibraryOperation::IcmaQuotation {
+            input,
+            convention,
+            cash,
+            action,
+        } => super::icma::execute(input, convention, cash, action, r),
         LibraryOperation::FloatingWorkout {
             input,
             context,
