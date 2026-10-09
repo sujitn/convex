@@ -515,6 +515,42 @@ jobs:
       - name: Preserve original product calibration requests and independent deposit controls
         run: python3 tests/scripts/calibration_replay_inputs.py --check
 
+      - name: Preserve original independent parametric product controls
+        run: python3 tests/scripts/product_parametric_reference.py --check
+
+      - name: Preserve explicit contractual parametric input admission
+        run: python3 tests/scripts/product_parametric_admitted_reference.py --check
+
+      - name: Preserve explicit native parameter scaling declaration
+        run: python3 tests/scripts/product_parametric_scaled_reference.py --check
+
+      - name: Preserve stricter caller parametric objective declaration
+        run: python3 tests/scripts/product_parametric_strict_reference.py --check
+
+      - name: Preserve explicit parametric coordinate controls
+        run: python3 tests/scripts/product_parametric_conditioned_reference.py --check
+
+      - name: Preserve local parametric starts and retained earlier failures
+        run: python3 tests/scripts/product_parametric_starts_reference.py --check
+
+      - name: Check full parametric products risk replay runtime and actual native adapters
+        run: cargo test --locked -p convex -p convex-analytics -p convex-engine -p convex-ffi -p convex-mcp -p convex-wasm --all-features --test product_parametric -- --test-threads=1
+
+      - name: Run complete parametric product consumer
+        run: cargo run --locked -p convex --example product_parametric
+
+      - name: Run parametric products with minimal features
+        run: cargo run --locked -p convex --example product_parametric --no-default-features
+
+      - name: Run parametric products with schema support
+        run: cargo run --locked -p convex --example product_parametric --features schemars
+
+      - name: Validate exported full product parametric schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/product_parametric_schema.py --binary target/debug/examples/product_parametric
+
+      - name: Reopen analytic product model and original quote risk capture
+        run: cargo run --locked -p convex-engine --example product_parametric_snapshot -- /tmp/convex-product-parametric-snapshots nelson_siegel.rate.positive
+
       - name: Check complete product calibration capture risk runtime and recovery
         run: cargo test --locked -p convex --all-features --test calibration_replay -p convex-engine --test calibration_snapshot_replay --test calibration_snapshot_runtime -p convex-ports --test calibration_snapshots
 

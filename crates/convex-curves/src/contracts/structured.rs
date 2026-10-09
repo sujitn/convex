@@ -70,7 +70,8 @@ impl ParametricModel {
             } => vec![beta0, beta1, beta2, beta3, tau1, tau2],
         }
     }
-    pub(super) fn with_parameters(&self, values: &[f64]) -> Result<Self> {
+    /// Replace all parameters in their exact native order; validate before use.
+    pub fn with_parameters(&self, values: &[f64]) -> Result<Self> {
         match (self, values) {
             (Self::NelsonSiegel { .. }, [beta0, beta1, beta2, tau]) => Ok(Self::NelsonSiegel {
                 beta0: *beta0,
@@ -94,7 +95,8 @@ impl ParametricModel {
             )),
         }
     }
-    pub(super) fn validate(&self) -> Result<()> {
+    /// Check original finite loadings and positive finite decay domains.
+    pub fn validate(&self) -> Result<()> {
         let result = match *self {
             Self::NelsonSiegel {
                 beta0,
@@ -154,7 +156,8 @@ impl ParametricModel {
         };
         value.map_err(|e| Error::Numerical(e.to_string()))
     }
-    fn method(&self) -> InterpolationMethod {
+    /// Exact method tag for this original model family.
+    pub fn method(&self) -> InterpolationMethod {
         if matches!(self, Self::NelsonSiegel { .. }) {
             InterpolationMethod::NelsonSiegel
         } else {

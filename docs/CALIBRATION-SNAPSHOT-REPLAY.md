@@ -123,6 +123,7 @@ are exercised by `tests/scripts/calibration_replay_schema.py`.
 Thirty-two unchanged original calibration/risk requests and two independent
 Decimal(60) dated-deposit controls provide scoped evidence. They do not qualify
 all market/method combinations. CVX-063 and all 2,154 mandatory library records
-remain partial/Planned. Product-price parametric fits, other method/model/hedge/
-workout operations, actual Windows/Excel/wasm32/browser execution and independent
+remain partial/Planned. [Full product-price parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md)
+now retain exact models and full graph diagnostics through this schema3 owner.
+Other method/model/hedge/workout operations, actual Windows/Excel/wasm32/browser execution and independent
 financial/library/production/latency certificates remain open.

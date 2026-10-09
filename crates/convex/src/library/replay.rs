@@ -111,7 +111,7 @@ fn roots_value(roots: &[convex_math::solvers::SolverResult]) -> Value {
         .map(|r| serde_json::json!({"root":r.root,"iterations":r.iterations,"residual":r.residual}))
         .collect::<Vec<_>>())
 }
-fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
+pub(super) fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
     match fit {
         q::QuoteGraphCalibration::Rate(fit) => {
             let solver = match &fit.solver {
@@ -120,6 +120,12 @@ fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
                 }
                 r::RateSolverDiagnostics::Global(d) => {
                     serde_json::json!({"kind":"global","diagnostics":super::errors::fit_diagnostics(d)})
+                }
+                r::RateSolverDiagnostics::Parametric {
+                    parameters,
+                    diagnostics,
+                } => {
+                    serde_json::json!({"kind":"parametric","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
                 }
             };
             serde_json::json!({"kind":"rate","recipe":fit.recipe,"curve":curves::describe_curve(&fit.curve),"repriced_helpers":fit.repriced_helpers,"solver":solver})
@@ -142,6 +148,12 @@ fn fit_value(fit: &q::QuoteGraphCalibration) -> Value {
                 }
                 c::CashSolverDiagnostics::Global(d) => {
                     serde_json::json!({"kind":"global","diagnostics":super::errors::fit_diagnostics(d)})
+                }
+                c::CashSolverDiagnostics::Parametric {
+                    parameters,
+                    diagnostics,
+                } => {
+                    serde_json::json!({"kind":"parametric","parameters":parameters,"diagnostics":super::errors::fit_diagnostics(diagnostics)})
                 }
             };
             serde_json::json!({"kind":"cash","recipe":fit.recipe,"curve":curves::describe_curve(&fit.curve),"annualized_parameters":fit.annualized_parameters,"repriced_helpers":fit.repriced_helpers,"solver":solver,"price_evaluations":fit.price_evaluations})

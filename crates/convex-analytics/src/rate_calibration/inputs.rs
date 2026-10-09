@@ -189,7 +189,8 @@ pub struct OvernightProjectionBinding {
 pub struct RateCurveRecipe {
     /// Exact curve/role/time/interpolation/extrapolation/dependency/fit contract.
     pub curve: CurveRecipe,
-    /// Strictly increasing actual parameter dates; origin ties to the first zero.
+    /// Grid parameter dates, or Parametric coverage dates whose last is the
+    /// exact native model horizon. Dates never stand in for model parameters.
     pub pillars: Vec<Date>,
     /// Every original full instrument, native quote and threshold.
     pub helpers: Vec<RateCalibrationHelper>,
@@ -297,6 +298,13 @@ pub enum RateSolverDiagnostics {
     },
     /// Full scaled objective, rank, bounds, steps and measured work.
     Global(FitDiagnostics),
+    /// Actual original model parameters and identified full-product objective.
+    Parametric {
+        /// Solved loadings and decay years; no annualized node interpretation.
+        parameters: ParametricModel,
+        /// Complete measured work, rank, objective and original-unit residuals.
+        diagnostics: FitDiagnostics,
+    },
 }
 
 /// Successful complete fitted curve and every original helper's final valuation.

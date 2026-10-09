@@ -6,6 +6,10 @@ FRA, exchange-rate-futures, IRS, OIS and tenor-basis instruments. It composes th
 existing full product pricers and bounded numerical kernels. No provider,
 database, broker, runtime, registry or wall clock enters the calculation.
 
+[Full product-price parametric fitting](PRODUCT-PARAMETRIC-CALIBRATION.md) adds
+explicit NS/Svensson mode to this same full helper owner, with original exact
+parameters, source-order native residuals, quote-risk rebuilding and schema3 replay.
+
 `convex::rate_calibration::reprice_rate_helpers` separately diagnoses a complete
 recipe on exact supplied curves without fitting or changing them. It reuses the
 original admission, history preflight, product valuations and horizon guards,

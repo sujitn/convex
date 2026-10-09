@@ -61,7 +61,9 @@ advertises those ordinary yield sensitivities as workout risk.
 
 Bare `NelsonSiegel`/`Svensson` method tags on discrete nodes still fail rather
 than constructing a sampled substitute. Use complete `CurveSource::Parametric`
-or the shared `parametric_fit` operation. `Segmented`/`Delegated` tags require
+or the shared `parametric_fit` operation for original zero observations. Complete
+product quotes use [Parametric mode in the existing full calibrators](PRODUCT-PARAMETRIC-CALIBRATION.md).
+`Segmented`/`Delegated` tags require
 their complete native source contracts, exact dependencies, bounds/fallback and
 join rules. See [curve families](CURVE-FAMILIES.md). Older tenor-only bootstrap
 and native compatibility methods retain their separate unqualified scope; this

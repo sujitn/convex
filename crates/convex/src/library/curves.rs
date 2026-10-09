@@ -297,10 +297,29 @@ pub(super) fn fit_curve(
     Ok(serde_json::json!({"result":describe_curves(&curves)?,"solver":diagnostics}))
 }
 pub(super) fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value> {
-    Ok(
-        serde_json::json!({"result":describe_curves(&graph.curves)?,"build_order":graph.build_order,
-        "repricing":graph.repricing,"price_evaluations":graph.price_evaluations,"publications":graph.publications}),
-    )
+    let mut output = serde_json::json!({"result":describe_curves(&graph.curves)?,"build_order":graph.build_order,
+        "repricing":graph.repricing,"price_evaluations":graph.price_evaluations,"publications":graph.publications});
+    // Original grid/credit output bytes remain unchanged. Parametric product
+    // graphs additionally retain their mixed-unit solved parameters and full
+    // measured solver/helper evidence, including on dependent quote rebuilds.
+    if graph.calibrations.iter().any(|fit| match fit {
+        q::QuoteGraphCalibration::Rate(f) => {
+            matches!(f.solver, r::RateSolverDiagnostics::Parametric { .. })
+        }
+        q::QuoteGraphCalibration::Cash(f) => {
+            matches!(f.solver, c::CashSolverDiagnostics::Parametric { .. })
+        }
+        q::QuoteGraphCalibration::Credit(_) => false,
+    }) {
+        output["calibrations"] = value(
+            graph
+                .calibrations
+                .iter()
+                .map(super::replay::fit_value)
+                .collect::<Vec<_>>(),
+        )?;
+    }
+    Ok(output)
 }
 fn rate_histories(
     rate: &RateCalibrationInput,

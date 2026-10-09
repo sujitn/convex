@@ -19,6 +19,18 @@ pub(super) fn dependencies(model: Option<&BondBasisModel>) -> Vec<CurveKey> {
 }
 fn settings(input: &CashCurveRecipe) -> CashCalibrationResult<()> {
     match (&input.curve.calibration, input.bootstrap) {
+        (CalibrationMode::Parametric(s), None) => {
+            s.validate(input.helpers.len())?;
+            if input.basis_model.is_some()
+                || input.curve.interpolation != s.initial.method()
+                || !matches!(
+                    input.curve.extrapolation,
+                    ExtrapolationMethod::None | ExtrapolationMethod::Flat
+                )
+            {
+                return Err(invalid("parametric cash model", "exact NS/Svensson Government/Repo continuous-zero model and None/raw Flat required; residual basis has a separate owner"));
+            }
+        }
         (CalibrationMode::Piecewise, Some(s)) => {
             if !s.lower_parameter.is_finite()
                 || !s.upper_parameter.is_finite()
@@ -116,7 +128,8 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
         }
     };
     if c.representation != expected_representation
-        || c.interpolation != InterpolationMethod::Linear
+        || (!matches!(c.calibration, CalibrationMode::Parametric(_))
+            && c.interpolation != InterpolationMethod::Linear)
         || !matches!(
             c.extrapolation,
             ExtrapolationMethod::None | ExtrapolationMethod::Flat | ExtrapolationMethod::Linear

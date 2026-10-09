@@ -6,7 +6,7 @@
 use convex_curves::{
     contracts::{
         build_curve_set, BuiltCurve, CurveBuildOutput, CurvePoint, CurveQuery, CurveRecipe,
-        CurveRepresentation, CurveRole, CurveSet, CurveSource, TenorRounding,
+        CurveRepresentation, CurveRole, CurveSet, TenorRounding,
     },
     Compounding, CurveError, CurveResult, RateCurveDyn,
 };
@@ -175,11 +175,6 @@ impl RateCurveDyn for RecipeRateCurve {
         })
     }
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
-        if !matches!(self.curve.recipe().source, CurveSource::Parametric { .. }) {
-            return Err(CurveError::invalid_value(
-                "use the complete native forward query with its explicit model/side contract",
-            ));
-        }
         self.value(CurveQuery::InstantaneousForward {
             point: CurvePoint::Tenor(t),
         })

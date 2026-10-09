@@ -524,9 +524,11 @@ observation must pass its own residual bound, including zero-weight inputs.
 
 Read [curve families](CURVE-FAMILIES.md) for all fields, query units, fit diagnostics,
 source domain/extension disclosure, strict schema and executable supplied cases.
-Bare parametric tags on discrete nodes still reject. Product-price parametric fits,
-credit/basis segment integration, remaining curve-risk/method combinations and
-market/host certificates retain their original owners.
+Bare parametric tags on discrete nodes still reject. The existing `calibration`
+operation separately admits [full product-price parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md)
+and original dependent quote-risk rebuilding with complete model/helper/solver
+diagnostics. Credit/basis segment integration, remaining curve-risk/method
+combinations and market/host certificates retain their original owners.
 
 Complete [step-zero and flat-forward method contracts](CURVE-METHODS.md) retain original nodes/units/time basis, method/representation/role/currency/version and exact source/side/tail guards through the existing shared adapters. Native PiecewiseConstant linear and older raw FlatForward tail substitutions are removed; see [migration](ROUTE-MIGRATION.md). Product calibration, full quote-risk and actual unavailable-host qualification remain separate.
 

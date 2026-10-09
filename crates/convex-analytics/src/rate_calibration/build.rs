@@ -94,6 +94,13 @@ pub(super) fn validate(
         }
     }
     match (&curve.calibration,recipe.bootstrap) {
+        (CalibrationMode::Parametric(s),None) => {
+            s.validate(recipe.helpers.len())?;
+            if curve.interpolation != s.initial.method()
+                || !matches!(curve.extrapolation, convex_curves::ExtrapolationMethod::None | convex_curves::ExtrapolationMethod::Flat) {
+                return Err(invalid("parametric method", "exact original NS/Svensson family with None/raw Flat horizon policy required"));
+            }
+        }
         (CalibrationMode::Piecewise,Some(s)) => {
             SolverConfig { tolerance: 1e-12,max_iterations:s.max_iterations }.validate()?;
             if curve.interpolation!=InterpolationMethod::Linear || recipe.overlap_policy!=RateOverlapPolicy::Reject

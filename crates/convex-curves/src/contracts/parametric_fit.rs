@@ -13,6 +13,130 @@ use convex_math::optimization::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Original product-price objective. Numerical difference/rank controls come
+/// from the enclosing complete graph, with no second ignored control policy.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ProductParametricSettings {
+    /// Original family and all starting parameters, including decays in years.
+    pub initial: ParametricModel,
+    /// Closed lower bounds in the model's exact parameter order.
+    pub lower: Vec<f64>,
+    /// Closed upper bounds in the same order.
+    pub upper: Vec<f64>,
+    /// Positive native parameter scales. The solver uses native/scale coordinates;
+    /// graph Jacobian steps and measured conditioning refer to those coordinates.
+    pub parameter_scales: Vec<f64>,
+    /// Positive native-unit scales, one per full original product in source order.
+    pub quote_scales: Vec<f64>,
+    /// Nonnegative weights; zero never waives the original residual postcondition.
+    pub weights: Vec<f64>,
+    /// Bounded LM attempts, 1..256, within the original cash-fit ceiling.
+    pub max_iterations: usize,
+    /// Positive weighted scaled RMS target, at most one.
+    pub objective_tolerance: f64,
+}
+impl ProductParametricSettings {
+    /// Validate complete starts/bounds and original observation dimensions before
+    /// product trial valuation. Undamped identification remains solver-owned.
+    pub fn validate(&self, quotes: usize) -> super::CurveContractResult<()> {
+        let starts = self.initial.parameters();
+        if quotes < starts.len()
+            || quotes > MAX_FIT_DIMENSION
+            || self.lower.len() != starts.len()
+            || self.upper.len() != starts.len()
+            || self.parameter_scales.len() != starts.len()
+            || self
+                .parameter_scales
+                .iter()
+                .any(|s| !s.is_finite() || *s <= 0.0)
+            || self.quote_scales.len() != quotes
+            || self.weights.len() != quotes
+            || self.max_iterations == 0
+            || self.max_iterations > 256
+            || !self.objective_tolerance.is_finite()
+            || self.objective_tolerance <= 0.0
+            || self.objective_tolerance > 1.0
+            || self
+                .quote_scales
+                .iter()
+                .any(|s| !s.is_finite() || *s <= 0.0)
+            || self.weights.iter().any(|w| !w.is_finite() || *w < 0.0)
+            || self.weights.iter().filter(|w| **w > 0.0).count() < starts.len()
+        {
+            return Err(Error::invalid("product parametric settings", "exact four/six bounded parameters, enough positive-weight full quotes, native scales and bounded solver settings required"));
+        }
+        self.initial.validate()?;
+        self.initial.with_parameters(&self.lower)?.validate()?;
+        self.initial.with_parameters(&self.upper)?.validate()?;
+        for (i, ((initial, lower), upper)) in
+            starts.iter().zip(&self.lower).zip(&self.upper).enumerate()
+        {
+            let scale = self.parameter_scales[i];
+            if lower >= upper
+                || !(lower..=upper).contains(&initial)
+                || !(upper - lower).is_finite()
+                || !(lower / scale).is_finite()
+                || !(upper / scale).is_finite()
+                || !(upper / scale - lower / scale).is_finite()
+                || lower / scale >= upper / scale
+            {
+                return Err(Error::invalid(
+                    "product parameter bounds",
+                    "finite ordered closed intervals containing every start required",
+                ));
+            }
+        }
+        Ok(())
+    }
+    /// Checked numerical starts and closed native bounds; no zero-node alias.
+    pub fn fit_parameters(&self, quotes: usize) -> super::CurveContractResult<Vec<FitParameter>> {
+        self.validate(quotes)?;
+        Ok(self
+            .initial
+            .parameters()
+            .into_iter()
+            .zip(&self.lower)
+            .zip(&self.upper)
+            .zip(&self.parameter_scales)
+            .map(|(((initial, lower), upper), scale)| FitParameter {
+                initial: initial / scale,
+                lower: lower / scale,
+                upper: upper / scale,
+            })
+            .collect())
+    }
+    /// Restore actual loadings/decay years; enforce original closed bounds again
+    /// after multiplication to remove only rounding at a numerical endpoint.
+    pub fn native_parameters(&self, values: &[f64]) -> super::CurveContractResult<Vec<f64>> {
+        self.validate(self.quote_scales.len())?;
+        if values.len() != self.parameter_scales.len() {
+            return Err(Error::invalid(
+                "scaled parameters",
+                "exact native model dimension required",
+            ));
+        }
+        values
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                let native = v * self.parameter_scales[i];
+                if !native.is_finite()
+                    || *v < self.lower[i] / self.parameter_scales[i]
+                    || *v > self.upper[i] / self.parameter_scales[i]
+                {
+                    return Err(Error::invalid(
+                        "scaled parameters",
+                        "finite values inside original closed bounds required",
+                    ));
+                }
+                Ok(native.clamp(self.lower[i], self.upper[i]))
+            })
+            .collect()
+    }
+}
+
 /// Complete native scaled objective and original parameter bounds. Parameter
 /// order is `ParametricModel::parameters`; quote vectors retain source order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

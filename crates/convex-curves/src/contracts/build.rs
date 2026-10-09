@@ -444,6 +444,77 @@ pub fn build_fitted_rate_curve(
     build_fitted_product_curve(recipe, nodes, quotes, iterations, supplied)
 }
 
+/// Admit actual product-fitted NS/Svensson parameters, preserving the complete
+/// original helper recipe and every original native residual. Product callbacks
+/// and solver identification remain in analytics; no sampled grid is installed.
+pub fn build_fitted_parametric_curve(
+    recipe: &CurveRecipe,
+    horizon: Date,
+    parameters: &[f64],
+    quotes: Vec<QuoteRepricing>,
+    iterations: usize,
+    supplied: &CurveSet,
+) -> Result<BuiltCurve> {
+    let (CalibrationMode::Parametric(settings), CurveSource::Helpers(ids)) =
+        (&recipe.calibration, &recipe.source)
+    else {
+        return Err(Error::invalid(
+            "fitted parametric input",
+            "complete product helper recipe and explicit original model settings required",
+        ));
+    };
+    settings.validate(ids.len())?;
+    if quotes.len() != ids.len()
+        || iterations > settings.max_iterations
+        || parameters.len() != settings.lower.len()
+        || parameters
+            .iter()
+            .zip(&settings.lower)
+            .zip(&settings.upper)
+            .any(|((v, l), u)| !v.is_finite() || v < l || v > u)
+        || quotes.iter().any(|q| q.pillar > horizon)
+    {
+        return Err(Error::invalid(
+            "fitted parametric dimensions",
+            "complete bounded original parameters, iterations and all helper horizons required",
+        ));
+    }
+    validate_fitted_quotes(recipe, ids, &quotes)?;
+    let mut dependencies = BTreeSet::new();
+    if recipe.dependencies.len() > MAX_CURVES {
+        return Err(Error::BoundExceeded("dependencies"));
+    }
+    for key in &recipe.dependencies {
+        key.validate()?;
+        if key.id == recipe.key.id || !dependencies.insert(&key.id) {
+            return Err(Error::invalid(
+                "dependencies",
+                "unique external exact versions required",
+            ));
+        }
+        supplied.get(key)?;
+    }
+    let mut direct = recipe.clone();
+    direct.calibration = CalibrationMode::Direct;
+    direct.dependencies.clear();
+    direct.source = CurveSource::Parametric {
+        parameters: settings.initial.with_parameters(parameters)?,
+        horizon: CurvePoint::Date(horizon),
+        observations: Vec::new(),
+    };
+    let output = build_curve_set(&[direct], supplied)?;
+    let mut curve = output.curves.get(&recipe.key)?.as_ref().clone();
+    curve.recipe = recipe.clone();
+    curve.diagnostics.method = "product_parametric_bounded_least_squares".into();
+    curve.diagnostics.quotes = quotes;
+    curve.diagnostics.iterations = iterations;
+    curve
+        .diagnostics
+        .dependencies
+        .clone_from(&recipe.dependencies);
+    Ok(curve)
+}
+
 /// Admit a complete cash-backed residual basis fit without changing it into a
 /// discount or credit curve. Product economics and its model remain in analytics.
 pub fn build_fitted_issuer_curve(
@@ -493,6 +564,12 @@ fn build_fitted_product_curve(
             return Err(Error::invalid(
                 "fitted.calibration",
                 "credit intensity settings cannot fit a rate curve",
+            ))
+        }
+        CalibrationMode::Parametric(_) => {
+            return Err(Error::invalid(
+                "fitted.calibration",
+                "parametric product fits require their exact model owner, never a node grid",
             ))
         }
     };

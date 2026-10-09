@@ -440,6 +440,9 @@ pub enum CalibrationMode {
     Piecewise,
     /// Global objective, requiring a supported product composition.
     Global(GlobalFitSettings),
+    /// Full original product quotes fitted to exact NS/Svensson parameters.
+    /// The product composition supplies actual callbacks and numerical controls.
+    Parametric(Box<super::ProductParametricSettings>),
     /// Credit fit with explicitly different parameter semantics from rate zeros.
     CreditGlobal(CreditGlobalFitSettings),
 }

@@ -28,7 +28,15 @@ fn trial(
     let mut c = r.curve.clone();
     c.calibration = CalibrationMode::Direct;
     c.dependencies.clear();
-    c.source = CurveSource::Nodes(nodes(c.reference_date, pillars, parameters));
+    c.source = if let CalibrationMode::Parametric(s) = &r.curve.calibration {
+        CurveSource::Parametric {
+            parameters: s.initial.with_parameters(parameters)?,
+            horizon: CurvePoint::Date(*pillars.last().ok_or_else(|| invalid("horizon", "empty"))?),
+            observations: Vec::new(),
+        }
+    } else {
+        CurveSource::Nodes(nodes(c.reference_date, pillars, parameters))
+    };
     Ok(build_curve_set(&[c], supplied)?
         .curves
         .get(&r.curve.key)?
@@ -100,6 +108,52 @@ pub(super) fn fit(
     let r = p.recipe;
     let before = *evaluations;
     let (parameters, solver, iterations) = match (&r.curve.calibration, r.bootstrap) {
+        (CalibrationMode::Parametric(settings), None) => {
+            let parameters = settings.fit_parameters(r.helpers.len())?;
+            let residuals: Vec<_> = r
+                .helpers
+                .iter()
+                .enumerate()
+                .map(|(i, h)| FitResidual {
+                    scale: settings.quote_scales[i],
+                    weight: settings.weights[i],
+                    tolerance: h.tolerance(),
+                })
+                .collect();
+            let fit = bounded_least_squares(
+                &parameters,
+                &residuals,
+                LeastSquaresSettings {
+                    max_iterations: settings.max_iterations,
+                    objective_tolerance: settings.objective_tolerance,
+                    jacobian_step: controls.jacobian_step,
+                    minimum_singular_ratio: controls.minimum_singular_ratio,
+                    svd_iterations: controls.svd_iterations,
+                },
+                |values| {
+                    let native = settings.native_parameters(values)?;
+                    let curve = trial(r, &r.pillars, &native, supplied)?;
+                    (0..r.helpers.len())
+                        .map(|i| {
+                            value(p, i, &curve, supplied, evaluations)
+                                .map(|(q, _)| q.value - r.helpers[i].quote().value)
+                        })
+                        .collect::<CashCalibrationResult<Vec<_>>>()
+                },
+            )
+            .map_err(|e| CashCalibrationError::Global(Box::new(e)))?;
+            let iterations = fit.diagnostics.iterations;
+            let native = settings.native_parameters(&fit.parameters)?;
+            let model = settings.initial.with_parameters(&native)?;
+            (
+                native,
+                CashSolverDiagnostics::Parametric {
+                    parameters: model,
+                    diagnostics: fit.diagnostics,
+                },
+                iterations,
+            )
+        }
         (CalibrationMode::Piecewise, Some(settings)) => {
             let mut order: Vec<_> = (0..r.helpers.len()).collect();
             order.sort_by_key(|&i| r.helpers[i].pillar());
@@ -244,16 +298,33 @@ pub(super) fn fit(
         });
         values.push(priced);
     }
-    let grid = nodes(r.curve.reference_date, &r.pillars, &parameters);
-    let curve = if r.basis_model.is_some() {
+    let is_parametric = matches!(r.curve.calibration, CalibrationMode::Parametric(_));
+    let curve = if is_parametric {
+        build_fitted_parametric_curve(
+            &r.curve,
+            *r.pillars
+                .last()
+                .ok_or_else(|| invalid("horizon", "empty"))?,
+            &parameters,
+            quotes,
+            iterations,
+            supplied,
+        )?
+    } else if r.basis_model.is_some() {
+        let grid = nodes(r.curve.reference_date, &r.pillars, &parameters);
         build_fitted_issuer_curve(&r.curve, &grid, quotes, iterations, supplied)?
     } else {
+        let grid = nodes(r.curve.reference_date, &r.pillars, &parameters);
         build_fitted_rate_curve(&r.curve, &grid, quotes, iterations, supplied)?
     };
     Ok(CalibratedCashCurve {
         recipe: r.clone(),
         curve,
-        annualized_parameters: parameters,
+        annualized_parameters: if is_parametric {
+            Vec::new()
+        } else {
+            parameters
+        },
         repriced_helpers: values,
         solver,
         price_evaluations: *evaluations - before,

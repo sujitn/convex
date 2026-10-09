@@ -32,7 +32,15 @@ fn trial(
     supplied: &CurveSet,
 ) -> Result<CurveSet, RateCalibrationError> {
     let mut direct = recipe.curve.clone();
-    direct.source = CurveSource::Nodes(nodes(direct.reference_date, pillars, zeros));
+    direct.source = if let CalibrationMode::Parametric(settings) = &recipe.curve.calibration {
+        CurveSource::Parametric {
+            parameters: settings.initial.with_parameters(zeros)?,
+            horizon: CurvePoint::Date(*pillars.last().ok_or_else(|| invalid("horizon", "empty"))?),
+            observations: Vec::new(),
+        }
+    } else {
+        CurveSource::Nodes(nodes(direct.reference_date, pillars, zeros))
+    };
     direct.dependencies.clear();
     direct.calibration = CalibrationMode::Direct;
     let mut curves = build_curve_set(&[direct], supplied)?.curves;
@@ -54,6 +62,62 @@ pub(super) fn fit(
     let input = prepared.recipe;
     let before = *evaluations;
     let (zeros, solver, iterations) = match (&input.curve.calibration, input.bootstrap) {
+        (CalibrationMode::Parametric(settings), None) => {
+            let parameters = settings.fit_parameters(prepared.helpers.len())?;
+            let residuals: Vec<_> = prepared
+                .helpers
+                .iter()
+                .enumerate()
+                .map(|(i, h)| FitResidual {
+                    scale: settings.quote_scales[i],
+                    weight: settings.weights[i],
+                    tolerance: h.helper.tolerance,
+                })
+                .collect();
+            let fit = bounded_least_squares(
+                &parameters,
+                &residuals,
+                LeastSquaresSettings {
+                    max_iterations: settings.max_iterations,
+                    objective_tolerance: settings.objective_tolerance,
+                    jacobian_step: controls.jacobian_step,
+                    minimum_singular_ratio: controls.minimum_singular_ratio,
+                    svd_iterations: controls.svd_iterations,
+                },
+                |values| {
+                    let native = settings.native_parameters(values)?;
+                    let curves = trial(input, &input.pillars, &native, supplied)?;
+                    prepared
+                        .helpers
+                        .iter()
+                        .map(|h| {
+                            let (model, value) = helpers::value(
+                                h,
+                                &curves,
+                                history,
+                                context,
+                                publications,
+                                evaluations,
+                            )?;
+                            helpers::horizon(&value, h.helper, input)?;
+                            Ok(model.value - h.helper.quote.value)
+                        })
+                        .collect::<Result<Vec<_>, RateCalibrationError>>()
+                },
+            )
+            .map_err(|e| RateCalibrationError::Global(Box::new(e)))?;
+            let iterations = fit.diagnostics.iterations;
+            let native = settings.native_parameters(&fit.parameters)?;
+            let model = settings.initial.with_parameters(&native)?;
+            (
+                native,
+                RateSolverDiagnostics::Parametric {
+                    parameters: model,
+                    diagnostics: fit.diagnostics,
+                },
+                iterations,
+            )
+        }
         (CalibrationMode::Piecewise, Some(settings)) => {
             let mut ordered: Vec<_> = prepared.helpers.iter().collect();
             ordered.sort_by_key(|p| p.helper.pillar);
@@ -210,13 +274,27 @@ pub(super) fn fit(
         });
         repriced_helpers.push(value);
     }
-    let curve = build_fitted_rate_curve(
-        &input.curve,
-        &nodes(input.curve.reference_date, &input.pillars, &zeros),
-        quotes,
-        iterations,
-        supplied,
-    )?;
+    let curve = if matches!(input.curve.calibration, CalibrationMode::Parametric(_)) {
+        build_fitted_parametric_curve(
+            &input.curve,
+            *input
+                .pillars
+                .last()
+                .ok_or_else(|| invalid("horizon", "empty"))?,
+            &zeros,
+            quotes,
+            iterations,
+            supplied,
+        )?
+    } else {
+        build_fitted_rate_curve(
+            &input.curve,
+            &nodes(input.curve.reference_date, &input.pillars, &zeros),
+            quotes,
+            iterations,
+            supplied,
+        )?
+    };
     let solver = match solver {
         RateSolverDiagnostics::Piecewise { roots, .. } => RateSolverDiagnostics::Piecewise {
             roots,

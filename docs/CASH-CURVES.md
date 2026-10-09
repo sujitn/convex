@@ -8,6 +8,10 @@ and least-squares solvers. The calculation is pure. Callers resolve immutable
 inputs and calendars; providers, storage, messaging, clocks and publication stay
 outside analytics.
 
+[Full product-price parametric fitting](PRODUCT-PARAMETRIC-CALIBRATION.md) adds
+explicit NS/Svensson continuous-zero mode for Government/Repo. Signed issuer
+residual basis and credit recovery models retain their separate original owners.
+
 Run the repository's standalone consumer and independent reference checks:
 
 ```sh

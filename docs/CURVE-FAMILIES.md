@@ -63,9 +63,10 @@ diagnostics without a curve. No relaxed retry or best-effort accepted fit exists
 Output preserves `input_recipe` and `settings` separately from the actual solved
 curve recipe/parameters. The latter can be reconstructed directly and rechecked
 against the same original observations; it does not lose the starting conditions.
-This is a local bounded zero-observation fit. Global optimum, coupon-security/
-par-helper parametric fitting, parameter quote-risk rebuilding and complete market
-convention qualification remain required work.
+This is a local bounded zero-observation fit. Complete
+[product-price parametric fitting and quote-risk rebuilding](PRODUCT-PARAMETRIC-CALIBRATION.md)
+have a separate owner in the existing full rate/cash calibrators. Global optimum
+and complete market convention qualification remain required work.
 
 ## Exact segmentation and delegation
 
@@ -132,7 +133,7 @@ CVX-063 remains partial, all original mandatory records remain Planned, and actu
 Windows/Excel and wasm32/browser execution remains unverified. No model, market,
 library, production or latency certificate is inferred.
 
-Remaining grid methods are documented in [explicit curve methods](CURVE-METHODS.md). Complete zero sources and one-sided original forwards do not extend product-price parametric fitting or quote-risk rebuilding.
+Remaining grid methods are documented in [explicit curve methods](CURVE-METHODS.md). Full product fitting uses the separate [parametric calibration](PRODUCT-PARAMETRIC-CALIBRATION.md) contract and original product callbacks.
 
 An [explicit UFR tail](CURVE-UFR.md) can join the original parametric model
 inside its declared native horizon. It retains the exact source and analytic

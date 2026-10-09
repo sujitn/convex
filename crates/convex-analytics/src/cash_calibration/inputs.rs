@@ -289,7 +289,8 @@ pub struct CashCurveRecipe {
     /// Global initial_zeros/lower_zero/upper_zero hold annualized basis parameters
     /// for IssuerSpreads, and continuous zeros for Government/Repo.
     pub curve: CurveRecipe,
-    /// Explicit strictly increasing dated parameter grid.
+    /// Grid dates, or Parametric coverage dates whose last is the exact original
+    /// native model horizon. Dates never stand in for model parameters.
     pub pillars: Vec<Date>,
     /// Every original full helper in source order.
     pub helpers: Vec<CashCalibrationHelper>,
@@ -390,6 +391,13 @@ pub enum CashSolverDiagnostics {
     },
     /// Identified common scaled least-squares fit.
     Global(FitDiagnostics),
+    /// Exact original continuous-zero model, distinct from annualized grid nodes.
+    Parametric {
+        /// Solved model loadings and decay years, in their original family.
+        parameters: ParametricModel,
+        /// Complete measured work/rank/conditioning/original-unit residuals.
+        diagnostics: FitDiagnostics,
+    },
 }
 /// Complete accepted immutable fit.
 #[derive(Debug, Clone)]
@@ -398,7 +406,8 @@ pub struct CalibratedCashCurve {
     pub recipe: CashCurveRecipe,
     /// Full admitted curve with every original native repricing record.
     pub curve: BuiltCurve,
-    /// Solved continuous zeros or residual basis in dated parameter order.
+    /// Solved grid zeros/basis in dated order. Empty for Parametric; exact mixed
+    /// loading/decay units remain in CashSolverDiagnostics::Parametric.
     pub annualized_parameters: Vec<f64>,
     /// Original source-order actual helper valuations.
     pub repriced_helpers: Vec<CashHelperValuation>,
