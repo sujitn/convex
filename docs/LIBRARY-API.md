@@ -105,6 +105,7 @@ envelope; those boundary failures can precede request decoding.
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
 | `workout`, `floating_workout` | Complete original conditional fixed cash/yield and floating projected cash/DM, full legal paths and purchase state; floating paths retain all puts without a worst-DM selection |
+| `icma_workout` | Complete contextual fixed legal-path prices/yields and defined worst-call selection using original cash/notice owners; every source/time is admitted before numerical valuation; see [contract](ICMA-WORKOUTS.md) |
 | `rate_future`, `bond_future` | Remaining fixing/projection/convexity model, quote risk and all-member bond delivery/CTD valuation/risk |
 | `cash_hedge`, `futures_math`, `round_hedge`, `bond_cds_hedge` | Native indicative cash hedge, clearing settlement/tick/roll, integer hedge residual, and legal/recovery/basis admission |
 | `hedge` | Complete supplied-factor current/pending aggregation and bounded constrained native-quantity/lot/cost proposals; inspect feasibility and work diagnostics; no execution authority |

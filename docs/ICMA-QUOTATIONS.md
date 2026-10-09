@@ -117,3 +117,8 @@ rounding retain their separate qualification requirements.
 
 Actual-government-security contextual spread and inverse composition uses this
 same checked owner; see [the complete contract](ICMA-GOVERNMENT-SPREADS.md).
+
+Complete legal-workout path price/yield and defined worst-call composition reuse
+this same owner and original legal enumeration; see [ICMA workouts](ICMA-WORKOUTS.md).
+Every eligible maturity/call/put context is admitted before numerical valuation,
+and every path retains full original cash, sources, times and signed consideration.

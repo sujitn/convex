@@ -776,6 +776,12 @@ pub(super) fn execute(
             cash,
             action,
         } => super::icma::execute(input, convention, cash, action, r),
+        LibraryOperation::IcmaWorkout {
+            input,
+            convention,
+            context,
+            action,
+        } => super::icma::workout(input, convention, context, action, r),
         LibraryOperation::FloatingWorkout {
             input,
             context,

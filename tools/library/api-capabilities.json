@@ -30032,7 +30032,8 @@
     "tests/fixtures/library/constrained-hedge-protocol.json",
     "tests/fixtures/library/floating-workout-qualified.json",
     "tests/fixtures/library/icma-api-cases.json",
-    "tests/fixtures/library/icma-government-api-cases.json"
+    "tests/fixtures/library/icma-government-api-cases.json",
+    "tests/fixtures/library/icma-workout-qualified.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -32834,6 +32835,104 @@
       ],
       "certified": false,
       "qualification": "Complete contextual ICMA actual-government-security spread/inverse over original full observed cash conversion, checked PreparedIcmaQuotation and original exact/closed actual-contractual-maturity selection. Every target/benchmark independently retains original terms/quote/reference/context/calendar/policy/quantity, normal frequency, compounding, cash dates/accrued/principal and source order. Explicit common annual-decimal policy and compounding admit differing normal frequencies only under that policy. All source preparation precedes inverses; original price and separate decimal spread residuals, signed ORIGINAL dirty consideration and per-source plus total reference-entry bounds remain. No inferred periods, sampled government curve, unselected-source dropping, fallback, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; full actual-host/market/Street/model/library/production/latency certificates remain open. Mandatory records remain Planned."
+    },
+    "icma_workout.price_paths": {
+      "required_record_ids": [
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_workout",
+        "operation.action.kind": "price_paths"
+      },
+      "positive_examples": [
+        "icma_workout.regular.SemiAnnual.0.04125.price_paths",
+        "icma_workout.long_front.Continuous.0.035.price_paths",
+        "icma_workout.stepped.Quarterly.0.035.price_paths"
+      ],
+      "boundary_examples": [
+        "icma_workout.payment_include.Quarterly.0.035.price_paths",
+        "icma_workout.principal_boundary.price_paths",
+        "icma_workout.tie.price_paths"
+      ],
+      "negative_examples": [
+        "icma_workout.invalid.total_reference_work.price_paths",
+        "icma_workout.invalid.date_work.price_paths",
+        "icma_workout.invalid.stale_calendar.price_paths"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma_workout.rs",
+          "text": "pub fn quote_icma_workout_prices("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "pub(super) fn workout("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete original contextual ICMA fixed legal-workout all-path pricing and yield/worst composition over the SAME checked PreparedIcmaQuotation and original eligible_workout_paths/notice/purchase/exercise/coupon/principal owners. Every actual maturity/call/put path retains original full terms, nominal mesh, source/policy/calendar/quote/quantity, normal frequency, independent compounding/accrual and all actual cash dates. All eligible paths are prepared before any numerical valuation. Original closed inverse/native price residual, mixed-sign/identification/domain/work failures and signed ORIGINAL observed dirty consideration remain. Explicit original date/cash plus total reference-entry reservations bound complete requests. Original deterministic first numerical tie/call-maturity minimum/forced notice selection is retained; puts remain fully quoted and cannot lower an unnotified worst-call yield. No coupon proxy, missing context, accepted subset, root/domain relaxation, option model, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; all full host/market/Street/model/library/production/latency certificates remain open. Mandatory records stay Planned."
+    },
+    "icma_workout.worst": {
+      "required_record_ids": [
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/european_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/american_call/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/rust",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/shared_json",
+        "LC-008/putable_bond/USD/hw1f/yield_to_call_put_worst_where_defined/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_workout",
+        "operation.action.kind": "worst"
+      },
+      "positive_examples": [
+        "icma_workout.regular.SemiAnnual.0.04125.worst",
+        "icma_workout.long_front.Continuous.0.035.worst",
+        "icma_workout.stepped.Quarterly.0.035.worst"
+      ],
+      "boundary_examples": [
+        "icma_workout.payment_include.Quarterly.0.035.worst",
+        "icma_workout.principal_boundary.worst",
+        "icma_workout.tie.worst"
+      ],
+      "negative_examples": [
+        "icma_workout.invalid.total_reference_work.worst",
+        "icma_workout.invalid.date_work.worst",
+        "icma_workout.invalid.stale_calendar.worst"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma_workout.rs",
+          "text": "pub fn quote_icma_workout_worst("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "pub(super) fn workout("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete original contextual ICMA fixed legal-workout all-path pricing and yield/worst composition over the SAME checked PreparedIcmaQuotation and original eligible_workout_paths/notice/purchase/exercise/coupon/principal owners. Every actual maturity/call/put path retains original full terms, nominal mesh, source/policy/calendar/quote/quantity, normal frequency, independent compounding/accrual and all actual cash dates. All eligible paths are prepared before any numerical valuation. Original closed inverse/native price residual, mixed-sign/identification/domain/work failures and signed ORIGINAL observed dirty consideration remain. Explicit original date/cash plus total reference-entry reservations bound complete requests. Original deterministic first numerical tie/call-maturity minimum/forced notice selection is retained; puts remain fully quoted and cannot lower an unnotified worst-call yield. No coupon proxy, missing context, accepted subset, root/domain relaxation, option model, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; all full host/market/Street/model/library/production/latency certificates remain open. Mandatory records stay Planned."
     }
   }
 }

@@ -20,8 +20,9 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 61)
-        self.assertEqual(result['engineering_examples'], 3667)
+        # Preserve the preceding corpus and include both full ICMA workout actions.
+        self.assertEqual(result['exact_operation_routes'], 61 + 2)
+        self.assertEqual(result['engineering_examples'], 3667 + 140)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):

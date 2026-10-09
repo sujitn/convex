@@ -1,5 +1,12 @@
 # Removed government spread conveniences
 
+Complete contextual fixed workout paths use strict shared `icma_workout`; see
+[the contract](ICMA-WORKOUTS.md). Explicit single-path `icma_quotation` and
+context-free dated `workout` remain valid distinct owners. Missing ICMA reference
+context cannot route through either as a proxy. Removed compact browser workout
+outputs remain absent; generic full requests retain every legal path and original
+notice, principal, accrual, payment and quotation inputs.
+
 The government spread convenience routes below have been removed. They could
 not carry actual benchmark securities and common yield conventions. A government
 zero rate does not represent a government bond yield. There is no compatibility

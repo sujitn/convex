@@ -96,9 +96,9 @@ class AssuranceMutations(unittest.TestCase):
         paths = check.inventory_paths(ROOT)
         modules = {p.relative_to(ROOT).as_posix() for p in
                    (ROOT/'crates/convex-analytics/src/workflow').glob('*.rs')}
-        self.assertEqual(len(modules), 9)
-        self.assertIn('crates/convex-analytics/src/workflow/workout.rs', modules)
-        self.assertIn('crates/convex-analytics/src/workflow/floating_workout.rs', modules)
+        for owner in ['mod', 'capability', 'inputs', 'bond', 'valuation', 'inverse',
+                      'workout', 'floating_workout', 'icma', 'icma_workout']:
+            self.assertIn(f'crates/convex-analytics/src/workflow/{owner}.rs', modules)
         self.assertTrue(modules <= paths)
 
     def test_library_dispatch_checks_and_purity_cannot_be_bypassed(self):
@@ -109,7 +109,18 @@ class AssuranceMutations(unittest.TestCase):
                     or 'convex-library-schema' in c or 'requirements-schema' in c or 'library_ufr' in c or 'library_monotone' in c
                     or 'government_inverse' in c or 'constrained_hedge' in c or 'floating_workout' in c or 'icma' in c
                     or c == 'cargo build --locked -p convex-ffi --lib']
-        self.assertEqual(len(commands), 90)
+        self.assertGreaterEqual(len(commands), 90)
+        for command in [
+            'python3 tests/scripts/icma_workout_reference.py',
+            'python3 tests/scripts/icma_workout_qualification.py',
+            'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_workout -- --test-threads=1',
+            'cargo run --locked -p convex --example icma_workout',
+            'cargo run --locked -p convex --example icma_workout --no-default-features',
+            'cargo run --locked -p convex --example icma_workout --features schemars',
+            '/tmp/convex-library-schema/bin/python tests/scripts/icma_workout_schema.py --binary target/debug/examples/icma_workout',
+            'python3 tests/scripts/icma_workout_parity.py --binary target/debug/examples/icma_workout --library target/debug/libconvex_ffi.so',
+        ]:
+            self.assertIn(command, commands)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))

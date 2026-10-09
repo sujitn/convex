@@ -553,3 +553,11 @@ before their first checkout. It rejects mixed endings, undeclared/binary
 conversion and every content change. Original pin rows/hashes, raw numerical
 JSON, test-section bytes, licenses and solver defaults are preserved; this does
 not normalize financial inputs or weaken numerical tolerances.
+
+Complete contextual fixed legal-workout path quotation reuses the same checked
+ICMA cash/time/inverse/invoice and original legal enumeration owners. Every
+source/path is prepared before numerical evaluation, with explicit date, total
+reference-entry and original cash-work reservations. Independent full-path
+controls retain original failed answers and closed domains; see
+[ICMA workouts](ICMA-WORKOUTS.md). Actual-host and independent certificates stay
+open; pure bounds do not constitute latency or allocation qualification.

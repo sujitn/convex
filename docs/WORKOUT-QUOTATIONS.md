@@ -113,3 +113,8 @@ mesh, exact original policy/security/quote/calendar pins, payment coverage and
 signed original-face quantities. See [the full contract](ICMA-QUOTATIONS.md).
 Contractual accrual, quotation compounding and actual cash dates stay separate;
 Street/model/market and unavailable host qualification remains open.
+
+Complete contextual all-path price/yield and well-defined worst-call selection
+are available through `icma_workout`, reusing original legal-date enumeration
+and the same checked ICMA owner. See [full ICMA workouts](ICMA-WORKOUTS.md).
+Original context-free `workout` remains the explicit dated-cash convention route.

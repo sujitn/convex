@@ -36,12 +36,72 @@ pub enum IcmaQuotationOperation {
         settings: w::BondInverseSettings,
     },
 }
+/// Complete legal-path operations; selected single paths use icma_quotation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum IcmaWorkoutOperation {
+    /// Full original maturity/call/put prices at a common annual decimal yield.
+    PricePaths {
+        /// Annual decimal yield under the supplied contextual convention.
+        decimal_yield: f64,
+        /// Explicit total legal-date, reference-preparation and cash-work bounds.
+        settings: w::IcmaWorkoutSettings,
+    },
+    /// Every legal-path yield and the defined original call/maturity minimum.
+    Worst {
+        /// ORIGINAL common observed clean/dirty original-face price.
+        target: w::BondPriceTarget,
+        /// Original same-pricer inverse plus explicit whole-request bounds.
+        settings: w::IcmaWorkoutSolveSettings,
+    },
+}
 pub(super) fn execute(
     input: &IcmaQuotationInput,
     convention: &w::IcmaYieldConvention,
     cash: &w::IcmaCashSelection,
     action: &IcmaQuotationOperation,
     r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    with_inputs(input, convention, r, |bound| {
+        let prepared = w::PreparedIcmaQuotation::new(bound, cash)?;
+        value(match action {
+            IcmaQuotationOperation::Price { decimal_yield } => {
+                prepared.quote_price(*decimal_yield)?
+            }
+            IcmaQuotationOperation::Yield { target, settings } => {
+                prepared.quote_yield(*target, *settings)?
+            }
+        })
+    })
+}
+pub(super) fn workout(
+    input: &IcmaQuotationInput,
+    convention: &w::IcmaYieldConvention,
+    context: &w::WorkoutContext,
+    action: &IcmaWorkoutOperation,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    with_inputs(input, convention, r, |bound| match action {
+        IcmaWorkoutOperation::PricePaths {
+            decimal_yield,
+            settings,
+        } => value(w::quote_icma_workout_prices(
+            bound,
+            context,
+            *decimal_yield,
+            *settings,
+        )?),
+        IcmaWorkoutOperation::Worst { target, settings } => value(w::quote_icma_workout_worst(
+            bound, context, *target, *settings,
+        )?),
+    })
+}
+fn with_inputs(
+    input: &IcmaQuotationInput,
+    convention: &w::IcmaYieldConvention,
+    r: &ResolvedInputs<'_>,
+    action: impl FnOnce(&w::IcmaQuotationInputs<'_>) -> LibraryResult<Value>,
 ) -> LibraryResult<Value> {
     let b = &input.security.bond;
     let contract = r.bond(b)?;
@@ -71,11 +131,5 @@ pub(super) fn execute(
             r.calendar(&b.calendars.payment)?,
         ),
     };
-    let prepared = w::PreparedIcmaQuotation::new(&bound, cash)?;
-    value(match action {
-        IcmaQuotationOperation::Price { decimal_yield } => prepared.quote_price(*decimal_yield)?,
-        IcmaQuotationOperation::Yield { target, settings } => {
-            prepared.quote_yield(*target, *settings)?
-        }
-    })
+    action(&bound)
 }

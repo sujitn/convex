@@ -161,6 +161,17 @@ pub enum LibraryOperation {
         /// Full price or unchanged closed-domain native inverse.
         action: IcmaQuotationOperation,
     },
+    /// Complete contextual ICMA fixed legal-path prices/yields and defined YTW.
+    IcmaWorkout {
+        /// Full original economics, source/calendar/reference/quantity revisions.
+        input: Box<IcmaQuotationInput>,
+        /// Exact original contextual yield convention and per-path work bound.
+        convention: convex_analytics::workflow::IcmaYieldConvention,
+        /// Full actual purchase/information/notice state.
+        context: convex_analytics::workflow::WorkoutContext,
+        /// Complete legal-path price or yield/worst composition.
+        action: IcmaWorkoutOperation,
+    },
     /// Full original floating conditional cash and frozen-projection DM inverses.
     FloatingWorkout {
         /// Complete original floating terms, resources, revisions and signed face.

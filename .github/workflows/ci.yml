@@ -572,6 +572,12 @@ jobs:
       - name: Validate original contextual government controls
         run: python3 tests/scripts/icma_government_reference.py
 
+      - name: Validate original contextual workout controls
+        run: python3 tests/scripts/icma_workout_reference.py
+
+      - name: Validate separately declared ICMA workout admission controls
+        run: python3 tests/scripts/icma_workout_qualification.py
+
       - name: Validate contextual government pin qualification
         run: python3 tests/scripts/icma_government_qualification.py
 
@@ -584,17 +590,32 @@ jobs:
       - name: Test complete contextual government adapters
         run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_government -- --test-threads=1
 
+      - name: Test complete contextual workout adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_workout -- --test-threads=1
+
       - name: Run contextual government consumer
         run: cargo run --locked -p convex --example icma_government
+
+      - name: Run contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout
 
       - name: Run minimal contextual government consumer
         run: cargo run --locked -p convex --example icma_government --no-default-features
 
+      - name: Run minimal contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout --no-default-features
+
       - name: Run schema contextual government consumer
         run: cargo run --locked -p convex --example icma_government --features schemars
 
+      - name: Run schema contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout --features schemars
+
       - name: Validate actual contextual government schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/icma_government_schema.py --binary target/debug/examples/icma_government
+
+      - name: Validate actual contextual workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_workout_schema.py --binary target/debug/examples/icma_workout
 
       - name: Validate preserved floating workout controls
         run: python3 tests/scripts/floating_workout_reference.py check
@@ -631,6 +652,9 @@ jobs:
 
       - name: Validate actual contextual government C parity
         run: python3 tests/scripts/icma_government_parity.py --binary target/debug/examples/icma_government --library target/debug/libconvex_ffi.so
+
+      - name: Validate actual contextual workout C parity
+        run: python3 tests/scripts/icma_workout_parity.py --binary target/debug/examples/icma_workout --library target/debug/libconvex_ffi.so
 
       - name: Validate preserved independent hedge controls
         run: python3 tests/scripts/constrained_hedge_reference.py
@@ -1063,6 +1087,9 @@ jobs:
       - name: Build contextual government native expectations
         run: cargo build --locked --profile excel -p convex --example icma_government --features schemars
 
+      - name: Build contextual workout native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_workout --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1118,6 +1145,9 @@ jobs:
 
       - name: Generate contextual government Excel expectations
         run: python tests/scripts/icma_government_parity.py --binary target/excel/examples/icma_government.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-government-parity.json
+
+      - name: Generate contextual workout Excel expectations
+        run: python tests/scripts/icma_workout_parity.py --binary target/excel/examples/icma_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-workout-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

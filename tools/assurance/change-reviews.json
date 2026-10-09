@@ -1992,6 +1992,44 @@
         "tools/library/test_operations.py": "edc491d52cfa48cae92189cc1db240df0c934c8a9a58ece545859dbf436a2c01",
         "tools/source_pins.py": "540fc4e81e98dba9eb206f7bad94fab7539228bb32ca0a2151d9dfe0f209e572"
       }
+    },
+    {
+      "base_commit": "ef62a5c8cacbf9455ad9699ac0814e5c18e74328",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "Complete original contextual ICMA fixed legal-workout all-path pricing and yield/worst composition over the SAME checked PreparedIcmaQuotation and original eligible_workout_paths/notice/purchase/exercise/coupon/principal owners. Every actual maturity/call/put path retains original full terms, nominal mesh, source/policy/calendar/quote/quantity, normal frequency, independent compounding/accrual and all actual cash dates. All eligible paths are prepared before any numerical valuation. Original closed inverse/native price residual, mixed-sign/identification/domain/work failures and signed ORIGINAL observed dirty consideration remain. Explicit original date/cash plus total reference-entry reservations bound complete requests. Original deterministic first numerical tie/call-maturity minimum/forced notice selection is retained; puts remain fully quoted and cannot lower an unnotified worst-call yield. No coupon proxy, missing context, accepted subset, root/domain relaxation, option model, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Every original cash/time/closed inverse/invoice/legal-path/notice/purchase/exercise/coupon/principal financial body stays byte unchanged. Original ICMA changes only by a private checked cash-count accessor; workflow changes only module/reexport wiring. Strict shared adapter reuses one original calendar/source binding function. Full old financial/numeric/scope/dependency/history conservation enforced. Every failure and separately declared boundary/qualification control remains. Source-impact engineering review only, no independent human financial approval; accepted through062 unchanged, CVX-063 partial/unaccepted/uncertified.",
+      "tests": [
+        "Predeclared independent full-source Decimal60 cash/time/price/yield/invoice controls and explicit typed errors",
+        "Actual native/shared/C/MCP/native-WASM plus schema/default/minimal and original financial/regression checks",
+        "Strict lint/docs/format/workspace and exact public/private source/scope/history/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "659bba1dfc1ba038a2d95bafd8bb69076ea587eaf76ecb45c2c86f9da371468a",
+        ".github/workflows/java.yml": "65603d055c882429c6731c979b14ce0975531355b55deaad53317f4f222dfa94",
+        "crates/convex-analytics/src/workflow/icma.rs": "2ad5cdbfc53c68269252e53e17185e19ebce0179cc0a76856f052e625771e80d",
+        "crates/convex-analytics/src/workflow/icma_workout.rs": "68780375a469c9db5209bec01b8fc9c5180c9e2096a224d16e08f35e10702a9e",
+        "crates/convex-analytics/src/workflow/mod.rs": "78e162ce5e2ae73fd688012d5957a6530e15eb839df7943951005edfb44c88a0",
+        "crates/convex-ffi/tests/icma_workout.rs": "088f60fe8907afa19f296f217e94067c5bf75ccb281ef87e82f7f8895e267252",
+        "crates/convex/examples/icma_workout.rs": "a033818dd0c2bf26910a0b5a04af887c4ea317d4136eec96f01b480199e07d08",
+        "crates/convex/src/library/icma.rs": "aba3e26d96cb958ad3ed99e1cc40552e4eb098f6a1018293917efc5b6fa8b9a5",
+        "crates/convex/src/library/products.rs": "277200e3263c508f2895fc911f5f16d564ef166692b3f6fa0e6eb4fe43404cd7",
+        "crates/convex/src/library/requests.rs": "5b7059d5702e89a585246999acc0994150b054d6909fe5200cb619145cec5471",
+        "crates/convex/tests/icma_workout.rs": "9426a8611da4190969a2eb37f22bb29616357e589c28ade3944908ab4b48953e",
+        "docs/ASSURANCE.md": "984b8a5bae4215b0d3120b328fe28ca78477792b472569372e28bcd4782dbaf3",
+        "tests/fixtures/library/icma-workout-additional-reference.json": "e4f70c77f125ad5651a37b904a8b89e6e0c819a81e62e44767b26e097d3f9df9",
+        "tests/fixtures/library/icma-workout-admission.json": "50d8b88454cf4e735dd376b8d890ccf175180d6612f6b5cbf4e49529986f6ea0",
+        "tests/fixtures/library/icma-workout-qualified.json": "a81d1b59880ef604bfc05a6ca53bf1455a197e86631d498911866d8304db60b5",
+        "tests/fixtures/library/icma-workout-reference.json": "29a2c9cc80d2c4e66276a4d0ec7d69992bf917c88f7bf4af11126abbd25d7400",
+        "tests/fixtures/library/icma-workout.json": "c8e21e9420aae4f3039a282def1ade4c164c85629f18d5989e70e97e948fce41",
+        "tests/fixtures/library/icma_workout_contract.rs": "542692fb33597b27c0d4fa3f3084844818d1487f2e07a8601d373eec45ad55af",
+        "tools/assurance/check.py": "5929b2189ea298164dacca13fa929a75e6d230ceb8b7e7860d4e70cdc4f6e48e",
+        "tools/assurance/inventory.json": "78a1dce31e560ee94d6cfcbd59a2f140e4c334340a554a0c47491dfa40bf515d",
+        "tools/assurance/numeric-evidence.json": "09d2c5b1fe4ce92e08695dcac453d0360f88a4055ab55735c76fd810966298f4",
+        "tools/assurance/test_policy.py": "a4d8cd16562b6d56246b559d540b2bbae7c91e40c94f1ef12d17eb025f8847a6",
+        "tools/library/api-capabilities.json": "7ff4adec524a16b623f7e95c84e699b500de692100bd727cd72c569fdb6fc306",
+        "tools/library/library-inventory.json": "e0a9dd8e52eb4f7e5e8abf41db52b6169f7a6a68e80d6be7577c27e59877514d",
+        "tools/library/test_operations.py": "e83f3b0db16d4b39ad95735559b7c6363db796b46ada6f61f7d2cf5a20d72900"
+      }
     }
   ]
 }
