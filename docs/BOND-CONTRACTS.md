@@ -54,6 +54,15 @@ the native index to its internal IndexId; no vendor identifier is inferred.
 Older infallible flat-rate/workout helpers retain their compatibility
 preconditions and qualification; they are not publication-aware valuation.
 
+`BondContract::floating_workouts` resolves complete eligible original term/
+overnight cash once into private checked `PreparedFloatingWorkout` state.
+`exercise` composes the actual legal path using original reset/profile slices
+and original observation prefixes, including delayed claims and same-day
+scheduled principal reductions. Fixed and floating paths return the canonical
+`WorkoutProjection`; the former `FixedWorkoutProjection` name is removed.
+See [floating workout quotations](FLOATING-WORKOUTS.md) and
+[migration](ROUTE-MIGRATION.md).
+
 ## Coupon and principal meaning
 
 Profiles are contiguous half-open `[start,end)` intervals. Coupon, spread,

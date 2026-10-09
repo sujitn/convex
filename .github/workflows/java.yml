@@ -23,6 +23,7 @@ on:
       - 'tests/scripts/library_credit_helpers_parity.py'
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
+      - 'tests/scripts/floating_workout_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -52,6 +53,7 @@ on:
       - 'tests/scripts/library_credit_helpers_parity.py'
       - 'tests/scripts/library_cash_helpers_parity.py'
       - 'tests/scripts/library_workout_parity.py'
+      - 'tests/scripts/floating_workout_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -103,6 +105,9 @@ jobs:
       - name: Build native full cash-helper quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
 
+      - name: Build native complete floating workout consumer
+        run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -145,6 +150,9 @@ jobs:
 
       - name: Generate fresh native full cash-helper adapter expectations
         run: python3 tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers --output bindings/java/target/library-cash-helpers-parity.json
+
+      - name: Generate fresh native floating workout adapter expectations
+        run: python3 tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout --output bindings/java/target/floating-workout-parity.json
 
       - name: Generate fresh native full workout adapter expectations
         run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json

@@ -129,7 +129,7 @@ pub fn cash_security_invoice(
         consideration,
     })
 }
-fn invoice_scale(
+pub(crate) fn invoice_scale(
     terms: &convex_bonds::contracts::BondTerms,
     position: &q::RiskPosition,
 ) -> CashQuotationResult<f64> {
@@ -144,7 +144,7 @@ fn invoice_scale(
     }
     Ok(position.scale().map_err(w::WorkflowError::from)?)
 }
-fn invoice_consideration(
+pub(crate) fn invoice_consideration(
     terms: &convex_bonds::contracts::BondTerms,
     dirty_per100: f64,
     scale: f64,

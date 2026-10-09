@@ -103,8 +103,10 @@ envelope; those boundary failures can precede request decoding.
 | `cash_security`, `government_spread` | Full observed cash-security quotation/invoice and actual-security government spread under an explicit common dated yield convention; preserves original helpers, quantities and independent reference/quote revisions |
 | `zero` | Full original zero terms, checked per100/yield pricing/risk; checked short-bill bank discount/BEY only for at most 182 actual days with face equal to absolute redemption |
 | `optional_bond` | Original HW1F assumptions or dated swaption sigma calibration; supported price, OAS, scenario and separately refined risk |
+| `workout`, `floating_workout` | Complete original conditional fixed cash/yield and floating projected cash/DM, full legal paths and purchase state; floating paths retain all puts without a worst-DM selection |
 | `rate_future`, `bond_future` | Remaining fixing/projection/convexity model, quote risk and all-member bond delivery/CTD valuation/risk |
-| `cash_hedge`, `futures_math`, `round_hedge`, `bond_cds_hedge` | Native indicative cash hedge, clearing settlement/tick/roll, integer hedge residual, and legal/recovery/basis admission; no constrained optimizer or execution authority |
+| `cash_hedge`, `futures_math`, `round_hedge`, `bond_cds_hedge` | Native indicative cash hedge, clearing settlement/tick/roll, integer hedge residual, and legal/recovery/basis admission |
+| `hedge` | Complete supplied-factor current/pending aggregation and bounded constrained native-quantity/lot/cost proposals; inspect feasibility and work diagnostics; no execution authority |
 | `aggregate` | Expected trade/factor manifest and same-snapshot FX; missing outcomes and unknown gross remain visible |
 | `lifecycle` | Deterministic reconstruction/replay over full original terms, actual event inputs, receipts and exact signed quantities; proposed cash/security effects carry no posting authority |
 
@@ -488,10 +490,10 @@ unchanged. The capability audit retains all 2,154 original required records,
 174 combinations and 30 areas with their owners/surfaces/gates. Family examples
 do not establish every model/convention/operation certificate.
 
-AC2 still needs the remaining floating/Street/make-whole/trigger/ex-coupon workout
+AC2 still needs the remaining Street/make-whole/trigger/ex-coupon workout
 conventions, required American/make-whole and FRN cap/floor/collar models, complete
 curve method/calibration/risk and per-operation helper/aggregation/reconciliation coverage,
-and constrained cross-instrument hedge optimization (CVX-031). Every exact
+and authoritative server hedge orchestration (CVX-025/031). Every exact
 combination still needs its original independent contract/model/convention pack.
 Excel and actual browser/WASM qualification need executable hosts. See each
 report record for its remaining owner, and use the private CVX-063 follow-up
@@ -510,6 +512,14 @@ cash quotations, with normal optional-model valuation guards unchanged. Read
 [workout quotations](WORKOUT-QUOTATIONS.md) for request fields, original rounding,
 complete diagnostics and unsupported conventions. Native envelopes remain
 transport expectations; CVX-063 and original mandatory certificates stay open.
+
+The additive `floating_workout` operation reconstructs the same complete term/
+overnight contract with actual eligible history/publications and separate exact
+projection/discount revisions. Price, same-cash DM and every eligible legal path
+retain full cash, explicit shifted observation prefixes, original-face signed
+consideration, notice and bounded inverse diagnostics. It freezes projected
+coupons and carries no stochastic exercise or worst-DM meaning. Read
+[floating workout quotations](FLOATING-WORKOUTS.md) for fields, controls and limits.
 
 ## Complete dated curve families
 

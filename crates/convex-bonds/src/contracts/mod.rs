@@ -20,7 +20,7 @@ pub use terms::{
     BondCalendarIds, BondCalendars, BondCoupon, BondProfiles, BondTerms, OvernightRateTerms,
     PrincipalPrice, TermRateTerms,
 };
-pub use workout::FixedWorkoutProjection;
+pub use workout::{PreparedFloatingWorkout, WorkoutExercise, WorkoutProjection};
 
 use convex_core::{
     cashflows::{

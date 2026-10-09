@@ -200,8 +200,8 @@ proptest! {
         let ys = vec![f64::from_bits(a), f64::from_bits(b), f64::from_bits(c)];
         let query = f64::from_bits(query);
         if let Ok(interpolator) = LinearInterpolator::new(xs, ys) {
-            for result in [interpolator.interpolate(query), interpolator.derivative(query)] {
-                if let Ok(value) = result { prop_assert!(value.is_finite()); }
+            for value in [interpolator.interpolate(query), interpolator.derivative(query)].into_iter().flatten() {
+                prop_assert!(value.is_finite());
             }
         }
     }

@@ -757,6 +757,11 @@ pub(super) fn execute(
         }
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
+        LibraryOperation::FloatingWorkout {
+            input,
+            context,
+            action,
+        } => super::floating_workout::execute(input, context, action, r),
         LibraryOperation::Hedge { problem, action } => super::hedges::hedge(problem, action),
         LibraryOperation::CreditRisk { input, action } => {
             super::credit::credit_risk(input, action, r)

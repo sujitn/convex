@@ -77,8 +77,10 @@ are batch work; no colocation or tail-latency qualification is implied.
 
 These are conditional **dated cash yields**, without inferred Street quotation,
 exercise probabilities, volatility, option value or OAS. Normal optional market
-pricing retains its original model guards. Floating workout quotations require a
-separate complete history/projection and convention path; contextual ICMA yield,
+pricing retains its original model guards. Complete term/overnight floating
+cash uses the separate [frozen-projection DM workflow](FLOATING-WORKOUTS.md),
+with actual history, independent curve roles and explicit shifted prefixes.
+Contextual ICMA yield,
 make-whole/trigger terms, ambiguous ex-coupon partial ownership and overlapping
 partial accrual intervals fail explicitly. Full market/convention/model/host
 qualification remains open.

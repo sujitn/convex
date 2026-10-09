@@ -171,3 +171,20 @@ orders. Migrate callers requiring those calculations to complete original
 and economics/calculation manifests remain original native/application owners;
 no guessed CDS risk, tenor-only future or heuristic cost is introduced. The new
 operation never grants order authority or waives separate server/host work.
+
+## Complete floating conditional workout owner
+
+Use `BondContract::floating_workouts` and the strict shared `floating_workout`
+price/discount_margin/paths actions for actual term/overnight conditional cash.
+Supply complete original history/publication decisions, independent calendar
+revisions, exact index projection and collateral discount, purchase/notice state
+and explicit partial shifted weight choices. The original plain floating and
+optional-model owners retain their separate meanings. Standalone FRN convenience
+DM-to-worst helpers cannot supply these economics and remain unqualified; their
+outputs cannot substitute for full original conditional cash or model value.
+
+Fixed and floating native compositions now share `WorkoutProjection`. Replace
+imports of the removed `FixedWorkoutProjection` name; its full cash/date/amount
+layout is retained. There is one checked composition, without a compatibility
+type alias or duplicated floating financial formulas. No C symbol or generic
+Java/Excel/MCP/WASM call changes. See [fields and controls](FLOATING-WORKOUTS.md).

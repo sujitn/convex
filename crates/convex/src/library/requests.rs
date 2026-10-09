@@ -150,6 +150,15 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Full original floating conditional cash and frozen-projection DM inverses.
+    FloatingWorkout {
+        /// Complete original floating terms, resources, revisions and signed face.
+        input: Box<FloatingWorkoutInput>,
+        /// Original information/purchase state and actual legal notice knowledge.
+        context: convex_analytics::workflow::WorkoutContext,
+        /// Full conditional price, single DM or every eligible original legal path.
+        action: FloatingWorkoutOperation,
+    },
     /// Complete supplied common-factor aggregation or constrained native-lot proposals.
     Hedge {
         /// Original risk vectors, revisions, current/pending native quantities and limits.

@@ -20,8 +20,8 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        self.assertEqual(result['exact_operation_routes'], 54)
-        self.assertEqual(result['engineering_examples'], 3340)
+        self.assertEqual(result['exact_operation_routes'], 57)
+        self.assertEqual(result['engineering_examples'], 3429)
         self.assertFalse(result['certified'])
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
@@ -70,6 +70,20 @@ class OperationRoutes(unittest.TestCase):
             self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(positive_examples=[other]))
             self.rejects(lambda m: m['operation_routes']['hedge.'+name].update(certified=True))
         self.rejects(lambda m: m['operation_routes']['hedge.solve'].update(negative_examples=['hedge.mixed']))
+
+    def test_floating_workout_actions_preserve_original_paths_and_failures(self):
+        for name, other in [('price', 'floating.term.dm'),
+                            ('discount_margin', 'floating.term.price'),
+                            ('paths', 'floating.term.dm')]:
+            identity = 'floating_workout.' + name
+            self.rejects(lambda m: m['operation_routes'][identity].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes'][identity].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['floating_workout.paths'].update(
+            boundary_examples=['floating.overnight.paths']))
+        self.rejects(lambda m: m['operation_routes']['floating_workout.discount_margin'].update(
+            negative_examples=['floating.term.dm']))
+        self.rejects(lambda m: m['operation_routes']['floating_workout.price'].update(
+            selectors={'operation.kind': 'workout', 'operation.action.kind': 'price'}))
 
     def test_cash_oracle_is_not_a_supplied_request_or_certificate(self):
         self.rejects(lambda m: m.update(supplemental_corpora=['tests/fixtures/library/cash-reference.json']))

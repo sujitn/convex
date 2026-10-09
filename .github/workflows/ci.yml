@@ -539,6 +539,36 @@ jobs:
       - name: Validate actual complete government inverse schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse
 
+      - name: Validate preserved floating workout controls
+        run: python3 tests/scripts/floating_workout_reference.py check
+
+      - name: Validate explicit floating workout wire admission
+        run: python3 tests/scripts/floating_workout_admission.py check
+
+      - name: Validate separate floating workout qualification controls
+        run: python3 tests/scripts/floating_workout_qualified.py check
+
+      - name: Test complete floating workout native and adapter routes
+        run: cargo test --locked --all-features -p convex --test floating_workout -p convex-ffi --test floating_workout -p convex-mcp --test floating_workout -p convex-wasm --test floating_workout -- --test-threads=1
+
+      - name: Run supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout
+
+      - name: Run minimal supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout --no-default-features
+
+      - name: Run schema supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout --features schemars
+
+      - name: Validate actual complete floating workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/floating_workout_schema.py --binary target/debug/examples/floating_workout
+
+      - name: Build actual C floating workout library
+        run: cargo build --locked -p convex-ffi --lib
+
+      - name: Verify actual separate-process C floating workout parity
+        run: python3 tests/scripts/floating_workout_parity.py --binary target/debug/examples/floating_workout --library target/debug/libconvex_ffi.so
+
       - name: Validate preserved independent hedge controls
         run: python3 tests/scripts/constrained_hedge_reference.py
 
@@ -961,6 +991,9 @@ jobs:
       - name: Build native full cash-helper quotation consumer
         run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
 
+      - name: Build native complete floating workout consumer
+        run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1007,6 +1040,9 @@ jobs:
 
       - name: Generate fresh native P/Invoke full cash-helper expectations
         run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke floating workout expectations
+        run: python tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/floating-workout-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

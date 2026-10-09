@@ -1861,6 +1861,50 @@
         "tools/library/library-inventory.json": "c38bce11ad06143c7715b6c867bbd088431d2e58f12534e9908d3196773a5652",
         "tools/library/test_operations.py": "190b59c1b4c3a556c26d83caf1a0d82fec11ac0e0e90d1040dc58c2c4fed83ad"
       }
+    },
+    {
+      "base_commit": "38e97a198a87d1bfbd1b3b5dd7d71520f04c4f73",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-09",
+      "rationale": "Full original conditional term/overnight workout cash, exact history/publication/known-at and independent calendar/curve revisions; original purchase accrued, profiles, principal and rounding. One checked native composition uses actual original reset/profile slices and original overnight prefixes/lockout. Scheduled principal precedes retirement; completed unpaid claims survive original dates. Shared workflow freezes projection once, retains every legal date/put/notice, original inverse domains/residual/work and signed original-face consideration. All paths/prefixes admitted before inverses; bounded prefix maps/ordered original observation access avoid quadratic new scans. No worst-DM, Street/YTM/OAS, model or live authority inference.All424 preceding numerical rows/physical bytes/defaults,9039 preceding evidence files, original literal mandatory tables and54route/3340request definitions are preserved. New18 numerical pins only. Fixed-workout enumeration is extracted unchanged; original fixed-cash and floating financial bodies/solver/defaults are reused. Existing partial ownership now rejects zero-rounded ambiguity; ordered original observation identity and exact consumed-reset sets retain prefix origins. Canonical WorkoutProjection replaces the fixed-only name without an alias. No manifest/lock/dependency/C export or normal optional pricing change. Accepted engineering completion through062 unchanged; CVX-063 AC1/2/3 partial/unaccepted/uncertified, actual unavailable hosts and independent certificates remain. Two original unpinned core/math property loops simplify success iteration with identical inputs, seed, bounds and assertions; strict lint is not suppressed. This records source-impact engineering review, not independent human quantitative approval.",
+      "tests": [
+        "Independent predeclared full term/overnight Decimal60 cash/DM/invoice and actual history/calendar/boundary controls",
+        "Complete native/shared/C/MCP/native-WASM/schema/default/minimal consumers and original fixed workout/bond/history regressions",
+        "Strict lint/docs/features/format/full workspace, original financial comparisons and exact source/history/scope/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "7373b35417211c1299f98e622cd22acd0cd39fadaf42920c89b1500528ff682d",
+        ".github/workflows/java.yml": "a09b9260be80e9b5230c72bf510d293858efa162ba7fb17a84fdc31a4022c1c9",
+        "crates/convex-analytics/src/cash_quotation.rs": "5cd855c4b3baa09fc356289389fe2f2db9cc165d79cb4bc9d1c787026e4194df",
+        "crates/convex-analytics/src/workflow/floating_workout.rs": "3aba2a6a8ac437ec2fbc9502528b185c4c26b5fc8f85b57ea1e3a98bbd4c6d91",
+        "crates/convex-analytics/src/workflow/mod.rs": "aaedd00a6e4a4c73cea6b94eb9149a5217f5f587212e2da16a906d37f7d966a5",
+        "crates/convex-analytics/src/workflow/workout.rs": "b310e501ce565114eaf13e1f115186a51b52dff4e911ad9bf46b25e41053f53f",
+        "crates/convex-bonds/src/contracts/mod.rs": "d7a89df8ce74a42c479c87ff1cfe5136c4e846415c02d7a8fee496af995d5245",
+        "crates/convex-bonds/src/contracts/projection.rs": "e86df4583ac5c2ecaadcbe8648f79657b545843b2411ea143e73e8f95dea3919",
+        "crates/convex-bonds/src/contracts/workout.rs": "14f0d42f31f8aea6234668c10f01436a18b9d4c0af3617e85da331ff1053ec65",
+        "crates/convex-core/tests/assurance.rs": "82f5225c4d8062d73f77e034cec053b48513f64b8725ff06facc211dd61c0e38",
+        "crates/convex-ffi/tests/floating_workout.rs": "219361b3f77e506553f586fe513e43b89a2374ba21942b6a470f533311edd99f",
+        "crates/convex-math/tests/assurance.rs": "09ab0fdd846f2220aac150a968cd3dd8e5ad8c5b34acf2e8dfc29ca7c734c338",
+        "crates/convex/examples/floating_workout.rs": "a12c12fdd037405052268b6d9095f64fefd0fb6efa84e25ecfb90a6aa36ff507",
+        "crates/convex/src/library/floating_workout.rs": "453cea9be11a293ac1aab3acc414c229984563ce3432c4ee6968c0f9e664b26e",
+        "crates/convex/src/library/mod.rs": "b2b46c44130ba3270e3a503e809a2c8f93092ec0faa569f6a4ff5d9222d1bf2b",
+        "crates/convex/src/library/products.rs": "d3ac271a33f1931fa322a8baf74f099692ddaa58cb7867f7890875cbae1f1fd1",
+        "crates/convex/src/library/requests.rs": "24332c70824f0d4c9c30c1487b05491a9ffdfd224282df96ab52b1e071290e6d",
+        "crates/convex/tests/floating_workout.rs": "8b54878bdba7756a0d78afd0bf99a4b40f81accf7817eced34e2c2ea3c808e3a",
+        "tests/fixtures/library/floating-workout-additional-reference.json": "42f44e781c6b4f36b8bc4b2f3e819160b261dea808110560b8a5fa929640b879",
+        "tests/fixtures/library/floating-workout-admitted.json": "ed0d899f589caa2c336e06c755df58784c43d6bef9ac69bfdbfa2b4df32889a2",
+        "tests/fixtures/library/floating-workout-qualified.json": "2adce327885c69a25a219020e79b9a78b6a98a588875d36501564b15ab8cd9bb",
+        "tests/fixtures/library/floating-workout-reference.json": "85c8a3e6f73b9956b8bea44f6863b3e0b45dccbe93e77e09435a7c928ac6a804",
+        "tests/fixtures/library/floating-workouts.json": "a274b7ac080e52c8fa0390b110ed99007b76979abb736883688fb1248982a7b5",
+        "tests/fixtures/library/floating_workout_contract.rs": "eb6774db12f62ec61ef212c93a199108ecb4fe6e4c96f28d3693e5f1aa4a5973",
+        "tools/assurance/check.py": "adae5df13c1dc89f5fc83b547db36e844a44092a7656f7c9bfdf358a2166fe53",
+        "tools/assurance/inventory.json": "f842ef2de1766a3648ffca1c28ac39ff7398f45c7a034767060183b991166795",
+        "tools/assurance/numeric-evidence.json": "ec62de73ab397f9cbec23c79b64748f6771cd4c93846af1abe7e82cab7413cd7",
+        "tools/assurance/test_policy.py": "547d362753cf5b4f3970baf608aa58e37781e32330bd237c4f81365b3e5d1139",
+        "tools/library/api-capabilities.json": "61eb2ba9b16a9cefad1a30211f2d86ba93dcc77fc284cab8b73e890bfdfe56d4",
+        "tools/library/library-inventory.json": "c3c85af1549e8027decdfb107db166ec9ed064bc70ee64c2cabe5dfcadd40298",
+        "tools/library/test_operations.py": "36810461e61c69dc771e52482381c73f7ac489341d196aabd4df52d2d81e9552"
+      }
     }
   ]
 }

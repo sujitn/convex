@@ -34,8 +34,8 @@ proptest! {
         let date = Date::from_ymd(2026, 10, 4).unwrap();
         // The test process fails on a panic; both out-of-range and valid offsets
         // remain observable Results, without substituting a date on error.
-        for result in [date.add_months(months), date.add_years(years), date.checked_add_days(days)] {
-            if let Ok(value) = result { prop_assert_eq!(Date::parse(&value.to_string()).unwrap(), value); }
+        for value in [date.add_months(months), date.add_years(years), date.checked_add_days(days)].into_iter().flatten() {
+            prop_assert_eq!(Date::parse(&value.to_string()).unwrap(), value);
         }
     }
 }

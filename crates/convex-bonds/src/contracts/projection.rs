@@ -690,7 +690,7 @@ impl BondContract {
             conditional_on_no_exercise: !self.terms.exercise.is_empty(),
         })
     }
-    fn overnight_amount(
+    pub(super) fn overnight_amount(
         &self,
         plan: &CouponPlan,
         compound: &convex_core::cashflows::CompoundedCoupon,

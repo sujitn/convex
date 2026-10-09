@@ -3,7 +3,7 @@ use super::*;
 use convex_bonds::{
     contracts::{
         BondContract, BondProjection, BondTerms, ExerciseDates, ExerciseRight, ExerciseStyle,
-        FixedWorkoutProjection,
+        WorkoutProjection,
     },
     types::CalendarId,
 };
@@ -140,7 +140,7 @@ pub struct WorkoutInputs<'a> {
     /// Original purchase settlement calendar identity and actual supplied data.
     pub purchase_calendar: (&'a CalendarId, &'a dyn Calendar),
 }
-fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
+pub(super) fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
     let t = input.contract.terms();
     let c = input.context;
     if input.purchase_calendar.0 != &t.calendars.payment
@@ -168,7 +168,7 @@ fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
     }
     Ok(())
 }
-fn context(contract: &BondContract, c: &WorkoutContext) -> WorkflowResult<()> {
+pub(super) fn context(contract: &BondContract, c: &WorkoutContext) -> WorkflowResult<()> {
     if !(1..=9999).contains(&c.reference_date.year())
         || c.reference_date < contract.terms().issue_date
         || c.reference_date > c.settlement
@@ -226,7 +226,7 @@ fn prepare(
             })
         }
         WorkoutSelection::Exercise { provision, date } => {
-            let FixedWorkoutProjection {
+            let WorkoutProjection {
                 original,
                 cash,
                 dates,
@@ -406,7 +406,6 @@ pub fn quote_workout_worst(
     let WorkoutInputs {
         contract,
         context: c,
-        exercise_calendar: (_, calendar),
         ..
     } = input;
     context(contract, c)?;
@@ -420,83 +419,7 @@ pub fn quote_workout_worst(
             "positive bounded contractual-date and cash-evaluation budgets required",
         ));
     }
-    let mut choices = Vec::new();
-    let mut examined = 0u32;
-    let mut visit = |i: usize, date: Date| -> WorkflowResult<()> {
-        if date <= c.settlement || date >= contract.terms().schedule.end_date {
-            return Ok(());
-        }
-        examined = examined
-            .checked_add(1)
-            .ok_or(CashflowError::BoundExceeded("workout dates"))?;
-        if examined > settings.max_dates {
-            return Err(CashflowError::BoundExceeded("workout dates").into());
-        }
-        let t = &contract.terms().exercise[i];
-        if t.protection_end.is_some_and(|end| date < end) {
-            return Ok(());
-        }
-        let d = t.dates(date, *calendar)?;
-        if let WorkoutNotice::Unnotified { earliest_notice } = c.notice {
-            if d.notice < earliest_notice {
-                return Ok(());
-            }
-        }
-        choices.push(WorkoutSelection::Exercise {
-            provision: i as u32,
-            date,
-        });
-        Ok(())
-    };
-    let forced = matches!(c.notice, WorkoutNotice::Notified { .. });
-    if let WorkoutNotice::Notified {
-        provision,
-        exercise,
-        ..
-    } = c.notice
-    {
-        choices.push(WorkoutSelection::Exercise {
-            provision,
-            date: exercise,
-        });
-        examined = 1;
-    } else {
-        // Count actual candidate dates before any inverse; no coupon-date proxy.
-        for (i, t) in contract.terms().exercise.iter().enumerate() {
-            match &t.style {
-                ExerciseStyle::European { date } => visit(i, *date)?,
-                ExerciseStyle::Bermudan { dates } => {
-                    for date in dates {
-                        visit(i, *date)?;
-                    }
-                }
-                ExerciseStyle::American { start, end } => {
-                    let next = c
-                        .settlement
-                        .checked_add_days(1)
-                        .map_err(|e| invalid("workout.date", e.to_string()))?;
-                    let last = contract
-                        .terms()
-                        .schedule
-                        .end_date
-                        .checked_add_days(-1)
-                        .map_err(|e| invalid("workout.date", e.to_string()))?;
-                    let mut date = (*start).max(next);
-                    let end = (*end).min(last);
-                    while date <= end {
-                        visit(i, date)?;
-                        if date == end {
-                            break;
-                        }
-                        date = date
-                            .checked_add_days(1)
-                            .map_err(|e| invalid("workout.date", e.to_string()))?;
-                    }
-                }
-            }
-        }
-        choices.insert(0, WorkoutSelection::Maturity {});
-    }
+    let (choices, examined, forced) = eligible_workout_paths(input, settings.max_dates)?;
     let original = contract.fixed_projection(c.settlement, c.on_payment)?;
     let max_cash = original.cashflows()?.len() as u64 + 2;
     let reserved = (choices.len() as u64)
@@ -570,4 +493,102 @@ pub fn quote_workout_worst(
         cash_discount_evaluations: cash_evaluations,
         reserved_cash_evaluations: reserved,
     })
+}
+
+// Shared original all-date legal-path enumeration, without choosing a market
+// meaning for the resulting measures. Purchase/context admission runs first.
+pub(super) fn eligible_workout_paths(
+    input: &WorkoutInputs<'_>,
+    max_dates: u32,
+) -> WorkflowResult<(Vec<WorkoutSelection>, u32, bool)> {
+    purchase(input)?;
+    let contract = input.contract;
+    let c = input.context;
+    context(contract, c)?;
+    let (id, calendar) = input.exercise_calendar;
+    if id != &contract.terms().calendars.exercise || max_dates == 0 || max_dates > MAX_WORKOUT_DATES
+    {
+        return Err(invalid(
+            "workout.paths",
+            "original exercise calendar and bounded positive date budget required",
+        ));
+    }
+    let mut choices = Vec::new();
+    let mut examined = 0u32;
+    let mut visit = |i: usize, date: Date| -> WorkflowResult<()> {
+        if date <= c.settlement || date >= contract.terms().schedule.end_date {
+            return Ok(());
+        }
+        examined = examined
+            .checked_add(1)
+            .ok_or(CashflowError::BoundExceeded("workout dates"))?;
+        if examined > max_dates {
+            return Err(CashflowError::BoundExceeded("workout dates").into());
+        }
+        let t = &contract.terms().exercise[i];
+        if t.protection_end.is_some_and(|end| date < end) {
+            return Ok(());
+        }
+        let d = t.dates(date, calendar)?;
+        if let WorkoutNotice::Unnotified { earliest_notice } = c.notice {
+            if d.notice < earliest_notice {
+                return Ok(());
+            }
+        }
+        choices.push(WorkoutSelection::Exercise {
+            provision: i as u32,
+            date,
+        });
+        Ok(())
+    };
+    let forced = matches!(c.notice, WorkoutNotice::Notified { .. });
+    if let WorkoutNotice::Notified {
+        provision,
+        exercise,
+        ..
+    } = c.notice
+    {
+        choices.push(WorkoutSelection::Exercise {
+            provision,
+            date: exercise,
+        });
+        examined = 1;
+    } else {
+        // Count actual candidate dates before any inverse; no coupon-date proxy.
+        for (i, t) in contract.terms().exercise.iter().enumerate() {
+            match &t.style {
+                ExerciseStyle::European { date } => visit(i, *date)?,
+                ExerciseStyle::Bermudan { dates } => {
+                    for date in dates {
+                        visit(i, *date)?;
+                    }
+                }
+                ExerciseStyle::American { start, end } => {
+                    let next = c
+                        .settlement
+                        .checked_add_days(1)
+                        .map_err(|e| invalid("workout.date", e.to_string()))?;
+                    let last = contract
+                        .terms()
+                        .schedule
+                        .end_date
+                        .checked_add_days(-1)
+                        .map_err(|e| invalid("workout.date", e.to_string()))?;
+                    let mut date = (*start).max(next);
+                    let end = (*end).min(last);
+                    while date <= end {
+                        visit(i, date)?;
+                        if date == end {
+                            break;
+                        }
+                        date = date
+                            .checked_add_days(1)
+                            .map_err(|e| invalid("workout.date", e.to_string()))?;
+                    }
+                }
+            }
+        }
+        choices.insert(0, WorkoutSelection::Maturity {});
+    }
+    Ok((choices, examined, forced))
 }
