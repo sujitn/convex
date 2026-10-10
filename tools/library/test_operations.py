@@ -20,9 +20,9 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        # Preserve all preceding routes/requests and add two direct ICMA risk operations.
-        self.assertEqual(result['exact_operation_routes'], 68 + 2)
-        self.assertEqual(result['engineering_examples'], 3984 + 159)
+        # Preserve all preceding routes/requests and add the common-factor graph hedge bridge.
+        self.assertEqual(result['exact_operation_routes'], 70 + 1)
+        self.assertEqual(result['engineering_examples'], 4143 + 40)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

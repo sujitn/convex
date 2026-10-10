@@ -768,6 +768,11 @@ pub(super) fn execute(
         LibraryOperation::Calibration { input, action } => {
             super::curves::calibration(input, action, r)
         }
+        LibraryOperation::GraphHedgeRisk {
+            graph,
+            product,
+            input,
+        } => super::graph_hedges::graph_hedge_risk(graph, product, input, r),
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
         LibraryOperation::IcmaYieldRisk {

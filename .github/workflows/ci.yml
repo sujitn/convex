@@ -653,6 +653,51 @@ jobs:
       - name: Verify direct ICMA risk and hedge C transport parity
         run: python3 tests/scripts/icma_risk_parity.py --binary target/debug/examples/icma_risk --library target/debug/libconvex_ffi.so
 
+      - name: Check declared graph hedge reference controls
+        run: python3 tests/scripts/graph_hedge_reference.py
+
+      - name: Check declared graph hedge problem reference controls
+        run: python3 tests/scripts/graph_hedge_problem_reference.py
+
+      - name: Check declared graph hedge admission controls
+        run: python3 tests/scripts/graph_hedge_admission.py
+
+      - name: Check declared graph hedge roles controls
+        run: python3 tests/scripts/graph_hedge_roles.py
+
+      - name: Check declared graph hedge terms controls
+        run: python3 tests/scripts/graph_hedge_terms.py
+
+      - name: Check declared graph hedge cash reference controls
+        run: python3 tests/scripts/graph_hedge_cash_reference.py
+
+      - name: Check declared graph hedge protocol controls
+        run: python3 tests/scripts/graph_hedge_protocol.py
+
+      - name: Check declared graph hedge limits controls
+        run: python3 tests/scripts/graph_hedge_limits.py
+
+      - name: Check lossless bounded graph hedge API census
+        run: python3 tests/scripts/graph_hedge_census.py
+
+      - name: Test graph hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test graph_hedge -- --test-threads=1
+
+      - name: Run graph hedge consumer
+        run: cargo run --locked -p convex --example graph_hedge
+
+      - name: Run minimal graph hedge consumer
+        run: cargo run --locked -p convex --example graph_hedge --no-default-features
+
+      - name: Run graph hedge schema consumer
+        run: cargo run --locked -p convex --example graph_hedge --features schemars
+
+      - name: Check graph hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/graph_hedge_schema.py --binary target/debug/examples/graph_hedge
+
+      - name: Verify graph hedge C transport parity
+        run: python3 tests/scripts/graph_hedge_parity.py --binary target/debug/examples/graph_hedge --library target/debug/libconvex_ffi.so
+
       - name: Validate original contextual workout controls
         run: python3 tests/scripts/icma_workout_reference.py
 
@@ -1177,6 +1222,9 @@ jobs:
       - name: Build direct ICMA risk and hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example icma_risk --features schemars
 
+      - name: Build graph hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example graph_hedge --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1241,6 +1289,9 @@ jobs:
 
       - name: Generate direct ICMA risk and hedge Excel expectations
         run: python tests/scripts/icma_risk_parity.py --binary target/excel/examples/icma_risk.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-risk-parity.json
+
+      - name: Generate graph hedge Excel expectations
+        run: python tests/scripts/graph_hedge_parity.py --binary target/excel/examples/graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/graph-hedge-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

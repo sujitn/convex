@@ -570,3 +570,14 @@ open; pure bounds do not constitute latency or allocation qualification.
 
 
 Contextual ICMA observed/model cash helpers reuse the same checked original cash/time/inverse/invoice owner through complete native quote calibration, dependent five-PV risk and file snapshot replay. All contexts are admitted before fitting; explicit original reference/cash reservations precede numerical valuation, and original native quote plus inverse price residuals remain separate. New declared full financial controls retain raw failures and separate admission records. [The contract](ICMA-CASH-HELPERS.md) gives bounds and scope; actual hosts and independent certificates remain open.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.

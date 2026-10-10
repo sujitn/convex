@@ -134,7 +134,7 @@ pub enum RiskProductInput {
         input: Box<RateFutureInput>,
     },
 }
-fn with_product<T>(
+pub(super) fn with_product<T>(
     product: &RiskProductInput,
     r: &ResolvedInputs<'_>,
     f: impl FnOnce(&w::ValuationInputs<'_>) -> LibraryResult<T>,

@@ -29,6 +29,7 @@ on:
       - 'tests/scripts/icma_workout_parity.py'
       - 'tests/scripts/icma_helpers_parity.py'
       - 'tests/scripts/icma_risk_parity.py'
+      - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -64,6 +65,7 @@ on:
       - 'tests/scripts/icma_workout_parity.py'
       - 'tests/scripts/icma_helpers_parity.py'
       - 'tests/scripts/icma_risk_parity.py'
+      - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -133,6 +135,9 @@ jobs:
       - name: Build direct ICMA risk and hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example icma_risk --features schemars
 
+      - name: Build graph hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example graph_hedge --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -193,6 +198,9 @@ jobs:
 
       - name: Generate direct ICMA risk and hedge Java expectations
         run: python3 tests/scripts/icma_risk_parity.py --binary target/excel/examples/icma_risk --output bindings/java/target/icma-risk-parity.json
+
+      - name: Generate graph hedge Java expectations
+        run: python3 tests/scripts/graph_hedge_parity.py --binary target/excel/examples/graph_hedge --output bindings/java/target/graph-hedge-parity.json
 
       - name: Generate fresh native full workout adapter expectations
         run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json

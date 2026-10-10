@@ -2138,6 +2138,53 @@
         "tools/library/library-inventory.json": "ff3af6d915b50ec088b88e576a1d290d23b28f2ba1d7cf05bf52950f15ae4d87",
         "tools/library/test_operations.py": "fabc4f8bcd09e25940a37fd62ee09272bc083b7d2262c08a72ad915fdc2639a3"
       }
+    },
+    {
+      "base_commit": "da5f4d65dff714a4e54e8a0ce240f0ed7de6b875",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-10",
+      "rationale": "Complete supplied graph factors through the SAME original full product, calibration, five-PV sensitivity and hedge owners. Full bond/CDS/IRS/OIS/rates-futures cash/history/side/model/quantity/credit/identity/snapshot/policy survive. Positive native face/notional/contract references remain exact; one entire IRS trade copy binds to its explicitly supplied first fixed-leg notional via the original five evaluated PVs with scale one, without a new pricer or copied differentiation. Every declared zero exposure is actually repriced. Explicit 1..16 factor and 1..80 five-price reservation precedes valuation. Full fresh columns enter existing aggregation/solve with current/pending, common policies, credit scope, exact native lots/costs and explicit same-snapshot reporting FX. Original financial bodies/defaults/captures and all559 previous numerical pins remain; only module wiring, one visibility qualifier and distinct strict adapter operation are added. Separate predeclared raw/admission/actual-CDS-chronology/application-limit controls retain failures without tolerance relaxation or promotion. No new dependency/service/provider/storage/MQ/clock/runtime/order authority. Full credit-survival cash, optional/all-member delivery risk, actual managed/browser hosts and independent financial/model/method/product/library/production/latency certificates remain open; CVX-063 partial/unaccepted/uncertified. All existing numerical row/file pins and original graph/calibration/cash/product/differentiation/hedge bodies remain. This source-impact engineering declaration supplies no independent human financial approval. Lossless two-part API census preserves all original40 full requests/outcomes, metadata and string/number lexemes under the original8MiB per-document bound. Raw22MiB corpus and all588 original control rows/bytes/defaults remain exact. This metadata-only packaging repair changes no native/test/runtime/financial owner, numerical policy, input bound or certificate. Nonfinancial module-inventory mutation test includes the new graph_hedges thin adapter:19 original modules plus1, with all original workflow/purity mutation assertions retained. No native/runtime/financial source, control, numerical default/bound, input limit or mandatory definition changes.",
+      "tests": [
+        "Full predeclared independent Decimal60 cash/legs/premium/default/protection/observations/five-price sensitivity and explicit model/domain/work/stability controls",
+        "Actual native/shared/C/MCP/native-WASM/schema/default/minimal and real complete hedge quantity/current/pending/FX/cost composition",
+        "Full original financial/workspace/lint/docs/format and exact history/source/scope/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "badcdc3db5ae1f9a6cea2a5036a5701b35c661fb009bbcf69c719b3dfb921886",
+        ".github/workflows/java.yml": "4001b1baa2d9349a8215f96b7897aabb83dfdd9cf6758790e797e888e6069884",
+        "crates/convex-analytics/src/workflow/hedge.rs": "6bbc74347b0cdd7bb6051f0a27379e691f992771b4d65b2c16c20556d2ff4820",
+        "crates/convex-analytics/src/workflow/mod.rs": "a4028efe7f97a48e9feb614102ba216798ce3c152023b483eae5f2c7f8b0c010",
+        "crates/convex-ffi/tests/graph_hedge.rs": "49f75d5b288e3d523be62ae127fbc7d0a4c88600972e83bbb54afa7cdd1908df",
+        "crates/convex/examples/graph_hedge.rs": "ae98e8746cc7b25270b37e88298233e564bab6d5a6f70ac6c55903976076a50f",
+        "crates/convex/src/library/graph_hedges.rs": "fd9b835634b0a26ce406162184c9ee475e5314e2cbdf2917f974a11cbf952f0f",
+        "crates/convex/src/library/mod.rs": "211e92eb9d153f7665035d2f44884b1013839fd3baad5f4ead865986a5c15f63",
+        "crates/convex/src/library/products.rs": "99339982dc40236e3760f79405c17a46177c0a3d22dcd1f163711b7a748f8d5b",
+        "crates/convex/src/library/requests.rs": "26b8bbc493c9d60237532a0495c4418f588a9646a14c525af436d2d7d1a535e2",
+        "crates/convex/src/library/risk.rs": "7ec77fa3a4085c27eb937fcbf5e22c1da197b51cba17b70e2dd0097c6f4af9f7",
+        "crates/convex/tests/graph_hedge.rs": "6dabf28f30c9f8856beceae76a0567e5fa084d7dbb0738a1de0df30de8628954",
+        "docs/ASSURANCE.md": "7b0da6a3a2c4a8c18558ac7430d8f101e3563345d1afb4bf983b35bdbcc8e858",
+        "tests/fixtures/library/graph-hedge-actual-cash-problems.json": "528b6de9a65ca0efb81a4bf906aa1494444e360cfc3e98d543f797f833d41afd",
+        "tests/fixtures/library/graph-hedge-actual-cash-reference.json": "fcd53661e261f1ea3d0f2c6f542b24cadd3599e350753258058c28272c1cf2cd",
+        "tests/fixtures/library/graph-hedge-admitted.json": "ff1cc658aa747ad7300e249af701592da143e6ce616882907b4cf6827375b8d1",
+        "tests/fixtures/library/graph-hedge-api-01.json": "67fe7412f960681fe3417f492094d17257e76958a45d8c086c5ed287eeac0874",
+        "tests/fixtures/library/graph-hedge-api-02.json": "f10243aaacb44dccf2c92fc48a6dc67d835db5cd22ad998fcb0a9829c813b56b",
+        "tests/fixtures/library/graph-hedge-api.json": "231ccd2d5d7a9e35ca3ddf27236ca23cdff86d482590b1c68af0eb0dbd3c7348",
+        "tests/fixtures/library/graph-hedge-limits.json": "721c2c8ae245790255e488214d76af5d694c8893ee515ef2ce85b22c9688b064",
+        "tests/fixtures/library/graph-hedge-problems-admitted.json": "af8e19954c5de5288648aa6db4fe1a27e993098cfdc7e5b9e19b406d04698c91",
+        "tests/fixtures/library/graph-hedge-problems.json": "07792f1db962c7012f89b43a4dd308853cd330719b21dacd176450002378ba6f",
+        "tests/fixtures/library/graph-hedge-qualified.json": "9a616620e2fbe417f9bd0d366fa6a24de0b12def6af8e68ac80f3e3ae9115c6a",
+        "tests/fixtures/library/graph-hedge-reference.json": "db42093c6ea35d1f901057dc9ffed12a76f5d390f6d324db0bff9c1776adf604",
+        "tests/fixtures/library/graph-hedge-terms.json": "2aa00512940aef9ce8f02d9c557526511a6a1b1876bc3d98267826c4a94975a2",
+        "tests/fixtures/library/graph-hedge.json": "010f1a29594e8bcda42ac8bc25fcaa3620225e6a3f80695ffd8f453934f22526",
+        "tests/fixtures/library/graph_hedge_contract.rs": "a7f2bcf918f9214f9f613a1e169944e77f7b8870a1f7fec78dccdf9256a7d4cc",
+        "tools/assurance/check.py": "32de685e17707e621feb7caea5f001eec72265aaa0901036867ebfac45ad0332",
+        "tools/assurance/inventory.json": "7d1d74d48487e58f8299edceb2e322f9f05d771fb4cd4596bde39a501aa6cfd4",
+        "tools/assurance/numeric-evidence.json": "7ff9b5096d0b744e1d2b7013846296ec29488379cf3bdc434021d558061ec38c",
+        "tools/library/api-capabilities.json": "d6368958a557ee71e264277a2ea4d929f737447cb1296a2f818902518dffda34",
+        "tools/library/library-inventory.json": "4d308268ff056a20b9d9d0bbdb5a406f23313c30dfb27473896169bc2d36f95c",
+        "tools/library/test_operations.py": "4afb6d365d5cc37dc80438460ec4292163a1a4a56ba558e4d27d0ec37a8619a3",
+        "tools/assurance/test_policy.py": "bece8788940f3d812e54a756bbb4c5e77b63c35e7f110363e08e03db608fa016"
+      }
     }
   ]
 }

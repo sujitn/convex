@@ -197,3 +197,14 @@ Complete contextual ICMA yield cash helpers now compose through the original ful
 Direct own-security contextual ICMA yield sensitivity and positive reference
 hedge columns use one prepared cash/time context and the original five-PV owner;
 see [ICMA yield risk](ICMA-YIELD-RISK.md). Raw yield retains its distinct axis.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.

@@ -8,6 +8,7 @@ mod curves;
 mod errors;
 mod events;
 mod floating_workout;
+mod graph_hedges;
 mod hedges;
 mod helpers;
 mod icma;

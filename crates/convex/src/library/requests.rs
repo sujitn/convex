@@ -421,6 +421,15 @@ pub enum LibraryOperation {
         /// Full build or original graph scenario.
         action: super::curves::CalibrationOperation,
     },
+    /// Calculate a complete actual common-factor reference hedge column.
+    GraphHedgeRisk {
+        /// Complete original graph and native helper/calibration policy.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Full original product and frozen history/settlement/source context.
+        product: Box<super::risk::RiskProductInput>,
+        /// Explicit identity, native reference and every required factor.
+        input: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
+    },
     /// Pure original-state replay and one transition; no ledger commitment.
     Lifecycle {
         /// Full original opening terms and each supplied event/input.

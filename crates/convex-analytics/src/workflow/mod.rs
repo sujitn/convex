@@ -6,6 +6,7 @@
 mod bond;
 mod capability;
 mod floating_workout;
+mod hedge;
 mod icma;
 mod icma_workout;
 mod inputs;
@@ -16,6 +17,7 @@ mod workout;
 pub use bond::*;
 pub use capability::*;
 pub use floating_workout::*;
+pub use hedge::*;
 pub use icma::*;
 pub use icma_workout::*;
 pub use inputs::*;

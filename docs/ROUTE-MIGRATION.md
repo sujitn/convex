@@ -228,3 +228,14 @@ inputs. Context-free bond quote risk and recalibrated helper risk retain their
 correct distinct owners. An ICMA day-count tag cannot supply their missing
 context, and a conditional workout cannot become unconditional hedge risk.
 See [ICMA yield risk](ICMA-YIELD-RISK.md). No obsolete alias is introduced.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.

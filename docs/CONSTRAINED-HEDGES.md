@@ -189,3 +189,14 @@ fixed-cash quotations and emits a positive original-face reference column.
 Its consumer verifies same-security current/pending/lot/cost/reporting-FX
 composition with actual calculated columns. Other instruments still need
 their complete common-factor calculations.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.

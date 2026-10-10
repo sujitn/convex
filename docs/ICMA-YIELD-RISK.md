@@ -121,3 +121,14 @@ delegate yield analytics to cashflows with explicit compounding and settlement.
 nominal periods and frequency. [ORE sensitivity analysis](https://github.com/OpenSourceRisk/Engine/blob/master/OREAnalytics/orea/engine/sensitivityanalysis.cpp)
 retains factor-specific shift data. These primary-source reads inform separation
 of time, coordinates and valuation; no new external runtime certificate is claimed.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.

@@ -596,3 +596,14 @@ Street/model/market and unavailable host qualification remains open.
 
 
 Existing `helper.cash_quote`, `helper.cash_reprice` and full `calibration` operations now admit the strict `ContextualIcmaYield` helper pack. Complete observed and model quotations, actual calendars, native units, full recipes and work diagnostics retain one original owner through graph rebuild and snapshot replay. See [ICMA cash helpers](ICMA-CASH-HELPERS.md); this adds no transport operation or C export.
+
+
+## Complete common-factor hedge columns
+
+The distinct `graph_hedge_risk` operation composes the original full product and
+graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
+for the existing hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield remains a separate factor. Optional models, credit-survival
+cash products and delivery-futures all-member risk remain owning work; actual
+managed/browser and production/latency qualification remain open.
