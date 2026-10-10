@@ -2099,6 +2099,45 @@
           ".ai/production-readiness/evidence/CVX-063-ICMA-Helpers/human-approval.json"
         ]
       }
+    },
+    {
+      "base_commit": "dcaebee103bac9f7ac4ae512c08bb75a5bca3118",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-10",
+      "rationale": "Direct contextual ICMA own-security raw yield sensitivity through the SAME prepared full cash/time/price/invoice owner and original reference_quote_sensitivity. Full five original quotations, native observed rate units, source/context/policy/calendar/security/quote revisions, signed original-face quantity, snapshot and complete factor/numerical policy survive. Explicit all-five annual-rate domain admission and aggregate five-price cash reservation precede valuation; reference times prepare once. A positive original-face hedge bridge emits the unchanged complete native yield column with explicit application economics/calculation/entity pins into existing original full hedge aggregation/solve, preserving current/pending, exact native lots/costs and same-snapshot FX. Own yield stays distinct from common curve factors; no cross-security alias, synthetic zero, frozen floating/conditional option proxy, copied financial math, new dependency/service/provider/storage/MQ/clock/runtime/order authority. Original financial function bodies/defaults/captures/pins remain; only module wiring and a distinct strict adapter operation are added; the original price/inverse action enum and dispatcher remain exact. Assurance discovers nested workflows and requires additive new CI checks. Full market/model/method/product/host/library/production/latency and server authority remain open; CVX-063 partial/unaccepted/uncertified. All existing numerical row/file pins and original cash/time/inverse/discount/differentiation/hedge bodies remain. This source-impact engineering declaration supplies no independent human financial approval.",
+      "tests": [
+        "Full predeclared independent Decimal60 original cash/time/five-price/sensitivity and explicit model/domain/work/stability controls",
+        "Actual native/shared/C/MCP/native-WASM/schema/default/minimal and real complete hedge quantity/current/pending/FX/cost composition",
+        "Full original financial/workspace/lint/docs/format and exact history/source/scope/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "72b3f2f843e8ed58e6919c69f3dae402d2d30210e9381da9353dedf88a9c1826",
+        ".github/workflows/java.yml": "4c09b76b60f0a9410510e4db3bf99c7057920276da4111271a9f2d88e4dff156",
+        "crates/convex-analytics/src/workflow/icma.rs": "a087a417f2f7d20eb03dc2560cb83c9a1470aea8eb2af2fe1ec080b71114d7e0",
+        "crates/convex-analytics/src/workflow/icma/risk.rs": "ae0b973b80ff933ff1feefb4b6eeeb1d2731d1d9df28a22dd8075b1665384659",
+        "crates/convex-ffi/tests/icma_risk.rs": "1219ae9a6c715dd8e000607d31aef54bb65b64ac746cf187aa5716e1df28cb78",
+        "crates/convex/examples/icma_risk.rs": "678a71a6efccc2f1f4ae04dc6f44ac0781157c5620ef801d2728875f292a4511",
+        "crates/convex/src/library/icma.rs": "a634e4c2d0f67d01843f9ef2d310450005cb7f95cbc7886483513feda4946531",
+        "crates/convex/src/library/products.rs": "be5c6d9785c13a157a47295b133b016728b2e7e9467b94feff22c7a388c42eb6",
+        "crates/convex/src/library/requests.rs": "a9b02a1df74b278f566fa955daa05c31093d9f3432a28245ae286363d8cec47d",
+        "crates/convex/tests/icma_risk.rs": "8faa8c5c7d0b71ca31bb6e9ee30b2d900373e26976a0c7a87d82f4bfed8a1a4d",
+        "docs/ASSURANCE.md": "7378bc715dfb184eb9a40582d820b2f057ca41e36096ae3fe416109b10c1d8a6",
+        "tests/fixtures/library/icma-risk-admission-reference.json": "4fe756ec6f2935bb3358cda79950cdb3dc2c8157b9aa82fc34d2991e38ced7cc",
+        "tests/fixtures/library/icma-risk-admitted.json": "87a64c2c6e7aab2f9a6fd9fe2bbdc6f890507580f73ee62dd49c90d43601cebe",
+        "tests/fixtures/library/icma-risk-api.json": "1da70fed2dd56bb12a19b7ef91cea185199c90601078b6007e9bd8f56b5dcf73",
+        "tests/fixtures/library/icma-risk-final-api.json": "a9964b9f78d6fd5809615eeafd2aab6ab1c38513b586c87b2fb5c0d4833f30be",
+        "tests/fixtures/library/icma-risk-owner-api.json": "3c5153d6693bbd2a102857abb414fbdfd0f45f83f24261af55538182ec4357bf",
+        "tests/fixtures/library/icma-risk-reference.json": "c7de89193790da791d8c9673478a1bb20f147504bcab0e9678f2e88f28b6ee08",
+        "tests/fixtures/library/icma-risk-routes.json": "1b799b93d0c61c4a4bfc8b76a3d2ce15fc0ad4a276fae12588d8fc980fd2ccfb",
+        "tests/fixtures/library/icma-risk.json": "7691c70a73a6ec41bc5f2475ddbb03edcd23750c1da904e1995a745640a4a461",
+        "tests/fixtures/library/icma_risk_contract.rs": "baec33338e1bfd661eb4cdbebbbd18b6065ef91f1845cfd44dc885b91822730b",
+        "tools/assurance/check.py": "91a21596bd6aba48bf89e74167838bf0ab7232db71e18853bc4cd806dfbd5dc5",
+        "tools/assurance/inventory.json": "5464d870e1d950b9cb6603936e71c1a451cbeef976e7699c7abf2f6e1def5635",
+        "tools/assurance/numeric-evidence.json": "ee313e557c4b856f537626b4a1d92e04151f7e75b32aa20b38690b0a48ddc91a",
+        "tools/library/api-capabilities.json": "e9ce98ba4c563ff308e0ecc30d6a1093a87d111ccf0c64f08b78a7121098adc4",
+        "tools/library/library-inventory.json": "ff3af6d915b50ec088b88e576a1d290d23b28f2ba1d7cf05bf52950f15ae4d87",
+        "tools/library/test_operations.py": "fabc4f8bcd09e25940a37fd62ee09272bc083b7d2262c08a72ad915fdc2639a3"
+      }
     }
   ]
 }

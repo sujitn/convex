@@ -150,6 +150,17 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Direct contextual own-yield sensitivity or positive reference hedge column.
+    IcmaYieldRisk {
+        /// Complete original economics, source/context/calendar/quantity revisions.
+        input: Box<IcmaQuotationInput>,
+        /// Exact original contextual time/compounding and bounded preparation.
+        convention: convex_analytics::workflow::IcmaYieldConvention,
+        /// Original cash selection; direct risk admits only unconditional plain cash.
+        cash: convex_analytics::workflow::IcmaCashSelection,
+        /// Full five-price sensitivity or existing original hedge vector.
+        action: IcmaYieldRiskOperation,
+    },
     /// Full supplied contextual ICMA fixed/workout quotations, without a Street alias.
     IcmaQuotation {
         /// Complete original terms, context, independent revisions and signed face.

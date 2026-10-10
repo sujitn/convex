@@ -1,5 +1,9 @@
 # Supplied-input library API (CVX-063)
 
+Direct contextual `icma_yield_risk` actions `yield_sensitivity` and `hedge_vector`
+retain full original cash, context, five valuations and exact own-yield factors.
+See [required fields, bounds and hedge composition](ICMA-YIELD-RISK.md).
+
 `convex::library` exposes checked native analytics through one closed request
 contract. JSON, C, Java, Excel, MCP and WASM adapters call the same dispatcher.
 The dispatcher reconstructs full native contracts and calls their owning product

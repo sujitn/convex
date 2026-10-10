@@ -36,6 +36,24 @@ pub enum IcmaQuotationOperation {
         settings: w::BondInverseSettings,
     },
 }
+/// Direct yield risk and hedge columns, distinct from the original price/inverse enum.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum IcmaYieldRiskOperation {
+    /// Direct original-context fixed-cash yield risk with all five quotations.
+    YieldSensitivity {
+        /// Actual own-quote coordinate, observation, snapshot and bounded work.
+        input: Box<w::IcmaYieldRiskInput>,
+    },
+    /// Full positive reference-size column for existing complete-factor hedges.
+    HedgeVector {
+        /// Actual original yield axis and central/half-step controls.
+        input: Box<w::IcmaYieldRiskInput>,
+        /// Explicit application-resolved economics/calculation/entity identity.
+        identity: w::IcmaHedgeIdentity,
+    },
+}
 /// Complete legal-path operations; selected single paths use icma_quotation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -73,6 +91,25 @@ pub(super) fn execute(
                 prepared.quote_yield(*target, *settings)?
             }
         })
+    })
+}
+pub(super) fn yield_risk(
+    input: &IcmaQuotationInput,
+    convention: &w::IcmaYieldConvention,
+    cash: &w::IcmaCashSelection,
+    action: &IcmaYieldRiskOperation,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    with_inputs(input, convention, r, |bound| {
+        let prepared = w::PreparedIcmaQuotation::new(bound, cash)?;
+        match action {
+            IcmaYieldRiskOperation::YieldSensitivity { input } => {
+                value(prepared.yield_sensitivity(input)?)
+            }
+            IcmaYieldRiskOperation::HedgeVector { input, identity } => {
+                value(prepared.hedge_yield_risk(input, identity)?)
+            }
+        }
     })
 }
 pub(super) fn workout(

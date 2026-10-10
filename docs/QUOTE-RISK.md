@@ -193,3 +193,7 @@ pricing/risk owners and every existing financial reference remain unchanged.
 
 
 Complete contextual ICMA yield cash helpers now compose through the original full graph and five-PV risk owner. Original native units, policy version, actual bound calendars, full cash and dependent recipes survive each rebuild. Per-build original work ceilings and full/half-bump stability stay enforced; see [the helper contract](ICMA-CASH-HELPERS.md).
+
+Direct own-security contextual ICMA yield sensitivity and positive reference
+hedge columns use one prepared cash/time context and the original five-PV owner;
+see [ICMA yield risk](ICMA-YIELD-RISK.md). Raw yield retains its distinct axis.

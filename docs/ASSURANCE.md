@@ -6,6 +6,12 @@ product certification, a latency guarantee, or a completed production gate.
 The rules live in ordinary Rust attributes, CI, and `tools/assurance`; no
 runtime policy framework is added to pricing.
 
+Nested workflow modules are included in the same critical-source inventory.
+Direct contextual ICMA yield risk adds mandatory immutable reference/admission/
+failure/protocol, native/adapters, feature-consumer, schema and actual C parity
+commands. It preserves original mathematical owners, numeric evidence/defaults,
+dependency closure and existing checks; see [the contract](ICMA-YIELD-RISK.md).
+
 ## Scope and dependency direction
 
 The pure calculation crates are `convex`, `convex-core`, `convex-math`,

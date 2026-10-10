@@ -617,6 +617,42 @@ jobs:
       - name: Verify contextual helper native C transport parity
         run: python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so
 
+      - name: Check original direct ICMA risk controls
+        run: python3 tests/scripts/icma_risk_reference.py
+
+      - name: Check direct ICMA risk context admission
+        run: python3 tests/scripts/icma_risk_admission.py
+
+      - name: Check direct ICMA risk original failure controls
+        run: python3 tests/scripts/icma_risk_failures.py
+
+      - name: Check direct ICMA risk reset protocol
+        run: python3 tests/scripts/icma_risk_protocol.py
+
+      - name: Check direct ICMA risk exact-route framing
+        run: python3 tests/scripts/icma_risk_api.py
+
+      - name: Verify distinct direct ICMA risk owner framing
+        run: python3 tests/scripts/icma_risk_owner.py
+
+      - name: Test direct ICMA risk and complete hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_risk -- --test-threads=1
+
+      - name: Run direct ICMA risk and hedge consumer
+        run: cargo run --locked -p convex --example icma_risk
+
+      - name: Run minimal direct ICMA risk and hedge consumer
+        run: cargo run --locked -p convex --example icma_risk --no-default-features
+
+      - name: Run direct ICMA risk schema consumer
+        run: cargo run --locked -p convex --example icma_risk --features schemars
+
+      - name: Check direct ICMA risk schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_risk_schema.py --binary target/debug/examples/icma_risk
+
+      - name: Verify direct ICMA risk and hedge C transport parity
+        run: python3 tests/scripts/icma_risk_parity.py --binary target/debug/examples/icma_risk --library target/debug/libconvex_ffi.so
+
       - name: Validate original contextual workout controls
         run: python3 tests/scripts/icma_workout_reference.py
 
@@ -1138,6 +1174,9 @@ jobs:
       - name: Build contextual ICMA helper Excel consumer
         run: cargo build --locked --profile excel -p convex --example icma_helpers --features schemars
 
+      - name: Build direct ICMA risk and hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example icma_risk --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1199,6 +1238,9 @@ jobs:
 
       - name: Generate contextual ICMA helper Excel expectations
         run: python tests/scripts/icma_helpers_parity.py --binary target/excel/examples/icma_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-helpers-parity.json
+
+      - name: Generate direct ICMA risk and hedge Excel expectations
+        run: python tests/scripts/icma_risk_parity.py --binary target/excel/examples/icma_risk.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-risk-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

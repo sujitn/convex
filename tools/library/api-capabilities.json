@@ -30034,7 +30034,8 @@
     "tests/fixtures/library/icma-api-cases.json",
     "tests/fixtures/library/icma-government-api-cases.json",
     "tests/fixtures/library/icma-workout-qualified.json",
-    "tests/fixtures/library/icma-helpers-final-api.json"
+    "tests/fixtures/library/icma-helpers-final-api.json",
+    "tests/fixtures/library/icma-risk-owner-api.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33166,6 +33167,121 @@
       ],
       "certified": false,
       "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
+    },
+    "icma_risk.yield_sensitivity": {
+      "required_record_ids": [
+        "LC-003/fixed_bullet/USD/deterministic/duration_convexity_and_bucket_risk/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi",
+        "LC-024/scenario_transform/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/scenario_transform/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/scenario_transform/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/scenario_transform/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/scenario_transform/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/scenario_transform/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/scenario_transform/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/scenario_transform/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/scenario_transform/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_yield_risk",
+        "operation.action.kind": "yield_sensitivity"
+      },
+      "positive_examples": [
+        "icma_risk.regular.SemiAnnual.0.04125.convert",
+        "icma_risk.qualified.stepped.Annual.convert"
+      ],
+      "boundary_examples": [
+        "icma_risk.boundary.payment_include",
+        "icma_risk.boundary.on_ex.admitted",
+        "icma_risk.units.Daily.BasisPoints.-2500"
+      ],
+      "negative_examples": [
+        "icma_risk.invalid.cash_work",
+        "icma_risk.invalid.stability",
+        "icma_risk.invalid.full_term_floating.admitted"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma/risk.rs",
+          "text": "pub fn yield_sensitivity("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "IcmaYieldRiskOperation::YieldSensitivity {"
+        }
+      ],
+      "certified": false,
+      "qualification": "Direct contextual ICMA own-security raw yield sensitivity through the SAME prepared full cash/time/price/invoice owner and original reference_quote_sensitivity. Full five original quotations, native observed rate units, source/context/policy/calendar/security/quote revisions, signed original-face quantity, snapshot and complete factor/numerical policy survive. Explicit all-five annual-rate domain admission and aggregate five-price cash reservation precede valuation; reference times prepare once. A positive original-face hedge bridge emits the unchanged complete native yield column with explicit application economics/calculation/entity pins into existing original full hedge aggregation/solve, preserving current/pending, exact native lots/costs and same-snapshot FX. Own yield stays distinct from common curve factors; no cross-security alias, synthetic zero, frozen floating/conditional option proxy, copied financial math, new dependency/service/provider/storage/MQ/clock/runtime/order authority. Original financial function bodies/defaults/captures/pins remain; only module wiring and a distinct strict adapter operation are added; the original price/inverse action enum and dispatcher remain exact. Assurance discovers nested workflows and requires additive new CI checks. Full market/model/method/product/host/library/production/latency and server authority remain open; CVX-063 partial/unaccepted/uncertified. These exact requests establish only this supplied raw-yield subset and same-security hedge-column reachability; no complete market/product/common-factor or certificate claim."
+    },
+    "icma_risk.hedge_vector": {
+      "required_record_ids": [
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "icma_yield_risk",
+        "operation.action.kind": "hedge_vector"
+      },
+      "positive_examples": [
+        "icma_risk.hedge.DecimalRate"
+      ],
+      "boundary_examples": [
+        "icma_risk.hedge.PercentRate",
+        "icma_risk.hedge.BasisPoints"
+      ],
+      "negative_examples": [
+        "icma_risk.invalid.signed_hedge_reference",
+        "icma_risk.invalid.missing_hedge_calculation"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/icma/risk.rs",
+          "text": "pub fn hedge_yield_risk("
+        },
+        {
+          "path": "crates/convex/src/library/icma.rs",
+          "text": "IcmaYieldRiskOperation::HedgeVector {"
+        }
+      ],
+      "certified": false,
+      "qualification": "Direct contextual ICMA own-security raw yield sensitivity through the SAME prepared full cash/time/price/invoice owner and original reference_quote_sensitivity. Full five original quotations, native observed rate units, source/context/policy/calendar/security/quote revisions, signed original-face quantity, snapshot and complete factor/numerical policy survive. Explicit all-five annual-rate domain admission and aggregate five-price cash reservation precede valuation; reference times prepare once. A positive original-face hedge bridge emits the unchanged complete native yield column with explicit application economics/calculation/entity pins into existing original full hedge aggregation/solve, preserving current/pending, exact native lots/costs and same-snapshot FX. Own yield stays distinct from common curve factors; no cross-security alias, synthetic zero, frozen floating/conditional option proxy, copied financial math, new dependency/service/provider/storage/MQ/clock/runtime/order authority. Original financial function bodies/defaults/captures/pins remain; only module wiring and a distinct strict adapter operation are added; the original price/inverse action enum and dispatcher remain exact. Assurance discovers nested workflows and requires additive new CI checks. Full market/model/method/product/host/library/production/latency and server authority remain open; CVX-063 partial/unaccepted/uncertified. These exact requests establish only this supplied raw-yield subset and same-security hedge-column reachability; no complete market/product/common-factor or certificate claim."
     }
   }
 }

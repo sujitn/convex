@@ -221,3 +221,10 @@ owned; changing a context-free day-count tag cannot supply missing ICMA context.
 
 
 For contextual ICMA helper conversion/calibration/repricing, supply `CashQuoteKind::ContextualIcmaYield` with its complete original context and bind native `CashHelperResources::IcmaBond` or the existing shared independently resolved calendar pins. `CashflowYield` remains the correct context-free route. `CashQuoteKind` is now Clone rather than Copy; borrow matches or clone owned values. See [the full contract](ICMA-CASH-HELPERS.md).
+
+For direct contextual ICMA own-yield risk, use `icma_yield_risk` actions
+`yield_sensitivity` / `hedge_vector` and their full observed-unit/snapshot/factor
+inputs. Context-free bond quote risk and recalibrated helper risk retain their
+correct distinct owners. An ICMA day-count tag cannot supply their missing
+context, and a conditional workout cannot become unconditional hedge risk.
+See [ICMA yield risk](ICMA-YIELD-RISK.md). No obsolete alias is introduced.

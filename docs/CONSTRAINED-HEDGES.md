@@ -183,3 +183,9 @@ they do not qualify original instrument pricing or legal/market suitability.
 Existing numerical references, solver defaults and mandatory library records
 remain unchanged. CVX-063 and all market/model/library/production/latency
 certificates remain partial/unaccepted/unverified.
+
+The [direct contextual ICMA bridge](ICMA-YIELD-RISK.md) computes all five full
+fixed-cash quotations and emits a positive original-face reference column.
+Its consumer verifies same-security current/pending/lot/cost/reporting-FX
+composition with actual calculated columns. Other instruments still need
+their complete common-factor calculations.

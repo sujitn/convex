@@ -125,3 +125,6 @@ and every path retains full original cash, sources, times and signed considerati
 
 
 The same prepared contextual cash/time owner now supplies observed yield conversion and model-implied native-unit cash-helper repricing, existing calibration/dependent quote-risk graphs and full recipe/snapshot replay. See [ICMA cash helpers](ICMA-CASH-HELPERS.md). Full mandatory market/model/host scope and certificates remain open.
+
+Direct own-yield five-PV sensitivity and positive reference hedge columns reuse
+this same owner; see [direct ICMA yield risk](ICMA-YIELD-RISK.md).

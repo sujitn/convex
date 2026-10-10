@@ -770,6 +770,12 @@ pub(super) fn execute(
         }
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
+        LibraryOperation::IcmaYieldRisk {
+            input,
+            convention,
+            cash,
+            action,
+        } => super::icma::yield_risk(input, convention, cash, action, r),
         LibraryOperation::IcmaQuotation {
             input,
             convention,

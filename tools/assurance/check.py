@@ -140,6 +140,18 @@ REQUIRED_RUNS = {
         'cargo run --locked -p convex --example icma_helpers --features schemars',
         '/tmp/convex-library-schema/bin/python tests/scripts/icma_helpers_schema.py --binary target/debug/examples/icma_helpers',
         'python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so',
+        'python3 tests/scripts/icma_risk_reference.py',
+        'python3 tests/scripts/icma_risk_admission.py',
+        'python3 tests/scripts/icma_risk_failures.py',
+        'python3 tests/scripts/icma_risk_protocol.py',
+        'python3 tests/scripts/icma_risk_api.py',
+        'python3 tests/scripts/icma_risk_owner.py',
+        'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_risk -- --test-threads=1',
+        'cargo run --locked -p convex --example icma_risk',
+        'cargo run --locked -p convex --example icma_risk --no-default-features',
+        'cargo run --locked -p convex --example icma_risk --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/icma_risk_schema.py --binary target/debug/examples/icma_risk',
+        'python3 tests/scripts/icma_risk_parity.py --binary target/debug/examples/icma_risk --library target/debug/libconvex_ffi.so',
         'python3 tests/scripts/icma_workout_reference.py',
         'python3 tests/scripts/icma_workout_qualification.py',
         'python3 tests/scripts/icma_government_qualification.py',
@@ -486,7 +498,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/cash_quotation').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/quote_risk').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs'))
-    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/workflow').rglob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex/src/library').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))
     paths.add('crates/convex-portfolio/src/signed_risk.rs')
