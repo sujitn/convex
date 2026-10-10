@@ -430,6 +430,15 @@ pub enum LibraryOperation {
         /// Explicit identity, native reference and every required factor.
         input: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
     },
+    /// Complete original issuer-basis/survival cash into common-factor hedges.
+    CashBasisHedgeRisk {
+        /// Original full graph with complete native helpers and policies.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Actual full security, observation, settlement and calendar revisions.
+        security: Box<CashSecurityInput>,
+        /// Full model, checked legal mapping and complete factor manifest.
+        input: Box<CashBasisHedgeInput>,
+    },
     /// Pure original-state replay and one transition; no ledger commitment.
     Lifecycle {
         /// Full original opening terms and each supplied event/input.

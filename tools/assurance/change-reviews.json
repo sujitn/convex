@@ -2185,6 +2185,52 @@
         "tools/library/test_operations.py": "4afb6d365d5cc37dc80438460ec4292163a1a4a56ba558e4d27d0ec37a8619a3",
         "tools/assurance/test_policy.py": "bece8788940f3d812e54a756bbb4c5e77b63c35e7f110363e08e03db608fa016"
       }
+    },
+    {
+      "base_commit": "0e6ea3664b94c3761580099832f4cf930154aed6",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-10",
+      "rationale": "Complete issuer cash/common-factor hedge columns compose the SAME original full cash/ICMA quotation, issuer promised-basis/par-recovery, calibration graph, five-PV risk and hedge owners. Actual full coupon/principal profiles, accrued/observed versus model cash, native quotes/residuals, settlement, legal bond/CDS/basis/liquidity mapping, opaque curve keys, exact numeric reference pins, identity, quantities, settings and snapshots remain. Recovery scenarios bind the actual scenario credit-role assumption to the SAME original cash model. Every factor, including zero exposure, actually reprices. Explicit basis tolerance (0,1e-10],1..16 distinct factors and1..80 reserved five-price calls; original source/ICMA/graph work owners remain. Original observed/model inverse and calibration are reused without formula changes. Full actual cash/CDS/IRS/futures four-factor book uses original aggregation/solve, current/pending/native lots/costs and explicit same-snapshot FX. Cash recovery is independently covered; common CDS recovery awaits its original graph binding. Raw invalid-tenor and helper-precision failures remain beside separately declared canonical admission and stricter new helper inputs. Original financial answers/tolerances/defaults and all591 prior numerical physical files/rows remain. No new dependency/service/provider/persistence/MQ/clock/order authority. Optional/all-member delivery risk, broad-limit solver robustness, actual managed/browser hosts and independent financial/model/library/production/latency certificates remain open. CVX-063 remains partial/unaccepted/uncertified; engineering accepted through062 and CVX-025/031 server authority prerequisites are unchanged. This engineering source-impact declaration does not supply independent human financial approval.",
+      "tests": [
+        "Predeclared Decimal60 full cash/coupon/principal/quotes/ICMA/recovery/five-PV risk and separate full CDS/IRS/futures mixed-book controls",
+        "Actual native/shared/C/MCP/native-WASM/default/minimal/schema, original owner comparisons and complete current/pending/credit/cost/lot/FX aggregation and proposals",
+        "Original financial packs, full workspace/lint/docs/format/assurance and exact history/mandatory-scope/default/dependency/export/source conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "64a21a9b9a6e17de658ae1c1d11b71dbf350955a115c81ee2bec4f5b414bf02e",
+        ".github/workflows/java.yml": "ca067650c932e775c78472ddfa0604f29b180f7bcfc77cbe73b69cad66daea89",
+        "crates/convex-analytics/src/cash_calibration/hedge.rs": "e13c28ca06b45beedc76fe7d7d6f4da71b6d222542b666f53b742ff696881381",
+        "crates/convex-analytics/src/cash_calibration/mod.rs": "296f7a7335d0284fc6b2796f9dde62b1e70c33d9bdd9d5dab276b3fa48f9e29d",
+        "crates/convex-ffi/tests/cash_basis_hedge.rs": "6039eb88a3e23243c9ed0b8dae9cc07722c96dbcf70ae8fd1881fdc50591b0db",
+        "crates/convex/examples/cash_basis_hedge.rs": "7362ffb614d8b3f808977d5d5297a0465f47f7c0bb9c4f077860c80d419d60b4",
+        "crates/convex/src/library/cash_hedges.rs": "84f03de2916ba9dae774ea80ff7302bd8dc2ba41051ccd4fe1d41116fdceea64",
+        "crates/convex/src/library/errors.rs": "4094c5fea5e2665b6f1fa9a085d119ad0f290d09507293961bd008d15b24a1b0",
+        "crates/convex/src/library/mod.rs": "446f65c8c19bf9716fce9a2bd1d82b5227a85f965cf490cccf9ffc628f5d0a91",
+        "crates/convex/src/library/products.rs": "64a3df5569665f8c36acb12a1eea0a6807829c4b50f43207cf49373f40144acc",
+        "crates/convex/src/library/requests.rs": "233484e5f2016c2ca97f90019bd8e5db7f79a1bcbabf4b1bef55b8ccdf03938a",
+        "crates/convex/tests/cash_basis_hedge.rs": "0ca6f4c351b649bb6bb4f8839e3d7ecaf199e4bb7f1ee478f6deb0eb79e05bce",
+        "docs/ASSURANCE.md": "3562300ea1979db6d463bd9ce03b7822d164d882209164358faa1086f480277b",
+        "tests/fixtures/library/cash-basis-hedge-admitted.json": "3f7bf6660d5063bb203aade1a80363ebee5eff14ab41c11dcaf517442cbfd3e3",
+        "tests/fixtures/library/cash-basis-hedge-api.json": "a629277411e4147d5b80148e8781cbc4660c150f75f5e7ace7969cd9d77fd4bc",
+        "tests/fixtures/library/cash-basis-hedge-book-columns.json": "00385fd15e8385b193daa0faa610d75106ab6bd82508ab35eeb51670d0fbf97b",
+        "tests/fixtures/library/cash-basis-hedge-book-problems.json": "a610f4bf946bef7d82d666ae1a4df181edd14e1a47f7ff70968365e7031f88aa",
+        "tests/fixtures/library/cash-basis-hedge-book-reference.json": "624c5f57dfc541dc194db7222e5c09176d2a152f836e86b0bc9b6b1f2b205517",
+        "tests/fixtures/library/cash-basis-hedge-census-01.json": "99cb8374a0d70d6158db9ebd33408511af46496c8d3399b5395316ce50506d54",
+        "tests/fixtures/library/cash-basis-hedge-census-02.json": "071cd6f5d42dde7b00ff50542e223333c3512e526f5bfe6eb4b5a77009a20c4e",
+        "tests/fixtures/library/cash-basis-hedge-census-03.json": "9cfef87ebdc396084837c7ec5a03cddce98c3895808837d73551d1b9824ca7d2",
+        "tests/fixtures/library/cash-basis-hedge-precise.json": "e9acb37f2fe561b2fd0933649dfa1f5a8f72bbfdf7186aa8c2899946030c6f22",
+        "tests/fixtures/library/cash-basis-hedge-rebuild-reference.json": "c0a7bfd5f4f0e4044652ee593630645e05d7d42dec938e9c89d1aec75ab1eef9",
+        "tests/fixtures/library/cash-basis-hedge-rebuild.json": "07331627eb6f37b01a9e3f23d5d85187367b55e44d827e635117e8501782b40e",
+        "tests/fixtures/library/cash-basis-hedge-reference.json": "372a5c55f9fa8f538b7991734deed074325b1658fc2ad4b162fe5851b616f34f",
+        "tests/fixtures/library/cash_basis_hedge_contract.rs": "b2ca582eeb589134ff642e58fca1c7de85b1c85a2011a8b03b953f2dafb73451",
+        "tools/assurance/check.py": "1d1d0d8b72828f8452de1ece66d61cf47525e10c5e6e2cd56e9b70eca5a91588",
+        "tools/assurance/inventory.json": "08bc9e3ec4fe94ab9564e80771c161d47eb65cb94276c28a36cad47e48f1047f",
+        "tools/assurance/numeric-evidence.json": "6b021e0827125618a2859e3e5a03e928c2ddb8b618b89bb0e1fcf1c7ff5614ae",
+        "tools/assurance/test_policy.py": "823a97e32a07103432f50b05d008692e4538cb50dc1418a918e8968eff6904dd",
+        "tools/library/api-capabilities.json": "225060f796ee6c6daa93bd93a2fe2fc63ae24fb45055ef298e4b1bed05080f83",
+        "tools/library/library-inventory.json": "6acb330bafcb884275a3066693939dc18777444e27235ca149358ba4c84aa653",
+        "tools/library/test_operations.py": "375f6b377af7f9cc3da04456ea4ec4ea8437e933dbc79d15647bf3ba52a298e4"
+      }
     }
   ]
 }

@@ -25,6 +25,17 @@ impl From<convex_analytics::risk::hedging::constrained::HedgeError> for LibraryE
     }
 }
 
+impl From<cash::CashBasisHedgeError> for LibraryError {
+    fn from(e: cash::CashBasisHedgeError) -> Self {
+        match e {
+            cash::CashBasisHedgeError::Cash(e) => e.into(),
+            cash::CashBasisHedgeError::Workflow(e) => e.into(),
+            cash::CashBasisHedgeError::Risk(e) => e.into(),
+            cash::CashBasisHedgeError::Curve(e) => e.into(),
+        }
+    }
+}
+
 fn native<E: std::fmt::Debug + std::fmt::Display>(code: Code, e: &E) -> LibraryError {
     LibraryError {
         code,

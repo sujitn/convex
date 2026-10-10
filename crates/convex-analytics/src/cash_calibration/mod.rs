@@ -6,6 +6,7 @@
 
 mod build;
 mod fit;
+mod hedge;
 mod icma;
 mod inputs;
 mod pricing;
@@ -13,6 +14,9 @@ mod repo;
 mod reprice;
 
 pub use build::build_cash_curve_set;
+pub use hedge::{
+    cash_basis_hedge_risk, CashBasisHedgeError, CashBasisHedgeResult, CashBasisHedgeRisk,
+};
 pub(crate) use icma::preflight_icma_helpers;
 pub(crate) use inputs::serialize_cash_terms;
 pub use inputs::*;

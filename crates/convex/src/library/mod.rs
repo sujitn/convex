@@ -3,6 +3,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod cash;
+mod cash_hedges;
 mod credit;
 mod curves;
 mod errors;
@@ -23,6 +24,7 @@ mod workout;
 mod zero;
 
 pub use cash::*;
+pub use cash_hedges::*;
 use convex_core::{Currency, Date};
 use convex_curves::contracts::*;
 pub use credit::*;

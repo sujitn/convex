@@ -126,3 +126,9 @@ The full-term raw request corpus remains intact. The API inventory reads two
 lossless compact parts, each under its unchanged 8 MiB input bound. Case order,
 metadata and every original string/number lexeme are preserved; only unquoted
 JSON whitespace is removed. Runtime tests still read the original full corpus.
+
+
+Credit-survival and issuer-basis cash now have a distinct full original-owner
+`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
+for the complete security/mapping/factor contract, ICMA and rebuild controls,
+actual mixed-book scope and remaining recovery/host/production qualification.

@@ -30037,7 +30037,10 @@
     "tests/fixtures/library/icma-helpers-final-api.json",
     "tests/fixtures/library/icma-risk-owner-api.json",
     "tests/fixtures/library/graph-hedge-api-01.json",
-    "tests/fixtures/library/graph-hedge-api-02.json"
+    "tests/fixtures/library/graph-hedge-api-02.json",
+    "tests/fixtures/library/cash-basis-hedge-census-01.json",
+    "tests/fixtures/library/cash-basis-hedge-census-02.json",
+    "tests/fixtures/library/cash-basis-hedge-census-03.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33390,6 +33393,115 @@
       ],
       "certified": false,
       "qualification": "Complete supplied graph factors through the SAME original full product, calibration, five-PV sensitivity and hedge owners. Full bond/CDS/IRS/OIS/rates-futures cash/history/side/model/quantity/credit/identity/snapshot/policy survive. Positive native face/notional/contract references remain exact; one entire IRS trade copy binds to its explicitly supplied first fixed-leg notional via the original five evaluated PVs with scale one, without a new pricer or copied differentiation. Every declared zero exposure is actually repriced. Explicit 1..16 factor and 1..80 five-price reservation precedes valuation. Full fresh columns enter existing aggregation/solve with current/pending, common policies, credit scope, exact native lots/costs and explicit same-snapshot reporting FX. Original financial bodies/defaults/captures and all559 previous numerical pins remain; only module wiring, one visibility qualifier and distinct strict adapter operation are added. Separate predeclared raw/admission/actual-CDS-chronology/application-limit controls retain failures without tolerance relaxation or promotion. No new dependency/service/provider/storage/MQ/clock/runtime/order authority. Full credit-survival cash, optional/all-member delivery risk, actual managed/browser hosts and independent financial/model/method/product/library/production/latency certificates remain open; CVX-063 partial/unaccepted/uncertified. Exact requests establish the supplied graph-column subset and downstream mixed-book hedge reachability only. No complete market/product/host/certificate claim. Lossless two-part API census preserves all original40 full requests/outcomes, metadata and string/number lexemes under the original8MiB per-document bound. Raw22MiB corpus and all588 original control rows/bytes/defaults remain exact. This metadata-only packaging repair changes no native/test/runtime/financial owner, numerical policy, input bound or certificate."
+    },
+    "cash_basis_hedge.reference_vector": {
+      "required_record_ids": [
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/node_bump/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/aggregate_common_factor_risk/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/c_abi",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/rust",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/shared_json",
+        "LC-027/cash_bond_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/c_abi",
+        "LC-027/cds_hedge/SUPPLIED/risk/aggregate_common_factor_risk/rust",
+        "LC-027/cds_hedge/SUPPLIED/risk/aggregate_common_factor_risk/shared_json",
+        "LC-027/cds_hedge/SUPPLIED/risk/aggregate_common_factor_risk/c_abi",
+        "LC-027/cds_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/rust",
+        "LC-027/cds_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/shared_json",
+        "LC-027/cds_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/c_abi",
+        "LC-027/cds_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/rust",
+        "LC-027/cds_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/shared_json",
+        "LC-027/cds_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/c_abi",
+        "LC-027/cds_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/rust",
+        "LC-027/cds_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/shared_json",
+        "LC-027/cds_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/c_abi",
+        "LC-027/irs_hedge/SUPPLIED/risk/aggregate_common_factor_risk/rust",
+        "LC-027/irs_hedge/SUPPLIED/risk/aggregate_common_factor_risk/shared_json",
+        "LC-027/irs_hedge/SUPPLIED/risk/aggregate_common_factor_risk/c_abi",
+        "LC-027/irs_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/rust",
+        "LC-027/irs_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/shared_json",
+        "LC-027/irs_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/c_abi",
+        "LC-027/irs_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/rust",
+        "LC-027/irs_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/shared_json",
+        "LC-027/irs_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/c_abi",
+        "LC-027/irs_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/rust",
+        "LC-027/irs_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/shared_json",
+        "LC-027/irs_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/c_abi",
+        "LC-027/futures_hedge/SUPPLIED/risk/aggregate_common_factor_risk/rust",
+        "LC-027/futures_hedge/SUPPLIED/risk/aggregate_common_factor_risk/shared_json",
+        "LC-027/futures_hedge/SUPPLIED/risk/aggregate_common_factor_risk/c_abi",
+        "LC-027/futures_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/rust",
+        "LC-027/futures_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/shared_json",
+        "LC-027/futures_hedge/SUPPLIED/risk/solve_cash_cds_irs_futures_hedges/c_abi",
+        "LC-027/futures_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/rust",
+        "LC-027/futures_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/shared_json",
+        "LC-027/futures_hedge/SUPPLIED/risk/honor_lot_liquidity_cost_and_position_constraints/c_abi",
+        "LC-027/futures_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/rust",
+        "LC-027/futures_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/shared_json",
+        "LC-027/futures_hedge/SUPPLIED/risk/return_proposals_without_order_side_effects/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "cash_basis_hedge_risk"
+      },
+      "positive_examples": [
+        "cash_basis_hedge.positive.credit.clean",
+        "cash_basis_hedge.positive.credit.icma",
+        "cash_basis_hedge.book.cash"
+      ],
+      "boundary_examples": [
+        "cash_basis_hedge.negative.credit.icma",
+        "cash_basis_hedge.rebuilt.dirty",
+        "cash_basis_hedge.rebuilt.icma",
+        "cash_basis_hedge.recovery_boundary.0",
+        "cash_basis_hedge.recovery_boundary.1",
+        "cash_basis_hedge.opaque_curve_version"
+      ],
+      "negative_examples": [
+        "cash_basis_hedge.invalid.no_mapping",
+        "cash_basis_hedge.invalid.wrong_basis_value",
+        "cash_basis_hedge.invalid.factor_work",
+        "cash_basis_hedge.invalid.calibrated_basis_rebuild.icma"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/hedge.rs",
+          "text": "pub fn cash_basis_hedge_risk("
+        },
+        {
+          "path": "crates/convex/src/library/cash_hedges.rs",
+          "text": "pub(super) fn cash_basis_hedge_risk("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete issuer cash/common-factor hedge columns compose the SAME original full cash/ICMA quotation, issuer promised-basis/par-recovery, calibration graph, five-PV risk and hedge owners. Actual full coupon/principal profiles, accrued/observed versus model cash, native quotes/residuals, settlement, legal bond/CDS/basis/liquidity mapping, opaque curve keys, exact numeric reference pins, identity, quantities, settings and snapshots remain. Recovery scenarios bind the actual scenario credit-role assumption to the SAME original cash model. Every factor, including zero exposure, actually reprices. Explicit basis tolerance (0,1e-10],1..16 distinct factors and1..80 reserved five-price calls; original source/ICMA/graph work owners remain. Original observed/model inverse and calibration are reused without formula changes. Full actual cash/CDS/IRS/futures four-factor book uses original aggregation/solve, current/pending/native lots/costs and explicit same-snapshot FX. Cash recovery is independently covered; common CDS recovery awaits its original graph binding. Raw invalid-tenor and helper-precision failures remain beside separately declared canonical admission and stricter new helper inputs. Original financial answers/tolerances/defaults and all591 prior numerical physical files/rows remain. No new dependency/service/provider/persistence/MQ/clock/order authority. Optional/all-member delivery risk, broad-limit solver robustness, actual managed/browser hosts and independent financial/model/library/production/latency certificates remain open. CVX-063 remains partial/unaccepted/uncertified; engineering accepted through062 and CVX-025/031 server authority prerequisites are unchanged."
     }
   }
 }

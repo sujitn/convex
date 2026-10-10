@@ -773,6 +773,11 @@ pub(super) fn execute(
             product,
             input,
         } => super::graph_hedges::graph_hedge_risk(graph, product, input, r),
+        LibraryOperation::CashBasisHedgeRisk {
+            graph,
+            security,
+            input,
+        } => super::cash_hedges::cash_basis_hedge_risk(graph, security, input, r),
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
         LibraryOperation::IcmaYieldRisk {

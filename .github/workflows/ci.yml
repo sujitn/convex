@@ -698,6 +698,42 @@ jobs:
       - name: Verify graph hedge C transport parity
         run: python3 tests/scripts/graph_hedge_parity.py --binary target/debug/examples/graph_hedge --library target/debug/libconvex_ffi.so
 
+      - name: Check declared cash credit reference
+        run: python3 tests/scripts/cash_basis_hedge_reference.py
+
+      - name: Check declared cash credit rebuild reference
+        run: python3 tests/scripts/cash_basis_hedge_rebuild.py
+
+      - name: Check declared cash credit admission
+        run: python3 tests/scripts/cash_basis_hedge_admission.py
+
+      - name: Check declared cash credit precise helper inputs
+        run: python3 tests/scripts/cash_basis_hedge_precision.py
+
+      - name: Check declared full credit cash mixed-book controls
+        run: python3 tests/scripts/cash_basis_hedge_book_reference.py
+
+      - name: Check lossless cash credit API census
+        run: python3 tests/scripts/cash_basis_hedge_census.py
+
+      - name: Test issuer cash hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cash_basis_hedge -- --test-threads=1
+
+      - name: Run issuer cash hedge consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge
+
+      - name: Run minimal issuer cash hedge consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge --no-default-features
+
+      - name: Run issuer cash hedge schema consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge --features schemars
+
+      - name: Check issuer cash hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/cash_basis_hedge_schema.py --binary target/debug/examples/cash_basis_hedge
+
+      - name: Verify issuer cash hedge C transport parity
+        run: python3 tests/scripts/cash_basis_hedge_parity.py --binary target/debug/examples/cash_basis_hedge --library target/debug/libconvex_ffi.so
+
       - name: Validate original contextual workout controls
         run: python3 tests/scripts/icma_workout_reference.py
 
@@ -1225,6 +1261,9 @@ jobs:
       - name: Build graph hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example graph_hedge --features schemars
 
+      - name: Build issuer cash hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example cash_basis_hedge --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1292,6 +1331,9 @@ jobs:
 
       - name: Generate graph hedge Excel expectations
         run: python tests/scripts/graph_hedge_parity.py --binary target/excel/examples/graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/graph-hedge-parity.json
+
+      - name: Generate issuer cash hedge Excel expectations
+        run: python tests/scripts/cash_basis_hedge_parity.py --binary target/excel/examples/cash_basis_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cash-basis-hedge-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

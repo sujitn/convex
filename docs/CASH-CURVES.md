@@ -223,3 +223,9 @@ inverse, signed consideration and separate price/spread roundtrip bounds.
 See [the full inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Original removed
 convenience proxies remain absent; market/Street and unavailable host
 qualification stay open. CVX-063 remains partial and uncertified.
+
+
+Credit-survival and issuer-basis cash now have a distinct full original-owner
+`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
+for the complete security/mapping/factor contract, ICMA and rebuild controls,
+actual mixed-book scope and remaining recovery/host/production qualification.

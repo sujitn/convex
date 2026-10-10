@@ -239,3 +239,9 @@ for the existing hedge aggregator and proposal solver. See
 Own-security ICMA yield remains a separate factor. Optional models, credit-survival
 cash products and delivery-futures all-member risk remain owning work; actual
 managed/browser and production/latency qualification remain open.
+
+
+Credit-survival and issuer-basis cash now have a distinct full original-owner
+`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
+for the complete security/mapping/factor contract, ICMA and rebuild controls,
+actual mixed-book scope and remaining recovery/host/production qualification.
