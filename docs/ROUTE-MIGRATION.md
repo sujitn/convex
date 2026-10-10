@@ -218,3 +218,6 @@ revisions and original quantity, plus an explicit common output policy and
 compounding. See [the full contract](ICMA-GOVERNMENT-SPREADS.md). The original
 context-free government operations and direct `icma_quotation` remain correctly
 owned; changing a context-free day-count tag cannot supply missing ICMA context.
+
+
+For contextual ICMA helper conversion/calibration/repricing, supply `CashQuoteKind::ContextualIcmaYield` with its complete original context and bind native `CashHelperResources::IcmaBond` or the existing shared independently resolved calendar pins. `CashflowYield` remains the correct context-free route. `CashQuoteKind` is now Clone rather than Copy; borrow matches or clone owned values. See [the full contract](ICMA-CASH-HELPERS.md).

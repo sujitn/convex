@@ -60,6 +60,37 @@ pub(super) fn resources<'a>(
         calendars: bound,
     })
 }
+/// Resolve actual calendar versions once for every cash-helper entry point.
+pub(super) fn helper_resources<'a>(
+    helper: &'a c::CashBondHelper,
+    calendars: &BondCalendarPins,
+    r: &'a ResolvedInputs<'_>,
+) -> LibraryResult<c::CashHelperResources<'a>> {
+    let bound = r.bond_calendars(&BondInput {
+        terms: helper.terms.clone(),
+        calendars: calendars.clone(),
+    })?;
+    if matches!(
+        helper.quote_kind,
+        c::CashQuoteKind::ContextualIcmaYield { .. }
+    ) {
+        Ok(c::CashHelperResources::IcmaBond {
+            ids: &helper.terms.calendars,
+            calendars: bound,
+            pins: w::IcmaCalendarPins {
+                payment: calendars.payment.clone(),
+                reset: calendars.reset.clone(),
+                observation: calendars.observation.clone(),
+                exercise: calendars.exercise.clone(),
+            },
+        })
+    } else {
+        Ok(c::CashHelperResources::Bond {
+            ids: &helper.terms.calendars,
+            calendars: bound,
+        })
+    }
+}
 pub(super) fn security(
     input: &CashSecurityInput,
     reference: Date,
@@ -68,7 +99,7 @@ pub(super) fn security(
     action: &CashSecurityOperation,
     r: &ResolvedInputs<'_>,
 ) -> LibraryResult<Value> {
-    let resources = resources(&input.helper.terms, &input.calendars, r)?;
+    let resources = helper_resources(&input.helper, &input.calendars, r)?;
     match action {
         CashSecurityOperation::Quote {} => value(q::quote_cash_security(
             &input.helper,
@@ -99,10 +130,10 @@ pub(super) fn government(
             "at most128 original government securities",
         ));
     }
-    let target_resources = resources(&target.helper.terms, &target.calendars, r)?;
+    let target_resources = helper_resources(&target.helper, &target.calendars, r)?;
     let bound = securities
         .iter()
-        .map(|s| resources(&s.quote.helper.terms, &s.calendars, r))
+        .map(|s| helper_resources(&s.quote.helper, &s.calendars, r))
         .collect::<LibraryResult<Vec<_>>>()?;
     let inputs: Vec<_> = securities
         .iter()
@@ -137,7 +168,7 @@ pub(super) fn government_price(
     let target_resources = resources(&target.target.terms, &target.calendars, r)?;
     let bound = securities
         .iter()
-        .map(|s| resources(&s.quote.helper.terms, &s.calendars, r))
+        .map(|s| helper_resources(&s.quote.helper, &s.calendars, r))
         .collect::<LibraryResult<Vec<_>>>()?;
     let inputs: Vec<_> = securities
         .iter()

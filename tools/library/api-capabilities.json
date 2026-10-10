@@ -30033,7 +30033,8 @@
     "tests/fixtures/library/floating-workout-qualified.json",
     "tests/fixtures/library/icma-api-cases.json",
     "tests/fixtures/library/icma-government-api-cases.json",
-    "tests/fixtures/library/icma-workout-qualified.json"
+    "tests/fixtures/library/icma-workout-qualified.json",
+    "tests/fixtures/library/icma-helpers-final-api.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -32933,6 +32934,238 @@
       ],
       "certified": false,
       "qualification": "Complete original contextual ICMA fixed legal-workout all-path pricing and yield/worst composition over the SAME checked PreparedIcmaQuotation and original eligible_workout_paths/notice/purchase/exercise/coupon/principal owners. Every actual maturity/call/put path retains original full terms, nominal mesh, source/policy/calendar/quote/quantity, normal frequency, independent compounding/accrual and all actual cash dates. All eligible paths are prepared before any numerical valuation. Original closed inverse/native price residual, mixed-sign/identification/domain/work failures and signed ORIGINAL observed dirty consideration remain. Explicit original date/cash plus total reference-entry reservations bound complete requests. Original deterministic first numerical tie/call-maturity minimum/forced notice selection is retained; puts remain fully quoted and cannot lower an unnotified worst-call yield. No coupon proxy, missing context, accepted subset, root/domain relaxation, option model, Street/model/market certificate, provider/storage/MQ/clock/runtime/order authority or new dependency. Supplied USD engineering controls only; all full host/market/Street/model/library/production/latency certificates remain open. Mandatory records stay Planned."
+    },
+    "contextual_cash.convert": {
+      "required_record_ids": [
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/rust",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/shared_json",
+        "LC-018/government_benchmark/USD/global/convert_cash_bond_bill_clean_dirty_yield_quotes/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "helper",
+        "operation.input.kind": "cash_quote",
+        "operation.input.helper.quote_kind.kind": "ContextualIcmaYield"
+      },
+      "positive_examples": [
+        "icma_helpers.regular.SemiAnnual.0.04125.convert",
+        "icma_helpers.short_front.SemiAnnual.0.04125.convert",
+        "icma_helpers.qualified.stepped.Annual.convert"
+      ],
+      "boundary_examples": [
+        "icma_helpers.boundary.payment_include",
+        "icma_helpers.boundary.payment_exclude",
+        "icma_helpers.boundary.on_ex.admitted"
+      ],
+      "negative_examples": [
+        "icma_helpers.invalid.convert_context"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/pricing.rs",
+          "text": "pub fn convert_cash_quote("
+        },
+        {
+          "path": "crates/convex/src/library/helpers.rs",
+          "text": "HelperInput::CashQuote {"
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
+    },
+    "contextual_cash.reprice": {
+      "required_record_ids": [
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/rust",
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/shared_json",
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/c_abi",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/rust",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/shared_json",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "helper",
+        "operation.input.kind": "cash_reprice",
+        "operation.input.input.recipe.helpers.0.input.quote_kind.kind": "ContextualIcmaYield"
+      },
+      "positive_examples": [
+        "icma_helpers.regular.SemiAnnual.0.04125.reprice",
+        "icma_helpers.short_front.SemiAnnual.0.04125.reprice"
+      ],
+      "boundary_examples": [
+        "icma_helpers.regular.SemiAnnual.-0.0075.reprice"
+      ],
+      "negative_examples": [
+        "icma_helpers.invalid.calendar_revision",
+        "icma_helpers.invalid.model_no_root",
+        "icma_helpers.invalid.model_cash_work"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/cash_calibration/reprice.rs",
+          "text": "pub fn reprice_cash_helpers("
+        },
+        {
+          "path": "crates/convex/src/library/helpers.rs",
+          "text": "HelperInput::CashReprice { input }"
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
+    },
+    "contextual_calibration.build": {
+      "required_record_ids": [
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/rust",
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/shared_json",
+        "LC-018/government_benchmark/USD/global/reprice_original_securities/c_abi",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/rust",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/shared_json",
+        "LC-020/issuer_bond_basis/USD/global/report_residuals_and_curve_roles/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "calibration",
+        "operation.action.kind": "build",
+        "operation.input.cash.0.recipe.helpers.0.input.quote_kind.kind": "ContextualIcmaYield"
+      },
+      "positive_examples": [
+        "icma_helpers.graph.positive.build",
+        "icma_helpers.graph.stepped.build"
+      ],
+      "boundary_examples": [
+        "icma_helpers.graph.negative.build"
+      ],
+      "negative_examples": [
+        "icma_helpers.invalid.late_context_before_fit",
+        "icma_helpers.invalid.total_cash_work"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/quote_risk/graph.rs",
+          "text": "pub fn prepare_quote_risk_graph"
+        },
+        {
+          "path": "crates/convex/src/library/curves.rs",
+          "text": "pub(super) fn graph_value("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
+    },
+    "contextual_calibration.scenario": {
+      "required_record_ids": [
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "calibration",
+        "operation.action.kind": "scenario",
+        "operation.input.cash.0.recipe.helpers.0.input.quote_kind.kind": "ContextualIcmaYield"
+      },
+      "positive_examples": [
+        "icma_helpers.graph.positive.scenario.terms",
+        "icma_helpers.graph.stepped.scenario.terms"
+      ],
+      "boundary_examples": [
+        "icma_helpers.graph.negative.scenario.terms"
+      ],
+      "negative_examples": [
+        "icma_helpers.invalid.admitted_risk_policy"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/quote_risk/graph.rs",
+          "text": "pub fn prepare_quote_risk_graph"
+        },
+        {
+          "path": "crates/convex/src/library/curves.rs",
+          "text": "pub(super) fn graph_value("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
+    },
+    "contextual_calibration.risk": {
+      "required_record_ids": [
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/declare_factor_keys_signs_units_and_bumps/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/bump_quotes_and_rebuild_dependent_curves/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/check_bump_size_stability/c_abi",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/rust",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/shared_json",
+        "LC-024/quote_rebuild/SUPPLIED/risk/report_incomplete_or_unstable_risk/c_abi"
+      ],
+      "selectors": {
+        "operation.kind": "calibration",
+        "operation.action.kind": "product_risk",
+        "operation.input.cash.0.recipe.helpers.0.input.quote_kind.kind": "ContextualIcmaYield"
+      },
+      "positive_examples": [
+        "icma_helpers.graph.positive.risk.admitted.terms.role",
+        "icma_helpers.graph.stepped.risk.admitted.terms.role"
+      ],
+      "boundary_examples": [
+        "icma_helpers.graph.negative.risk.admitted.terms.role"
+      ],
+      "negative_examples": [
+        "icma_helpers.graph.positive.risk",
+        "icma_helpers.graph.positive.risk.admitted.terms"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/quote_risk/graph.rs",
+          "text": "pub fn prepare_quote_risk_graph"
+        },
+        {
+          "path": "crates/convex/src/library/curves.rs",
+          "text": "pub(super) fn graph_value("
+        }
+      ],
+      "certified": false,
+      "qualification": "Complete supplied contextual ICMA observation/model helper cash and original native quote residuals using the SAME checked quotation owner; full explicit nominal/source/policy/calendar/quantity/inverse/work pack, original graph/dependency/risk/recipe/replay owners. Declared synthetic USD engineering subset only. All mandatory records remain Planned; no external freshness, independent financial approval, market/model/host/library/production/latency certificate."
     }
   }
 }

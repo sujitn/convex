@@ -117,7 +117,8 @@ pub(super) fn decode(input: &str) -> super::LibraryResult<super::LibraryRequest>
     })?;
     let typed: super::LibraryRequest = serde_json::from_value(original.clone())
         .map_err(|e| super::LibraryError::invalid("request", &e.to_string()))?;
-    let canonical = super::value(&typed)?;
+    let canonical = serde_json::to_value(&typed)
+        .map_err(|e| super::LibraryError::invalid("request", &e.to_string()))?;
     check_complete(&original, &canonical, "request")?;
     Ok(typed)
 }

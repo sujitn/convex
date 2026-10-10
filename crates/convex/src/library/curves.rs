@@ -299,9 +299,9 @@ pub(super) fn fit_curve(
 pub(super) fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value> {
     let mut output = serde_json::json!({"result":describe_curves(&graph.curves)?,"build_order":graph.build_order,
         "repricing":graph.repricing,"price_evaluations":graph.price_evaluations,"publications":graph.publications});
-    // Original grid/credit output bytes remain unchanged. Parametric product
-    // graphs additionally retain their mixed-unit solved parameters and full
-    // measured solver/helper evidence, including on dependent quote rebuilds.
+    // Original context-free grid/credit output bytes remain unchanged. Parametric
+    // and contextual ICMA graphs retain complete solved parameters and measured
+    // solver/helper evidence, including on dependent quote rebuilds.
     if graph.calibrations.iter().any(|fit| match fit {
         q::QuoteGraphCalibration::Rate(f) => {
             matches!(
@@ -313,7 +313,11 @@ pub(super) fn graph_value(graph: &q::QuoteGraphScenario) -> LibraryResult<Value>
             matches!(
                 f.solver,
                 c::CashSolverDiagnostics::Parametric { .. } | c::CashSolverDiagnostics::Ufr { .. }
-            )
+            ) || f.recipe.helpers.iter().any(|helper| {
+                matches!(helper,
+                c::CashCalibrationHelper::Bond { input: h }
+                if matches!(h.quote_kind, c::CashQuoteKind::ContextualIcmaYield { .. }))
+            })
         }
         q::QuoteGraphCalibration::Credit(_) => false,
     }) {
@@ -509,7 +513,7 @@ pub(super) fn with_graph<T>(
 /// Resolve full cash helper calendars for fitting and direct diagnostics alike.
 pub(super) fn cash_resources<'a>(
     input: &'a CashCalibrationInput,
-    resources: &ResolvedInputs<'a>,
+    resources: &'a ResolvedInputs<'a>,
 ) -> LibraryResult<Vec<c::CashHelperResources<'a>>> {
     if input.recipe.helpers.len() > c::MAX_CASH_HELPERS {
         return Err(LibraryError::limit("at most128 complete cash helpers"));
@@ -527,13 +531,7 @@ pub(super) fn cash_resources<'a>(
         .zip(&input.calendars)
         .map(|(h, calendars)| match (h, calendars) {
             (c::CashCalibrationHelper::Bond { input: h }, CashHelperCalendars::Bond { pins }) => {
-                Ok(c::CashHelperResources::Bond {
-                    ids: &h.terms.calendars,
-                    calendars: resources.bond_calendars(&BondInput {
-                        terms: h.terms.clone(),
-                        calendars: pins.clone(),
-                    })?,
-                })
+                super::cash::helper_resources(h, pins, resources)
             }
             (c::CashCalibrationHelper::Repo { .. }, CashHelperCalendars::Repo { pin }) => {
                 Ok(c::CashHelperResources::Repo(resources.rate_binding(pin)?))

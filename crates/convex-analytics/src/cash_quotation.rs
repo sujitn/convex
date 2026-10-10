@@ -77,12 +77,7 @@ pub fn quote_cash_security(
     settings: w::BondInverseSettings,
 ) -> CashQuotationResult<CashSecurityQuotation> {
     let conversion = c::convert_cash_quote(helper, resources, reference_date)?;
-    let c::CashHelperResources::Bond { calendars, .. } = resources else {
-        return Err(invalid(
-            "resources",
-            "full independently supplied bond calendars required",
-        ));
-    };
+    let (_, calendars) = resources.bond()?;
     let contract = helper
         .terms
         .clone()

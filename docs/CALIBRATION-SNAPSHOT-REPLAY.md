@@ -131,3 +131,6 @@ financial/library/production/latency certificates remain open.
 Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
 
 Reconstruction installs every original supplied dependency and product output in bounded dependency order. Curve identity sorting cannot place a fitted tail before its own base. Identity collisions with independent captured records still reject before installation; missing or invalid native dependencies retain their original errors.
+
+
+Contextual ICMA cash-helper recipes retain complete original source, nominal mesh, independent calendars, quotation policy, compounding, quantity and inverse/work controls. Actual file publish/reopen rebuilds the full government/issuer-reference graph and signed quote risk, comparing complete captured diagnostics and provenance; tampering fails. See [the helper contract](ICMA-CASH-HELPERS.md).

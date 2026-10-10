@@ -37,6 +37,28 @@ pub struct BondInverseSettings {
     /// Work ceiling,1..256; no automatic retries with relaxed controls.
     pub max_iterations: u32,
 }
+impl BondInverseSettings {
+    pub(crate) fn validate(self, max_parameter: f64) -> WorkflowResult<()> {
+        let settings = self;
+        if !settings.lower.is_finite()
+            || !settings.upper.is_finite()
+            || settings.lower >= settings.upper
+            || settings.lower < -max_parameter
+            || settings.upper > max_parameter
+            || !settings.price_tolerance.is_finite()
+            || settings.price_tolerance <= 0.0
+            || settings.price_tolerance > 1.0
+            || !settings.parameter_tolerance.is_finite()
+            || settings.parameter_tolerance <= 0.0
+            || settings.parameter_tolerance > 1e-6
+            || settings.max_iterations == 0
+            || settings.max_iterations > 256
+        {
+            return Err(invalid("inverse settings","finite closed admitted domain, native price tolerance in (0,1], iterations1..256 required"));
+        }
+        Ok(())
+    }
+}
 /// Accepted same-pricer bond inverse and actual work/postcondition evidence.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BondInverse {
@@ -62,22 +84,7 @@ pub(super) fn solve_bond(
     max_parameter: f64,
     price: impl Fn(f64) -> WorkflowResult<BondValue>,
 ) -> WorkflowResult<BondInverse> {
-    if !settings.lower.is_finite()
-        || !settings.upper.is_finite()
-        || settings.lower >= settings.upper
-        || settings.lower < -max_parameter
-        || settings.upper > max_parameter
-        || !settings.price_tolerance.is_finite()
-        || settings.price_tolerance <= 0.0
-        || settings.price_tolerance > 1.0
-        || !settings.parameter_tolerance.is_finite()
-        || settings.parameter_tolerance <= 0.0
-        || settings.parameter_tolerance > 1e-6
-        || settings.max_iterations == 0
-        || settings.max_iterations > 256
-    {
-        return Err(invalid("inverse settings","finite closed admitted domain, native price tolerance in (0,1], iterations1..256 required"));
-    }
+    settings.validate(max_parameter)?;
     let evaluations = Cell::new(0usize);
     let evaluate = |p| {
         evaluations.set(evaluations.get() + 1);

@@ -111,6 +111,21 @@ class AssuranceMutations(unittest.TestCase):
                     or c == 'cargo build --locked -p convex-ffi --lib']
         self.assertGreaterEqual(len(commands), 90)
         for command in [
+            'python3 tests/scripts/icma_helpers_reference.py',
+            'python3 tests/scripts/icma_helpers_qualification.py',
+            'python3 tests/scripts/icma_helpers_boundaries.py',
+            'python3 tests/scripts/icma_helpers_api.py',
+            'python3 tests/scripts/icma_helpers_terms.py',
+            'python3 tests/scripts/icma_helpers_admission.py',
+            'python3 tests/scripts/icma_helpers_failures.py',
+            'python3 tests/scripts/icma_helpers_compatibility.py',
+            'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_helpers -- --test-threads=1',
+            'cargo test --locked --all-features -p convex-engine --test icma_helpers_snapshot',
+            'cargo run --locked -p convex --example icma_helpers',
+            'cargo run --locked -p convex --example icma_helpers --no-default-features',
+            'cargo run --locked -p convex --example icma_helpers --features schemars',
+            '/tmp/convex-library-schema/bin/python tests/scripts/icma_helpers_schema.py --binary target/debug/examples/icma_helpers',
+            'python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so',
             'python3 tests/scripts/icma_workout_reference.py',
             'python3 tests/scripts/icma_workout_qualification.py',
             'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_workout -- --test-threads=1',

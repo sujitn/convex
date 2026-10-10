@@ -190,3 +190,6 @@ complete current/pending exposure, exact native quantity and legal credit/FX
 admission. Explicit bounded constrained/lot searches return measured residual,
 cost/constraint/rank/work diagnostics without execution authority. Original
 pricing/risk owners and every existing financial reference remain unchanged.
+
+
+Complete contextual ICMA yield cash helpers now compose through the original full graph and five-PV risk owner. Original native units, policy version, actual bound calendars, full cash and dependent recipes survive each rebuild. Per-build original work ceilings and full/half-bump stability stay enforced; see [the helper contract](ICMA-CASH-HELPERS.md).

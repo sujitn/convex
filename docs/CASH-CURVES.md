@@ -55,6 +55,7 @@ produce the stated settlement from the actual trade date, lag and adjustment.
 | CleanPrice | PricePer100 of original face; dirty equals clean plus actual accrued/rebate. |
 | DirtyPrice | PricePer100 of original face; clean equals dirty minus actual accrued/rebate. |
 | CashflowYield | Decimal/percent/basis-point annualized yield with explicit dated-cash day count, compounding, inverse bracket, work budget and dirty-price residual bound. Each actual entitled coupon/principal date is discounted. |
+| ContextualIcmaYield | Explicit full source/nominal-mesh/frequency/compounding/inverse/quantity/work pack through the same checked ICMA cash owner. Original rate units, full model inverse and bounded diagnostics; see [contract](ICMA-CASH-HELPERS.md). |
 | BankDiscountYield | Explicit simple discount basis and decimal/percent/basis-point quote; one future par principal, zero coupons and accrued. Dirty price equals 100 times (1 minus discount yield times actual year fraction). |
 | ParCouponRate | Original uniform decimal/percent/basis-point coupon of a supplied full unrounded nominal par bond. Clean price is 100; actual unit/zero-coupon cash exposures determine the implied coupon. The observation is never a spot-zero node. |
 | RepoLoanHelper | Actual business start/end dates, pinned calendar, collateral definition and interest basis. Original simple annualized decimal/percent/basis-point loan rate reprices from the exact repo discount ratio. |
@@ -68,8 +69,8 @@ fields; deserialize then build/validate before using any input.
 
 CashflowYield is an explicitly dated-cash convention. It does not claim every
 street, ICMA, exchange or national bond yield convention. Contextual ICMA yield
-fractions require another complete quotation pack; ICMA coupon accrual remains
-available through the original bond schedule. Negative yields are supported
+fractions require the separate explicit ContextualIcmaYield pack; ICMA coupon
+accrual remains available through the original bond schedule. Negative yields are supported
 when their declared discount domain is valid. Negative entitled cash is rejected
 by the monotone yield inverse, while explicit price/par helpers can retain
 negative coupons. Bracket endpoints must be valid for every actual cash date;
@@ -128,7 +129,8 @@ truncate an original helper.
 Piecewise fitting requires one original helper per actual pillar, Reject overlap
 and a finite closed parameter bracket with 1..256 Brent iterations. Linear
 interpolation allows causal earlier helpers to retain their full pricing.
-Brent terminates against that helper's original native quote residual tolerance.
+Brent retains the original native quote residual tolerance; contextual ICMA
+helpers additionally use their explicit inverse annual parameter precision.
 
 Global fitting uses the shared bounded scaled least-squares solver. Explicit
 starts, brackets, positive native scales/weights, numerical rank controls and

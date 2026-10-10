@@ -572,6 +572,51 @@ jobs:
       - name: Validate original contextual government controls
         run: python3 tests/scripts/icma_government_reference.py
 
+      - name: Validate independent contextual helper controls
+        run: python3 tests/scripts/icma_helpers_reference.py
+
+      - name: Validate contextual helper input qualification
+        run: python3 tests/scripts/icma_helpers_qualification.py
+
+      - name: Validate contextual helper boundary controls
+        run: python3 tests/scripts/icma_helpers_boundaries.py
+
+      - name: Validate contextual helper API corpus
+        run: python3 tests/scripts/icma_helpers_api.py
+
+      - name: Validate exact contextual helper pillar terms
+        run: python3 tests/scripts/icma_helpers_terms.py
+
+      - name: Validate contextual helper product and source admission
+        run: python3 tests/scripts/icma_helpers_admission.py
+
+      - name: Check separately declared ICMA helper failures
+        run: python3 tests/scripts/icma_helpers_failures.py
+
+      - name: Check exact original helper test ownership migration
+        run: python3 tests/scripts/icma_helpers_compatibility.py
+
+      - name: Test contextual helpers across native C MCP and WASM adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_helpers -- --test-threads=1
+
+      - name: Test contextual helper file snapshot replay
+        run: cargo test --locked --all-features -p convex-engine --test icma_helpers_snapshot
+
+      - name: Run default contextual helper consumer
+        run: cargo run --locked -p convex --example icma_helpers
+
+      - name: Run minimal contextual helper consumer
+        run: cargo run --locked -p convex --example icma_helpers --no-default-features
+
+      - name: Run contextual helper schema consumer
+        run: cargo run --locked -p convex --example icma_helpers --features schemars
+
+      - name: Validate contextual helper request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_helpers_schema.py --binary target/debug/examples/icma_helpers
+
+      - name: Verify contextual helper native C transport parity
+        run: python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so
+
       - name: Validate original contextual workout controls
         run: python3 tests/scripts/icma_workout_reference.py
 
@@ -1090,6 +1135,9 @@ jobs:
       - name: Build contextual workout native expectations
         run: cargo build --locked --profile excel -p convex --example icma_workout --features schemars
 
+      - name: Build contextual ICMA helper Excel consumer
+        run: cargo build --locked --profile excel -p convex --example icma_helpers --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1148,6 +1196,9 @@ jobs:
 
       - name: Generate contextual workout Excel expectations
         run: python tests/scripts/icma_workout_parity.py --binary target/excel/examples/icma_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-workout-parity.json
+
+      - name: Generate contextual ICMA helper Excel expectations
+        run: python tests/scripts/icma_helpers_parity.py --binary target/excel/examples/icma_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-helpers-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

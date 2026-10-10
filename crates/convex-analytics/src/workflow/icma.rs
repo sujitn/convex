@@ -163,7 +163,7 @@ pub struct IcmaQuotation {
     pub reserved_reference_evaluations: u64,
 }
 impl PreparedIcmaQuotation {
-    pub(super) fn cashflow_count(&self) -> WorkflowResult<u64> {
+    pub(crate) fn cashflow_count(&self) -> WorkflowResult<u64> {
         Ok(self.cash.cashflows().cashflows()?.len() as u64)
     }
     /// Original checked one-time reference-entry preparation reservation.

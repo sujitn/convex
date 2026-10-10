@@ -6,12 +6,14 @@
 
 mod build;
 mod fit;
+mod icma;
 mod inputs;
 mod pricing;
 mod repo;
 mod reprice;
 
 pub use build::build_cash_curve_set;
+pub(crate) use icma::preflight_icma_helpers;
 pub(crate) use inputs::serialize_cash_terms;
 pub use inputs::*;
 pub(crate) use pricing::prepare_cash_contract;
@@ -27,6 +29,9 @@ use convex_curves::contracts::*;
 pub const MAX_CASH_HELPERS: usize = convex_math::optimization::MAX_FIT_DIMENSION;
 /// Maximum actual helper valuations across roots, global trials and repricing.
 pub const MAX_CASH_EVALUATIONS: usize = 16_384;
+/// Total explicitly declared contextual ICMA cash visits across an atomic
+/// helper request/build. Quote-risk rebuilds each retain this original ceiling.
+pub const MAX_ICMA_HELPER_CASH_EVALUATIONS: u64 = 67_108_864;
 
 /// Checked economic, exact dependency or measured numerical failure.
 #[derive(Debug, thiserror::Error)]
@@ -46,9 +51,18 @@ pub enum CashCalibrationError {
     /// Original shared bounded root failure.
     #[error(transparent)]
     Root(#[from] convex_math::MathError),
+    /// Same-owner contextual quotation failure, preserving closed inverse,
+    /// identification, mixed-sign, source and native residual diagnostics.
+    #[error(transparent)]
+    Icma(Box<crate::workflow::WorkflowError>),
     /// Actual global convergence/rank diagnostics, retaining its economic error.
     #[error(transparent)]
     Global(Box<convex_math::optimization::FitFailure<CashCalibrationError>>),
+}
+impl From<crate::workflow::WorkflowError> for CashCalibrationError {
+    fn from(error: crate::workflow::WorkflowError) -> Self {
+        Self::Icma(Box::new(error))
+    }
 }
 /// Fallible pure output; caller's last-good inputs remain untouched.
 pub type CashCalibrationResult<T> = Result<T, CashCalibrationError>;

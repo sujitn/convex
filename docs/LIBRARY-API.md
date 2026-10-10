@@ -589,3 +589,6 @@ mesh, exact original policy/security/quote/calendar pins, payment coverage and
 signed original-face quantities. See [the full contract](ICMA-QUOTATIONS.md).
 Contractual accrual, quotation compounding and actual cash dates stay separate;
 Street/model/market and unavailable host qualification remains open.
+
+
+Existing `helper.cash_quote`, `helper.cash_reprice` and full `calibration` operations now admit the strict `ContextualIcmaYield` helper pack. Complete observed and model quotations, actual calendars, native units, full recipes and work diagnostics retain one original owner through graph rebuild and snapshot replay. See [ICMA cash helpers](ICMA-CASH-HELPERS.md); this adds no transport operation or C export.

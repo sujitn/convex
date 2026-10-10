@@ -561,3 +561,6 @@ reference-entry and original cash-work reservations. Independent full-path
 controls retain original failed answers and closed domains; see
 [ICMA workouts](ICMA-WORKOUTS.md). Actual-host and independent certificates stay
 open; pure bounds do not constitute latency or allocation qualification.
+
+
+Contextual ICMA observed/model cash helpers reuse the same checked original cash/time/inverse/invoice owner through complete native quote calibration, dependent five-PV risk and file snapshot replay. All contexts are admitted before fitting; explicit original reference/cash reservations precede numerical valuation, and original native quote plus inverse price residuals remain separate. New declared full financial controls retain raw failures and separate admission records. [The contract](ICMA-CASH-HELPERS.md) gives bounds and scope; actual hosts and independent certificates remain open.

@@ -101,7 +101,7 @@ Separate predeclared plain, component and entitlement controls admit147requests:
 yield/invoice answers and every numerical bound remain; six explicit accrued/
 clean boundary answers account for the original unpaid receivable. Fresh native envelopes validate transport only. CVX-063 stays
 partial, unaccepted and uncertified; remaining Street/model/market, benchmark
-context helper/risk integration, full operation matrix and host/release certificates remain
+full mandatory helper/risk coverage, operation matrix and host/release certificates remain
 open. This pure composition adds no package, service, provider, storage, MQ,
 clock, runtime state or executable authority.
 
@@ -122,3 +122,6 @@ Complete legal-workout path price/yield and defined worst-call composition reuse
 this same owner and original legal enumeration; see [ICMA workouts](ICMA-WORKOUTS.md).
 Every eligible maturity/call/put context is admitted before numerical valuation,
 and every path retains full original cash, sources, times and signed consideration.
+
+
+The same prepared contextual cash/time owner now supplies observed yield conversion and model-implied native-unit cash-helper repricing, existing calibration/dependent quote-risk graphs and full recipe/snapshot replay. See [ICMA cash helpers](ICMA-CASH-HELPERS.md). Full mandatory market/model/host scope and certificates remain open.

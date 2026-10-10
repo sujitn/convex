@@ -16,6 +16,7 @@ pub(super) struct PreparedBond {
     pub projection: BondProjection,
     pub observed: CashQuoteConversion,
     pub par_cash: Option<(BondProjection, BondProjection)>,
+    pub icma: Option<super::icma::PreparedIcmaHelper>,
 }
 pub(super) fn number(v: Decimal) -> CashCalibrationResult<f64> {
     v.to_f64()
@@ -178,10 +179,8 @@ pub(crate) fn prepare_cash_contract(
     resources: &CashHelperResources<'_>,
     reference: Date,
 ) -> CashCalibrationResult<BondContract> {
-    let CashHelperResources::Bond { ids, calendars } = resources else {
-        return Err(invalid("resources", "actual full bond calendars required"));
-    };
-    if *ids != &terms.calendars {
+    let (ids, calendars) = resources.bond()?;
+    if ids != &terms.calendars {
         return Err(invalid(
             "calendars",
             "exact supplied identities/versions differ",
@@ -214,14 +213,12 @@ pub(crate) fn prepare_cash_contract(
     }
     Ok(bond)
 }
-pub(super) fn prepare(
+pub(super) fn admit(
     h: &CashBondHelper,
     resources: &CashHelperResources<'_>,
     reference: Date,
 ) -> CashCalibrationResult<PreparedBond> {
-    let CashHelperResources::Bond { calendars, .. } = resources else {
-        return Err(invalid("resources", "actual full bond calendars required"));
-    };
+    resources.bond()?;
     h.quote.validate()?;
     if !label(&h.id) || !h.tolerance.is_finite() || h.tolerance <= 0.0 || h.tolerance > 1.0 {
         return Err(invalid(
@@ -247,19 +244,36 @@ pub(super) fn prepare(
     let accrued = number(projection.accrued)? / number(bond.terms().face_value)? * 100.0;
     let observed = CashQuoteConversion {
         settlement: h.settlement,
-        quote_kind: h.quote_kind,
+        quote_kind: h.quote_kind.clone(),
         quote: h.quote,
         accrued_per100: accrued,
         clean_per100: 0.0,
         dirty_per100: 0.0,
+        icma: None,
+        icma_work: None,
     };
-    let mut prepared = PreparedBond {
+    let icma = match &h.quote_kind {
+        CashQuoteKind::ContextualIcmaYield { input } => Some(super::icma::PreparedIcmaHelper::new(
+            &bond, h, input, resources,
+        )?),
+        _ => None,
+    };
+    Ok(PreparedBond {
         bond,
         projection,
         observed,
         par_cash: None,
-    };
-    let dirty = match h.quote_kind {
+        icma,
+    })
+}
+pub(super) fn observe(
+    prepared: &mut PreparedBond,
+    h: &CashBondHelper,
+    resources: &CashHelperResources<'_>,
+) -> CashCalibrationResult<()> {
+    let (_, calendars) = resources.bond()?;
+    let accrued = prepared.observed.accrued_per100;
+    let dirty = match &h.quote_kind {
         CashQuoteKind::CleanPrice | CashQuoteKind::DirtyPrice => {
             if h.quote.unit != QuoteUnit::PricePer100 {
                 return Err(invalid("quote.unit", "clean/dirty requires PricePer100"));
@@ -271,15 +285,29 @@ pub(super) fn prepare(
             }
         }
         CashQuoteKind::CashflowYield { convention } => {
-            yield_settings(convention, &prepared.projection, h.settlement)?;
+            yield_settings(*convention, &prepared.projection, h.settlement)?;
             let y = h.quote.decimal_rate()?;
             if y < convention.lower_yield || y > convention.upper_yield {
                 return Err(invalid("yield quote", "outside declared inverse bracket"));
             }
-            yield_price(&prepared, h.settlement, convention, y)?
+            yield_price(prepared, h.settlement, *convention, y)?
+        }
+        CashQuoteKind::ContextualIcmaYield { .. } => {
+            let quotation = prepared
+                .icma
+                .as_ref()
+                .ok_or_else(|| invalid("ICMA helper", "unprepared original context"))?
+                .observed(h)?;
+            let crate::workflow::WorkoutValue::Price(value) = &quotation.quotation else {
+                return Err(invalid("ICMA helper", "original observed price required"));
+            };
+            let dirty = value.dirty_per100;
+            prepared.observed.icma = Some(Box::new(quotation));
+            prepared.observed.icma_work = prepared.icma.as_ref().map(|i| i.work());
+            dirty
         }
         CashQuoteKind::BankDiscountYield { day_count } => {
-            let (_, tau) = bill(&prepared, h, day_count)?;
+            let (_, tau) = bill(prepared, h, *day_count)?;
             100.0 * (1.0 - h.quote.decimal_rate()? * tau)
         }
         CashQuoteKind::ParCouponRate => {
@@ -338,6 +366,15 @@ pub(super) fn prepare(
     }
     prepared.observed.dirty_per100 = dirty;
     prepared.observed.clean_per100 = dirty - accrued;
+    Ok(())
+}
+pub(super) fn prepare(
+    h: &CashBondHelper,
+    resources: &CashHelperResources<'_>,
+    reference: Date,
+) -> CashCalibrationResult<PreparedBond> {
+    let mut prepared = admit(h, resources, reference)?;
+    observe(&mut prepared, h, resources)?;
     Ok(prepared)
 }
 
@@ -666,9 +703,10 @@ pub(super) fn model_quote(
     h: &CashBondHelper,
     value: &ContractPrice,
     curve: &BuiltCurve,
-) -> CashCalibrationResult<MarketQuote> {
+) -> CashCalibrationResult<(MarketQuote, Option<Box<crate::workflow::IcmaQuotation>>)> {
+    let mut icma = None;
     let quote =
-        match h.quote_kind {
+        match &h.quote_kind {
             CashQuoteKind::CleanPrice => MarketQuote {
                 value: value.clean_price,
                 unit: h.quote.unit,
@@ -679,9 +717,22 @@ pub(super) fn model_quote(
             },
             CashQuoteKind::CashflowYield { convention } => h
                 .quote
-                .model_rate_quote(inverse_yield(p, h, convention, value.dirty_price)?)?,
+                .model_rate_quote(inverse_yield(p, h, *convention, value.dirty_price)?)?,
+            CashQuoteKind::ContextualIcmaYield { .. } => {
+                let quotation = p
+                    .icma
+                    .as_ref()
+                    .ok_or_else(|| invalid("ICMA helper", "unprepared original context"))?
+                    .model(value.dirty_price)?;
+                let crate::workflow::WorkoutValue::Yield(inverse) = &quotation.quotation else {
+                    return Err(invalid("ICMA helper", "original model inverse required"));
+                };
+                let quote = h.quote.model_rate_quote(inverse.decimal_parameter)?;
+                icma = Some(Box::new(quotation));
+                quote
+            }
             CashQuoteKind::BankDiscountYield { day_count } => {
-                let (_, tau) = bill(p, h, day_count)?;
+                let (_, tau) = bill(p, h, *day_count)?;
                 h.quote
                     .model_rate_quote((1.0 - value.dirty_price / 100.0) / tau)?
             }
@@ -716,7 +767,7 @@ pub(super) fn model_quote(
             }
         };
     quote.validate()?;
-    Ok(quote)
+    Ok((quote, icma))
 }
 
 pub(super) fn government_price(

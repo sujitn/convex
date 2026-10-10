@@ -162,18 +162,8 @@ pub(super) fn helper(input: &HelperInput, r: &ResolvedInputs<'_>) -> LibraryResu
             calendars,
             reference_date,
         } => {
-            let calendars = r.bond_calendars(&BondInput {
-                terms: helper.terms.clone(),
-                calendars: calendars.clone(),
-            })?;
-            value(c::convert_cash_quote(
-                helper,
-                &c::CashHelperResources::Bond {
-                    ids: &helper.terms.calendars,
-                    calendars,
-                },
-                *reference_date,
-            )?)
+            let resources = super::cash::helper_resources(helper, calendars, r)?;
+            value(c::convert_cash_quote(helper, &resources, *reference_date)?)
         }
         HelperInput::BasisBond {
             helper,
@@ -181,16 +171,10 @@ pub(super) fn helper(input: &HelperInput, r: &ResolvedInputs<'_>) -> LibraryResu
             model,
             basis,
         } => {
-            let calendars = r.bond_calendars(&BondInput {
-                terms: helper.terms.clone(),
-                calendars: calendars.clone(),
-            })?;
+            let resources = super::cash::helper_resources(helper, calendars, r)?;
             value(c::price_basis_bond(
                 helper,
-                &c::CashHelperResources::Bond {
-                    ids: &helper.terms.calendars,
-                    calendars,
-                },
+                &resources,
                 model,
                 r.curves.get(basis)?.as_ref(),
                 &r.curves,
@@ -221,16 +205,10 @@ pub(super) fn repo_forward(
     input: &RepoForwardInput,
     r: &ResolvedInputs<'_>,
 ) -> LibraryResult<Value> {
-    let calendars = r.bond_calendars(&BondInput {
-        terms: input.terms.spot.terms.clone(),
-        calendars: input.calendars.clone(),
-    })?;
+    let resources = super::cash::helper_resources(&input.terms.spot, &input.calendars, r)?;
     value(c::price_repo_bond_forward(&c::RepoBondForwardInputs {
         terms: &input.terms,
-        resources: &c::CashHelperResources::Bond {
-            ids: &input.terms.spot.terms.calendars,
-            calendars,
-        },
+        resources: &resources,
         delivery_calendar: r.rate_binding(&input.terms.delivery_calendar)?,
         curves: &r.curves,
     })?)

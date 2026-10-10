@@ -238,7 +238,7 @@ fn bill_bank_discount_price_and_cashflow_yield_are_distinct_explicit_quotes() {
     ] {
         let mut recipes = f.recipes.clone();
         let h = bond_mut(&mut recipes[2].helpers[0]);
-        h.quote_kind = kind;
+        h.quote_kind = kind.clone();
         h.quote = if matches!(kind, CashQuoteKind::CashflowYield { .. }) {
             MarketQuote {
                 value: number(&expected["cashflow_yield_decimal"]).unwrap(),

@@ -2030,6 +2030,75 @@
         "tools/library/library-inventory.json": "e0a9dd8e52eb4f7e5e8abf41db52b6169f7a6a68e80d6be7577c27e59877514d",
         "tools/library/test_operations.py": "e83f3b0db16d4b39ad95735559b7c6363db796b46ada6f61f7d2cf5a20d72900"
       }
+    },
+    {
+      "base_commit": "3d58dc8c7710ebd3f16efd0d25d035ca8a09217f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-10",
+      "rationale": "Complete contextual ACT/ACT ICMA observed cash-helper conversion and model-implied native-unit repricing through SAME PreparedIcmaQuotation and existing original full cash/curve/model/graph/quote-risk/recipe/snapshot owners. Full security/quote/policy/nominal context/calendar revisions, exact coupon/principal/steps/allocation/delayed/payment/ex cash, original face/units/signed dirty consideration/domain/precision remain. All cash contexts are admitted before graph fitting, all model work is reserved before valuation, and explicit source/total original reference/cash bounds retain typed failures without retries or removed helpers. Original inverse settings predicate is only extracted unchanged for preflight; original solver/cash/time/invoice, core/math/bond/curves/rates/credit financial bodies and defaults remain. New contextual solve stopping uses explicitly supplied inverse precision while original final native quote and price residuals remain. Malformed input serialization now returns typed invalid_input at ingress instead of internal; no output or accepted partial value. Existing correct context-free routes stay, one shared actual binding is reused; no new dependency/package/C export/provider/storage/MQ/clock/runtime/ledger/order authority or generic framework. Original core/math/bond/rates/curves/credit and ICMA cash/time/inverse/invoice financial owners stay unchanged. ICMA changes only cash-count accessor visibility; inverse settings predicate is extracted unchanged for preflight. Original cash calibration observation preparation splits admission from numeric conversion; context-free formulas/settings and native acceptance remain. New helper-only precision/work policy is explicitly reviewed. Strict shared adapter reuses one original calendar/source binding function. Full old financial/numeric/scope/dependency/history conservation enforced. Every failure and separately declared boundary/qualification control remains. Source-impact engineering review only, no independent human financial approval; accepted through062 unchanged, CVX-063 partial/unaccepted/uncertified.",
+      "tests": [
+        "Predeclared independent full-source Decimal60 cash/time/price/yield/invoice controls and explicit typed errors",
+        "Actual native/shared/C/MCP/native-WASM plus schema/default/minimal and original financial/regression checks",
+        "Strict lint/docs/format/workspace and exact public/private source/scope/history/dependency conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "125c92e4449c2cfefb11db8966cced1abd1b29098523c1bbc3d18c5aecd11087",
+        ".github/workflows/java.yml": "054d31b9323b3cbc832081bd044341df9fa21a32adbaecf70758226f14e7e5a1",
+        "crates/convex-analytics/src/cash_calibration/build.rs": "99ea085cb13c285fe5bbedc81571eb8c92918c42b3b731b76fe09f3d19f5936c",
+        "crates/convex-analytics/src/cash_calibration/fit.rs": "5f582d205e8b70cf6b0af19443838e64af1197fd5494ccb49b3530c7ff5c1808",
+        "crates/convex-analytics/src/cash_calibration/icma.rs": "605972abd158257fe50e176565c7356490772872422a73c7a1de8d3ecb544adc",
+        "crates/convex-analytics/src/cash_calibration/inputs.rs": "15663b9033c645653eb2a19676013721f03b8aadbe92b5883cc11dad137de06c",
+        "crates/convex-analytics/src/cash_calibration/mod.rs": "898c80767fe609eb28592a81dd5ce3d75d82cb2d4ddff57920bcb23e7d0d1833",
+        "crates/convex-analytics/src/cash_calibration/pricing.rs": "b16582886ed7b66f53582cc14d31261a9278c93dea12af26e34328c132f1cc20",
+        "crates/convex-analytics/src/cash_quotation.rs": "2184b0c1462a42b7c65c4ffe82a63b8ca5b0ec21e5645c83d428100a3f568f58",
+        "crates/convex-analytics/src/cash_quotation/icma.rs": "de4bd5bf84d2d74d64421e85709fbb1265cb3b3b28f0c13f0e94e9433cfcaa28",
+        "crates/convex-analytics/src/quote_risk/graph.rs": "2441c7bf949c5cb9c3f32fa243943c4f2e607b70acde091dcc99d92606f51b2e",
+        "crates/convex-analytics/src/workflow/icma.rs": "ee1478dc9b692abaeb0310d2f19e41950119fdf96d866b06855d55b660414ec6",
+        "crates/convex-analytics/src/workflow/inverse.rs": "1ae6d016e32e9d859fba1ed2d6bd5cd806cac8c954e3997d66792c4bf52cda7a",
+        "crates/convex-analytics/tests/cash_calibration.rs": "6f2e9a3efa10f4b5047076a086b022ab99a9bdf64e5a385c262357dc5abb5147",
+        "crates/convex-ffi/tests/icma_helpers.rs": "e266dfdc958d4ac2475a606c141622cc42a63592dc1dd45f1379fe3746c9c306",
+        "crates/convex/examples/icma_helpers.rs": "e0d650f609b3d8359adaf347d5a6ebfe1e44c72acf8b69785fb9c34e7a227200",
+        "crates/convex/src/library/cash.rs": "ff070d20944744c2bfad459e8283c57cbbd0a309e86e499cdff670c9541e4da4",
+        "crates/convex/src/library/curves.rs": "947ef92742ae13bfbda25b6c4a0d9ce4eeba691f30e28cb6d009250bf92b0997",
+        "crates/convex/src/library/errors.rs": "c7f743d64ff06eb1ddcf6a3da9102a09825ee5a3090a4c6f3789816d28a87c71",
+        "crates/convex/src/library/helpers.rs": "481fdffe01bc7783fcb3a5e5ad2389257a0648b2ad91fe5d1ac6260e13d1c7c9",
+        "crates/convex/src/library/ingress.rs": "c9ee61bac1b7050d84f5739a0e86754553869976b119b05aadcfe12aeef929aa",
+        "crates/convex/tests/icma_helpers.rs": "7b0fa94cd82b8063c585d513b61aad89b89ea7f90f802f496bf3d5ebc3631219",
+        "docs/ASSURANCE.md": "31be64d3869bc7870fe4d4080fa64fae64d2ee67eb8ad5effbdf8cbf08123f86",
+        "tests/fixtures/library/icma-helpers-additional-reference.json": "7bf80f8ffac5960683f6aa57bc22d5bbeb7f6de4b12186faf3a87b000c5837f9",
+        "tests/fixtures/library/icma-helpers-api.json": "04177dbbf2784c5d442ff55b572ca58f3baaca8654a6931c91b0d8ef76622e30",
+        "tests/fixtures/library/icma-helpers-boundaries.json": "c37ae4e8bb145953129b17d8c9d32e665234438918c5b1b95413a04aa5f47e72",
+        "tests/fixtures/library/icma-helpers-complete-api.json": "94135de24ec9bdf36accb97a258a264a51422e8e0a7f132a5365ed4ffb0b5446",
+        "tests/fixtures/library/icma-helpers-final-api.json": "ad85bf0ceb6211c923e75da8fb2638fd8597b72408ab73a330288b362fb3673d",
+        "tests/fixtures/library/icma-helpers-final-reference.json": "181660f082a4127e8cc068dc22373faf5e3ea72c3dd99ff90cadfa510626a5bd",
+        "tests/fixtures/library/icma-helpers-original-cash-calibration.rs": "e19956c38196f46b6a69caaafac5dfacdc0113ca164164a91b87dd6dabec0013",
+        "tests/fixtures/library/icma-helpers-qualified.json": "358fe4d9450ddeee97ac9a64cc15029972b536ac905a631ed81e84ebe497a924",
+        "tests/fixtures/library/icma-helpers-ready-api.json": "2f1eaaadca4a9bcb6207f184289a90d522efa4654a54641598091956fe67ecf6",
+        "tests/fixtures/library/icma-helpers-ready-reference.json": "ce91f1f681b0411862723e467eb4c5e0d0632a73a54c814d0ff20bd376e3745d",
+        "tests/fixtures/library/icma-helpers-ready.json": "8c65ef6d07bcac35ae94a3297496d61cbba219691f710f9dcebc0684cb617788",
+        "tests/fixtures/library/icma-helpers-reference.json": "2e3d4e8ad3bfae33e59ae1feaff137e14ca0250b78affba1b32b9c16846cbbc2",
+        "tests/fixtures/library/icma-helpers-terms-reference.json": "086e7bf3faaee96c6c4da5b38c95a8d59da176d37e7dbbd7048953c898e6541f",
+        "tests/fixtures/library/icma-helpers-terms.json": "5d891a7dc6710282fe3d40f2668f401b701c401821b378dd9e1bfb39cf4d3e24",
+        "tests/fixtures/library/icma-helpers.json": "d0880d77e83ac2922869a5b0018f294a8209fc7c1e951f95ed1acb3b821946f3",
+        "tests/fixtures/library/icma_helpers_contract.rs": "fe87d866150c73eeb0bfb4df6495c4d19b251b8bd2a5680f3cd0643e71920ded",
+        "tools/assurance/check.py": "46b8b169a93d6bd6aa4bb3f2c6b2fac3f8121e27ef1a50bb3fde97d399d57ad3",
+        "tools/assurance/inventory.json": "c3122ead96b343df7f2a29ff62f1f3c24307f767f9bb757fac7d4b7a3a06d9cf",
+        "tools/assurance/numeric-evidence.json": "824c7f298beb4bf2bba204cad22f12c2f132d6bb78e54c33ab2ad70f174ef9f1",
+        "tools/assurance/test_policy.py": "85814c9646274ec0795c7e45d1662ee4717ff2ce2f985061e950466f51942766",
+        "tools/library/api-capabilities.json": "5a0e714f34093a83f998414270e534626085d69e5bb364a0dca6b8b9adcac2a9",
+        "tools/library/library-inventory.json": "71884605635c11c73fc5894667890186a9a9317c317b51aece73c3231d4ddac3",
+        "tools/library/test_operations.py": "074e75cd081cfbeafa23a1d59fc481aaa78c51cf5fbb36c806408f32171d95fd"
+      },
+      "quantitative_review": {
+        "reviewer": "Human user of this chat",
+        "reviewed_on": "2026-10-10",
+        "rationale": "Only the clone-only original cash-calibration numerical test source-fingerprint refresh. No change to original financial inputs, formulas, seeds, bounds or assertions; no broader financial/model/market/host/production approval or certificate. The human explicitly answered 'yes approved' to the in-chat clone-only review question.",
+        "reference_evidence": [
+          "tests/fixtures/library/icma-helpers-original-cash-calibration.rs",
+          "tests/scripts/icma_helpers_compatibility.py",
+          ".ai/production-readiness/evidence/CVX-063-ICMA-Helpers/human-approval.json"
+        ]
+      }
     }
   ]
 }

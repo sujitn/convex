@@ -191,6 +191,7 @@ where
     P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
 {
     let order = preflight(&input)?;
+    crate::cash_calibration::preflight_icma_helpers(input.cash)?;
     let mut publications = BTreeMap::new();
     let baseline = build(&input, &order, None, |id, date| {
         if let Some(t) = publications.get(&(id.clone(), date)) {
@@ -292,10 +293,12 @@ fn rate_kind(h: &RateCalibrationHelper) -> QuoteType {
 fn cash_kind(h: &CashCalibrationHelper) -> QuoteType {
     match h {
         CashCalibrationHelper::Repo { .. } => QuoteType::RepoRate,
-        CashCalibrationHelper::Bond { input: h } => match h.quote_kind {
+        CashCalibrationHelper::Bond { input: h } => match &h.quote_kind {
             CashQuoteKind::CleanPrice => QuoteType::CashCleanPrice,
             CashQuoteKind::DirtyPrice => QuoteType::CashDirtyPrice,
-            CashQuoteKind::CashflowYield { .. } => QuoteType::Yield,
+            CashQuoteKind::CashflowYield { .. } | CashQuoteKind::ContextualIcmaYield { .. } => {
+                QuoteType::Yield
+            }
             CashQuoteKind::BankDiscountYield { .. } => QuoteType::BankDiscountYield,
             CashQuoteKind::ParCouponRate => QuoteType::BondParCoupon,
         },
@@ -466,6 +469,19 @@ where
                 if let Some((key, delta)) = shock {
                     for h in &mut recipe.helpers {
                         if selected(key, &recipe.curve.key, h.id()) {
+                            if let CashCalibrationHelper::Bond { input: h } = h {
+                                if let CashQuoteKind::ContextualIcmaYield { input } = &h.quote_kind
+                                {
+                                    if key.definition().factor.definition().convention_version
+                                        != input.sources.quotation_policy.version
+                                    {
+                                        return Err(invalid(
+                                            "ICMA risk policy",
+                                            "exact original quotation policy revision required",
+                                        ));
+                                    }
+                                }
+                            }
                             let v = match h {
                                 CashCalibrationHelper::Bond { input: h } => h.quote_version,
                                 CashCalibrationHelper::Repo { input: h } => h.quote_version,

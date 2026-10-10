@@ -31,7 +31,7 @@ pub struct CashYieldConvention {
 }
 
 /// Native quote meaning; price versus yield versus coupon is never implicit.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", deny_unknown_fields)]
 pub enum CashQuoteKind {
@@ -44,6 +44,12 @@ pub enum CashQuoteKind {
         /// Complete explicitly supplied dated quotation.
         convention: CashYieldConvention,
     },
+    /// Contextual yield over the full original nominal mesh, with no inferred
+    /// day count, calendar revision, source policy or inverse controls.
+    ContextualIcmaYield {
+        /// Complete independently supplied sources, convention and work limits.
+        input: Box<IcmaCashYield>,
+    },
     /// Simple bank-discount quote on one par principal payment, using actual dates.
     BankDiscountYield {
         /// Bill quotation basis, distinct from curve time basis.
@@ -52,6 +58,27 @@ pub enum CashQuoteKind {
     /// Uniform coupon rate of the supplied full par bond, whose CLEAN price is100.
     /// This is an actual cash helper; it is never inserted as a zero-rate node.
     ParCouponRate,
+}
+
+/// Original contextual ICMA cash-helper observation and model-inverse policy.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct IcmaCashYield {
+    /// Exact security, original quote, policy and independent calendar revisions.
+    pub sources: crate::workflow::IcmaQuotationSources,
+    /// Full anchored nominal periods belonging to this security revision.
+    pub reference_context: crate::workflow::IcmaReferenceContext,
+    /// Explicit original frequency, compounding and preparation work ceiling.
+    pub convention: crate::workflow::IcmaYieldConvention,
+    /// Original closed model-price inverse and separate native price tolerance.
+    pub inverse: crate::workflow::BondInverseSettings,
+    /// Original-face quantity for quotation diagnostics; never used to fit a curve.
+    pub position: crate::quote_risk::RiskPosition,
+    /// Positive total cash visits reserved across observation and every model
+    /// price/inverse in one build, at most MAX_ICMA_HELPER_CASH_EVALUATIONS.
+    /// Each inverse reserves its unchanged iterations+8 complete cash passes.
+    pub max_cash_evaluations: u64,
 }
 
 /// Complete cash security and its original immutable quotation.
@@ -214,6 +241,22 @@ impl CashCalibrationHelper {
             Self::Repo { input } => input.tolerance,
         }
     }
+    pub(super) fn solver_tolerance(&self) -> CashCalibrationResult<f64> {
+        if let Self::Bond { input: helper } = self {
+            if let CashQuoteKind::ContextualIcmaYield { input } = &helper.quote_kind {
+                // The outer solve must not discard the explicitly requested
+                // inner annual-yield precision. Convert it through the original
+                // quote-unit owner; the final ORIGINAL tolerance stays unchanged.
+                return Ok(self.tolerance().min(
+                    helper
+                        .quote
+                        .model_rate_quote(input.inverse.parameter_tolerance)?
+                        .value,
+                ));
+            }
+        }
+        Ok(self.tolerance())
+    }
 }
 
 /// Exact semantic reference to a named rate curve; roles cannot substitute.
@@ -310,8 +353,28 @@ pub enum CashHelperResources<'a> {
         /// Actual immutable resources.
         calendars: BondCalendars<'a>,
     },
+    /// Actual independent revisions for contextual ICMA helpers. Context-free
+    /// resources cannot attest or substitute these original source versions.
+    IcmaBond {
+        /// Exact original contractual calendar identities.
+        ids: &'a BondCalendarIds,
+        /// Actual immutable calendar data.
+        calendars: BondCalendars<'a>,
+        /// Actual resolved revisions, independent of the quotation payload.
+        pins: crate::workflow::IcmaCalendarPins,
+    },
     /// Actual exact loan calendar resource.
     Repo(CalendarBinding<'a>),
+}
+impl<'a> CashHelperResources<'a> {
+    pub(crate) fn bond(&self) -> CashCalibrationResult<(&'a BondCalendarIds, &BondCalendars<'a>)> {
+        match self {
+            Self::Bond { ids, calendars } | Self::IcmaBond { ids, calendars, .. } => {
+                Ok((ids, calendars))
+            }
+            Self::Repo(_) => Err(invalid("resources", "actual full bond calendars required")),
+        }
+    }
 }
 /// Borrowed complete pure build inputs.
 pub struct CashCurveBuildInput<'a> {
@@ -335,6 +398,23 @@ pub struct CashQuoteConversion {
     pub clean_per100: f64,
     /// Consistent observed dirty price.
     pub dirty_per100: f64,
+    /// Complete same-owner observed ICMA cash/time/price and original signed
+    /// consideration. Absent for existing context-free observations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icma: Option<Box<crate::workflow::IcmaQuotation>>,
+    /// Declared and reserved contextual work, separate from solver measurements.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icma_work: Option<IcmaHelperWork>,
+}
+/// Contextual preparation and complete-cash work retained for each helper.
+#[derive(Debug, Clone, Serialize)]
+pub struct IcmaHelperWork {
+    /// Same checked ICMA owner's one-time reference-entry reservation.
+    pub reserved_reference_evaluations: u64,
+    /// Cash visits reserved so far, including prior fit trials and this result.
+    pub reserved_cash_evaluations: u64,
+    /// Original explicit per-helper cash ceiling for the entire build.
+    pub max_cash_evaluations: u64,
 }
 /// Full declared issuer model valuation, separately retaining recovery cash PV.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -362,6 +442,13 @@ pub enum CashHelperValuation {
         value: Box<ContractPrice>,
         /// Actual separate credit/basis diagnostics.
         basis: Option<Box<BasisBondValuation>>,
+        /// Complete model-implied ICMA inverse in the original helper units,
+        /// separate from the original observed quotation and consideration.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        icma: Option<Box<crate::workflow::IcmaQuotation>>,
+        /// Aggregate reservation across all original fit trials for this helper.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        icma_work: Option<IcmaHelperWork>,
     },
     /// Actual dated loan pricing; currency principal is normalized to one.
     Repo {

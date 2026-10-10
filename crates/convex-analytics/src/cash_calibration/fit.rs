@@ -67,19 +67,24 @@ pub(super) fn value(
             let prepared = p.bonds[i]
                 .as_ref()
                 .ok_or_else(|| invalid("cash resources", "unprepared original contract"))?;
+            if let Some(icma) = &prepared.icma {
+                icma.reserve_model()?;
+            }
             let (priced, basis) = if let Some(model) = &p.recipe.basis_model {
                 let v = pricing::basis_price(prepared, h, model, curve, supplied)?;
                 (v.price.clone(), Some(Box::new(v)))
             } else {
                 (pricing::government_price(prepared, h, curve)?, None)
             };
-            let model = pricing::model_quote(prepared, h, &priced, curve)?;
+            let (model, icma) = pricing::model_quote(prepared, h, &priced, curve)?;
             Ok((
                 model,
                 CashHelperValuation::Bond {
                     observed: prepared.observed.clone(),
                     value: Box::new(priced),
                     basis,
+                    icma,
+                    icma_work: prepared.icma.as_ref().map(|i| i.work()),
                 },
             ))
         }
@@ -122,12 +127,14 @@ pub(super) fn fit(
                 .helpers
                 .iter()
                 .enumerate()
-                .map(|(i, h)| FitResidual {
-                    scale: settings.quote_scales[i],
-                    weight: settings.weights[i],
-                    tolerance: h.tolerance(),
+                .map(|(i, h)| {
+                    Ok(FitResidual {
+                        scale: settings.quote_scales[i],
+                        weight: settings.weights[i],
+                        tolerance: h.solver_tolerance()?,
+                    })
                 })
-                .collect();
+                .collect::<CashCalibrationResult<_>>()?;
             let fit = bounded_least_squares(
                 &parameters,
                 &residuals,
@@ -168,12 +175,14 @@ pub(super) fn fit(
                 .helpers
                 .iter()
                 .enumerate()
-                .map(|(i, h)| FitResidual {
-                    scale: settings.quote_scales[i],
-                    weight: settings.weights[i],
-                    tolerance: h.tolerance(),
+                .map(|(i, h)| {
+                    Ok(FitResidual {
+                        scale: settings.quote_scales[i],
+                        weight: settings.weights[i],
+                        tolerance: h.solver_tolerance()?,
+                    })
                 })
-                .collect();
+                .collect::<CashCalibrationResult<_>>()?;
             let fit = bounded_least_squares(
                 &parameters,
                 &residuals,
@@ -243,7 +252,17 @@ pub(super) fn fit(
                     settings.lower_parameter,
                     settings.upper_parameter,
                     &SolverConfig {
-                        tolerance: h.tolerance(),
+                        tolerance: match h {
+                            CashCalibrationHelper::Bond { input: helper } => {
+                                match &helper.quote_kind {
+                                    CashQuoteKind::ContextualIcmaYield { input } => {
+                                        h.solver_tolerance()?.min(input.inverse.parameter_tolerance)
+                                    }
+                                    _ => h.solver_tolerance()?,
+                                }
+                            }
+                            _ => h.solver_tolerance()?,
+                        },
                         max_iterations: settings.max_iterations,
                     },
                 );
@@ -291,12 +310,14 @@ pub(super) fn fit(
             order.sort_by(|&a, &b| r.helpers[a].id().cmp(r.helpers[b].id()));
             let residuals: Vec<_> = order
                 .iter()
-                .map(|&i| FitResidual {
-                    scale: settings.quote_scales[i],
-                    weight: settings.weights[i],
-                    tolerance: r.helpers[i].tolerance(),
+                .map(|&i| {
+                    Ok(FitResidual {
+                        scale: settings.quote_scales[i],
+                        weight: settings.weights[i],
+                        tolerance: r.helpers[i].solver_tolerance()?,
+                    })
                 })
-                .collect();
+                .collect::<CashCalibrationResult<_>>()?;
             let fit = bounded_least_squares(
                 &parameters,
                 &residuals,

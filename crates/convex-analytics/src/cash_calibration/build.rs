@@ -95,7 +95,7 @@ fn settings(input: &CashCurveRecipe) -> CashCalibrationResult<()> {
     }
     Ok(())
 }
-pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResult<Prepared<'a>> {
+pub(super) fn admit<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResult<Prepared<'a>> {
     let r = input.recipe;
     let c = &r.curve;
     c.key.validate()?;
@@ -218,7 +218,7 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
                 if h.terms.currency != c.currency {
                     return Err(invalid("currency", "cash helper currency differs"));
                 }
-                bonds.push(Some(pricing::prepare(h, resource, c.reference_date)?));
+                bonds.push(Some(pricing::admit(h, resource, c.reference_date)?));
             }
             (
                 CashCalibrationHelper::Bond { input: h },
@@ -237,7 +237,7 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
                 {
                     return Err(invalid("issuer helper", "full cash price/yield and exact original legal entity/currency/maturity required"));
                 }
-                bonds.push(Some(pricing::prepare(h, resource, c.reference_date)?));
+                bonds.push(Some(pricing::admit(h, resource, c.reference_date)?));
             }
             (
                 CashCalibrationHelper::Repo { input: h },
@@ -268,6 +268,24 @@ pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationRes
     Ok(Prepared { recipe: r, bonds })
 }
 
+pub(super) fn observe(
+    p: &mut Prepared<'_>,
+    resources: &[CashHelperResources<'_>],
+) -> CashCalibrationResult<()> {
+    for ((helper, bond), resource) in p.recipe.helpers.iter().zip(&mut p.bonds).zip(resources) {
+        if let (CashCalibrationHelper::Bond { input: h }, Some(bond)) = (helper, bond) {
+            pricing::observe(bond, h, resource)?;
+        }
+    }
+    Ok(())
+}
+pub(super) fn prepare<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResult<Prepared<'a>> {
+    super::icma::check_request(std::slice::from_ref(input), 1)?;
+    let mut prepared = admit(input)?;
+    observe(&mut prepared, input.resources)?;
+    Ok(prepared)
+}
+
 /// Build the entire supplied cash-curve graph after full contract/topology
 /// preflight. Government/Repo roots and issuer references have distinct roles;
 /// failures return no partial set and cannot replace the caller's last-good set.
@@ -286,6 +304,7 @@ pub fn build_cash_curve_set(
             CurveContractError::BoundExceeded("total original cash helpers/parameters").into(),
         );
     }
+    super::icma::check_request(inputs, 1)?;
     let mut by_id = BTreeMap::new();
     for input in inputs {
         let c = &input.recipe.curve;
@@ -371,9 +390,9 @@ pub fn build_cash_curve_set(
         order.push(input);
     }
     // Prepare every original contract before any solver or trial pricing.
-    let prepared: Vec<_> = order
+    let mut prepared: Vec<_> = order
         .iter()
-        .map(|i| prepare(i))
+        .map(|i| admit(i))
         .collect::<CashCalibrationResult<_>>()?;
     for p in &prepared {
         if matches!(
@@ -384,6 +403,9 @@ pub fn build_cash_curve_set(
                 pricing::check_credit_cash(bond)?;
             }
         }
+    }
+    for (p, input) in prepared.iter_mut().zip(&order) {
+        observe(p, input.resources)?;
     }
     let mut curves = supplied.clone();
     let mut calibrations = Vec::new();

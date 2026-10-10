@@ -269,6 +269,7 @@ impl From<cash::CashCalibrationError> for LibraryError {
             E::Cashflow(e) => e.into(),
             E::Credit(e) => e.into(),
             E::Root(e) => e.into(),
+            E::Icma(e) => (*e).into(),
             E::Global(e) => fit_error(*e),
         }
     }

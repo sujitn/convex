@@ -192,12 +192,7 @@ fn prepare_context(
     on_payment: convex_core::cashflows::PaymentDateEntitlement,
     resources: &c::CashHelperResources<'_>,
 ) -> CashQuotationResult<w::PreparedIcmaQuotation> {
-    let c::CashHelperResources::Bond { calendars, .. } = resources else {
-        return Err(invalid(
-            "resources",
-            "full independently supplied bond calendars required",
-        ));
-    };
+    let (_, calendars) = resources.bond()?;
     let sources = w::IcmaQuotationSources {
         security: security.clone(),
         quote_revision,
