@@ -273,30 +273,40 @@ fn quadratic(
                     system[(j, k + a)] = constraints[*index].row[j];
                 }
             }
-            // Complete pivoting and direct original-system backward error;
-            // no unbounded iterative solve or silent pseudoinverse/ridge.
-            let solution = system
-                .clone()
-                .full_piv_lu()
-                .solve(&rhs)
-                .ok_or(SearchFailure::Numerical)?;
-            if solution.iter().any(|v| !v.is_finite()) {
-                return Err(SearchFailure::Numerical);
-            }
-            let error = &system * &solution - &rhs;
-            for i in 0..dimension {
-                let magnitude = rhs[i].abs()
-                    + system
-                        .row(i)
-                        .iter()
-                        .zip(solution.iter())
-                        .map(|(a, b)| (a * b).abs())
-                        .sum::<f64>();
-                if !magnitude.is_finite()
-                    || error[i].abs() > settings.solver_tolerance * (1.0 + magnitude)
-                {
+            // Complete pivoting with at most three residual corrections using
+            // the same decomposition. Every solve must meet the unchanged
+            // original-system backward bound; no pseudoinverse or ridge.
+            let decomposition = system.clone().full_piv_lu();
+            let mut solution = decomposition.solve(&rhs).ok_or(SearchFailure::Numerical)?;
+            for refinement in 0..=3 {
+                if solution.iter().any(|v| !v.is_finite()) {
                     return Err(SearchFailure::Numerical);
                 }
+                let error = &system * &solution - &rhs;
+                let mut within_bound = true;
+                for i in 0..dimension {
+                    let magnitude = rhs[i].abs()
+                        + system
+                            .row(i)
+                            .iter()
+                            .zip(solution.iter())
+                            .map(|(a, b)| (a * b).abs())
+                            .sum::<f64>();
+                    if !magnitude.is_finite() || !error[i].is_finite() {
+                        return Err(SearchFailure::Numerical);
+                    }
+                    within_bound &= error[i].abs() <= settings.solver_tolerance * (1.0 + magnitude);
+                }
+                if within_bound {
+                    break;
+                }
+                if refinement == 3 {
+                    return Err(SearchFailure::Numerical);
+                }
+                let correction = decomposition
+                    .solve(&error)
+                    .ok_or(SearchFailure::Numerical)?;
+                solution -= correction;
             }
             let x = solution.rows(0, k).into_owned();
             if constraints

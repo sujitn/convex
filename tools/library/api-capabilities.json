@@ -30040,7 +30040,10 @@
     "tests/fixtures/library/graph-hedge-api-02.json",
     "tests/fixtures/library/cash-basis-hedge-census-01.json",
     "tests/fixtures/library/cash-basis-hedge-census-02.json",
-    "tests/fixtures/library/cash-basis-hedge-census-03.json"
+    "tests/fixtures/library/cash-basis-hedge-census-03.json",
+    "tests/fixtures/library/recovery-hedge-census-01.json",
+    "tests/fixtures/library/recovery-hedge-census-02.json",
+    "tests/fixtures/library/recovery-hedge-census-03.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

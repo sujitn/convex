@@ -125,6 +125,5 @@ Windows/.NET/Excel and wasm32/browser execution, and independent model, market,
 library, production and latency certification remain open. Native WASM compilation
 does not prove browser execution. CVX-063 remains partial and unaccepted; these
 bounded controls do not award a production certificate. CVX-025/031 own server
-limit and order authority. The next harness increment should complete the original
-CDS recovery graph owner and independently compare the full five-factor mixed
-book while preserving these original financial controls and bounds.
+limit and order authority. [CDS recovery scenarios and the full five-factor mixed book](CDS-RECOVERY-HEDGE-RISK.md)
+now extend these same owners and preserve the original financial controls.

@@ -20,9 +20,9 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        # Preserve all preceding routes/requests and add complete issuer cash hedge risk.
+        # Preserve all preceding routes/requests and add full recovery scenario controls.
         self.assertEqual(result['exact_operation_routes'], 71 + 1)
-        self.assertEqual(result['engineering_examples'], 4183 + 54)
+        self.assertEqual(result['engineering_examples'], 4237 + 41)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

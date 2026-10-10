@@ -2231,6 +2231,47 @@
         "tools/library/library-inventory.json": "6acb330bafcb884275a3066693939dc18777444e27235ca149358ba4c84aa653",
         "tools/library/test_operations.py": "375f6b377af7f9cc3da04456ea4ec4ea8437e933dbc79d15647bf3ba52a298e4"
       }
+    },
+    {
+      "base_commit": "33aec16121c3269a21966decf3bb4a9d2e8eff35",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-10",
+      "rationale": "Complete original CDS recovery scenario binding and supplied/calibrated dependent helper assumptions through the SAME checked full contract, original pricer, graph, cash model and five-PV risk owners. Full terms/calendar periods/legal pins/cash/history/native quantities/factor keys/settings/snapshots survive. Both sides and pending initial cash, held-survival endpoints and original fitted-full-recovery rejection have independent full Decimal60 controls. All actual CDS helpers and cash model recipes change only the explicit recovery assumption before original fitting. Full five-factor issuer cash/CDS/IRS/futures books preserve current/pending, lots, limits, side costs and same-snapshot FX. The original full-pivot hedge KKT solver gains at most three residual corrections using the SAME decomposition and unchanged backward-error/final-constraint bounds; active-rank policy and all defaults remain. Raw Decimal admission, numerical failures and unsuccessful separate limit/rank trials remain. Original financial references/comparison bounds and all619 preceding numerical rows/physical files/defaults remain. No new route, dependency/service/provider/storage/MQ/clock/runtime/order authority. Optional/all-member delivery risk, broader solver scales, actual managed/browser hosts and independent financial/model/library/production/latency certificates remain open. CVX-063 partial/unaccepted/uncertified; accepted engineering through062 and CVX-025/031 authority prerequisites unchanged. This engineering source-impact declaration does not supply independent human financial approval.",
+      "tests": [
+        "Predeclared Decimal60 full cash/coupon/principal/quotes/ICMA/recovery/five-PV risk and separate full CDS/IRS/futures mixed-book controls",
+        "Actual native/shared/C/MCP/native-WASM/default/minimal/schema, original owner comparisons and complete current/pending/credit/cost/lot/FX aggregation and proposals",
+        "Original financial packs, full workspace/lint/docs/format/assurance and exact history/mandatory-scope/default/dependency/export/source conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "0160799d4cf714c35e94ed80ab322302b22ba18d7e23279ad768e18e0a4c3112",
+        ".github/workflows/java.yml": "4ef645b6078dddab66890290fd2e3fb02c6d6db51ae135cf9c14720865b1dbd2",
+        "crates/convex-analytics/src/quote_risk/graph.rs": "8690fefbe5765841d805ed0dba2474482cf618e9d50877ff346ac2599f062a3f",
+        "crates/convex-analytics/src/risk/hedging/constrained/solver.rs": "64d8537f5abff4573dc4794a218ca468e7f9d340d55de7112146bdab567173f2",
+        "crates/convex-analytics/src/workflow/valuation.rs": "354335c6f86d7e95e9a9935d606964c855e20ec68df0a6bc5d408b9d7955eea4",
+        "crates/convex-credit/src/contract.rs": "6e3f71efaa569d316868dff9c58a372ab054df7ea369a997a349cd87bbb04b00",
+        "crates/convex-credit/tests/recovery_binding.rs": "e1d7215cb03df8208cc5e8834160138597ea4a0033f5c01f5b522115bbd674c1",
+        "crates/convex-ffi/tests/recovery_hedge.rs": "b3e86e0bef8fd98477ff3852c86a1841d9276005f8a989d21420082fcffb433f",
+        "crates/convex/examples/recovery_hedge.rs": "1ed3c428e884814c2c64044a616253e7e26389eca0d949508087ea1d0bb331a7",
+        "crates/convex/tests/recovery_graph.rs": "a733d73eae63628c8c63e47cde41f7735fc93180b2be91828fcdc49fb44ed002",
+        "crates/convex/tests/recovery_hedge.rs": "c7f274288cf2b3419f089946c14e15df57c9a81bf1c3954837df1e8f4a943aed",
+        "tests/fixtures/library/recovery-hedge-admitted.json": "f8cbe959f4287b18f38ecbc6146a4a7b62db2cfaf272c2c50d32279bbfe930cd",
+        "tests/fixtures/library/recovery-hedge-api.json": "24956a0237c7d6cd795321c0451f3b9a8717ea5043ea5e86c4f8420f14adcddf",
+        "tests/fixtures/library/recovery-hedge-boundaries.json": "2d51962e3663c1de367c8caba54e224464477f032f1f0bf98054315197424739",
+        "tests/fixtures/library/recovery-hedge-boundary-reference.json": "a17b7917df1143eb3dfff95ea7060971fb896c6135675aa847b976aaf509c194",
+        "tests/fixtures/library/recovery-hedge-census-01.json": "41289be882ef807b1d0c9abd93f874455041523730c93b1b38aaa5f689a1dd5d",
+        "tests/fixtures/library/recovery-hedge-census-02.json": "4f49ef54ca8f65c7a84e71f101d652434d389e9d3828693e981bbeac3a12d9e1",
+        "tests/fixtures/library/recovery-hedge-census-03.json": "b5c29463cc63f645320e91b0068a423df27da1f3aa873b6d6322040aa8adc5d8",
+        "tests/fixtures/library/recovery-hedge-limits.json": "d66181008ff570fa5547579e064f222311237ed06a20adfa4d717032915786d7",
+        "tests/fixtures/library/recovery-hedge-problems.json": "ad3a2309c3a9df19d75cd898759f09d072f95d42654592e5d5e4778b710613d4",
+        "tests/fixtures/library/recovery-hedge-reference.json": "49afb2b9540197d3d29ae5529d137ccf7ac6935b5e1046239367cd5e7185964f",
+        "tests/fixtures/library/recovery_hedge_contract.rs": "e3c74731cc599eb2d55fc5abce275f019c9a6a000f81b848c70ec44f7f33676a",
+        "tools/assurance/check.py": "fe1639285089bfa78a3dcd415b40c8194ea4b4085c294c4be9313854a0a0891c",
+        "tools/assurance/inventory.json": "7e80c0b299336e398a6bb7a6107d44c9e46215778b9dd892a50f2ff2a3453346",
+        "tools/assurance/numeric-evidence.json": "a140852b4e714fd1aed550d0c791134232d885f877a01d475d8f41f520255185",
+        "tools/library/api-capabilities.json": "a619832bd4230858e81345ab2750d2b01c60c194c1d081136097c4613550dda5",
+        "tools/library/library-inventory.json": "1eb581597c50ab6a185fdd919b46aa4f13fa260dcc975448c94196d27be146ae",
+        "tools/library/test_operations.py": "d708b45212106a7a0357487da4f34a766c28cd1a765aad70044957c9d433daff"
+      }
     }
   ]
 }

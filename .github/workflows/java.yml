@@ -31,6 +31,7 @@ on:
       - 'tests/scripts/icma_risk_parity.py'
       - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/cash_basis_hedge_parity.py'
+      - 'tests/scripts/recovery_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -68,6 +69,7 @@ on:
       - 'tests/scripts/icma_risk_parity.py'
       - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/cash_basis_hedge_parity.py'
+      - 'tests/scripts/recovery_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
@@ -143,6 +145,9 @@ jobs:
       - name: Build issuer cash hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example cash_basis_hedge --features schemars
 
+      - name: Build recovery mixed hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -209,6 +214,9 @@ jobs:
 
       - name: Generate issuer cash hedge Java expectations
         run: python3 tests/scripts/cash_basis_hedge_parity.py --binary target/excel/examples/cash_basis_hedge --output bindings/java/target/cash-basis-hedge-parity.json
+
+      - name: Generate recovery mixed hedge Java expectations
+        run: python3 tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge --output bindings/java/target/recovery-hedge-parity.json
 
       - name: Generate fresh native full workout adapter expectations
         run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json

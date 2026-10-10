@@ -270,11 +270,23 @@ fn price_with_curves(
             contract,
             context,
             curves,
-        } => Valuation::Cds(Box::new(convex_credit::price_cds(
-            contract,
-            context,
-            scenario.unwrap_or(curves),
-        )?)),
+        } => {
+            let value = if let Some(scenario) = scenario {
+                let credit = scenario.get(&contract.terms().survival_curve)?;
+                let convex_curves::contracts::CurveRole::Credit { recovery, .. } =
+                    credit.recipe().role
+                else {
+                    return Err(invalid("CDS scenario", "actual Credit role required"));
+                };
+                let fraction = convex_core::contracts::FiniteF64::new(recovery)
+                    .map_err(|e| invalid("CDS recovery", e.to_string()))?;
+                let scenario_contract = contract.with_recovery_fraction(fraction)?;
+                convex_credit::price_cds(&scenario_contract, context, scenario)?
+            } else {
+                convex_credit::price_cds(contract, context, curves)?
+            };
+            Valuation::Cds(Box::new(value))
+        }
         ValuationInputs::OptionalBond {
             prepared,
             oas_decimal,
@@ -418,7 +430,8 @@ impl ValuationInputs<'_> {
         Ok(risk_reference_pv(pv, self.currency())?)
     }
 }
-/// Same-economics full scenario values; curves change, histories/terms do not.
+/// Full scenario values; curves and their explicit recovery assumption change.
+/// All dated economics, histories, legal identity and cash-state inputs survive.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ValuationScenario {
     /// Original immutable snapshot supplied by the caller.

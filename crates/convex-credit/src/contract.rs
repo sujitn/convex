@@ -175,6 +175,22 @@ impl CdsTerms {
     }
 }
 impl CdsContract {
+    /// Bind an explicit hypothetical recovery assumption to this complete checked
+    /// contract. Recovery changes no schedule or cash-state input; the original
+    /// terms, legal reference pins and actual calendar-derived periods survive.
+    /// The full pricer must still admit the exact scenario credit role and grid.
+    pub fn with_recovery_fraction(
+        &self,
+        fraction: convex_core::contracts::FiniteF64,
+    ) -> Result<Self, CdsError> {
+        if !(0.0..=1.0).contains(&fraction.get()) {
+            return Err(invalid("recovery_fraction", "must be in [0,1]"));
+        }
+        let mut scenario = self.clone();
+        scenario.terms.reference.recovery_fraction = fraction;
+        Ok(scenario)
+    }
+
     /// Original complete immutable supplied economics.
     pub fn terms(&self) -> &CdsTerms {
         &self.terms

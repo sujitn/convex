@@ -102,7 +102,9 @@ postcondition remains unresolved.
 
 The native search separates signed cost regions, enumerates independent active
 constraints up to the free dimension and checks each strictly convex region's
-KKT system with complete pivoting and original-system backward error. Bounded
+KKT system with complete pivoting and original-system backward error. At most
+three residual corrections reuse that same factorization and must satisfy the
+unchanged original backward-error bound; unresolved solves still fail. Bounded
 SVD checks the original scaled design and active-constraint independence; each
 call has an explicit1..1000 iteration bound. A decomposition failure is an
 unresolved numerical outcome, never proof of infeasibility.

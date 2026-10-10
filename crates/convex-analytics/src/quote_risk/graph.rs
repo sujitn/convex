@@ -315,6 +315,56 @@ fn selected(key: &QuoteRiskKey, c: &CurveKey, id: &str) -> bool {
         _ => false,
     }
 }
+// Recovery is an explicit credit-role assumption, separate from survival nodes.
+// Rebuilding supplied dependencies must change that role before any full helper
+// is admitted. These supplied nodes remain held; full recovery cannot identify
+// a fitted survival curve and is rejected by the original CDS recipe owner.
+fn recovered(base: &BuiltCurve, key: &QuoteRiskKey, delta: f64) -> QuoteRiskResult<BuiltCurve> {
+    let mut recipe = base.recipe().clone();
+    let CurveRole::Credit {
+        entity_id,
+        recovery,
+        ..
+    } = &mut recipe.role
+    else {
+        return Err(invalid("recovery", "actual credit role required"));
+    };
+    if !matches!(&key.definition().factor.definition().target,FactorTarget::Entity{entity_id:id} if id.as_str()==entity_id)
+    {
+        return Err(invalid("recovery", "exact legal entity mismatch"));
+    }
+    *recovery += delta;
+    if !(0.0..=1.0).contains(recovery) {
+        return Err(invalid(
+            "recovery",
+            "held-survival recovery must be in[0,1]",
+        ));
+    }
+    let (times, values) = base.interpolation_grid()?;
+    if recipe.representation != CurveRepresentation::SurvivalProbabilities {
+        return Err(invalid(
+            "recovery",
+            "actual survival probability grid required",
+        ));
+    }
+    recipe.source = CurveSource::Nodes(
+        times
+            .iter()
+            .zip(values)
+            .map(|(&t, &value)| CurveNode {
+                pillar: CurvePoint::Tenor(t),
+                quote: MarketQuote {
+                    value,
+                    unit: QuoteUnit::SurvivalProbability,
+                },
+            })
+            .collect(),
+    );
+    recipe.dependencies.clear();
+    recipe.calibration = CalibrationMode::Direct;
+    let curves = build_curve_set(&[recipe.clone()], &CurveSet::new())?.curves;
+    Ok(curves.get(&recipe.key)?.as_ref().clone())
+}
 fn build<P>(
     input: &QuoteRiskGraphInput<'_>,
     order: &[(u8, usize)],
@@ -334,6 +384,14 @@ where
         calibrations: Vec::new(),
     };
     let mut moved = 0;
+    if let Some((key, delta)) = shock {
+        if let RiskCoordinate::Recovery { curve } = &key.definition().coordinate {
+            if let Ok(base) = input.supplied.get(curve) {
+                curves = replace(&curves, recovered(base, key, delta)?)?;
+                moved = 1;
+            }
+        }
+    }
     for &(family, i) in order {
         match family {
             0 => {
@@ -510,7 +568,14 @@ where
                         }) = &mut recipe.basis_model
                         {
                             if survival == curve {
-                                *recovery += delta;
+                                let credit = curves.get(survival)?;
+                                let CurveRole::Credit {
+                                    recovery: actual, ..
+                                } = credit.recipe().role
+                                else {
+                                    return Err(invalid("recovery", "actual credit role required"));
+                                };
+                                *recovery = actual;
                             }
                         }
                     }
@@ -687,54 +752,9 @@ pub fn evaluate_quote_graph(
                 if !matches!(key.definition().coordinate, RiskCoordinate::Recovery { .. }) {
                     return Err(invalid("response", "market quotes require full rebuilding"));
                 }
-                let mut recipe = base.recipe().clone();
-                let CurveRole::Credit {
-                    entity_id,
-                    recovery,
-                    ..
-                } = &mut recipe.role
-                else {
-                    return Err(invalid("recovery", "actual credit role required"));
-                };
-                if !matches!(&key.definition().factor.definition().target,FactorTarget::Entity{entity_id:id} if id.as_str()==entity_id)
-                {
-                    return Err(invalid("recovery", "exact legal entity mismatch"));
-                }
-                *recovery += delta;
-                if !(0.0..=1.0).contains(recovery) {
-                    return Err(invalid(
-                        "recovery",
-                        "held-survival recovery must be in[0,1]",
-                    ));
-                }
-                let (times, values) = base.interpolation_grid()?;
-                if recipe.representation != CurveRepresentation::SurvivalProbabilities {
-                    return Err(invalid(
-                        "recovery",
-                        "actual survival probability grid required",
-                    ));
-                }
-                recipe.source = CurveSource::Nodes(
-                    times
-                        .iter()
-                        .zip(values)
-                        .map(|(&t, &value)| CurveNode {
-                            pillar: CurvePoint::Tenor(t),
-                            quote: MarketQuote {
-                                value,
-                                unit: QuoteUnit::SurvivalProbability,
-                            },
-                        })
-                        .collect(),
-                );
-                recipe.dependencies.clear();
-                recipe.calibration = CalibrationMode::Direct;
-                let c = build_curve_set(&[recipe.clone()], &CurveSet::new())?.curves;
+                let replacement = recovered(base, key, delta)?;
                 return Ok(QuoteGraphScenario {
-                    curves: replace(
-                        &prepared.baseline.curves,
-                        c.get(&recipe.key)?.as_ref().clone(),
-                    )?,
+                    curves: replace(&prepared.baseline.curves, replacement)?,
                     build_order: Vec::new(),
                     repricing: Vec::new(),
                     price_evaluations: 0,

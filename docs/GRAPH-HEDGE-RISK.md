@@ -132,3 +132,6 @@ Credit-survival and issuer-basis cash now have a distinct full original-owner
 `cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
 for the complete security/mapping/factor contract, ICMA and rebuild controls,
 actual mixed-book scope and remaining recovery/host/production qualification.
+
+[CDS recovery binding](CDS-RECOVERY-HEDGE-RISK.md) extends the same scenario and
+product owners to the full five-factor issuer cash/CDS/IRS/futures book.
