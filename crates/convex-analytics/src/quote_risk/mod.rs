@@ -7,12 +7,14 @@ pub(crate) mod finite;
 mod graph;
 mod optional;
 mod optional_graph;
+mod scenario;
 mod types;
 
 pub use finite::*;
 pub use graph::*;
 pub use optional::*;
 pub use optional_graph::*;
+pub use scenario::*;
 pub use types::*;
 
 /// Typed admission, valuation and calibration failures; no accepted zero fallback.

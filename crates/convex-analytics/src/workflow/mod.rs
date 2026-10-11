@@ -13,6 +13,7 @@ mod icma_workout;
 mod inputs;
 mod inverse;
 mod optional_hedge;
+mod scenario;
 mod valuation;
 mod workout;
 
@@ -26,6 +27,7 @@ pub use icma_workout::*;
 pub use inputs::*;
 pub use inverse::*;
 pub use optional_hedge::*;
+pub use scenario::*;
 pub use valuation::*;
 pub use workout::*;
 

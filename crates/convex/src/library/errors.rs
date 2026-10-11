@@ -317,3 +317,14 @@ impl From<risk::QuoteRiskError> for LibraryError {
         }
     }
 }
+
+impl From<workflow::ScenarioError> for LibraryError {
+    fn from(e: workflow::ScenarioError) -> Self {
+        match e {
+            workflow::ScenarioError::Workflow(e) => e.into(),
+            workflow::ScenarioError::Cash(e) => e.into(),
+            workflow::ScenarioError::Risk(e) => e.into(),
+            workflow::ScenarioError::Curve(e) => e.into(),
+        }
+    }
+}

@@ -163,3 +163,11 @@ library/production certificates and multi-server/colocation latency evidence
 remain separate work. The example is bounded batch reference calculation.
 Every earlier numerical artifact/default and every mandatory Planned library
 record remains protected.
+
+
+Mixed-book full revaluation and model P&L attribution compose the original pure
+product and graph owners, retaining every delivery CTD switch and separate cash
+PV/futures quote-level meanings. See [the supplied-input contract](MIXED-BOOK-SCENARIOS.md)
+and run `cargo run --locked -p convex --example mixed_scenario`. Explicit path,
+quantity, FX and work admission, complete independent controls and dedicated
+CI supplement existing checks; CVX-063 remains partial and uncertified.

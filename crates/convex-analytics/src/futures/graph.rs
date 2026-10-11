@@ -293,9 +293,37 @@ fn evaluate(
     key: &q::QuoteRiskKey,
     delta: f64,
 ) -> FuturesResult<BondFuturesGraphEvaluation> {
-    let raw = raw_member(inputs, key).map_err(|e| invalid("raw basket factor", e.to_string()))?;
+    evaluate_many(
+        inputs,
+        discount,
+        originals,
+        graph,
+        &[q::QuoteGraphMove {
+            key: key.clone(),
+            delta,
+        }],
+        delta,
+    )
+}
+fn evaluate_many(
+    inputs: &BondFuturesInputs<'_>,
+    discount: FuturesCurve<'_>,
+    originals: &[(InstrumentPin, ContractPrice)],
+    graph: &q::QuoteGraphScenario,
+    moves: &[q::QuoteGraphMove],
+    delta: f64,
+) -> FuturesResult<BondFuturesGraphEvaluation> {
+    let raw = moves
+        .iter()
+        .map(|m| {
+            Ok((
+                raw_member(inputs, &m.key)
+                    .map_err(|e| invalid("raw basket factor", e.to_string()))?,
+                decimal(m.delta)?,
+            ))
+        })
+        .collect::<FuturesResult<Vec<_>>>()?;
     let changed_discount = graph.curves.get(&discount.curve.recipe().key)?;
-    let bump = decimal(delta)?;
     let mut members = Vec::with_capacity(inputs.deliverables.len());
     let mut financing = Vec::with_capacity(inputs.deliverables.len());
     for d in inputs.deliverables {
@@ -319,12 +347,20 @@ fn evaluate(
         )?;
         // Accrued/cash entitlement never changes under a financial factor move.
         let move_cash = decimal(scenario.clean_price - model.clean_price)?;
-        let is_member = raw.is_some_and(|(pin, _)| pin == d.security.instrument);
-        let basis_move = if is_member && raw.is_some_and(|(_, repo)| !repo) {
-            bump
-        } else {
-            Decimal::ZERO
-        };
+        let mut basis_move = Decimal::ZERO;
+        let mut f = d.financing.clone();
+        for (member, bump) in &raw {
+            if member.is_some_and(|(pin, _)| pin == d.security.instrument) {
+                if member.is_some_and(|(_, repo)| repo) {
+                    f.repo_decimal = ExactDecimal::new(arithmetic(
+                        f.repo_decimal.decimal().checked_add(*bump),
+                        "member repo",
+                    )?);
+                } else {
+                    basis_move = arithmetic(basis_move.checked_add(*bump), "member basis")?;
+                }
+            }
+        }
         let clean = arithmetic(
             d.clean_price_per100
                 .decimal()
@@ -332,13 +368,6 @@ fn evaluate(
                 .and_then(|v| v.checked_add(basis_move)),
             "scenario clean",
         )?;
-        let mut f = d.financing.clone();
-        if is_member && raw.is_some_and(|(_, repo)| repo) {
-            f.repo_decimal = ExactDecimal::new(arithmetic(
-                f.repo_decimal.decimal().checked_add(bump),
-                "member repo",
-            )?);
-        }
         financing.push(f);
         members.push(BondFuturesMemberRevaluation {
             instrument: d.security.instrument.clone(),
@@ -611,5 +640,48 @@ pub fn bond_futures_graph_scenario(
         baseline_amount: q::risk_reference_pv(a, inputs.contract.currency)?,
         scenario_amount: q::risk_reference_pv(b, inputs.contract.currency)?,
         change: q::risk_reference_pv(b - a, inputs.contract.currency)?,
+    })
+}
+
+/// All original member valuations and independently reselected CTD/tie sets.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct BondFuturesBasketValue {
+    /// Full native delivery/carry/invoice alternatives.
+    pub valuation: BondFuturesValuation,
+    /// Full original and scenario cash-model prices and residual basis.
+    pub members: Vec<BondFuturesMemberRevaluation>,
+    /// Separate selection and fair-value winner/tie sets.
+    pub ctd: BondFuturesCtdState,
+}
+/// Reprice all original members for a simultaneous complete graph plus exact
+/// raw member financing/clean-basis moves. Original graph-owner affinity applies.
+/// The enclosing book reserves the full original basket policy before this call.
+pub fn revalue_bond_futures_basket(
+    inputs: &BondFuturesInputs<'_>,
+    discount: FuturesCurve<'_>,
+    baseline: &CurveSet,
+    scenario: &q::QuoteGraphScenario,
+    moves: &[q::QuoteGraphMove],
+) -> FuturesResult<BondFuturesBasketValue> {
+    q::validate_quote_graph_moves(moves).map_err(|e| invalid("basket moves", e.to_string()))?;
+    admit_bond_futures_graph(inputs, discount, baseline)?;
+    let originals = inputs
+        .deliverables
+        .iter()
+        .map(|d| {
+            crate::bond_contract::price_fixed(
+                d.security.bond,
+                inputs.settlement.date(),
+                PaymentDateEntitlement::Exclude,
+                discount.curve,
+            )
+            .map(|v| (d.security.instrument.clone(), v))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let value = evaluate_many(inputs, discount, &originals, scenario, moves, 0.0)?;
+    Ok(BondFuturesBasketValue {
+        valuation: value.valuation,
+        members: value.members,
+        ctd: value.ctd,
     })
 }

@@ -207,7 +207,7 @@ pub fn future_requirements(
 pub fn price(input: &ValuationInputs<'_>) -> WorkflowResult<Valuation> {
     price_with_curves(input, None)
 }
-fn price_with_curves(
+pub(super) fn price_with_curves(
     input: &ValuationInputs<'_>,
     scenario: Option<&CurveSet>,
 ) -> WorkflowResult<Valuation> {
@@ -400,7 +400,7 @@ impl ValuationInputs<'_> {
     pub fn monetary_value(&self) -> WorkflowResult<ModelMoney> {
         self.amount(&price(self)?)
     }
-    fn amount(&self, value: &Valuation) -> WorkflowResult<ModelMoney> {
+    pub(super) fn amount(&self, value: &Valuation) -> WorkflowResult<ModelMoney> {
         let pv = match value {
             Valuation::Bond(v) => return Ok(v.present_value),
             Valuation::Swap(v) => return Ok(v.present_value),

@@ -800,6 +800,42 @@ jobs:
       - name: Check lossless original optional API census
         run: python3 tests/scripts/optional_graph_hedge_census.py
 
+      - name: Mixed-book scenario gate 1
+        run: python3 tests/scripts/mixed_scenario_reference.py
+
+      - name: Mixed-book scenario gate 2
+        run: python3 tests/scripts/mixed_scenario_admission.py
+
+      - name: Mixed-book scenario gate 3
+        run: python3 tests/scripts/mixed_scenario_publications.py
+
+      - name: Mixed-book scenario gate 4
+        run: python3 tests/scripts/mixed_scenario_boundaries.py
+
+      - name: Mixed-book scenario gate 5
+        run: python3 tests/scripts/mixed_scenario_census.py
+
+      - name: Mixed-book scenario gate 6
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test mixed_scenario -- --test-threads=1
+
+      - name: Mixed-book scenario gate 7
+        run: cargo test --locked --all-features -p convex --test mixed_scenario_boundaries -- --test-threads=1
+
+      - name: Mixed-book scenario gate 8
+        run: cargo run --locked -p convex --example mixed_scenario
+
+      - name: Mixed-book scenario gate 9
+        run: cargo run --locked -p convex --example mixed_scenario --no-default-features
+
+      - name: Mixed-book scenario gate 10
+        run: cargo run --locked -p convex --example mixed_scenario --features schemars
+
+      - name: Mixed-book scenario gate 11
+        run: /tmp/convex-library-schema/bin/python tests/scripts/mixed_scenario_schema.py --binary target/debug/examples/mixed_scenario
+
+      - name: Mixed-book scenario gate 12
+        run: python3 tests/scripts/mixed_scenario_parity.py --binary target/debug/examples/mixed_scenario --library target/debug/libconvex_ffi.so
+
       - name: Delivery basket qualification 1
         run: python3 tests/scripts/delivery_hedge_reference.py
 
@@ -1411,6 +1447,9 @@ jobs:
       - name: Build recovery mixed hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
 
+      - name: Build mixed-book scenario Excel consumer
+        run: cargo build --locked --profile excel -p convex --example mixed_scenario --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1490,6 +1529,9 @@ jobs:
 
       - name: Generate recovery mixed hedge Excel expectations
         run: python tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
+
+      - name: Generate mixed-book scenario Excel expectations
+        run: python tests/scripts/mixed_scenario_parity.py --binary target/excel/examples/mixed_scenario.exe --output excel/Convex.Excel.Tests/bin/Release/net472/mixed-scenario-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

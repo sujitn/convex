@@ -69,10 +69,10 @@ pub enum QuoteGraphCalibration {
 /// Privately prepared actual graph. Baseline data and publication decisions cannot
 /// be replaced with fabricated accepted fits.
 pub struct PreparedQuoteRiskGraph<'a> {
-    input: QuoteRiskGraphInput<'a>,
-    order: Vec<(u8, usize)>,
-    baseline: QuoteGraphScenario,
-    publications: BTreeMap<(IndexId, Date), UtcTimestamp>,
+    pub(super) input: QuoteRiskGraphInput<'a>,
+    pub(super) order: Vec<(u8, usize)>,
+    pub(super) baseline: QuoteGraphScenario,
+    pub(super) publications: BTreeMap<(IndexId, Date), UtcTimestamp>,
 }
 impl PreparedQuoteRiskGraph<'_> {
     /// Original full actually built information set.
@@ -369,6 +369,18 @@ fn build<P>(
     input: &QuoteRiskGraphInput<'_>,
     order: &[(u8, usize)],
     shock: Option<(&QuoteRiskKey, f64)>,
+    publication: P,
+) -> QuoteRiskResult<QuoteGraphScenario>
+where
+    P: FnMut(&IndexId, Date) -> Result<UtcTimestamp, CashflowError>,
+{
+    let moves: Vec<_> = shock.into_iter().collect();
+    build_many(input, order, &moves, publication)
+}
+pub(super) fn build_many<P>(
+    input: &QuoteRiskGraphInput<'_>,
+    order: &[(u8, usize)],
+    shock: &[(&QuoteRiskKey, f64)],
     mut publication: P,
 ) -> QuoteRiskResult<QuoteGraphScenario>
 where
@@ -383,12 +395,12 @@ where
         publications: Vec::new(),
         calibrations: Vec::new(),
     };
-    let mut moved = 0;
-    if let Some((key, delta)) = shock {
+    let mut moved = vec![0; shock.len()];
+    for (slot, &(key, delta)) in shock.iter().enumerate() {
         if let RiskCoordinate::Recovery { curve } = &key.definition().coordinate {
             if let Ok(base) = input.supplied.get(curve) {
                 curves = replace(&curves, recovered(base, key, delta)?)?;
-                moved = 1;
+                moved[slot] = 1;
             }
         }
     }
@@ -397,7 +409,7 @@ where
             0 => {
                 let r = &input.rates[i];
                 let mut recipe = r.build.recipe.clone();
-                if let Some((key, delta)) = shock {
+                for (slot, &(key, delta)) in shock.iter().enumerate() {
                     for (h, &version) in recipe.helpers.iter_mut().zip(r.quote_versions) {
                         if selected(key, &recipe.curve.key, &h.id) {
                             let q = change(
@@ -410,7 +422,7 @@ where
                                 delta,
                             )?;
                             *h = h.with_quote(q)?;
-                            moved += 1;
+                            moved[slot] += 1;
                         }
                     }
                 }
@@ -447,7 +459,7 @@ where
             1 => {
                 let r = &input.credit[i];
                 let mut recipe = r.recipe.clone();
-                if let Some((key, delta)) = shock {
+                for (slot, &(key, delta)) in shock.iter().enumerate() {
                     for h in &mut recipe.helpers {
                         if selected(key, &recipe.curve.key, &h.id) {
                             let kind = match h.quote_kind {
@@ -464,7 +476,7 @@ where
                                 kind,
                                 delta,
                             )?;
-                            moved += 1;
+                            moved[slot] += 1;
                         }
                     }
                     if let RiskCoordinate::Recovery { curve } = &key.definition().coordinate {
@@ -493,7 +505,7 @@ where
                             for h in &mut recipe.helpers {
                                 h.terms.reference.recovery_fraction = fraction;
                             }
-                            moved += 1;
+                            moved[slot] += 1;
                         }
                     }
                 }
@@ -524,7 +536,7 @@ where
             2 => {
                 let r = &input.cash[i];
                 let mut recipe = r.recipe.clone();
-                if let Some((key, delta)) = shock {
+                for (slot, &(key, delta)) in shock.iter().enumerate() {
                     for h in &mut recipe.helpers {
                         if selected(key, &recipe.curve.key, h.id()) {
                             if let CashCalibrationHelper::Bond { input: h } = h {
@@ -559,7 +571,7 @@ where
                                 }
                                 CashCalibrationHelper::Repo { input: h } => h.quote = q,
                             };
-                            moved += 1;
+                            moved[slot] += 1;
                         }
                     }
                     if let RiskCoordinate::Recovery { curve } = &key.definition().coordinate {
@@ -607,12 +619,12 @@ where
             _ => return Err(invalid("graph", "invalid private family")),
         }
     }
-    if let Some((key, _)) = shock {
+    for (slot, &(key, _)) in shock.iter().enumerate() {
         let expected = match &key.definition().coordinate {
             RiskCoordinate::ParallelQuotes { quotes, .. } => quotes.len(),
             _ => 1,
         };
-        if moved != expected {
+        if moved[slot] != expected {
             return Err(invalid(
                 "coordinate",
                 "missing or duplicate complete original helper/recovery mapping",
@@ -622,7 +634,7 @@ where
     out.curves = curves;
     Ok(out)
 }
-fn replace(curves: &CurveSet, replacement: BuiltCurve) -> QuoteRiskResult<CurveSet> {
+pub(super) fn replace(curves: &CurveSet, replacement: BuiltCurve) -> QuoteRiskResult<CurveSet> {
     let key = replacement.recipe().key.clone();
     let mut remaining = curves.keys().cloned().collect::<Vec<_>>();
     let mut next = CurveSet::new();
@@ -650,7 +662,11 @@ fn replace(curves: &CurveSet, replacement: BuiltCurve) -> QuoteRiskResult<CurveS
     }
     Ok(next)
 }
-fn shifted(base: &BuiltCurve, key: &QuoteRiskKey, delta: f64) -> QuoteRiskResult<BuiltCurve> {
+pub(super) fn shifted(
+    base: &BuiltCurve,
+    key: &QuoteRiskKey,
+    delta: f64,
+) -> QuoteRiskResult<BuiltCurve> {
     let (times, values) = base.interpolation_grid()?;
     let mut recipe = base.recipe().clone();
     let node = match &key.definition().coordinate {

@@ -138,6 +138,102 @@ impl PreparedOptionalBond {
         }
         scenario.price(oas)
     }
+    /// Bind actual materialized original discount/forecast inputs, not recipes
+    /// alone. Fitted curves with identical recipes may resolve different nodes.
+    pub fn admit_scenario_baseline(
+        &self,
+        curves: &convex_curves::contracts::CurveSet,
+    ) -> Result<(), OptionalBondError> {
+        let discount = curves.get(&self.discount_curve)?;
+        if discount.recipe() != &self.discount_recipe {
+            return Err(invalid(
+                "optional baseline",
+                "entire original discount recipe differs",
+            ));
+        }
+        let root_df = df(discount, self.context.settlement)?;
+        for grid in &self.grids {
+            for (i, (&t, &base)) in grid
+                .tree
+                .times()
+                .iter()
+                .zip(&grid.base_discounts)
+                .enumerate()
+            {
+                let actual = if i == 0 {
+                    1.0
+                } else {
+                    grid_discount(discount, self.context.settlement, t, root_df)?
+                };
+                if actual != base {
+                    return Err(invalid(
+                        "optional baseline",
+                        "actual original materialized discount values differ",
+                    ));
+                }
+            }
+        }
+        if let Some(key) = &self.projection_curve {
+            let projection = curves.get(key)?;
+            if self.projection_recipe.as_ref() != Some(projection.recipe()) {
+                return Err(invalid(
+                    "optional baseline",
+                    "entire original projection recipe differs",
+                ));
+            }
+            for coupon in &self.floating {
+                let actual = (df(projection, coupon.end)? / df(projection, coupon.start)?)
+                    / (df(discount, coupon.end)? / df(discount, coupon.start)?);
+                if actual != coupon.basis_ratio {
+                    return Err(invalid(
+                        "optional baseline",
+                        "actual original materialized forecast basis differs",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+    /// Complete simultaneous parallel-rate/OAS/parameter scenario on the same
+    /// admitted dates, cash, known fixings, original grids and price tolerance.
+    /// This is nonlinear price revaluation, not a derivative certificate.
+    pub fn price_combined_scenario(
+        &self,
+        oas: f64,
+        shift: CurveShift,
+        mean_reversion_delta: f64,
+        volatility_delta: f64,
+    ) -> Result<OptionalBondPrice, OptionalBondError> {
+        if mean_reversion_delta == 0.0 && volatility_delta == 0.0 {
+            return self.price_scenario(oas, shift);
+        }
+        let mut scenario = self.clone();
+        scenario.model = self
+            .model
+            .parameter_scenario(ModelParameter::MeanReversion, mean_reversion_delta)?
+            .parameter_scenario(ModelParameter::Volatility, volatility_delta)?;
+        for grid in &mut scenario.grids {
+            grid.tree = Hw1fTree::build(
+                scenario.model.parameters(),
+                grid.tree.times(),
+                &grid.base_discounts,
+            )?;
+            let factor = 1 + scenario.exercises.len() + 3 * scenario.floating.len();
+            if grid
+                .tree
+                .diagnostics()
+                .nodes
+                .checked_mul(factor)
+                .is_none_or(|work| work > MAX_PRICE_WORK)
+            {
+                return Err(invalid(
+                    "optional rollback work",
+                    "original32 million node-visit budget exceeded",
+                ));
+            }
+        }
+        scenario.price_scenario(oas, shift)
+    }
     /// Parameter risk checks price convergence and BOTH final successive first/
     /// second derivative refinements. The rate-cell floor has different units
     /// and is not mislabelled as a model-parameter resolution certificate.

@@ -587,3 +587,11 @@ Credit-survival and issuer-basis cash now have a distinct full original-owner
 `cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
 for the complete security/mapping/factor contract, ICMA and rebuild controls,
 actual mixed-book scope and remaining recovery/host/production qualification.
+
+
+Mixed-book full revaluation and model P&L attribution compose the original pure
+product and graph owners, retaining every delivery CTD switch and separate cash
+PV/futures quote-level meanings. See [the supplied-input contract](MIXED-BOOK-SCENARIOS.md)
+and run `cargo run --locked -p convex --example mixed_scenario`. Explicit path,
+quantity, FX and work admission, complete independent controls and dedicated
+CI supplement existing checks; CVX-063 remains partial and uncertified.

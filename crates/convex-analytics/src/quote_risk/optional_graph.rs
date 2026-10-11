@@ -78,9 +78,17 @@ pub fn admit_optional_graph(
     prepared: &o::PreparedOptionalBond,
     graph: &PreparedQuoteRiskGraph<'_>,
 ) -> QuoteRiskResult<()> {
+    admit_optional_curve_set(prepared, &graph.baseline().curves)
+}
+/// Same original optional graph representation/domain admission for a supplied
+/// immutable scenario baseline; no derivative or model recalibration is inferred.
+pub fn admit_optional_curve_set(
+    prepared: &o::PreparedOptionalBond,
+    curves: &convex_curves::contracts::CurveSet,
+) -> QuoteRiskResult<()> {
     let (discount, projection) = prepared.curve_recipes();
     for recipe in std::iter::once(discount).chain(projection) {
-        let actual = graph.baseline().curves.get(&recipe.key)?;
+        let actual = curves.get(&recipe.key)?;
         if actual.recipe() != recipe {
             return Err(invalid(
                 "optional graph baseline",

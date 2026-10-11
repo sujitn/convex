@@ -30051,7 +30051,19 @@
     "tests/fixtures/library/delivery-hedge-api-01.json",
     "tests/fixtures/library/delivery-hedge-api-02.json",
     "tests/fixtures/library/delivery-hedge-api-03.json",
-    "tests/fixtures/library/delivery-hedge-api-04.json"
+    "tests/fixtures/library/delivery-hedge-api-04.json",
+    "tests/fixtures/library/mixed-scenario-api-01.json",
+    "tests/fixtures/library/mixed-scenario-api-02.json",
+    "tests/fixtures/library/mixed-scenario-api-03.json",
+    "tests/fixtures/library/mixed-scenario-api-04.json",
+    "tests/fixtures/library/mixed-scenario-api-05.json",
+    "tests/fixtures/library/mixed-scenario-api-06.json",
+    "tests/fixtures/library/mixed-scenario-api-07.json",
+    "tests/fixtures/library/mixed-scenario-api-08.json",
+    "tests/fixtures/library/mixed-scenario-api-09.json",
+    "tests/fixtures/library/mixed-scenario-api-10.json",
+    "tests/fixtures/library/mixed-scenario-api-11.json",
+    "tests/fixtures/library/mixed-scenario-api-12.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33586,6 +33598,52 @@
       ],
       "negative_examples": [
         "optional_graph.qualification.invalid.model_risk_refinement"
+      ]
+    },
+    "calibration.book_scenario": {
+      "certified": false,
+      "qualification": "Complete full original nonlinear mixed-book graph scenario revaluation and ordered model P&L; preserve CTD selection/fair ties and switches, signed current/pending quantities, explicit same-snapshot FX, all financial owners and historical evidence. No cash posting, lifecycle or order authority. CVX-063 partial/unaccepted/uncertified. Complete same-information-set nonlinear marking, ordered prefixes, standalone effects, interactions and actual residuals. Full native cash/ICMA/CDS/IRS/OIS/rate/optional/delivery owners, current/pending/FX and independently reselected CTD ties/switches remain. Cash PV and futures quote levels stay separate. Exact caller snapshot declaration does not authenticate data or grant ledger/order authority.1..128 positions/1..16 moves and explicit33graph/4224product ceilings. Original numerical policies remain. Actual unavailable managed/browser hosts and independent certificates remain open.",
+      "required_record_ids": [
+        "LC-024/scenario_transform/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/rust",
+        "LC-024/scenario_transform/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/shared_json",
+        "LC-024/scenario_transform/SUPPLIED/risk/apply_separate_node_and_scenario_transforms/c_abi"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "selectors": {
+        "operation.kind": "calibration",
+        "operation.action.kind": "book_scenario"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/scenario.rs",
+          "text": "pub fn prepare_book_scenarios("
+        },
+        {
+          "path": "crates/convex/src/library/scenarios.rs",
+          "text": "pub(super) fn book_scenario("
+        }
+      ],
+      "positive_examples": [
+        "mixed.full.opposing",
+        "mixed.full.foreign_fx",
+        "mixed.delivery.multiple_quote_rebuild",
+        "mixed.icma.full_context"
+      ],
+      "boundary_examples": [
+        "mixed.full.reverse_path",
+        "mixed.full.projected_flat",
+        "mixed.delivery.exact_tie",
+        "mixed.delivery.zero_move"
+      ],
+      "negative_examples": [
+        "mixed.invalid.graph_budget",
+        "mixed.invalid.optional_shaped",
+        "mixed.boundary.raw_observation_alias",
+        "mixed.boundary.unconsumed_raw"
       ]
     }
   }

@@ -624,3 +624,11 @@ including exact ties and CTD switches, are documented in
 `cargo run --locked -p convex --example delivery_hedge`. This dedicated full
 basket route retains the original fixed-date model and its unvalued delivery
 options; it does not certify hosts, latency or server order authority.
+
+
+Mixed-book full revaluation and model P&L attribution compose the original pure
+product and graph owners, retaining every delivery CTD switch and separate cash
+PV/futures quote-level meanings. See [the supplied-input contract](MIXED-BOOK-SCENARIOS.md)
+and run `cargo run --locked -p convex --example mixed_scenario`. Explicit path,
+quantity, FX and work admission, complete independent controls and dedicated
+CI supplement existing checks; CVX-063 remains partial and uncertified.

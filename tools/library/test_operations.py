@@ -20,9 +20,9 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        # Preserve all preceding routes/requests and add complete basket controls.
-        self.assertEqual(result['exact_operation_routes'], 72 + 2)
-        self.assertEqual(result['engineering_examples'], 4278 + 55 + 64)
+        # Preserve all preceding routes/requests and add complete mixed-book scenarios.
+        self.assertEqual(result['exact_operation_routes'], 74 + 1)
+        self.assertEqual(result['engineering_examples'], 4397 + 48)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

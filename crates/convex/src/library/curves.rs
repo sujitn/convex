@@ -232,6 +232,11 @@ pub enum CalibrationOperation {
         /// Actual immutable snapshot identity.
         snapshot_id: SnapshotId,
     },
+    /// Complete full nonlinear mixed-book model marking with ordered attribution.
+    BookScenario {
+        /// Exact expected positions, complete products, moves, FX and work.
+        input: Box<super::scenarios::MixedBookScenarioInput>,
+    },
     /// Reprice each supplied bucket and the simultaneous move using the same
     /// original native product/graph, then enforce exact native membership.
     ReconcileBuckets {
@@ -619,6 +624,9 @@ pub(super) fn calibration(
                 resources,
             )?;
             Ok(serde_json::json!({"valuation":result,"graph":graph_value(&shocked)?}))
+        }
+        CalibrationOperation::BookScenario { input } => {
+            super::scenarios::book_scenario(graph, input, resources)
         }
         CalibrationOperation::ReconcileBuckets { input } => {
             super::risk::graph_buckets(input, graph, resources)

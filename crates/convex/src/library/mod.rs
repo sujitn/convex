@@ -20,6 +20,7 @@ mod products;
 mod replay;
 mod requests;
 mod risk;
+mod scenarios;
 mod workout;
 mod zero;
 
@@ -39,6 +40,7 @@ pub use products::*;
 pub use replay::*;
 pub use requests::*;
 pub use risk::*;
+pub use scenarios::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use workout::*;
