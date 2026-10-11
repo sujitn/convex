@@ -146,7 +146,9 @@ impl QuoteSensitivity {
 pub(super) fn validate_settings(key: &QuoteRiskKey, s: &QuoteRiskSettings) -> QuoteRiskResult<()> {
     s.stability.validate()?;
     let maximum = match key.definition().unit {
-        QuoteRiskUnit::CurrencyPerBp | QuoteRiskUnit::CurrencyPerAnnualRate => 0.1,
+        QuoteRiskUnit::CurrencyPerBp
+        | QuoteRiskUnit::CurrencyPerAnnualRate
+        | QuoteRiskUnit::CurrencyPerModelParameter => 0.1,
         QuoteRiskUnit::CurrencyPerFraction => 0.5,
         QuoteRiskUnit::CurrencyPerPricePoint => 100.0,
     };
@@ -178,9 +180,19 @@ where
     {
         return Err(invalid("optional risk","use optional_oas_quote_sensitivity with the native model resolution/refinement controls"));
     }
+    if matches!(
+        key.definition().factor.definition().quote_type,
+        convex_core::contracts::QuoteType::Hw1fMeanReversion
+            | convex_core::contracts::QuoteType::Hw1fVolatility
+    ) {
+        return Err(invalid(
+            "optional model risk",
+            "native parameter price and derivative refinement controls required",
+        ));
+    }
     reference(key, position, snapshot_id, settings, reprice)
 }
-pub(super) fn reference<F>(
+pub(crate) fn reference<F>(
     key: QuoteRiskKey,
     position: RiskPosition,
     snapshot_id: SnapshotId,

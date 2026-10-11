@@ -67,14 +67,7 @@ pub struct GraphHedgeRisk {
     pub vector: h::HedgeRiskVector,
 }
 
-/// Calculate every full graph factor with the SAME original product owner.
-/// Swaps bind one full trade copy to its original fixed-leg reference notional;
-/// no coupon/profile/side or reference price is rescaled or reconstructed.
-pub fn curve_hedge_risk(
-    product: &ValuationInputs<'_>,
-    graph: &q::PreparedQuoteRiskGraph<'_>,
-    input: &GraphHedgeRiskInput,
-) -> WorkflowResult<GraphHedgeRisk> {
+pub(super) fn validate_graph_hedge_input(input: &GraphHedgeRiskInput) -> WorkflowResult<()> {
     if input.factors.is_empty() || input.factors.len() > 16 {
         return Err(invalid(
             "factors",
@@ -105,6 +98,20 @@ pub fn curve_hedge_risk(
             "positive original reference quantity required",
         ));
     }
+    Ok(())
+}
+
+/// Calculate every full graph factor with the SAME original product owner.
+/// Swaps bind one full trade copy to its original fixed-leg reference notional;
+/// no coupon/profile/side or reference price is rescaled or reconstructed.
+pub fn curve_hedge_risk(
+    product: &ValuationInputs<'_>,
+    graph: &q::PreparedQuoteRiskGraph<'_>,
+    input: &GraphHedgeRiskInput,
+) -> WorkflowResult<GraphHedgeRisk> {
+    validate_graph_hedge_input(input)?;
+    let reserved = 5 * input.factors.len();
+    let position = &input.reference_position;
     let identity = &input.identity;
     let mut native_position = position.clone();
     let (family, settlement, instrument, credit_scope) = match product {

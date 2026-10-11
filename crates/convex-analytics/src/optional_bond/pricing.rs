@@ -19,6 +19,9 @@ use convex_core::{
 };
 use serde::{Deserialize, Serialize};
 
+mod model_risk;
+pub use model_risk::*;
+
 const MAX_EXERCISES: usize = 128;
 const MAX_PRICE_WORK: usize = 32_000_000;
 
@@ -242,10 +245,13 @@ pub struct PreparedOptionalBond {
     currency: convex_core::Currency,
     context: OptionalBondContext,
     face: f64,
+    face_value: Decimal,
     accrued: f64,
     model: OptionalBondModel,
     discount_curve: CurveKey,
     projection_curve: Option<CurveKey>,
+    discount_recipe: convex_curves::contracts::CurveRecipe,
+    projection_recipe: Option<convex_curves::contracts::CurveRecipe>,
     settings: OptionalBondSettings,
     exercises: Vec<PreparedExercise>,
     floating: Vec<FloatingCoupon>,
@@ -404,7 +410,7 @@ pub fn prepare_fixed(
     let exercises = fixed_exercises(bond, context, inputs.exercise_calendar)?;
     assemble(
         context,
-        number(bond.terms().face_value)?,
+        bond.terms().face_value,
         number(projection.accrued)?,
         inputs,
         settings,
@@ -651,7 +657,7 @@ where
     }
     assemble(
         context,
-        number(bond.terms().face_value)?,
+        bond.terms().face_value,
         number(projection.accrued)?,
         inputs,
         settings,
@@ -698,7 +704,7 @@ fn grid_discount(
 #[allow(clippy::too_many_arguments)] // One internal assembly of validated components.
 fn assemble(
     context: OptionalBondContext,
-    face: f64,
+    face_value: Decimal,
     accrued: f64,
     inputs: OptionalBondInputs<'_>,
     settings: OptionalBondSettings,
@@ -708,6 +714,7 @@ fn assemble(
     fixings: Vec<ResolvedRate>,
     future_reset_requirements: Vec<FixingRequirement>,
 ) -> Result<PreparedOptionalBond, OptionalBondError> {
+    let face = number(face_value)?;
     if cash.len() > MAX_TREE_STEPS || floating.len() > 512 || face <= 0.0 {
         return Err(invalid(
             "optional cash dimensions",
@@ -794,10 +801,13 @@ fn assemble(
         currency: inputs.discount.recipe().currency,
         context,
         face,
+        face_value,
         accrued,
         model: inputs.model.clone(),
         discount_curve: inputs.discount.recipe().key.clone(),
         projection_curve: inputs.projection.map(|p| p.recipe().key.clone()),
+        discount_recipe: inputs.discount.recipe().clone(),
+        projection_recipe: inputs.projection.map(|p| p.recipe().clone()),
         settings,
         exercises,
         floating,
@@ -808,6 +818,36 @@ fn assemble(
 }
 
 impl PreparedOptionalBond {
+    /// Exact original face, retained without an f64 or per100 reconstruction.
+    pub fn face_value(&self) -> Decimal {
+        self.face_value
+    }
+    /// Original model root and price settlement.
+    pub fn settlement(&self) -> Date {
+        self.context.settlement
+    }
+    /// Last actual tree query relative to the original settlement, in ACT/365F.
+    /// All remaining cash, exercises and future reset endpoints are inserted.
+    pub fn curve_query_horizon(&self) -> Result<f64, OptionalBondError> {
+        self.grids
+            .last()
+            .and_then(|g| g.tree.times().last())
+            .copied()
+            .ok_or_else(|| invalid("curve query horizon", "empty original tree"))
+    }
+    /// Complete actual input recipes; graph composition must use these exact inputs.
+    pub fn curve_recipes(
+        &self,
+    ) -> (
+        &convex_curves::contracts::CurveRecipe,
+        Option<&convex_curves::contracts::CurveRecipe>,
+    ) {
+        (&self.discount_recipe, self.projection_recipe.as_ref())
+    }
+    /// Original assumed or calibrated model; this does not expose mutable state.
+    pub fn model(&self) -> &OptionalBondModel {
+        &self.model
+    }
     /// Contract currency, retained from the checked original discount mapping.
     pub fn currency(&self) -> convex_core::Currency {
         self.currency
@@ -1076,23 +1116,7 @@ impl PreparedOptionalBond {
         bump: f64,
         settings: RiskSettings,
     ) -> Result<OptionalBondRisk, OptionalBondError> {
-        if !bump.is_finite() || bump <= 0.0 || bump > 0.10 {
-            return Err(invalid("risk bump", "requires decimal bump in (0,0.10]"));
-        }
-        settings.validate()?;
-        let finest = self
-            .grids
-            .last()
-            .ok_or_else(|| invalid("risk grid", "empty"))?;
-        let mut minimum_bump: f64 = 0.0;
-        for (decision, _) in &finest.exercise {
-            if *decision > 0 {
-                minimum_bump = minimum_bump.max(2.0 * finest.tree.state_spacing(*decision)?);
-            }
-        }
-        if bump < minimum_bump {
-            return Err(OptionalBondError::RiskResolution { bump, minimum_bump });
-        }
+        let minimum_bump = self.risk_resolution(bump, settings)?;
         let base = self.price(oas)?;
         let shifted = |sign: f64| match axis {
             RiskAxis::Discount => self.price_scenario(
@@ -1271,7 +1295,8 @@ pub struct RiskSettings {
     pub relative_convexity_tolerance: f64,
 }
 impl RiskSettings {
-    fn validate(self) -> Result<(), OptionalBondError> {
+    /// Check explicit finite separate sensitivity refinement bounds.
+    pub fn validate(self) -> Result<(), OptionalBondError> {
         if [
             self.absolute_duration_tolerance,
             self.absolute_convexity_tolerance,

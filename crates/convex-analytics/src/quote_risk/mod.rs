@@ -3,14 +3,16 @@
 //! policies are explicit. No clock, provider, runtime, publication or ledger.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-mod finite;
+pub(crate) mod finite;
 mod graph;
 mod optional;
+mod optional_graph;
 mod types;
 
 pub use finite::*;
 pub use graph::*;
 pub use optional::*;
+pub use optional_graph::*;
 pub use types::*;
 
 /// Typed admission, valuation and calibration failures; no accepted zero fallback.

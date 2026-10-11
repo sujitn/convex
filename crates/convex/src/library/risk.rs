@@ -103,6 +103,17 @@ pub(super) fn bond_quote_risk(
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RiskProductInput {
+    /// Original full optional terms, model, state and separate native risk policies.
+    OptionalBond {
+        /// Complete original checked preparation; forecasts remain stochastic.
+        input: Box<OptionalInput>,
+        /// Original exact security revision, including OAS scope.
+        instrument: convex_credit::ReferencePin,
+        /// Frozen original fractional OAS.
+        oas_decimal: f64,
+        /// Explicit rate/model derivative admission; no price-only substitution.
+        policies: q::OptionalRiskPolicies,
+    },
     /// Fixed/stepped/amortizing or floating complete native cash price.
     Bond {
         /// Full original contract and calendar revisions.
@@ -140,6 +151,15 @@ pub(super) fn with_product<T>(
     f: impl FnOnce(&w::ValuationInputs<'_>) -> LibraryResult<T>,
 ) -> LibraryResult<T> {
     match product {
+        RiskProductInput::OptionalBond {
+            input, oas_decimal, ..
+        } => {
+            let prepared = super::products::prepare_optional(input, r)?;
+            f(&w::ValuationInputs::OptionalBond {
+                prepared: &prepared,
+                oas_decimal: *oas_decimal,
+            })
+        }
         RiskProductInput::Bond {
             bond,
             context,
@@ -244,6 +264,26 @@ pub(super) fn graph_risk(
     r: &ResolvedInputs<'_>,
 ) -> LibraryResult<Value> {
     let original = r.with_curves(graph.baseline().curves.clone());
+    if let RiskProductInput::OptionalBond {
+        input,
+        instrument,
+        oas_decimal,
+        policies,
+    } = product
+    {
+        let prepared = super::products::prepare_optional(input, &original)?;
+        q::admit_optional_graph(&prepared, graph)?;
+        w::validate_optional_oas_key(&key, instrument)?;
+        return value(q::optional_factor_sensitivity(
+            &prepared,
+            key,
+            position,
+            snapshot_id,
+            settings,
+            *oas_decimal,
+            *policies,
+        )?);
+    }
     with_product(product, &original, |p| {
         value(w::curve_quote_risk(
             p,

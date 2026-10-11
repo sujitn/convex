@@ -25,6 +25,8 @@ pub enum FactorFamily {
     FuturesPrice,
     /// Cash security clean/dirty price quotation.
     CashPrice,
+    /// Explicit pricing-model parameter, distinct from market volatility quotes.
+    Model,
 }
 
 /// Provider-neutral identity of the object being bumped.
@@ -51,6 +53,24 @@ pub enum FactorTarget {
     Instrument {
         /// Internal instrument identity.
         instrument_id: InstrumentId,
+    },
+    /// Supplied model identity; its immutable revision belongs to the coordinate.
+    Model {
+        /// Original model identity.
+        model_id: ModelId,
+        /// Exact supplied string revision, including nonnumeric curve/model keys.
+        model_version: String,
+    },
+    /// Two exact inputs moved together by one explicitly coupled model factor.
+    CurvePair {
+        /// Original currency discount identity.
+        discount_curve_id: CurveId,
+        /// Original exact discount revision.
+        discount_curve_version: String,
+        /// Original index projection identity.
+        projection_curve_id: CurveId,
+        /// Original exact projection revision.
+        projection_curve_version: String,
     },
 }
 
@@ -103,6 +123,12 @@ pub enum QuoteType {
     CashCleanPrice,
     /// Dirty price per100 of original face.
     CashDirtyPrice,
+    /// Constant HW1F mean reversion per year.
+    Hw1fMeanReversion,
+    /// Constant HW1F short-rate diffusion per square-root year.
+    Hw1fVolatility,
+    /// Explicit parallel discount-and-projection move, distinct from either axis.
+    JointZeroRate,
 }
 
 /// Definition of the bump/rebuild operation.
@@ -216,6 +242,7 @@ impl RiskFactorKey {
                     | QuoteType::RepoRate
                     | QuoteType::BankDiscountYield
                     | QuoteType::RateFutureRate
+                    | QuoteType::JointZeroRate
             ),
             FactorFamily::CreditSpread => matches!(
                 value.quote_type,
@@ -233,12 +260,17 @@ impl RiskFactorKey {
                 value.quote_type,
                 QuoteType::CashCleanPrice | QuoteType::CashDirtyPrice
             ),
+            FactorFamily::Model => matches!(
+                value.quote_type,
+                QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility
+            ),
         };
         let basis_valid = match value.quote_type {
-            QuoteType::ZeroRate => value.basis == RiskBasis::ZeroNode,
-            QuoteType::HazardRate | QuoteType::RecoveryRate => {
-                value.basis == RiskBasis::ModelParameter
-            }
+            QuoteType::ZeroRate | QuoteType::JointZeroRate => value.basis == RiskBasis::ZeroNode,
+            QuoteType::HazardRate
+            | QuoteType::RecoveryRate
+            | QuoteType::Hw1fMeanReversion
+            | QuoteType::Hw1fVolatility => value.basis == RiskBasis::ModelParameter,
             QuoteType::FuturesPrice | QuoteType::OasSpread => value.basis == RiskBasis::RawQuote,
             QuoteType::ResidualBasis => value.basis == RiskBasis::ZeroNode,
             _ => matches!(
@@ -257,7 +289,29 @@ impl RiskFactorKey {
                 value.target,
                 FactorTarget::Curve { .. } | FactorTarget::Instrument { .. }
             ),
+            FactorFamily::Model => matches!(value.target, FactorTarget::Model { .. }),
         };
+        let label = |s: &str| {
+            !s.is_empty() && s.len() <= 128 && s.trim() == s && !s.chars().any(char::is_control)
+        };
+        let target_valid = target_valid
+            && match &value.target {
+                FactorTarget::Model { model_version, .. } => {
+                    value.family == FactorFamily::Model && label(model_version)
+                }
+                FactorTarget::CurvePair {
+                    discount_curve_id,
+                    discount_curve_version,
+                    projection_curve_id,
+                    projection_curve_version,
+                } => {
+                    value.quote_type == QuoteType::JointZeroRate
+                        && discount_curve_id != projection_curve_id
+                        && label(discount_curve_version)
+                        && label(projection_curve_version)
+                }
+                _ => value.quote_type != QuoteType::JointZeroRate,
+            };
         if !valid || !basis_valid || !target_valid {
             return Err(ContractError::new(
                 "factor",

@@ -187,7 +187,7 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
         let credit = matches!(
             family,
             FactorFamily::CreditSpread | FactorFamily::Hazard | FactorFamily::Recovery
-        );
+        ) && f.key.definition().factor.definition().quote_type != QuoteType::OasSpread;
         if f.scale <= 0.0 || f.weight <= 0.0 || f.lower > f.upper || credit != f.credit.is_some() {
             return Err(invalid("factor", "positive scaling/weight, closed bounds and explicit original credit scope required"));
         }

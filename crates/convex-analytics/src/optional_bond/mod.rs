@@ -73,6 +73,12 @@ pub enum OptionalBondError {
         /// Actual sensitivities at all resolutions; no successful risk result.
         diagnostics: Vec<GridRisk>,
     },
+    /// Model parameter first/second derivatives failed separate grid refinement.
+    #[error("optional model-parameter risk grid refinement failed")]
+    ModelRiskConvergence {
+        /// Actual derivatives; no accepted parameter-risk result.
+        diagnostics: Vec<GridModelRisk>,
+    },
     /// Supplied OAS bracket has no crossing or is a price plateau.
     #[error("OAS bracket cannot identify a crossing: low residual {low_residual}, high residual {high_residual}")]
     OasBracket {

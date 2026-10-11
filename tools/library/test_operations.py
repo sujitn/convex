@@ -20,12 +20,21 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        # Preserve all preceding routes/requests and add full recovery scenario controls.
-        self.assertEqual(result['exact_operation_routes'], 71 + 1)
-        self.assertEqual(result['engineering_examples'], 4237 + 41)
+        # Preserve preceding scope and add exact optional parameter operations/controls.
+        self.assertEqual(result['exact_operation_routes'], 72 + 2)
+        self.assertEqual(result['engineering_examples'], 4278 + 55)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])
+
+    def test_optional_parameter_routes_retain_exact_native_actions_and_failures(self):
+        for action, other in [('model_scenario', 'optional_graph.direct.volatility.risk.h'),
+                              ('model_risk', 'optional_graph.direct.volatility.scenario.1')]:
+            route = 'optional_bond.' + action
+            self.rejects(lambda m: m['operation_routes'][route].update(positive_examples=[other]))
+            self.rejects(lambda m: m['operation_routes'][route].update(certified=True))
+        self.rejects(lambda m: m['operation_routes']['optional_bond.model_risk'].update(
+            negative_examples=['optional_graph.direct.volatility.risk.h']))
 
     def test_missing_or_unsafe_supplemental_corpus_rejected(self):
         for value in ([], ['tests/fixtures/library/operations.json'] * 2,

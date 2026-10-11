@@ -118,6 +118,26 @@ pub struct OptionalInput {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum OptionalOperation {
+    /// Full hypothetical constant-parameter scenario using the original exact trees.
+    ModelScenario {
+        /// Original fractional OAS; both input curves stay fixed.
+        oas_decimal: f64,
+        /// Exact native constant HW1F parameter.
+        parameter: o::ModelParameter,
+        /// Signed move in the parameter's native unit.
+        delta: f64,
+    },
+    /// Native first/second parameter derivatives with separate grid refinement.
+    ModelRisk {
+        /// Original fractional OAS.
+        oas_decimal: f64,
+        /// Exact native constant HW1F parameter.
+        parameter: o::ModelParameter,
+        /// Actual native-unit positive central move.
+        bump: f64,
+        /// Explicit separate first/second derivative refinement bounds.
+        settings: o::ModelRiskSettings,
+    },
     /// Full model price and original refinement/exercise/fixing diagnostics.
     Price {
         /// Original annualized decimal OAS.
@@ -700,6 +720,17 @@ pub(super) fn execute(
         LibraryOperation::OptionalBond { input, action } => {
             let prepared = prepare_optional(input, r)?;
             match action {
+                OptionalOperation::ModelScenario {
+                    oas_decimal,
+                    parameter,
+                    delta,
+                } => value(prepared.price_model_scenario(*oas_decimal, *parameter, *delta)?),
+                OptionalOperation::ModelRisk {
+                    oas_decimal,
+                    parameter,
+                    bump,
+                    settings,
+                } => value(prepared.model_risk(*oas_decimal, *parameter, *bump, *settings)?),
                 OptionalOperation::Price { oas_decimal } => value(prepared.price(*oas_decimal)?),
                 OptionalOperation::Scenario { oas_decimal, shift } => {
                     value(prepared.price_scenario(*oas_decimal, *shift)?)

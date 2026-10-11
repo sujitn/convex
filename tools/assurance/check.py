@@ -162,6 +162,23 @@ REQUIRED_RUNS = {
         'python3 tests/scripts/cash_basis_hedge_book_reference.py',
         'python3 tests/scripts/cash_basis_hedge_census.py',
         'python3 tests/scripts/recovery_hedge_reference.py',
+        'python3 tests/scripts/optional_graph_hedge_reference.py',
+        'python3 tests/scripts/optional_graph_hedge_admission.py',
+        'python3 tests/scripts/optional_graph_hedge_book_binding.py',
+        'python3 tests/scripts/optional_graph_hedge_book_policy.py',
+        'python3 tests/scripts/optional_graph_hedge_boundaries.py',
+        'python3 tests/scripts/optional_graph_hedge_qualification.py',
+        'python3 tests/scripts/optional_graph_hedge_resolution.py',
+        'python3 tests/scripts/optional_graph_hedge_census.py',
+        'python3 tests/scripts/optional_graph_hedge_calibrated.py',
+        'python3 tests/scripts/optional_graph_hedge_final_census.py',
+        'cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test optional_graph_hedge -- --test-threads=1',
+        'cargo test --locked --all-features -p convex --test optional_graph_boundaries -- --test-threads=1',
+        'cargo run --locked -p convex --example optional_graph_hedge',
+        'cargo run --locked -p convex --example optional_graph_hedge --no-default-features',
+        'cargo run --locked -p convex --example optional_graph_hedge --features schemars',
+        '/tmp/convex-library-schema/bin/python tests/scripts/optional_graph_hedge_schema.py --binary target/debug/examples/optional_graph_hedge',
+        'python3 tests/scripts/optional_graph_hedge_parity.py --binary target/debug/examples/optional_graph_hedge --library target/debug/libconvex_ffi.so',
         'python3 tests/scripts/recovery_hedge_admission.py',
         'python3 tests/scripts/recovery_hedge_boundaries.py',
         'python3 tests/scripts/recovery_hedge_census.py',
@@ -562,7 +579,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-credit/src').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/contracts').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-bonds/src/options/hw1f').glob('*.rs'))
-    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/optional_bond').glob('*.rs'))
+    paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/optional_bond').rglob('*.rs'))
     paths.update(['crates/convex-analytics/src/bond_contract.rs',
                   'crates/convex-bonds/src/instruments/floating_rate.rs',
                   'crates/convex-bonds/src/instruments/sinking_fund.rs',

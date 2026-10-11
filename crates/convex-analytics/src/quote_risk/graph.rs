@@ -655,6 +655,11 @@ fn shifted(base: &BuiltCurve, key: &QuoteRiskKey, delta: f64) -> QuoteRiskResult
     let mut recipe = base.recipe().clone();
     let node = match &key.definition().coordinate {
         RiskCoordinate::Zero { node, .. } | RiskCoordinate::Basis { node, .. } => *node,
+        RiskCoordinate::Raw { .. }
+            if key.definition().factor.definition().quote_type == QuoteType::JointZeroRate =>
+        {
+            None
+        }
         _ => return Err(invalid("node", "actual zero/basis coordinate required")),
     };
     if node.is_some_and(|n| {
@@ -741,6 +746,34 @@ pub fn evaluate_quote_graph(
             })
     };
     match &key.definition().coordinate {
+        RiskCoordinate::Raw { .. }
+            if key.definition().factor.definition().quote_type == QuoteType::JointZeroRate =>
+        {
+            let (discount, projection) = joint_curve_keys(key)?;
+            let d = prepared.baseline.curves.get(&discount)?;
+            let p = prepared.baseline.curves.get(&projection)?;
+            let currency = key.definition().factor.definition().currency;
+            if d.recipe().currency != currency
+                || p.recipe().currency != currency
+                || !matches!(d.recipe().role, CurveRole::Discount { collateral_currency } if collateral_currency == currency)
+                || !matches!(p.recipe().role, CurveRole::Projection { .. })
+            {
+                return Err(invalid(
+                    "joint zero",
+                    "exact independent same-currency discount and index projection roles required",
+                ));
+            }
+            let curves = replace(&prepared.baseline.curves, shifted(d, key, delta)?)?;
+            let curves = replace(&curves, shifted(p, key, delta)?)?;
+            Ok(QuoteGraphScenario {
+                curves,
+                build_order: Vec::new(),
+                repricing: Vec::new(),
+                price_evaluations: 0,
+                publications: prepared.baseline.publications.clone(),
+                calibrations: Vec::new(),
+            })
+        }
         RiskCoordinate::Quote { curve, .. }
         | RiskCoordinate::ParallelQuotes { curve, .. }
         | RiskCoordinate::Recovery { curve } => {

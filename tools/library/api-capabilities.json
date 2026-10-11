@@ -30043,7 +30043,11 @@
     "tests/fixtures/library/cash-basis-hedge-census-03.json",
     "tests/fixtures/library/recovery-hedge-census-01.json",
     "tests/fixtures/library/recovery-hedge-census-02.json",
-    "tests/fixtures/library/recovery-hedge-census-03.json"
+    "tests/fixtures/library/recovery-hedge-census-03.json",
+    "tests/fixtures/library/optional-graph-hedge-final-census-01.json",
+    "tests/fixtures/library/optional-graph-hedge-final-census-02.json",
+    "tests/fixtures/library/optional-graph-hedge-final-census-03.json",
+    "tests/fixtures/library/optional-graph-hedge-final-census-04.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33505,6 +33509,80 @@
       ],
       "certified": false,
       "qualification": "Complete issuer cash/common-factor hedge columns compose the SAME original full cash/ICMA quotation, issuer promised-basis/par-recovery, calibration graph, five-PV risk and hedge owners. Actual full coupon/principal profiles, accrued/observed versus model cash, native quotes/residuals, settlement, legal bond/CDS/basis/liquidity mapping, opaque curve keys, exact numeric reference pins, identity, quantities, settings and snapshots remain. Recovery scenarios bind the actual scenario credit-role assumption to the SAME original cash model. Every factor, including zero exposure, actually reprices. Explicit basis tolerance (0,1e-10],1..16 distinct factors and1..80 reserved five-price calls; original source/ICMA/graph work owners remain. Original observed/model inverse and calibration are reused without formula changes. Full actual cash/CDS/IRS/futures four-factor book uses original aggregation/solve, current/pending/native lots/costs and explicit same-snapshot FX. Cash recovery is independently covered; common CDS recovery awaits its original graph binding. Raw invalid-tenor and helper-precision failures remain beside separately declared canonical admission and stricter new helper inputs. Original financial answers/tolerances/defaults and all591 prior numerical physical files/rows remain. No new dependency/service/provider/persistence/MQ/clock/order authority. Optional/all-member delivery risk, broad-limit solver robustness, actual managed/browser hosts and independent financial/model/library/production/latency certificates remain open. CVX-063 remains partial/unaccepted/uncertified; engineering accepted through062 and CVX-025/031 server authority prerequisites are unchanged."
+    },
+    "optional_bond.model_scenario": {
+      "certified": false,
+      "qualification": "Full optional-bond graph/common-factor hedge composition through original checked full cash/profile/notice/exercise/history/HW1F tree/OAS and separately refined native risk owners. Complete actual parallel discount/projection/joint grids, security-scoped raw OAS and exact source-model mean-reversion/volatility coordinates retain independent h/h2 prices, native rate-cell resolution and rate/parameter derivative refinement. Parameter scenarios rebuild the SAME original admitted dated trees/cash and retain complete original assumed or swaption-calibrated model provenance; no quote recalibration or market-volatility alias. Supported ACT/365F linear continuous-zero/log-linear DF grid inputs preserve exact curve recipes; unsupported time/shape/source/DF-tail semantics fail. Full five-PV vectors compose original current/pending, face/contract lots, side liquidity/cost/eligibility observations and USD/EUR same-snapshot FX aggregation/proposals. Independent full Decimal60 cash/profile mechanics, Gaussian portfolio moments at actual notice and common-state FRN reset economics, direct native-owner controls and exact close-out arithmetic precede execution. Original notice-sign, resolved half-bump, omitted-OAS and missing book-observation failures remain beside separately declared repairs; no financial bound or older reference changes. All646 preceding quantitative rows/physical bytes/defaults, closed history, original72routes/4278requests, literal30areas/174combinations/2154Planned records,146 pure normal packages/manifests/lock/26Cexports and accepted engineering through062 remain. No dependency/service/provider/storage/MQ/clock/runtime/order authority; clean pure composition and thin existing adapters. Actual unavailable Java/JNI/Windows/.NET/Excel/wasm32/browser, shaped/recalibrated optional risk, additional optional state/models, all-member delivery-futures risk, broad solver scale/latency, market/convention coverage and independent financial/model/library/host/production/latency certificates remain open. CVX-063 stays partial/unaccepted/uncertified; CVX-025/031 retains server limit/order authority. No push/merge/deployment/live orders or independent human approval.",
+      "required_record_ids": [
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/rust",
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/shared_json",
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/c_abi"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "selectors": {
+        "operation.kind": "optional_bond",
+        "operation.action.kind": "model_scenario"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/optional_bond/pricing/model_risk.rs",
+          "text": "pub fn price_model_scenario("
+        },
+        {
+          "path": "crates/convex/src/library/products.rs",
+          "text": "OptionalOperation::ModelScenario {"
+        }
+      ],
+      "positive_examples": [
+        "optional_graph.direct.volatility.scenario.1"
+      ],
+      "boundary_examples": [
+        "optional_graph.direct.mean_reversion.scenario.0"
+      ],
+      "negative_examples": [
+        "optional_graph.qualification.invalid.model_scenario_domain"
+      ]
+    },
+    "optional_bond.model_risk": {
+      "certified": false,
+      "qualification": "Full optional-bond graph/common-factor hedge composition through original checked full cash/profile/notice/exercise/history/HW1F tree/OAS and separately refined native risk owners. Complete actual parallel discount/projection/joint grids, security-scoped raw OAS and exact source-model mean-reversion/volatility coordinates retain independent h/h2 prices, native rate-cell resolution and rate/parameter derivative refinement. Parameter scenarios rebuild the SAME original admitted dated trees/cash and retain complete original assumed or swaption-calibrated model provenance; no quote recalibration or market-volatility alias. Supported ACT/365F linear continuous-zero/log-linear DF grid inputs preserve exact curve recipes; unsupported time/shape/source/DF-tail semantics fail. Full five-PV vectors compose original current/pending, face/contract lots, side liquidity/cost/eligibility observations and USD/EUR same-snapshot FX aggregation/proposals. Independent full Decimal60 cash/profile mechanics, Gaussian portfolio moments at actual notice and common-state FRN reset economics, direct native-owner controls and exact close-out arithmetic precede execution. Original notice-sign, resolved half-bump, omitted-OAS and missing book-observation failures remain beside separately declared repairs; no financial bound or older reference changes. All646 preceding quantitative rows/physical bytes/defaults, closed history, original72routes/4278requests, literal30areas/174combinations/2154Planned records,146 pure normal packages/manifests/lock/26Cexports and accepted engineering through062 remain. No dependency/service/provider/storage/MQ/clock/runtime/order authority; clean pure composition and thin existing adapters. Actual unavailable Java/JNI/Windows/.NET/Excel/wasm32/browser, shaped/recalibrated optional risk, additional optional state/models, all-member delivery-futures risk, broad solver scale/latency, market/convention coverage and independent financial/model/library/host/production/latency certificates remain open. CVX-063 stays partial/unaccepted/uncertified; CVX-025/031 retains server limit/order authority. No push/merge/deployment/live orders or independent human approval.",
+      "required_record_ids": [
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/rust",
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/shared_json",
+        "LC-008/european_call/USD/hw1f/effective_risk_and_exercise_diagnostics/c_abi"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "selectors": {
+        "operation.kind": "optional_bond",
+        "operation.action.kind": "model_risk"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/optional_bond/pricing/model_risk.rs",
+          "text": "pub fn model_risk("
+        },
+        {
+          "path": "crates/convex/src/library/products.rs",
+          "text": "OptionalOperation::ModelRisk {"
+        }
+      ],
+      "positive_examples": [
+        "optional_graph.direct.volatility.risk.h"
+      ],
+      "boundary_examples": [
+        "optional_graph.direct.volatility.risk.half"
+      ],
+      "negative_examples": [
+        "optional_graph.qualification.invalid.model_risk_refinement"
+      ]
     }
   }
 }

@@ -147,6 +147,15 @@ pub enum ModelOrigin {
         /// Nonempty supplied rationale.
         reason: String,
     },
+    /// Hypothetical parameter move; original calibration/assumption stays intact.
+    ParameterScenario {
+        /// Complete unchanged original model, including its actual provenance.
+        original: Box<OptionalBondModel>,
+        /// Explicit native parameter being moved.
+        parameter: ModelParameter,
+        /// Signed move in that parameter's declared native unit.
+        delta: f64,
+    },
     /// Successful fit to declared quotes on an exact supplied curve.
     SwaptionCalibration {
         /// Original discount curve/version.
@@ -172,6 +181,31 @@ pub struct OptionalBondModel {
     origin: ModelOrigin,
 }
 impl OptionalBondModel {
+    pub(super) fn parameter_scenario(
+        &self,
+        parameter: ModelParameter,
+        delta: f64,
+    ) -> Result<Self, OptionalBondError> {
+        finite(delta, "model parameter move")?;
+        if delta == 0.0 {
+            return Ok(self.clone());
+        }
+        let mut parameters = self.parameters;
+        match parameter {
+            ModelParameter::MeanReversion => parameters.mean_reversion += delta,
+            ModelParameter::Volatility => parameters.volatility += delta,
+        }
+        parameters.validate()?;
+        Ok(Self {
+            key: self.key.clone(),
+            parameters,
+            origin: ModelOrigin::ParameterScenario {
+                original: Box::new(self.clone()),
+                parameter,
+                delta,
+            },
+        })
+    }
     /// An explicit parameter assumption, including sigma=0 if deliberately supplied.
     pub fn assumed(
         key: ModelKey,

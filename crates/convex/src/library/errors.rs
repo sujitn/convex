@@ -252,6 +252,11 @@ impl From<optional::OptionalBondError> for LibraryError {
                 message: e.to_string(),
                 details: json!({"risk_grids":diagnostics}),
             },
+            E::ModelRiskConvergence { ref diagnostics } => Self {
+                code: Code::NoConvergence,
+                message: e.to_string(),
+                details: json!({"model_risk_grids":diagnostics}),
+            },
             e => native(Code::NoConvergence, &e),
         }
     }

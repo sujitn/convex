@@ -135,3 +135,6 @@ actual mixed-book scope and remaining recovery/host/production qualification.
 
 [CDS recovery binding](CDS-RECOVERY-HEDGE-RISK.md) extends the same scenario and
 product owners to the full five-factor issuer cash/CDS/IRS/futures book.
+
+Complete guarded optional graph/model risk and hedge columns are documented in
+[OPTIONAL-GRAPH-HEDGE-RISK.md](OPTIONAL-GRAPH-HEDGE-RISK.md).

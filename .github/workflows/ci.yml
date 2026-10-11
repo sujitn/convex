@@ -770,6 +770,57 @@ jobs:
       - name: Verify recovery mixed hedge C transport
         run: python3 tests/scripts/recovery_hedge_parity.py --binary target/debug/examples/recovery_hedge --library target/debug/libconvex_ffi.so
 
+      - name: Check independently declared optional cash model and hedge controls
+        run: python3 tests/scripts/optional_graph_hedge_reference.py
+
+      - name: Check explicit optional hedge state and FX admission
+        run: python3 tests/scripts/optional_graph_hedge_admission.py
+
+      - name: Check complete optional cost and eligibility observations
+        run: python3 tests/scripts/optional_graph_hedge_book_binding.py
+
+      - name: Check explicit original optional hedge solve policy
+        run: python3 tests/scripts/optional_graph_hedge_book_policy.py
+
+      - name: Check direct optional native owner controls
+        run: python3 tests/scripts/optional_graph_hedge_boundaries.py
+
+      - name: Check full optional notice and calibrated model qualification
+        run: python3 tests/scripts/optional_graph_hedge_qualification.py
+
+      - name: Check original optional half-bump resolution trial
+        run: python3 tests/scripts/optional_graph_hedge_resolution.py
+
+      - name: Check independently declared full OAS calibrated model controls
+        run: python3 tests/scripts/optional_graph_hedge_calibrated.py
+
+      - name: Check lossless final optional API census
+        run: python3 tests/scripts/optional_graph_hedge_final_census.py
+
+      - name: Check lossless original optional API census
+        run: python3 tests/scripts/optional_graph_hedge_census.py
+
+      - name: Test guarded optional graph and hedge adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test optional_graph_hedge -- --test-threads=1
+
+      - name: Test complete optional native graph and resolution boundaries
+        run: cargo test --locked --all-features -p convex --test optional_graph_boundaries -- --test-threads=1
+
+      - name: Run guarded optional graph hedge consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge
+
+      - name: Run minimal optional graph hedge consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge --no-default-features
+
+      - name: Run optional graph hedge schema consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge --features schemars
+
+      - name: Check complete optional model risk schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/optional_graph_hedge_schema.py --binary target/debug/examples/optional_graph_hedge
+
+      - name: Verify complete optional graph hedge C transport
+        run: python3 tests/scripts/optional_graph_hedge_parity.py --binary target/debug/examples/optional_graph_hedge --library target/debug/libconvex_ffi.so
+
       - name: Validate original contextual workout controls
         run: python3 tests/scripts/icma_workout_reference.py
 
@@ -1303,6 +1354,9 @@ jobs:
       - name: Build recovery mixed hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
 
+      - name: Build guarded optional graph hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example optional_graph_hedge --features schemars
+
       - name: Build native complete workout consumer
         run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
 
@@ -1376,6 +1430,9 @@ jobs:
 
       - name: Generate recovery mixed hedge Excel expectations
         run: python tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
+
+      - name: Generate guarded optional graph hedge Excel expectations
+        run: python tests/scripts/optional_graph_hedge_parity.py --binary target/excel/examples/optional_graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/optional-graph-hedge-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
         run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json

@@ -85,6 +85,8 @@ pub enum QuoteRiskUnit {
     CurrencyPerPricePoint,
     /// Monetary derivative per +1 decimal annualized hazard rate.
     CurrencyPerAnnualRate,
+    /// Monetary derivative per one unit of the explicitly named model parameter.
+    CurrencyPerModelParameter,
 }
 impl QuoteRiskUnit {
     /// Canonical coordinate move represented by one reported unit.
@@ -99,7 +101,7 @@ impl QuoteRiskUnit {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(try_from = "QuoteRiskDefinition", into = "QuoteRiskDefinition")]
-pub struct QuoteRiskKey(QuoteRiskDefinition);
+pub struct QuoteRiskKey(Box<QuoteRiskDefinition>);
 /// Complete ingress for a checked signed quote key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -138,6 +140,7 @@ impl QuoteRiskKey {
                 | QuoteType::RateFutureRate
                 | QuoteType::ResidualBasis
                 | QuoteType::OasSpread
+                | QuoteType::JointZeroRate
         );
         let expected = if rate {
             QuoteRiskUnit::CurrencyPerBp
@@ -146,6 +149,8 @@ impl QuoteRiskKey {
             QuoteType::CdsUpfront | QuoteType::CdsDirtyUpfront | QuoteType::RecoveryRate
         ) {
             QuoteRiskUnit::CurrencyPerFraction
+        } else if matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility) {
+            QuoteRiskUnit::CurrencyPerModelParameter
         } else if q == QuoteType::HazardRate {
             QuoteRiskUnit::CurrencyPerAnnualRate
         } else {
@@ -160,7 +165,13 @@ impl QuoteRiskKey {
             )
         } else if matches!(q, QuoteType::CdsUpfront | QuoteType::CdsDirtyUpfront) {
             d.native_unit == QuoteUnit::UpfrontFraction
-        } else if matches!(q, QuoteType::RecoveryRate | QuoteType::HazardRate) {
+        } else if matches!(
+            q,
+            QuoteType::RecoveryRate
+                | QuoteType::HazardRate
+                | QuoteType::Hw1fMeanReversion
+                | QuoteType::Hw1fVolatility
+        ) {
             d.native_unit == QuoteUnit::DecimalRate
         } else {
             d.native_unit == QuoteUnit::PricePer100
@@ -209,7 +220,24 @@ impl QuoteRiskKey {
             RiskCoordinate::Raw { input_id, .. } => (
                 None,
                 label(input_id)
-                    && f.basis == RiskBasis::RawQuote
+                    && match q {
+                        QuoteType::JointZeroRate => {
+                            f.basis == RiskBasis::ZeroNode
+                                && input_id == "joint_zero"
+                                && f.tenor.as_str() == "parallel"
+                        }
+                        QuoteType::Hw1fMeanReversion => {
+                            f.basis == RiskBasis::ModelParameter
+                                && input_id == "mean_reversion"
+                                && f.tenor.as_str() == "spot"
+                        }
+                        QuoteType::Hw1fVolatility => {
+                            f.basis == RiskBasis::ModelParameter
+                                && input_id == "volatility"
+                                && f.tenor.as_str() == "spot"
+                        }
+                        _ => f.basis == RiskBasis::RawQuote,
+                    }
                     && d.response == RiskResponse::FrozenCurves,
             ),
         };
@@ -217,6 +245,10 @@ impl QuoteRiskKey {
             (FactorTarget::Curve { curve_id }, Some(c)) => curve_id.as_str() == c.id,
             (FactorTarget::Entity { .. }, Some(_)) => q == QuoteType::RecoveryRate,
             (FactorTarget::Instrument { .. }, None) => true,
+            (FactorTarget::Model { .. }, None) => {
+                matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility)
+            }
+            (FactorTarget::CurvePair { .. }, None) => q == QuoteType::JointZeroRate,
             _ => false,
         };
         if let Some(c) = curve {
@@ -228,7 +260,7 @@ impl QuoteRiskKey {
                 "incompatible coordinate/target/native unit/normalization/response",
             ));
         }
-        Ok(Self(d))
+        Ok(Self(Box::new(d)))
     }
     /// Immutable complete definition.
     pub fn definition(&self) -> &QuoteRiskDefinition {
@@ -257,7 +289,7 @@ impl TryFrom<QuoteRiskDefinition> for QuoteRiskKey {
 }
 impl From<QuoteRiskKey> for QuoteRiskDefinition {
     fn from(k: QuoteRiskKey) -> Self {
-        k.0
+        *k.0
     }
 }
 

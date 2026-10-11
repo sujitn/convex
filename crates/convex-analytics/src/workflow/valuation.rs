@@ -561,6 +561,35 @@ pub fn curve_quote_risk(
             "original supplied price differs from the prepared graph information set",
         ));
     }
+    // These products consume neither an optional OAS nor HW1F parameters. Reprice
+    // all five actual moves on their SAME full inputs; do not insert a zero column.
+    if matches!(key.definition().coordinate, RiskCoordinate::Raw { .. })
+        && matches!(
+            key.definition().factor.definition().quote_type,
+            convex_core::contracts::QuoteType::OasSpread
+                | convex_core::contracts::QuoteType::Hw1fMeanReversion
+                | convex_core::contracts::QuoteType::Hw1fVolatility
+        )
+    {
+        if key.definition().factor.definition().currency != input.currency() {
+            return Err(invalid(
+                "optional factor currency",
+                "actual native product currency required",
+            ));
+        }
+        return Ok(crate::quote_risk::finite::reference(
+            key,
+            position,
+            snapshot_id,
+            settings,
+            |_| {
+                input.monetary_value().map_err(|e| QuoteRiskError::Invalid {
+                    field: "unconsumed optional factor".into(),
+                    reason: e.to_string(),
+                })
+            },
+        )?);
+    }
     Ok(curve_quote_sensitivity(
         graph,
         key,

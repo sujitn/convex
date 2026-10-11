@@ -541,6 +541,11 @@
             "description": "Cash security clean/dirty price quotation.",
             "type": "string",
             "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
           }
         ]
       },
@@ -621,6 +626,64 @@
             "required": [
               "kind",
               "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
             ]
           }
         ]
@@ -1068,6 +1131,21 @@
             "description": "Dirty price per100 of original face.",
             "type": "string",
             "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
           }
         ]
       },
@@ -1599,6 +1677,11 @@
             "description": "Cash security clean/dirty price quotation.",
             "type": "string",
             "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
           }
         ]
       },
@@ -1679,6 +1762,64 @@
             "required": [
               "kind",
               "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
             ]
           }
         ]
@@ -1822,6 +1963,21 @@
             "description": "Dirty price per100 of original face.",
             "type": "string",
             "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
           }
         ]
       },
@@ -2268,6 +2424,11 @@
             "description": "Cash security clean/dirty price quotation.",
             "type": "string",
             "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
           }
         ]
       },
@@ -2348,6 +2509,64 @@
             "required": [
               "kind",
               "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
             ]
           }
         ]
@@ -2631,6 +2850,21 @@
             "description": "Dirty price per100 of original face.",
             "type": "string",
             "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
           }
         ]
       },
