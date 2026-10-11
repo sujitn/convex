@@ -616,3 +616,11 @@ actual mixed-book scope and remaining recovery/host/production qualification.
 
 Complete guarded optional graph/model risk and hedge columns are documented in
 [OPTIONAL-GRAPH-HEDGE-RISK.md](OPTIONAL-GRAPH-HEDGE-RISK.md).
+
+
+Full all-member graph/scenario risk and fresh delivery-futures hedge columns,
+including exact ties and CTD switches, are documented in
+[Delivery futures basket risk](DELIVERY-FUTURES-HEDGE-RISK.md). Run
+`cargo run --locked -p convex --example delivery_hedge`. This dedicated full
+basket route retains the original fixed-date model and its unvalued delivery
+options; it does not certify hosts, latency or server order authority.

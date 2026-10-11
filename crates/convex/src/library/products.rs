@@ -374,11 +374,11 @@ pub enum BondFutureOperation {
         bump: ExactDecimal,
     },
 }
-pub(super) fn bond_future(
+pub(super) fn with_bond_future<T>(
     input: &BondFutureInput,
-    action: &BondFutureOperation,
     r: &ResolvedInputs<'_>,
-) -> LibraryResult<Value> {
+    f: impl FnOnce(&f::BondFuturesInputs<'_>) -> LibraryResult<T>,
+) -> LibraryResult<T> {
     if input.members.is_empty() || input.members.len() > 128 {
         return Err(LibraryError::limit(
             "1..128 complete futures members required",
@@ -417,8 +417,15 @@ pub(super) fn bond_future(
         selection: input.selection,
         context: input.context,
     };
-    match action {
-        BondFutureOperation::Price {} => value(f::price_bond_future(&inputs)?),
+    f(&inputs)
+}
+pub(super) fn bond_future(
+    input: &BondFutureInput,
+    action: &BondFutureOperation,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<Value> {
+    with_bond_future(input, r, |inputs| match action {
+        BondFutureOperation::Price {} => value(f::price_bond_future(inputs)?),
         BondFutureOperation::Risk {
             axis,
             contracts,
@@ -435,9 +442,9 @@ pub(super) fn bond_future(
                     f::BondFuturesRiskAxis::SecurityBasis { instrument }
                 }
             };
-            value(f::bond_futures_risk(&inputs, axis, *contracts, *bump)?)
+            value(f::bond_futures_risk(inputs, axis, *contracts, *bump)?)
         }
-    }
+    })
 }
 pub(super) fn prepare_bond(
     input: &BondInput,

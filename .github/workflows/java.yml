@@ -32,6 +32,8 @@ on:
       - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/cash_basis_hedge_parity.py'
       - 'tests/scripts/recovery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_census.py'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -71,6 +73,8 @@ on:
       - 'tests/scripts/graph_hedge_parity.py'
       - 'tests/scripts/cash_basis_hedge_parity.py'
       - 'tests/scripts/recovery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_census.py'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -150,6 +154,9 @@ jobs:
       - name: Build recovery mixed hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
 
+      - name: Build full delivery basket hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
+
       - name: Build guarded optional graph hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example optional_graph_hedge --features schemars
 
@@ -222,6 +229,9 @@ jobs:
 
       - name: Generate recovery mixed hedge Java expectations
         run: python3 tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge --output bindings/java/target/recovery-hedge-parity.json
+
+      - name: Generate full delivery basket hedge Java expectations
+        run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json
 
       - name: Generate guarded optional graph hedge Java expectations
         run: python3 tests/scripts/optional_graph_hedge_parity.py --binary target/excel/examples/optional_graph_hedge --output bindings/java/target/optional-graph-hedge-parity.json

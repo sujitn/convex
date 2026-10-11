@@ -30047,7 +30047,11 @@
     "tests/fixtures/library/optional-graph-hedge-final-census-01.json",
     "tests/fixtures/library/optional-graph-hedge-final-census-02.json",
     "tests/fixtures/library/optional-graph-hedge-final-census-03.json",
-    "tests/fixtures/library/optional-graph-hedge-final-census-04.json"
+    "tests/fixtures/library/optional-graph-hedge-final-census-04.json",
+    "tests/fixtures/library/delivery-hedge-api-01.json",
+    "tests/fixtures/library/delivery-hedge-api-02.json",
+    "tests/fixtures/library/delivery-hedge-api-03.json",
+    "tests/fixtures/library/delivery-hedge-api-04.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

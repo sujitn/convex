@@ -312,6 +312,7 @@ impl From<risk::QuoteRiskError> for LibraryError {
             E::Credit(e) => e.into(),
             E::Cash(e) => e.into(),
             E::Optional(e) => e.into(),
+            E::Futures(e) => e.into(),
             E::Invalid { .. } => native(Code::InvalidInput, &e),
         }
     }

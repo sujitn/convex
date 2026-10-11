@@ -9,6 +9,22 @@ pub(super) fn graph_hedge_risk(
 ) -> LibraryResult<Value> {
     curves::with_graph(graph, resources, |graph| {
         let original = resources.with_curves(graph.baseline().curves.clone());
+        if let risk::RiskProductInput::BondFuture {
+            input: future,
+            discount,
+            policy,
+        } = product
+        {
+            return products::with_bond_future(future, &original, |inputs| {
+                value(convex_analytics::workflow::delivery_futures_hedge_risk(
+                    inputs,
+                    discount.native(&original)?,
+                    graph,
+                    input,
+                    *policy,
+                )?)
+            });
+        }
         if let risk::RiskProductInput::OptionalBond {
             input: optional,
             instrument,

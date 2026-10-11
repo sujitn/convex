@@ -212,3 +212,11 @@ packs, authoritative lifecycle/P&L, host dispatch, hedge optimization/admission,
 independent human quantitative approval and measured multiserver/colocation
 performance remain their owning tasks. No complete library or production
 certificate is inferred from this scoped engineering implementation.
+
+
+Full all-member graph/scenario risk and fresh delivery-futures hedge columns,
+including exact ties and CTD switches, are documented in
+[Delivery futures basket risk](DELIVERY-FUTURES-HEDGE-RISK.md). Run
+`cargo run --locked -p convex --example delivery_hedge`. This dedicated full
+basket route retains the original fixed-date model and its unvalued delivery
+options; it does not certify hosts, latency or server order authority.

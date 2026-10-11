@@ -569,6 +569,8 @@ pub fn curve_quote_risk(
             convex_core::contracts::QuoteType::OasSpread
                 | convex_core::contracts::QuoteType::Hw1fMeanReversion
                 | convex_core::contracts::QuoteType::Hw1fVolatility
+                | convex_core::contracts::QuoteType::RepoRate
+                | convex_core::contracts::QuoteType::CashCleanPrice
         )
     {
         if key.definition().factor.definition().currency != input.currency() {

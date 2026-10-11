@@ -8,11 +8,13 @@
 
 mod bond;
 mod cash;
+mod graph;
 mod rates;
 mod settlement;
 
 pub use bond::*;
 pub use cash::*;
+pub use graph::*;
 pub use rates::*;
 pub use settlement::*;
 

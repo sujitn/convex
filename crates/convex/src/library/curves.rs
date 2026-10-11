@@ -587,6 +587,28 @@ pub(super) fn calibration(
             position,
             snapshot_id,
         } => {
+            if let super::risk::RiskProductInput::BondFuture {
+                input: future,
+                discount,
+                policy,
+            } = product.as_ref()
+            {
+                let original = resources.with_curves(graph.baseline().curves.clone());
+                return super::products::with_bond_future(future, &original, |inputs| {
+                    value(convex_analytics::futures::bond_futures_graph_scenario(
+                        inputs,
+                        discount.native(&original)?,
+                        graph,
+                        &convex_analytics::futures::BondFuturesScenarioRequest {
+                            key: key.clone(),
+                            position: position.clone(),
+                            snapshot_id: snapshot_id.clone(),
+                            policy: *policy,
+                        },
+                        *delta,
+                    )?)
+                });
+            }
             let shocked = q::evaluate_quote_graph(graph, key, *delta)?;
             let result = super::risk::graph_scenario(
                 product,

@@ -103,6 +103,15 @@ pub(super) fn bond_quote_risk(
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RiskProductInput {
+    /// Entire original physical delivery basket, independent cash model and work.
+    BondFuture {
+        /// Complete original member terms, cash quotes, funding and CTD criterion.
+        input: Box<BondFutureInput>,
+        /// Exact original stamped collateral discount model for ALL members.
+        discount: StampedCurve,
+        /// Explicit full-member reservation, separate from graph/factor ceilings.
+        policy: convex_analytics::futures::BondFuturesGraphPolicy,
+    },
     /// Original full optional terms, model, state and separate native risk policies.
     OptionalBond {
         /// Complete original checked preparation; forecasts remain stochastic.
@@ -151,6 +160,11 @@ pub(super) fn with_product<T>(
     f: impl FnOnce(&w::ValuationInputs<'_>) -> LibraryResult<T>,
 ) -> LibraryResult<T> {
     match product {
+        RiskProductInput::BondFuture { input, .. } => {
+            super::products::with_bond_future(input, r, |inputs| {
+                f(&w::ValuationInputs::BondFuture(inputs))
+            })
+        }
         RiskProductInput::OptionalBond {
             input, oas_decimal, ..
         } => {
@@ -264,6 +278,27 @@ pub(super) fn graph_risk(
     r: &ResolvedInputs<'_>,
 ) -> LibraryResult<Value> {
     let original = r.with_curves(graph.baseline().curves.clone());
+    if let RiskProductInput::BondFuture {
+        input,
+        discount,
+        policy,
+    } = product
+    {
+        return super::products::with_bond_future(input, &original, |inputs| {
+            value(convex_analytics::futures::bond_futures_graph_risk(
+                inputs,
+                discount.native(&original)?,
+                graph,
+                &convex_analytics::futures::BondFuturesGraphRequest {
+                    key,
+                    position,
+                    snapshot_id,
+                    settings,
+                    policy: *policy,
+                },
+            )?)
+        });
+    }
     if let RiskProductInput::OptionalBond {
         input,
         instrument,

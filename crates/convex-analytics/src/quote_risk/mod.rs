@@ -41,6 +41,9 @@ pub enum QuoteRiskError {
     /// Original model-specific optional-bond risk/refinement/resolution failure.
     #[error(transparent)]
     Optional(#[from] crate::optional_bond::OptionalBondError),
+    /// Original complete basket/cash/carry failure, retaining unsupported/missing inputs.
+    #[error(transparent)]
+    Futures(#[from] crate::futures::FuturesError),
 }
 /// Checked risk result.
 pub type QuoteRiskResult<T> = Result<T, QuoteRiskError>;

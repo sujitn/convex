@@ -800,6 +800,63 @@ jobs:
       - name: Check lossless original optional API census
         run: python3 tests/scripts/optional_graph_hedge_census.py
 
+      - name: Delivery basket qualification 1
+        run: python3 tests/scripts/delivery_hedge_reference.py
+
+      - name: Delivery basket qualification 2
+        run: python3 tests/scripts/delivery_hedge_qualification.py
+
+      - name: Delivery basket qualification 3
+        run: python3 tests/scripts/delivery_hedge_admission.py
+
+      - name: Delivery basket qualification 4
+        run: python3 tests/scripts/delivery_hedge_book.py
+
+      - name: Delivery basket qualification 5
+        run: python3 tests/scripts/delivery_hedge_ready.py
+
+      - name: Delivery basket qualification 6
+        run: python3 tests/scripts/delivery_hedge_final.py
+
+      - name: Delivery basket qualification 7
+        run: python3 tests/scripts/delivery_hedge_errors.py
+
+      - name: Delivery basket qualification 8
+        run: python3 tests/scripts/delivery_hedge_book_admission.py
+
+      - name: Delivery basket qualification 9
+        run: python3 tests/scripts/delivery_hedge_decimal.py
+
+      - name: Delivery basket qualification 10
+        run: python3 tests/scripts/delivery_hedge_rebuild.py
+
+      - name: Delivery basket qualification 11
+        run: python3 tests/scripts/delivery_hedge_frontier.py
+
+      - name: Delivery basket qualification 12
+        run: python3 tests/scripts/delivery_hedge_census.py
+
+      - name: Delivery basket qualification 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test delivery_hedge -- --test-threads=1
+
+      - name: Delivery basket qualification 14
+        run: cargo test --locked --all-features -p convex --test delivery_boundaries -- --test-threads=1
+
+      - name: Delivery basket qualification 15
+        run: cargo run --locked -p convex --example delivery_hedge
+
+      - name: Delivery basket qualification 16
+        run: cargo run --locked -p convex --example delivery_hedge --no-default-features
+
+      - name: Delivery basket qualification 17
+        run: cargo run --locked -p convex --example delivery_hedge --features schemars
+
+      - name: Delivery basket qualification 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/delivery_hedge_schema.py --binary target/debug/examples/delivery_hedge
+
+      - name: Delivery basket qualification 19
+        run: python3 tests/scripts/delivery_hedge_parity.py --binary target/debug/examples/delivery_hedge --library target/debug/libconvex_ffi.so
+
       - name: Test guarded optional graph and hedge adapters
         run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test optional_graph_hedge -- --test-threads=1
 
@@ -1354,6 +1411,9 @@ jobs:
       - name: Build recovery mixed hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
 
+      - name: Build full delivery basket hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
+
       - name: Build guarded optional graph hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example optional_graph_hedge --features schemars
 
@@ -1430,6 +1490,9 @@ jobs:
 
       - name: Generate recovery mixed hedge Excel expectations
         run: python tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
+
+      - name: Generate full delivery basket hedge Excel expectations
+        run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json
 
       - name: Generate guarded optional graph hedge Excel expectations
         run: python tests/scripts/optional_graph_hedge_parity.py --binary target/excel/examples/optional_graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/optional-graph-hedge-parity.json

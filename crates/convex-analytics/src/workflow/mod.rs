@@ -5,6 +5,7 @@
 
 mod bond;
 mod capability;
+mod delivery_hedge;
 mod floating_workout;
 mod hedge;
 mod icma;
@@ -17,6 +18,7 @@ mod workout;
 
 pub use bond::*;
 pub use capability::*;
+pub use delivery_hedge::*;
 pub use floating_workout::*;
 pub use hedge::*;
 pub use icma::*;

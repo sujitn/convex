@@ -2338,6 +2338,58 @@
         "tools/library/library-inventory.json": "1fdd61876646a697735f7a57d9fdaf293e836372aa462c9ab36c50ed2ed7cd03",
         "tools/library/test_operations.py": "6af32d6e57fcbac8ef43d53830947c9a4675e5cf0ba2e2c83643a263321c5c0a"
       }
+    },
+    {
+      "base_commit": "a7cd0272b3247ef24cb4d0fff0d9a8aa28ccdc54",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-11",
+      "rationale": "CVX-063 full all-member fixed-date delivery-futures graph risk and hedge vectors, preserving original full cash/carry, exact source revisions, independent CTD criteria/ties/switches, original five actual monetary valuations and half-step stability. Pure checked composition, explicit work, native/shared/C/MCP/native-WASM adapters and USD/EUR current/pending/lot/side-cost/eligibility/FX hedge books. Original numerical/historical/literal scope/dependencies/C exports conserved. CVX-063 remains partial/unaccepted/uncertified; no independent certificates or push/deploy/orders. Native graph admission requires the original materialized immutable discount owner, not recipe equality alone; exact old API count tests are extended only by the64 additive controls. This engineering source-impact declaration does not supply independent human financial approval.",
+      "tests": [
+        "Predeclared complete independent dated cash/profiles/accrual/carry/invoice/CTD all-member five-PV and signed non-tied switch controls, with exact original close-out arithmetic",
+        "Original five-price/half-step monetary stability, complete original recipe and native cash/carry owner agreement, actual shared/C/MCP/native-WASM/minimal/schema and full current/pending/lot/cost/eligibility/FX books",
+        "Original financial packs, full workspace/lint/docs/format/assurance and exact original history/mandatory scope/default/dependency/export/source conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "c381aa7f92412896b4025c6a8040387316e076b640ae03938ca44760ac1c5925",
+        ".github/workflows/java.yml": "5e504d71d0ed1961d41310d64dcb970e3395e0eb91a25a419503ef4d15dc8432",
+        "crates/convex-analytics/src/futures/graph.rs": "37c439a32f0fd893f86fc98d1d7a5068c7a61439397cce98a383a5ee6f915331",
+        "crates/convex-analytics/src/futures/mod.rs": "ceee4670001545fe1241672ea86d89513894b4079edd8f44af51bc8a534a3aae",
+        "crates/convex-analytics/src/quote_risk/mod.rs": "b085f40eeedfac1b9b30c67c494c0034a3c57aa961e91250d2001cecfc954abe",
+        "crates/convex-analytics/src/workflow/delivery_hedge.rs": "ede017ec98d6f20d99eb578b285b36942230da8c48b4e68d1978b310173b5f34",
+        "crates/convex-analytics/src/workflow/mod.rs": "828e993e8a6e43e03abebce30cfb9ff8f8b30c869a0422255e4acc468d0c0ad8",
+        "crates/convex-analytics/src/workflow/valuation.rs": "5b07ab5eafa079d640c6a3b89c16fdf0a0e522d32737aa6d6aa59939cc50051e",
+        "crates/convex-ffi/tests/delivery_hedge.rs": "5b4087fbb2990f33788186af74ed399ce89ae8da8bb779ed5f6dd80f11e00145",
+        "crates/convex/examples/delivery_hedge.rs": "5cbf94cb637a4901071c5864aaadf66ec10bd5a3eb732f4eb67152873580d830",
+        "crates/convex/src/library/curves.rs": "b0ffd7387ababb117f6016e11c2c2a4d5c576091a8962b5925a4b9343b81d03a",
+        "crates/convex/src/library/errors.rs": "00a439298f930b22869150659014d6531f0aa1abdc85735c4983580c2de043a9",
+        "crates/convex/src/library/graph_hedges.rs": "74af40a60d3d41ec757be28415eedb193c341f35db47b401113547097c80df4b",
+        "crates/convex/src/library/products.rs": "9fe162910d63829c42e13ae5a4c94b2cfda43640751c96de70f3a9507f164383",
+        "crates/convex/src/library/risk.rs": "42b90a13b944dd02f36c4e4f332f7cf71ebf6289b0502d0509229a52e06d647c",
+        "crates/convex/tests/delivery_boundaries.rs": "a6cd106558b05df37c3c905e79070d28f295e51b72423d32ec2b4c7617841183",
+        "crates/convex/tests/delivery_hedge.rs": "5e1051995595acbf3874100c6b4a6d5bf35a841624951e69ee4feeac5f176e21",
+        "tests/fixtures/library/delivery-hedge-admission.json": "ad9dfcb70b7c7bb22682ba99454cb682f7f808404945b5c6cda502fbba684f18",
+        "tests/fixtures/library/delivery-hedge-api-01.json": "453aca35258cb025916643be36fd1bf0690c92a2a5d38926f807932b016634c9",
+        "tests/fixtures/library/delivery-hedge-api-02.json": "225a0f118727a1f41f74741d30565365ef31f6f3ad93821f527589ea538ae925",
+        "tests/fixtures/library/delivery-hedge-api-03.json": "5ca547dac38d8f3f7cf9c151f743f0ce74af580c7137ef441a885f66de5bfe26",
+        "tests/fixtures/library/delivery-hedge-api-04.json": "1523d57681b8190af7fa80cab7bb0057388d0c2e73c408c4ad81d60f48bfb9c1",
+        "tests/fixtures/library/delivery-hedge-book-admitted.json": "e591f60cdbfe4bf18061cdb3014fa10ee346c4fa5b1adb5c0676fbeeeacd5efb",
+        "tests/fixtures/library/delivery-hedge-book.json": "997895a07151b64260655caeb011911ff497246f2fd0d64b3afbf016399dd76b",
+        "tests/fixtures/library/delivery-hedge-decimal.json": "d6cd21f922141c36c58065be67cdfd6a789515954a20a88c09a99082507eacef",
+        "tests/fixtures/library/delivery-hedge-errors.json": "e5ea86ec193b7f06cfe98c97e3c4a3b2b5e20fca8ee7f068e8b080c2623e1f9a",
+        "tests/fixtures/library/delivery-hedge-final.json": "6be009622959e96645201fdd0bca34a6f9447fb46f2bfa7a2c9641a4f6013eb5",
+        "tests/fixtures/library/delivery-hedge-frontier.json": "17d263963dcdd0149e5570dcb98aa709c0d636ca14fa73cb087848814b4c9852",
+        "tests/fixtures/library/delivery-hedge-qualified.json": "1f59d2d1625ac35199511d3212aa276d86272cab24b69c066e082bfc5612e4e6",
+        "tests/fixtures/library/delivery-hedge-ready.json": "5e94548e517f7ac48cb665c5504c6e3d1df7a430fd88e57edba038c57df91d42",
+        "tests/fixtures/library/delivery-hedge-rebuilt.json": "ef81bdc4582a28ebf03ac77d61e1bc0e4fd35d7a4b3e2d5ded6cd73f7e4ae27f",
+        "tests/fixtures/library/delivery-hedge-reference.json": "6039835fdab68530a00daa07f35f39ac2c561b5f387d2f49e5abdf64c2feb0d7",
+        "tests/fixtures/library/delivery_hedge_contract.rs": "eefd757492624eb576984ee710417d67f65218a586eefabf82060b9095c865d3",
+        "tools/assurance/check.py": "39d1ae76479e4584c2050169c1002f7315a161fd97ba0b5cb1fdc9880acc6510",
+        "tools/assurance/inventory.json": "4e34e5c873f75e4982e731882fd4e4db0ddea0c00185ffbf780d0bd16b352d26",
+        "tools/assurance/numeric-evidence.json": "0732ad11d5fe51b18949a0d5464298336b6d715f10ad317d56f92cb9b0db2f22",
+        "tools/library/api-capabilities.json": "a26e87872eddd9466365aca5fdfdcdcbd2a26847a4ee4d30adb57aea84c2de3c",
+        "tools/library/library-inventory.json": "e4f901fd5ac9d1ad73207fa1dfb221161abd749b5db00280306a88f0b8926a85",
+        "tools/library/test_operations.py": "62773faeab02d196a2aabf7cb8d2bdfed40081a466a607e73ba8a85a60d6c1b9"
+      }
     }
   ]
 }
