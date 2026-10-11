@@ -956,6 +956,45 @@ jobs:
       - name: Cohort cash and physical delivery gate 19
         run: python3 tests/scripts/cohort_pnl_admitted_parity.py --binary target/debug/examples/cohort_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Boundary amendment and lot split gate 1
+        run: python3 tests/scripts/lot_pnl_reference.py
+
+      - name: Boundary amendment and lot split gate 2
+        run: python3 tests/scripts/lot_pnl_future.py
+
+      - name: Independent complete forward cash and split admission
+        run: python3 tests/scripts/lot_pnl_extended.py
+
+      - name: Exact amendment support diagnostic
+        run: python3 tests/scripts/lot_pnl_controls.py
+
+      - name: Complete original forward profile chronology
+        run: python3 tests/scripts/lot_pnl_chronology.py
+
+      - name: Boundary amendment and lot split gate 3
+        run: python3 tests/scripts/lot_pnl_census.py
+
+      - name: Boundary amendment and lot split gate 4
+        run: cargo test --locked --all-features -p convex-analytics --test amendments_splits -- --test-threads=1
+
+      - name: Boundary amendment and lot split gate 5
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test lot_pnl -- --test-threads=1
+
+      - name: Boundary amendment and lot split gate 6
+        run: cargo run --locked -p convex --example lot_pnl
+
+      - name: Boundary amendment and lot split gate 7
+        run: cargo run --locked -p convex --example lot_pnl --no-default-features
+
+      - name: Boundary amendment and lot split gate 8
+        run: cargo run --locked -p convex --example lot_pnl --features schemars
+
+      - name: Boundary amendment and lot split gate 9
+        run: /tmp/convex-library-schema/bin/python tests/scripts/lot_pnl_schema.py --binary target/debug/examples/lot_pnl
+
+      - name: Boundary amendment and lot split gate 10
+        run: python3 tests/scripts/lot_pnl_parity.py --binary target/debug/examples/lot_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1652,6 +1691,9 @@ jobs:
       - name: Build native residual claim and partial receipt consumer
         run: cargo build --locked --profile excel -p convex --example residual_pnl --features schemars
 
+      - name: Build original lot amendment Excel expectations
+        run: cargo build --locked --profile excel -p convex --example lot_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1743,6 +1785,9 @@ jobs:
 
       - name: Generate original residual and partial receipt transport controls
         run: python tests/scripts/residual_pnl_parity.py --binary target/excel/examples/residual_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/residual-pnl-parity.json
+
+      - name: Complete original lot amendment Excel transport
+        run: python tests/scripts/lot_pnl_parity.py --binary target/excel/examples/lot_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/lot-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

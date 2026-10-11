@@ -77,14 +77,18 @@ pub struct LifecycleState {
     pub(super) delivery_terms: Option<convex_bonds::contracts::BondTerms>,
     pub(super) security_receipt_events: Vec<LifecycleEvent>,
     pub(super) payment_receipt_events: Vec<LifecycleEvent>,
+    pub(super) amendment_events: Vec<LifecycleEvent>,
 }
-/// Exact public audit view. Original contract remains accessible separately;
+/// Exact public audit view. Complete current contract remains accessible separately;
 /// this view cannot be decoded into an unchecked mutable economic state.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LifecycleStateView {
+    /// Complete successfully applied original legal amendments in replay order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub amendments: Vec<LifecycleEvent>,
     /// Original economic identity.
     pub trade_id: TradeId,
-    /// Immutable original trade terms revision.
+    /// Current legal terms revision, advanced only by a checked full amendment.
     pub version: Version,
     /// Signed physical quantity and explicit native units.
     pub position: LifecyclePosition,
@@ -199,6 +203,7 @@ impl LifecycleState {
             delivery_terms: None,
             security_receipt_events: Vec::new(),
             payment_receipt_events: Vec::new(),
+            amendment_events: Vec::new(),
         })
     }
     /// Exact immutable native product; no detached approximate economic terms.
@@ -241,6 +246,7 @@ impl LifecycleState {
     /// Deterministic full audit projection; no implicit cash total or reporting FX.
     pub fn view(&self) -> LifecycleStateView {
         LifecycleStateView {
+            amendments: self.amendment_events.clone(),
             trade_id: self.trade_id.clone(),
             version: self.version,
             position: self.position,
@@ -600,7 +606,7 @@ fn profiles(
         required.insert((r.start, Required::Step));
     }
 }
-fn prepare(
+pub(super) fn prepare(
     i: &LifecycleInstrument,
     trade: &TradeId,
     version: Version,

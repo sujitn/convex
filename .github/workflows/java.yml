@@ -38,10 +38,12 @@ on:
       - 'tests/scripts/causal_pnl*.py'
       - 'tests/scripts/cohort_pnl*.py'
       - 'tests/scripts/residual_pnl*.py'
+      - 'tests/scripts/lot_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
       - 'tests/fixtures/library/residual-pnl*.json'
+      - 'tests/fixtures/library/lot-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -87,10 +89,12 @@ on:
       - 'tests/scripts/causal_pnl*.py'
       - 'tests/scripts/cohort_pnl*.py'
       - 'tests/scripts/residual_pnl*.py'
+      - 'tests/scripts/lot_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
       - 'tests/fixtures/library/residual-pnl*.json'
+      - 'tests/fixtures/library/lot-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -182,6 +186,9 @@ jobs:
       - name: Build residual claim and partial receipt consumer
         run: cargo build --locked --profile excel -p convex --example residual_pnl --features schemars
 
+      - name: Build complete original lot amendment Java expectations
+        run: cargo build --locked --profile excel -p convex --example lot_pnl --features schemars
+
       - name: Build full delivery basket hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -269,6 +276,9 @@ jobs:
 
       - name: Original residual claim and partial receipt parity
         run: python3 tests/scripts/residual_pnl_parity.py --binary target/excel/examples/residual_pnl --output bindings/java/target/residual-pnl-parity.json
+
+      - name: Complete original lot amendment Java transport
+        run: python3 tests/scripts/lot_pnl_parity.py --binary target/excel/examples/lot_pnl --output bindings/java/target/lot-pnl-parity.json
 
       - name: Generate full delivery basket hedge Java expectations
         run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json

@@ -652,3 +652,5 @@ Exact receipt cutoffs, original proposal availability, legal owned fractions,
 signed cumulative face and full receipt provenance retain full causal mixed-book
 P&L and independent all-member CTD winners/ties/switches. The original 77 routes
 remain; no compatibility alias or scalar valuation route is added.
+
+The existing `cohort_book_pnl` route also supports explicit full fixed-bond boundary amendment events and conserved original security lot splits. Full terms, original cash ownership and applied point facts cross the shared schema/C/MCP/native WASM path. Run `cargo run --locked -p convex --example lot_pnl`; see [the complete contract](COHORT-BOOK-PNL.md). Managed Java/Excel tests are supplied; actual host execution and certification remain unqualified locally.

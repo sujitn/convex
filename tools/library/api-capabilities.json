@@ -30106,7 +30106,14 @@
     "tests/fixtures/library/residual-pnl-canonical-api-07.json",
     "tests/fixtures/library/residual-pnl-canonical-api-08.json",
     "tests/fixtures/library/residual-pnl-canonical-api-09.json",
-    "tests/fixtures/library/residual-pnl-canonical-api-10.json"
+    "tests/fixtures/library/residual-pnl-canonical-api-10.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-01.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-02.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-03.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-04.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-05.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-06.json",
+    "tests/fixtures/library/lot-pnl-chronology-api-07.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

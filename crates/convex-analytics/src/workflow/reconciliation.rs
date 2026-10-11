@@ -183,6 +183,7 @@ pub struct PreparedCausalPnl {
     cohorts: Option<Vec<CohortOwnership>>,
     handoffs: Vec<Vec<Option<PhysicalDeliveryValue>>>,
     cohort_state_pins: Option<Vec<Vec<String>>>,
+    lot_splits: Vec<CohortLotSplit>,
 }
 impl PreparedCausalPnl {
     /// Full immutable declarations.
@@ -263,6 +264,7 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
         cohorts: None,
         handoffs: Vec::new(),
         cohort_state_pins: None,
+        lot_splits: Vec::new(),
     };
     for (i, p) in input.points.iter().enumerate() {
         if p.positions.len() != n
@@ -412,6 +414,9 @@ pub struct PnlClaimValue {
 /// Privately generated full mark; no scalar result may be supplied at aggregation.
 #[derive(Debug, Serialize)]
 pub struct CausalPositionMark<'p> {
+    /// Complete supplied security reorganizations applied to this original lot.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub lot_splits: Vec<CohortLotSplit>,
     #[serde(skip)]
     path: &'p PreparedCausalPnl,
     point: usize,

@@ -272,7 +272,8 @@ fn prefix_events(
             let admitted=match cause{
                 w::PnlCause::Time=>match &s.event.action{A::ContractStep|A::ContractualCash=>true,A::Fixing(o)=>a.inputs.fixings.contains(o),A::Exercise{provision,..}=>x.lifecycle.events.iter().any(|n|matches!(n.event.action,A::ExerciseNotice{provision:p,exercise_date:d} if p==*provision&&d==s.event.effective_date)),_=>false},
                 w::PnlCause::Fixing=>matches!(s.event.action,A::Fixing(_)),
-                w::PnlCause::Event=>!matches!(s.event.action,A::Fixing(_)|A::ContractStep|A::ContractualCash),
+                w::PnlCause::Event=>!matches!(s.event.action,A::Fixing(_)|A::ContractStep|A::ContractualCash|A::BondAmendment{..}),
+                w::PnlCause::Amendment=>matches!(s.event.action,A::BondAmendment{..}),
                 _=>false,
             };
             if !admitted {
@@ -294,13 +295,26 @@ fn step(
         return Err(bad("full original expected coverage cannot change"));
     }
     prefix_events(a, b, cause)?;
-    if cause == w::PnlCause::Amendment
-        && a.holdings
-            .iter()
-            .zip(&b.holdings)
-            .any(|(x, y)| !x.lifecycle.events.is_empty() || !y.lifecycle.events.is_empty())
-    {
-        return Err(unsupported("amendments of already replayed economics require explicit original cohorts and a complete historical amendment owner"));
+    if cause == w::PnlCause::Amendment {
+        for (x, y) in a.holdings.iter().zip(&b.holdings) {
+            let changed = !equal(&x.lifecycle.instrument, &y.lifecycle.instrument)?;
+            if changed && (!x.lifecycle.events.is_empty() || !y.lifecycle.events.is_empty()) {
+                return Err(unsupported("replayed opening economics cannot be replaced; supply the original full boundary amendment event"));
+            }
+            if !equal(&x.product, &y.product)?
+                && !x.lifecycle.events.is_empty()
+                && !y.lifecycle.events[x.lifecycle.events.len()..]
+                    .iter()
+                    .any(|s| {
+                        matches!(
+                            s.event.action,
+                            convex_analytics::lifecycle::LifecycleAction::BondAmendment { .. }
+                        )
+                    })
+            {
+                return Err(unsupported("amended replayed valuation requires its original complete boundary amendment event"));
+            }
+        }
     }
     let mut paths = Vec::new();
     differences(&value(a)?, &value(b)?, "", &mut paths);
@@ -316,6 +330,7 @@ fn step(
                     | w::PnlCause::Fixing
                     | w::PnlCause::Event
                     | w::PnlCause::Position
+                    | w::PnlCause::Amendment
             ) {
                 continue;
             }
@@ -337,7 +352,10 @@ fn step(
             w::PnlCause::Market => market(&path),
             w::PnlCause::Model => model(&path),
             w::PnlCause::Fx => path.starts_with(".point.fx"),
-            w::PnlCause::Amendment => amendment(&path),
+            w::PnlCause::Amendment => {
+                amendment(&path)
+                    || (path.starts_with(".holdings.") && path.ends_with(".lifecycle.events"))
+            }
             w::PnlCause::Position => {
                 path.starts_with(".point.fills")
                     || path.starts_with(".point.positions.")
@@ -549,6 +567,25 @@ pub(super) fn validate(
             )?;
         }
         for h in &set.holdings {
+            for step in &h.lifecycle.events {
+                pin(
+                    &mut pins,
+                    format!("lifecycle event:{}:{}", h.id, step.event.event_id.as_str()),
+                    value(step)?,
+                )?;
+                if let convex_analytics::lifecycle::LifecycleAction::BondAmendment {
+                    version,
+                    terms,
+                    ..
+                } = &step.event.action
+                {
+                    pin(
+                        &mut pins,
+                        format!("bond amendment:{}:{}", h.id, version.get()),
+                        value(terms)?,
+                    )?;
+                }
+            }
             let actual = value(&h.lifecycle.instrument)?;
             let economic = &set
                 .point

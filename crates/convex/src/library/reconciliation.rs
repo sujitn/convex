@@ -161,6 +161,9 @@ pub struct CohortBookPnlInput {
     pub cohorts: Vec<w::CohortOwnership>,
     /// One actual complete receiving/delivering asset owner per linked future.
     pub physical_deliveries: Vec<w::PhysicalDeliveryLink>,
+    /// Explicit conserved full original security partitions; no execution fills.
+    #[serde(default)]
+    pub lot_splits: Vec<w::CohortLotSplit>,
 }
 pub(super) fn reconcile_cohorts(
     input: &CohortBookPnlInput,
@@ -284,8 +287,14 @@ fn reconcile_inner(
             .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
             .collect::<Vec<_>>();
         Some((
-            w::prepare_cohort_pnl(&declaration, &c.cohorts, &c.physical_deliveries, &states)
-                .map_err(native_error)?,
+            w::prepare_cohort_pnl_with_splits(
+                &declaration,
+                &c.cohorts,
+                &c.physical_deliveries,
+                &c.lot_splits,
+                &states,
+            )
+            .map_err(native_error)?,
             replay,
         ))
     } else {

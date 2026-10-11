@@ -56,7 +56,12 @@ fn same_bond(state: &l::LifecycleState, contract: &BondContract) -> Reconciliati
     match state.instrument() {
         l::LifecycleInstrument::Bond {
             contract: actual, ..
-        } if actual.terms() == contract.terms() => Ok(()),
+        } if actual.terms() == contract.terms()
+            && actual.periods().eq(contract.periods())
+            && actual.principal_cashflows() == contract.principal_cashflows() =>
+        {
+            Ok(())
+        }
         _ => Err(bad(
             "lifecycle product",
             "exact same full native bond economics required",
@@ -359,6 +364,12 @@ pub fn mark_causal_pnl_position<'p>(
         .ok_or_else(|| bad("holding", "outside expected coverage"))?;
     let view = state.view();
     let currency = pos.current.currency;
+    if !view.amendments.is_empty() && view.version != pos.identity.instrument.version {
+        return Err(bad(
+            "amended terms revision",
+            "same actual amended legal/security revision required",
+        ));
+    }
     if let Some(pins) = &path.cohort_state_pins {
         if cohorts::state_pin(state)? != pins[point_index][index] {
             return Err(bad(
@@ -977,6 +988,15 @@ pub fn mark_causal_pnl_position<'p>(
         ctd,
         terminal_quote,
         cohort: cohort.cloned(),
+        lot_splits: path
+            .lot_splits
+            .iter()
+            .filter(|s| {
+                cohorts::split_active(s, point_index)
+                    && (s.parent == pos.identity.id || s.children.contains(&pos.identity.id))
+            })
+            .cloned()
+            .collect(),
         physical_delivery: physical,
     })
 }

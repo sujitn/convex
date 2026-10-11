@@ -188,6 +188,17 @@ pub struct PaymentReceipt {
 )]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum LifecycleAction {
+    /// Complete future profiles at a processed original bond accrual boundary.
+    BondAmendment {
+        /// Exact original legal terms revision expected by this agreement.
+        prior_version: Version,
+        /// Distinct later supplied legal terms revision.
+        version: Version,
+        /// Actual immutable legal amendment document.
+        agreement: ReferencePin,
+        /// Complete replacement terms, built with the original actual calendars.
+        terms: Box<convex_bonds::contracts::BondTerms>,
+    },
     /// Ingest one actual fixing revision for this product's index.
     Fixing(FixingObservation),
     /// Apply all actual profile/principal changes on this exact day.
@@ -273,6 +284,15 @@ pub struct LifecycleEvent {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum LifecycleEffect {
+    /// Checked future terms replace no previously earned or recorded cash.
+    BondAmended {
+        /// Exact original legal terms revision.
+        prior_version: Version,
+        /// Exact admitted successor revision.
+        version: Version,
+        /// Actual supplied immutable agreement.
+        agreement: ReferencePin,
+    },
     /// Proposed payable/receivable, never posted cash.
     CashProposed(CashObligation),
     /// Actual externally recorded receipt applied locally, not written to a DB.

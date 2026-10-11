@@ -188,6 +188,19 @@ pub(super) fn replay_native(
     .map_err(native_error)?;
     let mut transitions = Vec::new();
     for step in &input.events {
+        let amended = if let l::LifecycleAction::BondAmendment { terms, .. } = &step.event.action {
+            let LifecycleInstrumentInput::Bond { bond, .. } = &input.instrument else {
+                return Err(LibraryError::invalid(
+                    "amendment",
+                    "complete original bond calendars required",
+                ));
+            };
+            let mut successor = bond.clone();
+            successor.terms = (**terms).clone();
+            Some(r.bond(&successor)?)
+        } else {
+            None
+        };
         let delivery_bond = step
             .delivery
             .as_ref()
@@ -221,6 +234,7 @@ pub(super) fn replay_native(
             &state,
             &step.event,
             &l::LifecycleInputs {
+                amended_bond: amended.as_ref(),
                 publications: Some(&r.publications),
                 exercise_calendar: exercise,
                 credit_rounding: step.credit_rounding,

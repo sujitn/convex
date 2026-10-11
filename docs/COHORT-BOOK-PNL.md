@@ -91,8 +91,7 @@ entitlements, with the existing128-holding/33-point/4224-mark ceilings and origi
 2MiB wire, depth/node/string and16MiB response guards. The mathematical crates
 still read no provider, database, message queue, clock or operational runtime.
 
-Historical legal amendments, multi-lot split/novation and broader conditional
-claim transfers, further delivered asset models,
+Broader legal amendments/novation, conditional claim transfers and further delivered asset models,
 delivery options and daily-margin financing remain separate work. Actual managed
 Java/Excel and wasm32/browser execution, broad scale/latency and independent
 quantitative/model/production certification remain unverified. CVX-063 is partial.
@@ -148,3 +147,51 @@ face equals the original proposal, for long and short positions and either
 invoice/security order. Current received face and remaining asset receivable use
 the same complete bond owner. Partial receipts change neither the actual invoice
 nor the model CTD choice. This allocating batch workflow has no latency certificate.
+
+Boundary bond amendments and conserved lots are available through the same
+`cohort_book_pnl` operation. Run `cargo run --locked -p convex --example lot_pnl`.
+An actual `bond_amendment` lifecycle event supplies the prior and later legal
+versions, immutable agreement and complete successor terms. The original opening
+terms and event prefix remain. All due original steps/cash must be processed
+before the event, at an original accrual start. Native admission preserves the
+full schedule, actual calendars, historical profile values and principal cash,
+current principal, fixing mechanics, rounding and quotation units. Only future
+fixed-bond profiles may change. Earned obligations, proposal events and receipts
+remain exact; later earned cash uses the full checked amended contract. The
+point's security revision must match the admitted legal revision. Conditional,
+floating, mid-period, calendar/schedule/index or retroactive amendments fail.
+
+Optional `lot_splits` supplies the actual legal identity, parent, distinct child
+cohorts, effective/known-at cutoffs, source revision and every applied point index.
+These indices refer to baseline, ordered endpoints and available standalone
+points in that order; index zero cannot apply a new interval split. A split
+belongs to the `position` cause. Every later ordered point retains it; unrelated
+standalone causes cannot acquire it. Children use `acquisition.kind=lot_split`
+and the exact `split_id`. Their declared signed quantities must sum exactly to
+the full original parent, in the same direction. A later partition must follow
+the original child's acquisition, with no cycles or repeated consumption.
+
+The supported security partition has the same full fixed, unrounded, nonoptional
+bond, security revision, currency, reference face, entity and fixing history at
+each actual or independent acquisition. Earned original cash and historical
+receipts stay with the parent, including separately identified residual fractions;
+children explicitly exclude all pre-split earned keys. Future earned keys belong
+to the appropriate successors; the retired parent explicitly excludes them.
+Each original native lot and all excluded claims remain visible. Held parent
+face falls to zero, successor face is conserved, and no fill, consideration, fee,
+average cost or cash receipt is inferred. Later full disposal of a successor
+continues to use its actual original fill. Splitting physical-delivery links,
+rounded/conditional instruments or transferring earned residuals into children
+requires further complete owners and fails explicitly.
+
+The original 128-holding/33-point/4,224-mark limits and wire bounds remain. Complete
+current native terms, actual resolved coupon/principal dates and all original
+amendment/proposal/receipt facts are bound inside the prepared path. Every full
+mixed-book valuation, causal interaction,
+original CTD winner/tie/switch and actual partial delivery control remains.
+The active complete independent controls are `lot-pnl-chronology.json`, produced
+by `tests/scripts/lot_pnl_chronology.py`. Initial reference, forward and typed
+diagnostic declarations remain alongside it without replacing earlier trials.
+The original complete residual/cohort/causal suites remain required separately.
+CVX-063 remains partial; actual managed/browser hosts and production/latency
+qualification remain separate.

@@ -8,6 +8,116 @@ use convex_bonds::{
 use convex_core::cashflows::DatedValue;
 
 impl LifecycleState {
+    pub(super) fn amend_bond(
+        &mut self,
+        e: &LifecycleEvent,
+        successor: Option<&convex_bonds::contracts::BondContract>,
+        effects: &mut Vec<LifecycleEffect>,
+    ) -> LifecycleResult<()> {
+        self.active()?;
+        let LifecycleAction::BondAmendment {
+            prior_version,
+            version,
+            agreement,
+            terms,
+        } = &e.action
+        else {
+            return Err(invalid(
+                "amendment",
+                "actual complete amendment event required",
+            ));
+        };
+        let LifecycleInstrument::Bond { contract, credit } = &self.instrument else {
+            return Err(LifecycleError::Unsupported(
+                "bond amendment requires the original complete bond owner",
+            ));
+        };
+        let successor = successor.ok_or_else(|| {
+            invalid(
+                "amendment",
+                "complete checked successor bond with actual calendars required",
+            )
+        })?;
+        if *prior_version != self.version
+            || version.get() <= prior_version.get()
+            || successor.terms() != terms.as_ref()
+            || terms.as_ref() == contract.terms()
+            || self.remaining != Decimal::ONE
+            || self.required.iter().any(|(d, _)| *d <= e.effective_date)
+            || !contract
+                .periods()
+                .any(|p| p.accrual_dates().0 == e.effective_date)
+        {
+            return Err(invalid("amendment", "later exact revision, changed checked terms and processed original accrual boundary required"));
+        }
+        if !terms.exercise.is_empty()
+            || !contract.terms().exercise.is_empty()
+            || terms.coupon != convex_bonds::contracts::BondCoupon::Fixed
+        {
+            return Err(LifecycleError::Unsupported("floating or conditional bond amendments require a separately qualified full model transition"));
+        }
+        // Only future profiles may change. All other full mechanics, schedules,
+        // quotation units and original calendar identities remain exact.
+        let mut mechanics = (**terms).clone();
+        mechanics.profiles = contract.terms().profiles.clone();
+        if &mechanics != contract.terms() {
+            return Err(LifecycleError::Unsupported("amended schedules, calendars, index mechanics or principal prices require a complete historical transition"));
+        }
+        for (old, new) in [
+            (&contract.terms().profiles.coupon, &terms.profiles.coupon),
+            (&contract.terms().profiles.spread, &terms.profiles.spread),
+            (&contract.terms().profiles.gearing, &terms.profiles.gearing),
+            (
+                &contract.terms().profiles.notional,
+                &terms.profiles.notional,
+            ),
+        ] {
+            if profile_prefix(old, e.effective_date) != profile_prefix(new, e.effective_date) {
+                return Err(invalid(
+                    "amendment history",
+                    "every original historical profile value must be conserved",
+                ));
+            }
+        }
+        if !contract.periods().eq(successor.periods())
+            || contract
+                .principal_cashflows()
+                .iter()
+                .filter(|p| p.effective_date <= e.effective_date)
+                .collect::<Vec<_>>()
+                != successor
+                    .principal_cashflows()
+                    .iter()
+                    .filter(|p| p.effective_date <= e.effective_date)
+                    .collect::<Vec<_>>()
+            || contract.outstanding_principal(e.effective_date, BoundarySide::After)?
+                != successor.outstanding_principal(e.effective_date, BoundarySide::After)?
+        {
+            return Err(invalid(
+                "amendment history",
+                "original earned dates/principal and current principal must be conserved",
+            ));
+        }
+        let instrument = LifecycleInstrument::Bond {
+            contract: Box::new(successor.clone()),
+            credit: credit.clone(),
+        };
+        let (_, required) =
+            super::state::prepare(&instrument, &self.trade_id, *version, self.position)?;
+        self.required = required
+            .into_iter()
+            .filter(|(d, _)| *d > e.effective_date)
+            .collect();
+        self.instrument = instrument;
+        self.version = *version;
+        self.amendment_events.push(e.clone());
+        effects.push(LifecycleEffect::BondAmended {
+            prior_version: *prior_version,
+            version: *version,
+            agreement: agreement.clone(),
+        });
+        Ok(())
+    }
     pub(super) fn contract_step(
         &mut self,
         e: &LifecycleEvent,
@@ -299,6 +409,26 @@ impl LifecycleState {
         });
         Ok(())
     }
+}
+
+// Compare actual historical values, allowing only insignificant row splitting.
+fn profile_prefix(rows: &[DatedValue], cutoff: Date) -> Vec<DatedValue> {
+    let mut prefix: Vec<DatedValue> = Vec::new();
+    for row in rows.iter().filter(|r| r.start < cutoff) {
+        let row = DatedValue {
+            start: row.start,
+            end: row.end.min(cutoff),
+            value: row.value,
+        };
+        if let Some(last) = prefix.last_mut() {
+            if last.end == row.start && last.value == row.value {
+                last.end = row.end;
+                continue;
+            }
+        }
+        prefix.push(row);
+    }
+    prefix
 }
 pub(super) fn steps(
     name: &str,

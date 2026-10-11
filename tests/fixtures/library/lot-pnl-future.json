@@ -1,0 +1,412 @@
+{
+  "certified": false,
+  "reference": "Original independent exact next earned coupon under full amended profiles.",
+  "source_sha256": "11ad651488d158154db2ee522b7f2c61600c9842d3cc653a55ea933bd541de6e",
+  "accrual_start": "2026-10-07",
+  "accrual_end": "2027-04-07",
+  "signed_currency_coupon": "-29.6933333333333333333333333333333333333333333333333333333332",
+  "original_holding": {
+    "id": "mixed.bond",
+    "product": {
+      "kind": "product",
+      "product": {
+        "kind": "bond",
+        "bond": {
+          "calendars": {
+            "exercise": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "observation": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "payment": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "reset": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            }
+          },
+          "terms": {
+            "calendars": {
+              "exercise": "CASH.SYNTHETIC.v1",
+              "observation": "CASH.SYNTHETIC.v1",
+              "payment": "CASH.SYNTHETIC.v1",
+              "reset": "CASH.SYNTHETIC.v1"
+            },
+            "coupon": {
+              "kind": "fixed"
+            },
+            "coupon_principal": "AccrualProfile",
+            "currency": "USD",
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "ex_coupon": null,
+              "fixing_offset": null,
+              "observation_offset": null,
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "CalendarDays": 0
+              }
+            },
+            "day_count": "Act360",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": [],
+            "face_value": "5000",
+            "issue_date": "2026-04-07",
+            "negative_coupons": "Allow",
+            "principal_prices": [],
+            "profiles": {
+              "coupon": [
+                {
+                  "end": "2026-10-07",
+                  "start": "2026-04-07",
+                  "value": "0.035"
+                },
+                {
+                  "end": "2027-01-07",
+                  "start": "2026-10-07",
+                  "value": "0.043"
+                },
+                {
+                  "end": "2027-10-07",
+                  "start": "2027-01-07",
+                  "value": "0.053"
+                }
+              ],
+              "gearing": [
+                {
+                  "end": "2027-10-07",
+                  "start": "2026-04-07",
+                  "value": "0"
+                }
+              ],
+              "notional": [
+                {
+                  "end": "2027-04-07",
+                  "start": "2026-04-07",
+                  "value": "5000"
+                },
+                {
+                  "end": "2027-10-07",
+                  "start": "2027-04-07",
+                  "value": "3000"
+                }
+              ],
+              "spread": [
+                {
+                  "end": "2026-10-07",
+                  "start": "2026-04-07",
+                  "value": "0"
+                },
+                {
+                  "end": "2027-10-07",
+                  "start": "2026-10-07",
+                  "value": "0.001"
+                }
+              ]
+            },
+            "redemption_multiplier": "1",
+            "rounding": "Unrounded",
+            "schedule": {
+              "end_date": "2027-10-07",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "frequency": "SemiAnnual",
+              "penultimate_date": null,
+              "start_date": "2026-04-07",
+              "stub_type": "ShortLast"
+            },
+            "schema_version": 1,
+            "settlement_adjustment": "Following",
+            "settlement_lag": {
+              "BusinessDays": 2
+            }
+          }
+        },
+        "context": {
+          "fixing": {
+            "final_only": true,
+            "known_at": "2026-10-07T12:00:00Z",
+            "unpublished": "Forecast",
+            "valuation_date": "2026-10-07"
+          },
+          "on_payment": "Exclude",
+          "overnight_accrual_cutoffs": [],
+          "settlement": "2026-10-07"
+        },
+        "projection": null,
+        "method": {
+          "kind": "discount_spread",
+          "curve": {
+            "id": "D.OIS",
+            "version": "2"
+          },
+          "role": {
+            "kind": "collateral"
+          },
+          "decimal_spread": 0.0012
+        }
+      }
+    },
+    "lifecycle": {
+      "trade_id": "mixed.bond",
+      "version": 1,
+      "instrument": {
+        "kind": "bond",
+        "bond": {
+          "calendars": {
+            "exercise": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "observation": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "payment": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            },
+            "reset": {
+              "id": "CASH.SYNTHETIC.v1",
+              "version": 1
+            }
+          },
+          "terms": {
+            "calendars": {
+              "exercise": "CASH.SYNTHETIC.v1",
+              "observation": "CASH.SYNTHETIC.v1",
+              "payment": "CASH.SYNTHETIC.v1",
+              "reset": "CASH.SYNTHETIC.v1"
+            },
+            "coupon": {
+              "kind": "fixed"
+            },
+            "coupon_principal": "AccrualProfile",
+            "currency": "USD",
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "ex_coupon": null,
+              "fixing_offset": null,
+              "observation_offset": null,
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "CalendarDays": 0
+              }
+            },
+            "day_count": "Act360",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": [],
+            "face_value": "5000",
+            "issue_date": "2026-04-07",
+            "negative_coupons": "Allow",
+            "principal_prices": [],
+            "profiles": {
+              "coupon": [
+                {
+                  "end": "2027-01-07",
+                  "start": "2026-04-07",
+                  "value": "0.035"
+                },
+                {
+                  "end": "2027-10-07",
+                  "start": "2027-01-07",
+                  "value": "0.045"
+                }
+              ],
+              "gearing": [
+                {
+                  "end": "2027-10-07",
+                  "start": "2026-04-07",
+                  "value": "0"
+                }
+              ],
+              "notional": [
+                {
+                  "end": "2027-04-07",
+                  "start": "2026-04-07",
+                  "value": "5000"
+                },
+                {
+                  "end": "2027-10-07",
+                  "start": "2027-04-07",
+                  "value": "3000"
+                }
+              ],
+              "spread": [
+                {
+                  "end": "2027-10-07",
+                  "start": "2026-04-07",
+                  "value": "0"
+                }
+              ]
+            },
+            "redemption_multiplier": "1",
+            "rounding": "Unrounded",
+            "schedule": {
+              "end_date": "2027-10-07",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "frequency": "SemiAnnual",
+              "penultimate_date": null,
+              "start_date": "2026-04-07",
+              "stub_type": "ShortLast"
+            },
+            "schema_version": 1,
+            "settlement_adjustment": "Following",
+            "settlement_lag": {
+              "BusinessDays": 2
+            }
+          }
+        },
+        "credit": null
+      },
+      "position": {
+        "unit": "bond_face",
+        "value": "-1200"
+      },
+      "known_at": "2026-10-07T12:00:00Z",
+      "history": [],
+      "events": [
+        {
+          "event": {
+            "event_id": "mixed.bond.event.0",
+            "trade_id": "mixed.bond",
+            "expected_revision": 0,
+            "effective_date": "2026-10-07",
+            "known_at": "2026-10-07T12:00:00Z",
+            "action": {
+              "kind": "contractual_cash"
+            }
+          },
+          "credit_rounding": null,
+          "futures": null,
+          "delivery": null
+        },
+        {
+          "event": {
+            "event_id": "mixed.bond.lot.full.ctd_amend_split.amended.AMENDMENT",
+            "trade_id": "mixed.bond",
+            "expected_revision": 1,
+            "effective_date": "2026-10-07",
+            "known_at": "2026-10-07T12:00:00Z",
+            "action": {
+              "kind": "bond_amendment",
+              "terms": {
+                "prior_version": 1,
+                "version": 2,
+                "agreement": {
+                  "id": "lot.full.ctd_amend_split.amended.LEGAL",
+                  "version": 1
+                },
+                "terms": {
+                  "calendars": {
+                    "exercise": "CASH.SYNTHETIC.v1",
+                    "observation": "CASH.SYNTHETIC.v1",
+                    "payment": "CASH.SYNTHETIC.v1",
+                    "reset": "CASH.SYNTHETIC.v1"
+                  },
+                  "coupon": {
+                    "kind": "fixed"
+                  },
+                  "coupon_principal": "AccrualProfile",
+                  "currency": "USD",
+                  "dates": {
+                    "accrual_adjustment": "Unadjusted",
+                    "ex_coupon": null,
+                    "fixing_offset": null,
+                    "observation_offset": null,
+                    "payment_adjustment": "Following",
+                    "payment_delay": {
+                      "CalendarDays": 0
+                    }
+                  },
+                  "day_count": "Act360",
+                  "ex_coupon_accrual": "SubtractCoupon",
+                  "exercise": [],
+                  "face_value": "5000",
+                  "issue_date": "2026-04-07",
+                  "negative_coupons": "Allow",
+                  "principal_prices": [],
+                  "profiles": {
+                    "coupon": [
+                      {
+                        "end": "2026-10-07",
+                        "start": "2026-04-07",
+                        "value": "0.035"
+                      },
+                      {
+                        "end": "2027-01-07",
+                        "start": "2026-10-07",
+                        "value": "0.043"
+                      },
+                      {
+                        "end": "2027-10-07",
+                        "start": "2027-01-07",
+                        "value": "0.053"
+                      }
+                    ],
+                    "gearing": [
+                      {
+                        "end": "2027-10-07",
+                        "start": "2026-04-07",
+                        "value": "0"
+                      }
+                    ],
+                    "notional": [
+                      {
+                        "end": "2027-04-07",
+                        "start": "2026-04-07",
+                        "value": "5000"
+                      },
+                      {
+                        "end": "2027-10-07",
+                        "start": "2027-04-07",
+                        "value": "3000"
+                      }
+                    ],
+                    "spread": [
+                      {
+                        "end": "2026-10-07",
+                        "start": "2026-04-07",
+                        "value": "0"
+                      },
+                      {
+                        "end": "2027-10-07",
+                        "start": "2026-10-07",
+                        "value": "0.001"
+                      }
+                    ]
+                  },
+                  "redemption_multiplier": "1",
+                  "rounding": "Unrounded",
+                  "schedule": {
+                    "end_date": "2027-10-07",
+                    "end_of_month": false,
+                    "first_regular_date": null,
+                    "frequency": "SemiAnnual",
+                    "penultimate_date": null,
+                    "start_date": "2026-04-07",
+                    "stub_type": "ShortLast"
+                  },
+                  "schema_version": 1,
+                  "settlement_adjustment": "Following",
+                  "settlement_lag": {
+                    "BusinessDays": 2
+                  }
+                }
+              }
+            }
+          },
+          "credit_rounding": null,
+          "futures": null,
+          "delivery": null
+        }
+      ]
+    }
+  }
+}

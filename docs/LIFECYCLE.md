@@ -159,3 +159,5 @@ schemas or FFI/Java/Excel/MCP/WASM dispatch; CVX-063 owns that integration.
 Authoritative ledger/outbox/recovery, P&L, data/model/market/convention qualification
 and independent quantitative/library/production/multiple-server/latency
 certificates remain separate. No passing subset awards those certificates.
+
+Full fixed-bond boundary amendments preserve original opening replay and earned cash. Supply the complete checked successor contract with the same actual calendars in `LifecycleInputs.amended_bond`; the shared API builds it from the event terms and original calendar revisions. Native state retains every actual amendment and its legal version. See [cohort reconciliation](COHORT-BOOK-PNL.md) for admission, ownership, supported profile changes and explicit failures.

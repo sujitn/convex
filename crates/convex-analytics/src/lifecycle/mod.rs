@@ -59,6 +59,9 @@ pub type LifecycleResult<T> = Result<T, LifecycleError>;
 /// Immutable resolved ancillary inputs. Only the event's owning data is consumed.
 #[derive(Default)]
 pub struct LifecycleInputs<'a> {
+    /// Complete checked successor bond, required only for BondAmendment.
+    /// Build with the same actual versioned calendars as the original bond.
+    pub amended_bond: Option<&'a convex_bonds::contracts::BondContract>,
     /// Actual administrator schedule for fixing-aware coupons/exercise.
     pub publications: Option<&'a crate::workflow::PublicationSchedule>,
     /// Original exercise calendar name and actual data, bound by the caller.
@@ -107,6 +110,9 @@ pub fn transition(
     let mut next = previous.clone();
     let mut effects = Vec::new();
     match &event.action {
+        LifecycleAction::BondAmendment { .. } => {
+            next.amend_bond(event, inputs.amended_bond, &mut effects)?
+        }
         LifecycleAction::Fixing(o) => next.fixing(event, o, &mut effects)?,
         LifecycleAction::ContractStep => next.contract_step(event, &mut effects)?,
         LifecycleAction::ContractualCash => next.contractual_cash(event, inputs, &mut effects)?,

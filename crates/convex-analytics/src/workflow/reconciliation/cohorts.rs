@@ -66,6 +66,11 @@ pub struct ResidualClaimValue {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CohortAcquisition {
+    /// Exact named successor of a conserved original security lot split.
+    LotSplit {
+        /// Actual legal split identity, separate from execution fills.
+        split_id: l::EventId,
+    },
     /// Already owned at the before point.
     Opening {},
     /// Actual full supplied interval execution.
@@ -94,6 +99,58 @@ pub struct CohortOwnership {
     pub disposal_fill: Option<l::EventId>,
     /// Complete ownership coverage across all actual original replayed claims.
     pub entitlements: Vec<CohortClaimEntitlement>,
+}
+/// Complete supplied legal partition of one full original signed bond lot.
+/// Earned original cash stays with its explicit original owner; this is not a fill.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortLotSplit {
+    /// Locally unique immutable legal split identity.
+    pub id: l::EventId,
+    /// Exact full original lot whose held exposure ends.
+    pub parent: TradeId,
+    /// Two or more distinct full native successor cohorts, in supplied order.
+    pub children: Vec<TradeId>,
+    /// Actual economic split date, at an original processed accrual boundary.
+    pub effective_date: Date,
+    /// Actual information availability; never inferred from the economic date.
+    pub known_at: UtcTimestamp,
+    /// Actual immutable supplied legal custody record.
+    pub source: ReferencePin,
+    /// Exact full information sets where this legal fact has been applied.
+    /// Includes ordered endpoints and independently available counterfactuals.
+    pub applied_points: Vec<usize>,
+}
+pub(super) fn split_active(split: &CohortLotSplit, point: usize) -> bool {
+    split.applied_points.contains(&point)
+}
+fn split_delta(
+    splits: &[CohortLotSplit],
+    owners: &[CohortOwnership],
+    point: usize,
+    index: usize,
+) -> ReconciliationResult<Decimal> {
+    splits
+        .iter()
+        .filter(|s| split_active(s, point))
+        .try_fold(Decimal::ZERO, |sum, s| {
+            let q = if s.parent == owners[index].trade_id {
+                -owners[index].quantity.decimal()
+            } else if s.children.contains(&owners[index].trade_id) {
+                owners[index].quantity.decimal()
+            } else {
+                Decimal::ZERO
+            };
+            dec(sum.checked_add(q))
+        })
+}
+fn split_out(path: &PreparedCausalPnl, point: usize, index: usize) -> bool {
+    path.cohorts.as_ref().is_some_and(|owners| {
+        path.lot_splits
+            .iter()
+            .any(|s| s.parent == owners[index].trade_id && split_active(s, point))
+    })
 }
 /// Actual original delivery is transferred to this complete cash-bond owner.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -160,6 +217,10 @@ pub(super) fn acquired(path: &PreparedCausalPnl, point: usize, index: usize) -> 
         return true;
     };
     match &owners[index].acquisition {
+        CohortAcquisition::LotSplit { split_id } => path
+            .lot_splits
+            .iter()
+            .any(|s| &s.id == split_id && split_active(s, point)),
         CohortAcquisition::Opening {} => true,
         CohortAcquisition::Fill { fill_id } => fill(&path.input.points[point], fill_id).is_some(),
         CohortAcquisition::PhysicalDelivery { .. } => path.handoffs[point][index].is_some(),
@@ -181,12 +242,29 @@ pub(super) fn entitlement(
 }
 pub(super) fn state_pin(state: &l::LifecycleState) -> ReconciliationResult<String> {
     let view = state.view();
+    let instrument = match state.instrument() {
+        l::LifecycleInstrument::Bond { contract, credit } => {
+            serde_json::json!({"bond":contract.terms(),"credit":credit,
+                "periods":contract.periods().collect::<Vec<_>>(),
+                "principal":contract.principal_cashflows()})
+        }
+        l::LifecycleInstrument::ZeroCoupon { bond, credit } => {
+            serde_json::json!({"zero":bond,"credit":credit})
+        }
+        l::LifecycleInstrument::Swap(contract) => serde_json::json!({"swap":contract.terms()}),
+        l::LifecycleInstrument::Cds(contract) => serde_json::json!({"cds":contract.terms()}),
+        l::LifecycleInstrument::Futures {
+            contract,
+            opening_mark,
+        } => serde_json::json!({"future":contract,"opening_mark":opening_mark}),
+    };
     let proposals = view
         .obligations
         .iter()
         .map(|o| state.cash_proposal_event(&o.key))
         .collect::<Vec<_>>();
     serde_json::to_string(&(
+        instrument,
         view,
         proposals,
         state.payment_receipt_events(),
@@ -283,10 +361,25 @@ pub fn prepare_cohort_pnl(
     links: &[PhysicalDeliveryLink],
     states: &[Vec<l::LifecycleState>],
 ) -> ReconciliationResult<PreparedCausalPnl> {
+    prepare_cohort_pnl_with_splits(input, cohorts, links, &[], states)
+}
+/// Admit explicitly sourced original security partitions before financial marks.
+/// Complete native historical cash is retained, never converted into a fill.
+pub fn prepare_cohort_pnl_with_splits(
+    input: &CausalPnlInput,
+    cohorts: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    splits: &[CohortLotSplit],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<PreparedCausalPnl> {
     let n = input.points.first().map_or(0, |p| p.positions.len());
     if !(1..=128).contains(&n)
         || cohorts.len() != n
         || links.len() > n
+        || splits.len() > n
+        || splits
+            .iter()
+            .any(|s| s.children.len() < 2 || s.children.len() > n || s.applied_points.len() > 33)
         || !(1..=33).contains(&states.len())
         || states.len() != input.points.len()
         || states.len() > input.max_points
@@ -328,6 +421,16 @@ pub fn prepare_cohort_pnl(
         ));
     }
     let mut normalized = input.clone();
+    admit_splits(input, cohorts, links, splits, states)?;
+    for (i, point) in normalized.points.iter_mut().enumerate() {
+        for (j, pos) in point.positions.iter_mut().enumerate() {
+            pos.current.quantity = ExactDecimal::new(dec(pos
+                .current
+                .quantity
+                .decimal()
+                .checked_sub(split_delta(splits, cohorts, i, j)?))?);
+        }
+    }
     let mut handoffs = vec![vec![None; n]; states.len()];
     for (k, link) in links.iter().enumerate() {
         let f = find(input, &link.future)?;
@@ -484,6 +587,7 @@ pub fn prepare_cohort_pnl(
             .map(|row| row.iter().map(state_pin).collect())
             .collect::<ReconciliationResult<_>>()?,
     );
+    path.lot_splits = splits.to_vec();
     let mut residual_ids = std::collections::BTreeSet::new();
     for (j, owner) in cohorts.iter().enumerate() {
         let initial = &input.points[0].positions[j];
@@ -556,6 +660,13 @@ pub fn prepare_cohort_pnl(
             let disposed = owner.disposal_fill.as_ref().and_then(|id| fill(point, id));
             disposal_seen |= disposed.is_some();
             let expected = match &owner.acquisition {
+                CohortAcquisition::LotSplit { .. } => {
+                    if is_acquired {
+                        owner.quantity.decimal()
+                    } else {
+                        Decimal::ZERO
+                    }
+                }
                 CohortAcquisition::Opening {} => owner.quantity.decimal(),
                 CohortAcquisition::Fill { fill_id } => {
                     if let Some(f) = fill(point, fill_id) {
@@ -585,7 +696,15 @@ pub fn prepare_cohort_pnl(
                     .as_ref()
                     .map_or(Decimal::ZERO, |h| h.received_face.decimal()),
             };
-            let expected = if let Some(f) = disposed {
+            let expected = if split_out(&path, i, j) {
+                if disposed.is_some() || !pos.pending_quantity.decimal().is_zero() {
+                    return Err(bad(
+                        "retired split lot",
+                        "split parent cannot also be disposed or retain pending exposure",
+                    ));
+                }
+                Decimal::ZERO
+            } else if let Some(f) = disposed {
                 if !is_acquired
                     || f.trade_id != owner.trade_id
                     || f.quantity.decimal() != -owner.quantity.decimal()
@@ -713,6 +832,9 @@ fn admit_residual(
         CohortAcquisition::PhysicalDelivery { .. } => {
             return Err(bad("residual", "unsupported acquisition"))
         }
+        CohortAcquisition::LotSplit { .. } => {
+            return Err(ReconciliationError::Incomplete("earned residual transfers to split children require their original separate claim owner"))
+        }
     }
     if cutoff.known_at.datetime().date_naive() < cutoff.date.as_naive_date()
         || !(1..=9999).contains(&cutoff.date.year())
@@ -815,6 +937,225 @@ fn admit_residual(
             } else {
                 return Err(ReconciliationError::Incomplete(
                     "original residual obligation absent from acquired point",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn admit_splits(
+    input: &CausalPnlInput,
+    owners: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    splits: &[CohortLotSplit],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<()> {
+    let mut parents = std::collections::BTreeSet::new();
+    let mut children = std::collections::BTreeSet::new();
+    let mut ids = std::collections::BTreeSet::new();
+    for split in splits {
+        let p = find(input, &split.parent)?;
+        let indexes = split
+            .children
+            .iter()
+            .map(|id| find(input, id))
+            .collect::<ReconciliationResult<Vec<_>>>()?;
+        let points = split
+            .applied_points
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if !ids.insert(&split.id)
+            || !parents.insert(&split.parent)
+            || owners[p].disposal_fill.is_some()
+            || points.is_empty()
+            || points.len() != split.applied_points.len()
+            || points.contains(&0)
+            || points.iter().any(|i| *i >= input.points.len())
+            || split.known_at.datetime().date_naive() < split.effective_date.as_naive_date()
+            || !(1..=9999).contains(&split.effective_date.year())
+            || split.effective_date < input.points[0].valuation_date
+            || split.known_at < input.points[0].known_at
+            || links.iter().any(|l| {
+                l.asset == split.parent
+                    || l.future == split.parent
+                    || split.children.contains(&l.asset)
+                    || split.children.contains(&l.future)
+            })
+        {
+            return Err(bad("lot split", "unique full nonphysical parent, available interval facts and distinct applied points required"));
+        }
+        let mut total = Decimal::ZERO;
+        for &j in &indexes {
+            if p == j
+                || !children.insert(&owners[j].trade_id)
+                || owners[j].acquisition
+                    != (CohortAcquisition::LotSplit {
+                        split_id: split.id.clone(),
+                    })
+                || owners[j].quantity.decimal().is_sign_negative()
+                    != owners[p].quantity.decimal().is_sign_negative()
+            {
+                return Err(bad("split children", "distinct same-direction original children acquired by this exact split required"));
+            }
+            total = dec(total.checked_add(owners[j].quantity.decimal()))?;
+        }
+        if total != owners[p].quantity.decimal() {
+            return Err(bad(
+                "split face",
+                "exact original signed face must equal all successor lots",
+            ));
+        }
+        let first = (1..=input.causes.len())
+            .find(|i| points.contains(i))
+            .ok_or_else(|| bad("split path", "actual split must appear on the ordered path"))?;
+        if input.causes[first - 1] != PnlCause::Position
+            || (first..=input.causes.len()).any(|i| !points.contains(&i))
+        {
+            return Err(bad(
+                "split cause",
+                "full split belongs to Position and cannot disappear from ordered facts",
+            ));
+        }
+        for (i, row) in states.iter().enumerate() {
+            if !split_active(split, i) {
+                continue;
+            }
+            let point = &input.points[i];
+            if split.effective_date > point.valuation_date || split.known_at > point.known_at {
+                return Err(bad(
+                    "split availability",
+                    "actual effective and knowledge cutoffs must both be available",
+                ));
+            }
+            if i > input.causes.len() {
+                let cause = input
+                    .standalone
+                    .iter()
+                    .position(|s| matches!(s, PnlStandalone::Available {point} if *point == i))
+                    .ok_or_else(|| bad("split standalone", "actual standalone binding absent"))?;
+                if input.causes[cause] != PnlCause::Position {
+                    return Err(bad(
+                        "split standalone",
+                        "unrelated independent cause cannot acquire split facts",
+                    ));
+                }
+            }
+            if i != first && i <= input.causes.len() {
+                continue;
+            }
+            let l::LifecycleInstrument::Bond {
+                contract: original,
+                credit,
+            } = row[p].instrument()
+            else {
+                return Err(ReconciliationError::Incomplete(
+                    "security splits require complete original bond owners",
+                ));
+            };
+            if !original.terms().exercise.is_empty()
+                || original.terms().coupon != convex_bonds::contracts::BondCoupon::Fixed
+                || original.terms().rounding != convex_core::cashflows::CashRounding::Unrounded
+                || !original
+                    .periods()
+                    .any(|x| x.accrual_dates().0 == split.effective_date)
+                || row[p].view().status != l::EconomicStatus::Active
+                || row[p].view().remaining_fraction.decimal() != Decimal::ONE
+            {
+                return Err(ReconciliationError::Incomplete("lot split requires an active unrounded nonoptional original bond at a processed accrual boundary"));
+            }
+            for &j in &indexes {
+                let l::LifecycleInstrument::Bond {
+                    contract: successor,
+                    credit: mapped,
+                } = row[j].instrument()
+                else {
+                    return Err(bad(
+                        "split security",
+                        "complete original successor bond required",
+                    ));
+                };
+                let a = &point.positions[p];
+                let b = &point.positions[j];
+                if original.terms() != successor.terms()
+                    || !original.periods().eq(successor.periods())
+                    || original.principal_cashflows() != successor.principal_cashflows()
+                    || credit != mapped
+                    || a.identity.instrument != b.identity.instrument
+                    || a.identity.entity != b.identity.entity
+                    || a.current.currency != b.current.currency
+                    || a.current.reference_quantity != b.current.reference_quantity
+                    || a.current.quantity_unit != b.current.quantity_unit
+                    || row[p].view().fixings != row[j].view().fixings
+                    || row[j].view().remaining_fraction.decimal() != Decimal::ONE
+                    || row[j].view().status != l::EconomicStatus::Active
+                {
+                    return Err(bad(
+                        "split economics",
+                        "same complete original security/economics/history/currency/units required",
+                    ));
+                }
+            }
+        }
+        for &j in &indexes {
+            if owners[j].entitlements.iter().any(|e| e.key.effective_date <= split.effective_date && e.entitled)
+                || states.iter().any(|row| row[j].payment_receipt_events().iter().any(|e| matches!(&e.action, l::LifecycleAction::Payment(r) if r.obligation.effective_date <= split.effective_date)))
+            {
+                return Err(bad("split earned cash", "original earned cash and historical receipts stay with their original owner"));
+            }
+        }
+        if owners[p]
+            .entitlements
+            .iter()
+            .any(|e| e.key.effective_date > split.effective_date && e.entitled)
+        {
+            return Err(bad(
+                "split future cash",
+                "retired original parent cannot own successor earned cash",
+            ));
+        }
+    }
+    for owner in owners {
+        if let CohortAcquisition::LotSplit { split_id } = &owner.acquisition {
+            if !splits
+                .iter()
+                .any(|s| &s.id == split_id && s.children.contains(&owner.trade_id))
+            {
+                return Err(bad(
+                    "split acquisition",
+                    "exact complete original split link absent",
+                ));
+            }
+        }
+    }
+    // Bound the graph by original holdings; a successor may be split again only
+    // after its own actual acquisition. No cycle or repeated consumed lot exists.
+    for split in splits {
+        if let Some(prior) = splits.iter().find(|s| s.children.contains(&split.parent)) {
+            let original_first =
+                (1..=input.causes.len()).find(|i| prior.applied_points.contains(i));
+            let successor_first =
+                (1..=input.causes.len()).find(|i| split.applied_points.contains(i));
+            if split.effective_date < prior.effective_date
+                || split.known_at < prior.known_at
+                || split
+                    .applied_points
+                    .iter()
+                    .any(|p| !prior.applied_points.contains(p))
+                || original_first >= successor_first
+            {
+                return Err(bad(
+                    "split lineage",
+                    "original acquisition must precede every later partition",
+                ));
+            }
+        } else {
+            let p = find(input, &split.parent)?;
+            if owners[p].acquisition != (CohortAcquisition::Opening {}) {
+                return Err(bad(
+                    "split lineage",
+                    "initial split parent must be an original opening lot",
                 ));
             }
         }
