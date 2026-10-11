@@ -67,6 +67,7 @@ pub struct LifecycleState {
     pub(super) events: BTreeSet<EventId>,
     pub(super) receipts: BTreeSet<EventId>,
     pub(super) notices: BTreeMap<(u32, Date), convex_bonds::contracts::ExerciseDates>,
+    pub(super) notice_event: Option<LifecycleEvent>,
     pub(super) default_claim: Option<DefaultClaim>,
     pub(super) futures_mark: Option<crate::futures::FuturesMark>,
     pub(super) delivery_pending:
@@ -184,6 +185,7 @@ impl LifecycleState {
             events: BTreeSet::new(),
             receipts: BTreeSet::new(),
             notices: BTreeMap::new(),
+            notice_event: None,
             default_claim: None,
             futures_mark,
             delivery_pending: None,
@@ -192,6 +194,11 @@ impl LifecycleState {
     /// Exact immutable native product; no detached approximate economic terms.
     pub fn instrument(&self) -> &LifecycleInstrument {
         &self.instrument
+    }
+    /// Exact successfully applied actual notice. The contractual last-notice
+    /// deadline in the audit view is distinct from this issuance event.
+    pub fn exercise_notice(&self) -> Option<&LifecycleEvent> {
+        self.notice_event.as_ref()
     }
     /// Deterministic full audit projection; no implicit cash total or reporting FX.
     pub fn view(&self) -> LifecycleStateView {

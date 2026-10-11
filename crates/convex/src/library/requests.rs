@@ -439,6 +439,11 @@ pub enum LibraryOperation {
         /// Full model, checked legal mapping and complete factor manifest.
         input: Box<CashBasisHedgeInput>,
     },
+    /// Full causal mixed-book lifecycle/cash-event model P&L reconciliation.
+    BookPnl {
+        /// Complete separately admitted before/after/path and native product data.
+        input: Box<super::reconciliation::MixedBookPnlInput>,
+    },
     /// Pure original-state replay and one transition; no ledger commitment.
     Lifecycle {
         /// Full original opening terms and each supplied event/input.

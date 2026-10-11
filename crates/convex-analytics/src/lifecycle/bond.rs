@@ -210,6 +210,7 @@ impl LifecycleState {
             ));
         }
         self.notices.insert((provision, date), dates.clone());
+        self.notice_event = Some(e.clone());
         effects.push(LifecycleEffect::ExerciseNotified {
             notice: dates.notice,
             exercise: dates.exercise,

@@ -30063,7 +30063,30 @@
     "tests/fixtures/library/mixed-scenario-api-09.json",
     "tests/fixtures/library/mixed-scenario-api-10.json",
     "tests/fixtures/library/mixed-scenario-api-11.json",
-    "tests/fixtures/library/mixed-scenario-api-12.json"
+    "tests/fixtures/library/mixed-scenario-api-12.json",
+    "tests/fixtures/library/causal-pnl-v12-api-01.json",
+    "tests/fixtures/library/causal-pnl-v12-api-02.json",
+    "tests/fixtures/library/causal-pnl-v12-api-03.json",
+    "tests/fixtures/library/causal-pnl-v12-api-04.json",
+    "tests/fixtures/library/causal-pnl-v12-api-05.json",
+    "tests/fixtures/library/causal-pnl-v12-api-06.json",
+    "tests/fixtures/library/causal-pnl-v12-api-07.json",
+    "tests/fixtures/library/causal-pnl-v12-api-08.json",
+    "tests/fixtures/library/causal-pnl-v12-api-09.json",
+    "tests/fixtures/library/causal-pnl-v12-api-10.json",
+    "tests/fixtures/library/causal-pnl-v12-api-11.json",
+    "tests/fixtures/library/causal-pnl-v12-api-12.json",
+    "tests/fixtures/library/causal-pnl-v12-api-13.json",
+    "tests/fixtures/library/causal-pnl-v12-api-14.json",
+    "tests/fixtures/library/causal-pnl-v12-api-15.json",
+    "tests/fixtures/library/causal-pnl-v12-api-16.json",
+    "tests/fixtures/library/causal-pnl-v12-api-17.json",
+    "tests/fixtures/library/causal-pnl-v12-api-18.json",
+    "tests/fixtures/library/causal-pnl-v12-api-19.json",
+    "tests/fixtures/library/causal-pnl-v12-api-20.json",
+    "tests/fixtures/library/causal-pnl-v12-api-21.json",
+    "tests/fixtures/library/causal-pnl-v12-api-22.json",
+    "tests/fixtures/library/causal-pnl-v12-api-23.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33644,6 +33667,50 @@
         "mixed.invalid.optional_shaped",
         "mixed.boundary.raw_observation_alias",
         "mixed.boundary.unconsumed_raw"
+      ]
+    },
+    "book_pnl": {
+      "certified": false,
+      "qualification": "CVX-063 causal full mixed-book lifecycle/cash-event model P&L over separately admitted complete information sets, explicit cause order, original nonlinear native owners, dated obligations/recorded receipts, current/pending/projected/executed quantities, fill consideration and native cash-vs-futures bases, exact FX, all-member CTD states/ties/switches, bounded exact coverage and typed unknown/unsupported outcomes. No ledger/fill/order authority, financial-tolerance changes, human quantitative approval or certificate. Supplied model/cash reconciliation only; no authoritative realized ledger, fill/cash authentication or order authority. Original numerical policies and independent bounds preserved. Actual unavailable managed/browser hosts and independent certificates remain open.",
+      "required_record_ids": [
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/rust",
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/shared_json",
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/c_abi"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "selectors": {
+        "operation.kind": "book_pnl"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/reconciliation.rs",
+          "text": "pub fn prepare_causal_pnl("
+        },
+        {
+          "path": "crates/convex/src/library/reconciliation.rs",
+          "text": "pub(super) fn reconcile("
+        }
+      ],
+      "positive_examples": [
+        "causal.full.mixed",
+        "causal.event.credit_complete_actual_cash.eligible_protection_date",
+        "causal.event.full_notice_exercise_claim"
+      ],
+      "boundary_examples": [
+        "causal.full.ctd_ties",
+        "causal.event.actual_margin_final_and_receipts.complete_publications",
+        "causal.time.stepped_delayed_partial.plain_contract",
+        "causal.amendment.full_prospective_profile.future_effective"
+      ],
+      "negative_examples": [
+        "causal.invalid.eligible_default_unknown_recovery",
+        "causal.boundary.complete_unmodelled_overdue_claim",
+        "causal.invalid.wrong_cause",
+        "causal.boundary.foreign_native_economics"
       ]
     }
   }

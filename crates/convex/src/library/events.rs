@@ -106,7 +106,7 @@ pub struct LifecycleInput {
     /// All actual prior events plus requested final transition, in supplied order.
     pub events: Vec<LifecycleStep>,
 }
-fn native_error(e: l::LifecycleError) -> LibraryError {
+pub(super) fn native_error(e: l::LifecycleError) -> LibraryError {
     match e {
         l::LifecycleError::Workflow(e) => e.into(),
         l::LifecycleError::Bond(e) => e.into(),
@@ -125,7 +125,14 @@ fn native_error(e: l::LifecycleError) -> LibraryError {
         },
     }
 }
-pub(super) fn replay(input: &LifecycleInput, r: &ResolvedInputs<'_>) -> LibraryResult<Value> {
+pub(super) struct NativeReplay {
+    pub state: l::LifecycleState,
+    pub transitions: Vec<(l::LifecycleEvent, Vec<l::LifecycleEffect>)>,
+}
+pub(super) fn replay_native(
+    input: &LifecycleInput,
+    r: &ResolvedInputs<'_>,
+) -> LibraryResult<NativeReplay> {
     if input.events.len() > 4096 {
         return Err(LibraryError::limit(
             "at most4096 supplied replay events per request",
@@ -222,8 +229,18 @@ pub(super) fn replay(input: &LifecycleInput, r: &ResolvedInputs<'_>) -> LibraryR
             },
         )
         .map_err(native_error)?;
-        transitions.push(serde_json::json!({"event":next.event,"effects":next.effects}));
+        transitions.push((next.event, next.effects));
         state = next.next;
     }
-    Ok(serde_json::json!({"state":state.view(),"transitions":transitions}))
+    Ok(NativeReplay { state, transitions })
+}
+
+pub(super) fn replay(input: &LifecycleInput, r: &ResolvedInputs<'_>) -> LibraryResult<Value> {
+    let output = replay_native(input, r)?;
+    let transitions = output
+        .transitions
+        .into_iter()
+        .map(|(event, effects)| serde_json::json!({"event":event,"effects":effects}))
+        .collect::<Vec<_>>();
+    Ok(serde_json::json!({"state":output.state.view(),"transitions":transitions}))
 }

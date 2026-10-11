@@ -100,6 +100,9 @@ pub(super) struct ResolvedInputs<'a> {
     pub publications: convex_analytics::workflow::PublicationSchedule,
 }
 impl<'a> ResolvedInputs<'a> {
+    pub(super) fn original(&self) -> &LibraryInputs {
+        self.input
+    }
     pub fn new(input: &'a LibraryInputs) -> LibraryResult<Self> {
         let mut resolved = Self::resources(input)?;
         if let Some(calibration) = &input.calibration {

@@ -595,3 +595,10 @@ PV/futures quote-level meanings. See [the supplied-input contract](MIXED-BOOK-SC
 and run `cargo run --locked -p convex --example mixed_scenario`. Explicit path,
 quantity, FX and work admission, complete independent controls and dedicated
 CI supplement existing checks; CVX-063 remains partial and uncertified.
+
+
+The additive `book_pnl` route reconstructs complete causal information sets,
+replays original lifecycle/cash facts and retains original nonlinear product
+values and all-member CTD switches. Read [CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md)
+for full inputs, distinct quote/cash bases, actual fills/receipts, attribution,
+work bounds and explicit remaining limits. CVX-063 remains partial.

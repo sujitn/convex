@@ -800,6 +800,93 @@ jobs:
       - name: Check lossless original optional API census
         run: python3 tests/scripts/optional_graph_hedge_census.py
 
+      - name: Causal lifecycle and cash gate 1
+        run: python3 tests/scripts/causal_pnl_reference.py
+
+      - name: Causal lifecycle and cash gate 2
+        run: python3 tests/scripts/causal_pnl_ready.py
+
+      - name: Causal lifecycle and cash gate 3
+        run: python3 tests/scripts/causal_pnl_admitted.py
+
+      - name: Causal lifecycle and cash gate 4
+        run: python3 tests/scripts/causal_pnl_bindings.py
+
+      - name: Causal lifecycle and cash gate 5
+        run: python3 tests/scripts/causal_pnl_boundaries.py
+
+      - name: Causal lifecycle and cash gate 6
+        run: python3 tests/scripts/causal_pnl_qualification.py
+
+      - name: Causal lifecycle and cash gate 7
+        run: python3 tests/scripts/causal_pnl_wire.py
+
+      - name: Causal lifecycle and cash gate 8
+        run: python3 tests/scripts/causal_pnl_terms.py
+
+      - name: Causal lifecycle and cash gate 9
+        run: python3 tests/scripts/causal_pnl_publications.py
+
+      - name: Causal lifecycle and cash gate 10
+        run: python3 tests/scripts/causal_pnl_identity.py
+
+      - name: Causal lifecycle and cash gate 11
+        run: python3 tests/scripts/causal_pnl_revisions.py
+
+      - name: Causal lifecycle and cash gate 12
+        run: python3 tests/scripts/causal_pnl_census.py
+
+      - name: Check original conditional and full plain cash controls
+        run: python3 tests/scripts/causal_pnl_cash_contracts.py
+
+      - name: Check eligible original CDS default controls
+        run: python3 tests/scripts/causal_pnl_credit_dates.py
+
+      - name: Check complete later-cutoff administrator history
+        run: python3 tests/scripts/causal_pnl_fixing_cutoffs.py
+
+      - name: Check original IRS and OIS fixing policies
+        run: python3 tests/scripts/causal_pnl_policies.py
+
+      - name: Check original delay-then-adjust cash dates
+        run: python3 tests/scripts/causal_pnl_payment_dates.py
+
+      - name: Check original signed optional notice dates
+        run: python3 tests/scripts/causal_pnl_notice_dates.py
+
+      - name: Check complete future-effective amendment
+        run: python3 tests/scripts/causal_pnl_amendments.py
+
+      - name: Check whole-history lineage and original initial cash
+        run: python3 tests/scripts/causal_pnl_reconciled.py
+
+      - name: Check complete original settlement-eligible roll
+        run: python3 tests/scripts/causal_pnl_contexts.py
+
+      - name: Check independent OIS economic observation cutoffs
+        run: python3 tests/scripts/causal_pnl_economic_cutoffs.py
+
+      - name: Causal lifecycle and cash gate 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test causal_pnl -- --test-threads=1
+
+      - name: Causal lifecycle and cash gate 14
+        run: cargo test --locked --all-features -p convex --test causal_pnl_boundaries -- --test-threads=1
+
+      - name: Causal lifecycle and cash gate 15
+        run: cargo run --locked -p convex --example causal_pnl
+
+      - name: Causal lifecycle and cash gate 16
+        run: cargo run --locked -p convex --example causal_pnl --no-default-features
+
+      - name: Causal lifecycle and cash gate 17
+        run: cargo run --locked -p convex --example causal_pnl --features schemars
+
+      - name: Causal lifecycle and cash gate 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/causal_pnl_schema.py --binary target/debug/examples/causal_pnl
+
+      - name: Causal lifecycle and cash gate 19
+        run: python3 tests/scripts/causal_pnl_parity.py --binary target/debug/examples/causal_pnl --library target/debug/libconvex_ffi.so
+
       - name: Mixed-book scenario gate 1
         run: python3 tests/scripts/mixed_scenario_reference.py
 
@@ -1450,6 +1537,9 @@ jobs:
       - name: Build mixed-book scenario Excel consumer
         run: cargo build --locked --profile excel -p convex --example mixed_scenario --features schemars
 
+      - name: Build causal lifecycle and cash consumer
+        run: cargo build --locked --profile excel -p convex --example causal_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1532,6 +1622,9 @@ jobs:
 
       - name: Generate mixed-book scenario Excel expectations
         run: python tests/scripts/mixed_scenario_parity.py --binary target/excel/examples/mixed_scenario.exe --output excel/Convex.Excel.Tests/bin/Release/net472/mixed-scenario-parity.json
+
+      - name: Generate complete causal cash transport corpus
+        run: python tests/scripts/causal_pnl_parity.py --binary target/excel/examples/causal_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/causal-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

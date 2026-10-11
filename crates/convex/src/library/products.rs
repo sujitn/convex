@@ -816,6 +816,9 @@ pub(super) fn execute(
             security,
             input,
         } => super::cash_hedges::cash_basis_hedge_risk(graph, security, input, r),
+        LibraryOperation::BookPnl { input } => {
+            super::reconciliation::reconcile(input, r.original())
+        }
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
         LibraryOperation::IcmaYieldRisk {
