@@ -639,3 +639,9 @@ replays original lifecycle/cash facts and retains original nonlinear product
 values and all-member CTD switches. Read [CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md)
 for full inputs, distinct quote/cash bases, actual fills/receipts, attribution,
 work bounds and explicit remaining limits. CVX-063 remains partial.
+
+The additive `cohort_book_pnl` route retains exact original signed cohort cash
+ownership and complete actual physical asset/invoice handoff, including all-member
+CTD changes and actual-versus-model delivery choices. See
+[COHORT-BOOK-PNL.md](COHORT-BOOK-PNL.md) for full terms, quantities, ownership and
+explicit unsupported transfer/host/production boundaries.

@@ -149,9 +149,53 @@ fn native_error(e: w::ReconciliationError) -> LibraryError {
         }
     }
 }
+/// Explicit original cohorts and complete actual physical asset/invoice links.
+/// This opt-in contract preserves the existing single-holding book_pnl route.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortBookPnlInput {
+    /// Complete original before/path/standalone values, terms and replay inputs.
+    pub book: MixedBookPnlInput,
+    /// One fixed signed original lifecycle lot and complete cash ownership per holding.
+    pub cohorts: Vec<w::CohortOwnership>,
+    /// One actual complete receiving/delivering asset owner per linked future.
+    pub physical_deliveries: Vec<w::PhysicalDeliveryLink>,
+}
+pub(super) fn reconcile_cohorts(
+    input: &CohortBookPnlInput,
+    outer: &LibraryInputs,
+) -> LibraryResult<Value> {
+    if input.cohorts.len() != input.book.before.point.positions.len()
+        || input.physical_deliveries.len() > 128
+        || input.cohorts.iter().any(|c| c.entitlements.len() > 4096)
+    {
+        return Err(LibraryError::invalid(
+            "cohort coverage",
+            "bounded complete original cohorts and entitlement coverage required",
+        ));
+    }
+    if input.cohorts.iter().any(|c| {
+        matches!(&c.acquisition, w::CohortAcquisition::PhysicalDelivery { future }
+            if !input.physical_deliveries.iter().any(|l| &l.future == future && l.asset == c.trade_id))
+    }) {
+        return Err(LibraryError::missing(
+            "physical delivery",
+            serde_json::json!({"reason":"complete original physical asset owner link absent"}),
+        ));
+    }
+    reconcile_inner(&input.book, outer, Some(input))
+}
 /// Reconstruct each complete actual information set once; all native numerical
 /// owners keep original prices, histories, solver domains and work/convergence.
 pub(super) fn reconcile(input: &MixedBookPnlInput, outer: &LibraryInputs) -> LibraryResult<Value> {
+    reconcile_inner(input, outer, None)
+}
+fn reconcile_inner(
+    input: &MixedBookPnlInput,
+    outer: &LibraryInputs,
+    cohorts: Option<&CohortBookPnlInput>,
+) -> LibraryResult<Value> {
     let count = 1
         + input.steps.len()
         + input
@@ -213,7 +257,7 @@ pub(super) fn reconcile(input: &MixedBookPnlInput, outer: &LibraryInputs) -> Lib
             }
         }
     }
-    admission::validate(input, outer, &sets)?;
+    admission::validate(input, outer, &sets, cohorts)?;
     let declaration = w::CausalPnlInput {
         causes: input.steps.iter().map(|s| s.cause).collect(),
         points: sets.iter().map(|s| s.point.clone()).collect(),
@@ -222,7 +266,38 @@ pub(super) fn reconcile(input: &MixedBookPnlInput, outer: &LibraryInputs) -> Lib
         max_points: input.max_points,
         max_product_evaluations: input.max_product_evaluations,
     };
-    let path = w::prepare_causal_pnl(&declaration).map_err(native_error)?;
+    let cohort_replays = if let Some(c) = cohorts {
+        // Original replay/coverage admission precedes model valuation. Every
+        // complete state is rebuilt once from the actual point's resources.
+        let replay = sets
+            .iter()
+            .map(|set| {
+                let r = inputs::ResolvedInputs::new(&set.inputs)?;
+                set.holdings
+                    .iter()
+                    .map(|h| events::replay_native(&h.lifecycle, &r))
+                    .collect::<LibraryResult<Vec<_>>>()
+            })
+            .collect::<LibraryResult<Vec<_>>>()?;
+        let states = replay
+            .iter()
+            .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
+            .collect::<Vec<_>>();
+        Some((
+            w::prepare_cohort_pnl(&declaration, &c.cohorts, &c.physical_deliveries, &states)
+                .map_err(native_error)?,
+            replay,
+        ))
+    } else {
+        None
+    };
+    let plain_path;
+    let path = if let Some((path, _)) = &cohort_replays {
+        path
+    } else {
+        plain_path = w::prepare_causal_pnl(&declaration).map_err(native_error)?;
+        &plain_path
+    };
     let mut rows = (0..input.before.point.positions.len())
         .map(|_| Vec::new())
         .collect::<Vec<_>>();
@@ -239,10 +314,16 @@ pub(super) fn reconcile(input: &MixedBookPnlInput, outer: &LibraryInputs) -> Lib
             calibrations: Vec::new(),
         };
         for (j, h) in set.holdings.iter().enumerate() {
-            let replay = events::replay_native(&h.lifecycle, &resolved)?;
+            let plain_replay;
+            let replay = if let Some((_, rows)) = &cohort_replays {
+                &rows[i][j]
+            } else {
+                plain_replay = events::replay_native(&h.lifecycle, &resolved)?;
+                &plain_replay
+            };
             let discount = resolved.curves.get(&set.point.positions[j].cash_discount)?;
             let mark = |p: &w::CausalPnlProduct<'_>| {
-                w::mark_causal_pnl_position(&path, i, j, &replay.state, p, discount.as_ref())
+                w::mark_causal_pnl_position(path, i, j, &replay.state, p, discount.as_ref())
                     .map_err(native_error)
             };
             let value = match &h.product {
@@ -310,7 +391,35 @@ pub(super) fn reconcile(input: &MixedBookPnlInput, outer: &LibraryInputs) -> Lib
         }
         information.push(serde_json::json!({"snapshot_id":set.point.snapshot_id,"manifest":set.point.manifest,"market_calibration":resolved.calibration,"lifecycle":states}));
     }
-    let report = w::aggregate_causal_pnl(&path, rows).map_err(native_error)?;
+    let report = w::aggregate_causal_pnl(path, rows).map_err(native_error)?;
+    if let Some(c) = cohorts {
+        let mut comparisons = Vec::new();
+        for link in &c.physical_deliveries {
+            let future = report
+                .trades
+                .iter()
+                .find(|t| t.id == link.future)
+                .ok_or_else(|| {
+                    LibraryError::invalid("delivery", "complete original future report absent")
+                })?;
+            let asset = report
+                .trades
+                .iter()
+                .find(|t| t.id == link.asset)
+                .ok_or_else(|| {
+                    LibraryError::invalid("delivery", "complete original asset report absent")
+                })?;
+            for (i, mark) in asset.marks.iter().enumerate() {
+                if let Some(h) = &mark.physical_delivery {
+                    let ctd = future.marks[..=i].iter().rev().find_map(|m| m.ctd.as_ref());
+                    comparisons.push(serde_json::json!({"point":i,"future":link.future,"asset":link.asset,"actual_deliverable":h.instrument,"last_model_ctd":ctd,"matches_selection":ctd.map(|x| x.selection_ties.contains(&h.instrument)),"matches_fair":ctd.map(|x| x.fair_ties.contains(&h.instrument))}));
+                }
+            }
+        }
+        return Ok(
+            serde_json::json!({"request":c,"report":report,"information_sets":information,"delivery_comparisons":comparisons,"meaning":"causal reconciliation of explicit original cohort exposure, cash entitlements and actual supplied physical delivery/security/invoice facts; no authentication, ledger posting or execution authority"}),
+        );
+    }
     Ok(
         serde_json::json!({"request":input,"report":report,"information_sets":information,"meaning":"causal reconciliation of full supplied model values and actual supplied lifecycle/fill/receipt facts; no authoritative ledger, cash authentication, order or execution service"}),
     )

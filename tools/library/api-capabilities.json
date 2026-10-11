@@ -30086,7 +30086,17 @@
     "tests/fixtures/library/causal-pnl-v12-api-20.json",
     "tests/fixtures/library/causal-pnl-v12-api-21.json",
     "tests/fixtures/library/causal-pnl-v12-api-22.json",
-    "tests/fixtures/library/causal-pnl-v12-api-23.json"
+    "tests/fixtures/library/causal-pnl-v12-api-23.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-01.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-02.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-03.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-04.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-05.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-06.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-07.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-08.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-09.json",
+    "tests/fixtures/library/cohort-pnl-admitted-api-10.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
@@ -33711,6 +33721,53 @@
         "causal.boundary.complete_unmodelled_overdue_claim",
         "causal.invalid.wrong_cause",
         "causal.boundary.foreign_native_economics"
+      ]
+    },
+    "cohort_book_pnl": {
+      "certified": false,
+      "qualification": "CVX-063 opt-in original cohort-owned earned/outstanding cash, full signed acquisitions/disposals, original CDS remaining exposure without fictitious paid state, actual complete physical invoice/security handoff and causal full-basket CTD switches. Preserve all prior numerical/history/scope/dependencies/exports/routes. Engineering only; local commits, no push/deployment/orders. Supplied model/cash reconciliation only; no authoritative realized ledger, fill/cash authentication or order authority. Original numerical policies and independent bounds preserved. Actual unavailable managed/browser hosts and independent certificates remain open.",
+      "required_record_ids": [
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/rust",
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/shared_json",
+        "LC-026/fixed_bullet/SUPPLIED/workflow/distinguish_projected_from_realized_cash/c_abi"
+      ],
+      "entry_points": {
+        "rust": "convex::library::execute",
+        "shared_json": "convex::library::execute_json",
+        "c_abi": "convex_library"
+      },
+      "selectors": {
+        "operation.kind": "cohort_book_pnl"
+      },
+      "anchors": [
+        {
+          "path": "crates/convex-analytics/src/workflow/reconciliation/cohorts.rs",
+          "text": "pub fn prepare_cohort_pnl("
+        },
+        {
+          "path": "crates/convex/src/library/reconciliation.rs",
+          "text": "pub(super) fn reconcile_cohorts("
+        }
+      ],
+      "positive_examples": [
+        "cohort.full.all_five_causes_full_irs_disposal",
+        "cohort.full.native_USD_EUR_cash_ctd",
+        "cohort.credit.pending_overdue_partial_full",
+        "cohort.delivery.long_security_then_cash"
+      ],
+      "boundary_examples": [
+        "cohort.full.ctd_ties",
+        "cohort.delivery.short_security_then_cash",
+        "cohort.delivery.long_cash_then_security",
+        "cohort.cash.disposed_earned_delayed_claims",
+        "cohort.irs.full_termination_disposal_cash"
+      ],
+      "negative_examples": [
+        "cohort.invalid.original_unknown_recovery",
+        "cohort.invalid.overdue_reject",
+        "cohort.invalid.wrong_cause",
+        "cohort.invalid.foreign_complete_asset_terms",
+        "cohort.invalid.acquired_historically_partial_paid_claim"
       ]
     }
   }

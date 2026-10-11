@@ -119,6 +119,7 @@ pub(crate) struct Prepared<'a> {
     pub(crate) coupon: f64,
     pub(crate) matured: bool,
     protection_start: f64,
+    include_initial_cash: bool,
 }
 
 fn days(date: Date, valuation: Date) -> f64 {
@@ -204,6 +205,15 @@ impl<'a> Prepared<'a> {
         discount: &'a BuiltCurve,
         credit: Option<&BuiltCurve>,
     ) -> Result<Self, CdsError> {
+        Self::new_with_initial_cash(contract, context, discount, credit, true)
+    }
+    fn new_with_initial_cash(
+        contract: &'a CdsContract,
+        context: &'a CdsPricingContext,
+        discount: &'a BuiltCurve,
+        credit: Option<&BuiltCurve>,
+        include_initial_cash: bool,
+    ) -> Result<Self, CdsError> {
         let t = contract.terms();
         for d in [
             context.valuation_date,
@@ -225,7 +235,7 @@ impl<'a> Prepared<'a> {
         }
         match (t.initial_clean_upfront_fraction,context.initial_payment_state) {
             (None,InitialPaymentState::NotContracted)=>(),
-            (Some(_),InitialPaymentState::Pending) if t.cash_settlement_date>=context.valuation_date=>(),
+            (Some(_),InitialPaymentState::Pending) if !include_initial_cash || t.cash_settlement_date>=context.valuation_date=>(),
             (Some(_),InitialPaymentState::Settled) if t.cash_settlement_date<=context.valuation_date=>(),
             _=>return Err(invalid("initial_payment_state","must match contracted cash and actual date; overdue unsettled cash requires explicit lifecycle treatment")),
         }
@@ -332,6 +342,7 @@ impl<'a> Prepared<'a> {
             coupon: t.coupon_decimal.to_model()?.get(),
             matured,
             protection_start,
+            include_initial_cash,
         })
     }
     pub(crate) fn flat_survival(&self, hazard: f64) -> Result<Vec<f64>, CdsError> {
@@ -520,7 +531,9 @@ impl<'a> Prepared<'a> {
                 accrual_on_default_pv: finite(-sign * n * coupon * default)?,
             });
         }
-        let initial = if self.context.initial_payment_state == InitialPaymentState::Pending {
+        let initial = if self.include_initial_cash
+            && self.context.initial_payment_state == InitialPaymentState::Pending
+        {
             let upfront = t
                 .initial_clean_upfront_fraction
                 .ok_or(CdsError::Numerical("missing contracted initial cash"))?
@@ -604,6 +617,32 @@ pub fn price_cds(
         context,
         curves.get(&contract.terms().discount_curve)?,
         Some(credit),
+    )?;
+    let qs = prepared.supplied_survival(credit)?;
+    prepared.result(
+        &qs,
+        CreditInput::Supplied {
+            curve: credit.recipe().key.clone(),
+        },
+    )
+}
+/// Value the original surviving premium/protection exposure, excluding original
+/// initial cash for separate lifecycle claim valuation. The supplied actual
+/// payment state is retained, including overdue Pending; it is never relabelled
+/// Settled. This does not value, forgive or authenticate the excluded obligation.
+/// All original integration, curve, quote and delayed-premium guards remain.
+pub fn price_cds_remaining_exposure(
+    contract: &CdsContract,
+    context: &CdsPricingContext,
+    curves: &CurveSet,
+) -> Result<CdsValuation, CdsError> {
+    let credit = curves.get(&contract.terms().survival_curve)?;
+    let prepared = Prepared::new_with_initial_cash(
+        contract,
+        context,
+        curves.get(&contract.terms().discount_curve)?,
+        Some(credit),
+        false,
     )?;
     let qs = prepared.supplied_survival(credit)?;
     prepared.result(

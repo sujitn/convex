@@ -444,6 +444,11 @@ pub enum LibraryOperation {
         /// Complete separately admitted before/after/path and native product data.
         input: Box<super::reconciliation::MixedBookPnlInput>,
     },
+    /// Explicit original cohort cash ownership and actual physical handoff P&L.
+    CohortBookPnl {
+        /// Complete original before/path values, cohort entitlements and assets.
+        input: Box<super::reconciliation::CohortBookPnlInput>,
+    },
     /// Pure original-state replay and one transition; no ledger commitment.
     Lifecycle {
         /// Full original opening terms and each supplied event/input.

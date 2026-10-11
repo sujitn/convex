@@ -359,7 +359,11 @@ pub fn mark_causal_pnl_position<'p>(
         .ok_or_else(|| bad("holding", "outside expected coverage"))?;
     let view = state.view();
     let currency = pos.current.currency;
-    let original = &path.input.points[0].positions[index].current;
+    let mut original = path.input.points[0].positions[index].current.clone();
+    let cohort = path.cohorts.as_ref().map(|owners| &owners[index]);
+    if let Some(owner) = cohort {
+        original.quantity = owner.quantity;
+    }
     let opening = if matches!(state.instrument(), l::LifecycleInstrument::Swap(_))
         && original.quantity_unit == q::RiskQuantityUnit::Notional
     {
@@ -391,13 +395,19 @@ pub fn mark_causal_pnl_position<'p>(
             "actual default recovery/auction terms absent",
         ));
     }
-    if view.delivery_pending.is_some() {
+    let physical_future = path.handoffs.get(point_index).is_some_and(|row| {
+        row.iter()
+            .flatten()
+            .any(|h| h.future == pos.identity.id && state.delivery_event() == Some(&h.delivery))
+    });
+    if view.delivery_pending.is_some() && !physical_future {
         return Err(ReconciliationError::Incomplete(
             "actual delivery security receipt and a separate asset holding valuation required",
         ));
     }
     if matches!(state.instrument(),l::LifecycleInstrument::Futures{contract,..} if matches!(contract.settlement,convex_core::futures::FuturesSettlement::Bond{..}))
         && view.status != l::EconomicStatus::Active
+        && !physical_future
     {
         return Err(ReconciliationError::Incomplete("physical delivery requires an explicit separate security holding and complete asset/invoice reconciliation"));
     }
@@ -411,10 +421,25 @@ pub fn mark_causal_pnl_position<'p>(
         ));
     }
     let mut scale = pos.current.scale().map_err(WorkflowError::from)?;
+    let mut physical = path
+        .handoffs
+        .get(point_index)
+        .and_then(|h| h[index].clone());
+    if let Some(h) = &physical {
+        scale +=
+            num(h.outstanding_face.decimal())? / num(pos.current.reference_quantity.decimal())?;
+        if !matches!(
+            product,
+            CausalPnlProduct::Standard(ValuationInputs::Bond { .. })
+        ) {
+            return Err(WorkflowError::Unsupported("physical handoff requires the complete original plain fixed-cash bond valuation owner").into());
+        }
+    }
     let fraction = num(view.remaining_fraction.decimal())?;
     scale *= fraction;
     let active = view.status == l::EconomicStatus::Active;
-    if (!view.obligations.is_empty() || fraction != 1.0 || !active)
+    if cohort.is_none()
+        && (!view.obligations.is_empty() || fraction != 1.0 || !active)
         && unit(state)
             != if matches!(state.instrument(), l::LifecycleInstrument::Swap(_))
                 && pos.current.quantity_unit == q::RiskQuantityUnit::Notional
@@ -447,7 +472,23 @@ pub fn mark_causal_pnl_position<'p>(
                 _ => None,
             };
             if active {
-                let v = price(p)?;
+                let v = if cohort.is_some() {
+                    if let ValuationInputs::Cds {
+                        contract,
+                        context,
+                        curves,
+                    } = p
+                    {
+                        Valuation::Cds(Box::new(
+                            convex_credit::price_cds_remaining_exposure(contract, context, curves)
+                                .map_err(WorkflowError::from)?,
+                        ))
+                    } else {
+                        price(p)?
+                    }
+                } else {
+                    price(p)?
+                };
                 let amount = p.amount(&v)?.value().get();
                 (
                     LifecycleModelValue::Active(Box::new(ScenarioValuation::Product(v))),
@@ -670,25 +711,30 @@ pub fn mark_causal_pnl_position<'p>(
         if o.amount.currency() != currency || o.recorded.currency() != currency {
             return Err(bad("cash", "native obligation currency mismatch"));
         }
-        recorded = dec(recorded.checked_add(o.recorded.value().decimal()))?;
-        proposed = dec(proposed.checked_add(o.amount.value().decimal()))?;
+        let entitled = cohorts::entitlement(path, point_index, index, &o.key);
+        let transferred_invoice = cohort.is_some() && o.key.kind == l::CashKind::DeliveryInvoice;
+        if entitled && !transferred_invoice {
+            recorded = dec(recorded.checked_add(o.recorded.value().decimal()))?;
+            proposed = dec(proposed.checked_add(o.amount.value().decimal()))?;
+        }
         let outstanding = dec(o
             .amount
             .value()
             .decimal()
             .checked_sub(o.recorded.value().decimal()))?;
-        let ratio = if basis == ValuationBasis::FuturesQuoteLevel || outstanding.is_zero() {
-            1.0
-        } else if o.due_date <= point.valuation_date {
-            if pos.overdue == OverdueClaimPolicy::Reject {
-                return Err(ReconciliationError::Incomplete(
-                    "explicit complete overdue claim model required",
-                ));
-            }
-            1.0
-        } else {
-            curve_ratio(cash_discount, point.valuation_date, o.due_date)?
-        };
+        let ratio =
+            if basis == ValuationBasis::FuturesQuoteLevel || outstanding.is_zero() || !entitled {
+                1.0
+            } else if o.due_date <= point.valuation_date {
+                if pos.overdue == OverdueClaimPolicy::Reject {
+                    return Err(ReconciliationError::Incomplete(
+                        "explicit complete overdue claim model required",
+                    ));
+                }
+                1.0
+            } else {
+                curve_ratio(cash_discount, point.valuation_date, o.due_date)?
+            };
         let mut removed = 0.0;
         if active {
             match &valuation {
@@ -715,7 +761,12 @@ pub fn mark_causal_pnl_position<'p>(
                             return Err(WorkflowError::Unsupported("earned delayed credit coupons require a complete original conditional-cash decomposition").into());
                         }
                     }
-                    ScenarioValuation::Product(Valuation::Swap(v)) => {
+                    ScenarioValuation::Product(Valuation::Swap(v))
+                        if matches!(
+                            o.key.kind,
+                            l::CashKind::FixedCoupon | l::CashKind::FloatingCoupon
+                        ) =>
+                    {
                         let rows = if o.key.kind == l::CashKind::FixedCoupon {
                             &v.cashflows.fixed
                         } else {
@@ -757,7 +808,7 @@ pub fn mark_causal_pnl_position<'p>(
                 LifecycleModelValue::Ended(_) => {}
             }
         }
-        let pv = if basis == ValuationBasis::FuturesQuoteLevel {
+        let pv = if basis == ValuationBasis::FuturesQuoteLevel || !entitled {
             0.0
         } else {
             num(outstanding)? * ratio
@@ -775,7 +826,34 @@ pub fn mark_causal_pnl_position<'p>(
                 None
             },
             removed_from_active_model: money(removed, currency)?,
+            entitled: cohort.map(|_| entitled),
         });
+    }
+    if let Some(h) = physical.as_mut() {
+        let outstanding = h.outstanding_invoice.value().decimal();
+        h.invoice_discount_ratio = if outstanding.is_zero() {
+            1.0
+        } else if h.invoice.due_date <= point.valuation_date {
+            if pos.overdue == OverdueClaimPolicy::Reject {
+                return Err(ReconciliationError::Incomplete(
+                    "explicit complete overdue physical invoice model required",
+                ));
+            }
+            1.0
+        } else {
+            curve_ratio(cash_discount, point.valuation_date, h.invoice.due_date)?
+        };
+        let pv = num(outstanding)? * h.invoice_discount_ratio;
+        h.invoice_present_value = money(pv, currency)?;
+        h.outstanding_asset_present_value = Some(money(
+            reference * num(h.outstanding_face.decimal())?
+                / num(pos.current.reference_quantity.decimal())?
+                * fraction,
+            currency,
+        )?);
+        outstanding_pv += pv;
+        recorded = dec(recorded.checked_add(h.invoice.recorded.value().decimal()))?;
+        proposed = dec(proposed.checked_add(h.invoice.amount.value().decimal()))?;
     }
     let mut pending = pos.current.clone();
     pending.quantity = pos.pending_quantity;
@@ -786,7 +864,13 @@ pub fn mark_causal_pnl_position<'p>(
         .quantity
         .decimal()
         .checked_add(pos.pending_quantity.decimal()))?);
-    let projected_scale = projected.scale().map_err(WorkflowError::from)? * fraction;
+    let projected_scale = projected.scale().map_err(WorkflowError::from)? * fraction
+        + physical.as_ref().map_or(Ok(0.0), |h| {
+            Ok::<_, ReconciliationError>(
+                num(h.outstanding_face.decimal())? / num(pos.current.reference_quantity.decimal())?
+                    * fraction,
+            )
+        })?;
     let local = amounts(
         [
             reference * scale + outstanding_pv - removed_pv,
@@ -825,7 +909,10 @@ pub fn mark_causal_pnl_position<'p>(
         let mark = view
             .futures_mark
             .as_ref()
-            .filter(|m| m.kind == f::FuturesMarkKind::FinalSettlement)
+            .filter(|m| {
+                m.kind == f::FuturesMarkKind::FinalSettlement
+                    || physical_future && m.kind == f::FuturesMarkKind::DailySettlement
+            })
             .ok_or(ReconciliationError::Incomplete(
                 "actual final rate-future settlement price absent",
             ))?;
@@ -864,5 +951,7 @@ pub fn mark_causal_pnl_position<'p>(
         fill_fees: Money::new(ExactDecimal::new(fees), currency),
         ctd,
         terminal_quote,
+        cohort: cohort.cloned(),
+        physical_delivery: physical,
     })
 }

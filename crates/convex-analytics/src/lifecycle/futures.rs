@@ -207,6 +207,8 @@ impl LifecycleState {
         };
         self.propose(e, key.clone(), e.effective_date, cash, effects)?;
         self.delivery_pending = Some((key.clone(), deliverable.clone(), face));
+        self.delivery_event = Some(e.clone());
+        self.delivery_terms = Some(input.security.bond.terms().clone());
         self.remaining = Decimal::ZERO;
         self.status = EconomicStatus::Matured;
         effects.push(LifecycleEffect::SecurityDelivery {
@@ -218,7 +220,7 @@ impl LifecycleState {
     }
     pub(super) fn security_receipt(
         &mut self,
-        _e: &LifecycleEvent,
+        e: &LifecycleEvent,
         key: &ObligationKey,
         instrument: &InstrumentPin,
         face: ExactDecimal,
@@ -237,6 +239,7 @@ impl LifecycleState {
         }
         self.receipts.insert(receipt.clone());
         self.delivery_pending = None;
+        self.security_receipt_event = Some(e.clone());
         effects.push(LifecycleEffect::SecurityRecorded {
             key: key.clone(),
             receipt_id: receipt.clone(),

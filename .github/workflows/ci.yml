@@ -887,6 +887,76 @@ jobs:
       - name: Causal lifecycle and cash gate 19
         run: python3 tests/scripts/causal_pnl_parity.py --binary target/debug/examples/causal_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Cohort cash and physical delivery gate 1
+        run: python3 tests/scripts/cohort_pnl_reference.py
+
+      - name: Cohort cash and physical delivery gate 2
+        run: python3 tests/scripts/cohort_pnl_states.py
+
+      - name: Cohort cash and physical delivery gate 3
+        run: python3 tests/scripts/cohort_pnl_wire.py
+
+      - name: Cohort cash and physical delivery gate 4
+        run: python3 tests/scripts/cohort_pnl_extended.py
+
+      - name: Cohort cash and physical delivery gate 5
+        run: python3 tests/scripts/cohort_pnl_contracts.py
+
+      - name: Cohort cash and physical delivery gate 6
+        run: python3 tests/scripts/cohort_pnl_bindings.py
+
+      - name: Cohort cash and physical delivery gate 7
+        run: python3 tests/scripts/cohort_pnl_currencies.py
+
+      - name: Cohort cash and physical delivery gate 8
+        run: python3 tests/scripts/cohort_pnl_revisions.py
+
+      - name: Cohort cash and physical delivery gate 9
+        run: python3 tests/scripts/cohort_pnl_cash_dates.py
+
+      - name: Cohort cash and physical delivery gate 10
+        run: python3 tests/scripts/cohort_pnl_ownership.py
+
+      - name: Cohort cash and physical delivery gate 11
+        run: python3 tests/scripts/cohort_pnl_calendars.py
+
+      - name: Cohort cash and physical delivery gate 12
+        run: python3 tests/scripts/cohort_pnl_census.py
+
+      - name: Full five-cause cohort financial control
+        run: python3 tests/scripts/cohort_pnl_full_mixed.py
+
+      - name: Complete cohort request corpus
+        run: python3 tests/scripts/cohort_pnl_complete_census.py
+
+      - name: Original full-disposal money unit control
+        run: python3 tests/scripts/cohort_pnl_full_wire.py
+
+      - name: Lossless complete admitted cohort requests
+        run: python3 tests/scripts/cohort_pnl_admitted_census.py
+
+      - name: Cohort cash and physical delivery gate 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cohort_pnl -- --test-threads=1
+
+      - name: Cohort cash and physical delivery gate 14
+        run: cargo test --locked --all-features -p convex --test cohort_pnl_boundaries -- --test-threads=1
+
+      - name: Cohort cash and physical delivery gate 15
+        run: cargo run --locked -p convex --example cohort_pnl
+
+      - name: Cohort cash and physical delivery gate 16
+        run: cargo run --locked -p convex --example cohort_pnl --no-default-features
+
+      - name: Cohort cash and physical delivery gate 17
+        run: cargo run --locked -p convex --example cohort_pnl --features schemars
+
+      - name: Cohort cash and physical delivery gate 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/cohort_pnl_admitted_schema.py --binary target/debug/examples/cohort_pnl
+
+      - name: Cohort cash and physical delivery gate 19
+        run: python3 tests/scripts/cohort_pnl_admitted_parity.py --binary target/debug/examples/cohort_pnl --library target/debug/libconvex_ffi.so
+
+
       - name: Mixed-book scenario gate 1
         run: python3 tests/scripts/mixed_scenario_reference.py
 
@@ -1540,6 +1610,9 @@ jobs:
       - name: Build causal lifecycle and cash consumer
         run: cargo build --locked --profile excel -p convex --example causal_pnl --features schemars
 
+      - name: Build native cohort cash and physical delivery consumer
+        run: cargo build --locked --profile excel -p convex --example cohort_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1625,6 +1698,9 @@ jobs:
 
       - name: Generate complete causal cash transport corpus
         run: python tests/scripts/causal_pnl_parity.py --binary target/excel/examples/causal_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/causal-pnl-parity.json
+
+      - name: Generate fresh native cohort cash and delivery transport controls
+        run: python tests/scripts/cohort_pnl_admitted_parity.py --binary target/excel/examples/cohort_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cohort-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

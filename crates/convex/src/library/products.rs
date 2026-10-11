@@ -819,6 +819,9 @@ pub(super) fn execute(
         LibraryOperation::BookPnl { input } => {
             super::reconciliation::reconcile(input, r.original())
         }
+        LibraryOperation::CohortBookPnl { input } => {
+            super::reconciliation::reconcile_cohorts(input, r.original())
+        }
         LibraryOperation::Lifecycle { input } => super::events::replay(input, r),
         LibraryOperation::Aggregate { input } => super::risk::aggregate(input),
         LibraryOperation::IcmaYieldRisk {

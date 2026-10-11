@@ -21,7 +21,8 @@ mod terms;
 pub use contract::{cds_roll_after, cds_roll_on_or_before, CdsContract, PremiumPeriod};
 pub use conversion::{convert_cds, CdsQuote, ConversionResult, ConversionSettings};
 pub use pricing::{
-    discounted_default_mass, price_cds, price_flat_hazard, CdsValuation, CreditInput, PremiumValue,
+    discounted_default_mass, price_cds, price_cds_remaining_exposure, price_flat_hazard,
+    CdsValuation, CreditInput, PremiumValue,
 };
 pub use terms::*;
 

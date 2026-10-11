@@ -72,6 +72,9 @@ pub struct LifecycleState {
     pub(super) futures_mark: Option<crate::futures::FuturesMark>,
     pub(super) delivery_pending:
         Option<(ObligationKey, convex_core::futures::InstrumentPin, Decimal)>,
+    pub(super) delivery_event: Option<LifecycleEvent>,
+    pub(super) delivery_terms: Option<convex_bonds::contracts::BondTerms>,
+    pub(super) security_receipt_event: Option<LifecycleEvent>,
 }
 /// Exact public audit view. Original contract remains accessible separately;
 /// this view cannot be decoded into an unchecked mutable economic state.
@@ -189,6 +192,9 @@ impl LifecycleState {
             default_claim: None,
             futures_mark,
             delivery_pending: None,
+            delivery_event: None,
+            delivery_terms: None,
+            security_receipt_event: None,
         })
     }
     /// Exact immutable native product; no detached approximate economic terms.
@@ -199,6 +205,18 @@ impl LifecycleState {
     /// deadline in the audit view is distinct from this issuance event.
     pub fn exercise_notice(&self) -> Option<&LifecycleEvent> {
         self.notice_event.as_ref()
+    }
+    /// Successfully checked actual delivery, separate from model-selected CTD.
+    pub fn delivery_event(&self) -> Option<&LifecycleEvent> {
+        self.delivery_event.as_ref()
+    }
+    /// Complete original security terms checked by the actual invoice owner.
+    pub fn delivered_bond_terms(&self) -> Option<&convex_bonds::contracts::BondTerms> {
+        self.delivery_terms.as_ref()
+    }
+    /// Successfully checked complete actual security receipt, including face.
+    pub fn security_receipt_event(&self) -> Option<&LifecycleEvent> {
+        self.security_receipt_event.as_ref()
     }
     /// Deterministic full audit projection; no implicit cash total or reporting FX.
     pub fn view(&self) -> LifecycleStateView {

@@ -11,6 +11,8 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 mod product;
 pub use product::*;
+mod cohorts;
+pub use cohorts::*;
 
 /// Original product and lifecycle failures, including explicitly unknown cash.
 #[derive(Debug, thiserror::Error)]
@@ -178,6 +180,8 @@ pub struct CausalPnlInput {
 #[derive(Debug)]
 pub struct PreparedCausalPnl {
     input: CausalPnlInput,
+    cohorts: Option<Vec<CohortOwnership>>,
+    handoffs: Vec<Vec<Option<PhysicalDeliveryValue>>>,
 }
 impl PreparedCausalPnl {
     /// Full immutable declarations.
@@ -255,6 +259,8 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
     }
     let path = PreparedCausalPnl {
         input: input.clone(),
+        cohorts: None,
+        handoffs: Vec::new(),
     };
     for (i, p) in input.points.iter().enumerate() {
         if p.positions.len() != n
@@ -393,6 +399,10 @@ pub struct PnlClaimValue {
     pub present_value: Option<ModelMoney>,
     /// Exact full amount removed from active model to avoid double counting.
     pub removed_from_active_model: ModelMoney,
+    /// Exact explicit legal entitlement in cohort mode; unowned claims remain
+    /// visible in the original state and carry no owned value or received cash.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entitled: Option<bool>,
 }
 /// Privately generated full mark; no scalar result may be supplied at aggregation.
 #[derive(Debug, Serialize)]
@@ -432,6 +442,12 @@ pub struct CausalPositionMark<'p> {
     /// Actual final rate-future quote anchor after exposure ends. This is an
     /// unrounded quote level, not remaining exposure or received margin cash.
     pub terminal_quote: Option<ModelMoney>,
+    /// Exact explicit original cash entitlement and activation/disposal facts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cohort: Option<CohortOwnership>,
+    /// Actual checked physical asset/invoice handoff on the cash owner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub physical_delivery: Option<PhysicalDeliveryValue>,
 }
 /// Cash-PV reconciliation includes incremental recorded receipts and actual fill
 /// cash; futures quote reconciliation deducts executed quote consideration and

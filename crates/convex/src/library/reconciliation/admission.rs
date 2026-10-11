@@ -288,6 +288,7 @@ fn step(
     a: &CausalPnlInformationSet,
     b: &CausalPnlInformationSet,
     cause: w::PnlCause,
+    physical_assets: &[usize],
 ) -> LibraryResult<()> {
     if a.holdings.len() != b.holdings.len() {
         return Err(bad("full original expected coverage cannot change"));
@@ -346,6 +347,9 @@ fn step(
             w::PnlCause::Event => {
                 path.starts_with(".holdings.") && path.ends_with(".lifecycle.events")
                     || path.ends_with(".context.initial_payment_state")
+                    || physical_assets
+                        .iter()
+                        .any(|i| path == format!(".point.positions.{i}.current.quantity"))
             }
         };
         if !allowed {
@@ -428,6 +432,7 @@ pub(super) fn validate(
     input: &MixedBookPnlInput,
     outer: &LibraryInputs,
     sets: &[CausalPnlInformationSet],
+    cohorts: Option<&CohortBookPnlInput>,
 ) -> LibraryResult<()> {
     if !equal(outer, &LibraryInputs::empty())? {
         return Err(bad(
@@ -440,6 +445,20 @@ pub(super) fn validate(
         ));
     }
     let baseline = &sets[0];
+    let physical_assets = cohorts.map_or(Vec::new(), |c| {
+        baseline
+            .point
+            .positions
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                c.physical_deliveries
+                    .iter()
+                    .any(|l| l.asset == p.identity.id)
+            })
+            .map(|(i, _)| i)
+            .collect()
+    });
     let mut original_controls = BTreeMap::new();
     numerical_policies(&value(baseline)?, "", &mut original_controls);
     for set in &sets[1..] {
@@ -450,12 +469,12 @@ pub(super) fn validate(
         }
     }
     for (i, s) in input.steps.iter().enumerate() {
-        step(&sets[i], &sets[i + 1], s.cause)?;
+        step(&sets[i], &sets[i + 1], s.cause, &physical_assets)?;
     }
     let mut next = input.steps.len() + 1;
     for (s, c) in input.steps.iter().zip(&input.standalone) {
         if matches!(c, CausalPnlCounterfactual::Available { .. }) {
-            step(baseline, &sets[next], s.cause)?;
+            step(baseline, &sets[next], s.cause, &physical_assets)?;
             next += 1;
         }
     }
