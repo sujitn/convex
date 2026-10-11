@@ -227,19 +227,32 @@ impl LifecycleState {
         receipt: &EventId,
         effects: &mut Vec<LifecycleEffect>,
     ) -> LifecycleResult<()> {
+        let (original_key, original_instrument, pending) = self
+            .delivery_pending
+            .as_ref()
+            .ok_or_else(|| invalid("security.receipt", "original pending security absent"))?;
+        let amount = face.decimal();
         if self.receipts.len() >= MAX_LIFECYCLE_ITEMS
             || self.receipts.contains(receipt)
-            || self.delivery_pending.as_ref()
-                != Some(&(key.clone(), instrument.clone(), face.decimal()))
+            || original_key != key
+            || original_instrument != instrument
+            || amount.is_zero()
+            || amount.is_sign_negative() != pending.is_sign_negative()
+            || amount.abs() > pending.abs()
         {
             return Err(invalid(
                 "security.receipt",
-                "unique actual complete receipt for original proposed security/face required",
+                "unique signed receipt within original pending security/face required",
             ));
         }
         self.receipts.insert(receipt.clone());
-        self.delivery_pending = None;
-        self.security_receipt_event = Some(e.clone());
+        let remaining = arithmetic(pending.checked_sub(amount), "remaining security face")?;
+        self.delivery_pending = if remaining.is_zero() {
+            None
+        } else {
+            Some((key.clone(), instrument.clone(), remaining))
+        };
+        self.security_receipt_events.push(e.clone());
         effects.push(LifecycleEffect::SecurityRecorded {
             key: key.clone(),
             receipt_id: receipt.clone(),

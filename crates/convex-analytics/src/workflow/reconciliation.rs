@@ -182,6 +182,7 @@ pub struct PreparedCausalPnl {
     input: CausalPnlInput,
     cohorts: Option<Vec<CohortOwnership>>,
     handoffs: Vec<Vec<Option<PhysicalDeliveryValue>>>,
+    cohort_state_pins: Option<Vec<Vec<String>>>,
 }
 impl PreparedCausalPnl {
     /// Full immutable declarations.
@@ -261,6 +262,7 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
         input: input.clone(),
         cohorts: None,
         handoffs: Vec::new(),
+        cohort_state_pins: None,
     };
     for (i, p) in input.points.iter().enumerate() {
         if p.positions.len() != n
@@ -403,6 +405,9 @@ pub struct PnlClaimValue {
     /// visible in the original state and carry no owned value or received cash.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entitled: Option<bool>,
+    /// Exact residual legal ownership and checked excluded receipt prefix.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub residual_ownership: Option<ResidualClaimValue>,
 }
 /// Privately generated full mark; no scalar result may be supplied at aggregation.
 #[derive(Debug, Serialize)]

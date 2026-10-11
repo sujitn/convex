@@ -7,6 +7,7 @@ The existing `book_pnl` contract remains available for its original scope.
 
 ```sh
 cargo run --locked -p convex --example cohort_pnl
+cargo run --locked -p convex --example residual_pnl
 cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cohort_pnl -- --test-threads=1
 cargo test --locked --all-features -p convex --test cohort_pnl_boundaries -- --test-threads=1
 ```
@@ -21,6 +22,7 @@ before/ordered/standalone points and numerical policies described in
 | `cohorts[].acquisition` | Already owned at opening, one full actual fill, or the checked physical delivery from one exact future. |
 | `cohorts[].disposal_fill` | Optional full actual disposal of that acquired original lot. |
 | `cohorts[].entitlements` | Every actual replayed original cash key appears exactly once with an explicit owned/excluded decision and supplied immutable legal source. |
+| `cohorts[].entitlements[].residual` | Optional distinct legal residual ID, owned fraction and exact acquisition cutoff with the complete original prior receipt IDs. |
 | `physical_deliveries` | Exact original future, separate cash-bond cohort and actual delivered security revision. |
 
 No scalar price, invoice, delivered face, duration or Greek can replace a native
@@ -30,8 +32,8 @@ native lifecycle quantity stays fixed and determines its earned cash; hypothetic
 pending quantity, actual interval executions and remaining contractual fraction
 remain distinct. Disposal ends the lot's held future exposure while its declared
 earned entitlements and their actual receipts remain. An acquired lot explicitly
-includes or excludes prior outstanding claims; previously received cash cannot
-be acquired as an outstanding claim. Legal entitlement is supplied, never
+includes or excludes prior outstanding claims. A `residual` excludes the exact
+previously received cash from its separately identified remaining claim. Legal entitlement is supplied, never
 inferred from trade date, a calendar-day shortcut or a model-selected CTD.
 
 Every original obligation remains visible in the replayed state and mark, including
@@ -90,7 +92,7 @@ entitlements, with the existing128-holding/33-point/4224-mark ceilings and origi
 still read no provider, database, message queue, clock or operational runtime.
 
 Historical legal amendments, multi-lot split/novation and broader conditional
-claim transfers, further delivered asset models, partial physical receipts,
+claim transfers, further delivered asset models,
 delivery options and daily-margin financing remain separate work. Actual managed
 Java/Excel and wasm32/browser execution, broad scale/latency and independent
 quantitative/model/production certification remain unverified. CVX-063 is partial.
@@ -107,3 +109,42 @@ are retained. Earlier independent preparations and failed trials remain separate
 the Python writers check those immutable bytes without reading native answers.
 The original financial bounds and 37,943 independent regression comparisons
 remain required. Native parity envelopes validate transport only.
+
+The additional `residual-pnl-canonical.json` corpus contains 14 complete financial
+books, 27 typed failures and 550 full native product marks. It covers fractional
+coupon/recovery ownership, pre-acquisition cash, earned claims after disposal,
+full five-cause and USD/EUR books, and signed physical receipts in security-first,
+cash-first and interleaved sequences. Its independent writers retain the original
+financial bounds and all earlier preparations and failed trials. The same 77
+routes remain; 41 complete requests extend the mapped corpus to 4,595.
+
+Residual owners declare `id`, `fraction` in (0,1], and `cutoff` with actual `date`,
+`known_at`, and `receipt_ids`. A fill owner's cutoff must equal the original
+acquisition fill. Opening owners use an available opening cutoff. Each excluded
+receipt must belong to this exact original obligation and actual acquisition
+prefix. All cash visible before acquisition retains its prior owner. Exact IDs
+and supplied legal source resolve receipts sharing a date; dates alone do not
+determine ownership. Duplicate, foreign, unavailable, omitted or fully exhausted
+residual facts fail before pricing. The complete original earned/recovery proposal
+must also be available at acquisition; later auction information cannot be
+retroactively transferred. The fraction's complement is explicitly
+excluded, independently of the lot's held security quantity. Variation margin
+and delivery invoice transfers retain their separate original owners.
+
+For original amount A, actual excluded receipts B, current recorded receipts C
+and legal fraction f, owned proposed cash is (A-B)*f, owned recorded cash is
+(C-B)*f, and owned outstanding cash is (A-C)*f. Exact checked Decimal facts
+determine these amounts. `residual_ownership` retains the legal source, original
+proposal, full prior receipt events and all four exact cash amounts. Original full
+obligations stay visible. Disposal retains earned residual cash. Each mark must
+use the same complete admitted original state and receipt provenance.
+
+Actual security receipts may be partial. Each nonzero signed receipt targets the
+original delivery key/security revision, consumes a unique actual receipt ID and
+cannot exceed remaining face. `security_receipts` retains every complete event
+in replay order; `security_receipt` is the latest event. Native `delivery_pending`
+contains the exact remaining face until complete. Received face plus outstanding
+face equals the original proposal, for long and short positions and either
+invoice/security order. Current received face and remaining asset receivable use
+the same complete bond owner. Partial receipts change neither the actual invoice
+nor the model CTD choice. This allocating batch workflow has no latency certificate.

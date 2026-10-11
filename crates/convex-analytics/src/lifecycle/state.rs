@@ -63,6 +63,7 @@ pub struct LifecycleState {
     pub(super) status: EconomicStatus,
     pub(super) required: BTreeSet<(Date, Required)>,
     pub(super) obligations: BTreeMap<ObligationKey, CashObligation>,
+    pub(super) cash_proposals: BTreeMap<ObligationKey, LifecycleEvent>,
     pub(super) history: Vec<FixingObservation>,
     pub(super) events: BTreeSet<EventId>,
     pub(super) receipts: BTreeSet<EventId>,
@@ -74,7 +75,8 @@ pub struct LifecycleState {
         Option<(ObligationKey, convex_core::futures::InstrumentPin, Decimal)>,
     pub(super) delivery_event: Option<LifecycleEvent>,
     pub(super) delivery_terms: Option<convex_bonds::contracts::BondTerms>,
-    pub(super) security_receipt_event: Option<LifecycleEvent>,
+    pub(super) security_receipt_events: Vec<LifecycleEvent>,
+    pub(super) payment_receipt_events: Vec<LifecycleEvent>,
 }
 /// Exact public audit view. Original contract remains accessible separately;
 /// this view cannot be decoded into an unchecked mutable economic state.
@@ -184,6 +186,7 @@ impl LifecycleState {
             status: EconomicStatus::Active,
             required,
             obligations: BTreeMap::new(),
+            cash_proposals: BTreeMap::new(),
             history,
             events: BTreeSet::new(),
             receipts: BTreeSet::new(),
@@ -194,7 +197,8 @@ impl LifecycleState {
             delivery_pending: None,
             delivery_event: None,
             delivery_terms: None,
-            security_receipt_event: None,
+            security_receipt_events: Vec::new(),
+            payment_receipt_events: Vec::new(),
         })
     }
     /// Exact immutable native product; no detached approximate economic terms.
@@ -214,9 +218,25 @@ impl LifecycleState {
     pub fn delivered_bond_terms(&self) -> Option<&convex_bonds::contracts::BondTerms> {
         self.delivery_terms.as_ref()
     }
-    /// Successfully checked complete actual security receipt, including face.
+    /// Latest successfully checked actual security receipt, including partial face.
     pub fn security_receipt_event(&self) -> Option<&LifecycleEvent> {
-        self.security_receipt_event.as_ref()
+        self.security_receipt_events.last()
+    }
+    /// Every full original checked security receipt, in actual replay order.
+    pub fn security_receipt_events(&self) -> &[LifecycleEvent] {
+        &self.security_receipt_events
+    }
+    /// Every full original checked cash receipt, in actual replay order.
+    pub fn payment_receipt_events(&self) -> &[LifecycleEvent] {
+        &self.payment_receipt_events
+    }
+    /// Original checked event that generated this exact earned cash obligation.
+    pub fn cash_proposal_event(&self, key: &ObligationKey) -> Option<&LifecycleEvent> {
+        self.cash_proposals.get(key)
+    }
+    /// Applied original event count without cloning the public audit view.
+    pub fn applied_event_count(&self) -> usize {
+        self.events.len()
     }
     /// Deterministic full audit projection; no implicit cash total or reporting FX.
     pub fn view(&self) -> LifecycleStateView {
@@ -391,6 +411,7 @@ impl LifecycleState {
             settled: false,
             generated_by: e.event_id.clone(),
         };
+        self.cash_proposals.insert(key.clone(), e.clone());
         self.obligations.insert(key, obligation.clone());
         effects.push(LifecycleEffect::CashProposed(obligation));
         Ok(())
@@ -456,6 +477,7 @@ impl LifecycleState {
         o.recorded = money(next, o.amount.currency());
         o.settled = next == original;
         self.receipts.insert(r.receipt_id.clone());
+        self.payment_receipt_events.push(e.clone());
         effects.push(LifecycleEffect::CashRecorded(r.clone()));
         Ok(())
     }

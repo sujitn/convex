@@ -30096,7 +30096,17 @@
     "tests/fixtures/library/cohort-pnl-admitted-api-07.json",
     "tests/fixtures/library/cohort-pnl-admitted-api-08.json",
     "tests/fixtures/library/cohort-pnl-admitted-api-09.json",
-    "tests/fixtures/library/cohort-pnl-admitted-api-10.json"
+    "tests/fixtures/library/cohort-pnl-admitted-api-10.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-01.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-02.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-03.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-04.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-05.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-06.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-07.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-08.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-09.json",
+    "tests/fixtures/library/residual-pnl-canonical-api-10.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

@@ -137,8 +137,11 @@ Unavailable/expired/mismatched delivery data fails; historical/synthetic quality
 remains visible through exact supplied stamps and does not establish execution
 eligibility. The library proposes signed security face and invoice cash. Cash
 receipts and an exact `SecurityReceipt` are separate; both must arrive to close.
-Partial/multiple-security delivery needs explicit split positions/events and is
-not silently substituted with one approximate asset.
+Partial receipts of this same actual security conserve signed face cumulatively;
+`delivery_pending` contains the exact remaining face. Every checked receipt is
+available through `security_receipt_events()`, and cash remains independent.
+Multiple actual delivery securities require distinct original positions and full
+legal invoice owners. No approximate asset substitutes for an original security.
 
 ## Evidence and remaining scope
 

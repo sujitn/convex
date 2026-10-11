@@ -37,9 +37,11 @@ on:
       - 'tests/scripts/mixed_scenario*.py'
       - 'tests/scripts/causal_pnl*.py'
       - 'tests/scripts/cohort_pnl*.py'
+      - 'tests/scripts/residual_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
+      - 'tests/fixtures/library/residual-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -84,9 +86,11 @@ on:
       - 'tests/scripts/mixed_scenario*.py'
       - 'tests/scripts/causal_pnl*.py'
       - 'tests/scripts/cohort_pnl*.py'
+      - 'tests/scripts/residual_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
+      - 'tests/fixtures/library/residual-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -175,6 +179,9 @@ jobs:
       - name: Build complete cohort cash and physical delivery consumer
         run: cargo build --locked --profile excel -p convex --example cohort_pnl --features schemars
 
+      - name: Build residual claim and partial receipt consumer
+        run: cargo build --locked --profile excel -p convex --example residual_pnl --features schemars
+
       - name: Build full delivery basket hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -259,6 +266,9 @@ jobs:
 
       - name: Complete cohort cash and physical delivery parity
         run: python3 tests/scripts/cohort_pnl_admitted_parity.py --binary target/excel/examples/cohort_pnl --output bindings/java/target/cohort-pnl-parity.json
+
+      - name: Original residual claim and partial receipt parity
+        run: python3 tests/scripts/residual_pnl_parity.py --binary target/excel/examples/residual_pnl --output bindings/java/target/residual-pnl-parity.json
 
       - name: Generate full delivery basket hedge Java expectations
         run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json

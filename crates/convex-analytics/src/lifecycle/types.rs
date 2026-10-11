@@ -202,7 +202,7 @@ pub enum LifecycleAction {
         obligation: ObligationKey,
         /// Actual received/delivered security revision.
         instrument: convex_core::futures::InstrumentPin,
-        /// Signed actual face; this initial route requires full delivery.
+        /// Nonzero signed actual face, at most the original remaining delivery.
         face: ExactDecimal,
         /// Unique externally recorded receipt identity.
         receipt_id: EventId,

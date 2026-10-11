@@ -14,6 +14,51 @@ pub struct CohortClaimEntitlement {
     pub entitled: bool,
     /// Actual supplied immutable entitlement/transfer document.
     pub source: ReferencePin,
+    /// Separately identified legal residual, excluding exact prior paid cash.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub residual: Option<CohortResidualClaim>,
+}
+/// Explicit legal acquisition cutoff; identities resolve same-date receipt order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortCashCutoff {
+    /// Actual acquisition economic date.
+    pub date: Date,
+    /// Actual immutable acquisition information cutoff.
+    pub known_at: UtcTimestamp,
+    /// Complete original actual receipt prefix retained by the prior cash owner.
+    pub receipt_ids: Vec<l::EventId>,
+}
+/// Legal owned fraction of the original remaining claim, not a new cash model.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortResidualClaim {
+    /// Unique original legal residual identity across this complete book.
+    pub id: l::EventId,
+    /// Owned residual fraction in (0,1]; the complement is explicitly excluded.
+    pub fraction: ExactDecimal,
+    /// Exact prior cash ownership facts, under the entitlement's legal source.
+    pub cutoff: CohortCashCutoff,
+}
+/// Derived exact owned cash, with all original checked excluded receipt facts.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResidualClaimValue {
+    /// Complete legal identity, source and original obligation key.
+    pub entitlement: CohortClaimEntitlement,
+    /// Complete original checked earned/recovery proposal, known at acquisition.
+    pub proposal: l::LifecycleEvent,
+    /// Full original checked receipts retained by the prior cash owner.
+    pub prior_receipts: Vec<l::LifecycleEvent>,
+    /// Exact original cash already received before legal acquisition.
+    pub prior_recorded: Money,
+    /// Owned part of the original residual amount at acquisition.
+    pub owned_proposed: Money,
+    /// Owned actual subsequent receipts, independent of held security exposure.
+    pub owned_recorded: Money,
+    /// Owned exact remaining receivable/payable, priced by the original owner.
+    pub owned_outstanding: Money,
 }
 /// An original signed lot is acquired once and can be disposed once, in full.
 /// Partial lots require separate original cohorts; no average cost is inferred.
@@ -71,6 +116,8 @@ pub struct PhysicalDeliveryValue {
     pub delivery: l::LifecycleEvent,
     /// Complete checked actual security receipt, or still outstanding asset.
     pub security_receipt: Option<l::LifecycleEvent>,
+    /// Every full original actual partial/full security receipt in replay order.
+    pub security_receipts: Vec<l::LifecycleEvent>,
     /// Actual original selected security revision.
     pub instrument: InstrumentPin,
     /// Exact signed proposed original security face.
@@ -132,6 +179,100 @@ pub(super) fn entitlement(
                 .any(|e| &e.key == key && e.entitled)
     })
 }
+pub(super) fn state_pin(state: &l::LifecycleState) -> ReconciliationResult<String> {
+    let view = state.view();
+    let proposals = view
+        .obligations
+        .iter()
+        .map(|o| state.cash_proposal_event(&o.key))
+        .collect::<Vec<_>>();
+    serde_json::to_string(&(
+        view,
+        proposals,
+        state.payment_receipt_events(),
+        state.security_receipt_events(),
+        state.delivery_event(),
+        state.delivered_bond_terms(),
+    ))
+    .map_err(|_| {
+        bad(
+            "cohort state",
+            "complete original state serialization failed",
+        )
+    })
+}
+fn payment(event: &l::LifecycleEvent) -> ReconciliationResult<&l::PaymentReceipt> {
+    match &event.action {
+        l::LifecycleAction::Payment(receipt) => Ok(receipt),
+        _ => Err(bad(
+            "cash receipt",
+            "original checked payment event required",
+        )),
+    }
+}
+pub(super) fn residual_value(
+    path: &PreparedCausalPnl,
+    point: usize,
+    index: usize,
+    state: &l::LifecycleState,
+    claim: &l::CashObligation,
+) -> ReconciliationResult<Option<ResidualClaimValue>> {
+    let Some(entitlement) = path.cohorts.as_ref().and_then(|owners| {
+        owners[index]
+            .entitlements
+            .iter()
+            .find(|e| e.key == claim.key)
+    }) else {
+        return Ok(None);
+    };
+    let Some(residual) = &entitlement.residual else {
+        return Ok(None);
+    };
+    if !acquired(path, point, index) {
+        return Ok(None);
+    }
+    let mut prior = Decimal::ZERO;
+    let mut receipts = Vec::new();
+    let excluded = residual
+        .cutoff
+        .receipt_ids
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    for event in state.payment_receipt_events() {
+        let receipt = payment(event)?;
+        if excluded.contains(&receipt.receipt_id) {
+            prior = dec(prior.checked_add(receipt.amount.value().decimal()))?;
+            receipts.push(event.clone());
+        }
+    }
+    if receipts.len() != residual.cutoff.receipt_ids.len() {
+        return Err(bad(
+            "residual receipts",
+            "original excluded receipt prefix absent at marking",
+        ));
+    }
+    let fraction = residual.fraction.decimal();
+    let original = claim.amount.value().decimal();
+    let recorded = claim.recorded.value().decimal();
+    let value = |a: Decimal, b: Decimal| {
+        Ok::<_, ReconciliationError>(Money::new(
+            ExactDecimal::new(dec(a.checked_sub(b).and_then(|x| x.checked_mul(fraction)))?),
+            claim.amount.currency(),
+        ))
+    };
+    Ok(Some(ResidualClaimValue {
+        entitlement: entitlement.clone(),
+        proposal: state
+            .cash_proposal_event(&claim.key)
+            .ok_or_else(|| bad("residual proposal", "original earned source absent"))?
+            .clone(),
+        prior_receipts: receipts,
+        prior_recorded: Money::new(ExactDecimal::new(prior), claim.amount.currency()),
+        owned_proposed: value(original, prior)?,
+        owned_recorded: value(recorded, prior)?,
+        owned_outstanding: value(original, recorded)?,
+    }))
+}
 /// Admit all original checked states, exact cohort/fill/entitlement coverage and
 /// actual delivery/security/invoice facts before any financial model valuation.
 /// Cached state, scalar received face, invoice amount or delivered price cannot
@@ -158,9 +299,19 @@ pub fn prepare_cohort_pnl(
             .iter()
             .any(|p| p.positions.len() != n || p.fills.len() > 4096 || p.fx.len() > 128)
         || states.iter().any(|s| s.len() != n)
-        || cohorts
+        || states
             .iter()
-            .any(|c| c.entitlements.len() > 4096 || c.quantity.decimal().is_zero())
+            .flatten()
+            .any(|s| s.applied_event_count() > 4096)
+        || cohorts.iter().any(|c| {
+            c.entitlements.len() > 4096
+                || c.quantity.decimal().is_zero()
+                || c.entitlements.iter().any(|e| {
+                    e.residual
+                        .as_ref()
+                        .is_some_and(|r| r.cutoff.receipt_ids.len() > 4096)
+                })
+        })
     {
         return Err(bad(
             "cohort work",
@@ -267,11 +418,18 @@ pub fn prepare_cohort_pnl(
                     return Err(bad("invoice ownership", "actual original invoice ownership must be transferred with the physical asset"));
                 }
                 let receipt = future.security_receipt_event().cloned();
-                let received = if receipt.is_some() {
-                    face
-                } else {
-                    Decimal::ZERO
-                };
+                let received = future.security_receipt_events().iter().try_fold(
+                    Decimal::ZERO,
+                    |total, event| match &event.action {
+                        l::LifecycleAction::SecurityReceipt { face, .. } => {
+                            dec(total.checked_add(face.decimal()))
+                        }
+                        _ => Err(bad(
+                            "security receipts",
+                            "original checked security event required",
+                        )),
+                    },
+                )?;
                 let outstanding = dec(invoice
                     .amount
                     .value()
@@ -281,6 +439,7 @@ pub fn prepare_cohort_pnl(
                     future: link.future.clone(),
                     delivery: event.clone(),
                     security_receipt: receipt,
+                    security_receipts: future.security_receipt_events().to_vec(),
                     instrument: link.instrument.clone(),
                     proposed_face: ExactDecimal::new(face),
                     received_face: ExactDecimal::new(received),
@@ -319,6 +478,13 @@ pub fn prepare_cohort_pnl(
     path.input = input.clone();
     path.cohorts = Some(cohorts.to_vec());
     path.handoffs = handoffs;
+    path.cohort_state_pins = Some(
+        states
+            .iter()
+            .map(|row| row.iter().map(state_pin).collect())
+            .collect::<ReconciliationResult<_>>()?,
+    );
+    let mut residual_ids = std::collections::BTreeSet::new();
     for (j, owner) in cohorts.iter().enumerate() {
         let initial = &input.points[0].positions[j];
         let entitlement_keys = owner
@@ -445,7 +611,13 @@ pub fn prepare_cohort_pnl(
                         "complete owned/excluded original claim coverage absent",
                     ));
                 }
-                if owned_keys.contains(&claim.key) && prior_received.contains(&claim.key) {
+                if owned_keys.contains(&claim.key)
+                    && prior_received.contains(&claim.key)
+                    && !owner
+                        .entitlements
+                        .iter()
+                        .any(|e| e.key == claim.key && e.residual.is_some())
+                {
                     return Err(bad("cash transfer", "historically received cash cannot be acquired with an outstanding claim; supply a separate original residual claim owner"));
                 }
                 if let CohortAcquisition::Fill { fill_id } = &owner.acquisition {
@@ -468,6 +640,184 @@ pub fn prepare_cohort_pnl(
                 "unused acquisition/disposal/entitlement facts outside complete path",
             ));
         }
+        for entitlement in &owner.entitlements {
+            if let Some(residual) = &entitlement.residual {
+                if !residual_ids.insert(&residual.id) {
+                    return Err(bad(
+                        "residual identity",
+                        "unique original residual identity required",
+                    ));
+                }
+                admit_residual(&path, j, entitlement, residual, states)?;
+            }
+        }
     }
     Ok(path)
+}
+
+fn admit_residual(
+    path: &PreparedCausalPnl,
+    index: usize,
+    entitlement: &CohortClaimEntitlement,
+    residual: &CohortResidualClaim,
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<()> {
+    let owner = &path
+        .cohorts
+        .as_ref()
+        .ok_or_else(|| bad("cohort", "owner absent"))?[index];
+    let fraction = residual.fraction.decimal();
+    if !entitlement.entitled || fraction <= Decimal::ZERO || fraction > Decimal::ONE {
+        return Err(bad(
+            "residual fraction",
+            "explicit positive owned fraction <=1 required",
+        ));
+    }
+    if matches!(
+        entitlement.key.kind,
+        l::CashKind::DeliveryInvoice | l::CashKind::VariationMargin
+    ) || matches!(
+        owner.acquisition,
+        CohortAcquisition::PhysicalDelivery { .. }
+    ) {
+        return Err(ReconciliationError::Incomplete("residual physical invoice or variation cash transfer requires its original separate owner"));
+    }
+    let acquisition = path
+        .input
+        .points
+        .iter()
+        .enumerate()
+        .position(|(i, _)| acquired(path, i, index))
+        .ok_or_else(|| bad("residual acquisition", "original actual acquisition absent"))?;
+    let point = &path.input.points[acquisition];
+    let cutoff = &residual.cutoff;
+    match &owner.acquisition {
+        CohortAcquisition::Fill { fill_id } => {
+            let f = fill(point, fill_id)
+                .ok_or_else(|| bad("residual fill", "original full acquisition absent"))?;
+            if cutoff.date != f.date || cutoff.known_at != f.known_at {
+                return Err(bad(
+                    "residual cutoff",
+                    "exact original acquisition fill date/known-at required",
+                ));
+            }
+        }
+        CohortAcquisition::Opening {} => {
+            if cutoff.date > point.valuation_date || cutoff.known_at > point.known_at {
+                return Err(bad(
+                    "residual cutoff",
+                    "original opening cash cutoff must be available",
+                ));
+            }
+        }
+        CohortAcquisition::PhysicalDelivery { .. } => {
+            return Err(bad("residual", "unsupported acquisition"))
+        }
+    }
+    if cutoff.known_at.datetime().date_naive() < cutoff.date.as_naive_date()
+        || !(1..=9999).contains(&cutoff.date.year())
+        || entitlement.key.effective_date > cutoff.date
+    {
+        return Err(bad(
+            "residual cutoff",
+            "available original earned claim/date required",
+        ));
+    }
+    let excluded = cutoff
+        .receipt_ids
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    if excluded.len() != cutoff.receipt_ids.len() {
+        return Err(bad(
+            "residual receipt prefix",
+            "unique exact original prior receipt identities required",
+        ));
+    }
+    let state = &states[acquisition][index];
+    let view = state.view();
+    let claim = view
+        .obligations
+        .iter()
+        .find(|o| o.key == entitlement.key)
+        .ok_or(ReconciliationError::Incomplete(
+            "original earned residual claim absent at acquisition",
+        ))?;
+    let proposal =
+        state
+            .cash_proposal_event(&entitlement.key)
+            .ok_or(ReconciliationError::Incomplete(
+                "original earned residual proposal source absent",
+            ))?;
+    if proposal.known_at > cutoff.known_at
+        || proposal.effective_date > cutoff.date
+        || proposal.event_id != claim.generated_by
+    {
+        return Err(bad(
+            "residual proposal",
+            "original earned/recovery terms must be known at actual acquisition",
+        ));
+    }
+    let mut found = std::collections::BTreeSet::new();
+    let mut prior = Decimal::ZERO;
+    let mut subsequent_seen = false;
+    for event in state.payment_receipt_events() {
+        let receipt = payment(event)?;
+        if excluded.contains(&receipt.receipt_id) {
+            if receipt.obligation != entitlement.key
+                || event.effective_date > cutoff.date
+                || event.known_at > cutoff.known_at
+                || receipt.value_date > cutoff.date
+                || subsequent_seen
+            {
+                return Err(bad(
+                    "residual receipt prefix",
+                    "exact available original cash prefix for this claim required",
+                ));
+            }
+            found.insert(&receipt.receipt_id);
+            prior = dec(prior.checked_add(receipt.amount.value().decimal()))?;
+        } else if receipt.obligation == entitlement.key {
+            subsequent_seen = true;
+            if event.effective_date < cutoff.date || event.known_at < cutoff.known_at {
+                return Err(bad(
+                    "residual receipt cutoff",
+                    "cash preceding acquisition must retain its prior owner",
+                ));
+            }
+        }
+    }
+    if found != excluded || claim.amount.value().decimal() == prior {
+        return Err(bad(
+            "residual claim",
+            "complete original receipt prefix and nonempty residual required",
+        ));
+    }
+    for row in states.iter().take(acquisition) {
+        for event in row[index].payment_receipt_events() {
+            let receipt = payment(event)?;
+            if receipt.obligation == entitlement.key && !excluded.contains(&receipt.receipt_id) {
+                return Err(bad(
+                    "residual prior owner",
+                    "all actual pre-acquisition cash retains its original owner",
+                ));
+            }
+        }
+    }
+    for (i, row) in states.iter().enumerate() {
+        if acquired(path, i, index) {
+            if let Some(claim) = row[index]
+                .view()
+                .obligations
+                .iter()
+                .find(|o| o.key == entitlement.key)
+            {
+                residual_value(path, i, index, &row[index], claim)?;
+            } else {
+                return Err(ReconciliationError::Incomplete(
+                    "original residual obligation absent from acquired point",
+                ));
+            }
+        }
+    }
+    Ok(())
 }

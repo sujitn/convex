@@ -645,3 +645,10 @@ ownership and complete actual physical asset/invoice handoff, including all-memb
 CTD changes and actual-versus-model delivery choices. See
 [COHORT-BOOK-PNL.md](COHORT-BOOK-PNL.md) for full terms, quantities, ownership and
 explicit unsupported transfer/host/production boundaries.
+
+The same route supports separately identified residual cash ownership and actual
+partial security receipts. Run `cargo run --locked -p convex --example residual_pnl`.
+Exact receipt cutoffs, original proposal availability, legal owned fractions,
+signed cumulative face and full receipt provenance retain full causal mixed-book
+P&L and independent all-member CTD winners/ties/switches. The original 77 routes
+remain; no compatibility alias or scalar valuation route is added.
