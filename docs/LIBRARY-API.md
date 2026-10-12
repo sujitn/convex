@@ -654,3 +654,15 @@ P&L and independent all-member CTD winners/ties/switches. The original 77 routes
 remain; no compatibility alias or scalar valuation route is added.
 
 The existing `cohort_book_pnl` route also supports explicit full fixed-bond boundary amendment events and conserved original security lot splits. Full terms, original cash ownership and applied point facts cross the shared schema/C/MCP/native WASM path. Run `cargo run --locked -p convex --example lot_pnl`; see [the complete contract](COHORT-BOOK-PNL.md). Managed Java/Excel tests are supplied; actual host execution and certification remain unqualified locally.
+
+
+The same `cohort_book_pnl` operation adds optional `claim_transfers`: complete
+original earned cash/proposal/entitlement pins, legal parties and fractions, exact
+receipt cutoffs, immutable sources and applied points. Outstanding ownership is
+conserved across complete legal cohorts, including split successors; prior actual
+cash remains with its original recipient. Root claims retain `transfer_ownership`
+and recipients retain separate `transferred_claims` with original proposal and
+receipt allocation provenance. Full native quantities/models, causal P&L and CTD
+switches remain. Run `cargo run --locked -p convex --example claim_pnl`; see
+[the complete original cash contract](COHORT-BOOK-PNL.md). Managed/browser and
+production/latency qualification remains separate.

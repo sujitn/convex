@@ -42,6 +42,73 @@ pub struct CohortResidualClaim {
     /// Exact prior cash ownership facts, under the entitlement's legal source.
     pub cutoff: CohortCashCutoff,
 }
+/// Explicit legal transfer of a share of one original earned cash claim.
+/// Fractions refer to its original entitled residual, never security face.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortClaimTransfer {
+    /// Unique immutable legal transfer identity, in supplied causal order.
+    pub id: l::EventId,
+    /// Original native cohort whose checked cash and receipts remain the source.
+    pub origin: TradeId,
+    /// Complete original obligation key scoped to that origin.
+    pub key: l::ObligationKey,
+    /// Exact original earned/recovery proposal event identity.
+    pub proposal_id: l::EventId,
+    /// Exact original legal entitlement source revision.
+    pub entitlement_source: ReferencePin,
+    /// Original residual identity, if the source owns a residual fraction.
+    pub residual_id: Option<l::EventId>,
+    /// Current legal holder relinquishing only this outstanding cash share.
+    pub from: TradeId,
+    /// Complete legal recipient, independently of held security exposure.
+    pub to: TradeId,
+    /// Positive share of original entitled cash; current ownership cannot exceed1.
+    pub fraction: ExactDecimal,
+    /// Exact available economic/knowledge cutoff and ordered prior receipt IDs.
+    pub cutoff: CohortCashCutoff,
+    /// Actual immutable legal transfer document.
+    pub source: ReferencePin,
+    /// Ordered/independent point indices where the supplied legal fact applies.
+    pub applied_points: Vec<usize>,
+}
+/// Actual original receipt and the share owned by this recipient at that time.
+#[derive(Debug, Clone, Serialize)]
+pub struct CohortClaimReceiptAllocation {
+    /// Complete original checked event, retained at its original native source.
+    pub event: l::LifecycleEvent,
+    /// Exact share then owned, before any subsequent legal cash transfer.
+    pub fraction: ExactDecimal,
+    /// Exact signed owned receipt, after the original residual fraction.
+    pub amount: Money,
+}
+/// Derived conserved ownership over the original native cash/proposal owner.
+#[derive(Debug, Clone, Serialize)]
+pub struct CohortClaimOwnershipValue {
+    /// Original native cash cohort; this is not the receiving security lot.
+    pub origin: TradeId,
+    /// Original complete obligation, including total recorded original receipts.
+    pub obligation: l::CashObligation,
+    /// Original legal entitlement/source and optional residual/cutoff.
+    pub entitlement: CohortClaimEntitlement,
+    /// Complete original checked earned/recovery proposal.
+    pub proposal: l::LifecycleEvent,
+    /// Original complete residual diagnostics, including excluded prior receipts.
+    pub residual_ownership: Option<ResidualClaimValue>,
+    /// Full active legal transfer prefix for this original claim.
+    pub transfers: Vec<CohortClaimTransfer>,
+    /// Exact current share of original entitled outstanding cash.
+    pub fraction: ExactDecimal,
+    /// Actual received cash retains its then-current original recipient.
+    pub receipts: Vec<CohortClaimReceiptAllocation>,
+    /// Exact allocated received plus outstanding cash.
+    pub owned_proposed: Money,
+    /// Exact cumulative actual cash retained by this recipient.
+    pub owned_recorded: Money,
+    /// Exact current signed receivable/payable, independent of security face.
+    pub owned_outstanding: Money,
+}
 /// Derived exact owned cash, with all original checked excluded receipt facts.
 #[derive(Debug, Clone, Serialize)]
 pub struct ResidualClaimValue {
@@ -372,11 +439,27 @@ pub fn prepare_cohort_pnl_with_splits(
     splits: &[CohortLotSplit],
     states: &[Vec<l::LifecycleState>],
 ) -> ReconciliationResult<PreparedCausalPnl> {
+    prepare_cohort_pnl_with_transfers(input, cohorts, links, splits, &[], states)
+}
+/// Admit sourced original earned cash transfers without changing original lots.
+/// Previously received cash remains with the legal recipient at its receipt.
+pub fn prepare_cohort_pnl_with_transfers(
+    input: &CausalPnlInput,
+    cohorts: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    splits: &[CohortLotSplit],
+    transfers: &[CohortClaimTransfer],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<PreparedCausalPnl> {
     let n = input.points.first().map_or(0, |p| p.positions.len());
     if !(1..=128).contains(&n)
         || cohorts.len() != n
         || links.len() > n
         || splits.len() > n
+        || transfers.len() > 128
+        || transfers
+            .iter()
+            .any(|t| t.applied_points.len() > 33 || t.cutoff.receipt_ids.len() > 4096)
         || splits
             .iter()
             .any(|s| s.children.len() < 2 || s.children.len() > n || s.applied_points.len() > 33)
@@ -771,6 +854,7 @@ pub fn prepare_cohort_pnl_with_splits(
             }
         }
     }
+    path.claim_ownership = admit_claim_transfers(&path, transfers, states)?;
     Ok(path)
 }
 
@@ -942,6 +1026,469 @@ fn admit_residual(
         }
     }
     Ok(())
+}
+
+fn transfer_active(transfer: &CohortClaimTransfer, point: usize) -> bool {
+    transfer.applied_points.contains(&point)
+}
+fn move_claim_share(
+    input: &CausalPnlInput,
+    transfer: &CohortClaimTransfer,
+    shares: &mut [Decimal],
+) -> ReconciliationResult<()> {
+    let from = find(input, &transfer.from)?;
+    let to = find(input, &transfer.to)?;
+    let fraction = transfer.fraction.decimal();
+    if from == to || fraction <= Decimal::ZERO || fraction > shares[from] {
+        return Err(bad(
+            "claim share",
+            "distinct parties and positive conserved available ownership required",
+        ));
+    }
+    shares[from] = dec(shares[from].checked_sub(fraction))?;
+    shares[to] = dec(shares[to].checked_add(fraction))?;
+    Ok(())
+}
+/// Allocate one checked Decimal cash amount exactly. The final nonzero legal
+/// share retains the representational remainder of the original Decimal owner.
+/// No monetary tolerance or model residual is used to accept conservation.
+fn partition_cash(total: Decimal, shares: &[Decimal]) -> ReconciliationResult<Vec<Decimal>> {
+    let last = shares
+        .iter()
+        .rposition(|q| *q > Decimal::ZERO)
+        .ok_or_else(|| bad("claim conservation", "complete positive ownership absent"))?;
+    if shares
+        .iter()
+        .try_fold(Decimal::ZERO, |sum, q| dec(sum.checked_add(*q)))?
+        != Decimal::ONE
+        || shares.iter().any(|q| *q < Decimal::ZERO)
+    {
+        return Err(bad(
+            "claim conservation",
+            "exact complete shares must sum to1",
+        ));
+    }
+    let mut remaining = total;
+    let mut values = vec![Decimal::ZERO; shares.len()];
+    for (j, share) in shares.iter().enumerate() {
+        values[j] = if j == last {
+            remaining
+        } else {
+            dec(total.checked_mul(*share))?
+        };
+        remaining = dec(remaining.checked_sub(values[j]))?;
+    }
+    Ok(values)
+}
+
+fn admit_claim_cutoff(
+    transfer: &CohortClaimTransfer,
+    state: &l::LifecycleState,
+) -> ReconciliationResult<()> {
+    let receipts = state
+        .payment_receipt_events()
+        .iter()
+        .filter(
+            |e| matches!(&e.action, l::LifecycleAction::Payment(r) if r.obligation == transfer.key),
+        )
+        .collect::<Vec<_>>();
+    let count = transfer.cutoff.receipt_ids.len();
+    if count > receipts.len() {
+        return Err(bad(
+            "claim receipt cutoff",
+            "original checked receipt prefix absent",
+        ));
+    }
+    for (k, event) in receipts.iter().enumerate() {
+        let receipt = payment(event)?;
+        if k < count {
+            if receipt.receipt_id != transfer.cutoff.receipt_ids[k]
+                || event.effective_date > transfer.cutoff.date
+                || event.known_at > transfer.cutoff.known_at
+                || receipt.value_date > transfer.cutoff.date
+            {
+                return Err(bad(
+                    "claim receipt cutoff",
+                    "exact ordered available original receipt prefix required",
+                ));
+            }
+        } else if event.effective_date < transfer.cutoff.date
+            || event.known_at < transfer.cutoff.known_at
+            || receipt.value_date < transfer.cutoff.date
+        {
+            return Err(bad(
+                "claim receipt cutoff",
+                "all previously paid cash must retain its recipient",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn admit_claim_transfers(
+    path: &PreparedCausalPnl,
+    transfers: &[CohortClaimTransfer],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<Vec<Vec<Vec<CohortClaimOwnershipValue>>>> {
+    if transfers.is_empty() {
+        return Ok(Vec::new());
+    }
+    let input = &path.input;
+    let owners = path
+        .cohorts
+        .as_ref()
+        .ok_or_else(|| bad("claim owners", "complete cohorts absent"))?;
+    let n = owners.len();
+    let mut ids = std::collections::BTreeSet::new();
+    let mut groups =
+        std::collections::BTreeMap::<(usize, l::ObligationKey), Vec<&CohortClaimTransfer>>::new();
+    for transfer in transfers {
+        let origin = find(input, &transfer.origin)?;
+        let from = find(input, &transfer.from)?;
+        let to = find(input, &transfer.to)?;
+        let points = transfer
+            .applied_points
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        let cutoff = &transfer.cutoff;
+        if !ids.insert(&transfer.id)
+            || from == to
+            || transfer.fraction.decimal() <= Decimal::ZERO
+            || transfer.fraction.decimal() > Decimal::ONE
+            || points.is_empty()
+            || points.len() != transfer.applied_points.len()
+            || points.contains(&0)
+            || points.iter().any(|i| *i >= input.points.len())
+            || cutoff.date < input.points[0].valuation_date
+            || cutoff.known_at < input.points[0].known_at
+            || cutoff.known_at.datetime().date_naive() < cutoff.date.as_naive_date()
+            || !(1..=9999).contains(&cutoff.date.year())
+            || transfer.key.effective_date > cutoff.date
+        {
+            return Err(bad("claim transfer", "unique interval legal facts, distinct parties and available positive earned ownership required"));
+        }
+        let entitlement = owners[origin]
+            .entitlements
+            .iter()
+            .find(|e| e.key == transfer.key)
+            .ok_or(ReconciliationError::Incomplete(
+                "original claim entitlement absent",
+            ))?;
+        if !entitlement.entitled
+            || entitlement.source != transfer.entitlement_source
+            || entitlement.residual.as_ref().map(|r| &r.id) != transfer.residual_id.as_ref()
+        {
+            return Err(bad(
+                "claim source",
+                "exact original owned entitlement/residual/source revision required",
+            ));
+        }
+        if matches!(
+            transfer.key.kind,
+            l::CashKind::VariationMargin | l::CashKind::DeliveryInvoice
+        ) {
+            return Err(ReconciliationError::Incomplete(
+                "margin and physical invoice transfers require their separate complete cash owners",
+            ));
+        }
+        let first = (1..=input.causes.len())
+            .find(|i| points.contains(i))
+            .ok_or_else(|| {
+                bad(
+                    "claim path",
+                    "actual transfer must occur on the ordered path",
+                )
+            })?;
+        if input.causes[first - 1] != PnlCause::Position
+            || (first..=input.causes.len()).any(|i| !points.contains(&i))
+        {
+            return Err(bad(
+                "claim cause",
+                "transfer belongs to Position and persists in subsequent ordered facts",
+            ));
+        }
+        for (i, row) in states.iter().enumerate() {
+            if !points.contains(&i) {
+                continue;
+            }
+            let point = &input.points[i];
+            if i > input.causes.len() {
+                let cause = input
+                    .standalone
+                    .iter()
+                    .position(|s| matches!(s, PnlStandalone::Available {point} if *point == i))
+                    .ok_or_else(|| bad("claim standalone", "full independent binding absent"))?;
+                if input.causes[cause] != PnlCause::Position {
+                    return Err(bad(
+                        "claim standalone",
+                        "unrelated independent cause cannot acquire cash transfers",
+                    ));
+                }
+            }
+            if cutoff.date > point.valuation_date
+                || cutoff.known_at > point.known_at
+                || [origin, from, to].iter().any(|j| !acquired(path, i, *j))
+            {
+                return Err(bad(
+                    "claim availability",
+                    "original proposal and all legal parties must be acquired and available",
+                ));
+            }
+            let a = &point.positions[origin];
+            if [from, to].iter().any(|j| {
+                let b = &point.positions[*j];
+                a.current.currency != b.current.currency
+                    || a.cash_discount != b.cash_discount
+                    || a.overdue != b.overdue
+                    || matches!(row[*j].instrument(), l::LifecycleInstrument::Futures { .. })
+            }) || matches!(
+                row[origin].instrument(),
+                l::LifecycleInstrument::Futures { .. }
+            ) {
+                return Err(bad(
+                    "claim cash owner",
+                    "same complete original currency/discount/overdue cash owners required",
+                ));
+            }
+            let claim = row[origin]
+                .view()
+                .obligations
+                .into_iter()
+                .find(|c| c.key == transfer.key)
+                .ok_or(ReconciliationError::Incomplete(
+                    "original earned cash absent at transfer",
+                ))?;
+            let proposal = row[origin].cash_proposal_event(&transfer.key).ok_or(
+                ReconciliationError::Incomplete("original cash proposal absent at transfer"),
+            )?;
+            if proposal.event_id != transfer.proposal_id
+                || proposal.event_id != claim.generated_by
+                || proposal.effective_date > cutoff.date
+                || proposal.known_at > cutoff.known_at
+            {
+                return Err(bad(
+                    "claim proposal",
+                    "exact complete earned/recovery proposal must be available at transfer cutoff",
+                ));
+            }
+            admit_claim_cutoff(transfer, &row[origin])?;
+            let paid_prefix = row[origin]
+                .payment_receipt_events()
+                .iter()
+                .filter_map(|e| match &e.action {
+                    l::LifecycleAction::Payment(r)
+                        if r.obligation == transfer.key
+                            && cutoff.receipt_ids.contains(&r.receipt_id) =>
+                    {
+                        Some(r.amount.value().decimal())
+                    }
+                    _ => None,
+                })
+                .try_fold(Decimal::ZERO, |sum, q| dec(sum.checked_add(q)))?;
+            if claim.amount.value().decimal() == paid_prefix {
+                return Err(bad(
+                    "claim exhaustion",
+                    "only a nonempty original outstanding claim can transfer",
+                ));
+            }
+            if i == first {
+                for event in states[first - 1][origin].payment_receipt_events() {
+                    if let l::LifecycleAction::Payment(r) = &event.action {
+                        if r.obligation == transfer.key
+                            && !cutoff.receipt_ids.contains(&r.receipt_id)
+                        {
+                            return Err(bad(
+                                "claim prior recipient",
+                                "every earlier ordered receipt must retain its original recipient",
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        let records = groups.entry((origin, transfer.key.clone())).or_default();
+        if let Some(prior) = records.last() {
+            if cutoff.date < prior.cutoff.date
+                || cutoff.known_at < prior.cutoff.known_at
+                || !cutoff.receipt_ids.starts_with(&prior.cutoff.receipt_ids)
+                || transfer
+                    .applied_points
+                    .iter()
+                    .any(|i| !transfer_active(prior, *i))
+            {
+                return Err(bad(
+                    "claim lineage",
+                    "causal transfer order and complete prior ownership/receipt prefix required",
+                ));
+            }
+        }
+        records.push(transfer);
+    }
+    let allocations = groups
+        .iter()
+        .try_fold(0usize, |sum, ((origin, _), records)| {
+            let mut parties = std::collections::BTreeSet::from([*origin]);
+            for t in records {
+                parties.insert(find(input, &t.from)?);
+                parties.insert(find(input, &t.to)?);
+            }
+            sum.checked_add(parties.len() * states.len())
+                .ok_or_else(|| bad("claim work", "allocation reservation overflow"))
+        })?;
+    if allocations > 4224 {
+        return Err(bad(
+            "claim work",
+            "bounded complete original root/party/point allocation reservation exceeded",
+        ));
+    }
+    let mut result = vec![vec![Vec::new(); n]; states.len()];
+    for ((origin, key), records) in groups {
+        let mut original: Option<(l::CashObligation, l::LifecycleEvent)> = None;
+        let mut ordered_receipts: &[l::LifecycleEvent] = &[];
+        for (i, row) in states.iter().enumerate() {
+            let active = records
+                .iter()
+                .copied()
+                .filter(|t| transfer_active(t, i))
+                .collect::<Vec<_>>();
+            let view = row[origin].view();
+            let Some(claim) = view.obligations.iter().find(|c| c.key == key) else {
+                if !active.is_empty() {
+                    return Err(ReconciliationError::Incomplete(
+                        "original source claim absent from applied point",
+                    ));
+                }
+                continue;
+            };
+            if !entitlement(path, i, origin, &key) {
+                if !active.is_empty() {
+                    return Err(bad("claim source", "original entitled claim not acquired"));
+                }
+                continue;
+            }
+            let proposal =
+                row[origin]
+                    .cash_proposal_event(&key)
+                    .ok_or(ReconciliationError::Incomplete(
+                        "original complete earned proposal absent",
+                    ))?;
+            if let Some((prior, event)) = &original {
+                if claim.amount != prior.amount
+                    || claim.due_date != prior.due_date
+                    || claim.generated_by != prior.generated_by
+                    || proposal != event
+                {
+                    return Err(bad("claim original facts", "full original amount/date/proposal cannot change across transferred ownership"));
+                }
+            } else {
+                original = Some((claim.clone(), proposal.clone()));
+            }
+            if i <= input.causes.len() {
+                let receipts = row[origin].payment_receipt_events();
+                if !receipts.starts_with(ordered_receipts) {
+                    return Err(bad(
+                        "claim original receipts",
+                        "all original actual ordered receipts remain an exact immutable prefix",
+                    ));
+                }
+                ordered_receipts = receipts;
+            }
+            let legal = owners[origin]
+                .entitlements
+                .iter()
+                .find(|e| e.key == key)
+                .ok_or(ReconciliationError::Incomplete(
+                    "original complete entitlement absent",
+                ))?;
+            let residual = residual_value(path, i, origin, &row[origin], claim)?;
+            let base_fraction = legal
+                .residual
+                .as_ref()
+                .map_or(Decimal::ONE, |r| r.fraction.decimal());
+            let excluded = legal
+                .residual
+                .as_ref()
+                .map(|r| r.cutoff.receipt_ids.as_slice())
+                .unwrap_or(&[]);
+            let original_outstanding = residual.as_ref().map_or(
+                dec(claim
+                    .amount
+                    .value()
+                    .decimal()
+                    .checked_sub(claim.recorded.value().decimal()))?,
+                |r| r.owned_outstanding.value().decimal(),
+            );
+            let mut shares = vec![Decimal::ZERO; n];
+            shares[origin] = Decimal::ONE;
+            let mut parties = std::collections::BTreeSet::from([origin]);
+            for t in &active {
+                move_claim_share(input, t, &mut shares)?;
+                parties.insert(find(input, &t.from)?);
+                parties.insert(find(input, &t.to)?);
+            }
+            let outstanding = partition_cash(original_outstanding, &shares)?;
+            let mut recorded = vec![Decimal::ZERO; n];
+            let mut receipts = vec![Vec::new(); n];
+            for event in row[origin].payment_receipt_events() {
+                let receipt = payment(event)?;
+                if receipt.obligation != key || excluded.contains(&receipt.receipt_id) {
+                    continue;
+                }
+                let mut at_receipt = vec![Decimal::ZERO; n];
+                at_receipt[origin] = Decimal::ONE;
+                for t in &active {
+                    if !t.cutoff.receipt_ids.contains(&receipt.receipt_id) {
+                        move_claim_share(input, t, &mut at_receipt)?;
+                    }
+                }
+                let owned = dec(receipt.amount.value().decimal().checked_mul(base_fraction))?;
+                let values = partition_cash(owned, &at_receipt)?;
+                for j in 0..n {
+                    if at_receipt[j].is_zero() {
+                        continue;
+                    }
+                    recorded[j] = dec(recorded[j].checked_add(values[j]))?;
+                    receipts[j].push(CohortClaimReceiptAllocation {
+                        event: event.clone(),
+                        fraction: ExactDecimal::new(at_receipt[j]),
+                        amount: Money::new(ExactDecimal::new(values[j]), claim.amount.currency()),
+                    });
+                }
+            }
+            let proposal =
+                row[origin]
+                    .cash_proposal_event(&key)
+                    .ok_or(ReconciliationError::Incomplete(
+                        "complete original earned proposal absent",
+                    ))?;
+            for j in parties {
+                result[i][j].push(CohortClaimOwnershipValue {
+                    origin: owners[origin].trade_id.clone(),
+                    obligation: claim.clone(),
+                    entitlement: legal.clone(),
+                    proposal: proposal.clone(),
+                    residual_ownership: residual.clone(),
+                    transfers: active.iter().map(|t| (*t).clone()).collect(),
+                    fraction: ExactDecimal::new(shares[j]),
+                    receipts: std::mem::take(&mut receipts[j]),
+                    owned_proposed: Money::new(
+                        ExactDecimal::new(dec(recorded[j].checked_add(outstanding[j]))?),
+                        claim.amount.currency(),
+                    ),
+                    owned_recorded: Money::new(
+                        ExactDecimal::new(recorded[j]),
+                        claim.amount.currency(),
+                    ),
+                    owned_outstanding: Money::new(
+                        ExactDecimal::new(outstanding[j]),
+                        claim.amount.currency(),
+                    ),
+                });
+            }
+        }
+    }
+    Ok(result)
 }
 
 fn admit_splits(

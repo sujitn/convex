@@ -290,6 +290,7 @@ fn step(
     b: &CausalPnlInformationSet,
     cause: w::PnlCause,
     physical_assets: &[usize],
+    legal_cash_transfer: bool,
 ) -> LibraryResult<()> {
     if a.holdings.len() != b.holdings.len() {
         return Err(bad("full original expected coverage cannot change"));
@@ -318,7 +319,7 @@ fn step(
     }
     let mut paths = Vec::new();
     differences(&value(a)?, &value(b)?, "", &mut paths);
-    let mut economic = false;
+    let mut economic = legal_cash_transfer && cause == w::PnlCause::Position;
     for path in paths {
         if metadata(&path) {
             continue;
@@ -487,12 +488,22 @@ pub(super) fn validate(
         }
     }
     for (i, s) in input.steps.iter().enumerate() {
-        step(&sets[i], &sets[i + 1], s.cause, &physical_assets)?;
+        let legal = cohorts.is_some_and(|c| {
+            c.claim_transfers
+                .iter()
+                .any(|t| t.applied_points.contains(&(i + 1)) && !t.applied_points.contains(&i))
+        });
+        step(&sets[i], &sets[i + 1], s.cause, &physical_assets, legal)?;
     }
     let mut next = input.steps.len() + 1;
     for (s, c) in input.steps.iter().zip(&input.standalone) {
         if matches!(c, CausalPnlCounterfactual::Available { .. }) {
-            step(baseline, &sets[next], s.cause, &physical_assets)?;
+            let legal = cohorts.is_some_and(|c| {
+                c.claim_transfers
+                    .iter()
+                    .any(|t| t.applied_points.contains(&next))
+            });
+            step(baseline, &sets[next], s.cause, &physical_assets, legal)?;
             next += 1;
         }
     }

@@ -129,6 +129,34 @@ fn curve_ratio(curve: &BuiltCurve, date: Date, due: Date) -> ReconciliationResul
     }
     Ok(ratio)
 }
+fn transferred_cash(
+    ownership: &CohortClaimOwnershipValue,
+    curve: &BuiltCurve,
+    point: &PnlPointInput,
+    pos: &PnlPositionInput,
+) -> ReconciliationResult<PnlTransferredClaimValue> {
+    let outstanding = ownership.owned_outstanding.value().decimal();
+    let ratio = if outstanding.is_zero() {
+        1.0
+    } else if ownership.obligation.due_date <= point.valuation_date {
+        if pos.overdue == OverdueClaimPolicy::Reject {
+            return Err(ReconciliationError::Incomplete(
+                "explicit complete overdue transferred claim model required",
+            ));
+        }
+        1.0
+    } else {
+        curve_ratio(curve, point.valuation_date, ownership.obligation.due_date)?
+    };
+    Ok(PnlTransferredClaimValue {
+        ownership: ownership.clone(),
+        discount_ratio: ratio,
+        present_value: money(
+            num(outstanding)? * ratio,
+            ownership.obligation.amount.currency(),
+        )?,
+    })
+}
 fn bond_removed(
     v: &BondValue,
     contract: &BondContract,
@@ -726,21 +754,41 @@ pub fn mark_causal_pnl_position<'p>(
     let mut removed_pv = 0.0;
     let mut recorded = Decimal::ZERO;
     let mut proposed = Decimal::ZERO;
+    let allocations = path
+        .claim_ownership
+        .get(point_index)
+        .and_then(|row| row.get(index))
+        .map_or(&[][..], Vec::as_slice);
     for o in &view.obligations {
         if o.amount.currency() != currency || o.recorded.currency() != currency {
             return Err(bad("cash", "native obligation currency mismatch"));
         }
         let entitled = cohorts::entitlement(path, point_index, index, &o.key);
         let residual_ownership = cohorts::residual_value(path, point_index, index, state, o)?;
-        let owned_recorded = residual_ownership
+        let transfer_ownership = allocations
+            .iter()
+            .find(|v| v.origin == pos.identity.id && v.obligation.key == o.key)
+            .map(|v| transferred_cash(v, cash_discount, point, pos))
+            .transpose()?;
+        let owned_recorded = transfer_ownership
             .as_ref()
-            .map_or(o.recorded.value().decimal(), |r| {
-                r.owned_recorded.value().decimal()
+            .map(|v| v.ownership.owned_recorded.value().decimal())
+            .unwrap_or_else(|| {
+                residual_ownership
+                    .as_ref()
+                    .map_or(o.recorded.value().decimal(), |r| {
+                        r.owned_recorded.value().decimal()
+                    })
             });
-        let owned_proposed = residual_ownership
+        let owned_proposed = transfer_ownership
             .as_ref()
-            .map_or(o.amount.value().decimal(), |r| {
-                r.owned_proposed.value().decimal()
+            .map(|v| v.ownership.owned_proposed.value().decimal())
+            .unwrap_or_else(|| {
+                residual_ownership
+                    .as_ref()
+                    .map_or(o.amount.value().decimal(), |r| {
+                        r.owned_proposed.value().decimal()
+                    })
             });
         let transferred_invoice = cohort.is_some() && o.key.kind == l::CashKind::DeliveryInvoice;
         if entitled && !transferred_invoice {
@@ -752,9 +800,14 @@ pub fn mark_causal_pnl_position<'p>(
             .value()
             .decimal()
             .checked_sub(o.recorded.value().decimal()))?;
-        let owned_outstanding = residual_ownership
+        let owned_outstanding = transfer_ownership
             .as_ref()
-            .map_or(outstanding, |r| r.owned_outstanding.value().decimal());
+            .map(|v| v.ownership.owned_outstanding.value().decimal())
+            .unwrap_or_else(|| {
+                residual_ownership
+                    .as_ref()
+                    .map_or(outstanding, |r| r.owned_outstanding.value().decimal())
+            });
         let ratio = if basis == ValuationBasis::FuturesQuoteLevel
             || owned_outstanding.is_zero()
             || !entitled
@@ -863,7 +916,16 @@ pub fn mark_causal_pnl_position<'p>(
             removed_from_active_model: money(removed, currency)?,
             entitled: cohort.map(|_| entitled),
             residual_ownership,
+            transfer_ownership,
         });
+    }
+    let mut transferred_claims = Vec::new();
+    for value in allocations.iter().filter(|v| v.origin != pos.identity.id) {
+        let cash = transferred_cash(value, cash_discount, point, pos)?;
+        outstanding_pv += cash.present_value.value().get();
+        recorded = dec(recorded.checked_add(value.owned_recorded.value().decimal()))?;
+        proposed = dec(proposed.checked_add(value.owned_proposed.value().decimal()))?;
+        transferred_claims.push(cash);
     }
     if let Some(h) = physical.as_mut() {
         let outstanding = h.outstanding_invoice.value().decimal();
@@ -976,6 +1038,7 @@ pub fn mark_causal_pnl_position<'p>(
         local,
         reporting,
         claims,
+        transferred_claims,
         recorded_cash: Money::new(ExactDecimal::new(recorded), currency),
         proposed_cash: Money::new(ExactDecimal::new(proposed), currency),
         executed_quantity: ExactDecimal::new(executed),

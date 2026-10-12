@@ -65,7 +65,7 @@ pub enum PnlCause {
     Fx,
     /// Full prospective amended economics, subject to historical conservation.
     Amendment,
-    /// Actual supplied fills and hypothetical pending quantities.
+    /// Actual supplied fills, legal cash ownership and hypothetical pending quantities.
     Position,
     /// Actual receipt, notice, exercise, default, auction or clearing event.
     Event,
@@ -184,6 +184,7 @@ pub struct PreparedCausalPnl {
     handoffs: Vec<Vec<Option<PhysicalDeliveryValue>>>,
     cohort_state_pins: Option<Vec<Vec<String>>>,
     lot_splits: Vec<CohortLotSplit>,
+    claim_ownership: Vec<Vec<Vec<CohortClaimOwnershipValue>>>,
 }
 impl PreparedCausalPnl {
     /// Full immutable declarations.
@@ -265,6 +266,7 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
         handoffs: Vec::new(),
         cohort_state_pins: None,
         lot_splits: Vec::new(),
+        claim_ownership: Vec::new(),
     };
     for (i, p) in input.points.iter().enumerate() {
         if p.positions.len() != n
@@ -410,6 +412,19 @@ pub struct PnlClaimValue {
     /// Exact residual legal ownership and checked excluded receipt prefix.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub residual_ownership: Option<ResidualClaimValue>,
+    /// Exact current ownership and historical recipients of transferred cash.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_ownership: Option<PnlTransferredClaimValue>,
+}
+/// Original checked transferred cash, discounted by its original cash owner.
+#[derive(Debug, Clone, Serialize)]
+pub struct PnlTransferredClaimValue {
+    /// Complete source, legal transfers and exact receipt allocations.
+    pub ownership: CohortClaimOwnershipValue,
+    /// Same original collateral ratio, or explicit nominal overdue convention.
+    pub discount_ratio: f64,
+    /// Exact owned outstanding cash valued by the original collateral curve.
+    pub present_value: ModelMoney,
 }
 /// Privately generated full mark; no scalar result may be supplied at aggregation.
 #[derive(Debug, Serialize)]
@@ -435,6 +450,9 @@ pub struct CausalPositionMark<'p> {
     pub reporting: ScenarioAmounts,
     /// Complete outstanding claims, including partial/zero settlement state.
     pub claims: Vec<PnlClaimValue>,
+    /// Separately sourced claims received without changing security exposure.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub transferred_claims: Vec<PnlTransferredClaimValue>,
     /// Exact cumulative externally recorded cash from full replay.
     pub recorded_cash: Money,
     /// Exact cumulative proposed claims from full replay, not cash received.

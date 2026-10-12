@@ -164,6 +164,9 @@ pub struct CohortBookPnlInput {
     /// Explicit conserved full original security partitions; no execution fills.
     #[serde(default)]
     pub lot_splits: Vec<w::CohortLotSplit>,
+    /// Dated legal transfers of original earned cash, separate from security lots.
+    #[serde(default)]
+    pub claim_transfers: Vec<w::CohortClaimTransfer>,
 }
 pub(super) fn reconcile_cohorts(
     input: &CohortBookPnlInput,
@@ -171,6 +174,11 @@ pub(super) fn reconcile_cohorts(
 ) -> LibraryResult<Value> {
     if input.cohorts.len() != input.book.before.point.positions.len()
         || input.physical_deliveries.len() > 128
+        || input.claim_transfers.len() > 128
+        || input
+            .claim_transfers
+            .iter()
+            .any(|t| t.applied_points.len() > 33 || t.cutoff.receipt_ids.len() > 4096)
         || input.cohorts.iter().any(|c| c.entitlements.len() > 4096)
     {
         return Err(LibraryError::invalid(
@@ -287,11 +295,12 @@ fn reconcile_inner(
             .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
             .collect::<Vec<_>>();
         Some((
-            w::prepare_cohort_pnl_with_splits(
+            w::prepare_cohort_pnl_with_transfers(
                 &declaration,
                 &c.cohorts,
                 &c.physical_deliveries,
                 &c.lot_splits,
+                &c.claim_transfers,
                 &states,
             )
             .map_err(native_error)?,

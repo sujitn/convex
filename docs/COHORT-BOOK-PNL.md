@@ -8,6 +8,7 @@ The existing `book_pnl` contract remains available for its original scope.
 ```sh
 cargo run --locked -p convex --example cohort_pnl
 cargo run --locked -p convex --example residual_pnl
+cargo run --locked -p convex --example claim_pnl
 cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cohort_pnl -- --test-threads=1
 cargo test --locked --all-features -p convex --test cohort_pnl_boundaries -- --test-threads=1
 ```
@@ -181,7 +182,7 @@ Each original native lot and all excluded claims remain visible. Held parent
 face falls to zero, successor face is conserved, and no fill, consideration, fee,
 average cost or cash receipt is inferred. Later full disposal of a successor
 continues to use its actual original fill. Splitting physical-delivery links,
-rounded/conditional instruments or transferring earned residuals into children
+rounded/conditional instruments
 requires further complete owners and fails explicitly.
 
 The original 128-holding/33-point/4,224-mark limits and wire bounds remain. Complete
@@ -195,3 +196,49 @@ diagnostic declarations remain alongside it without replacing earlier trials.
 The original complete residual/cohort/causal suites remain required separately.
 CVX-063 remains partial; actual managed/browser hosts and production/latency
 qualification remain separate.
+
+Explicit earned-cash transfers use the additive `claim_transfers` list on this
+same operation. Each record supplies a unique legal `id`, original `origin`
+cohort and cash `key`, actual `proposal_id`, exact `entitlement_source` and
+optional `residual_id`, current legal `from` and `to`, positive `fraction`,
+original cash `cutoff`, immutable legal `source` and `applied_points`. Fractions
+refer to the original entitled cash after its original residual fraction and
+excluded paid prefix. They are independent of the receiving lot's signed face.
+
+Only already-earned, available original claims can transfer. All parties must
+be complete acquired legal cohorts with the original currency, cash discount
+role and overdue convention. A split successor may receive an earned claim
+without replaying its parent's historic payments or acquiring security again.
+Legal transfers belong to the Position cause and persist on the ordered path;
+available independent Position points carry only their actual available transfer
+prefix. Partial, entire, sequential and returned ownership is conserved exactly.
+Duplicate, foreign, unavailable, retroactive, exhausted and overdrawn facts fail.
+
+The cutoff retains the complete ordered original receipt IDs for that claim.
+Earlier cash stays with its recipient. Every later actual receipt is allocated
+under the shares in force then; another transfer moves outstanding cash only.
+Native `claims[].transfer_ownership` retains the source's allocation and
+`transferred_claims` separately retains recipients' original cash/proposal,
+entitlement/residual, legal transfer prefix, exact share and full actual receipt
+allocations. Original obligations and receipt history remain visible. Recorded
+cash plus outstanding cash forms each recipient's allocated proposed cash.
+Checked Decimal partitioning conserves each original cash amount exactly; the
+last nonzero legal share retains the original Decimal representation's remainder.
+The original same-currency collateral ratio and point FX price every share.
+
+All original product values, future embedded-cash removal, current/pending/fill
+and physical receipt facts, full causal/standalone/interaction and unclamped
+reconciliation residuals and every CTD winner/tie/switch survive. The new bounded
+allocation admits128 legal transfers and4224 complete original-root/party/point
+allocations, alongside the original holding, point, pricing and wire ceilings.
+Margin, physical invoices and unearned/conditional claims retain their separate
+owners. No payment, consideration, fee, security fill or ledger posting is inferred.
+
+The complete independent control is `claim-pnl-bound.json`, produced by
+`tests/scripts/claim_pnl_bound.py`. Initial and earned declarations, failed
+trials and separate complete plain-Decimal receipt facts remain. Run
+`cargo run --locked -p convex --example claim_pnl` or the four actual
+`--test claim_pnl` adapter tests. Native transport envelopes are not independent
+financial references. Original monetary bounds and37943 regression comparisons
+remain required. Actual managed/browser execution, release acceptance and
+production/latency certificates remain separate; CVX-063 is partial.

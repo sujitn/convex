@@ -995,6 +995,45 @@ jobs:
       - name: Boundary amendment and lot split gate 10
         run: python3 tests/scripts/lot_pnl_parity.py --binary target/debug/examples/lot_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Original cash transfer reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_reference.py
+
+      - name: Original earned proposal and recovery reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_earned.py
+
+      - name: Complete plain Decimal cash-transfer reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_complete.py
+
+      - name: Original due-cash transfer chronology
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_chronology.py
+
+      - name: Original full recovery and mixed source binding
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_bound.py
+
+      - name: Full claim transfer request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_bound_census.py
+
+      - name: Actual native signed claim conservation and prepared-state admission
+        run: cargo test --locked --all-features -p convex-analytics --test claim_transfers -- --test-threads=1
+
+      - name: Four actual full cash transfer adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test claim_pnl -- --test-threads=1
+
+      - name: Default cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl
+
+      - name: Minimal cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl --no-default-features
+
+      - name: Schema cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl --features schemars
+
+      - name: Strict cash transfer schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/claim_pnl_schema.py --binary target/debug/examples/claim_pnl
+
+      - name: Fresh separate C cash transfer transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_parity.py --binary target/debug/examples/claim_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1694,6 +1733,9 @@ jobs:
       - name: Build original lot amendment Excel expectations
         run: cargo build --locked --profile excel -p convex --example lot_pnl --features schemars
 
+      - name: Build original cash transfer Excel expectations
+        run: cargo build --locked --profile excel -p convex --example claim_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1788,6 +1830,9 @@ jobs:
 
       - name: Complete original lot amendment Excel transport
         run: python tests/scripts/lot_pnl_parity.py --binary target/excel/examples/lot_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/lot-pnl-parity.json
+
+      - name: Original cash transfer Excel transport
+        run: python tests/scripts/claim_pnl_parity.py --binary target/excel/examples/claim_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/claim-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

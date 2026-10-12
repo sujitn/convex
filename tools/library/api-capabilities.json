@@ -30113,7 +30113,19 @@
     "tests/fixtures/library/lot-pnl-chronology-api-04.json",
     "tests/fixtures/library/lot-pnl-chronology-api-05.json",
     "tests/fixtures/library/lot-pnl-chronology-api-06.json",
-    "tests/fixtures/library/lot-pnl-chronology-api-07.json"
+    "tests/fixtures/library/lot-pnl-chronology-api-07.json",
+    "tests/fixtures/library/claim-pnl-bound-api-01.json",
+    "tests/fixtures/library/claim-pnl-bound-api-02.json",
+    "tests/fixtures/library/claim-pnl-bound-api-03.json",
+    "tests/fixtures/library/claim-pnl-bound-api-04.json",
+    "tests/fixtures/library/claim-pnl-bound-api-05.json",
+    "tests/fixtures/library/claim-pnl-bound-api-06.json",
+    "tests/fixtures/library/claim-pnl-bound-api-07.json",
+    "tests/fixtures/library/claim-pnl-bound-api-08.json",
+    "tests/fixtures/library/claim-pnl-bound-api-09.json",
+    "tests/fixtures/library/claim-pnl-bound-api-10.json",
+    "tests/fixtures/library/claim-pnl-bound-api-11.json",
+    "tests/fixtures/library/claim-pnl-bound-api-12.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {
