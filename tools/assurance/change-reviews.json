@@ -3412,6 +3412,24 @@
         "tools/library/test_operations.py": "22cd024c41f039210493734e03914387643806792728ea62a5e92ed48c7747e2",
         "tools/library/test_outstanding.py": "857c75ea61307fc9660fa47e2a16785d1e08c09f5b60c6b35efab7ee4130c857"
       }
+    },
+    {
+      "base_commit": "d0a0ea2c5f2f6566e67fe5e8d9f0cdb950018f90",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-12",
+      "rationale": "CVX-063 complete current local Java host continuation: every original4975 shared request on77 exact routes is retained as a complete native/JSON transport row and executed through actual Java FFM/C with exact full-envelope checks. The original financial controls/formulas/units/errors/provenance and1591 numeric rows/files/defaults remain unchanged. The complete existing Java suite requires fresh original per-consumer parity; the missing monotone CI generation is repaired. New actual captures are lossless gzip JSON-lines, no sampling/tolerance/truncation. Runtime/source/native/C hashes, raw commands and complete reports must bind execution before scoped host qualification. No new financial model/type/wire/operation/route/export/dependency or execution authority; all2154 required records/owners and remaining native/model/convention/Windows/Excel/WASM/certificate gaps remain. CVX063 stays partial/unaccepted/uncertified; local commits only.",
+      "tests": [
+        "Complete current4975 native/JSON/C/Java transport census, original full requests and strict typed failures",
+        "Every existing Java JUnit class on actual installed runtime and freshly bound native C library",
+        "Exact original pricing/model/control/source/physical/numeric/mandatory-scope conservation",
+        "Locked native examples/build profiles, warnings-denied lint, format, metadata/API/library/assurance/harness checks"
+      ],
+      "candidate_files": {
+        ".github/workflows/java.yml": "8ee02b2424d5ffb97ded1c79a4efa62202a60fe6900d7376ba0fda69d3950d0a",
+        "crates/convex/examples/library_host_census.rs": "b2f9c8034996c42c3c44a797c5a72a4244e736e3c483cee3b4b18fdb1cc10969",
+        "tools/assurance/numeric-evidence.json": "9bad9254cc2416602455ffcfa160a393112627d6ad397893dbdc46733a522f2c",
+        "tools/library/library-inventory.json": "14f1ec508a7e414b7cd0827adfb6a2eaab1af5f60500fcc5c297aa235cf6317a"
+      }
     }
   ]
 }

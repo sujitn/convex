@@ -66,6 +66,8 @@ on:
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
+      - 'tests/scripts/library_host_census.py'
+      - 'tests/scripts/library_monotone_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -135,6 +137,8 @@ on:
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
       - 'tests/scripts/library_ufr_parity.py'
+      - 'tests/scripts/library_host_census.py'
+      - 'tests/scripts/library_monotone_parity.py'
       - 'tools/library/api-capabilities.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -268,6 +272,9 @@ jobs:
       - name: Build native complete UFR consumer
         run: cargo build --locked --profile excel -p convex --example library_ufr --features schemars
 
+      - name: Build native monotone and complete host consumers
+        run: cargo build --locked --profile excel -p convex --example library_monotone --example library_host_census --features schemars
+
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
@@ -383,6 +390,12 @@ jobs:
 
       - name: Generate fresh native full UFR adapter expectations
         run: python3 tests/scripts/library_ufr_parity.py prepare --binary target/excel/examples/library_ufr --output bindings/java/target/library-ufr-parity.json
+
+      - name: Generate fresh monotone Java expectations
+        run: python3 tests/scripts/library_monotone_parity.py prepare --binary target/excel/examples/library_monotone --output bindings/java/target/library-monotone-parity.json
+
+      - name: Retain every current complete request for actual Java FFM
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/library_host_census.py --binary target/excel/examples/library_host_census --output-dir bindings/java/target/library-host-census
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

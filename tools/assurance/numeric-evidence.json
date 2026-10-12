@@ -7962,6 +7962,26 @@
       "path": "tests/scripts/settled_claims_pnl_schema.py",
       "mode": "file",
       "sha256": "d967d36736d8af00f1cc7a9377cc92b6039b0342a0da06697b9bdc2e8086db00"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/LibraryCensusTest.java",
+      "mode": "file",
+      "sha256": "d01807c90585ac65e72ef43fe2e901ecb71bcad5e3e34b99b8627313991782fc"
+    },
+    {
+      "path": "crates/convex/examples/library_host_census.rs",
+      "mode": "file",
+      "sha256": "b2f9c8034996c42c3c44a797c5a72a4244e736e3c483cee3b4b18fdb1cc10969"
+    },
+    {
+      "path": "tests/scripts/library_host_census.py",
+      "mode": "file",
+      "sha256": "3cfdea52582ea6c520fd17bade7129b9b43fa54a185636f2a5af6abd77e712b2"
+    },
+    {
+      "path": "tests/scripts/test_library_host_census.py",
+      "mode": "file",
+      "sha256": "9e37543e5428a8719a5942f7ef9e5d807986e9778d03aa0e0b9d31234b5d831d"
     }
   ]
 }
