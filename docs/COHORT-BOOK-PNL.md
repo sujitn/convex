@@ -578,3 +578,42 @@ native execution. Native envelopes prove transport only. Broader conditional/
 floating/credit/novation/amendment claims, amortizing physical invoices and
 post-delivery amendments remain unsupported by this scoped route. Authoritative
 postings, authenticated cash/fills/FX, limits and execution remain CVX025/031.
+
+## Complete original cash settlement and closure
+
+Run `cargo run --locked -p convex --example settled_claims_pnl` for six signed
+full delayed/prefix/staggered books plus all28 complete preceding positive books.
+The four concurrent child principal/final-coupon claims settle after the original
+returned-recipient payments in their ordered actual Event. Their outstanding cash
+becomes exactly zero while nominal physical delivery can still be pending. Every
+prior paid recipient and zero current-share recipient retains its actual cash.
+Original legal share fractions remain historical ownership proportions; a zero
+outstanding amount cannot be freshly acquired or transferred.
+
+Selected claims becoming fully paid leaves the original bond state `Matured`.
+The final Event records complete original nominal/invoice ingress and all remaining
+original cash, including past coupon claims explicitly excluded from current legal
+ownership. Only then does the original native lifecycle become `Closed`. Actual
+receipts use the original bounded Decimal cash and outstanding amount, never a
+model PV. Original lifecycle proposals, exact receipt prefixes, legal sources,
+full calendar/profile/security/delivery/invoice terms and native precision remain.
+Later receipts of explicitly excluded original cash are admitted after custody;
+they remain excluded from current cash/P&L ownership. Earlier paid history still
+requires its original dated prefix. Fresh custody/disposal still requires Active
+security. No posting, cash authentication, collection, order or ledger is supplied.
+
+The independent controls replay original Decimal operations at each96-bit/28-place
+cash boundary. They retain all full mixed/history/credit/OIS/model/CTD regressions
+and original financial bounds. Three full declared input trials remain separately
+pinned; the active corpus is `settled-claims-pnl-complete.json`. Only absent optional
+event attachments are omitted from the wire, with exact full-input reconstruction
+proved before execution. Sixteen ordered causes and original wire limits remain.
+Independent later Position remains explicitly Unavailable where its own baseline
+maturity/paid-prefix/legal/custody prerequisites do not exist.
+
+Actual Java FFM/C parity has executed on the installed macOS JDK. Actual wasm32
+Node glue passes the complete original independent financial checks, but strict
+native-envelope parity exposes floating-point differences in full model/OIS
+outputs. These checks are distinct; exact WASM transport parity remains open.
+Windows/.NET/Excel/browser and other host/platform qualification remains separate.
+See [all remaining mandatory work](CVX-063-REMAINING.md).

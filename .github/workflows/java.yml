@@ -47,9 +47,7 @@ on:
       - 'tests/scripts/child_cash_pnl*.py'
       - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/scripts/concurrent_claims_pnl*.py'
-      - 'tests/scripts/child_cash_pnl*.py'
-      - 'tests/scripts/child_maturity_pnl*.py'
-      - 'tests/scripts/concurrent_claims_pnl*.py'
+      - 'tests/scripts/settled_claims_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
@@ -63,9 +61,7 @@ on:
       - 'tests/fixtures/library/child-cash-pnl*.json'
       - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/fixtures/library/concurrent-claims-pnl*.json'
-      - 'tests/fixtures/library/child-cash-pnl*.json'
-      - 'tests/fixtures/library/child-maturity-pnl*.json'
-      - 'tests/fixtures/library/concurrent-claims-pnl*.json'
+      - 'tests/fixtures/library/settled-claims-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -120,9 +116,7 @@ on:
       - 'tests/scripts/child_cash_pnl*.py'
       - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/scripts/concurrent_claims_pnl*.py'
-      - 'tests/scripts/child_cash_pnl*.py'
-      - 'tests/scripts/child_maturity_pnl*.py'
-      - 'tests/scripts/concurrent_claims_pnl*.py'
+      - 'tests/scripts/settled_claims_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
@@ -136,9 +130,7 @@ on:
       - 'tests/fixtures/library/child-cash-pnl*.json'
       - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/fixtures/library/concurrent-claims-pnl*.json'
-      - 'tests/fixtures/library/child-cash-pnl*.json'
-      - 'tests/fixtures/library/child-maturity-pnl*.json'
-      - 'tests/fixtures/library/concurrent-claims-pnl*.json'
+      - 'tests/fixtures/library/settled-claims-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -255,6 +247,9 @@ jobs:
       - name: Build concurrent claims transport consumer
         run: cargo build --locked --profile excel -p convex --example concurrent_claims_pnl --features schemars
 
+      - name: Build full settlement transport consumer
+        run: cargo build --locked --profile excel -p convex --example settled_claims_pnl --features schemars
+
       - name: Build full delivery basket hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -367,6 +362,9 @@ jobs:
 
       - name: Generate fresh concurrent claims Java parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_parity.py --binary target/excel/examples/concurrent_claims_pnl --output bindings/java/target/concurrent-claims-pnl-parity.json
+
+      - name: Generate fresh full settlement Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_parity.py --binary target/excel/examples/settled_claims_pnl --output bindings/java/target/settled-claims-pnl-parity.json
 
       - name: Generate full delivery basket hedge Java expectations
         run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json

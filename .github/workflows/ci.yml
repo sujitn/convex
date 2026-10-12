@@ -1337,6 +1337,33 @@ jobs:
       - name: Qualify concurrent claims fresh C parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_parity.py --binary target/debug/examples/concurrent_claims_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Verify full original cash settlement declarations
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_reference.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_admitted.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_complete.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_census.py
+
+      - name: Qualify complete original claim exhaustion and native closure
+        run: cargo test --locked --all-features -p convex-analytics --test settled_claims -- --test-threads=1
+
+      - name: Qualify full settlement four adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test settled_claims_pnl -- --test-threads=1
+
+      - name: Qualify full settlement default minimal and schema consumers
+        run: |
+          cargo run --locked -p convex --example settled_claims_pnl
+          cargo run --locked -p convex --example settled_claims_pnl --no-default-features
+          cargo run --locked -p convex --example settled_claims_pnl --features schemars
+
+      - name: Qualify full settlement strict schema and fresh C parity
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/settled_claims_pnl_schema.py --binary target/debug/examples/settled_claims_pnl
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_parity.py --binary target/debug/examples/settled_claims_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Check every outstanding required operation and surface
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tools/library/outstanding.py --json
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -2058,6 +2085,9 @@ jobs:
       - name: Build complete concurrent claims transport consumer
         run: cargo build --locked --profile excel -p convex --example concurrent_claims_pnl --features schemars
 
+      - name: Build full settlement transport consumer
+        run: cargo build --locked --profile excel -p convex --example settled_claims_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -2174,6 +2204,9 @@ jobs:
 
       - name: Generate fresh concurrent claims PInvoke parity
         run: python tests/scripts/concurrent_claims_pnl_parity.py --binary target/excel/examples/concurrent_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/concurrent-claims-pnl-parity.json
+
+      - name: Generate fresh full settlement PInvoke parity
+        run: python tests/scripts/settled_claims_pnl_parity.py --binary target/excel/examples/settled_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/settled-claims-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

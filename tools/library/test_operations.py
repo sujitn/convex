@@ -22,7 +22,7 @@ class OperationRoutes(unittest.TestCase):
         self.assertEqual(result['mandatory_records'], 2154)
         # Preserve all 77 original routes/4874 requests; extend the same cohort route.
         self.assertEqual(result['exact_operation_routes'], 77)
-        self.assertEqual(result['engineering_examples'], 4874 + 56)
+        self.assertEqual(result['engineering_examples'], 4930 + 45)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

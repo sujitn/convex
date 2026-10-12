@@ -30218,7 +30218,25 @@
     "tests/fixtures/library/concurrent-claims-pnl-complete-api-19.json",
     "tests/fixtures/library/concurrent-claims-pnl-complete-api-20.json",
     "tests/fixtures/library/concurrent-claims-pnl-complete-api-21.json",
-    "tests/fixtures/library/concurrent-claims-pnl-complete-api-22.json"
+    "tests/fixtures/library/concurrent-claims-pnl-complete-api-22.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-01.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-02.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-03.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-04.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-05.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-06.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-07.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-08.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-09.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-10.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-11.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-12.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-13.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-14.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-15.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-16.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-17.json",
+    "tests/fixtures/library/settled-claims-pnl-complete-api-18.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

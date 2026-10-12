@@ -770,3 +770,26 @@ actual Java/JNI/Windows/.NET/Excel/wasm32/browser execution remains open. Native
 transport is no independent financial oracle or certificate. CVX-063 remains
 partial; broader claims/amortizing invoices/models/production/scale/latency and
 all independent certificates stay open.
+
+## Full claim settlement and remaining mandatory coverage
+
+The unchanged `cohort_book_pnl` input admits actual later receipts for explicitly
+excluded original child cash after acquired custody. Those amounts stay outside
+current legal cash/P&L ownership; the original native obligation may settle and
+close. Historical paid cash before acquisition retains the original dated-prefix
+guard. Complete original obligations, not selected legal claims alone, determine
+`Matured` versus `Closed`. Exact Decimal cash allocation, original lifecycle,
+full pricing/model/history/custody/invoice bodies and native exhaustion guards stay.
+Run `cargo run --locked -p convex --example settled_claims_pnl`; the full 45-request
+consumer retains34 complete financial books and11 typed failures. Direct native
+controls also exercise exact exhausted-acquisition/transfer and historical-cash
+ownership guards. [The cohort guide](COHORT-BOOK-PNL.md) explains cash meaning.
+
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/library/outstanding.py --json` for every
+original required record and its remaining owner/evidence. Use `--area LC-029` to
+inspect advertised clients. The report joins exact operation mappings, original
+product/convention/model/economic terms and surfaces; family examples do not fill
+unmapped records. Actual Java/C and wasm32 financial checks are recorded separately
+from strict WASM envelope drift and absent Windows/Excel/browser hosts. Passing
+engineering subsets does not accept CVX-063 or create an independent certificate.
+[The complete remaining-work guide](CVX-063-REMAINING.md) gives the execution order.

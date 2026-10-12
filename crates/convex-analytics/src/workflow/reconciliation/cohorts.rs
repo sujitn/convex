@@ -2598,10 +2598,24 @@ fn admit_physical_partitions(
                     // proposal, legal source, acquired party and immutable
                     // paid prefix. Before custody, every actual receipt is
                     // excluded from the subsequently acquired cash right.
-                    child_dated.get(&receipt.obligation).is_none_or(|excluded| {
-                        !split.applied_points.contains(&i)
-                            && !excluded.contains(&receipt.receipt_id)
-                    })
+                    match child_dated.get(&receipt.obligation) {
+                        Some(excluded) => {
+                            !split.applied_points.contains(&i)
+                                && !excluded.contains(&receipt.receipt_id)
+                        }
+                        None => {
+                            // Later actual settlement of explicitly excluded
+                            // original cash closes its native obligation; it
+                            // does not acquire that cash for this custody child.
+                            // Earlier paid history still needs a dated prefix.
+                            !split.applied_points.contains(&i)
+                                || owners[j]
+                                    .entitlements
+                                    .iter()
+                                    .find(|e| e.key == receipt.obligation)
+                                    .is_none_or(|e| e.entitled)
+                        }
+                    }
                 })
             }) {
                 return Err(bad(

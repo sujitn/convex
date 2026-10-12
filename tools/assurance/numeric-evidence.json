@@ -7772,6 +7772,196 @@
       "path": "tests/scripts/concurrent_claims_pnl_schema.py",
       "mode": "file",
       "sha256": "2bc004f7926a2ae2c95856ad55c1a5dddce26ceab6be63155497b8111844778c"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/SettledClaimsPnlTest.java",
+      "mode": "file",
+      "sha256": "cbf419407af74059f538ba49d7a621742d99c3eb1cc4421dcd85a24cfd782e5c"
+    },
+    {
+      "path": "crates/convex-analytics/tests/settled_claims.rs",
+      "mode": "file",
+      "sha256": "2b9d2f934e9c5a9e583429c363e52fa6461e78fc0c64fa0489946e5385b5eac5"
+    },
+    {
+      "path": "crates/convex-ffi/tests/settled_claims_pnl.rs",
+      "mode": "file",
+      "sha256": "d115b61cb7849f8a199fe6dfa8fd4b1c64f0f7ad965b440fcdfe06d633ae86ec"
+    },
+    {
+      "path": "crates/convex-mcp/tests/settled_claims_pnl.rs",
+      "mode": "file",
+      "sha256": "3f6863560a10eb1cb024297a1d7ee48102746e32743e2a9d1be5d1864bb0fc61"
+    },
+    {
+      "path": "crates/convex-wasm/tests/settled_claims_pnl.rs",
+      "mode": "file",
+      "sha256": "bef852b359da3e81c999d9c6497a037b618ef6f8f0d05020cb935d551615005e"
+    },
+    {
+      "path": "crates/convex/examples/settled_claims_pnl.rs",
+      "mode": "file",
+      "sha256": "531aac86e31cc3350b48ba427660686e42d1b179d7dc68e64df200362bca5523"
+    },
+    {
+      "path": "crates/convex/tests/settled_claims_pnl.rs",
+      "mode": "file",
+      "sha256": "01e83f94a1d794f6332bdfe7c9d730686d05c3f12ca2d193be4d68c9ed08f88d"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/SettledClaimsPnlTests.cs",
+      "mode": "file",
+      "sha256": "762cffb9c0a56557e9c893ccc6eb4e6ca432943bfae0aeabc190ff25d0bd5959"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "13855619381148e3355f72f5dcf30cd3668fb465858504c46f712d5c2b8ad2de"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-01.json",
+      "mode": "file",
+      "sha256": "21086e0e344c6b65c6afc6416f6599947435de0e09b21986be872bf89ec2db73"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-02.json",
+      "mode": "file",
+      "sha256": "98754b7b758803a0db309b885dfe2104350842a8c2a528588eb37edfaabd3c04"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-03.json",
+      "mode": "file",
+      "sha256": "92895402c06a67803cdc411e03f055021c5e81c74b3c7ecfd3302dcbf21bfd17"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-04.json",
+      "mode": "file",
+      "sha256": "a84d1ae2239f4473733ab77159da52b6d54b8aa6839bdb63b1776f028de715d4"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-05.json",
+      "mode": "file",
+      "sha256": "fc4196fc8646c0621a116011e7cb017c08cc4f1f185e8877250ac04eb1d2b53f"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-06.json",
+      "mode": "file",
+      "sha256": "cb1d4bad17b7a222f581f63906b07deace324f1c1d03e0b55748e746c208e9b7"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-07.json",
+      "mode": "file",
+      "sha256": "70e1677ca55eb1c460a71b49fb3d7ae5d4a43d8e617d4797e918989ea172ed7e"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-08.json",
+      "mode": "file",
+      "sha256": "df20712cf27ce7926f7e768d7a26ede12fd8699358dcdc7e47e7e9568ae8a964"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-09.json",
+      "mode": "file",
+      "sha256": "731986d9c254ffe1a5f73823a6c3aa074dbd46f8aad6c92578f272848dc014ab"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-10.json",
+      "mode": "file",
+      "sha256": "2ff7112d75e827f4b59aa04df82cc2a0ccfbf8bb9c0186fcfa393176c9a09a9e"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-11.json",
+      "mode": "file",
+      "sha256": "62414c4b1c590ae240d1543ceb794d47ecff58f0db7effe12ec86f64fbb1e68d"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-12.json",
+      "mode": "file",
+      "sha256": "dcf470bf6ba75ff9ebabdad6b31c564d07788dc23c14381564aee8526d5fa690"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-13.json",
+      "mode": "file",
+      "sha256": "3b886419112ea5f11395a6bd56e0486f789c695b83bc5bb097b0b225946583e6"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-14.json",
+      "mode": "file",
+      "sha256": "b19df9653be4170fef74e4e4a89980c8df82cc1bfebaef48a501647cec49fa2d"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-15.json",
+      "mode": "file",
+      "sha256": "0ec63f91c9d18a649ac42fb2e92cafb103cebe0bf00815b39330c9ec2f077fae"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-16.json",
+      "mode": "file",
+      "sha256": "a6cab983129fa26f1de7b0ffa31308462d3a7fd08339b97e4a2aacc333107b94"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-17.json",
+      "mode": "file",
+      "sha256": "dc1ebb7734462612321455deaae6eb79b08fe2f34b100a31ca78d27eddb3419b"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete-api-18.json",
+      "mode": "file",
+      "sha256": "46f6dbd4fdb8b2ce7a2dc99a63eec4c775d04f280710c918f6b708227befbdfc"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-complete.json",
+      "mode": "file",
+      "sha256": "d44c5e7194c7dbd5e64b5f5b641c898245b62b6364c9c8a14c4b0f9ce4109fd0"
+    },
+    {
+      "path": "tests/fixtures/library/settled-claims-pnl-reference.json",
+      "mode": "file",
+      "sha256": "fd0518fb89fb0b4dbd8233ad1017cf96c25962478f79d184c8aa3eeb3d2bedbe"
+    },
+    {
+      "path": "tests/fixtures/library/settled_claims_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "178faaf77fe49a2f9bc2869cc3586b15d76e1b96810f990790fb085730965f8b"
+    },
+    {
+      "path": "tests/scripts/library_wasm_parity.cjs",
+      "mode": "file",
+      "sha256": "d471b87e3c35a61753c750ff03382c32b190ba4d25279a21ff2cfa80f054f02b"
+    },
+    {
+      "path": "tests/scripts/library_wasm_parity.py",
+      "mode": "file",
+      "sha256": "b085f17a59a0fee7dde38d6fbf5afee2968ee622ce5c6ed0e48ef7aa10363b60"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "24c30f24746b31bcffc0937103d2abf259d59928fb8ef8549a7f2dc0d2823879"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_census.py",
+      "mode": "file",
+      "sha256": "fb115972b099bb7145bbab555b807b30f650f88b9b81919696073ab6f7380509"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_complete.py",
+      "mode": "file",
+      "sha256": "1bc79a6f8655b6af08e2629906a700edc51e09ad7e148edbc732151ad40425b9"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_parity.py",
+      "mode": "file",
+      "sha256": "00493aca99761188444242e756379165ab750f4cf97120f895f67d46ce77e0df"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_reference.py",
+      "mode": "file",
+      "sha256": "55ace6b2ba76b7d49a24c98f282b92ee3de145985c7a6345eb7f4568a2e78a89"
+    },
+    {
+      "path": "tests/scripts/settled_claims_pnl_schema.py",
+      "mode": "file",
+      "sha256": "d967d36736d8af00f1cc7a9377cc92b6039b0342a0da06697b9bdc2e8086db00"
     }
   ]
 }
