@@ -421,3 +421,45 @@ custody after maturity, delivery options/margin financing, actual managed/browse
 host execution and full scale/latency/production certificates remain open.
 Authoritative cash/fill/FX postings, limits, reservations, fencing and execution
 belong to CVX-025/031; this pure input API creates none of those authorities.
+
+## Cash rights while physical delivery is pending
+
+An explicit dated entitlement can own an original earned coupon or bullet
+principal while the original delivery has no security receipts or only partial
+receipts. The full proposed security face remains visible as received face plus
+the outstanding delivery receivable. Cash rights use their own supplied legal
+fraction and paid-prefix cutoff. Later receipt ingress, successive custody
+partitions and actual disposal of received stock do not move that cash right or
+the original invoice. An actual disposal can consume received allocations only.
+
+Independent Position experiments supply a complete information set and include
+its point index in the dated entitlement's `applied_points`. The original party,
+earned proposal, legal source, economic/knowledge cutoff and every excluded
+prior receipt must already be available in that independent set. The ordered
+path's later receipts or legal prerequisites cannot be borrowed into it. Before
+the acquisition, the claim is excluded; both the actual acquisition and an
+independently available acquisition apply the same explicitly supplied residual.
+
+For earned cash with a future payment date, the original full pricing curve and
+spread remove embedded cash from held and receivable model exposure. Separately
+owned cash uses its supplied collateral discount curve's payment-date ratio.
+Actual payments require the native due-date check. A Time roll precedes cash
+received on that later payment date; new ingress retains its actual economic and
+knowledge clocks. Overdue cash requires the existing explicit policy. Cash and
+security receipt histories remain immutable ordered prefixes, and a later legal
+cash transfer preserves already paid recipients.
+
+Bullet maturity ends the original native security model exposure. Its remaining
+delivery face and subsequent actual security receipts stay visible, with
+separately supplied coupon/principal and original invoice ownership. No post-
+maturity partition or disposal is admitted. Pending redemption does not imply
+a market price or a new cash right. Amortizing delivery invoices and post-delivery
+amendments remain unsupported by this scoped qualification.
+
+Run `cargo run --locked -p convex --example pending_cash_pnl`. The full independent
+controls cover long/short acquisition before and after partial security ingress,
+independent cash Position experiments, delayed coupons with distinct discount
+roles, successive custody and disposal, outstanding delivery through bullet
+maturity, real cash receipts and full mixed-book models/CTD switches. This uses
+the existing native preparation and JSON operation without an API migration.
+Managed/browser execution and production/latency certificates remain open.

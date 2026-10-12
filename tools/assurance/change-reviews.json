@@ -3116,6 +3116,47 @@
         "tools/library/library-inventory.json": "114f5b0665d9b2142b34c64ca30f3ff176b0c75aa10e8b3c154f159839662764",
         "tools/library/test_operations.py": "9284ce23a220b097b85d05b91ed80543d3316032debb88fe8d2cf0dce107c8e9"
       }
+    },
+    {
+      "base_commit": "38c86c7b54cfe9df48044fbadeda979dcc072ed4",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-12",
+      "rationale": "CVX-063 scoped full pending-delivery coupon/principal cash and independently available dated Position experiments. The same original preparation, proposal/residual/share/custody/disposal and full native pricing/model/history/CTD owners execute unchanged. Independently supplied legal fractions and exact paid prefixes remain separate from received/outstanding delivery face and invoice ownership. Original due-date, full immutable receipt cutoff, pricing DF/spread versus collateral cash DF, overdue/FX and bullet invoice guards remain. Ten complete financial books/833 native revaluations/17 typed failures across27 full requests are predeclared; original full checkers remain unchanged. No production source, DTO/schema/operation/C export, pricer/framework/dependency/provider/DB/MQ/clock/ledger/execution authority is added. Every preceding numerical byte/bound/default, complete request and mandatory Planned definition is protected. Explicit paid cash on custody children and independent cash-transfer prerequisites need further qualification. Amortizing physical invoices, broader conditional/floating/credit/novation/amendment cash, delivery options/margin financing, further models, actual managed/browser hosts, scale/latency and independent certificates remain open. CVX-063 remains partial/unaccepted/uncertified; local commits only.",
+      "tests": [
+        "Predeclared full independent dated-cash/native controls with original proposals, paid prefixes, actual custody/disposal/invoices, full causal mixed models and all CTD switches; retained failed trials and separate repairs",
+        "Actual complete native reconstruction/conservation, four adapters, strict schema and separate fresh C parity",
+        "Original37943 financial comparisons, workspace/lint/docs/fmt and conservation/assurance/API/private harness"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "cfdcc32acb6c8a6c260b8f6e3f0ee8a941df77d0b94f8aca3f2cf0c440eaa380",
+        ".github/workflows/java.yml": "bb7b58b1a2352ef1344955ed7257c2bb3a7914ea188d93a4c8fcddebfe762f65",
+        "crates/convex-analytics/tests/pending_cash.rs": "570d0ef568304a5869db61a81850def6fcc1d27c5d8da0e4c12a5b699289c665",
+        "crates/convex-ffi/tests/pending_cash_pnl.rs": "bff7846b846a1930c1aa3565c62c98afe31be6c09ac043e0d37a363825db1f3a",
+        "crates/convex/examples/pending_cash_pnl.rs": "7f2f5ee8a0de3ffdd8aecf92c6d862ce5aaa749a194239a556da9908916d9458",
+        "crates/convex/tests/pending_cash_pnl.rs": "8e761dfff871e5fed932952a26144c4c5fb03d0ccdcc037914aeeffa4935a05f",
+        "tests/fixtures/library/pending-cash-pnl-admitted.json": "777bdc69202a6f23779e288a787a269ce4b1cee479df8f47e6541ff318da3f2c",
+        "tests/fixtures/library/pending-cash-pnl-available.json": "3af3fdf0b2bb074b83f51d786a769bec37eb86eb434fbe15c65f37cd4fd4ddc0",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-01.json": "6bdbe991dfe3add24a5a3424c0929ab6149441a298bb4dc0dc9538a03aea48f9",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-02.json": "8fc18a53412308e00295218faea4ccd04533788181e7beb0ead74c56c0f599d9",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-03.json": "7882cc46ca51c1f149360a4df04499149ab90bb3d581e38714a05cf5fd510f73",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-04.json": "eb6953040b89bbc6213c547373043d9e6225b6a7b4f29478a36bb316843a708e",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-05.json": "ce38d97eebd66e2ff2c89ec343deb7969bc38ee8f13265e6e9bf7270f1ea9986",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-06.json": "7fb697dbc8fc3b20a36ccae7b81fcec4d4f491b47beb6b13f04e807b08eb81bd",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-07.json": "a90079cad8ca755dc27bb29ac69e81534c965fcb66524fc3fbce8f72cc057274",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-08.json": "0768a5e2393f3911f34871f38cbef51b7213a7cc61697c60b82410cc57a24fdb",
+        "tests/fixtures/library/pending-cash-pnl-bound-api-09.json": "d1dbafcfacd36b5680a8d4277356a036137209d785c480d0711e45605bba0e28",
+        "tests/fixtures/library/pending-cash-pnl-bound.json": "92b91d9f9519a31b7c336d6623b779580e0d2920558aab1cf37fab1445e730b7",
+        "tests/fixtures/library/pending-cash-pnl-complete.json": "71a4cd6a2d1ceacd45ff41b3b5523f7a472cf515b9c0075ccb7ef90f0cc8ea36",
+        "tests/fixtures/library/pending-cash-pnl-discounted.json": "00334953bfef194f624fb63372d3132512d573e2af90ae4061744229544e7f0b",
+        "tests/fixtures/library/pending-cash-pnl-final.json": "af8f160f7f7dffc34d93d73cd3f042ecd6cd3c7aa48e45a791e135937d91d6b0",
+        "tests/fixtures/library/pending-cash-pnl-receipts.json": "53b517fde68984fb563e2fa83d4308a92112422f514038983ac97bb46367c30e",
+        "tests/fixtures/library/pending-cash-pnl-reference.json": "a58f7f46f9450656babac827cf420b67fb7d34c24156f659e11aaa9e71ebcf6f",
+        "tests/fixtures/library/pending_cash_pnl_contract.rs": "791587443f565da2bde3f8a78be64c323e91bcffccebfe2350c24b0f402387b4",
+        "tools/assurance/numeric-evidence.json": "65a7d86affa246ae9dbc80c752c1daf7ef76bde71da4b00de2b4908e7d8518f6",
+        "tools/library/api-capabilities.json": "0a951a216cea291b137b4bdba5ce2cbdd8b5e08942c15c0581aa3b4674bbdc54",
+        "tools/library/library-inventory.json": "5b2660cef8cd8a829238430d67e5a33eaa0270d8d5e34d22934c82df04c6292a",
+        "tools/library/test_operations.py": "2caee78061eb011f03cb54ea682520823672ef64480dd6c475c6888bb795098b"
+      }
     }
   ]
 }

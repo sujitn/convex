@@ -1175,6 +1175,54 @@ jobs:
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_parity.py --binary target/debug/examples/dated_cash_pnl --library target/debug/libconvex_ffi.so
 
 
+      - name: Reproduce pending delivery cash reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_reference.py
+
+      - name: Reproduce pending delivery cash available controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_available.py
+
+      - name: Reproduce pending delivery cash receipts controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_receipts.py
+
+      - name: Reproduce pending delivery cash complete controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_complete.py
+
+      - name: Reproduce pending delivery cash admitted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_admitted.py
+
+      - name: Reproduce pending delivery cash discounted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_discounted.py
+
+      - name: Reproduce pending delivery cash final controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_final.py
+
+      - name: Reproduce pending delivery cash bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_bound.py
+
+      - name: Reproduce pending delivery cash census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_census.py
+
+      - name: Validate original native pending delivery and independent cash facts
+        run: cargo test --locked --all-features -p convex-analytics --test pending_cash -- --test-threads=1
+
+      - name: Validate pending delivery cash across four shared adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test pending_cash_pnl -- --test-threads=1
+
+      - name: Run pending delivery cash default consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl
+
+      - name: Run pending delivery cash minimal consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl --no-default-features
+
+      - name: Build pending delivery cash schema consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl --features schemars
+
+      - name: Validate pending delivery cash schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/pending_cash_pnl_schema.py --binary target/debug/examples/pending_cash_pnl
+
+      - name: Validate separate pending delivery cash C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_parity.py --binary target/debug/examples/pending_cash_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1884,6 +1932,8 @@ jobs:
         run: cargo build --locked --profile excel -p convex --example custody_lineage_pnl --features schemars
       - name: Build dated cash Windows consumer
         run: cargo build --locked --profile excel -p convex --example dated_cash_pnl --features schemars
+      - name: Build pending delivery cash Windows consumer
+        run: cargo build --locked --profile excel -p convex --example pending_cash_pnl --features schemars
 
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
@@ -1990,6 +2040,8 @@ jobs:
         run: python tests/scripts/custody_lineage_pnl_parity.py --binary target/excel/examples/custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
       - name: Prepare dated cash Excel transport controls
         run: python tests/scripts/dated_cash_pnl_parity.py --binary target/excel/examples/dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
+      - name: Retain pending delivery cash native envelopes for Windows transport
+        run: python tests/scripts/pending_cash_pnl_parity.py --binary target/excel/examples/pending_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/pending-cash-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

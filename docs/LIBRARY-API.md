@@ -696,3 +696,13 @@ Amortizing physical invoices retain the original Unsupported convention guard. R
 Previous native preparation signatures delegate; JSON omission defaults empty,
 while Rust cohort input literals add `dated_entitlements: Vec::new()`. Conditional
 cash, managed/browser execution and independent release certificates stay open.
+
+The same route supports separately supplied earned cash while security delivery
+remains outstanding. Independent Position sets must contain the available original
+proposal and complete legal/receipt prerequisites. Later security ingress,
+custody and received-stock disposal preserve cash and invoice recipients. Delayed
+earned cash uses its own collateral DF ratio; original pricing DF/spread removes
+embedded cash, and actual payments retain the native due-date guard. Run
+`cargo run --locked -p convex --example pending_cash_pnl`; see
+[pending-delivery cash](COHORT-BOOK-PNL.md#cash-rights-while-physical-delivery-is-pending).
+No new operation, type, schema field, C export or production authority is added.

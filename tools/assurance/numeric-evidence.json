@@ -6697,6 +6697,191 @@
       "path": "tests/scripts/dated_cash_pnl_wire_census.py",
       "mode": "file",
       "sha256": "15ef51cf4419f87067d9bdb025c5a8b33d21859dc645524d6d76fe8d0b0c179b"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/PendingCashPnlTest.java",
+      "mode": "file",
+      "sha256": "a530ac6d694859ac90afc5470ae75c65e83edab6ed3fe38384061328c9ad3dc6"
+    },
+    {
+      "path": "crates/convex-analytics/tests/pending_cash.rs",
+      "mode": "file",
+      "sha256": "570d0ef568304a5869db61a81850def6fcc1d27c5d8da0e4c12a5b699289c665"
+    },
+    {
+      "path": "crates/convex-ffi/tests/pending_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "bff7846b846a1930c1aa3565c62c98afe31be6c09ac043e0d37a363825db1f3a"
+    },
+    {
+      "path": "crates/convex-mcp/tests/pending_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "6ecea597fb784231c4899a8fd7e130c452568efc504af21d50f122071605a04f"
+    },
+    {
+      "path": "crates/convex-wasm/tests/pending_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "b4aafd4845d629945560914a666da687af05bbb5914691a3e5e5d6cff7167826"
+    },
+    {
+      "path": "crates/convex/examples/pending_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "7f2f5ee8a0de3ffdd8aecf92c6d862ce5aaa749a194239a556da9908916d9458"
+    },
+    {
+      "path": "crates/convex/tests/pending_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "8e761dfff871e5fed932952a26144c4c5fb03d0ccdcc037914aeeffa4935a05f"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/PendingCashPnlTests.cs",
+      "mode": "file",
+      "sha256": "78a0487dc7a577e4641359392b4053a1e9e8d1e78421ba02d8fd61022b7fcc75"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "777bdc69202a6f23779e288a787a269ce4b1cee479df8f47e6541ff318da3f2c"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-available.json",
+      "mode": "file",
+      "sha256": "3af3fdf0b2bb074b83f51d786a769bec37eb86eb434fbe15c65f37cd4fd4ddc0"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-01.json",
+      "mode": "file",
+      "sha256": "6bdbe991dfe3add24a5a3424c0929ab6149441a298bb4dc0dc9538a03aea48f9"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-02.json",
+      "mode": "file",
+      "sha256": "8fc18a53412308e00295218faea4ccd04533788181e7beb0ead74c56c0f599d9"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-03.json",
+      "mode": "file",
+      "sha256": "7882cc46ca51c1f149360a4df04499149ab90bb3d581e38714a05cf5fd510f73"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-04.json",
+      "mode": "file",
+      "sha256": "eb6953040b89bbc6213c547373043d9e6225b6a7b4f29478a36bb316843a708e"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-05.json",
+      "mode": "file",
+      "sha256": "ce38d97eebd66e2ff2c89ec343deb7969bc38ee8f13265e6e9bf7270f1ea9986"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-06.json",
+      "mode": "file",
+      "sha256": "7fb697dbc8fc3b20a36ccae7b81fcec4d4f491b47beb6b13f04e807b08eb81bd"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-07.json",
+      "mode": "file",
+      "sha256": "a90079cad8ca755dc27bb29ac69e81534c965fcb66524fc3fbce8f72cc057274"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-08.json",
+      "mode": "file",
+      "sha256": "0768a5e2393f3911f34871f38cbef51b7213a7cc61697c60b82410cc57a24fdb"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound-api-09.json",
+      "mode": "file",
+      "sha256": "d1dbafcfacd36b5680a8d4277356a036137209d785c480d0711e45605bba0e28"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-bound.json",
+      "mode": "file",
+      "sha256": "92b91d9f9519a31b7c336d6623b779580e0d2920558aab1cf37fab1445e730b7"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-complete.json",
+      "mode": "file",
+      "sha256": "71a4cd6a2d1ceacd45ff41b3b5523f7a472cf515b9c0075ccb7ef90f0cc8ea36"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-discounted.json",
+      "mode": "file",
+      "sha256": "00334953bfef194f624fb63372d3132512d573e2af90ae4061744229544e7f0b"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-final.json",
+      "mode": "file",
+      "sha256": "af8f160f7f7dffc34d93d73cd3f042ecd6cd3c7aa48e45a791e135937d91d6b0"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-receipts.json",
+      "mode": "file",
+      "sha256": "53b517fde68984fb563e2fa83d4308a92112422f514038983ac97bb46367c30e"
+    },
+    {
+      "path": "tests/fixtures/library/pending-cash-pnl-reference.json",
+      "mode": "file",
+      "sha256": "a58f7f46f9450656babac827cf420b67fb7d34c24156f659e11aaa9e71ebcf6f"
+    },
+    {
+      "path": "tests/fixtures/library/pending_cash_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "791587443f565da2bde3f8a78be64c323e91bcffccebfe2350c24b0f402387b4"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "da5ea27717189f912c40f30acc67cd1f4bca827dbd9c5e691b1e22ca3c81999b"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_available.py",
+      "mode": "file",
+      "sha256": "ccaa1ea26ce96f5ea8f58ec9c6460193e36e45cdf1775a23f75456cbe3b1bac6"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_bound.py",
+      "mode": "file",
+      "sha256": "5319e541acb8b744d4fbfbd27b05ca2ca799c92caf93c031bb14161f5dfc6e21"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_census.py",
+      "mode": "file",
+      "sha256": "3a958511f12f73e0f0e416a685fab085d4055876d2d3a5fd7ed80b8acc572cad"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_complete.py",
+      "mode": "file",
+      "sha256": "34d81046c2aeb9c046f4a4bc4f135bddfa0dcc71829506eae309459398025143"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_discounted.py",
+      "mode": "file",
+      "sha256": "3f79208f9c09dae6b64fd3184e719abbed0047f31f8dca99e244a6114d8dff89"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_final.py",
+      "mode": "file",
+      "sha256": "63f35586ce4b8454882f2d3deb88bb3e57ab39a955eec2a273587c7ebca752e9"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_parity.py",
+      "mode": "file",
+      "sha256": "4c86831b2145a58bdde21789106143d2dd81b91c217daa3c5f5cc1b17ed189c7"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_receipts.py",
+      "mode": "file",
+      "sha256": "087ac337c703cd34cafddaf89bb3b9c202903d6147b209d5765fc1b069d7316c"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_reference.py",
+      "mode": "file",
+      "sha256": "eb6cb00c125ff2e85454f77075310ef32e1bf85fc1f210860e1a7e9af32a4144"
+    },
+    {
+      "path": "tests/scripts/pending_cash_pnl_schema.py",
+      "mode": "file",
+      "sha256": "a8b68b191cedd72a2df710673555a98dc11f5f0dc2cb80151ebad20a70ed2466"
     }
   ]
 }
