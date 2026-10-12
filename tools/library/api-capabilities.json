@@ -30154,7 +30154,14 @@
     "tests/fixtures/library/custody-lineage-pnl-admitted-api-11.json",
     "tests/fixtures/library/custody-lineage-pnl-admitted-api-12.json",
     "tests/fixtures/library/custody-lineage-pnl-admitted-api-13.json",
-    "tests/fixtures/library/custody-lineage-pnl-admitted-api-14.json"
+    "tests/fixtures/library/custody-lineage-pnl-admitted-api-14.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-01.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-02.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-03.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-04.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-05.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-06.json",
+    "tests/fixtures/library/dated-cash-pnl-cash-api-07.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

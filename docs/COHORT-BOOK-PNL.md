@@ -351,3 +351,73 @@ declarations and failures remain retained. The native entry point is
 disposal list. JSON omission defaults empty. Native Rust/C/MCP/WASM tests,
 independent full model controls and transport parity are distinct evidence;
 managed/browser execution and production/latency certificates remain open.
+
+## Dated earned coupon and principal ownership
+
+The same `cohort_book_pnl` input accepts optional `dated_entitlements` (default
+empty). Each `CohortDatedEntitlement` names the complete native `origin` and
+obligation `key`, original `proposal_id`, exact `entitlement_source`, an existing
+`CohortResidualClaim` (`id`, positive `fraction <= 1`, and `cutoff`), the actual
+legal `source` revision and complete `applied_points`. Its original cohort
+entitlement must be owned and have no competing legacy residual. This applies
+only to an already earned nonconditional fixed-bond coupon or principal, with
+complete native terms, calendars, profiles and replayed boundaries. Floating,
+optional and credit-dependent cash need their separately qualified claim owners.
+
+Cash acquisition is independent of security acquisition or disposal. Before its
+explicit Position point, the dated cash is excluded from this book; afterward,
+the supplied fraction owns the original residual after the exact prior receipt
+prefix. Every earlier payment remains visible and excluded, with its original
+identity, amount, economic date, knowledge cutoff and proposal. A security split
+may retire the source's custody while that source retains its explicitly supplied
+later earned cash. A later actual security disposal does not move earned cash.
+The supplied fraction is never derived from held face, outstanding delivery face,
+a fill timestamp, a price or a synthetic payment. Excluded shares and prior cash
+are explicit scope exclusions, not invented recipients.
+
+For example, an original native coupon of100 with10 paid before cash acquisition
+and a legal fraction0.6 gives owned residual54. An actual subsequent payment20
+gives owned received12 and outstanding42. A later explicit claim transfer of0.25
+moves10.5 of that outstanding residual; the previously received12 stays with its
+recipient. Subsequent original payments follow the then-current explicit legal
+shares. Use `residual_id` equal to the dated residual ID in each
+`claim_transfers` fact; all original proposal, source and paid-prefix pins remain
+mandatory. Receipt and outstanding allocations conserve exact native Decimal
+cash, including the existing final representational remainder owner.
+
+An actual dated entitlement starts on a Position cause and persists at every
+subsequent ordered point. Independent Position experiments need the complete
+available original earned proposal, acquired cash party and receipt prefix;
+unrelated experiments cannot acquire it. Duplicate/foreign facts, source or
+proposal revisions, fractions outside(0,1], unavailable/retroactive cutoffs,
+missing or changing paid prefixes, competing residuals and exhausted claims fail
+before valuation. Bounds remain128 facts,33 point indices,4096 receipt IDs and
+the original4224 full product evaluations; wire resource bounds are unchanged.
+
+Existing received-security custody and actual disposal provenance survives
+original contractual coupon and bullet redemption boundaries. Separately held
+original native cash-bond cohorts also support contractual amortization. The
+original physical delivery invoice still requires a fixed nominal bullet;
+pre-amortizing deliverables fail with its existing Unsupported outcome. Current quantities remain the
+original face units used by native lifecycle; the original full profile and
+ended status determine remaining economic exposure. Maturity ends model exposure
+and retains separately owned coupon/principal receivables. New custody partitions
+or actual disposals require active security at their actual transition. Invoice
+cash, delivery/notice/security/basket/CF/accrual/rounding and every original
+partial receipt remain independent and unchanged.
+
+Run `cargo run --locked -p convex --example dated_cash_pnl`. Additive native
+`prepare_cohort_pnl_with_dated_entitlements` accepts the separate dated facts; all
+previous preparation signatures delegate with an empty vector. JSON callers may
+omit the field; Rust `CohortBookPnlInput` literals add `dated_entitlements`. No
+operation, wire version or C export changes. The full original financial checkers
+and all CTD ties/switches remain required.
+
+The scoped controls cover signed coupon, amortization and redemption, successive
+custody, actual partial security receipt provenance, pre/post-entitlement disposal,
+prior and subsequent real cash receipts, independent custody Position sets and
+separate invoice recipients. Broader conditional/novation/amendment claims, fresh
+custody after maturity, delivery options/margin financing, actual managed/browser
+host execution and full scale/latency/production certificates remain open.
+Authoritative cash/fill/FX postings, limits, reservations, fencing and execution
+belong to CVX-025/031; this pure input API creates none of those authorities.

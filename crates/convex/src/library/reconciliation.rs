@@ -173,6 +173,9 @@ pub struct CohortBookPnlInput {
     /// Exact actual received-security disposals; no delivery receivable or cash is inferred.
     #[serde(default)]
     pub physical_disposals: Vec<w::PhysicalDeliveryDisposal>,
+    /// Independently dated earned coupon/principal ownership, never inferred from custody.
+    #[serde(default)]
+    pub dated_entitlements: Vec<w::CohortDatedEntitlement>,
 }
 pub(super) fn reconcile_cohorts(
     input: &CohortBookPnlInput,
@@ -183,6 +186,11 @@ pub(super) fn reconcile_cohorts(
         || input.claim_transfers.len() > 128
         || input.physical_partitions.len() > 128
         || input.physical_disposals.len() > 128
+        || input.dated_entitlements.len() > 128
+        || input
+            .dated_entitlements
+            .iter()
+            .any(|d| d.applied_points.len() > 33 || d.residual.cutoff.receipt_ids.len() > 4096)
         || input.physical_disposals.iter().any(|d| {
             d.receipt_ids.len() > 4096
                 || d.receipts.is_empty()
@@ -315,7 +323,7 @@ fn reconcile_inner(
             .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
             .collect::<Vec<_>>();
         Some((
-            w::prepare_cohort_pnl_with_disposals(
+            w::prepare_cohort_pnl_with_dated_entitlements(
                 &declaration,
                 &c.cohorts,
                 &c.physical_deliveries,
@@ -323,6 +331,7 @@ fn reconcile_inner(
                 &c.claim_transfers,
                 &c.physical_partitions,
                 &c.physical_disposals,
+                &c.dated_entitlements,
                 &states,
             )
             .map_err(native_error)?,

@@ -187,6 +187,7 @@ pub struct PreparedCausalPnl {
     claim_ownership: Vec<Vec<Vec<CohortClaimOwnershipValue>>>,
     physical_partitions: Vec<PhysicalDeliveryPartition>,
     physical_disposals: Vec<PhysicalDeliveryDisposal>,
+    dated_entitlements: Vec<CohortDatedEntitlement>,
 }
 impl PreparedCausalPnl {
     /// Full immutable declarations.
@@ -271,6 +272,7 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
         claim_ownership: Vec::new(),
         physical_partitions: Vec::new(),
         physical_disposals: Vec::new(),
+        dated_entitlements: Vec::new(),
     };
     for (i, p) in input.points.iter().enumerate() {
         if p.positions.len() != n

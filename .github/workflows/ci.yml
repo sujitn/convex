@@ -1123,6 +1123,57 @@ jobs:
 
       - name: Custody lineage separate actual C parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_parity.py --binary target/debug/examples/custody_lineage_pnl --library target/debug/libconvex_ffi.so
+      - name: Reproduce dated cash reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_reference.py
+
+      - name: Reproduce dated cash bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_bound.py
+
+      - name: Reproduce dated cash contracts controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_contracts.py
+
+      - name: Reproduce dated cash wire controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_wire.py
+
+      - name: Reproduce dated cash census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_census.py
+
+      - name: Reproduce dated cash bound_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_bound_census.py
+
+      - name: Reproduce dated cash contracts_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_contracts_census.py
+
+      - name: Reproduce dated cash wire_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_wire_census.py
+
+      - name: Reproduce amortizing cash and original delivery guard
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_cash.py
+
+      - name: Reproduce complete dated cash request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_cash_census.py
+
+      - name: Dated cash native controls
+        run: cargo test --locked --all-features -p convex-analytics --test dated_cash -- --test-threads=1
+
+      - name: Dated cash four adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test dated_cash_pnl -- --test-threads=1
+
+      - name: Dated cash default consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl
+
+      - name: Dated cash minimal consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl --no-default-features
+
+      - name: Dated cash schema consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl --features schemars
+
+      - name: Dated cash strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/dated_cash_pnl_schema.py --binary target/debug/examples/dated_cash_pnl
+
+      - name: Dated cash C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_parity.py --binary target/debug/examples/dated_cash_pnl --library target/debug/libconvex_ffi.so
+
 
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
@@ -1831,6 +1882,8 @@ jobs:
 
       - name: Build successive custody disposal Excel transport
         run: cargo build --locked --profile excel -p convex --example custody_lineage_pnl --features schemars
+      - name: Build dated cash Windows consumer
+        run: cargo build --locked --profile excel -p convex --example dated_cash_pnl --features schemars
 
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
@@ -1935,6 +1988,8 @@ jobs:
 
       - name: Successive custody disposal Excel transport
         run: python tests/scripts/custody_lineage_pnl_parity.py --binary target/excel/examples/custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
+      - name: Prepare dated cash Excel transport controls
+        run: python tests/scripts/dated_cash_pnl_parity.py --binary target/excel/examples/dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

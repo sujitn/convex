@@ -684,3 +684,15 @@ No operation/version/C symbol changes. Run
 `cargo run --locked -p convex --example custody_lineage_pnl` and see
 [the complete custody contract](COHORT-BOOK-PNL.md). This scoped engineering
 behavior does not confer actual managed/browser or production/latency certification.
+
+`cohort_book_pnl` also accepts optional `dated_entitlements`, binding an original
+earned fixed-bond coupon/principal proposal to a separate legal residual fraction
+and exact original paid-receipt cutoff. Custody and actual disposal never infer
+cash ownership. Existing native residual and earned-transfer owners retain paid
+recipients through cash-bond amortization and bullet-delivery redemption.
+Amortizing physical invoices retain the original Unsupported convention guard. Run
+`cargo run --locked -p convex --example dated_cash_pnl`; see
+[the cohort cash contract](COHORT-BOOK-PNL.md#dated-earned-coupon-and-principal-ownership).
+Previous native preparation signatures delegate; JSON omission defaults empty,
+while Rust cohort input literals add `dated_entitlements: Vec::new()`. Conditional
+cash, managed/browser execution and independent release certificates stay open.

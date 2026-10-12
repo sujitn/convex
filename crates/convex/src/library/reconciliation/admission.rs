@@ -492,9 +492,12 @@ pub(super) fn validate(
     }
     for (i, s) in input.steps.iter().enumerate() {
         let legal = cohorts.is_some_and(|c| {
-            c.claim_transfers
+            c.dated_entitlements
                 .iter()
-                .any(|t| t.applied_points.contains(&(i + 1)) && !t.applied_points.contains(&i))
+                .any(|d| d.applied_points.contains(&(i + 1)) && !d.applied_points.contains(&i))
+                || c.claim_transfers
+                    .iter()
+                    .any(|t| t.applied_points.contains(&(i + 1)) && !t.applied_points.contains(&i))
                 || c.physical_partitions.iter().any(|p| {
                     p.split.applied_points.contains(&(i + 1))
                         && !p.split.applied_points.contains(&i)
@@ -509,9 +512,12 @@ pub(super) fn validate(
     for (s, c) in input.steps.iter().zip(&input.standalone) {
         if matches!(c, CausalPnlCounterfactual::Available { .. }) {
             let legal = cohorts.is_some_and(|c| {
-                c.claim_transfers
+                c.dated_entitlements
                     .iter()
-                    .any(|t| t.applied_points.contains(&next))
+                    .any(|d| d.applied_points.contains(&next))
+                    || c.claim_transfers
+                        .iter()
+                        .any(|t| t.applied_points.contains(&next))
                     || c.physical_partitions
                         .iter()
                         .any(|p| p.split.applied_points.contains(&next))

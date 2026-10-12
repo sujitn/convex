@@ -42,6 +42,26 @@ pub struct CohortResidualClaim {
     /// Exact prior cash ownership facts, under the entitlement's legal source.
     pub cutoff: CohortCashCutoff,
 }
+/// Separately acquired original earned bond cash, independent of security custody.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CohortDatedEntitlement {
+    /// Complete original native cash cohort and obligation.
+    pub origin: TradeId,
+    /// Exact original earned coupon or principal key.
+    pub key: l::ObligationKey,
+    /// Exact original native proposal event, available at the cash cutoff.
+    pub proposal_id: l::EventId,
+    /// Original entitlement revision; its legacy residual must be absent.
+    pub entitlement_source: ReferencePin,
+    /// Exact legal residual fraction and complete prior paid receipt prefix.
+    pub residual: CohortResidualClaim,
+    /// Actual immutable legal cash ownership document.
+    pub source: ReferencePin,
+    /// Position information sets where this independently acquired cash applies.
+    pub applied_points: Vec<usize>,
+}
 /// Explicit legal transfer of a share of one original earned cash claim.
 /// Fractions refer to its original entitled residual, never security face.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -112,6 +132,9 @@ pub struct CohortClaimOwnershipValue {
 /// Derived exact owned cash, with all original checked excluded receipt facts.
 #[derive(Debug, Clone, Serialize)]
 pub struct ResidualClaimValue {
+    /// Complete independently dated cash acquisition, when explicitly supplied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dated_entitlement: Option<CohortDatedEntitlement>,
     /// Complete legal identity, source and original obligation key.
     pub entitlement: CohortClaimEntitlement,
     /// Complete original checked earned/recovery proposal, known at acquisition.
@@ -414,7 +437,26 @@ pub(super) fn entitlement(
                 .entitlements
                 .iter()
                 .any(|e| &e.key == key && e.entitled)
+            && dated_entitlement(path, index, key).is_none_or(|d| d.applied_points.contains(&point))
     })
+}
+fn dated_entitlement<'a>(
+    path: &'a PreparedCausalPnl,
+    index: usize,
+    key: &l::ObligationKey,
+) -> Option<&'a CohortDatedEntitlement> {
+    path.dated_entitlements
+        .iter()
+        .find(|d| path.input.points[0].positions[index].identity.id == d.origin && d.key == *key)
+}
+fn claim_residual<'a>(
+    path: &'a PreparedCausalPnl,
+    index: usize,
+    legal: &'a CohortClaimEntitlement,
+) -> Option<&'a CohortResidualClaim> {
+    dated_entitlement(path, index, &legal.key)
+        .map(|d| &d.residual)
+        .or(legal.residual.as_ref())
 }
 pub(super) fn state_pin(state: &l::LifecycleState) -> ReconciliationResult<String> {
     let view = state.view();
@@ -479,10 +521,11 @@ pub(super) fn residual_value(
     }) else {
         return Ok(None);
     };
-    let Some(residual) = &entitlement.residual else {
+    let dated = dated_entitlement(path, index, &claim.key);
+    let Some(residual) = claim_residual(path, index, entitlement) else {
         return Ok(None);
     };
-    if !acquired(path, point, index) {
+    if !acquired(path, point, index) || dated.is_some_and(|d| !d.applied_points.contains(&point)) {
         return Ok(None);
     }
     let mut prior = Decimal::ZERO;
@@ -515,6 +558,7 @@ pub(super) fn residual_value(
         ))
     };
     Ok(Some(ResidualClaimValue {
+        dated_entitlement: dated.cloned(),
         entitlement: entitlement.clone(),
         proposal: state
             .cash_proposal_event(&claim.key)
@@ -605,6 +649,32 @@ pub fn prepare_cohort_pnl_with_disposals(
     disposals: &[PhysicalDeliveryDisposal],
     states: &[Vec<l::LifecycleState>],
 ) -> ReconciliationResult<PreparedCausalPnl> {
+    prepare_cohort_pnl_with_dated_entitlements(
+        input,
+        cohorts,
+        links,
+        splits,
+        transfers,
+        partitions,
+        disposals,
+        &[],
+        states,
+    )
+}
+/// Admit independently dated earned bond cash using the original residual owner.
+/// Existing preparation APIs retain empty dated-entitlement behavior.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_cohort_pnl_with_dated_entitlements(
+    input: &CausalPnlInput,
+    cohorts: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    splits: &[CohortLotSplit],
+    transfers: &[CohortClaimTransfer],
+    partitions: &[PhysicalDeliveryPartition],
+    disposals: &[PhysicalDeliveryDisposal],
+    dated: &[CohortDatedEntitlement],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<PreparedCausalPnl> {
     let n = input.points.first().map_or(0, |p| p.positions.len());
     if !(1..=128).contains(&n)
         || cohorts.len() != n
@@ -613,6 +683,10 @@ pub fn prepare_cohort_pnl_with_disposals(
         || transfers.len() > 128
         || partitions.len() > n
         || disposals.len() > 128
+        || dated.len() > 128
+        || dated
+            .iter()
+            .any(|d| d.applied_points.len() > 33 || d.residual.cutoff.receipt_ids.len() > 4096)
         || disposals.iter().any(|d| {
             d.receipt_ids.len() > 4096
                 || d.receipts.is_empty()
@@ -669,6 +743,15 @@ pub fn prepare_cohort_pnl_with_disposals(
     }) {
         return Err(ReconciliationError::Incomplete(
             "every actual physical delivery requires a separate complete asset owner",
+        ));
+    }
+    if dated
+        .iter()
+        .any(|d| transfers.iter().any(|t| t.id == d.residual.id))
+    {
+        return Err(bad(
+            "dated cash identity",
+            "cash acquisition and cash transfer require distinct original legal identities",
         ));
     }
     if partitions.iter().any(|p| {
@@ -836,6 +919,7 @@ pub fn prepare_cohort_pnl_with_disposals(
         links,
         partitions,
         disposals,
+        dated,
         states,
         &mut handoffs,
     )?;
@@ -876,6 +960,7 @@ pub fn prepare_cohort_pnl_with_disposals(
     path.lot_splits = splits.to_vec();
     path.physical_partitions = partitions.to_vec();
     path.physical_disposals = disposals.to_vec();
+    path.dated_entitlements = dated.to_vec();
     let mut residual_ids = std::collections::BTreeSet::new();
     for (j, owner) in cohorts.iter().enumerate() {
         let initial = &input.points[0].positions[j];
@@ -1051,7 +1136,7 @@ pub fn prepare_cohort_pnl_with_disposals(
         }
         for entitlement in &owner.entitlements {
             if let Some(residual) = &entitlement.residual {
-                if !residual_ids.insert(&residual.id) {
+                if !residual_ids.insert(residual.id.clone()) {
                     return Err(bad(
                         "residual identity",
                         "unique original residual identity required",
@@ -1061,6 +1146,7 @@ pub fn prepare_cohort_pnl_with_disposals(
             }
         }
     }
+    admit_dated_entitlements(&path, states, &mut residual_ids)?;
     path.claim_ownership = admit_claim_transfers(&path, transfers, states)?;
     Ok(path)
 }
@@ -1235,6 +1321,201 @@ fn admit_residual(
     Ok(())
 }
 
+fn admit_dated_entitlements(
+    path: &PreparedCausalPnl,
+    states: &[Vec<l::LifecycleState>],
+    ids: &mut std::collections::BTreeSet<l::EventId>,
+) -> ReconciliationResult<()> {
+    let input = &path.input;
+    let owners = path
+        .cohorts
+        .as_ref()
+        .ok_or_else(|| bad("dated cash", "original cohorts absent"))?;
+    let mut keys = std::collections::BTreeSet::new();
+    for dated in &path.dated_entitlements {
+        let j = find(input, &dated.origin)?;
+        let residual = &dated.residual;
+        let cutoff = &residual.cutoff;
+        let points = dated
+            .applied_points
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if !keys.insert((j, dated.key.clone()))
+            || !ids.insert(residual.id.clone())
+            || residual.id == dated.proposal_id
+            || path.lot_splits.iter().any(|s| s.id == residual.id)
+            || path
+                .physical_partitions
+                .iter()
+                .any(|p| p.split.id == residual.id)
+            || path.physical_disposals.iter().any(|d| d.id == residual.id)
+            || residual.fraction.decimal() <= Decimal::ZERO
+            || residual.fraction.decimal() > Decimal::ONE
+            || points.is_empty()
+            || points.len() != dated.applied_points.len()
+            || points.contains(&0)
+            || points.iter().any(|i| *i >= states.len())
+            || cutoff.date < input.points[0].valuation_date
+            || cutoff.known_at < input.points[0].known_at
+            || cutoff.known_at.datetime().date_naive() < cutoff.date.as_naive_date()
+            || !(1..=9999).contains(&cutoff.date.year())
+            || dated.key.effective_date > cutoff.date
+        {
+            return Err(bad("dated cash facts", "unique available interval ownership, positive fraction <=1 and distinct exact applied points required"));
+        }
+        if !matches!(
+            dated.key.kind,
+            l::CashKind::BondCoupon | l::CashKind::Principal
+        ) {
+            return Err(ReconciliationError::Incomplete(
+                "dated cash requires original nonconditional fixed-bond coupon or principal",
+            ));
+        }
+        let legal = owners[j]
+            .entitlements
+            .iter()
+            .find(|e| e.key == dated.key)
+            .ok_or(ReconciliationError::Incomplete(
+                "original complete dated cash entitlement absent",
+            ))?;
+        if !legal.entitled || legal.residual.is_some() || legal.source != dated.entitlement_source {
+            return Err(bad("dated cash source", "exact owned original entitlement revision and one independent residual owner required"));
+        }
+        let first = (1..=input.causes.len())
+            .find(|i| points.contains(i))
+            .ok_or_else(|| {
+                bad(
+                    "dated cash path",
+                    "actual ordered cash acquisition required",
+                )
+            })?;
+        if input.causes[first - 1] != PnlCause::Position
+            || (first..=input.causes.len()).any(|i| !points.contains(&i))
+        {
+            return Err(bad(
+                "dated cash cause",
+                "cash acquisition belongs to Position and persists across ordered points",
+            ));
+        }
+        let mut original = None;
+        let mut prefix: &[l::LifecycleEvent] = &[];
+        for (i, row) in states.iter().enumerate() {
+            let state = &row[j];
+            if i <= input.causes.len() {
+                if !state.payment_receipt_events().starts_with(prefix) {
+                    return Err(bad(
+                        "dated cash history",
+                        "all actual receipt events remain an immutable ordered prefix",
+                    ));
+                }
+                prefix = state.payment_receipt_events();
+            }
+            if !points.contains(&i) {
+                continue;
+            }
+            let point = &input.points[i];
+            if i > input.causes.len() {
+                let cause = input
+                    .standalone
+                    .iter()
+                    .position(|s| matches!(s, PnlStandalone::Available {point} if *point == i))
+                    .ok_or_else(|| {
+                        bad(
+                            "dated cash independent",
+                            "complete independent binding required",
+                        )
+                    })?;
+                if input.causes[cause] != PnlCause::Position {
+                    return Err(bad(
+                        "dated cash independent",
+                        "only an available independent Position acquires legal cash",
+                    ));
+                }
+            }
+            if !acquired(path, i, j)
+                || cutoff.date > point.valuation_date
+                || cutoff.known_at > point.known_at
+            {
+                return Err(bad("dated cash availability", "original native cash party and exact legal cutoff must be acquired and available"));
+            }
+            let l::LifecycleInstrument::Bond {
+                contract,
+                credit: None,
+            } = state.instrument()
+            else {
+                return Err(ReconciliationError::Incomplete(
+                    "dated cash requires the complete original nonconditional bond owner",
+                ));
+            };
+            if !contract.terms().exercise.is_empty()
+                || contract.terms().coupon != convex_bonds::contracts::BondCoupon::Fixed
+            {
+                return Err(ReconciliationError::Incomplete("conditional or floating dated cash requires its separate full model claim owner"));
+            }
+            let claim = state
+                .view()
+                .obligations
+                .into_iter()
+                .find(|c| c.key == dated.key)
+                .ok_or(ReconciliationError::Incomplete(
+                    "original earned dated cash obligation absent",
+                ))?;
+            let proposal =
+                state
+                    .cash_proposal_event(&dated.key)
+                    .ok_or(ReconciliationError::Incomplete(
+                        "original earned dated cash proposal absent",
+                    ))?;
+            if proposal.event_id != dated.proposal_id
+                || claim.generated_by != dated.proposal_id
+                || proposal.effective_date > cutoff.date
+                || proposal.known_at > cutoff.known_at
+            {
+                return Err(bad(
+                    "dated cash proposal",
+                    "exact original earned native proposal must be available at legal acquisition",
+                ));
+            }
+            let pin = (
+                claim.amount,
+                claim.due_date,
+                claim.generated_by.clone(),
+                proposal.clone(),
+            );
+            if original.as_ref().is_some_and(|p| p != &pin) {
+                return Err(bad(
+                    "dated cash original",
+                    "native proposal amount/date/source cannot change across ownership",
+                ));
+            }
+            original = Some(pin);
+            admit_cash_cutoff(&dated.key, cutoff, state)?;
+            let value = residual_value(path, i, j, state, &claim)?
+                .ok_or_else(|| bad("dated cash residual", "original owned residual absent"))?;
+            if value.prior_recorded == claim.amount {
+                return Err(bad(
+                    "dated cash exhaustion",
+                    "an empty or fully paid original residual cannot be acquired",
+                ));
+            }
+        }
+        // Same-date ordering is explicit: every earlier actual receipt stays excluded.
+        for row in states.iter().take(first) {
+            for event in row[j].payment_receipt_events() {
+                let r = payment(event)?;
+                if r.obligation == dated.key && !cutoff.receipt_ids.contains(&r.receipt_id) {
+                    return Err(bad(
+                        "dated cash prior recipient",
+                        "complete earlier actual paid prefix retains its prior owner",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn transfer_active(transfer: &CohortClaimTransfer, point: usize) -> bool {
     transfer.applied_points.contains(&point)
 }
@@ -1292,14 +1573,19 @@ fn admit_claim_cutoff(
     transfer: &CohortClaimTransfer,
     state: &l::LifecycleState,
 ) -> ReconciliationResult<()> {
+    admit_cash_cutoff(&transfer.key, &transfer.cutoff, state)
+}
+fn admit_cash_cutoff(
+    key: &l::ObligationKey,
+    cutoff: &CohortCashCutoff,
+    state: &l::LifecycleState,
+) -> ReconciliationResult<()> {
     let receipts = state
         .payment_receipt_events()
         .iter()
-        .filter(
-            |e| matches!(&e.action, l::LifecycleAction::Payment(r) if r.obligation == transfer.key),
-        )
+        .filter(|e| matches!(&e.action, l::LifecycleAction::Payment(r) if r.obligation == *key))
         .collect::<Vec<_>>();
-    let count = transfer.cutoff.receipt_ids.len();
+    let count = cutoff.receipt_ids.len();
     if count > receipts.len() {
         return Err(bad(
             "claim receipt cutoff",
@@ -1309,19 +1595,19 @@ fn admit_claim_cutoff(
     for (k, event) in receipts.iter().enumerate() {
         let receipt = payment(event)?;
         if k < count {
-            if receipt.receipt_id != transfer.cutoff.receipt_ids[k]
-                || event.effective_date > transfer.cutoff.date
-                || event.known_at > transfer.cutoff.known_at
-                || receipt.value_date > transfer.cutoff.date
+            if receipt.receipt_id != cutoff.receipt_ids[k]
+                || event.effective_date > cutoff.date
+                || event.known_at > cutoff.known_at
+                || receipt.value_date > cutoff.date
             {
                 return Err(bad(
                     "claim receipt cutoff",
                     "exact ordered available original receipt prefix required",
                 ));
             }
-        } else if event.effective_date < transfer.cutoff.date
-            || event.known_at < transfer.cutoff.known_at
-            || receipt.value_date < transfer.cutoff.date
+        } else if event.effective_date < cutoff.date
+            || event.known_at < cutoff.known_at
+            || receipt.value_date < cutoff.date
         {
             return Err(bad(
                 "claim receipt cutoff",
@@ -1384,7 +1670,8 @@ fn admit_claim_transfers(
             ))?;
         if !entitlement.entitled
             || entitlement.source != transfer.entitlement_source
-            || entitlement.residual.as_ref().map(|r| &r.id) != transfer.residual_id.as_ref()
+            || claim_residual(path, origin, entitlement).map(|r| &r.id)
+                != transfer.residual_id.as_ref()
         {
             return Err(bad(
                 "claim source",
@@ -1615,13 +1902,9 @@ fn admit_claim_transfers(
                     "original complete entitlement absent",
                 ))?;
             let residual = residual_value(path, i, origin, &row[origin], claim)?;
-            let base_fraction = legal
-                .residual
-                .as_ref()
-                .map_or(Decimal::ONE, |r| r.fraction.decimal());
-            let excluded = legal
-                .residual
-                .as_ref()
+            let base_fraction =
+                claim_residual(path, origin, legal).map_or(Decimal::ONE, |r| r.fraction.decimal());
+            let excluded = claim_residual(path, origin, legal)
                 .map(|r| r.cutoff.receipt_ids.as_slice())
                 .unwrap_or(&[]);
             let original_outstanding = residual.as_ref().map_or(
@@ -2087,11 +2370,17 @@ fn custody_economics(
     let q = &point.positions[successor];
     if !bond.terms().exercise.is_empty()
         || bond.terms().coupon != convex_bonds::contracts::BondCoupon::Fixed
-        || row[original].view().status != l::EconomicStatus::Active
-        || row[original].view().remaining_fraction.decimal() != Decimal::ONE
+        || !matches!(
+            row[original].view().status,
+            l::EconomicStatus::Active | l::EconomicStatus::Matured | l::EconomicStatus::Closed
+        )
+        || (row[original].view().status == l::EconomicStatus::Active
+            && row[original].view().remaining_fraction.decimal() != Decimal::ONE)
+        || (row[original].view().status != l::EconomicStatus::Active
+            && point.valuation_date < bond.terms().schedule.end_date)
     {
         return Err(ReconciliationError::Incomplete(
-            "physical custody requires the original active nonoptional full fixed bond",
+            "physical custody requires the original nonoptional fixed bond and contractual lifecycle",
         ));
     }
     if bond.terms() != child.terms()
@@ -2104,8 +2393,13 @@ fn custody_economics(
         || p.current.reference_quantity != q.current.reference_quantity
         || p.current.quantity_unit != q.current.quantity_unit
         || row[original].view().fixings != row[successor].view().fixings
-        || row[successor].view().status != l::EconomicStatus::Active
-        || row[successor].view().remaining_fraction.decimal() != Decimal::ONE
+        || (row[successor].view().status == l::EconomicStatus::Active)
+            != (row[original].view().status == l::EconomicStatus::Active)
+        || !matches!(
+            row[successor].view().status,
+            l::EconomicStatus::Active | l::EconomicStatus::Matured | l::EconomicStatus::Closed
+        )
+        || row[successor].view().remaining_fraction != row[original].view().remaining_fraction
         || !q.pending_quantity.decimal().is_zero()
     {
         return Err(bad(
@@ -2166,6 +2460,7 @@ fn admit_physical_partitions(
     links: &[PhysicalDeliveryLink],
     partitions: &[PhysicalDeliveryPartition],
     disposals: &[PhysicalDeliveryDisposal],
+    dated: &[CohortDatedEntitlement],
     states: &[Vec<l::LifecycleState>],
     handoffs: &mut [Vec<Option<PhysicalDeliveryValue>>],
 ) -> ReconciliationResult<()> {
@@ -2241,13 +2536,15 @@ fn admit_physical_partitions(
                     "distinct complete same-direction native custody successors required",
                 ));
             }
-            if owners[j]
-                .entitlements
+            if owners[j].entitlements.iter().any(|e| {
+                e.entitled
+                    && e.key.effective_date <= split.effective_date
+                    && !dated
+                        .iter()
+                        .any(|d| d.origin == owners[j].trade_id && d.key == e.key)
+            }) || states
                 .iter()
-                .any(|e| e.entitled && e.key.effective_date <= split.effective_date)
-                || states
-                    .iter()
-                    .any(|row| !row[j].payment_receipt_events().is_empty())
+                .any(|row| !row[j].payment_receipt_events().is_empty())
             {
                 return Err(bad(
                     "physical earned cash",
@@ -2255,14 +2552,22 @@ fn admit_physical_partitions(
                 ));
             }
         }
-        if owners[a]
-            .entitlements
-            .iter()
-            .any(|e| e.entitled && e.key.effective_date > split.effective_date)
-        {
+        if owners[a].entitlements.iter().any(|e| {
+            e.entitled
+                && e.key.effective_date > split.effective_date
+                && !dated
+                    .iter()
+                    .any(|d| d.origin == owners[a].trade_id && d.key == e.key)
+        }) {
             return Err(bad(
                 "physical future cash",
                 "consumed parent cannot own future successor cash",
+            ));
+        }
+        if states[first][original].view().status != l::EconomicStatus::Active {
+            return Err(bad(
+                "physical ended acquisition",
+                "new custody requires active original security at its actual transition",
             ));
         }
         changes.push((first, CustodyChange::Partition(facts), f, original));
@@ -2281,6 +2586,12 @@ fn admit_physical_partitions(
         let original = find(input, &root.asset)?;
         let f = find(input, &facts.future)?;
         let first = custody_first(input, &facts.applied_points)?;
+        if states[first][original].view().status != l::EconomicStatus::Active {
+            return Err(bad(
+                "physical ended disposal",
+                "new disposal requires active original security at its actual transition",
+            ));
+        }
         if !ids.insert(&facts.id)
             || !fills.insert(&facts.fill_id)
             || facts.id == facts.fill_id
