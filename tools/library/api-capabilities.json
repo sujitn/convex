@@ -30182,7 +30182,21 @@
     "tests/fixtures/library/child-cash-pnl-admitted-api-09.json",
     "tests/fixtures/library/child-cash-pnl-admitted-api-10.json",
     "tests/fixtures/library/child-cash-pnl-admitted-api-11.json",
-    "tests/fixtures/library/child-cash-pnl-admitted-api-12.json"
+    "tests/fixtures/library/child-cash-pnl-admitted-api-12.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-01.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-02.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-03.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-04.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-05.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-06.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-07.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-08.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-09.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-10.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-11.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-12.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-13.json",
+    "tests/fixtures/library/child-maturity-pnl-admitted-api-14.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

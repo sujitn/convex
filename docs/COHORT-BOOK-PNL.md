@@ -495,3 +495,34 @@ physical invoices, conditional/floating/credit cash and post-delivery amendments
 still require their separate complete owners. This increment changes admission
 of existing fields; no type, schema, operation or C ABI migration is required.
 
+## Principal and final coupon on acquired custody children through maturity
+
+Run `cargo run --locked -p convex --example child_maturity_pnl` for full supplied
+long/short books. Earlier custody partitions and received-stock disposal occur
+while the original fixed bullet security is active. Its native maturity step
+ends security model exposure and emits the original full principal proposal;
+the final contractual coupon has its own original proposal. Previously acquired
+children retain exact nominal custody and pending delivery rights, including
+later partial receipts, while their security model value is zero. Earned cash
+and the original invoice keep their separate legal ownership and paid recipients.
+No new custody or disposal is admitted after maturity.
+
+The delayed controls explicitly supply two calendar days of payment delay in
+all complete copies of the original bond terms. Cash is discounted with the
+supplied collateral curve until its native due date, independently of the
+original pricing curve/spread. Actual payments remain subject to native due-date,
+overdue and FX rules. A child can acquire an explicitly dated residual principal
+or final coupon claim, exclude an exact already-paid prefix, and transfer an
+outstanding legal share while earlier paid cash retains its original recipient.
+Those cash shares are independent of consumed custody parents, disposed received
+stock, pending delivery face and the delivery invoice.
+
+Maturity cash acquisition and later transfers depend on actual Time/Event
+history absent at the original active baseline. Their independent Position
+experiments are explicitly `Unavailable`; the library does not borrow later
+maturity proposals or payment events. Earlier custody and disposal experiments
+supply their own complete available baseline facts. Existing full native,
+causal/ordered/standalone/interaction P&L, mixed-model/history/credit/OIS and CTD
+tie/switch checks remain in the full controls. No type, schema, operation or
+wire change is required. Full market/model/managed-host/production/scale/latency
+qualification and authoritative posting/execution remain separate.

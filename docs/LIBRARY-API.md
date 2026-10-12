@@ -719,3 +719,23 @@ and `cargo run --locked -p convex --example child_cash_pnl`. Existing fields,
 wire version, strict schemas and C exports are unchanged. Full managed/browser
 host, production and latency qualification remains open.
 
+## Acquired-child principal and final coupon at maturity
+
+The existing `cohort_book_pnl` operation composes original native fixed-bond
+maturity proposals with previously acquired physical custody children,
+`dated_entitlements`, original paid-prefix exclusions and `claim_transfers`.
+Earlier received-stock disposal, pending nominal delivery and original invoice
+ownership remain independent of earned cash. Matured security model exposure
+is zero; original contractual cash keeps its supplied collateral discount,
+actual due-date/overdue and FX guards. Fresh custody/disposal still requires
+an active original security at the actual transition.
+
+Run `cargo run --locked -p convex --example child_maturity_pnl`. The complete
+signed controls explicitly declare two calendar days of payment delay in all
+full security terms. Earlier custody/disposal have complete independently
+available baseline sets; later maturity/cash Position experiments are explicitly
+`Unavailable` when their actual Time/Event prerequisites do not independently
+exist. Existing schemas/routes/wire/C exports are unchanged. The contract and
+full causal mixed-book/CTD controls are described in `docs/COHORT-BOOK-PNL.md`.
+Native Rust/C/MCP/native-WASM qualification is required; supplied Java/.NET/Excel
+CI and fixtures do not claim an executed managed/browser host or certificate.

@@ -7107,6 +7107,241 @@
       "path": "tests/scripts/child_cash_pnl_wire.py",
       "mode": "file",
       "sha256": "46e54432a671e524f5a5056ff5d76aa1af3c2f83c176cd69e5417841e2f06126"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/ChildMaturityPnlTest.java",
+      "mode": "file",
+      "sha256": "afcdd3686de1a11b22533b3a6198ca1431a3f3a248901f726018356bf028e264"
+    },
+    {
+      "path": "crates/convex-analytics/tests/child_maturity.rs",
+      "mode": "file",
+      "sha256": "6a3d1acd20366a4df5d67580fc07925c588afeffff54577fdd148a035f818849"
+    },
+    {
+      "path": "crates/convex-ffi/tests/child_maturity_pnl.rs",
+      "mode": "file",
+      "sha256": "7d98e122f8db6f7e4d6d09fbb05dc06cb4413c0880df86fd16731b0142814b3b"
+    },
+    {
+      "path": "crates/convex-mcp/tests/child_maturity_pnl.rs",
+      "mode": "file",
+      "sha256": "26dc37f00e8de445ba93f44d16be0051ac2ed3d0a4fc9120a42e8e79b932e321"
+    },
+    {
+      "path": "crates/convex-wasm/tests/child_maturity_pnl.rs",
+      "mode": "file",
+      "sha256": "6b3f9077f915dddd196464a7025cc7dee636e0b7a7a9defbcc7c1bb7e1d2327f"
+    },
+    {
+      "path": "crates/convex/examples/child_maturity_pnl.rs",
+      "mode": "file",
+      "sha256": "96525a112220d059df52f10ed43e62be8c7cf9cdf925050ac154b0c4d9ce4452"
+    },
+    {
+      "path": "crates/convex/tests/child_maturity_pnl.rs",
+      "mode": "file",
+      "sha256": "aba9ff106bf607b65e88281b42454e5719484d4c9687566213153d7b47bb217f"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/ChildMaturityPnlTests.cs",
+      "mode": "file",
+      "sha256": "467563a925c9e0f746c7350952226d24f5c2ebeceed6e07febe191c75fc09837"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-01.json",
+      "mode": "file",
+      "sha256": "c29b540a15ca2b75c472c18aa0d4d4e71e2821b1fc2fa7c3806a278e5ea95a1b"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-02.json",
+      "mode": "file",
+      "sha256": "e656c1f18cdd89eff9903294309a9626454ae6da47e97d631ce864f84ad8871d"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-03.json",
+      "mode": "file",
+      "sha256": "52adac243a464b780e2627d17931c4c9218e4027450c332e6f51b7bbfb3b645e"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-04.json",
+      "mode": "file",
+      "sha256": "7d077666f8fe690a77039b286a66c9a657271d0bfea07292aa80b86be3ffb188"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-05.json",
+      "mode": "file",
+      "sha256": "985a45a7d79da7df3782ea529c9541aa868c96bb630c93e7d7059907c0b979f5"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-06.json",
+      "mode": "file",
+      "sha256": "764bdd0c7b8a3e10519c529c6232e3ca7e9681b921b70b7a2df049b76589c979"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-07.json",
+      "mode": "file",
+      "sha256": "4d0f279b1b6b92b17681748b228cbb0c365bdb8b50e0127e9e7b4b1f8742c05f"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-08.json",
+      "mode": "file",
+      "sha256": "06351e4bb503b2c7ee4535e5099dc602b0d36bf666cb08788526ee87a297912a"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-09.json",
+      "mode": "file",
+      "sha256": "5ed16b220f20a3a71b4f2dc672934401b10659bb89f4ef3cacbca5f7faf70606"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-10.json",
+      "mode": "file",
+      "sha256": "2f517c5648458d1da120b74a3535495052b84d7220e7d5691ad147c61a550bc6"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-11.json",
+      "mode": "file",
+      "sha256": "2ac405fae83e3592e8e36c874e164f8e55212a162bba9c787e6011bacbdcf1c0"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-12.json",
+      "mode": "file",
+      "sha256": "9eb6538b5bf809bf581a0ac75abd07ede5f96b1906e87ff527e53a2cfc837cfa"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-13.json",
+      "mode": "file",
+      "sha256": "13d656913d172cec8e436fb02950beaf0cb7f39601986658346257108fbc47d6"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted-api-14.json",
+      "mode": "file",
+      "sha256": "8324bcd1fc072107c294acbcdb747d6b35d85500c86dc9a82aae4560c4d2d2e2"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "873d3d8f46bc29294953705afc0c9d1f83db3c7328925de021fe38e235e0015d"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-01.json",
+      "mode": "file",
+      "sha256": "dab62778dba9cb14032940e9999ec01f08ddd2a2f928f5ebf1e8f4c2c0cd8f2a"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-02.json",
+      "mode": "file",
+      "sha256": "af9229ee75322b9feb099290de6455eefe3a4feffa285a2b1db1e15ca4d96e7b"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-03.json",
+      "mode": "file",
+      "sha256": "c91d5c07309a742217bc9f3b0f94b87e081955e75d3a4a0f017d2296cf9bd2e7"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-04.json",
+      "mode": "file",
+      "sha256": "6eecc6f9928a6ce52cc286811a756f6af6c9f088b7273b6644357068710ee72a"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-05.json",
+      "mode": "file",
+      "sha256": "d6efd6fe1e158b7bf9b396fcf39540a6d9fef1215c4b81fd10e1c293a09113cf"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-06.json",
+      "mode": "file",
+      "sha256": "2df7e50709516fe95b2780d64b9becffe53f71891c4a85da4b40f78f071c297f"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-07.json",
+      "mode": "file",
+      "sha256": "6481369c89f3ec290d57e09e4176b290ea589389ac78692b0a4c8797e1031ad7"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-08.json",
+      "mode": "file",
+      "sha256": "c4f4f649e024890f877f2bcd033d0a5d441187239526cfc407484c2c0fadc3a1"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-09.json",
+      "mode": "file",
+      "sha256": "d85284649280360437e439e881880de5802596291cafb33c7eb8fc094dfa639a"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-10.json",
+      "mode": "file",
+      "sha256": "08993c05cce34552ac61b8b7e6042cc2fb0ec50d10d8a42fb8b5a44054b11443"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-11.json",
+      "mode": "file",
+      "sha256": "7e059de791c1ab74028b877b2efaa8962b3b091cec10fc33f6199075c5ef380a"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-12.json",
+      "mode": "file",
+      "sha256": "aabcf51b70745e2316c4895422739bf50f8b3bb726b4d21c8798aa1a39f13788"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-13.json",
+      "mode": "file",
+      "sha256": "20e05cb91d1c6d824c141604c72af89d15c2578737f80a3ebc00d4d714d58d5d"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed-api-14.json",
+      "mode": "file",
+      "sha256": "8255820e8611fcc95fee7e7791d7dc29d5cc59c2ea63a99a0b517308cc5a0774"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-delayed.json",
+      "mode": "file",
+      "sha256": "c677d3cdbfb0302c58193b67774e0541a0a8b2956db0c95f0009d5904feb4220"
+    },
+    {
+      "path": "tests/fixtures/library/child-maturity-pnl-reference.json",
+      "mode": "file",
+      "sha256": "d235bbbba0a5bdcf7ca22baa4dcab656b3d048e24c84e7d549f76b44351cf2cb"
+    },
+    {
+      "path": "tests/fixtures/library/child_maturity_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "3f0e070173c08b128c1341e33cbbb062df1c4166a12c9c15afd8f513f566c1d1"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "3577fdff5371446ba88f056d34deaf1aea4e203ae0b97ab0aa3d82a143043e46"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_admitted_census.py",
+      "mode": "file",
+      "sha256": "8e0cc2678452a9db3b751a73444ee272e30c8ab0b938e4e65e1dd472f7b55586"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_census.py",
+      "mode": "file",
+      "sha256": "765c5ba1a35e5839cda6e803b4a0f2bfef2c163778bef9682f7deafdae7f2ccd"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_delayed.py",
+      "mode": "file",
+      "sha256": "38eb2123d61330a80ccbe6229a3417e199ddf49d7696b90cf00ed865a6ac5a20"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_parity.py",
+      "mode": "file",
+      "sha256": "4857907e49d8c030fae85f348d76f3bfbc65a5ffb84ff53af5e13ce993ec9a69"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_reference.py",
+      "mode": "file",
+      "sha256": "62625b298b3b4fc478a23ea5cf1d1ad64b2fa0cb83a8992ade1ca6409f558b25"
+    },
+    {
+      "path": "tests/scripts/child_maturity_pnl_schema.py",
+      "mode": "file",
+      "sha256": "1f44e27c0e5d6ddbc7f599e3d9dcc4845eb7a27940a5410de755a0062f1ef020"
     }
   ]
 }

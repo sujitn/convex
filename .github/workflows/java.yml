@@ -45,7 +45,9 @@ on:
       - 'tests/scripts/dated_cash_pnl*.py'
       - 'tests/scripts/pending_cash_pnl*.py'
       - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
@@ -57,7 +59,9 @@ on:
       - 'tests/fixtures/library/dated-cash-pnl*.json'
       - 'tests/fixtures/library/pending-cash-pnl*.json'
       - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -110,7 +114,9 @@ on:
       - 'tests/scripts/dated_cash_pnl*.py'
       - 'tests/scripts/pending_cash_pnl*.py'
       - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
@@ -122,7 +128,9 @@ on:
       - 'tests/fixtures/library/dated-cash-pnl*.json'
       - 'tests/fixtures/library/pending-cash-pnl*.json'
       - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -233,6 +241,9 @@ jobs:
       - name: Build child cash transport consumer
         run: cargo build --locked --profile excel -p convex --example child_cash_pnl --features schemars
 
+      - name: Build child maturity transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_maturity_pnl --features schemars
+
       - name: Build full delivery basket hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -339,6 +350,9 @@ jobs:
 
       - name: Generate fresh child cash Java parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_parity.py --binary target/excel/examples/child_cash_pnl --output bindings/java/target/child-cash-pnl-parity.json
+
+      - name: Generate fresh child maturity Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_parity.py --binary target/excel/examples/child_maturity_pnl --output bindings/java/target/child-maturity-pnl-parity.json
 
       - name: Generate full delivery basket hedge Java expectations
         run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json
