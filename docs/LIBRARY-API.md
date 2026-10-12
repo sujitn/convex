@@ -739,3 +739,34 @@ exist. Existing schemas/routes/wire/C exports are unchanged. The contract and
 full causal mixed-book/CTD controls are described in `docs/COHORT-BOOK-PNL.md`.
 Native Rust/C/MCP/native-WASM qualification is required; supplied Java/.NET/Excel
 CI and fixtures do not claim an executed managed/browser host or certificate.
+
+## Concurrent custody-child cash and sequential returned shares
+
+Use `cohort_book_pnl` with complete `dated_entitlements` and `claim_transfers`
+for simultaneous original principal and final-coupon residual claims. Each
+origin/key retains its original proposal, exact legal revision and distinct paid
+receipt prefix. Transfer order, current sender share, original residual identity
+and every previously paid recipient are checked independently of physical face
+or security disposal. A recipient that returns its entire outstanding share can
+still own recorded cash. Native maturity ends security model exposure while
+original cash/nominal delivery/invoice owners remain separate.
+
+`cargo run --locked -p convex --example concurrent_claims_pnl` executes56 full
+requests:28 financial books/2645 product revaluations and28 typed failures. New
+controls contain four simultaneous child cash claims and12 sequential/returned
+transfers per signed book. Original full maturity/child/pending/mixed/CTD books
+and financial checks remain. No new operation/type/schema/wire/C export is added.
+The native Decimal cash-partition helper uses a common representable scale and
+bounded integer division so allocations conserve the original total exactly at
+precision boundaries. Separate pricing/collateral discount, due-date/overdue/FX,
+Active-security acquisition/disposal and original fixed-bullet invoice guards
+remain. Later independent Position requires its own complete available baseline
+cash/custody/legal/paid-prefix facts; actual later Time/Event history cannot be
+borrowed. Such maturity/cash experiments are explicitly Unavailable here.
+
+Supplied Rust/C/MCP/native-WASM, strict schema and fresh separate C parity checks
+exercise every full request. Java/PInvoke controls and CI are supplied separately;
+actual Java/JNI/Windows/.NET/Excel/wasm32/browser execution remains open. Native
+transport is no independent financial oracle or certificate. CVX-063 remains
+partial; broader claims/amortizing invoices/models/production/scale/latency and
+all independent certificates stay open.

@@ -1559,13 +1559,45 @@ fn partition_cash(total: Decimal, shares: &[Decimal]) -> ReconciliationResult<Ve
             "exact complete shares must sum to1",
         ));
     }
-    let mut remaining = total;
+    // Use the finest common scale that can represent the complete total. A
+    // smaller allocation must not introduce precision that the remainder then
+    // loses on subtraction. Integer division rounds each early share toward
+    // zero; the final nonzero share receives the exact remaining original cash.
+    let mut common = total;
+    common.rescale(28);
+    let coefficient = common.mantissa().abs();
+    let mut remaining = common;
     let mut values = vec![Decimal::ZERO; shares.len()];
     for (j, share) in shares.iter().enumerate() {
         values[j] = if j == last {
             remaining
         } else {
-            dec(total.checked_mul(*share))?
+            let divisor = 10i128.pow(share.scale());
+            let multiplier = share.mantissa();
+            let whole = coefficient / divisor;
+            let part = coefficient % divisor;
+            let (mut quotient, mut remainder) = (0i128, 0i128);
+            // Both Decimal coefficients have at most96 bits. This bounded long
+            // division avoids an overflowing192-bit intermediate product.
+            for bit in (0..96).rev() {
+                let next = remainder * 2
+                    + if multiplier & (1i128 << bit) != 0 {
+                        part
+                    } else {
+                        0
+                    };
+                quotient = quotient * 2 + next / divisor;
+                remainder = next % divisor;
+            }
+            let amount = whole * multiplier + quotient;
+            Decimal::from_i128_with_scale(
+                if common.is_sign_negative() {
+                    -amount
+                } else {
+                    amount
+                },
+                common.scale(),
+            )
         };
         remaining = dec(remaining.checked_sub(values[j]))?;
     }
@@ -2955,4 +2987,51 @@ fn claim_cash_owner(
     path.handoffs[point].iter().position(|h| h.as_ref().is_some_and(|h|
         !h.invoice_excluded && h.future == path.input.points[point].positions[origin].identity.id && h.invoice.key == *key))
         .ok_or(ReconciliationError::Incomplete("invoice transfer requires its complete original linked physical asset and checked invoice owner"))
+}
+
+#[cfg(test)]
+mod claim_precision_tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn signed_cash_partitions_conserve_original_decimal_precision(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            ("10", ["0.25", "0.25", "0.25", "0.25"], "2.5"),
+            (
+                "0.0000000000000000000000000002",
+                ["0.3", "0.3", "0.3", "0.1"],
+                "0",
+            ),
+            (
+                "1666.1917808219178082191780822",
+                ["0.4", "0.35", "0.15", "0.1"],
+                "666.4767123287671232876712328",
+            ),
+            (
+                "79228162514264337593543950335",
+                ["0.25", "0.25", "0.25", "0.25"],
+                "19807040628566084398385987583",
+            ),
+        ];
+        for (amount, fractions, first) in cases {
+            let amount = Decimal::from_str(amount)?;
+            let shares = fractions
+                .into_iter()
+                .map(Decimal::from_str)
+                .collect::<Result<Vec<_>, _>>()?;
+            for sign in [Decimal::ONE, -Decimal::ONE] {
+                let values = partition_cash(amount * sign, &shares)?;
+                assert_eq!(values[0], Decimal::from_str(first)? * sign);
+                assert_eq!(values.iter().copied().sum::<Decimal>(), amount * sign);
+                assert!(values
+                    .iter()
+                    .all(|v| v.is_zero() || v.is_sign_negative() == sign.is_sign_negative()));
+            }
+        }
+        assert!(partition_cash(Decimal::ONE, &[Decimal::ONE, Decimal::ONE]).is_err());
+        assert!(partition_cash(Decimal::ONE, &[Decimal::new(-1, 1), Decimal::new(11, 1)]).is_err());
+        Ok(())
+    }
 }

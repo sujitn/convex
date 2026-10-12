@@ -1271,6 +1271,9 @@ jobs:
       - name: Verify complete child maturity request census
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_census.py
 
+      - name: Verify complete concurrent claims request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_census.py
+
       - name: Verify complete child maturity admitted declaration
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_admitted.py
 
@@ -1280,23 +1283,59 @@ jobs:
       - name: Qualify child maturity native custody cash conservation
         run: cargo test --locked --all-features -p convex-analytics --test child_maturity -- --test-threads=1
 
+      - name: Verify complete independent concurrent claims declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_reference.py
+
+      - name: Verify complete original invoice and concurrent claims
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_owned.py
+
+      - name: Verify complete owned concurrent claims census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_owned_census.py
+
+      - name: Verify complete original future replay and concurrent claims
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_complete.py
+
+      - name: Verify complete concurrent claims census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_complete_census.py
+
+      - name: Qualify concurrent claims native custody cash conservation
+        run: cargo test --locked --all-features -p convex-analytics --test concurrent_claims -- --test-threads=1
+
       - name: Qualify child maturity four complete adapters
         run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test child_maturity_pnl -- --test-threads=1
+
+      - name: Qualify concurrent claims four complete adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test concurrent_claims_pnl -- --test-threads=1
 
       - name: Qualify child maturity default consumer
         run: cargo run --locked -p convex --example child_maturity_pnl
 
+      - name: Qualify concurrent claims default consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl
+
       - name: Qualify child maturity minimal consumer
         run: cargo run --locked -p convex --example child_maturity_pnl --no-default-features
+
+      - name: Qualify concurrent claims minimal consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl --no-default-features
 
       - name: Qualify child maturity schema consumer
         run: cargo run --locked -p convex --example child_maturity_pnl --features schemars
 
+      - name: Qualify concurrent claims schema consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl --features schemars
+
       - name: Qualify child maturity strict schema
         run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/child_maturity_pnl_schema.py --binary target/debug/examples/child_maturity_pnl
 
+      - name: Qualify concurrent claims strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/concurrent_claims_pnl_schema.py --binary target/debug/examples/concurrent_claims_pnl
+
       - name: Qualify child maturity fresh C parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_parity.py --binary target/debug/examples/child_maturity_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Qualify concurrent claims fresh C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_parity.py --binary target/debug/examples/concurrent_claims_pnl --library target/debug/libconvex_ffi.so
 
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
@@ -2016,6 +2055,9 @@ jobs:
       - name: Build complete child maturity transport consumer
         run: cargo build --locked --profile excel -p convex --example child_maturity_pnl --features schemars
 
+      - name: Build complete concurrent claims transport consumer
+        run: cargo build --locked --profile excel -p convex --example concurrent_claims_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -2129,6 +2171,9 @@ jobs:
 
       - name: Generate fresh child maturity PInvoke parity
         run: python tests/scripts/child_maturity_pnl_parity.py --binary target/excel/examples/child_maturity_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-maturity-pnl-parity.json
+
+      - name: Generate fresh concurrent claims PInvoke parity
+        run: python tests/scripts/concurrent_claims_pnl_parity.py --binary target/excel/examples/concurrent_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/concurrent-claims-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

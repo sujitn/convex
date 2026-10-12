@@ -526,3 +526,55 @@ causal/ordered/standalone/interaction P&L, mixed-model/history/credit/OIS and CT
 tie/switch checks remain in the full controls. No type, schema, operation or
 wire change is required. Full market/model/managed-host/production/scale/latency
 qualification and authoritative posting/execution remain separate.
+
+## Concurrent principal and final coupon with returned cash shares
+
+The original cohort route accepts simultaneous independently acquired principal
+and final-coupon claims on first and successive custody children. Every claim is
+identified by its original cohort and complete obligation key, original native
+proposal, entitlement revision, positive legal residual and ordered paid prefix.
+Several claims can share a recipient without combining their legal ownership.
+Each subsequent transfer spends the sender's currently available share of that
+original residual. Returned shares keep the same proposal and identity.
+
+Cash already paid stays with its original recipients. A party may return all of
+its outstanding share and still retain its recorded cash; zero current ownership
+does not erase that receipt. Different principal/coupon prefixes and different
+child origins cannot be exchanged. Custody consumption, earlier received-stock
+disposal and later nominal delivery receipts do not choose cash recipients.
+Original invoice ownership remains independently bound to the delivered asset.
+Native maturity ends security model exposure while earned cash and nominal
+pending delivery/invoice rights remain. Fresh custody/disposal still requires an
+Active security. Future cash uses its supplied collateral discount role and exact
+due date; overdue policy and reporting FX remain explicit.
+
+Decimal cash partitioning uses the finest common scale representable by the
+original complete total. Bounded integer long division truncates earlier
+allocations toward zero; the final nonzero legal holder receives the remainder.
+This prevents finer-scale partial amounts from losing cash when the remainder is
+subtracted, including signed96-bit/28-decimal boundaries. The mathematical share,
+original native cash amount and pricing model are unchanged. No tolerance accepts
+a conservation error, and no monetary rounding or external posting is inferred.
+
+Run `cargo run --locked -p convex --example concurrent_claims_pnl`. Six new signed
+books exercise four concurrent principal/coupon claims on two child origins,
+delayed/prefix/staggered acquisition and12 sequential/returned share transfers
+per book. Twenty-two whole preceding maturity/child/pending/mixed model/history/
+credit/OIS/CTD books remain;56 complete requests execute2645 original product
+revaluations and28 typed failures. The original full financial checker chain is
+called once per request. Direct checked native reconstruction covers every claim,
+received/disposed/outstanding face and separate invoice cash; signed Decimal
+boundary controls prove exact cash conservation. Earlier custody/disposal have
+complete independently available baseline experiments. Later maturity/cash/
+transfer experiments are explicitly Unavailable and cannot borrow Time/Event
+history. Full Rust/C/MCP/native-WASM, strict schema and separate C parity controls
+are supplied; actual managed/browser hosts and production/scale/latency remain
+separate qualification work.
+
+The immutable independent writers retain initial full trials and separately
+supplied invoice ownership and baseline replay repairs. Financial declarations
+use Decimal60 original full product/cash/curve/history/custody owners before
+native execution. Native envelopes prove transport only. Broader conditional/
+floating/credit/novation/amendment claims, amortizing physical invoices and
+post-delivery amendments remain unsupported by this scoped route. Authoritative
+postings, authenticated cash/fills/FX, limits and execution remain CVX025/031.
