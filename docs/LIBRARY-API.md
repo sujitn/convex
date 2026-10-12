@@ -666,3 +666,15 @@ receipt allocation provenance. Full native quantities/models, causal P&L and CTD
 switches remain. Run `cargo run --locked -p convex --example claim_pnl`; see
 [the complete original cash contract](COHORT-BOOK-PNL.md). Managed/browser and
 production/latency qualification remains separate.
+
+The same `cohort_book_pnl` operation also accepts `physical_partitions`: complete
+legal custody splits over actual checked deliveries and original security receipt
+cutoffs. `claim_transfers` may allocate the earned original delivery invoice from
+its future proposal/receipt origin and linked initial cash asset. Custody and cash
+recipients remain distinct; original receipts, signed face, full native products,
+causal P&L and CTD changes remain. JSON omission defaults empty; Rust
+`CohortBookPnlInput` literals add `physical_partitions: Vec::new()` or full facts.
+No operation/version/C symbol changes. Run
+`cargo run --locked -p convex --example physical_partition_pnl` and see
+[the complete custody contract](COHORT-BOOK-PNL.md). This scoped engineering
+behavior does not confer actual managed/browser or production/latency certification.

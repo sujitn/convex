@@ -474,6 +474,9 @@ pub(super) fn validate(
                 c.physical_deliveries
                     .iter()
                     .any(|l| l.asset == p.identity.id)
+                    || c.physical_partitions
+                        .iter()
+                        .any(|a| a.split.children.contains(&p.identity.id))
             })
             .map(|(i, _)| i)
             .collect()
@@ -492,6 +495,10 @@ pub(super) fn validate(
             c.claim_transfers
                 .iter()
                 .any(|t| t.applied_points.contains(&(i + 1)) && !t.applied_points.contains(&i))
+                || c.physical_partitions.iter().any(|p| {
+                    p.split.applied_points.contains(&(i + 1))
+                        && !p.split.applied_points.contains(&i)
+                })
         });
         step(&sets[i], &sets[i + 1], s.cause, &physical_assets, legal)?;
     }
@@ -502,6 +509,9 @@ pub(super) fn validate(
                 c.claim_transfers
                     .iter()
                     .any(|t| t.applied_points.contains(&next))
+                    || c.physical_partitions
+                        .iter()
+                        .any(|p| p.split.applied_points.contains(&next))
             });
             step(baseline, &sets[next], s.cause, &physical_assets, legal)?;
             next += 1;

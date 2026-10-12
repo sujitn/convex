@@ -928,6 +928,13 @@ pub fn mark_causal_pnl_position<'p>(
         transferred_claims.push(cash);
     }
     if let Some(h) = physical.as_mut() {
+        if allocations
+            .iter()
+            .any(|v| v.origin == h.future && v.obligation.key == h.invoice.key)
+        {
+            h.invoice_excluded = true;
+            h.outstanding_invoice = Money::new(ExactDecimal::new(Decimal::ZERO), currency);
+        }
         let outstanding = h.outstanding_invoice.value().decimal();
         h.invoice_discount_ratio = if outstanding.is_zero() {
             1.0
@@ -950,8 +957,10 @@ pub fn mark_causal_pnl_position<'p>(
             currency,
         )?);
         outstanding_pv += pv;
-        recorded = dec(recorded.checked_add(h.invoice.recorded.value().decimal()))?;
-        proposed = dec(proposed.checked_add(h.invoice.amount.value().decimal()))?;
+        if !h.invoice_excluded {
+            recorded = dec(recorded.checked_add(h.invoice.recorded.value().decimal()))?;
+            proposed = dec(proposed.checked_add(h.invoice.amount.value().decimal()))?;
+        }
     }
     let mut pending = pos.current.clone();
     pending.quantity = pos.pending_quantity;

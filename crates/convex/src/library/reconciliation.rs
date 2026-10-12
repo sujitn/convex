@@ -167,6 +167,9 @@ pub struct CohortBookPnlInput {
     /// Dated legal transfers of original earned cash, separate from security lots.
     #[serde(default)]
     pub claim_transfers: Vec<w::CohortClaimTransfer>,
+    /// Complete checked physical custody partitions, independently of invoice cash.
+    #[serde(default)]
+    pub physical_partitions: Vec<w::PhysicalDeliveryPartition>,
 }
 pub(super) fn reconcile_cohorts(
     input: &CohortBookPnlInput,
@@ -175,6 +178,13 @@ pub(super) fn reconcile_cohorts(
     if input.cohorts.len() != input.book.before.point.positions.len()
         || input.physical_deliveries.len() > 128
         || input.claim_transfers.len() > 128
+        || input.physical_partitions.len() > 128
+        || input.physical_partitions.iter().any(|p| {
+            p.receipt_ids.len() > 4096
+                || p.split.applied_points.len() > 33
+                || p.split.children.len() < 2
+                || p.split.children.len() > 128
+        })
         || input
             .claim_transfers
             .iter()
@@ -295,12 +305,13 @@ fn reconcile_inner(
             .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
             .collect::<Vec<_>>();
         Some((
-            w::prepare_cohort_pnl_with_transfers(
+            w::prepare_cohort_pnl_with_delivery_partitions(
                 &declaration,
                 &c.cohorts,
                 &c.physical_deliveries,
                 &c.lot_splits,
                 &c.claim_transfers,
+                &c.physical_partitions,
                 &states,
             )
             .map_err(native_error)?,

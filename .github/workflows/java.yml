@@ -40,12 +40,14 @@ on:
       - 'tests/scripts/residual_pnl*.py'
       - 'tests/scripts/lot_pnl*.py'
       - 'tests/scripts/claim_pnl*.py'
+      - 'tests/scripts/physical_partition_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
       - 'tests/fixtures/library/residual-pnl*.json'
       - 'tests/fixtures/library/lot-pnl*.json'
       - 'tests/fixtures/library/claim-pnl*.json'
+      - 'tests/fixtures/library/physical-partition-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -93,12 +95,14 @@ on:
       - 'tests/scripts/residual_pnl*.py'
       - 'tests/scripts/lot_pnl*.py'
       - 'tests/scripts/claim_pnl*.py'
+      - 'tests/scripts/physical_partition_pnl*.py'
       - 'tests/fixtures/library/mixed-scenario*.json'
       - 'tests/fixtures/library/causal-pnl*.json'
       - 'tests/fixtures/library/cohort-pnl*.json'
       - 'tests/fixtures/library/residual-pnl*.json'
       - 'tests/fixtures/library/lot-pnl*.json'
       - 'tests/fixtures/library/claim-pnl*.json'
+      - 'tests/fixtures/library/physical-partition-pnl*.json'
       - 'tests/scripts/optional_graph_hedge_parity.py'
       - 'tests/scripts/library_curve_families_parity.py'
       - 'tests/scripts/library_curve_methods_parity.py'
@@ -196,6 +200,9 @@ jobs:
       - name: Build original cash transfer Java expectations
         run: cargo build --locked --profile excel -p convex --example claim_pnl --features schemars
 
+      - name: Build physical custody Java controls
+        run: cargo build --locked --profile excel -p convex --example physical_partition_pnl --features schemars
+
       - name: Build full delivery basket hedge Java consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -289,6 +296,9 @@ jobs:
 
       - name: Original cash transfer Java transport
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_parity.py --binary target/excel/examples/claim_pnl --output bindings/java/target/claim-pnl-parity.json
+
+      - name: Physical custody and invoice Java transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_parity.py --binary target/excel/examples/physical_partition_pnl --output bindings/java/target/physical-partition-pnl-parity.json
 
       - name: Generate full delivery basket hedge Java expectations
         run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json

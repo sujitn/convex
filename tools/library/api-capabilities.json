@@ -30125,7 +30125,22 @@
     "tests/fixtures/library/claim-pnl-bound-api-09.json",
     "tests/fixtures/library/claim-pnl-bound-api-10.json",
     "tests/fixtures/library/claim-pnl-bound-api-11.json",
-    "tests/fixtures/library/claim-pnl-bound-api-12.json"
+    "tests/fixtures/library/claim-pnl-bound-api-12.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-01.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-02.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-03.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-04.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-05.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-06.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-07.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-08.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-09.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-10.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-11.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-12.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-13.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-14.json",
+    "tests/fixtures/library/physical-partition-pnl-final-api-15.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

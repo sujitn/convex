@@ -181,8 +181,8 @@ to the appropriate successors; the retired parent explicitly excludes them.
 Each original native lot and all excluded claims remain visible. Held parent
 face falls to zero, successor face is conserved, and no fill, consideration, fee,
 average cost or cash receipt is inferred. Later full disposal of a successor
-continues to use its actual original fill. Splitting physical-delivery links,
-rounded/conditional instruments
+continues to use its actual original fill. The separate physical custody contract
+below owns checked delivery partitions. Other rounded/conditional instruments
 requires further complete owners and fails explicitly.
 
 The original 128-holding/33-point/4,224-mark limits and wire bounds remain. Complete
@@ -231,8 +231,9 @@ and physical receipt facts, full causal/standalone/interaction and unclamped
 reconciliation residuals and every CTD winner/tie/switch survive. The new bounded
 allocation admits128 legal transfers and4224 complete original-root/party/point
 allocations, alongside the original holding, point, pricing and wire ceilings.
-Margin, physical invoices and unearned/conditional claims retain their separate
-owners. No payment, consideration, fee, security fill or ledger posting is inferred.
+Margin and unearned/conditional claims retain their separate owners. Physical
+invoice transfers use the complete original delivery owner described below.
+No payment, consideration, fee, security fill or ledger posting is inferred.
 
 The complete independent control is `claim-pnl-bound.json`, produced by
 `tests/scripts/claim_pnl_bound.py`. Initial and earned declarations, failed
@@ -242,3 +243,57 @@ trials and separate complete plain-Decimal receipt facts remain. Run
 financial references. Original monetary bounds and37943 regression comparisons
 remain required. Actual managed/browser execution, release acceptance and
 production/latency certificates remain separate; CVX-063 is partial.
+
+Delivered custody uses the additive `physical_partitions` list. Each record has
+`split` (the original asset parent, two or more full native children, unique legal
+ID, source, economic/knowledge cutoff and applied points), the linked `future`,
+exact original `delivery_id` and complete ordered security `receipt_ids` at that
+cutoff. Children use `lot_split` acquisition with this exact split ID. Their fixed
+signed native face sums exactly to the original delivered face. They retain the
+same complete security revision, terms, resolved calendars, entity, currency,
+units and history. The original actual delivery and every partial receipt remain
+with the future; a model CTD choice never creates custody.
+
+At the Position partition, the original asset's security custody ends and its
+children acquire their exact allocated received and outstanding face. Custody
+includes already received assets as well as the remaining security receivable.
+Original earned cash stays with its declared owner. Every native security receipt
+is allocated with checked Decimal arithmetic; received face is the exact sum of
+those allocations, and outstanding face is proposed face minus received face.
+The children conserve all three totals. `physical_delivery.partition` retains
+the full legal facts, original total faces and each original receipt's allocated
+face. The consumed parent's custody share is zero; its invoice ownership remains
+independent. No fill, fee, payment, execution cost or consideration is created.
+
+An earned `delivery_invoice` may also use `claim_transfers`. Its `origin` and
+proposal/receipt pins name the original future; the linked original asset is the
+initial legal cash owner. Transfer `from`/`to` names complete acquired cash cohorts,
+with the same currency, collateral discount and overdue convention. Security
+children acquire invoice cash only through explicit legal transfers. The same
+original receipt cutoff rules preserve earlier paid recipients; transfers of
+signed outstanding cash may be fractional, entire, successive or returned.
+`transferred_claims` reports full original invoice/proposal/entitlement and receipt
+allocations. `physical_delivery.invoice_excluded` means the full original invoice
+is retained as provenance and its cash is included through those allocations.
+The future retains invoice provenance without counting it as variation cash.
+
+Partitions persist on the ordered path and apply only to available independent
+Position experiments. Foreign/missing delivery, omitted/reordered receipt prefix,
+unavailable knowledge, duplicate custody, incomplete/overdrawn face, mismatched
+security and unsupported successor re-partition/disposal fail explicitly. At most
+128 holdings and partitions, 33 points and 4,224 full product marks remain; each
+cutoff has at most4,096 receipts. Shares must be exactly representable under the
+original Decimal face owner. Further physical successor lineage and conditional
+delivery models require their complete owners. The native preparation signatures
+delegate with empty partitions; JSON omission defaults to empty. Rust
+`CohortBookPnlInput` literals must supply `physical_partitions: Vec::new()` or a
+complete list.
+
+Run `cargo run --locked -p convex --example physical_partition_pnl`. The active
+independent corpus is `physical-partition-pnl-final.json`; all preceding
+financial/wire/chronology trials remain immutable. Its nine full books include
+long/short partial receipts, custody before/between/after ingress, distinct cash
+recipients and entire invoice transfers, plus the original complete mixed cash
+books and CTD switches. Thirty-five full malformed controls and direct native
+conservation tests remain separate from transport parity. Actual managed/browser
+hosts, broader delivery models and production/latency qualification remain open.

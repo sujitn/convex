@@ -1034,6 +1034,51 @@ jobs:
       - name: Fresh separate C cash transfer transport
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_parity.py --binary target/debug/examples/claim_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Preserve original physical custody reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_reference.py
+
+      - name: Preserve original physical custody wire controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_wire.py
+
+      - name: Preserve original physical custody chronology controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_chronology.py
+
+      - name: Preserve original physical custody bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_bound.py
+
+      - name: Preserve original physical custody admitted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_admitted.py
+
+      - name: Preserve original physical custody census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_census.py
+
+      - name: Preserve complete unique delivery custody controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_final.py
+
+      - name: Preserve unique delivery custody operation census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_final_census.py
+
+      - name: Actual original delivery custody native controls
+        run: cargo test --locked -p convex-analytics --test physical_partitions -- --test-threads=1
+
+      - name: Actual four physical custody and invoice adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test physical_partition_pnl -- --test-threads=1
+
+      - name: Complete delivery custody default consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl
+
+      - name: Complete delivery custody minimal consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl --no-default-features
+
+      - name: Complete delivery custody schema consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl --features schemars
+
+      - name: Strict complete delivery custody schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/physical_partition_pnl_schema.py --binary target/debug/examples/physical_partition_pnl
+
+      - name: Original physical custody separate C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_parity.py --binary target/debug/examples/physical_partition_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1736,6 +1781,9 @@ jobs:
       - name: Build original cash transfer Excel expectations
         run: cargo build --locked --profile excel -p convex --example claim_pnl --features schemars
 
+      - name: Build original custody Excel transport
+        run: cargo build --locked --profile excel -p convex --example physical_partition_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1833,6 +1881,9 @@ jobs:
 
       - name: Original cash transfer Excel transport
         run: python tests/scripts/claim_pnl_parity.py --binary target/excel/examples/claim_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/claim-pnl-parity.json
+
+      - name: Original physical custody Excel transport
+        run: python tests/scripts/physical_partition_pnl_parity.py --binary target/excel/examples/physical_partition_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/physical-partition-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

@@ -217,6 +217,10 @@ fn split_out(path: &PreparedCausalPnl, point: usize, index: usize) -> bool {
         path.lot_splits
             .iter()
             .any(|s| s.parent == owners[index].trade_id && split_active(s, point))
+            || path
+                .physical_partitions
+                .iter()
+                .any(|p| p.split.parent == owners[index].trade_id && split_active(&p.split, point))
     })
 }
 /// Actual original delivery is transferred to this complete cash-bond owner.
@@ -230,6 +234,44 @@ pub struct PhysicalDeliveryLink {
     pub asset: TradeId,
     /// Actual exact security revision, independent of CTD selection.
     pub instrument: InstrumentPin,
+}
+/// Complete legal custody partition of one already checked original delivery.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PhysicalDeliveryPartition {
+    /// Conserved original asset parent, full children and actual legal cutoffs.
+    pub split: CohortLotSplit,
+    /// Original linked future holding every actual delivery/receipt event.
+    pub future: TradeId,
+    /// Exact original checked delivery, including notice and selected security.
+    pub delivery_id: l::EventId,
+    /// Complete ordered original security receipt prefix at custody acquisition.
+    pub receipt_ids: Vec<l::EventId>,
+}
+/// Original actual security receipt with this legal cohort's exact custody face.
+#[derive(Debug, Clone, Serialize)]
+pub struct PhysicalReceiptAllocation {
+    /// Complete original checked event; no synthetic receipt is created.
+    pub event: l::LifecycleEvent,
+    /// Exact signed allocated original face.
+    pub face: ExactDecimal,
+}
+/// Complete original provenance and conserved custody, independent of invoice cash.
+#[derive(Debug, Clone, Serialize)]
+pub struct PhysicalPartitionValue {
+    /// Full immutable legal partition facts.
+    pub facts: PhysicalDeliveryPartition,
+    /// Exact original full proposed security face.
+    pub original_proposed_face: ExactDecimal,
+    /// Exact original externally received security face.
+    pub original_received_face: ExactDecimal,
+    /// Exact original remaining security receivable/payable face.
+    pub original_outstanding_face: ExactDecimal,
+    /// This cohort's current complete legal custody share.
+    pub fraction: ExactDecimal,
+    /// Every actual native receipt and exact owned custody, in original order.
+    pub receipts: Vec<PhysicalReceiptAllocation>,
 }
 /// Checked original facts and separately valued security/invoice components.
 #[derive(Debug, Clone, Serialize)]
@@ -260,6 +302,12 @@ pub struct PhysicalDeliveryValue {
     pub invoice_present_value: ModelMoney,
     /// Original complete reference bond price scaled to outstanding asset face.
     pub outstanding_asset_present_value: Option<ModelMoney>,
+    /// Current custody partition, retaining every original full delivery fact.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partition: Option<PhysicalPartitionValue>,
+    /// Invoice is retained as provenance; its cash is valued by another owner.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub invoice_excluded: bool,
 }
 pub(super) fn native_quantity(state: &l::LifecycleState) -> Decimal {
     match state.view().position {
@@ -284,10 +332,15 @@ pub(super) fn acquired(path: &PreparedCausalPnl, point: usize, index: usize) -> 
         return true;
     };
     match &owners[index].acquisition {
-        CohortAcquisition::LotSplit { split_id } => path
-            .lot_splits
-            .iter()
-            .any(|s| &s.id == split_id && split_active(s, point)),
+        CohortAcquisition::LotSplit { split_id } => {
+            path.lot_splits
+                .iter()
+                .any(|s| &s.id == split_id && split_active(s, point))
+                || path
+                    .physical_partitions
+                    .iter()
+                    .any(|p| &p.split.id == split_id && split_active(&p.split, point))
+        }
         CohortAcquisition::Opening {} => true,
         CohortAcquisition::Fill { fill_id } => fill(&path.input.points[point], fill_id).is_some(),
         CohortAcquisition::PhysicalDelivery { .. } => path.handoffs[point][index].is_some(),
@@ -451,12 +504,40 @@ pub fn prepare_cohort_pnl_with_transfers(
     transfers: &[CohortClaimTransfer],
     states: &[Vec<l::LifecycleState>],
 ) -> ReconciliationResult<PreparedCausalPnl> {
+    prepare_cohort_pnl_with_delivery_partitions(
+        input,
+        cohorts,
+        links,
+        splits,
+        transfers,
+        &[],
+        states,
+    )
+}
+/// Admit complete delivered security custody and independently owned invoice cash.
+/// Existing preparation APIs delegate with no physical partitions.
+pub fn prepare_cohort_pnl_with_delivery_partitions(
+    input: &CausalPnlInput,
+    cohorts: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    splits: &[CohortLotSplit],
+    transfers: &[CohortClaimTransfer],
+    partitions: &[PhysicalDeliveryPartition],
+    states: &[Vec<l::LifecycleState>],
+) -> ReconciliationResult<PreparedCausalPnl> {
     let n = input.points.first().map_or(0, |p| p.positions.len());
     if !(1..=128).contains(&n)
         || cohorts.len() != n
         || links.len() > n
         || splits.len() > n
         || transfers.len() > 128
+        || partitions.len() > n
+        || partitions.iter().any(|p| {
+            p.receipt_ids.len() > 4096
+                || p.split.applied_points.len() > 33
+                || p.split.children.len() < 2
+                || p.split.children.len() > n
+        })
         || transfers
             .iter()
             .any(|t| t.applied_points.len() > 33 || t.cutoff.receipt_ids.len() > 4096)
@@ -503,8 +584,16 @@ pub fn prepare_cohort_pnl_with_transfers(
             "every actual physical delivery requires a separate complete asset owner",
         ));
     }
+    if partitions.iter().any(|p| {
+        splits.iter().any(|s| s.id == p.split.id) || transfers.iter().any(|t| t.id == p.split.id)
+    }) {
+        return Err(bad(
+            "physical legal identity",
+            "custody identity must be distinct from security splits and cash transfers",
+        ));
+    }
     let mut normalized = input.clone();
-    admit_splits(input, cohorts, links, splits, states)?;
+    admit_splits(input, cohorts, links, splits, partitions, states)?;
     for (i, point) in normalized.points.iter_mut().enumerate() {
         for (j, pos) in point.positions.iter_mut().enumerate() {
             pos.current.quantity = ExactDecimal::new(dec(pos
@@ -638,24 +727,30 @@ pub fn prepare_cohort_pnl_with_transfers(
                     invoice_present_value: money(0.0, contract.currency)?,
                     invoice,
                     outstanding_asset_present_value: None,
+                    partition: None,
+                    invoice_excluded: false,
                 });
             } else if future.view().status != l::EconomicStatus::Active {
                 return Err(ReconciliationError::Incomplete(
                     "actual checked physical delivery event absent",
                 ));
             }
-            let received = handoffs[i][a]
-                .as_ref()
-                .map_or(Decimal::ZERO, |h| h.received_face.decimal());
-            let baseline = handoffs[0][a]
-                .as_ref()
-                .map_or(Decimal::ZERO, |h| h.received_face.decimal());
-            normalized.points[i].positions[a].current.quantity = ExactDecimal::new(dec(pos
-                .current
-                .quantity
-                .decimal()
-                .checked_sub(received)
-                .and_then(|q| q.checked_add(baseline)))?);
+        }
+    }
+    admit_physical_partitions(input, cohorts, links, partitions, states, &mut handoffs)?;
+    for (i, point) in normalized.points.iter_mut().enumerate() {
+        for (j, pos) in point.positions.iter_mut().enumerate() {
+            if let Some(h) = &handoffs[i][j] {
+                let baseline = handoffs[0][j]
+                    .as_ref()
+                    .map_or(Decimal::ZERO, |h| h.received_face.decimal());
+                pos.current.quantity = ExactDecimal::new(dec(pos
+                    .current
+                    .quantity
+                    .decimal()
+                    .checked_sub(h.received_face.decimal())
+                    .and_then(|q| q.checked_add(baseline)))?);
+            }
         }
     }
     // Run every original path/fill/time/FX/bound check after removing only exact
@@ -671,6 +766,7 @@ pub fn prepare_cohort_pnl_with_transfers(
             .collect::<ReconciliationResult<_>>()?,
     );
     path.lot_splits = splits.to_vec();
+    path.physical_partitions = partitions.to_vec();
     let mut residual_ids = std::collections::BTreeSet::new();
     for (j, owner) in cohorts.iter().enumerate() {
         let initial = &input.points[0].positions[j];
@@ -745,7 +841,9 @@ pub fn prepare_cohort_pnl_with_transfers(
             let expected = match &owner.acquisition {
                 CohortAcquisition::LotSplit { .. } => {
                     if is_acquired {
-                        owner.quantity.decimal()
+                        path.handoffs[i][j]
+                            .as_ref()
+                            .map_or(owner.quantity.decimal(), |h| h.received_face.decimal())
                     } else {
                         Decimal::ZERO
                     }
@@ -1184,12 +1282,9 @@ fn admit_claim_transfers(
                 "exact original owned entitlement/residual/source revision required",
             ));
         }
-        if matches!(
-            transfer.key.kind,
-            l::CashKind::VariationMargin | l::CashKind::DeliveryInvoice
-        ) {
+        if transfer.key.kind == l::CashKind::VariationMargin {
             return Err(ReconciliationError::Incomplete(
-                "margin and physical invoice transfers require their separate complete cash owners",
+                "margin transfers require their separate complete cash owners",
             ));
         }
         let first = (1..=input.causes.len())
@@ -1213,6 +1308,7 @@ fn admit_claim_transfers(
                 continue;
             }
             let point = &input.points[i];
+            let cash_owner = claim_cash_owner(path, i, origin, &transfer.key)?;
             if i > input.causes.len() {
                 let cause = input
                     .standalone
@@ -1235,17 +1331,19 @@ fn admit_claim_transfers(
                     "original proposal and all legal parties must be acquired and available",
                 ));
             }
-            let a = &point.positions[origin];
+            let a = &point.positions[cash_owner];
             if [from, to].iter().any(|j| {
                 let b = &point.positions[*j];
                 a.current.currency != b.current.currency
                     || a.cash_discount != b.cash_discount
                     || a.overdue != b.overdue
                     || matches!(row[*j].instrument(), l::LifecycleInstrument::Futures { .. })
-            }) || matches!(
-                row[origin].instrument(),
-                l::LifecycleInstrument::Futures { .. }
-            ) {
+            }) || transfer.key.kind != l::CashKind::DeliveryInvoice
+                && matches!(
+                    row[origin].instrument(),
+                    l::LifecycleInstrument::Futures { .. }
+                )
+            {
                 return Err(bad(
                     "claim cash owner",
                     "same complete original currency/discount/overdue cash owners required",
@@ -1328,7 +1426,13 @@ fn admit_claim_transfers(
     let allocations = groups
         .iter()
         .try_fold(0usize, |sum, ((origin, _), records)| {
-            let mut parties = std::collections::BTreeSet::from([*origin]);
+            let first = records[0].applied_points[0];
+            let mut parties = std::collections::BTreeSet::from([claim_cash_owner(
+                path,
+                first,
+                *origin,
+                &records[0].key,
+            )?]);
             for t in records {
                 parties.insert(find(input, &t.from)?);
                 parties.insert(find(input, &t.to)?);
@@ -1419,9 +1523,10 @@ fn admit_claim_transfers(
                     .checked_sub(claim.recorded.value().decimal()))?,
                 |r| r.owned_outstanding.value().decimal(),
             );
+            let initial_cash_owner = claim_cash_owner(path, i, origin, &key)?;
             let mut shares = vec![Decimal::ZERO; n];
-            shares[origin] = Decimal::ONE;
-            let mut parties = std::collections::BTreeSet::from([origin]);
+            shares[initial_cash_owner] = Decimal::ONE;
+            let mut parties = std::collections::BTreeSet::from([initial_cash_owner]);
             for t in &active {
                 move_claim_share(input, t, &mut shares)?;
                 parties.insert(find(input, &t.from)?);
@@ -1436,7 +1541,7 @@ fn admit_claim_transfers(
                     continue;
                 }
                 let mut at_receipt = vec![Decimal::ZERO; n];
-                at_receipt[origin] = Decimal::ONE;
+                at_receipt[initial_cash_owner] = Decimal::ONE;
                 for t in &active {
                     if !t.cutoff.receipt_ids.contains(&receipt.receipt_id) {
                         move_claim_share(input, t, &mut at_receipt)?;
@@ -1496,6 +1601,7 @@ fn admit_splits(
     owners: &[CohortOwnership],
     links: &[PhysicalDeliveryLink],
     splits: &[CohortLotSplit],
+    partitions: &[PhysicalDeliveryPartition],
     states: &[Vec<l::LifecycleState>],
 ) -> ReconciliationResult<()> {
     let mut parents = std::collections::BTreeSet::new();
@@ -1529,6 +1635,10 @@ fn admit_splits(
                     || l.future == split.parent
                     || split.children.contains(&l.asset)
                     || split.children.contains(&l.future)
+            })
+            || partitions.iter().any(|p| {
+                p.split.children.contains(&split.parent)
+                    || split.children.iter().any(|c| p.split.children.contains(c))
             })
         {
             return Err(bad("lot split", "unique full nonphysical parent, available interval facts and distinct applied points required"));
@@ -1668,6 +1778,9 @@ fn admit_splits(
             if !splits
                 .iter()
                 .any(|s| &s.id == split_id && s.children.contains(&owner.trade_id))
+                && !partitions
+                    .iter()
+                    .any(|p| &p.split.id == split_id && p.split.children.contains(&owner.trade_id))
             {
                 return Err(bad(
                     "split acquisition",
@@ -1708,4 +1821,341 @@ fn admit_splits(
         }
     }
     Ok(())
+}
+
+fn admit_physical_partitions(
+    input: &CausalPnlInput,
+    owners: &[CohortOwnership],
+    links: &[PhysicalDeliveryLink],
+    partitions: &[PhysicalDeliveryPartition],
+    states: &[Vec<l::LifecycleState>],
+    handoffs: &mut [Vec<Option<PhysicalDeliveryValue>>],
+) -> ReconciliationResult<()> {
+    let n = owners.len();
+    let mut parents = std::collections::BTreeSet::new();
+    let mut children = std::collections::BTreeSet::new();
+    let mut ids = std::collections::BTreeSet::new();
+    for facts in partitions {
+        let split = &facts.split;
+        let a = find(input, &split.parent)?;
+        let f = find(input, &facts.future)?;
+        let indexes = split
+            .children
+            .iter()
+            .map(|id| find(input, id))
+            .collect::<ReconciliationResult<Vec<_>>>()?;
+        let points = split
+            .applied_points
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if !ids.insert(&split.id)
+            || !parents.insert(a)
+            || points.is_empty()
+            || points.len() != split.applied_points.len()
+            || points.contains(&0)
+            || points.iter().any(|i| *i >= states.len())
+            || split.effective_date < input.points[0].valuation_date
+            || split.known_at < input.points[0].known_at
+            || split.known_at.datetime().date_naive() < split.effective_date.as_naive_date()
+            || !links
+                .iter()
+                .any(|l| l.future == facts.future && l.asset == split.parent)
+            || owners[a].disposal_fill.is_some()
+        {
+            return Err(bad(
+                "physical partition",
+                "unique complete linked delivery parent and interval legal cutoffs required",
+            ));
+        }
+        let first = (1..=input.causes.len())
+            .find(|i| points.contains(i))
+            .ok_or_else(|| bad("physical partition", "ordered legal acquisition required"))?;
+        if input.causes[first - 1] != PnlCause::Position
+            || (first..=input.causes.len()).any(|i| !points.contains(&i))
+        {
+            return Err(bad(
+                "physical partition cause",
+                "custody belongs to Position and persists through all ordered points",
+            ));
+        }
+        let mut shares = vec![Decimal::ZERO; n];
+        let face = owners[a].quantity.decimal();
+        let mut sum = Decimal::ZERO;
+        for &j in &indexes {
+            if j == a
+                || j == f
+                || !children.insert(j)
+                || links
+                    .iter()
+                    .any(|l| l.asset == owners[j].trade_id || l.future == owners[j].trade_id)
+                || owners[j].disposal_fill.is_some()
+                || owners[j].acquisition
+                    != (CohortAcquisition::LotSplit {
+                        split_id: split.id.clone(),
+                    })
+                || owners[j].quantity.decimal().is_sign_negative() != face.is_sign_negative()
+            {
+                return Err(bad("physical children", "distinct complete same-direction native custody cohorts acquired by this partition required"));
+            }
+            sum = dec(sum.checked_add(owners[j].quantity.decimal()))?;
+            shares[j] = dec(owners[j].quantity.decimal().checked_div(face))?;
+            if dec(face.checked_mul(shares[j]))? != owners[j].quantity.decimal() {
+                return Err(ReconciliationError::Incomplete("physical fractions must be exactly representable by the original Decimal owner"));
+            }
+        }
+        if sum != face {
+            return Err(bad(
+                "physical face",
+                "complete successor face must exactly conserve signed original delivery face",
+            ));
+        }
+        // Reserve and verify exact representational conservation before marking.
+        partition_cash(face, &shares)?;
+        let mut original_delivery = None;
+        let mut ordered_receipts: &[l::LifecycleEvent] = &[];
+        for (i, row) in states.iter().enumerate() {
+            if i <= input.causes.len() {
+                if !row[f]
+                    .security_receipt_events()
+                    .starts_with(ordered_receipts)
+                {
+                    return Err(bad(
+                        "physical original receipts",
+                        "actual ordered security receipts must retain their immutable prefix",
+                    ));
+                }
+                ordered_receipts = row[f].security_receipt_events();
+            }
+            let Some(original) = handoffs[i][a].clone() else {
+                if points.contains(&i) {
+                    return Err(ReconciliationError::Incomplete(
+                        "original checked delivery unavailable at custody acquisition",
+                    ));
+                }
+                continue;
+            };
+            if let Some(prior) = &original_delivery {
+                if &original.delivery != prior {
+                    return Err(bad(
+                        "physical original delivery",
+                        "complete original checked delivery cannot change across custody owners",
+                    ));
+                }
+            } else {
+                original_delivery = Some(original.delivery.clone());
+            }
+            if !points.contains(&i) {
+                continue;
+            }
+            let point = &input.points[i];
+            if split.effective_date > point.valuation_date
+                || split.known_at > point.known_at
+                || original.delivery.event_id != facts.delivery_id
+                || original.delivery.effective_date > split.effective_date
+                || original.delivery.known_at > split.known_at
+            {
+                return Err(bad(
+                    "physical availability",
+                    "same original delivery and both economic/knowledge cutoffs must be available",
+                ));
+            }
+            if i > input.causes.len() {
+                let cause = input
+                    .standalone
+                    .iter()
+                    .position(|s| matches!(s, PnlStandalone::Available {point} if *point == i))
+                    .ok_or_else(|| bad("physical standalone", "full independent binding absent"))?;
+                if input.causes[cause] != PnlCause::Position {
+                    return Err(bad(
+                        "physical standalone",
+                        "unrelated independent causes cannot acquire custody",
+                    ));
+                }
+            }
+            let count = facts.receipt_ids.len();
+            if count > original.security_receipts.len() {
+                return Err(bad(
+                    "physical receipt cutoff",
+                    "exact original security receipt prefix absent",
+                ));
+            }
+            for (k, event) in original.security_receipts.iter().enumerate() {
+                let l::LifecycleAction::SecurityReceipt { receipt_id, .. } = &event.action else {
+                    return Err(bad("physical receipt", "checked native receipt required"));
+                };
+                if k < count {
+                    if receipt_id != &facts.receipt_ids[k]
+                        || event.effective_date > split.effective_date
+                        || event.known_at > split.known_at
+                    {
+                        return Err(bad(
+                            "physical receipt cutoff",
+                            "complete ordered available original custody receipt prefix required",
+                        ));
+                    }
+                } else if event.effective_date < split.effective_date
+                    || event.known_at < split.known_at
+                {
+                    return Err(bad(
+                        "physical receipt cutoff",
+                        "every prior known/economic receipt must occur in the custody cutoff",
+                    ));
+                }
+            }
+            if i == first && row[f].security_receipt_events().len() >= count {
+                for event in states[first - 1][f].security_receipt_events() {
+                    if !matches!(&event.action, l::LifecycleAction::SecurityReceipt {receipt_id, ..} if facts.receipt_ids.contains(receipt_id))
+                    {
+                        return Err(bad("physical prior custody", "every earlier ordered receipt must be included in the original custody cutoff"));
+                    }
+                }
+            }
+            let l::LifecycleInstrument::Bond {
+                contract: bond,
+                credit,
+            } = row[a].instrument()
+            else {
+                return Err(bad("physical security", "complete original bond required"));
+            };
+            if !bond.terms().exercise.is_empty()
+                || bond.terms().coupon != convex_bonds::contracts::BondCoupon::Fixed
+                || row[a].view().status != l::EconomicStatus::Active
+                || row[a].view().remaining_fraction.decimal() != Decimal::ONE
+            {
+                return Err(ReconciliationError::Incomplete("physical partition requires the active original nonoptional full fixed bond owner"));
+            }
+            for &j in &indexes {
+                let l::LifecycleInstrument::Bond {
+                    contract: successor,
+                    credit: mapped,
+                } = row[j].instrument()
+                else {
+                    return Err(bad(
+                        "physical successor",
+                        "full original fixed bond required",
+                    ));
+                };
+                let p = &point.positions[a];
+                let q = &point.positions[j];
+                if bond.terms() != successor.terms()
+                    || !bond.periods().eq(successor.periods())
+                    || bond.principal_cashflows() != successor.principal_cashflows()
+                    || credit != mapped
+                    || p.identity.instrument != q.identity.instrument
+                    || p.identity.entity != q.identity.entity
+                    || p.current.currency != q.current.currency
+                    || p.current.reference_quantity != q.current.reference_quantity
+                    || p.current.quantity_unit != q.current.quantity_unit
+                    || row[a].view().fixings != row[j].view().fixings
+                    || row[j].view().status != l::EconomicStatus::Active
+                    || row[j].view().remaining_fraction.decimal() != Decimal::ONE
+                    || !q.pending_quantity.decimal().is_zero()
+                {
+                    return Err(bad(
+                        "physical successor economics",
+                        "complete original security/economics/history/currency/units required",
+                    ));
+                }
+            }
+            let mut received = vec![Decimal::ZERO; n];
+            let mut receipts = vec![Vec::new(); n];
+            for event in &original.security_receipts {
+                let l::LifecycleAction::SecurityReceipt { face, .. } = &event.action else {
+                    return Err(bad("physical receipt", "full original receipt required"));
+                };
+                let allocated = partition_cash(face.decimal(), &shares)?;
+                for &j in &indexes {
+                    received[j] = dec(received[j].checked_add(allocated[j]))?;
+                    receipts[j].push(PhysicalReceiptAllocation {
+                        event: event.clone(),
+                        face: ExactDecimal::new(allocated[j]),
+                    });
+                }
+            }
+            if received
+                .iter()
+                .try_fold(Decimal::ZERO, |sum, value| dec(sum.checked_add(*value)))?
+                != original.received_face.decimal()
+            {
+                return Err(bad(
+                    "physical received conservation",
+                    "full allocated actual receipts must exactly conserve original received face",
+                ));
+            }
+            for j in std::iter::once(a).chain(indexes.iter().copied()) {
+                let mut value = original.clone();
+                let owned_face = if j == a {
+                    Decimal::ZERO
+                } else {
+                    owners[j].quantity.decimal()
+                };
+                value.proposed_face = ExactDecimal::new(owned_face);
+                value.received_face = ExactDecimal::new(received[j]);
+                value.outstanding_face =
+                    ExactDecimal::new(dec(owned_face.checked_sub(received[j]))?);
+                value.partition = Some(PhysicalPartitionValue {
+                    facts: facts.clone(),
+                    original_proposed_face: original.proposed_face,
+                    original_received_face: original.received_face,
+                    original_outstanding_face: original.outstanding_face,
+                    fraction: ExactDecimal::new(shares[j]),
+                    receipts: std::mem::take(&mut receipts[j]),
+                });
+                if j != a {
+                    value.invoice_excluded = true;
+                    value.outstanding_invoice = Money::new(
+                        ExactDecimal::new(Decimal::ZERO),
+                        original.invoice.amount.currency(),
+                    );
+                }
+                handoffs[i][j] = Some(value);
+            }
+        }
+        for &j in &indexes {
+            if owners[j]
+                .entitlements
+                .iter()
+                .any(|e| e.entitled && e.key.effective_date <= split.effective_date)
+                || states
+                    .iter()
+                    .any(|row| !row[j].payment_receipt_events().is_empty())
+            {
+                return Err(bad(
+                    "physical earned cash",
+                    "original historical earned cash/receipts stay with the original cash owner",
+                ));
+            }
+        }
+        if owners[a]
+            .entitlements
+            .iter()
+            .any(|e| e.entitled && e.key.effective_date > split.effective_date)
+        {
+            return Err(bad(
+                "physical future cash",
+                "consumed parent cannot own future successor cash",
+            ));
+        }
+    }
+    if parents.iter().any(|p| children.contains(p)) {
+        return Err(ReconciliationError::Incomplete(
+            "further physical custody partitions require their complete successor lineage owner",
+        ));
+    }
+    Ok(())
+}
+
+fn claim_cash_owner(
+    path: &PreparedCausalPnl,
+    point: usize,
+    origin: usize,
+    key: &l::ObligationKey,
+) -> ReconciliationResult<usize> {
+    if key.kind != l::CashKind::DeliveryInvoice {
+        return Ok(origin);
+    }
+    path.handoffs[point].iter().position(|h| h.as_ref().is_some_and(|h|
+        !h.invoice_excluded && h.future == path.input.points[point].positions[origin].identity.id && h.invoice.key == *key))
+        .ok_or(ReconciliationError::Incomplete("invoice transfer requires its complete original linked physical asset and checked invoice owner"))
 }

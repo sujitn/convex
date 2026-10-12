@@ -5787,6 +5787,281 @@
       "path": "tests/scripts/claim_pnl_schema.py",
       "mode": "file",
       "sha256": "29ae2ebfc857869d8dce0aec7bb68dfae09cb03d777766265ea7789eb5cfe250"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/PhysicalPartitionPnlTest.java",
+      "mode": "file",
+      "sha256": "69b79efa60ac11a967ae16a45267b86265b2946442b20a245a3184f199ecd475"
+    },
+    {
+      "path": "crates/convex-analytics/tests/physical_partitions.rs",
+      "mode": "file",
+      "sha256": "7d9b16ffdcf3e2cc84b6a8791de2716d5944cd9a32ae1c3608bf6ce95acbc4cb"
+    },
+    {
+      "path": "crates/convex-ffi/tests/physical_partition_pnl.rs",
+      "mode": "file",
+      "sha256": "9c75a9d677c3b18388af4166f267dfe84205ba3759a53a44c197a088ccfd2da5"
+    },
+    {
+      "path": "crates/convex-mcp/tests/physical_partition_pnl.rs",
+      "mode": "file",
+      "sha256": "8cb12ffa738521807f36d3271e4e175d2bf4b86b38eee4ff8e2a1d0d8f8acb97"
+    },
+    {
+      "path": "crates/convex-wasm/tests/physical_partition_pnl.rs",
+      "mode": "file",
+      "sha256": "a1170d422bd6280dff34358cda533dc62d1117a8affad56e635db9e8a58c34a1"
+    },
+    {
+      "path": "crates/convex/examples/physical_partition_pnl.rs",
+      "mode": "file",
+      "sha256": "a06dc8a87d0ab28d6a494ac08921f52ea80353d1e09246443145ea0104a7f7dc"
+    },
+    {
+      "path": "crates/convex/tests/physical_partition_pnl.rs",
+      "mode": "file",
+      "sha256": "12473383db8bd8e457117f650307e488914c395c35a5030d2a86803eede8a785"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/PhysicalPartitionPnlTests.cs",
+      "mode": "file",
+      "sha256": "df1ee899ba57047b8c2b151ac507268d27aa4ac237b25bfe2bd650adab0d59d2"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-01.json",
+      "mode": "file",
+      "sha256": "66d10e269af040cee21835e0c702e1e539422f8acf981df8c90773d30a549711"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-02.json",
+      "mode": "file",
+      "sha256": "fea2fc00b4c538b0a60dd8f97be70e80771b939fd9ccd4e062a96c46d54aa360"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-03.json",
+      "mode": "file",
+      "sha256": "82648b3ee99b06fe1750bf4cf306e23c457e245a60c38e050b17b88407d18229"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-04.json",
+      "mode": "file",
+      "sha256": "475c4abab2ff411928279336ff8b4d52cc9adabd3f7384b29c5ca4443d3d2e9f"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-05.json",
+      "mode": "file",
+      "sha256": "8cd28c3b9c36cf1217c80ec784c40129c9acc5fe03ce8cbbe0c55cc4402d8f9b"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-06.json",
+      "mode": "file",
+      "sha256": "040bbe7facf6cc62ef3ddf38fd2255241685eaffeb7b99d8f896b9da6fd50ae1"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-07.json",
+      "mode": "file",
+      "sha256": "32dc1a3c0c9a5ffe4ba487d8bd2bcc3c2a244ebb2e794e86047fffcd72712243"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-08.json",
+      "mode": "file",
+      "sha256": "6ba02286b7716f3e1cbb7393d10f337a42348ed6d8bc26210e9ac4781efb5fff"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-09.json",
+      "mode": "file",
+      "sha256": "d621993c7b169ebf8392b6a409213db2a60ace025563774049df1cedbe038d57"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-10.json",
+      "mode": "file",
+      "sha256": "7cb927d8c581a5fc8e470f66c4973688d82e8f7cc370382a8ed7f99e55fe1f3f"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-11.json",
+      "mode": "file",
+      "sha256": "80786a82f5dba8c9c2ffef919d27e18edef0975e9c48c3b4d9ceebdda340a51e"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-12.json",
+      "mode": "file",
+      "sha256": "7bd31189efdfa5003bb6df83d514764d8a84ee28cb463fcccd45d00947250921"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-13.json",
+      "mode": "file",
+      "sha256": "640181701bc316129fc373951ddbf0a3cfef4be5aad8013c27ba7c4f740da498"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-14.json",
+      "mode": "file",
+      "sha256": "39aecf8c9adc2bc611bcf8df70733e052fd1818302b84f27c80372ba745e32a4"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted-api-15.json",
+      "mode": "file",
+      "sha256": "f5d11c74ffd28bda0b2ca30fe7a879ebaae6855c0dad0366a78a193291ff81fc"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "9b25ecd4e9a708e7fbd97f1cb35f2e4e74364ca4b1975e64ff03bcfc353382bb"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-bound.json",
+      "mode": "file",
+      "sha256": "f8bf8b7a408ccb76efef1ec453eee53e176d0ec312ec360faef344f422f85d8a"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-chronology.json",
+      "mode": "file",
+      "sha256": "b03a7417ce298b2eb2e5a9bde0ca0fecbc46ec3a9e85ec814be7a12f46d672b2"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-01.json",
+      "mode": "file",
+      "sha256": "d127b17f92531ff4b2b5bbd5afd0d9e0b282ca8b985e1d9b34c66bcfb16c16bb"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-02.json",
+      "mode": "file",
+      "sha256": "76477a9bee5e3edb02e569d2b962b378ad62e28b8c3222dbe80fa0f77a0a299c"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-03.json",
+      "mode": "file",
+      "sha256": "27f34259ca5f8e76d7faef0b56007887802ee745752885689e4832db2441ab98"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-04.json",
+      "mode": "file",
+      "sha256": "9da5fbfbacd997f739a9206b1ed43a134c0eea501f039c2673c087d6ef914eb7"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-05.json",
+      "mode": "file",
+      "sha256": "c16ca5082df54e535e044c37bcf8e3107c4f8cfb54fb8ac23d7f70b242dcef25"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-06.json",
+      "mode": "file",
+      "sha256": "75fcca5084258efceafeb51b5d2391f6d27f58259dcdbf3086f7d3e906a1ea7d"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-07.json",
+      "mode": "file",
+      "sha256": "27fe6ad2032723592b60b2a9e5b425d803a676ded1559752ab486cf246baa947"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-08.json",
+      "mode": "file",
+      "sha256": "5246e6a77682e7a0d91cf098235d55e586900d4f941153c3829ca1776f29fe84"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-09.json",
+      "mode": "file",
+      "sha256": "385a2a1b63e52c360f47d8b5fc861a74d7db93707616ac83e9df7c888c0797b8"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-10.json",
+      "mode": "file",
+      "sha256": "a5c1b272c4ae2a0337e4b1f752e9de09115dfd5382dd9e0fddb8435831d56a5f"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-11.json",
+      "mode": "file",
+      "sha256": "c0a7f3cb97b9200ceca736f7a5fd0a9944476262c372365c80111cb655a6041b"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-12.json",
+      "mode": "file",
+      "sha256": "9c2aa23fa547bbb532f8fb4f3c15cd3ec0192a781b1bd80170af0ad46fb16fbd"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-13.json",
+      "mode": "file",
+      "sha256": "ba1dd4bebb631dcb5eca8b6dcde1fcba0c7c6091ac4b8db261ac0e00af3dd00e"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-14.json",
+      "mode": "file",
+      "sha256": "89d58b284228af70b197aed5368c2bf457187eabcfb747d8c497ae63113c5896"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final-api-15.json",
+      "mode": "file",
+      "sha256": "748d9aca850480bfa3f65025ed96ac2e9fb986dc2f8d6b15fadc18b857c8c40a"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-final.json",
+      "mode": "file",
+      "sha256": "40df8e11ee65b092dbf63da8051c408a9bd089f0d0e8cf189ded1a18daebf3ab"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-reference.json",
+      "mode": "file",
+      "sha256": "4185aea55b9bbb08441985bc23da1584ff1d948271cd36785e9089228b4b6d8f"
+    },
+    {
+      "path": "tests/fixtures/library/physical-partition-pnl-wire.json",
+      "mode": "file",
+      "sha256": "b0e86c0c9131e5e44de80357358d6c22d29a85b038a80ff811caffeca8c55c92"
+    },
+    {
+      "path": "tests/fixtures/library/physical_partition_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "df4ee6d84f33f0a139d3593d3fd4aafbe0674bc291fdbaf5b36c8c94267ce6ba"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "348a619b392fed0007ea517191685951746dd7cf776842905e1eda67ec59ca55"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_bound.py",
+      "mode": "file",
+      "sha256": "4a053634aa32b57e63027096252cadcf0e430d09f1cea523caf5b921d446a9ba"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_census.py",
+      "mode": "file",
+      "sha256": "e0f03a71f4c28b201a55ce8e5e6adfc123a662b1ee41809d803e33fd3f96b260"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_chronology.py",
+      "mode": "file",
+      "sha256": "3c7c9e171b0dd3309b6830690e12fa894c9bbba304b5d5c4f8aa741a8170de2d"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_final.py",
+      "mode": "file",
+      "sha256": "823d5aa5e0edaad3209dd36730726a34d8a73690fc22e1b40ba9fdfe00ebb102"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_final_census.py",
+      "mode": "file",
+      "sha256": "52969210e51f33934147a4e0636a1d46d679c0010480280b64e4f4822ee195a2"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_parity.py",
+      "mode": "file",
+      "sha256": "4e63d1588fe4fe173ebfb1015e131f0195699f49611c850eacd91ce825dfc026"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_reference.py",
+      "mode": "file",
+      "sha256": "38af265495c500ea3166e053f056c4f416da16af4a26f296f27be538c23ecbca"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_schema.py",
+      "mode": "file",
+      "sha256": "d194c0f3f80ab88c2bfc2cc8e9def175479e01f958283f6c45bd3edebeb71ef8"
+    },
+    {
+      "path": "tests/scripts/physical_partition_pnl_wire.py",
+      "mode": "file",
+      "sha256": "43f3d2e7db9a55c77d129d42b7ffa261b821a432a58cbbb52e853118f7523a41"
     }
   ]
 }
