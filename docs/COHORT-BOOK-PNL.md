@@ -463,3 +463,35 @@ roles, successive custody and disposal, outstanding delivery through bullet
 maturity, real cash receipts and full mixed-book models/CTD switches. This uses
 the existing native preparation and JSON operation without an API migration.
 Managed/browser execution and production/latency certificates remain open.
+## Earned cash on physical custody children
+
+An acquired custody child can own an original fixed-bond coupon or principal
+claim through an explicit `dated_entitlements` record. Supply its complete native
+earned proposal, exact entitlement source, legal residual fraction and ordered
+receipt cutoff. Earlier actual receipts remain excluded with their original
+recipients, including receipts supplied in the child's historical replay before
+security custody. Native admission verifies that the child is acquired at every
+applied cash point. Security face never establishes a cash right.
+
+An earned-claim transfer uses the same original proposal and residual identity.
+Later receipts are allocated to the legal shares effective when each receipt
+occurred. Consumed custody parents and children with an actual received-stock
+disposal retain their separately owned cash. The delivery invoice and pending
+security receivable keep their original owners and provenance.
+
+An available independent Position experiment must supply its own complete
+baseline proposal, paid prefix, custody facts and legal parties. It cannot import
+later actual payments or other Event changes. Declare it unavailable when those
+prerequisites cannot be supplied independently. Delayed earned cash retains the
+distinct original pricing discount/spread removal and collateral cash discount,
+payment due-date, overdue and FX rules.
+
+Run `cargo run --locked -p convex --example child_cash_pnl`. The full controls
+cover signed first and successive custody children, excluded historical receipts,
+independent cash acquisition and transfers, subsequent actual cash, custody
+consumption/disposal and pending delivery. They also retain all preceding coupon,
+bullet principal and complete causal mixed-model/CTD books. Native amortizing
+physical invoices, conditional/floating/credit cash and post-delivery amendments
+still require their separate complete owners. This increment changes admission
+of existing fields; no type, schema, operation or C ABI migration is required.
+

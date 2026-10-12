@@ -706,3 +706,16 @@ embedded cash, and actual payments retain the native due-date guard. Run
 `cargo run --locked -p convex --example pending_cash_pnl`; see
 [pending-delivery cash](COHORT-BOOK-PNL.md#cash-rights-while-physical-delivery-is-pending).
 No new operation, type, schema field, C export or production authority is added.
+## Physical child earned cash
+
+The existing `cohort_book_pnl` operation admits explicitly dated fixed-bond cash
+on acquired physical custody children. Provide their original earned proposal,
+entitlement revision, residual fraction and complete original paid prefix; custody
+or disposal never supplies ownership. Earlier paid receipts remain excluded and
+later claim transfers preserve each actual recipient. Independent Position sets
+require their own complete baseline cash/custody prerequisites and cannot import
+later actual Event payments. See [the complete cash contract](COHORT-BOOK-PNL.md)
+and `cargo run --locked -p convex --example child_cash_pnl`. Existing fields,
+wire version, strict schemas and C exports are unchanged. Full managed/browser
+host, production and latency qualification remains open.
+

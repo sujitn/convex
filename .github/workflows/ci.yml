@@ -1223,6 +1223,45 @@ jobs:
       - name: Validate separate pending delivery cash C parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_parity.py --binary target/debug/examples/pending_cash_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Verify complete child cash reference declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_reference.py
+
+      - name: Verify complete child cash available declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_available.py
+
+      - name: Verify complete child cash wire declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_wire.py
+
+      - name: Verify complete child cash admitted declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_admitted.py
+
+      - name: Verify complete child cash reference_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_reference_census.py
+
+      - name: Verify complete child cash census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_census.py
+
+      - name: Qualify child cash native custody cash conservation
+        run: cargo test --locked --all-features -p convex-analytics --test child_cash -- --test-threads=1
+
+      - name: Qualify child cash four complete adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test child_cash_pnl -- --test-threads=1
+
+      - name: Qualify child cash default consumer
+        run: cargo run --locked -p convex --example child_cash_pnl
+
+      - name: Qualify child cash minimal consumer
+        run: cargo run --locked -p convex --example child_cash_pnl --no-default-features
+
+      - name: Qualify child cash schema consumer
+        run: cargo run --locked -p convex --example child_cash_pnl --features schemars
+
+      - name: Qualify child cash strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/child_cash_pnl_schema.py --binary target/debug/examples/child_cash_pnl
+
+      - name: Qualify child cash fresh C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_parity.py --binary target/debug/examples/child_cash_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1935,6 +1974,9 @@ jobs:
       - name: Build pending delivery cash Windows consumer
         run: cargo build --locked --profile excel -p convex --example pending_cash_pnl --features schemars
 
+      - name: Build complete child cash transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_cash_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -2042,6 +2084,9 @@ jobs:
         run: python tests/scripts/dated_cash_pnl_parity.py --binary target/excel/examples/dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
       - name: Retain pending delivery cash native envelopes for Windows transport
         run: python tests/scripts/pending_cash_pnl_parity.py --binary target/excel/examples/pending_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/pending-cash-pnl-parity.json
+
+      - name: Generate fresh child cash PInvoke parity
+        run: python tests/scripts/child_cash_pnl_parity.py --binary target/excel/examples/child_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-cash-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

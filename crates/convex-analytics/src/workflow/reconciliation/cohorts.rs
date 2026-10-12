@@ -1111,6 +1111,9 @@ pub fn prepare_cohort_pnl_with_dated_entitlements(
                         .entitlements
                         .iter()
                         .any(|e| e.key == claim.key && e.residual.is_some())
+                    && !dated
+                        .iter()
+                        .any(|d| d.origin == owner.trade_id && d.key == claim.key)
                 {
                     return Err(bad("cash transfer", "historically received cash cannot be acquired with an outstanding claim; supply a separate original residual claim owner"));
                 }
@@ -2536,16 +2539,39 @@ fn admit_physical_partitions(
                     "distinct complete same-direction native custody successors required",
                 ));
             }
+            let child_dated = dated
+                .iter()
+                .filter(|d| d.origin == owners[j].trade_id)
+                .map(|d| {
+                    (
+                        &d.key,
+                        d.residual
+                            .cutoff
+                            .receipt_ids
+                            .iter()
+                            .collect::<std::collections::BTreeSet<_>>(),
+                    )
+                })
+                .collect::<std::collections::BTreeMap<_, _>>();
             if owners[j].entitlements.iter().any(|e| {
                 e.entitled
                     && e.key.effective_date <= split.effective_date
-                    && !dated
-                        .iter()
-                        .any(|d| d.origin == owners[j].trade_id && d.key == e.key)
-            }) || states
-                .iter()
-                .any(|row| !row[j].payment_receipt_events().is_empty())
-            {
+                    && !child_dated.contains_key(&e.key)
+            }) || states.iter().enumerate().any(|(i, row)| {
+                row[j].payment_receipt_events().iter().any(|event| {
+                    let l::LifecycleAction::Payment(receipt) = &event.action else {
+                        return true;
+                    };
+                    // Native dated admission below proves the exact earned
+                    // proposal, legal source, acquired party and immutable
+                    // paid prefix. Before custody, every actual receipt is
+                    // excluded from the subsequently acquired cash right.
+                    child_dated.get(&receipt.obligation).is_none_or(|excluded| {
+                        !split.applied_points.contains(&i)
+                            && !excluded.contains(&receipt.receipt_id)
+                    })
+                })
+            }) {
                 return Err(bad(
                     "physical earned cash",
                     "original earned cash and historical receipts stay with their original owner",

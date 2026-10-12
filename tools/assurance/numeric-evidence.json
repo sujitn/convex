@@ -6882,6 +6882,231 @@
       "path": "tests/scripts/pending_cash_pnl_schema.py",
       "mode": "file",
       "sha256": "a8b68b191cedd72a2df710673555a98dc11f5f0dc2cb80151ebad20a70ed2466"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/ChildCashPnlTest.java",
+      "mode": "file",
+      "sha256": "e58fff909ebcec11cf57086a784eb27f86f34f7ce9c3bc6312a5e142c3756525"
+    },
+    {
+      "path": "crates/convex-analytics/tests/child_cash.rs",
+      "mode": "file",
+      "sha256": "dd45134e617bbcf1e80c943ef6fd0598fbe4ca0b6ccbdc6df10fe36a210f2f9c"
+    },
+    {
+      "path": "crates/convex-ffi/tests/child_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "9d040e5cd193d8e0d12aa922cf8171dd5195b2cb7bb347509e71b34ba1933d6c"
+    },
+    {
+      "path": "crates/convex-mcp/tests/child_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "c8e390d2bef0376b8ae880d7ace7ca288c15ece70f8d69444a07c277e3e388a8"
+    },
+    {
+      "path": "crates/convex-wasm/tests/child_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "1f9ba6b9a7d89a27fe5b9aa085e1f7158725ab66338302f478bbf01348210437"
+    },
+    {
+      "path": "crates/convex/examples/child_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "6b2ce200368344407245f4d5f7c8d6c7ddbd837bb117214f1b884268be591fb0"
+    },
+    {
+      "path": "crates/convex/tests/child_cash_pnl.rs",
+      "mode": "file",
+      "sha256": "d496c8b398a7b08b2536753f93c8e08f7920d9bc9de67106074c96e0e63336f7"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/ChildCashPnlTests.cs",
+      "mode": "file",
+      "sha256": "2718ae98ee95506bb0bba1ed01b243ebf364f8a929e500ad0e60ab8194442bf3"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-01.json",
+      "mode": "file",
+      "sha256": "eb71f597bf40bb1a69859e6dedd61eb18ebaf816e2dbf62f930862e3f830c2c8"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-02.json",
+      "mode": "file",
+      "sha256": "1569f2a64b263d41f5cf2c9cc87f8aaaa29401340560d204f63a1117913dffa6"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-03.json",
+      "mode": "file",
+      "sha256": "c97006047c9962ac1ba5acc427711423517a3a3a230491a59ab30c82ee989879"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-04.json",
+      "mode": "file",
+      "sha256": "b5e2f175afcb5c70427e4a122e7a8d9eb782191ca2bbf8a31ced3b32366b776b"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-05.json",
+      "mode": "file",
+      "sha256": "ec7e410ac7c90f32cb3259ad924fc881e08584c21d863aad8a5df95c7b5d31ef"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-06.json",
+      "mode": "file",
+      "sha256": "366fe6de7aa9c183adda953705ef00ad618178197e8850a810b0ac5c183815ea"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-07.json",
+      "mode": "file",
+      "sha256": "12f20f6e4653bac98edcf4171176cc5a780cff66466619a35eb73edb1a989892"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-08.json",
+      "mode": "file",
+      "sha256": "2a8ce8e62288fd15511c7c778a6b96c40a00f4d71070189588638081ed34d8c1"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-09.json",
+      "mode": "file",
+      "sha256": "59c5435e4a23b74ab215ab35aac917c4ed1f0e3906b171c0d594b2c9f5cb5b0d"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-10.json",
+      "mode": "file",
+      "sha256": "f46207d41d34eac6ae834362ec0c2803c8825550f76de0fe8ecf495718d77643"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-11.json",
+      "mode": "file",
+      "sha256": "12714112af63e77075a31d467e706bc5a1bb31fa2c1299b68d93eb006584faac"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted-api-12.json",
+      "mode": "file",
+      "sha256": "0a984467abf387d7e267c82231a3e95d2db7b2b2ceb8c2e04f50f6d1437ffe00"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "5c4172eafaddd9c106717fa2a603419c3958205875916db64bc09171d199ece2"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-available.json",
+      "mode": "file",
+      "sha256": "4f2c4bd86d00c75d6caa8d01797c49772dfc252cd60ccdfed89355411412619c"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-01.json",
+      "mode": "file",
+      "sha256": "2c2b76facb6e77479ff2572838743861c2ed3d3d1e323a14baa7f71430bc0ef5"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-02.json",
+      "mode": "file",
+      "sha256": "592d68057927040289eb31a45f5f6ed97e8aa99518d83b6010c1006da2a87120"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-03.json",
+      "mode": "file",
+      "sha256": "416f3c32aacb9baed1774f75b7f1f0ab4acf56909e55c883333c77f4261f7bfd"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-04.json",
+      "mode": "file",
+      "sha256": "a2034c60ecaf10a3d92696c93be1ab3ab04d957f4d123aaa405c95bc6f25ce70"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-05.json",
+      "mode": "file",
+      "sha256": "11e92cbb23c45fa08579cac2c3873120582a1afd1f2414947adb57d82e28c4b0"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-06.json",
+      "mode": "file",
+      "sha256": "dd5513623534d23fcafb6f3cb5cf5cf1dc7ae9f63a160318246d18fdc3040f89"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-07.json",
+      "mode": "file",
+      "sha256": "0ec16fd7b2b25a2f70e325f02fedf3eef87834464b314ab6f065562b331136e2"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-08.json",
+      "mode": "file",
+      "sha256": "105d3f22e07c6f1120e1f5b84fcd79b7cdbb682502d9b8129fc7203be39168e2"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-09.json",
+      "mode": "file",
+      "sha256": "0a0c409ee5319c56ea4c0ca026ae242f431be6e3fc0998f391d44441b13eac7d"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-10.json",
+      "mode": "file",
+      "sha256": "e19acf87391477aa10582147881168c32405f2b23f3cc603315629cb8cc2cdd1"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-11.json",
+      "mode": "file",
+      "sha256": "f3ae1591001ae28f85ba1826f2495090e9edf702d7d4c790a8826871d41b4da9"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference-api-12.json",
+      "mode": "file",
+      "sha256": "afb52f319d6e7af436db1bfeb2c2196534c5b0a74e86982c254e6b9aa18dec06"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-reference.json",
+      "mode": "file",
+      "sha256": "628ee25ecfea81610d4dc0691cc70ecb79efc9b6f980e1d4fc630165badd9e62"
+    },
+    {
+      "path": "tests/fixtures/library/child-cash-pnl-wire.json",
+      "mode": "file",
+      "sha256": "e07afcbfec373293638bc4be25c01bcd65385e32710c3d824670468c5e41ca31"
+    },
+    {
+      "path": "tests/fixtures/library/child_cash_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "5449bf1fb22169717b8087e9aa20380e68f371bc5aeed5bbc647e815e7c70478"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "a3aab4e16961053dabc71e86341accd6cbdf61e9afebd57bd39de9eb9fce1271"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_available.py",
+      "mode": "file",
+      "sha256": "11d5c5227e77816e88f23a410aaf94a38abaffb71a6393f67a59be07c15f738f"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_census.py",
+      "mode": "file",
+      "sha256": "3bcd986c123613ee1c4abc62086de47a96618ebe90318fe466e6b27d3dd401b6"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_parity.py",
+      "mode": "file",
+      "sha256": "2e5d98e7294e00b96df934ea8e075864ffaa26986ad0e90c5e64023e016fe85a"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_reference.py",
+      "mode": "file",
+      "sha256": "cd4987d54477898c4735808a1e7ab110b0ac79ad534ff5bfe29eb4c54b114a84"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_reference_census.py",
+      "mode": "file",
+      "sha256": "eb31a87d1ee689ce5197fca9e4205e21cd8a706d66357990eb0d2545bbfe0eed"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_schema.py",
+      "mode": "file",
+      "sha256": "5ec5572c40445d6ccf3b8a01f99257bcb6b08d383e45070141ca241e6c0bd084"
+    },
+    {
+      "path": "tests/scripts/child_cash_pnl_wire.py",
+      "mode": "file",
+      "sha256": "46e54432a671e524f5a5056ff5d76aa1af3c2f83c176cd69e5417841e2f06126"
     }
   ]
 }

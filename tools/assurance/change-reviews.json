@@ -3157,6 +3157,60 @@
         "tools/library/library-inventory.json": "5b2660cef8cd8a829238430d67e5a33eaa0270d8d5e34d22934c82df04c6292a",
         "tools/library/test_operations.py": "2caee78061eb011f03cb54ea682520823672ef64480dd6c475c6888bb795098b"
       }
+    },
+    {
+      "base_commit": "0cdc032f49c8a4c3764d117f585796ed47d318d3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-12",
+      "rationale": "CVX-063 scoped explicitly dated fixed-bond coupon cash on acquired first and successive physical custody children, original paid-prefix exclusions, actual subsequent receipts and independently available earned-claim transfers with complete baseline cash/custody prerequisites. The existing native proposal/residual/share/custody/disposal and full product/model/history/CTD owners are reused. Only two original admission checks change: exact dated residual ownership can exclude historical child receipts, and original dated validation proves full earned proposal/source/party/cutoff before any cash valuation. Separate key/receipt sets retain bounded work. Later actual Event payments cannot enter independent Position experiments. Six signed whole child books plus ten preserved whole original pending/mixed/CTD books,1349 native revaluations and19 typed failures on35 complete requests are predeclared. All old full financial checkers, bounds/defaults/rows/requests and mandatory Planned definitions remain. No native type/schema/operation/wire/C export/dependency or pricer/framework/provider/DB/MQ/clock/ledger/execution owner is added. Child principal/maturity cross-composition, broader conditional/floating/credit/novation/amendment claims, amortizing invoices, delivery financing/options, further models/managed/browser hosts/scale/latency/production and independent certificates remain open. CVX063 stays partial/unaccepted/uncertified; local commits only.",
+      "tests": [
+        "Predeclared full independent dated-cash/native controls with original proposals, paid prefixes, actual custody/disposal/invoices, full causal mixed models and all CTD switches; retained failed trials and separate repairs",
+        "Actual complete native reconstruction/conservation, four adapters, strict schema and separate fresh C parity",
+        "Original37943 financial comparisons, workspace/lint/docs/fmt and conservation/assurance/API/private harness"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "6a7defee9d79d2d60ac282201d63cbcf207e734a9545f79590ebe4eb0fe37c89",
+        ".github/workflows/java.yml": "bfddda82a96acda1f45f545836c46c4b6d8eb4b5051eefdbb6cee887d5a5c829",
+        "crates/convex-analytics/src/workflow/reconciliation/cohorts.rs": "debe23b3aab431f2544cfceac8f1177fa5e9d09b75278f39e2da7641a028e7be",
+        "crates/convex-analytics/tests/child_cash.rs": "dd45134e617bbcf1e80c943ef6fd0598fbe4ca0b6ccbdc6df10fe36a210f2f9c",
+        "crates/convex-ffi/tests/child_cash_pnl.rs": "9d040e5cd193d8e0d12aa922cf8171dd5195b2cb7bb347509e71b34ba1933d6c",
+        "crates/convex/examples/child_cash_pnl.rs": "6b2ce200368344407245f4d5f7c8d6c7ddbd837bb117214f1b884268be591fb0",
+        "crates/convex/tests/child_cash_pnl.rs": "d496c8b398a7b08b2536753f93c8e08f7920d9bc9de67106074c96e0e63336f7",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-01.json": "eb71f597bf40bb1a69859e6dedd61eb18ebaf816e2dbf62f930862e3f830c2c8",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-02.json": "1569f2a64b263d41f5cf2c9cc87f8aaaa29401340560d204f63a1117913dffa6",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-03.json": "c97006047c9962ac1ba5acc427711423517a3a3a230491a59ab30c82ee989879",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-04.json": "b5e2f175afcb5c70427e4a122e7a8d9eb782191ca2bbf8a31ced3b32366b776b",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-05.json": "ec7e410ac7c90f32cb3259ad924fc881e08584c21d863aad8a5df95c7b5d31ef",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-06.json": "366fe6de7aa9c183adda953705ef00ad618178197e8850a810b0ac5c183815ea",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-07.json": "12f20f6e4653bac98edcf4171176cc5a780cff66466619a35eb73edb1a989892",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-08.json": "2a8ce8e62288fd15511c7c778a6b96c40a00f4d71070189588638081ed34d8c1",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-09.json": "59c5435e4a23b74ab215ab35aac917c4ed1f0e3906b171c0d594b2c9f5cb5b0d",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-10.json": "f46207d41d34eac6ae834362ec0c2803c8825550f76de0fe8ecf495718d77643",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-11.json": "12714112af63e77075a31d467e706bc5a1bb31fa2c1299b68d93eb006584faac",
+        "tests/fixtures/library/child-cash-pnl-admitted-api-12.json": "0a984467abf387d7e267c82231a3e95d2db7b2b2ceb8c2e04f50f6d1437ffe00",
+        "tests/fixtures/library/child-cash-pnl-admitted.json": "5c4172eafaddd9c106717fa2a603419c3958205875916db64bc09171d199ece2",
+        "tests/fixtures/library/child-cash-pnl-available.json": "4f2c4bd86d00c75d6caa8d01797c49772dfc252cd60ccdfed89355411412619c",
+        "tests/fixtures/library/child-cash-pnl-reference-api-01.json": "2c2b76facb6e77479ff2572838743861c2ed3d3d1e323a14baa7f71430bc0ef5",
+        "tests/fixtures/library/child-cash-pnl-reference-api-02.json": "592d68057927040289eb31a45f5f6ed97e8aa99518d83b6010c1006da2a87120",
+        "tests/fixtures/library/child-cash-pnl-reference-api-03.json": "416f3c32aacb9baed1774f75b7f1f0ab4acf56909e55c883333c77f4261f7bfd",
+        "tests/fixtures/library/child-cash-pnl-reference-api-04.json": "a2034c60ecaf10a3d92696c93be1ab3ab04d957f4d123aaa405c95bc6f25ce70",
+        "tests/fixtures/library/child-cash-pnl-reference-api-05.json": "11e92cbb23c45fa08579cac2c3873120582a1afd1f2414947adb57d82e28c4b0",
+        "tests/fixtures/library/child-cash-pnl-reference-api-06.json": "dd5513623534d23fcafb6f3cb5cf5cf1dc7ae9f63a160318246d18fdc3040f89",
+        "tests/fixtures/library/child-cash-pnl-reference-api-07.json": "0ec16fd7b2b25a2f70e325f02fedf3eef87834464b314ab6f065562b331136e2",
+        "tests/fixtures/library/child-cash-pnl-reference-api-08.json": "105d3f22e07c6f1120e1f5b84fcd79b7cdbb682502d9b8129fc7203be39168e2",
+        "tests/fixtures/library/child-cash-pnl-reference-api-09.json": "0a0c409ee5319c56ea4c0ca026ae242f431be6e3fc0998f391d44441b13eac7d",
+        "tests/fixtures/library/child-cash-pnl-reference-api-10.json": "e19acf87391477aa10582147881168c32405f2b23f3cc603315629cb8cc2cdd1",
+        "tests/fixtures/library/child-cash-pnl-reference-api-11.json": "f3ae1591001ae28f85ba1826f2495090e9edf702d7d4c790a8826871d41b4da9",
+        "tests/fixtures/library/child-cash-pnl-reference-api-12.json": "afb52f319d6e7af436db1bfeb2c2196534c5b0a74e86982c254e6b9aa18dec06",
+        "tests/fixtures/library/child-cash-pnl-reference.json": "628ee25ecfea81610d4dc0691cc70ecb79efc9b6f980e1d4fc630165badd9e62",
+        "tests/fixtures/library/child-cash-pnl-wire.json": "e07afcbfec373293638bc4be25c01bcd65385e32710c3d824670468c5e41ca31",
+        "tests/fixtures/library/child_cash_pnl_contract.rs": "5449bf1fb22169717b8087e9aa20380e68f371bc5aeed5bbc647e815e7c70478",
+        "tools/assurance/inventory.json": "4ca96bd9824f73a567b0cafe5d913f8205fc90ea9049f3602d495f169eb8b93a",
+        "tools/assurance/numeric-evidence.json": "0099bc65f7b730339694474178b2550c23be6f2c0afb5ccaeb7d85e2813ea9e0",
+        "tools/library/api-capabilities.json": "fec3ef18cd307da31bb8d31ce247a265fddd8001c610fa88d703d50f81508b49",
+        "tools/library/library-inventory.json": "7330b4d913bfa35682798dffefbf5c985af9d57ad4dab0c782dde0125f18f60d",
+        "tools/library/test_operations.py": "d8015eb7ec3d8c9e17e800e11dda6c2d058e49254b82768cbc1735cc1430527b"
+      }
     }
   ]
 }
