@@ -21,7 +21,7 @@ before/ordered/standalone points and numerical policies described in
 |---|---|
 | `cohorts` | One exact signed original lifecycle lot per expected holding, in the same order. |
 | `cohorts[].acquisition` | Already owned at opening, one full actual fill, or the checked physical delivery from one exact future. |
-| `cohorts[].disposal_fill` | Optional full actual disposal of that acquired original lot. |
+| `cohorts[].disposal_fill` | Optional full actual disposal of a nonphysical acquired original lot. Physical stock uses exact `physical_disposals` facts. |
 | `cohorts[].entitlements` | Every actual replayed original cash key appears exactly once with an explicit owned/excluded decision and supplied immutable legal source. |
 | `cohorts[].entitlements[].residual` | Optional distinct legal residual ID, owned fraction and exact acquisition cutoff with the complete original prior receipt IDs. |
 | `physical_deliveries` | Exact original future, separate cash-bond cohort and actual delivered security revision. |
@@ -280,14 +280,14 @@ The future retains invoice provenance without counting it as variation cash.
 Partitions persist on the ordered path and apply only to available independent
 Position experiments. Foreign/missing delivery, omitted/reordered receipt prefix,
 unavailable knowledge, duplicate custody, incomplete/overdrawn face, mismatched
-security and unsupported successor re-partition/disposal fail explicitly. At most
+security and unsupported conditional custody facts fail explicitly. At most
 128 holdings and partitions, 33 points and 4,224 full product marks remain; each
 cutoff has at most4,096 receipts. Shares must be exactly representable under the
-original Decimal face owner. Further physical successor lineage and conditional
-delivery models require their complete owners. The native preparation signatures
+original Decimal face owner. Conditional delivery models require their complete
+owners. The native preparation signatures
 delegate with empty partitions; JSON omission defaults to empty. Rust
 `CohortBookPnlInput` literals must supply `physical_partitions: Vec::new()` or a
-complete list.
+complete list, and `physical_disposals: Vec::new()` or complete actual disposal facts.
 
 Run `cargo run --locked -p convex --example physical_partition_pnl`. The active
 independent corpus is `physical-partition-pnl-final.json`; all preceding
@@ -297,3 +297,57 @@ recipients and entire invoice transfers, plus the original complete mixed cash
 books and CTD switches. Thirty-five full malformed controls and direct native
 conservation tests remain separate from transport parity. Actual managed/browser
 hosts, broader delivery models and production/latency qualification remain open.
+
+Successors may be partitioned again after their own actual acquisition. Each
+partition binds the same original `future` and `delivery_id`; the parent must be
+an acquired live custody cohort. Children conserve the parent's remaining signed
+stock plus delivery receivable. Actual acquisition precedes later partitions in
+the ordered path and every independently supplied information set includes its
+complete available ancestry. Cycles, double acquisition or consumption, foreign
+security revisions and missing ancestry fail explicitly. All original delivery,
+notice, security, basket, CF, accrual, rounding and receipt events remain visible.
+`physical_delivery.lineage` records the complete successive legal ancestry.
+
+The additive `physical_disposals` list binds each actual stock disposal to:
+
+- Unique legal `id`, acquired `asset`, original `future` and `delivery_id`.
+- An existing actual `fill_id` with full original quantity, consideration and fees.
+- Exact `effective_date` and `known_at` matching that fill, an immutable `source`,
+  the complete original security `receipt_ids` cutoff, and `applied_points`.
+- Nonempty `receipts`, each naming an original `receipt_id` and the exact signed
+  received `face` disposed from this legal owner.
+
+Receipt allocations must be distinct, already available and within this cohort's
+remaining stock. Their signed sum must exactly oppose the actual fill quantity.
+Disposal subtracts received stock; the remaining security receivable is unchanged.
+It creates no fill, consideration, fee, payment or invoice ownership. Subsequent
+partitions conserve the remaining custody after disposal. At every point,
+remaining proposed face plus actual disposed face equals the original full
+delivery; remaining received face plus disposed face equals original actual
+receipts. `proposed_face = received_face + outstanding_face` still holds for each
+legal owner. `partition.receipts` shows remaining owned receipt face, and
+`physical_delivery.disposals` retains full legal facts, actual fills, original
+checked receipt events and exact removed face with the disposing cohort.
+
+For example, an original 200,000 face delivery is split into 80,000 and 120,000.
+After 50,000 face arrives, the first child holds 20,000 with 60,000 still due. An
+actual 10,000 stock sale leaves 10,000 received plus 60,000 due. Its later partition
+into 17,500 and 52,500 allocates 2,500/7,500 received and 15,000/45,000 outstanding.
+The disposing parent retains its actual sale cash and fees. Paid invoice recipients
+and outstanding invoice shares remain governed by the original separate cash
+facts, even after the entire received stock has been sold or custody consumed.
+
+Up to 128 actual disposal facts and 4,096 receipt allocations per fact are admitted
+within the existing holding/point/product limits. Historical receipts and cash,
+native quantities, legal sources, independent information sets and exact Decimal
+conservation remain checked before pricing. Actual disposal after consumption,
+overdrawn stock, unmatched/competing fills, omitted receipt prefixes, unavailable
+knowledge, changed history and unused facts produce typed failures.
+
+Run `cargo run --locked -p convex --example custody_lineage_pnl`. The complete
+independent controls are `custody-lineage-pnl-admitted.json`; all preceding
+declarations and failures remain retained. The native entry point is
+`prepare_cohort_pnl_with_disposals`; earlier signatures delegate with an empty
+disposal list. JSON omission defaults empty. Native Rust/C/MCP/WASM tests,
+independent full model controls and transport parity are distinct evidence;
+managed/browser execution and production/latency certificates remain open.

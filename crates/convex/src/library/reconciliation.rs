@@ -170,6 +170,9 @@ pub struct CohortBookPnlInput {
     /// Complete checked physical custody partitions, independently of invoice cash.
     #[serde(default)]
     pub physical_partitions: Vec<w::PhysicalDeliveryPartition>,
+    /// Exact actual received-security disposals; no delivery receivable or cash is inferred.
+    #[serde(default)]
+    pub physical_disposals: Vec<w::PhysicalDeliveryDisposal>,
 }
 pub(super) fn reconcile_cohorts(
     input: &CohortBookPnlInput,
@@ -179,6 +182,13 @@ pub(super) fn reconcile_cohorts(
         || input.physical_deliveries.len() > 128
         || input.claim_transfers.len() > 128
         || input.physical_partitions.len() > 128
+        || input.physical_disposals.len() > 128
+        || input.physical_disposals.iter().any(|d| {
+            d.receipt_ids.len() > 4096
+                || d.receipts.is_empty()
+                || d.receipts.len() > 4096
+                || d.applied_points.len() > 33
+        })
         || input.physical_partitions.iter().any(|p| {
             p.receipt_ids.len() > 4096
                 || p.split.applied_points.len() > 33
@@ -305,13 +315,14 @@ fn reconcile_inner(
             .map(|rows| rows.iter().map(|r| r.state.clone()).collect())
             .collect::<Vec<_>>();
         Some((
-            w::prepare_cohort_pnl_with_delivery_partitions(
+            w::prepare_cohort_pnl_with_disposals(
                 &declaration,
                 &c.cohorts,
                 &c.physical_deliveries,
                 &c.lot_splits,
                 &c.claim_transfers,
                 &c.physical_partitions,
+                &c.physical_disposals,
                 &states,
             )
             .map_err(native_error)?,

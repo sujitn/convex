@@ -673,8 +673,14 @@ cutoffs. `claim_transfers` may allocate the earned original delivery invoice fro
 its future proposal/receipt origin and linked initial cash asset. Custody and cash
 recipients remain distinct; original receipts, signed face, full native products,
 causal P&L and CTD changes remain. JSON omission defaults empty; Rust
-`CohortBookPnlInput` literals add `physical_partitions: Vec::new()` or full facts.
+`CohortBookPnlInput` literals add `physical_partitions: Vec::new()` and
+`physical_disposals: Vec::new()` or complete actual facts. Successive same-delivery
+partitions conserve remaining received stock and security receivables after
+actual acquisition. `physical_disposals` binds existing actual fills to exact
+original received-security allocations; it leaves remaining deliveries and invoice
+cash independent. Full original ancestry, receipts, actual fills, consideration
+and fees survive the causal P&L path. Paid cash recipients remain fixed.
 No operation/version/C symbol changes. Run
-`cargo run --locked -p convex --example physical_partition_pnl` and see
+`cargo run --locked -p convex --example custody_lineage_pnl` and see
 [the complete custody contract](COHORT-BOOK-PNL.md). This scoped engineering
 behavior does not confer actual managed/browser or production/latency certification.

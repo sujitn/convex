@@ -1079,6 +1079,51 @@ jobs:
       - name: Original physical custody separate C parity
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_parity.py --binary target/debug/examples/physical_partition_pnl --library target/debug/libconvex_ffi.so
 
+      - name: Complete custody lineage reference declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_reference.py
+
+      - name: Complete custody lineage bound declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_bound.py
+
+      - name: Complete custody lineage bindings declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_bindings.py
+
+      - name: Complete custody lineage units declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_units.py
+
+      - name: Complete custody lineage admitted declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_admitted.py
+
+      - name: Complete custody lineage census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_census.py
+
+      - name: Complete custody lineage units_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_units_census.py
+
+      - name: Complete custody lineage admitted_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_admitted_census.py
+
+      - name: Native custody lineage and actual disposal conservation
+        run: cargo test --locked --all-features -p convex-analytics --test custody_lineage -- --test-threads=1
+
+      - name: Four actual custody lineage adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test custody_lineage_pnl -- --test-threads=1
+
+      - name: Custody lineage default consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl
+
+      - name: Custody lineage minimal consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl --no-default-features
+
+      - name: Custody lineage schema consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl --features schemars
+
+      - name: Complete custody lineage strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/custody_lineage_pnl_schema.py --binary target/debug/examples/custody_lineage_pnl
+
+      - name: Custody lineage separate actual C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_parity.py --binary target/debug/examples/custody_lineage_pnl --library target/debug/libconvex_ffi.so
+
       - name: Independent residual claim reference
         run: python3 tests/scripts/residual_pnl_reference.py
 
@@ -1784,6 +1829,9 @@ jobs:
       - name: Build original custody Excel transport
         run: cargo build --locked --profile excel -p convex --example physical_partition_pnl --features schemars
 
+      - name: Build successive custody disposal Excel transport
+        run: cargo build --locked --profile excel -p convex --example custody_lineage_pnl --features schemars
+
       - name: Build full delivery basket hedge Excel consumer
         run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
 
@@ -1884,6 +1932,9 @@ jobs:
 
       - name: Original physical custody Excel transport
         run: python tests/scripts/physical_partition_pnl_parity.py --binary target/excel/examples/physical_partition_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/physical-partition-pnl-parity.json
+
+      - name: Successive custody disposal Excel transport
+        run: python tests/scripts/custody_lineage_pnl_parity.py --binary target/excel/examples/custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
         run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json

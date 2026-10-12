@@ -6062,6 +6062,336 @@
       "path": "tests/scripts/physical_partition_pnl_wire.py",
       "mode": "file",
       "sha256": "43f3d2e7db9a55c77d129d42b7ffa261b821a432a58cbbb52e853118f7523a41"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/CustodyLineagePnlTest.java",
+      "mode": "file",
+      "sha256": "133e21ef386bc70dbc78bc37d8a704f207500a243349063d407ffa4f4491fb66"
+    },
+    {
+      "path": "crates/convex-analytics/tests/custody_lineage.rs",
+      "mode": "file",
+      "sha256": "4198bb1cebf2927174a78d2f1d549f6fdd03a51a07141b53377eb2f5fbb5c4a6"
+    },
+    {
+      "path": "crates/convex-ffi/tests/custody_lineage_pnl.rs",
+      "mode": "file",
+      "sha256": "17f6dcb5ab6d4f52f58df85571c39db2e26c74aac9a011820fc9f02e9f0713cd"
+    },
+    {
+      "path": "crates/convex-mcp/tests/custody_lineage_pnl.rs",
+      "mode": "file",
+      "sha256": "de06516b739e55aab113b0c28e44281b22bd646b6b5fde351eee1e1a409ec0b0"
+    },
+    {
+      "path": "crates/convex-wasm/tests/custody_lineage_pnl.rs",
+      "mode": "file",
+      "sha256": "decad767357d949a54efe130d02833af3396d1ca140e1140dd25d3fe4e60599b"
+    },
+    {
+      "path": "crates/convex/examples/custody_lineage_pnl.rs",
+      "mode": "file",
+      "sha256": "815a0275502b9ae4a3de8f08af8692c89f4d87ecf94e3f94711b7436db5947d7"
+    },
+    {
+      "path": "crates/convex/tests/custody_lineage_pnl.rs",
+      "mode": "file",
+      "sha256": "966ebb98cc51ac65e6c537d8af2a72082ef2fc011848c4976442e8a909dbe247"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/CustodyLineagePnlTests.cs",
+      "mode": "file",
+      "sha256": "a3c87f4a12e50fdfe4c5e2d78d050ccde9037641365db3f9b14ae94f7c7cec8c"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-01.json",
+      "mode": "file",
+      "sha256": "27218400914c7f2deb97c6dfb8d5d333986de1ae3ce3168f133f148a43fa4a91"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-02.json",
+      "mode": "file",
+      "sha256": "4306b0bd08330887f15746332a0ac21651ee4af7345b1584ae22e4ea266278df"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-03.json",
+      "mode": "file",
+      "sha256": "6252ece5d742ec9bc027c43bc3264aa0fdb6be04c30ec2195f5d237a235a70c7"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-04.json",
+      "mode": "file",
+      "sha256": "61a2bb71766a5e6e6bad2929c5100272a3004adcea7f463ebc4e5f502df0c7ba"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-05.json",
+      "mode": "file",
+      "sha256": "b4d1d7e0f23acda56dd0a4e9b03ddbdb46161d9271c2135fffceb6499d3c5c58"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-06.json",
+      "mode": "file",
+      "sha256": "5a9163d6f7e57aca91a923e83bbf76a08d10bcb5a9a145be7d23a6577cfb8ece"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-07.json",
+      "mode": "file",
+      "sha256": "0d768afc3f3dc63b3ae2bc6bff859f559436b1f13aad77dd532239bf66781db7"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-08.json",
+      "mode": "file",
+      "sha256": "12304635308cfc81a148cced4c19a037ec857f8f40d2d8faef83c6c87551468a"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-09.json",
+      "mode": "file",
+      "sha256": "4179c2f27521beecd3cc5b80d16206e1045d2eb8d251351d9fff0c359b92afd2"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-10.json",
+      "mode": "file",
+      "sha256": "295706a5ac385fe908958a4118c2dd8d2a4a2da56ee532a492971c8c93870471"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-11.json",
+      "mode": "file",
+      "sha256": "803dd5ab91521aad8d3d1c0004daa60c82d1a7b9652480fd07d24798d937f3ca"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-12.json",
+      "mode": "file",
+      "sha256": "7fe9b4c9d00a86675669a033f52e0fb320579be97a2d7ed9af0f0ad81d715cc1"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-13.json",
+      "mode": "file",
+      "sha256": "7815814d6bcb89173916c363638822f48c8719aea2bb5f45965bc06307fa80d3"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted-api-14.json",
+      "mode": "file",
+      "sha256": "d2bcb97c70778ff5908de5cce10eec4185a61f4a43497349ab8117bf9b5df0d3"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-admitted.json",
+      "mode": "file",
+      "sha256": "0383d082337eb93b11d940870281e242870981e901f6fdde171c491a1f1de2f0"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-01.json",
+      "mode": "file",
+      "sha256": "d8bec493eba681b74f6c7ea01156bdf6fae3a38c3f47c92f3c6cae37943a9524"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-02.json",
+      "mode": "file",
+      "sha256": "bd7e6076095da6088127ba1607fe0443f7a74d9eebd8292625a968ccc28d0d84"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-03.json",
+      "mode": "file",
+      "sha256": "f592ad768a875c47f6ec87678c42a77fad1d4de504c8f4d23754e835db37a112"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-04.json",
+      "mode": "file",
+      "sha256": "c41914e1ce08cce2c1af3a9d5a149c6d0c569d543883ba0947ec5c1fe6a930a6"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-05.json",
+      "mode": "file",
+      "sha256": "68467582180bbb3a5f4063abf5448826ffd5d7968d96b11cd1e5c310a1979dbc"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-06.json",
+      "mode": "file",
+      "sha256": "eebccae230719f00419755c090770d81b48181e20519a42c016cdb1a2e47596b"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-07.json",
+      "mode": "file",
+      "sha256": "9fd2a4d33e5a66f7cb57519818744509e98a2e23224fea839fd6978398197796"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-08.json",
+      "mode": "file",
+      "sha256": "de9599c8fe9a92227ea2b0c447eafe0cf503f96f2379b9feabb5bfd6fbfb79a2"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-09.json",
+      "mode": "file",
+      "sha256": "a0761fbbe95cc47340655a746362e8e30020da1ce3171c53a1055a801c24cbf0"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-10.json",
+      "mode": "file",
+      "sha256": "4f949280573316431f30c1b576cbb974dcfb18107532f382ac7cf2e7781bb35d"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-11.json",
+      "mode": "file",
+      "sha256": "449e8469f3ffcb9d5845a6b97d761dcef4d70685cb09ddca9bc5f22398c382fd"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-12.json",
+      "mode": "file",
+      "sha256": "b132142709e805194e70df2b8752a0838fb382af6648461e1b525757a5c675d4"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-13.json",
+      "mode": "file",
+      "sha256": "8ba9f2175dd9019dc843ed5f8e586dcb68d8894263274764abaa2f2c29aec657"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-api-14.json",
+      "mode": "file",
+      "sha256": "59095de2b4cb3db35a8bbca740d0dc2f10d741ead79857db0c67a0a669f86cba"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-bindings.json",
+      "mode": "file",
+      "sha256": "0bfbd334f4a2af6465647718141615e080bf2e1c4ac8d4bc3146862c96bd92a1"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-bound.json",
+      "mode": "file",
+      "sha256": "4b476dc67c5a3153498aa367e89102e8b90db75e72700a1da9daca76c5190b7b"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-reference.json",
+      "mode": "file",
+      "sha256": "b353df83f2cd3f1657f1bdbd05b31a50a605c5ad212ebcef003c9911eff2cbf2"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-01.json",
+      "mode": "file",
+      "sha256": "ce290773e637b0b58993e15da1f8088cde2c117b15d2cf41b11ff58d6e18ec83"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-02.json",
+      "mode": "file",
+      "sha256": "3f8aced93074ffa590bc902e388c4a79f5ddd71f98e81ace1534dedbd5711bc0"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-03.json",
+      "mode": "file",
+      "sha256": "f708987b888b072430127c5403526d8c7ba3fed0fdd3723e69d451c71962ed8c"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-04.json",
+      "mode": "file",
+      "sha256": "3fd078c0556838ad39781c7925a807af6c11526685cd0c44839b26cb3a4857bc"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-05.json",
+      "mode": "file",
+      "sha256": "f0c2867e8d38bab7d8064f62a106d57272203cf98e046bdec1521d7f0b1116fe"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-06.json",
+      "mode": "file",
+      "sha256": "16f2e8d88f326d26c6700db64dfe6f41a6e7a4834ffe6f04e865c63ff46ffe6d"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-07.json",
+      "mode": "file",
+      "sha256": "a61edfd0fd75082e48df41f599c158c207a0d70f767d955c8a161054f25acc86"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-08.json",
+      "mode": "file",
+      "sha256": "075ac28e7067aae5ffb887d6b6457002443ed5721700460cd374581470a20304"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-09.json",
+      "mode": "file",
+      "sha256": "e48bad633a3c5fc38ceadc051261767347f4b6c94e422874d8a7b09b6f7f9b34"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-10.json",
+      "mode": "file",
+      "sha256": "e133bdd75e12e88423d9d1fac1385ca3e303b107f621ba86532700d908539d31"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-11.json",
+      "mode": "file",
+      "sha256": "7dffa3abf646bf184a85813e9e09a816de0ae420f49c5920ba19ac4afa20b9fc"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-12.json",
+      "mode": "file",
+      "sha256": "764314291894b8a3ea93592a1c69022ef05463944e47e0cbf0b1c89534153319"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-13.json",
+      "mode": "file",
+      "sha256": "84e94fc78fe8c7a0c1582aa2074d52b3b04c4fe9f1fe47980ffc655d8d697a7b"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units-api-14.json",
+      "mode": "file",
+      "sha256": "a66422079da570a6d178fb7febb173168a59d80aa0ce3ce4d204fb1611f6732a"
+    },
+    {
+      "path": "tests/fixtures/library/custody-lineage-pnl-units.json",
+      "mode": "file",
+      "sha256": "5f6a2cf9d889c71c6264521d4ff6c158421d4f0096e9ef72ff7ce5044e114626"
+    },
+    {
+      "path": "tests/fixtures/library/custody_lineage_pnl_contract.rs",
+      "mode": "file",
+      "sha256": "9c4a9a527b8a21d55d1aa6830839dc039fb81a2d890aefc78ed2ce3fbd6be385"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_admitted.py",
+      "mode": "file",
+      "sha256": "cbc597104d1701f2f64048a34493076ec26dc0e06ca57ef9f2c55727eb52cf1c"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_admitted_census.py",
+      "mode": "file",
+      "sha256": "b87594547b0af5559c018026ceba24ce3c89e04a042db74a2e06214520b97829"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_bindings.py",
+      "mode": "file",
+      "sha256": "a6ed4d1392bd9d7be76c9ddf83200988300ffca84900ceea39ee22550bb79d36"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_bound.py",
+      "mode": "file",
+      "sha256": "a5bc050da51436787bba8ad44ac3207f9c8a0757ab1135c78b3984ef0c14f4e7"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_census.py",
+      "mode": "file",
+      "sha256": "730b21bfcedb1a78461816b1a726dabb188c9cac0c264dee5246ee653da708cb"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_parity.py",
+      "mode": "file",
+      "sha256": "8b6228fcb7d44038d40b1fe40432acbfe6475a7b49f0b6d6025776c014a6cce7"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_reference.py",
+      "mode": "file",
+      "sha256": "dc242b04d1061bc64094464998ba3ad3c0685ff2db7c106dc0dc4530b9e21ec3"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_schema.py",
+      "mode": "file",
+      "sha256": "069c9e32c15ec33a1a92930059681c14266b5ac72b02f7a024101919345ada16"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_units.py",
+      "mode": "file",
+      "sha256": "97204a635843a629d639fbea284011d728070742fce582a275d6c7f5f37e054f"
+    },
+    {
+      "path": "tests/scripts/custody_lineage_pnl_units_census.py",
+      "mode": "file",
+      "sha256": "4410a88cc06d5748e8aee4b17fb04d8bb707ff927178cc1b15554591f6bf8d2b"
     }
   ]
 }

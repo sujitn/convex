@@ -499,6 +499,9 @@ pub(super) fn validate(
                     p.split.applied_points.contains(&(i + 1))
                         && !p.split.applied_points.contains(&i)
                 })
+                || c.physical_disposals
+                    .iter()
+                    .any(|d| d.applied_points.contains(&(i + 1)) && !d.applied_points.contains(&i))
         });
         step(&sets[i], &sets[i + 1], s.cause, &physical_assets, legal)?;
     }
@@ -512,6 +515,9 @@ pub(super) fn validate(
                     || c.physical_partitions
                         .iter()
                         .any(|p| p.split.applied_points.contains(&next))
+                    || c.physical_disposals
+                        .iter()
+                        .any(|d| d.applied_points.contains(&next))
             });
             step(baseline, &sets[next], s.cause, &physical_assets, legal)?;
             next += 1;
