@@ -16,8 +16,21 @@ from source_pins import matches_source_pin
 
 DOMAIN = ('convex', 'convex-core', 'convex-math', 'convex-curves', 'convex-bonds', 'convex-rates', 'convex-credit', 'convex-analytics', 'convex-portfolio')
 FORBIDDEN = {'tokio', 'async-std', 'smol', 'reqwest', 'hyper', 'axum', 'tonic', 'sqlx', 'redb', 'rusqlite', 'postgres', 'tokio-postgres', 'rdkafka', 'lapin', 'async-nats', 'blpapi', 'convex-engine', 'convex-server', 'convex-ports'}
+TREASURY_RUNS = (
+    'python3 tests/scripts/treasury_bill_reference.py check',
+    'cargo test --locked -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test treasury_bill',
+    'cargo run --locked -p convex --example treasury_bill',
+    'cargo run --locked -p convex --example treasury_bill --no-default-features',
+    'cargo run --locked -p convex --example treasury_bill --features schemars',
+    'python3 tests/scripts/treasury_bill_check.py --binary target/debug/examples/treasury_bill',
+    'python3 tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill',
+    'cargo build --locked -p convex-ffi',
+    'python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json',
+    'python3 tests/scripts/treasury_bill_parity.py compare --library target/debug/libconvex_ffi.so --parity target/treasury-bill-parity.json',
+)
+
 REQUIRED_RUNS = {
-    'assurance': (
+    'assurance': TREASURY_RUNS + (
         'python3 tools/assurance/check.py',
         'python3 -m unittest discover -s tools/assurance -p "test_*.py"',
         'python3 -m unittest discover -s tools/library -p "test_*.py"',
@@ -675,6 +688,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(['crates/convex-core/src/calendars/checked.rs', 'crates/convex-core/src/fixings.rs', 'crates/convex-core/src/daycounts/thirty360.rs', 'crates/convex-bonds/src/cashflows/schedule.rs', 'crates/convex-bonds/src/instruments/fixed_rate.rs', 'crates/convex-bonds/src/arrc.rs'])
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
+    paths.add('crates/convex-analytics/src/yields/treasury_bill.rs')
     paths.add('crates/convex-analytics/src/swap_calibration.rs')
     paths.update(['crates/convex-analytics/src/credit_calibration.rs',
                   'crates/convex-analytics/src/credit_risk.rs'])

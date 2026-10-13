@@ -793,3 +793,12 @@ unmapped records. Actual Java/C and wasm32 financial checks are recorded separat
 from strict WASM envelope drift and absent Windows/Excel/browser hosts. Passing
 engineering subsets does not accept CVX-063 or create an independent certificate.
 [The complete remaining-work guide](CVX-063-REMAINING.md) gives the execution order.
+
+
+Treasury bills have an explicit complete supplied-date `zero`/`treasury_bill`
+action for absolute price, annual decimal bank discount or investment rate. The
+pure native owner retains issue-based365/366, half-year branching, both inverses,
+separate auction rounding and signed analytic rate sensitivities. Original zero
+terms/calendar/metadata survive; the existing bill_conversions route stays bounded.
+See [Treasury bill quotations](TREASURY-BILL-QUOTES.md). Engineering controls do
+not award original mandatory convention/model/host/library certificates.

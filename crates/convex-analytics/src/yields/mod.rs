@@ -61,6 +61,8 @@ mod short_date;
 mod simple;
 pub(crate) mod solver;
 mod street;
+/// Explicit checked Treasury bill convention, independent from legacy helpers.
+pub mod treasury_bill;
 
 // Re-export all public types and functions
 pub use current::{current_yield, current_yield_from_amount, current_yield_from_bond};

@@ -173,6 +173,13 @@ impl ZeroInput {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ZeroOperation {
+    /// Complete supplied-date Treasury bill price/inverse and signed quote risk.
+    TreasuryBill {
+        /// Explicit active settlement; original issue date determines the basis.
+        settlement: Date,
+        /// Original absolute cash or explicitly named annual decimal quote.
+        quote: convex_analytics::yields::treasury_bill::TreasuryBillQuote,
+    },
     /// Reconstruct original complete terms without deriving a price.
     Construct {},
     /// Native checked price/yield/risk for an actual per100 price.
@@ -206,6 +213,30 @@ pub(super) fn zero(
 ) -> LibraryResult<Value> {
     let bond = input.native(r)?;
     let (settlement, mark) = match action {
+        ZeroOperation::TreasuryBill { settlement, quote } => {
+            use convex_analytics::yields::treasury_bill::{
+                quote_treasury_bill, TreasuryBillError, TreasuryBillTerms,
+            };
+            let terms = TreasuryBillTerms {
+                issue_date: input.issue_date,
+                maturity: input.maturity,
+                currency: input.currency,
+                face_value: input.face_value,
+                redemption_value: input.redemption_value,
+            };
+            let result =
+                quote_treasury_bill(&terms, *settlement, quote).map_err(|e| LibraryError {
+                    code: match e {
+                        TreasuryBillError::InvalidInput(_) => LibraryErrorCode::InvalidInput,
+                        TreasuryBillError::Unsupported(_) => LibraryErrorCode::Unsupported,
+                        TreasuryBillError::ResourceLimit => LibraryErrorCode::ResourceLimit,
+                        TreasuryBillError::NoConvergence => LibraryErrorCode::NoConvergence,
+                    },
+                    message: e.to_string(),
+                    details: Value::Null,
+                })?;
+            return Ok(serde_json::json!({"terms":input,"calculation":result}));
+        }
         ZeroOperation::Construct {} => return value(input),
         ZeroOperation::QuotePrice {
             settlement,

@@ -397,5 +397,10 @@ jobs:
       - name: Retain every current complete request for actual Java FFM
         run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/library_host_census.py --binary target/excel/examples/library_host_census --output-dir bindings/java/target/library-host-census
 
+      - name: Build and retain complete Treasury bill Java expectations
+        run: |
+          cargo build --locked --profile excel -p convex --example treasury_bill
+          python3 tests/scripts/treasury_bill_parity.py prepare --binary target/excel/examples/treasury_bill --output bindings/java/target/treasury-bill-parity.json
+
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

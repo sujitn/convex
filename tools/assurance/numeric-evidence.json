@@ -7982,6 +7982,86 @@
       "path": "tests/scripts/test_library_host_census.py",
       "mode": "file",
       "sha256": "9e37543e5428a8719a5942f7ef9e5d807986e9778d03aa0e0b9d31234b5d831d"
+    },
+    {
+      "path": "bindings/java/src/test/java/com/convex/TreasuryBillTest.java",
+      "mode": "file",
+      "sha256": "3a5f265580d7052781fe0943b7886c516e14a371025dab796a3c572cef39c356"
+    },
+    {
+      "path": "crates/convex-ffi/tests/treasury_bill.rs",
+      "mode": "file",
+      "sha256": "4d3a973b1833f5ea28c4c8d3cde249e58df17f04575afbd24909ac5730a748c9"
+    },
+    {
+      "path": "crates/convex-mcp/tests/treasury_bill.rs",
+      "mode": "file",
+      "sha256": "33cd6f88d56228383860e2e233d51d951a0de08be0bc959242084f1166d4a43b"
+    },
+    {
+      "path": "crates/convex-wasm/tests/treasury_bill.rs",
+      "mode": "file",
+      "sha256": "cbe6577c2444ce4646ae271498e3000e935c02ddceeb9034d108a058750aa3ca"
+    },
+    {
+      "path": "crates/convex/examples/treasury_bill.rs",
+      "mode": "file",
+      "sha256": "98e9d61de20bd66f8105cc81f70a1519184f554aab5e86b22eb1f50cfc3c440c"
+    },
+    {
+      "path": "crates/convex/tests/treasury_bill.rs",
+      "mode": "file",
+      "sha256": "6e540dd763e2b6e50d4eff8fcf8a48c232218dcb1f1225175a0e782b699f0b1b"
+    },
+    {
+      "path": "excel/Convex.Excel.Tests/TreasuryBillTests.cs",
+      "mode": "file",
+      "sha256": "5101001759092b3316652957641f62441a3ca07c5f8eece7e363aed0f139e674"
+    },
+    {
+      "path": "tests/fixtures/library/treasury-bill-reference.json",
+      "mode": "file",
+      "sha256": "11f1a37e94d20d3f7bc6e05686f3c9b2bcc3041b453699a5e282d4c663793e35"
+    },
+    {
+      "path": "tests/fixtures/library/treasury-bill.json",
+      "mode": "file",
+      "sha256": "986d9ae82aff62c44b0ddfaa90445dd033904f756485275631419741c8ab0e8f"
+    },
+    {
+      "path": "tests/fixtures/library/treasury_bill_contract.rs",
+      "mode": "file",
+      "sha256": "6129d581efb43c82a93388c769ba131ab805ba6894993287bae13774deec6b60"
+    },
+    {
+      "path": "tests/scripts/treasury_bill_check.py",
+      "mode": "file",
+      "sha256": "31b80b7170aa9e95db2081fc8993bf2fcfb01969dcef88d80d36ad643b3cc28a"
+    },
+    {
+      "path": "tests/scripts/treasury_bill_parity.py",
+      "mode": "file",
+      "sha256": "3440e7357582127fd0f0cee286e9d4e0edeefb73de85dac1a1353d841132b49e"
+    },
+    {
+      "path": "tests/scripts/treasury_bill_reference.py",
+      "mode": "file",
+      "sha256": "7786268bcf2622236acd7ecb04813ec0270b869e3e79ed584f94ef8dbda12073"
+    },
+    {
+      "path": "tests/scripts/treasury_bill_schema.py",
+      "mode": "file",
+      "sha256": "5044f7988d4ccc43eb4218db1d8b866201ba4b2b6b211ef2e575fd79c789380f"
+    },
+    {
+      "path": "tests/fixtures/library/treasury-bill-admitted.json",
+      "mode": "file",
+      "sha256": "842a61b6d49389455261c37b77b5f3e905dc09bea983e491467fdf30292b98ad"
+    },
+    {
+      "path": "tests/fixtures/library/treasury-bill-reference-admitted.json",
+      "mode": "file",
+      "sha256": "619246d0b856c4c01eb716c027e3772bcea0d36f5d913bd92fae6db4e086bfed"
     }
   ]
 }

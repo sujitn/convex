@@ -1347,6 +1347,36 @@ jobs:
       - name: Qualify complete original claim exhaustion and native closure
         run: cargo test --locked --all-features -p convex-analytics --test settled_claims -- --test-threads=1
 
+      - name: Check Treasury independent declared and admitted answers
+        run: python3 tests/scripts/treasury_bill_reference.py check
+
+      - name: Check full Treasury four adapter reachability
+        run: cargo test --locked -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test treasury_bill
+
+      - name: Exercise full Treasury default consumer
+        run: cargo run --locked -p convex --example treasury_bill
+
+      - name: Exercise full Treasury minimal consumer
+        run: cargo run --locked -p convex --example treasury_bill --no-default-features
+
+      - name: Exercise full Treasury schema consumer
+        run: cargo run --locked -p convex --example treasury_bill --features schemars
+
+      - name: Check full Treasury independent prices inverses and analytic sensitivities
+        run: python3 tests/scripts/treasury_bill_check.py --binary target/debug/examples/treasury_bill
+
+      - name: Check full Treasury actual generated schemas
+        run: python3 tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill
+
+      - name: Build current native Treasury C owner
+        run: cargo build --locked -p convex-ffi
+
+      - name: Prepare full Treasury native transport envelopes
+        run: python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json
+
+      - name: Compare full Treasury fresh C envelopes
+        run: python3 tests/scripts/treasury_bill_parity.py compare --library target/debug/libconvex_ffi.so --parity target/treasury-bill-parity.json
+
       - name: Qualify full settlement four adapters
         run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test settled_claims_pnl -- --test-threads=1
 
@@ -2228,6 +2258,11 @@ jobs:
 
       - name: Generate fresh native monotone P/Invoke expectations
         run: python tests/scripts/library_monotone_parity.py prepare --binary target/excel/examples/library_monotone.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-monotone-parity.json
+
+      - name: Build and retain complete Treasury bill PInvoke expectations
+        run: |
+          cargo build --locked --profile excel -p convex --example treasury_bill
+          python tests/scripts/treasury_bill_parity.py prepare --binary target/excel/examples/treasury_bill.exe --output excel/Convex.Excel.Tests/bin/Release/net472/treasury-bill-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

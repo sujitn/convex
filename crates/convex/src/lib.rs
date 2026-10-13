@@ -37,6 +37,8 @@ pub use convex_analytics::risk::hedging::constrained as constrained_hedge;
 pub use convex_analytics::swap_calibration;
 /// Pure complete native supplied-input workflows and distinct inverse outcomes.
 pub use convex_analytics::workflow;
+/// Explicit supplied-date Treasury bill quotation, inverse and signed quote risk.
+pub use convex_analytics::yields::treasury_bill;
 pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;

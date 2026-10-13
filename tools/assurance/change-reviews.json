@@ -3430,6 +3430,39 @@
         "tools/assurance/numeric-evidence.json": "9bad9254cc2416602455ffcfa160a393112627d6ad397893dbdc46733a522f2c",
         "tools/library/library-inventory.json": "14f1ec508a7e414b7cd0827adfb6a2eaab1af5f60500fcc5c297aa235cf6317a"
       }
+    },
+    {
+      "base_commit": "112d804d65d339b7a94155a242feefd436e53a20",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-13",
+      "rationale": "CVX-063 explicit Treasury bill convention: full supplied original USD face/redemption, issue/settlement/maturity and complete zero/calendar/metadata survive pure native and shared price, bank-discount and investment quote routes. Independent Decimal60 published-equation controls precede candidate; short/long/365/366/seasoned/par/premium, both inverses, actual residual and h/h2 analytic signed sensitivities have separate checks. Auction rounding stays separate. Checked arithmetic and96-step refinement fail without fallback; February29 anniversary and other unadmitted economics fail explicitly. Original money-market/zero kernels and bill_conversions guards remain, no mathematical bodies/models/calendars/claims/hedges are changed. Preserve1595 old numeric rows/bytes/defaults,4975 original requests/77routes and literal2154Planned records. New full controls and3exact subset routes are additive only; actual host/runtime/source/binary and financial evidence must bind gates. No convention/model/market/library/production approval or execution authority. CVX063 remains partial/unaccepted/uncertified.",
+      "tests": [
+        "Independent predeclared Decimal60 complete prices/inverses/signed derivatives and54h/h2controls",
+        "Full400requests/native/JSON/C/four adapters/schema/default/minimal, actual Java and wasm32 hosts",
+        "All original writers/financial comparisons/workspace/lint/docs/fmt/metadata/assurance/library/harness/source and physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "52cceca16628277eca2b614af95187c74770fb598294228ae9ed55fba695315c",
+        ".github/workflows/java.yml": "c2c505b3db7c6576d1cf6dd9448be0a20e81857cc1c8483cf6a27c53c1b53ba3",
+        "crates/convex-analytics/src/yields/mod.rs": "5a647bc255a36d5aa0053fc41db1c95327f5ec60abd0063848c7962cd6099974",
+        "crates/convex-analytics/src/yields/treasury_bill.rs": "51ec231aeedbc21594b2895dd6c891fb59822dfbbe89bdccfde89b78dab108c3",
+        "crates/convex-ffi/tests/treasury_bill.rs": "4d3a973b1833f5ea28c4c8d3cde249e58df17f04575afbd24909ac5730a748c9",
+        "crates/convex/examples/treasury_bill.rs": "98e9d61de20bd66f8105cc81f70a1519184f554aab5e86b22eb1f50cfc3c440c",
+        "crates/convex/src/lib.rs": "d0f32f99fd6bfa3da7f260281ee2117ff97bf6d8d39a4df6998e0f5ac29fedf2",
+        "crates/convex/src/library/zero.rs": "7284d5906a2b5cec9c3d8b7b7e1f29807e1cf91a383c2d90fffb0c60a0077e0e",
+        "crates/convex/tests/treasury_bill.rs": "6e540dd763e2b6e50d4eff8fcf8a48c232218dcb1f1225175a0e782b699f0b1b",
+        "tests/fixtures/library/treasury-bill-admitted.json": "842a61b6d49389455261c37b77b5f3e905dc09bea983e491467fdf30292b98ad",
+        "tests/fixtures/library/treasury-bill-reference-admitted.json": "619246d0b856c4c01eb716c027e3772bcea0d36f5d913bd92fae6db4e086bfed",
+        "tests/fixtures/library/treasury-bill-reference.json": "11f1a37e94d20d3f7bc6e05686f3c9b2bcc3041b453699a5e282d4c663793e35",
+        "tests/fixtures/library/treasury-bill.json": "986d9ae82aff62c44b0ddfaa90445dd033904f756485275631419741c8ab0e8f",
+        "tests/fixtures/library/treasury_bill_contract.rs": "6129d581efb43c82a93388c769ba131ab805ba6894993287bae13774deec6b60",
+        "tools/assurance/check.py": "51acd58213dcceae4411e14abfc2caafd9fee22b645b82e61ecc9e3d38bfadca",
+        "tools/assurance/inventory.json": "a1bd823fa2f4d6242c6b559dd90e36b287e4bf0f309da093fd12c525dc78af2b",
+        "tools/assurance/numeric-evidence.json": "8ed7b2c1f4b1a49cf73442c201342d45042372f02b2c81f86f0996370339d534",
+        "tools/library/api-capabilities.json": "d7941ae6137cdf29597ff6d2d097b767f7aa846be574a9cb62fca0eb2be7be05",
+        "tools/library/library-inventory.json": "32edbf22b9ca8208711254d9f150b877f4aa615b29c1c1177ae4ff826708e728",
+        "tools/library/test_operations.py": "02000a2e48cd2574266b0d4b901e9c35919bf60661b89243a338471cfe39fabb"
+      }
     }
   ]
 }

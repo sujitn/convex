@@ -16,9 +16,9 @@ cargo run --locked -p convex --example settled_claims_pnl
 ```
 
 The report retains all30 areas,174 product/convention/model combinations and2154
-original mandatory operation/surface records. At this review,77 exact engineering
-routes explicitly map190 records;1964 records lack such mappings. This does not
-mean1964 native implementations are absent: many already have full family/native
+original mandatory operation/surface records. At this review,80 exact engineering
+routes explicitly map192 records;1962 records lack such mappings. This does not
+mean1962 native implementations are absent: many already have full family/native
 examples. Each still needs exact operation-level evidence for its original scope.
 No record is removed, marked Verified, or certified by this report.
 
@@ -40,7 +40,8 @@ wire/schema/routes and exact Decimal helper remain; the only production change
 admits later actual receipts for explicitly excluded original child cash after
 custody, without acquiring P&L ownership. Earlier paid-prefix guards remain.
 
-Actual current-host Java/C parity executes45 complete requests. Actual wasm32
+The preceding actual current-host Java/C qualification executes all4975 original
+complete requests. New Treasury bill host evidence is qualified separately. Actual wasm32
 Node outputs pass45 complete original independent financial checks with unchanged
 bounds. Strict native-envelope comparison fails on floating-point model/OIS
 intermediates; it remains a separate open gate. Native-compiled WASM, actual wasm32
@@ -55,3 +56,12 @@ implementation locally, then its private evidence and parent submodule pointer.
 Continue on `codex/production-readiness`; no push/merge/deployment/live orders.
 The private coding-harness packet retains exact record IDs, acceptance tests and
 owner tasks for all remaining work.
+
+
+The Treasury bill increment adds explicit issue-based365/366 short/long quotation,
+price/bank-discount/investment inverses and separately labeled analytic quote
+sensitivities with independently declared h/h2 controls. Complete original zero
+terms and calendar metadata remain. The old short-bill route keeps its guard.
+See [Treasury bill quotations](TREASURY-BILL-QUOTES.md). February29 issue anniversary,
+non-US bill packs, full market/convention admission and all other pending scope
+remain required; additive engineering route mappings never verify Planned records.
