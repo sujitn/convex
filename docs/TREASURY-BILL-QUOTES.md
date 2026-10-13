@@ -47,9 +47,16 @@ apply actual signed face quantity. Curve-node risk and executed hedge economics
 need their existing separate owners. Rounded auction price is never fed back
 into inversion or risk.
 
-The existing `bill_conversions` operation and old native helpers retain their
-original limits and units. Use this explicit route for the supplied Treasury
-convention. Independent Decimal60 controls, actual short/long/leap/seasoned/par/
+The existing `bill_conversions` operation retains its original limits and units.
+The Result-returning native `yields::bond_equivalent_yield` now admits only
+1..182 remaining days under its explicit fixed365 simple convention. It rejects
+nonpositive cash and Decimal overflow; its incorrect long-bill formula is removed.
+The unused floating-point exports `convex_analytics::yields::bond_equivalent_yield_simple`
+and `convex_bonds::pricing::bond_equivalent_yield` are removed. Use the dated
+Treasury route for investment-rate quotation, including short bills with an
+issue-year basis of366. See [the migration guide](ROUTE-MIGRATION.md).
+
+Independent Decimal60 controls, actual short/long/leap/seasoned/par/
 premium cases, both inverses, h/h2 sensitivities and typed failures can be run:
 
 ```sh

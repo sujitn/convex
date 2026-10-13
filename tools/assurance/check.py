@@ -31,6 +31,8 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'python3 tests/scripts/simple_bill_reference.py check',
+        'cargo test --locked -p convex-analytics --test simple_bill_yield',
         'python3 tools/assurance/check.py',
         'python3 -m unittest discover -s tools/assurance -p "test_*.py"',
         'python3 -m unittest discover -s tools/library -p "test_*.py"',
@@ -689,6 +691,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-curves/src/contracts').glob('*.rs'))
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
     paths.add('crates/convex-analytics/src/yields/treasury_bill.rs')
+    paths.add('crates/convex-analytics/src/yields/money_market.rs')
     paths.add('crates/convex-analytics/src/swap_calibration.rs')
     paths.update(['crates/convex-analytics/src/credit_calibration.rs',
                   'crates/convex-analytics/src/credit_risk.rs'])

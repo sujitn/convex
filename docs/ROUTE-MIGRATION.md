@@ -245,3 +245,37 @@ Credit-survival and issuer-basis cash now have a distinct full original-owner
 `cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
 for the complete security/mapping/factor contract, ICMA and rebuild controls,
 actual mixed-book scope and remaining recovery/host/production qualification.
+
+## Treasury bill quotations and removed long-bill proxies
+
+The unused floating-point functions
+`convex_analytics::yields::bond_equivalent_yield_simple` and
+`convex_bonds::pricing::bond_equivalent_yield` are removed, including their
+public reexports. Their long-bill formulas were approximate and their signatures
+could not carry original issue dates or return a checked failure. There is no
+compatibility alias. Repository callers did not use these exports.
+
+The retained Result-returning `convex_analytics::yields::bond_equivalent_yield`
+calculates fixed365 simple yield **in percent**, for1..182 remaining days and
+positive price/face. Long terms return InvalidInput with a dated-API migration
+message; Decimal overflow returns CalculationFailed. Discount/par/premium prices
+retain their original short-term values. The shared `zero`/`bill_conversions`
+operation keeps its original182-day/face-redemption/domain guards, result fields
+and percent units. It is an explicit fixed365 conversion, not an issue-based
+Treasury investment-rate convention.
+
+Use `convex::treasury_bill::quote_treasury_bill`, or shared `zero`/`treasury_bill`,
+with **original issue date, settlement, maturity, currency, face/redemption and
+the supplied quote**. When migrating a bank-discount rate to the dated route,
+convert percent to decimal once. Keep absolute cash separate from per100 price.
+The calculation selects its365/366 basis from the original issue interval and
+returns decimal investment/bank-discount rates, inverse residual and signed risk.
+Never infer an issue date from remaining days or silently retain fixed365 for
+a leap-year Treasury investment-rate quote. See
+[the full contract and primary sources](TREASURY-BILL-QUOTES.md).
+
+The infallible `ShortDateCalculator::bond_equivalent_yield` methods in the bonds
+and analytics crates and `ZeroCouponBond::bond_equivalent_yield` remain
+unqualified. They require a separate checked API migration and must not be used
+as production Treasury quotation. Their independent original unit controls and
+historical bytes are retained; this cleanup does not qualify them.

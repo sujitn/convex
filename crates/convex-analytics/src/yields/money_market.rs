@@ -2,7 +2,7 @@
 //!
 //! Provides:
 //! - T-Bill discount yield
-//! - T-Bill bond equivalent yield
+//! - Fixed-365 simple yield for discount instruments of at most 182 days
 //! - CD equivalent yield
 //! - Money Market Equivalent Yield for coupon bonds
 
@@ -263,9 +263,12 @@ pub fn discount_yield(
     Ok(dy)
 }
 
-/// Calculate bond equivalent yield (BEY).
+/// Calculate a fixed-365 simple yield for instruments of at most 182 days.
 ///
-/// Converts discount yield to a yield comparable with coupon bonds.
+/// This date-free helper returns a percent rate. Treasury investment-rate
+/// quotation requires original issue, settlement and maturity dates; use
+/// [`super::treasury_bill::quote_treasury_bill`] for that convention, including
+/// short bills whose issue-year basis is 366 and all long bills.
 ///
 /// # Formula (for instruments ≤ 182 days)
 ///
@@ -275,7 +278,8 @@ pub fn discount_yield(
 ///
 /// # Returns
 ///
-/// Bond equivalent yield as percentage
+/// Simple yield as percentage, or an error for invalid cash, unsupported term
+/// or Decimal overflow. No approximate long-bill calculation is performed.
 pub fn bond_equivalent_yield(
     price: Decimal,
     face_value: Decimal,
@@ -293,32 +297,31 @@ pub fn bond_equivalent_yield(
         ));
     }
 
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-
-    if days_to_maturity <= 182 {
-        // Simple formula for short-dated instruments
-        let bey = discount / price * (dec!(365) / days) * dec!(100);
-        Ok(bey)
-    } else {
-        // Complex formula for longer instruments
-        let d = days_to_maturity as f64;
-        let p = price.to_f64().unwrap_or(100.0);
-        let f = face_value.to_f64().unwrap_or(100.0);
-
-        let term = d / 365.0;
-        let price_factor = 1.0 - f / p;
-        let discriminant = term * term + (2.0 * term - 1.0) * price_factor;
-
-        if discriminant < 0.0 {
-            return Err(AnalyticsError::CalculationFailed(
-                "negative discriminant in BEY calculation".to_string(),
-            ));
-        }
-
-        let bey = (-2.0 * term + 2.0 * discriminant.sqrt()) / (2.0 * term - 1.0);
-        Ok(Decimal::from_f64_retain(bey * 100.0).unwrap_or(Decimal::ZERO))
+    if face_value <= Decimal::ZERO {
+        return Err(AnalyticsError::InvalidInput(
+            "face value must be positive".to_string(),
+        ));
     }
+
+    if days_to_maturity > 182 {
+        return Err(AnalyticsError::InvalidInput(
+            "long-bill quotation requires original issue, settlement and maturity dates; use quote_treasury_bill".to_string(),
+        ));
+    }
+
+    let overflow = || {
+        AnalyticsError::CalculationFailed(
+            "short-bill yield exceeds Decimal arithmetic domain".into(),
+        )
+    };
+    let discount = face_value.checked_sub(price).ok_or_else(overflow)?;
+    let gain = discount.checked_div(price).ok_or_else(overflow)?;
+    let basis = dec!(365)
+        .checked_div(Decimal::from(days_to_maturity))
+        .ok_or_else(overflow)?;
+    gain.checked_mul(basis)
+        .and_then(|rate| rate.checked_mul(dec!(100)))
+        .ok_or_else(overflow)
 }
 
 /// Calculate CD equivalent yield.

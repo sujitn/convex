@@ -3,6 +3,13 @@
 //! This module provides comprehensive yield calculations for fixed income securities,
 //! consolidating all yield-related logic from the Convex library.
 //!
+//! The approximate date-free floating-point bill helper is removed. Treasury
+//! quotation uses [`treasury_bill::quote_treasury_bill`] with original dates.
+//!
+//! ```compile_fail
+//! use convex_analytics::yields::bond_equivalent_yield_simple;
+//! ```
+//!
 //! # Yield Types
 //!
 //! - **Yield-to-Maturity (YTM)**: Internal rate of return assuming all cash flows
@@ -67,8 +74,8 @@ pub mod treasury_bill;
 // Re-export all public types and functions
 pub use current::{current_yield, current_yield_from_amount, current_yield_from_bond};
 pub use engine::{
-    bond_equivalent_yield_simple, current_yield_simple, discount_yield_simple, simple_yield_f64,
-    StandardYieldEngine, YieldEngine, YieldEngineResult,
+    current_yield_simple, discount_yield_simple, simple_yield_f64, StandardYieldEngine,
+    YieldEngine, YieldEngineResult,
 };
 pub use money_market::{
     bond_equivalent_yield, cd_equivalent_yield, discount_yield, money_market_yield,

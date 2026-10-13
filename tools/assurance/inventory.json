@@ -4173,6 +4173,19 @@
         "tests/scripts/treasury_bill_check.py"
       ],
       "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/yields/money_market.rs",
+      "sha256": "738178d37cb868c0a3d04dbfcb69a58c873ce0837073d26ee1488d144f808ce5",
+      "invariants": "Checked direct fixed365 short-bill percent yield only; positive original price/face,1..182days, unchanged arithmetic ordering and signed premium/discount behaviour. Other roll-forward/CD/discount helpers in this file retain their existing unqualified bodies.",
+      "bounds": "Constant work, rust_decimal96bit checked subtraction/division/multiplication; all days>182 fail before arithmetic. No date inference, floating-point long-bill approximation or successful fallback.",
+      "failure_contract": "InvalidInput for nonpositive cash, zero/long term; CalculationFailed for Decimal overflow. Treasury convention requires the separate full dated owner.",
+      "tests": [
+        "crates/convex-analytics/tests/simple_bill_yield.rs",
+        "tests/scripts/simple_bill_reference.py",
+        "crates/convex/tests/treasury_bill.rs"
+      ],
+      "exceptions": []
     }
   ],
   "c_exports": [

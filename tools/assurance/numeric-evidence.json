@@ -8062,6 +8062,21 @@
       "path": "tests/fixtures/library/treasury-bill-reference-admitted.json",
       "mode": "file",
       "sha256": "619246d0b856c4c01eb716c027e3772bcea0d36f5d913bd92fae6db4e086bfed"
+    },
+    {
+      "path": "tests/scripts/simple_bill_reference.py",
+      "mode": "file",
+      "sha256": "12a7d9326ceb71dd22f9c45182febe1ef4776a62db1c4857009f90c351487539"
+    },
+    {
+      "path": "tests/fixtures/library/simple-bill-reference.json",
+      "mode": "file",
+      "sha256": "87fbe00291ce2cc53267136018fc42248e647dde5c70923b9e7780a3cc6e38c0"
+    },
+    {
+      "path": "crates/convex-analytics/tests/simple_bill_yield.rs",
+      "mode": "file",
+      "sha256": "10941b7664f8fba6a4a0e09df7445595af5e492d0a4105292c919357e566c17c"
     }
   ]
 }

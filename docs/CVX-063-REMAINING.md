@@ -65,3 +65,11 @@ terms and calendar metadata remain. The old short-bill route keeps its guard.
 See [Treasury bill quotations](TREASURY-BILL-QUOTES.md). February29 issue anniversary,
 non-US bill packs, full market/convention admission and all other pending scope
 remain required; additive engineering route mappings never verify Planned records.
+
+The checked date-free bill helper now rejects long terms and arithmetic overflow.
+Two unused floating-point bill exports are removed with migration to original
+dated Treasury inputs. Existing shared short-bill values/units and all80routes
+remain. The remaining infallible ShortDateCalculator/ZeroCouponBond bill methods
+still need a separately declared checked migration. See
+[the route migration guide](ROUTE-MIGRATION.md); this cleanup does not complete
+the original convention/model/host requirements or award independent approval.

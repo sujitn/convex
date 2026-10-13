@@ -469,35 +469,6 @@ pub fn discount_yield_simple(price: f64, face: f64, days_to_maturity: i64) -> f6
     ((face - price) / face) * (360.0 / days_to_maturity as f64)
 }
 
-/// Calculate bond equivalent yield from discount yield.
-///
-/// Converts money market discount yield to bond-equivalent basis.
-#[must_use]
-pub fn bond_equivalent_yield_simple(discount_yield: f64, days_to_maturity: i64) -> f64 {
-    if days_to_maturity <= 0 {
-        return 0.0;
-    }
-
-    let days = days_to_maturity as f64;
-
-    if days <= 182.0 {
-        // Simple conversion for short-dated
-        (365.0 * discount_yield) / (360.0 - discount_yield * days)
-    } else {
-        // More complex formula for longer-dated
-        let price = 100.0 * (1.0 - discount_yield * days / 360.0);
-        let term = days / 365.0;
-
-        // Solve for semi-annual equivalent yield
-        // This is an approximation
-        let face = 100.0;
-        let gain = face - price;
-        2.0 * ((gain / price) / term
-            + ((gain / price).powi(2) / term.powi(2) + 2.0 * gain / (price * term)).sqrt())
-            / 2.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

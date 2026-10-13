@@ -3463,6 +3463,35 @@
         "tools/library/library-inventory.json": "32edbf22b9ca8208711254d9f150b877f4aa615b29c1c1177ae4ff826708e728",
         "tools/library/test_operations.py": "02000a2e48cd2574266b0d4b901e9c35919bf60661b89243a338471cfe39fabb"
       }
+    },
+    {
+      "base_commit": "063bba5387984a26ae8b8479ada572cb55b9a750",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-13",
+      "rationale": "CVX-063 checked date-free bill cleanup: remove the wrong Decimal long-bill branch and two unused floating-point bill functions/reexports. Retain fixed365 simple percent yield for1..182days with exact arithmetic ordering, positive cash and checked overflow failure. Actual predeclared controls reproduce the old negative long-bill answer and invalid-face success;25exact-fraction/Decimal60 short answers,6long rejections and invalid/overflow cases remain independent. Full original dated Treasury owner, zero/shared API/80routes/5375requests/models/history/claims/hedges and all1611old numeric rows/files/defaults stay unchanged. Remaining infallible ShortDateCalculator/ZeroCouponBond bill methods still require checked migration; no original convention/model/host requirement is waived. No new export/dependency/clock/provider/runtime/ledger/order authority. CVX063 remains partial/unaccepted/uncertified; engineering checks cannot supply independent certificates.",
+      "tests": [
+        "Independent25short prices and6long failures; actual initial defect capture and checked cash/overflow failures",
+        "Full unchanged5375shared requests/fresh native/C transport; all original numeric/source/scope/private bytes conserved",
+        "Workspace/default/minimal/schema/four adapters/lint/docs/fmt/financial comparison/assurance/library/harness checks; actual receipts determine execution"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d7a9aa6482b3577f90c4c362e3a3b0a3c4902aefe60ef9479d3b87de4c53a19a",
+        "crates/convex-analytics/src/yields/engine.rs": "c74b88ba49ee9e063ba254527d31bd454d10cf708b2624c97fe1793967686d59",
+        "crates/convex-analytics/src/yields/mod.rs": "a0fcf27d57a119ffa98666a70fc007e9b7e0c4363f4205dc04171e5ad734b9e7",
+        "crates/convex-analytics/src/yields/money_market.rs": "738178d37cb868c0a3d04dbfcb69a58c873ce0837073d26ee1488d144f808ce5",
+        "crates/convex-analytics/tests/simple_bill_yield.rs": "10941b7664f8fba6a4a0e09df7445595af5e492d0a4105292c919357e566c17c",
+        "crates/convex-bonds/src/pricing/mod.rs": "aa69ffcd95aa9434423333b04c7cfc3b9b300d9f84403e199357a582a66fe148",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "3fb730434f6346c4706787a60c772ed9818f9f07a5d80c50a51de90e2bbf7201",
+        "docs/CVX-063-REMAINING.md": "966e47699cb1e53d5be36a415a3df1e2e63d77260e610bbd5de2b098b854df53",
+        "docs/ROUTE-MIGRATION.md": "be34f9fee5c1cb53e217f699b17a8fd1cb6d05eef461add8dab2665f971461d4",
+        "docs/TREASURY-BILL-QUOTES.md": "1dd4e4fa55ae0f13baaf58c37c5686af1f19842164a38ca46cc036f9b26d742c",
+        "tests/fixtures/library/simple-bill-reference.json": "87fbe00291ce2cc53267136018fc42248e647dde5c70923b9e7780a3cc6e38c0",
+        "tests/scripts/simple_bill_reference.py": "12a7d9326ceb71dd22f9c45182febe1ef4776a62db1c4857009f90c351487539",
+        "tools/assurance/check.py": "23a641ffcaf98d8c17ef74d684f8bd3e3c5576537964e40ac9025fc4393c38cd",
+        "tools/assurance/inventory.json": "7c11265522c11654c7f21c6e6c39fece23fc884288f59ce13c020bd53375a8b0",
+        "tools/assurance/numeric-evidence.json": "aaf50976f10effc68644e9918ec9bab55401c5cbd9a5a4336a26dcff49a4cdc4",
+        "tools/library/library-inventory.json": "8aeba0867031ff7e75e91d838a0bdb42cc43e1ec640111bc8834d0ccb201aef7"
+      }
     }
   ]
 }

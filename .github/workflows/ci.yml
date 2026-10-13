@@ -48,6 +48,12 @@ jobs:
       - name: Prove library coverage rejects incomplete and declaration-only support
         run: python3 -m unittest discover -s tools/library -p "test_*.py"
 
+      - name: Check independent fixed-365 short-bill reference bytes
+        run: python3 tests/scripts/simple_bill_reference.py check
+
+      - name: Reject unsupported long-bill proxies and cash overflow
+        run: cargo test --locked -p convex-analytics --test simple_bill_yield
+
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe
 
