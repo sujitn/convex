@@ -1,6 +1,6 @@
-//! Explicit bounds on each original term accrual/profile/reset segment.
-//! This payoff is additive across segments. It is not a whole-coupon cap on
-//! multiple reset rates, an overnight option or a callable floating model.
+//! Supplied segment or explicit joint-normal whole-coupon rate bounds.
+//! Original reset/profile/history/entitlement and model scope remain explicit.
+//! Overnight/path and callable floating laws require their own complete models.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use convex_bonds::{
@@ -25,6 +25,12 @@ use convex_curves::contracts::{BuiltCurve, CurveContractError, CurvePoint, Curve
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+mod whole_coupon;
+use whole_coupon::{whole_coupon_value, WholeCouponTotals};
+pub use whole_coupon::{
+    WholeCouponAccrualPolicy, WholeCouponNormalLaw, WholeCouponNormalValue, WholeCouponRateFactors,
+};
 
 /// Explicit model for one future index observation and actual coupon payment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +66,10 @@ pub struct TermCouponOptionInputs {
     pub floor: Option<Vec<DatedValue>>,
     /// Unique observation/payment model points; unused points fail.
     pub models: Vec<TermCouponModelPoint>,
+    /// Joint terminal normal law for a bound on each entire coupon, if supplied.
+    /// Omission retains the original segment payoff without changing its output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub whole_coupon: Option<WholeCouponNormalLaw>,
 }
 
 /// All pricing inputs remain immutable and caller supplied.
@@ -159,8 +169,12 @@ pub struct TermCouponSegmentValue {
     /// Full native reference-aware accrual fraction.
     #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
     pub year_fraction: Decimal,
-    /// Actual model used for future uncertainty; absent only for known fixing.
+    /// Segment model used for future uncertainty; joint scope uses normal_factors.
     pub model: Option<TermCouponModelPoint>,
+    /// Actual future joint-model row for whole-coupon scope; omission retains
+    /// the original segment output. Its cash is an unbounded component mean.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub normal_factors: Option<WholeCouponRateFactors>,
     /// Complete stochastic or deterministic bounded coupon-rate result.
     pub expectation: BoundedCouponValue,
     /// Absolute expected segment cash, unrounded model value.
@@ -180,6 +194,9 @@ pub struct TermCouponOptionPrice {
     pub options: TermCouponOptionInputs,
     /// All original rate/profile/reset segments and their actual proof.
     pub segments: Vec<TermCouponSegmentValue>,
+    /// Whole-coupon joint-law proof, absent from original segment quotations.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub whole_coupons: Vec<WholeCouponNormalValue>,
     /// Absolute discounted entitled expected cash in original currency.
     pub present_value: f64,
     /// Dirty model quote per100 ORIGINAL face.
@@ -268,6 +285,7 @@ struct CouponTotals {
     entitled: bool,
     ex_coupon: bool,
     has_model: bool,
+    whole: Option<WholeCouponTotals>,
 }
 
 struct PreparedTermCoupons<'a> {
@@ -284,6 +302,7 @@ struct PreparedTermCoupons<'a> {
     cuts: BTreeSet<Date>,
     models: BTreeMap<(IndexId, Date, Date), &'a TermCouponModelPoint>,
     rates: BTreeMap<(IndexId, Date), ResolvedRate>,
+    factors: BTreeMap<(IndexId, Date, Date), &'a WholeCouponRateFactors>,
 }
 
 fn prepare_term_coupons<'a, P, F>(
@@ -319,6 +338,58 @@ where
     }
     if options.models.len() > MAX_BOND_TERMS {
         return Err(TermCouponOptionError::Bound("model points"));
+    }
+    if options.whole_coupon.is_some() && !options.models.is_empty() {
+        return Err(invalid("model", "whole coupon requires its joint law only"));
+    }
+    let mut factors = BTreeMap::new();
+    let mut dimensions = BTreeMap::new();
+    if let Some(whole) = &options.whole_coupon {
+        if whole.factors.len() > MAX_BOND_TERMS {
+            return Err(TermCouponOptionError::Bound("joint normal points"));
+        }
+        for point in &whole.factors {
+            if point.loadings.is_empty() || point.loadings.len() > 16 {
+                return Err(TermCouponOptionError::Bound("1..16 common normal factors"));
+            }
+            if point.known_at > context.fixing.known_at
+                || !point.forward_adjustment.is_finite()
+                || point.forward_adjustment.abs() > 10.0
+                || point
+                    .loadings
+                    .iter()
+                    .any(|x| !x.is_finite() || x.abs() > 10.0)
+            {
+                return Err(invalid(
+                    "joint model",
+                    "future information or invalid rate loading",
+                ));
+            }
+            if let Some(previous) = dimensions.insert(point.payment_date, point.loadings.len()) {
+                if previous != point.loadings.len() {
+                    return Err(invalid(
+                        "joint model",
+                        "inconsistent common factor dimension",
+                    ));
+                }
+            }
+            if factors
+                .insert(
+                    (
+                        point.index_id.clone(),
+                        point.observation_date,
+                        point.payment_date,
+                    ),
+                    point,
+                )
+                .is_some()
+            {
+                return Err(invalid(
+                    "joint model",
+                    "duplicate observation/payment factors",
+                ));
+            }
+        }
     }
     if discount.recipe().currency != bond.terms().currency
         || !matches!(&discount.recipe().role,CurveRole::Discount {collateral_currency} if *collateral_currency==bond.terms().currency)
@@ -442,6 +513,7 @@ where
         cuts,
         models,
         rates,
+        factors,
     })
 }
 
@@ -472,6 +544,7 @@ where
         cuts,
         models,
         rates,
+        factors,
     } = prepare_term_coupons(input, publication, forecast)?;
     let df = |date| -> Result<f64> {
         let value = discount
@@ -541,18 +614,25 @@ where
                 request.observation_date,
                 period.payment_date(),
             );
+            let whole_scope = options.whole_coupon.is_some();
+            let mut normal_factors = None;
             let (expectation, model, known_cash) = match &rate.origin {
                 RateOrigin::Published(_) => {
                     let r = g
                         .checked_mul(rate.rate)
                         .and_then(|r| r.checked_add(additive))
                         .ok_or(CashflowError::Arithmetic("known bounded rate"))?;
-                    let cap_deduction = c.map_or(Decimal::ZERO, |c| (r - c).max(Decimal::ZERO));
-                    let floor_addition = f.map_or(Decimal::ZERO, |f| (f - r).max(Decimal::ZERO));
-                    let r = c.map_or(r, |c| r.min(c));
-                    let r = f.map_or(r, |f| r.max(f));
+                    let effective_cap = if whole_scope { None } else { c };
+                    let effective_floor = if whole_scope { None } else { f };
+                    let cap_deduction =
+                        effective_cap.map_or(Decimal::ZERO, |c| (r - c).max(Decimal::ZERO));
+                    let floor_addition =
+                        effective_floor.map_or(Decimal::ZERO, |f| (f - r).max(Decimal::ZERO));
+                    let r = effective_cap.map_or(r, |c| r.min(c));
+                    let r = effective_floor.map_or(r, |f| r.max(f));
                     if bond.terms().negative_coupons == NegativeCouponPolicy::Reject
                         && r < Decimal::ZERO
+                        && !whole_scope
                     {
                         return Err(invalid(
                             "negative coupon policy",
@@ -591,44 +671,66 @@ where
                                 "expected rounded stochastic cash requires explicit integration",
                         });
                     }
-                    let m =
-                        models
-                            .get(&key)
-                            .ok_or_else(|| TermCouponOptionError::MissingModel {
+                    if whole_scope {
+                        let point = factors.get(&key).ok_or_else(|| {
+                            TermCouponOptionError::MissingModel {
                                 index_id: request.index_id.clone(),
                                 observation_date: request.observation_date,
                                 payment_date: period.payment_date(),
-                            })?;
-                    let time = context
-                        .fixing
-                        .valuation_date
-                        .days_between(&request.observation_date)
-                        as f64
-                        / 365.0;
-                    if time <= 0.0 {
-                        return Err(invalid(
-                            "model",
-                            "positive original future observation time required",
-                        ));
+                            }
+                        })?;
+                        let mean = finite(number(rate.rate)? + point.forward_adjustment)?;
+                        let g = number(g)?;
+                        let expectation = BoundedCouponValue {
+                            expected_rate: finite(g * mean + number(additive)?)?,
+                            cap_adjustment: 0.0,
+                            floor_adjustment: 0.0,
+                            forward_delta: Some(g),
+                            forward_gamma: Some(0.0),
+                            annual_vol_vega: Some(0.0),
+                        };
+                        normal_factors = Some((*point).clone());
+                        used.insert(key.clone());
+                        (expectation, None, None)
+                    } else {
+                        let m = models.get(&key).ok_or_else(|| {
+                            TermCouponOptionError::MissingModel {
+                                index_id: request.index_id.clone(),
+                                observation_date: request.observation_date,
+                                payment_date: period.payment_date(),
+                            }
+                        })?;
+                        let time = context
+                            .fixing
+                            .valuation_date
+                            .days_between(&request.observation_date)
+                            as f64
+                            / 365.0;
+                        if time <= 0.0 {
+                            return Err(invalid(
+                                "model",
+                                "positive original future observation time required",
+                            ));
+                        }
+                        let forward = finite(number(rate.rate)? + m.forward_adjustment)?;
+                        let c = c.map(number).transpose()?;
+                        let f = f.map(number).transpose()?;
+                        let g = number(g)?;
+                        let additive = number(additive)?;
+                        future_policy(
+                            m.model,
+                            g,
+                            additive,
+                            forward,
+                            f,
+                            c,
+                            bond.terms().negative_coupons,
+                        )?;
+                        let expectation =
+                            bounded_floating_coupon(m.model, time, forward, g, additive, c, f)?;
+                        used.insert(key.clone());
+                        (expectation, Some((*m).clone()), None)
                     }
-                    let forward = finite(number(rate.rate)? + m.forward_adjustment)?;
-                    let c = c.map(number).transpose()?;
-                    let f = f.map(number).transpose()?;
-                    let g = number(g)?;
-                    let additive = number(additive)?;
-                    future_policy(
-                        m.model,
-                        g,
-                        additive,
-                        forward,
-                        f,
-                        c,
-                        bond.terms().negative_coupons,
-                    )?;
-                    let expectation =
-                        bounded_floating_coupon(m.model, time, forward, g, additive, c, f)?;
-                    used.insert(key.clone());
-                    (expectation, Some((*m).clone()), None)
                 }
             };
             let cash = match known_cash {
@@ -657,7 +759,54 @@ where
                     entitled,
                     ex_coupon: ex,
                     has_model: false,
+                    whole: whole_scope.then_some(WholeCouponTotals {
+                        notional_accrual: Decimal::ZERO,
+                        elapsed_notional_accrual: Decimal::ZERO,
+                        factor_loadings: Vec::new(),
+                        cap: c,
+                        floor: f,
+                    }),
                 });
+            if let Some(whole) = &mut totals.whole {
+                if whole.cap != c || whole.floor != f {
+                    return Err(invalid(
+                        "whole coupon bounds",
+                        "cap/floor must be constant over the entire coupon",
+                    ));
+                }
+                let weight = n
+                    .checked_mul(frac)
+                    .ok_or(CashflowError::Arithmetic("whole coupon weight"))?;
+                let elapsed = n
+                    .checked_mul(prefix)
+                    .ok_or(CashflowError::Arithmetic("whole coupon elapsed weight"))?;
+                whole.notional_accrual = whole
+                    .notional_accrual
+                    .checked_add(weight)
+                    .ok_or(CashflowError::Arithmetic("whole coupon total weight"))?;
+                whole.elapsed_notional_accrual = whole
+                    .elapsed_notional_accrual
+                    .checked_add(elapsed)
+                    .ok_or(CashflowError::Arithmetic("whole coupon elapsed sum"))?;
+                if let Some(point) = &normal_factors {
+                    if whole.factor_loadings.is_empty() {
+                        whole.factor_loadings.resize(point.loadings.len(), 0.0);
+                    }
+                    for (loading, rate_loading) in
+                        whole.factor_loadings.iter_mut().zip(&point.loadings)
+                    {
+                        let coefficient = finite(number(weight)? * number(g)?)?;
+                        let contribution = finite(coefficient * rate_loading)?;
+                        if coefficient != 0.0 && *rate_loading != 0.0 && contribution == 0.0 {
+                            return Err(invalid(
+                                "joint loading",
+                                "positive loading contribution underflow",
+                            ));
+                        }
+                        *loading = finite(*loading + contribution)?;
+                    }
+                }
+            }
             if let Some((known, known_rate)) = known_cash {
                 totals.known_cash = totals
                     .known_cash
@@ -687,18 +836,20 @@ where
                 principal: n,
                 year_fraction: frac,
                 model,
+                normal_factors,
                 expectation,
                 expected_cash: cash,
                 entitled,
             });
         }
     }
-    if used.len() != models.len() {
+    if used.len() != models.len() + factors.len() {
         return Err(invalid("models", "unused historical/unknown model point"));
     }
     let mut pv = 0.0;
     let mut accrued = 0.0;
-    for ((_, _, date), totals) in payments {
+    let mut whole_coupons = Vec::new();
+    for ((start, end, date), totals) in payments {
         let CouponTotals {
             known_cash: known,
             model_cash: model,
@@ -707,7 +858,35 @@ where
             entitled,
             ex_coupon: ex,
             has_model,
+            whole,
         } = totals;
+        if let Some(whole) = whole {
+            let (amount, value) = whole_coupon_value(
+                start,
+                end,
+                date,
+                known,
+                model,
+                whole,
+                bond.terms().negative_coupons,
+                bond.terms().rounding,
+            )?;
+            if entitled {
+                pv = finite(pv + amount * df(date)? / settlement_df)?;
+            }
+            let fraction =
+                number(value.elapsed_notional_accrual)? / number(value.output.notional_accrual)?;
+            let mut value_accrued = finite(amount * fraction)?;
+            if ex {
+                value_accrued = match bond.terms().ex_coupon_accrual {
+                    ExCouponAccrual::SubtractCoupon => finite(value_accrued - amount)?,
+                    ExCouponAccrual::Zero => 0.0,
+                };
+            }
+            accrued = finite(accrued + value_accrued)?;
+            whole_coupons.push(value.output);
+            continue;
+        }
         let amount = number(bond.terms().rounding.apply(known)?)? + model;
         if entitled {
             pv = finite(pv + amount * df(date)? / settlement_df)?;
@@ -752,6 +931,7 @@ where
         context: context.clone(),
         options: options.clone(),
         segments: values,
+        whole_coupons,
         present_value: pv,
         dirty_price: dirty,
         accrued_model: accrued,

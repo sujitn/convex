@@ -31,6 +31,16 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-analytics --test whole_coupon_normal',
+        'cargo test --locked -p convex --test whole_coupon_normal',
+        'cargo run --locked -p convex --example whole_coupon_normal',
+        'cargo test --locked -p convex-analytics --test whole_coupon_normal --no-default-features',
+        'cargo test --locked -p convex --test whole_coupon_normal --no-default-features',
+        'cargo run --locked -p convex --example whole_coupon_normal --no-default-features',
+        'cargo test --locked -p convex-analytics --test whole_coupon_normal --features schemars',
+        'cargo test --locked -p convex --test whole_coupon_normal --features schemars',
+        'cargo run --locked -p convex --example whole_coupon_normal --features schemars',
+        'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal',
         'cargo test --locked -p convex-bonds --test floating_coupon_options',
         'cargo test --locked -p convex-analytics --test floating_coupon_options',
         'cargo test --locked -p convex --test floating_coupon_options',
@@ -805,6 +815,7 @@ def inventory_paths(root: Path) -> set[str]:
                   'crates/convex-ports/src/reference_master.rs', 'crates/convex-server/src/handlers.rs'])
     paths.add('crates/convex-wasm/src/ingress.rs')
     paths.add('crates/convex-bonds/src/pricing/dated_cash.rs')
+    paths.add('crates/convex-analytics/src/floating_coupon/whole_coupon.rs')
     paths.update(['crates/convex-bonds/src/options/floating_coupon.rs', 'crates/convex-analytics/src/floating_coupon.rs'])
     paths.update(['crates/convex-wasm/src/convert.rs','crates/convex-wasm/src/analyze.rs','crates/convex-wasm/src/pricing.rs','crates/convex-wasm/src/conventions.rs','crates/convex-wasm/src/dto.rs'])
     # Explicit portable-kernel owners; keep the set independent of the manifest.

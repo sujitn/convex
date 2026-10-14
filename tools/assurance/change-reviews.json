@@ -3970,6 +3970,39 @@
         "tools/library/library-inventory.json": "47dca7e3cd1be7614d465a55f90b4c5970385a2b5cca63fdec6e4eb853488529",
         "tools/library/test_operations.py": "60af9abb33853fea8d36ee0d9e34d26eabf94d598e9c4cc7a2002d998d1335fd"
       }
+    },
+    {
+      "base_commit": "20181d25bb0845192c9b1dce6abd136814d75027",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 whole-coupon Gaussian joint payment law over actual original reset/profile/notional/coupon/spread/gearing/history/calendar/entitlement/principal inputs. Explicit common terminal normal factor loadings aggregate signed currency cash before cap/floor; no sum of clipped forecasts or inferred independence/expiry/payment adjustment. Constant full-period bounds and explicit expected-coupon pro-rata notional-accrual policy; known cash uses original exact Decimal bounds/rounding. Five independent full-term controls retain cash/price1e-9/accrued1e-12; original segment requests/responses unchanged.21new full shared requests preserve malformed/missing/source/law/role/support/rounding/underflow failures. Retain every1677old numeric row/default/file,30areas/174combinations/2154Planned,80shared/12native/228mapped1926unmapped.21supplemental requests extend5396to5417 without mapping incomplete mandatory optional/calibration/inverse/risk/lifecycle/overnight/callable scope. Only unexecutable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "Five independently declared full coupon cash/price/accrued and covariance/rotation/zero/known-rounding controls; pinnedQuantLib1.40",
+        "21complete new shared requests and all original5396requests on actual native/C/Java/WASMNode/browser without financial masks",
+        "Original37943ISDA/QuantLib checks, numeric/scope/physical conservation and original64library42assurance4private controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "043209545c6bcc049ea96e93f7fc67444316d1debda7e895083256a7be5efe91",
+        "crates/convex-analytics/src/floating_coupon.rs": "c35fb87651bd296558887230aaa53f913dc41b4e140afaa7934137793fddcc12",
+        "crates/convex-analytics/src/floating_coupon/whole_coupon.rs": "30ce1d03b0a621e8c3c905ef9fcf400f9251ed7a4694928aa4b27f62a11585d4",
+        "crates/convex-analytics/tests/fixtures/whole-coupon-normal.json": "82391d21f4b4ae769da48fe857642931fbf7824109ba071c7b263d9cedd88643",
+        "crates/convex-analytics/tests/whole_coupon_normal.rs": "0da9a251954fad8f838b23eec477fffaa5e07e232200800da0d06bcbacd9f8af",
+        "crates/convex-ffi/tests/whole_coupon_normal.rs": "c60a9b2385be8caa5db84e549e5ba90e838ffc39a98b6aac9e77c4c0e7f7de92",
+        "crates/convex-mcp/tests/whole_coupon_normal.rs": "d1cd611634637acd7d4413333703f62bd7c2d2be652640349069067ee13de351",
+        "crates/convex-wasm/tests/whole_coupon_normal.rs": "cb8c79b883ecde1b0ad726eadcfd31185a2fe8048fd385faa38b2c312f1eaf15",
+        "crates/convex/examples/whole_coupon_normal.rs": "36799cda5d16aa4198b4d437bc84b2310fe0402557e4157713b44709fe22ef8e",
+        "crates/convex/tests/whole_coupon_normal.rs": "40bad9b94d6c44f6fa0ef904386aad1bef9372a1d3e6276c2c39a69da5cc9ea7",
+        "docs/FLOATING-COUPON-OPTIONS.md": "c980d54a8dc559ee73c40190baa50aaf7463fcbd8a75de016f7964f5aa624e99",
+        "tests/fixtures/library/whole-coupon-normal.json": "60a1d45f0c488da6c8822f5727ad3b34196ccbae370eb39a0ab2ff2acc607d0a",
+        "tests/fixtures/library/whole_coupon_normal_contract.rs": "ef77fbc2c8bc0de91b399dbd55da4d8675ccd5f897810ac8fc06d7a76ebfd500",
+        "tests/scripts/whole_coupon_normal_schema.py": "7d3e6ab327b9ad74fc3b0ff12f1f535539a636b2c272813215e62f8ae9064b37",
+        "tools/assurance/check.py": "cb6b2d6dc1de0cf1cdd4c11d6b73d21725fcc160b86a95a5ba1bdfdd70548887",
+        "tools/assurance/inventory.json": "d7c463e0844641582a1443cec29e853de2844f6d411c8ed0c148b82aa099b769",
+        "tools/assurance/numeric-evidence.json": "d5181e9ea0f9b0a7f34cb4c5b64e383217cd1d95b25895c6ee70b2298df8dce0",
+        "tools/library/api-capabilities.json": "daaab54ce6bab19267f1cc509b38124c7a5b17a442054627a8670a88a9af31de",
+        "tools/library/library-inventory.json": "064d16fb3cebfefe8eeb7dadd2517135389c961584ea155ef78365c06859840e",
+        "tools/library/test_operations.py": "140d957135b899cae1150c4b5e53334435dc0dbb5dafedcd4716e7c2222284ef"
+      }
     }
   ]
 }

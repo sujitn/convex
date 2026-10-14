@@ -4714,7 +4714,7 @@
     },
     {
       "path": "crates/convex-analytics/src/floating_coupon.rs",
-      "sha256": "3712caf3fe0a79bad58884c19f311b4ae043002119444b7906698eb849c9ad40",
+      "sha256": "c35fb87651bd296558887230aaa53f913dc41b4e140afaa7934137793fddcc12",
       "invariants": "CVX-063 explicitly segmented term coupon cap/floor/collar under supplied normal or shifted-lognormal payment-measure models. Original full native reset/calendar/profile/notional/history/entitlement/principal and source revisions remain. Known cash uses exact Decimal and original rounding; future rounded cash and pending-publication conditional laws fail explicitly. Negative gearing reverses option side and Reject cannot imply a floor.48independent option and60coupon references plus3full-term cases precede candidate comparison;21shared requests include typed input/model/history/role failures. New scoped operation cannot qualify whole-coupon/overnight/callable/calibration/inverse/book-risk or full original optional requirements. Retain1665old numerical rows/defaults/files, every2154Planned record and80shared/12native exact mappings228mapped1926unmapped. Add21supplemental requests without promoting any required capability. Only unexecutable platform checks defer; independentCVX064/065 and authenticated production/latency owners remain. No acceptance/certificate.",
       "bounds": "Finite explicitly bounded model/time/rate/gearing; original bounded schedules/profiles/fixings and maximum segments. Predeclared premium/delta/vega1e-12,gamma1e-10,full price/cash1e-9 and accrued1e-12 unchanged.",
       "failure_contract": "Typed invalid/missing/unsupported/numerical errors, no clipped future forecast, hidden model, negative-policy floor, intrinsic kink zero risk or partial successful price.",
@@ -4745,6 +4745,26 @@
         "crates/convex-ffi/tests/floating_coupon_options.rs",
         "crates/convex-mcp/tests/floating_coupon_options.rs",
         "crates/convex-wasm/tests/floating_coupon_options.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-analytics/src/floating_coupon/whole_coupon.rs",
+      "sha256": "30ce1d03b0a621e8c3c905ef9fcf400f9251ed7a4694928aa4b27f62a11585d4",
+      "invariants": "CVX-063 whole-coupon Gaussian joint payment law over actual original reset/profile/notional/coupon/spread/gearing/history/calendar/entitlement/principal inputs. Explicit common terminal normal factor loadings aggregate signed currency cash before cap/floor; no sum of clipped forecasts or inferred independence/expiry/payment adjustment. Constant full-period bounds and explicit expected-coupon pro-rata notional-accrual policy; known cash uses original exact Decimal bounds/rounding. Five independent full-term controls retain cash/price1e-9/accrued1e-12; original segment requests/responses unchanged.21new full shared requests preserve malformed/missing/source/law/role/support/rounding/underflow failures. Retain every1677old numeric row/default/file,30areas/174combinations/2154Planned,80shared/12native/228mapped1926unmapped.21supplemental requests extend5396to5417 without mapping incomplete mandatory optional/calibration/inverse/risk/lifecycle/overnight/callable scope. Only unexecutable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "bounds": "Original bounded term/fixing/profile/reset segments;1..16finite bounded common factors; finite checked mean/loading/variance, nonzero underflow fails. Full predeclared cash/price1e-9/accrued1e-12 unchanged.",
+      "failure_contract": "Typed invalid/missing/unsupported/numerical errors, no substituted covariance, clipped future forecast, ignored source or fake zero kink risk.",
+      "tests": [
+        "crates/convex-analytics/tests/fixtures/whole-coupon-normal.json",
+        "crates/convex-analytics/tests/whole_coupon_normal.rs",
+        "tests/fixtures/library/whole-coupon-normal.json",
+        "tests/fixtures/library/whole_coupon_normal_contract.rs",
+        "crates/convex/tests/whole_coupon_normal.rs",
+        "crates/convex/examples/whole_coupon_normal.rs",
+        "crates/convex-ffi/tests/whole_coupon_normal.rs",
+        "crates/convex-mcp/tests/whole_coupon_normal.rs",
+        "crates/convex-wasm/tests/whole_coupon_normal.rs",
+        "tests/scripts/whole_coupon_normal_schema.py"
       ],
       "exceptions": []
     }

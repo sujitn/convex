@@ -30238,7 +30238,8 @@
     "tests/fixtures/library/settled-claims-pnl-complete-api-17.json",
     "tests/fixtures/library/settled-claims-pnl-complete-api-18.json",
     "tests/fixtures/library/treasury-bill-admitted.json",
-    "tests/fixtures/library/term-coupon-options.json"
+    "tests/fixtures/library/term-coupon-options.json",
+    "tests/fixtures/library/whole-coupon-normal.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

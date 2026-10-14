@@ -42,3 +42,30 @@ Whole-coupon and overnight options, callable joint models, stochastic cash
 rounding, calibration, inverse quotations and complete book risk/lifecycle
 qualification remain required work. This scoped implementation does not certify
 those original capabilities or replace independent convention/model approval.
+
+## Whole-coupon Gaussian law
+
+Supply `options.whole_coupon` to apply each bound to the entire coupon. The
+original segment behavior is retained when that field is omitted. For coupon
+segments with weights `w = notional * year_fraction`, the effective coupon rate
+is `sum(w * (gearing * index + coupon + spread)) / sum(w)`. Cap and floor must
+be constant over that coupon; stepped bounds with this scope are rejected.
+
+Each future observation/payment row supplies terminal decimal-rate loadings on
+common independent unit normal factors and an explicit payment-measure mean
+adjustment. Rows for one coupon share the same factor dimension (1–16). Their
+covariance is the factor Gram matrix. The library aggregates signed cash
+loadings before pricing the whole coupon, retaining correlation and offsetting
+gearing. Loadings already include the actual remaining expiry; no volatility
+clock, independence, correlation or convexity adjustment is inferred. All rows
+retain their source, positive revision and information cutoff. Missing,
+duplicate, future-information and unused rows fail.
+
+`expected_coupon_pro_rata_notional_accrual` is an explicitly selected model
+accrued policy: expected bounded coupon cash times elapsed notional-accrual
+weight divided by full weight. It does not assert a market accrued convention.
+Known coupons retain exact Decimal bounds and payment rounding; future rounded
+cash still fails. Results expose the whole cash mean, common cash loadings,
+standard deviation, bounded expectation and complete original segment proof.
+A sum of shifted-lognormal rates, overnight or callable/path law requires its
+own model. This supplied normal law does not substitute for those requirements.
