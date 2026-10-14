@@ -3725,6 +3725,32 @@
         "tools/library/library-inventory.json": "7f3fb27db49fdff815ff9a5a40ede2ad48d0de7343a8e2e5106ef58e21848874",
         "tools/library/test_validation_order.py": "8fada18fbaf4708cfeb28ac35b93b55a14b422d790878daad845ef2a849d6c10"
       }
+    },
+    {
+      "base_commit": "7df9205df8797db0d6d4236c8130011097c4ec19",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 exact original8Rust-only LC001/LC002 schedule/profile/fixing operations bind actual public methods, original positive/boundary/negative controls and all original default/no-default/schema profiles through tools/library/native-operations.json. No new JSON operation or required surface waiver. A standalone composed native consumer preserves known/revision/receipt/future distinctions and independently dated coupon/spread/gearing/notional steps, actual delayed coupon/principal cash and forecast-only shocks. Independently declared Decimal80 six coupon/three principal answers retain1e-24cash bound before comparison. First metadata control caught unrelated Rust-operation assignment; exact original operation identity is now required. Every original1647numeric row/default/file/section,80shared routes/5375requests and literal30areas/174combinations/2154Planned requirement remains. Five additive controls give1652. Eight new native mappings supplement192shared mappings without certification. Full remaining native model/convention/claim/physical/operation and advertised convenience scope stays; only unexecutable platforms deferred.",
+      "tests": [
+        "All original native primitive controls/default/no-default/schema; six independent coupon/three principal and source-bound forecast/history controls",
+        "Exact Rust-only/original-operation/method/control/profile/no-certificate guards; original numerical and physical scope conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "521bfaded135eec941f97757cb5a55d11f8c0cae8a802d62719ccffff506c677",
+        "crates/convex/examples/native_primitives.rs": "05caea3994e632bd36c31a3732b3753053114cabe4fcf3ebcd7db7e13bb18cfc",
+        "crates/convex/tests/native_primitives.rs": "56bb0901e16a7e5ec45815016ce222773e1863154fa9de2adfaf0cd246529672",
+        "tests/fixtures/library/native-primitives-reference.json": "b508d557a00b592c203076b4afa6a0de1172f0ba432343590f075ee3a8b720b6",
+        "tests/fixtures/library/native_primitives_contract.rs": "287e48acdecd178d1761b46c4df8f5b92fb63f248b66248b20423819c00d5dd0",
+        "tests/scripts/native_primitives_reference.py": "441cccf03ba9b835b59f9af9b9f679f9f25b0c5d06ab40cd6f6bf937a9180baa",
+        "tools/assurance/check.py": "99134455924f873769772284694f653cb7a5b5c95a129a381dea3abc93d3c552",
+        "tools/assurance/numeric-evidence.json": "a34e42501d64c297349a6bbb2a04d564d7b05cb6b0c257192ae5d1fd05c95cec",
+        "tools/library/api.py": "0ce53f7b27a198ee97953239b761387a1f5360865225bce26b5faa51ee80b3ca",
+        "tools/library/library-inventory.json": "6fa34f2fabe60bbbf60c5bbf7c6c4ac5521a9837bfbe31f8ea3a844b7069e1c5",
+        "tools/library/native-operations.json": "b708fb64e680cd5b29b13dede429bf05b91bd97b0c1259380e2265953259191f",
+        "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
+        "tools/library/test_native_operations.py": "2836a126fab8c47c9ad82e425314494c610b6895aa5196304fa04d90248e7057",
+        "tools/library/test_outstanding.py": "3b7468acb9285f837c4dcf6a9b1dca827454ee444683a04a8335bc57670f87ff"
+      }
     }
   ]
 }

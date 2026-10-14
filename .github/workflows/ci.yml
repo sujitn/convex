@@ -121,6 +121,36 @@ jobs:
       - name: Exercise portable numerical kernels with schema features
         run: cargo run --locked -p convex --example portable_math --features schemars
 
+      - name: Qualify supplied native primitives rust-default-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives
+
+      - name: Qualify supplied native primitives rust-default-1
+        run: cargo test --locked -p convex --test native_primitives
+
+      - name: Qualify supplied native primitives rust-default-consumer
+        run: cargo run --locked -p convex --example native_primitives
+
+      - name: Qualify supplied native primitives rust-no-default-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-no-default-1
+        run: cargo test --locked -p convex --test native_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-no-default-consumer
+        run: cargo run --locked -p convex --example native_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-schemars-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives --features schemars
+
+      - name: Qualify supplied native primitives rust-schemars-1
+        run: cargo test --locked -p convex --test native_primitives --features schemars
+
+      - name: Qualify supplied native primitives rust-schemars-consumer
+        run: cargo run --locked -p convex --example native_primitives --features schemars
+
+      - name: Check independent dated native primitive cash reference
+        run: python3 tests/scripts/native_primitives_reference.py check
+
       - name: Check independently declared exact term decimals
         run: python3 tests/scripts/term_decimals_reference.py check
 

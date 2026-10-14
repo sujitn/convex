@@ -8242,6 +8242,31 @@
       "path": "crates/convex/examples/term_decimals.rs",
       "mode": "file",
       "sha256": "9d85d77fb7ce51afa005d856fbd2f4fed521a3c5cc5baa6f41281076c9babc4e"
+    },
+    {
+      "path": "tests/scripts/native_primitives_reference.py",
+      "mode": "file",
+      "sha256": "441cccf03ba9b835b59f9af9b9f679f9f25b0c5d06ab40cd6f6bf937a9180baa"
+    },
+    {
+      "path": "tests/fixtures/library/native-primitives-reference.json",
+      "mode": "file",
+      "sha256": "b508d557a00b592c203076b4afa6a0de1172f0ba432343590f075ee3a8b720b6"
+    },
+    {
+      "path": "tests/fixtures/library/native_primitives_contract.rs",
+      "mode": "file",
+      "sha256": "287e48acdecd178d1761b46c4df8f5b92fb63f248b66248b20423819c00d5dd0"
+    },
+    {
+      "path": "crates/convex/tests/native_primitives.rs",
+      "mode": "file",
+      "sha256": "56bb0901e16a7e5ec45815016ce222773e1863154fa9de2adfaf0cd246529672"
+    },
+    {
+      "path": "crates/convex/examples/native_primitives.rs",
+      "mode": "file",
+      "sha256": "05caea3994e632bd36c31a3732b3753053114cabe4fcf3ebcd7db7e13bb18cfc"
     }
   ]
 }

@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "build_commands": {
+    "rust-default": [
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-core",
+        "--test",
+        "cashflow_primitives"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_primitives"
+      ]
+    ],
+    "rust-no-default": [
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-core",
+        "--test",
+        "cashflow_primitives",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_primitives",
+        "--no-default-features"
+      ]
+    ],
+    "rust-schemars": [
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-core",
+        "--test",
+        "cashflow_primitives",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_primitives",
+        "--features",
+        "schemars"
+      ]
+    ]
+  },
+  "routes": {
+    "native.validate_calendar_and_schedule_terms": {
+      "required_record_ids": [
+        "LC-001/calendar_schedule/SUPPLIED/deterministic/validate_calendar_and_schedule_terms/rust"
+      ],
+      "entry_points": [
+        "convex::cashflows::CouponSchedule::generate"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn generate("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_pinned_short_long_front_back_and_month_rolls"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_adjusted_accrual_is_a_separate_contract_choice"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_invalid_and_inconsistent_schedule_terms_fail_without_sorting"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.generate_unadjusted_and_adjusted_dates": {
+      "required_record_ids": [
+        "LC-001/calendar_schedule/SUPPLIED/deterministic/generate_unadjusted_and_adjusted_dates/rust"
+      ],
+      "entry_points": [
+        "convex::cashflows::CouponSchedule::generate_with_calendars"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn generate_with_calendars("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_joint_holidays_do_not_rewrite_contractual_accrual_or_observation_dates"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_adjusted_accrual_is_a_separate_contract_choice"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_closed_calendars_and_extreme_offsets_are_bounded_errors"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.generate_stub_reference_periods": {
+      "required_record_ids": [
+        "LC-001/calendar_schedule/SUPPLIED/deterministic/generate_stub_reference_periods/rust"
+      ],
+      "entry_points": [
+        "convex::cashflows::CouponPeriod::reference_periods",
+        "convex::cashflows::icma_year_fraction"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn reference_periods("
+        },
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn icma_year_fraction("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_long_stubs_keep_each_icma_reference_denominator_and_accrual_split"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_explicit_front_and_back_dates_preserve_reference_periods"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_invalid_and_inconsistent_schedule_terms_fail_without_sorting"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.resolve_settlement_entitlement_and_ex_dates": {
+      "required_record_ids": [
+        "LC-001/calendar_schedule/SUPPLIED/deterministic/resolve_settlement_entitlement_and_ex_dates/rust"
+      ],
+      "entry_points": [
+        "convex::cashflows::settlement_date",
+        "convex::cashflows::CouponPeriod::is_entitled"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn settlement_date("
+        },
+        {
+          "path": "crates/convex-core/src/cashflows/schedule.rs",
+          "text": "pub fn is_entitled("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_gilt_record_date_boundary_and_ex_coupon_rebate_are_explicit"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_payment_date_state_and_fully_matured_accrual"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac1_settlement_requires_an_explicit_nonnegative_lag_and_calendar"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.validate_coupon_spread_gearing_and_notional_profiles": {
+      "required_record_ids": [
+        "LC-002/independent_profiles_fixings/SUPPLIED/floating/validate_coupon_spread_gearing_and_notional_profiles/rust"
+      ],
+      "entry_points": [
+        "convex::cashflows::DatedProfile::new",
+        "convex::cashflows::CouponProfiles::new"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/cashflows/profiles.rs",
+          "text": "pub fn new("
+        },
+        {
+          "path": "crates/convex-core/src/cashflows/amounts.rs",
+          "text": "pub fn new("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac3_profiles_split_independently_without_averaged_terms"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac3_principal_before_after_coupon_boundary_and_redemption_are_explicit"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac3_invalid_unsorted_overlapping_gapped_and_inconsistent_profiles_fail"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.resolve_known_at_fixings": {
+      "required_record_ids": [
+        "LC-002/independent_profiles_fixings/SUPPLIED/floating/resolve_known_at_fixings/rust"
+      ],
+      "entry_points": [
+        "convex::fixings::FixingSeries::resolve"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/fixings.rs",
+          "text": "pub fn resolve("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_future_observation_history_does_not_leak_into_a_restated_context"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_publication_receipt_nanosecond_and_revision_cutoffs_are_independent"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_invalid_revisions_sources_status_and_projection_values_fail"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.generate_known_and_projected_cashflows": {
+      "required_record_ids": [
+        "LC-002/independent_profiles_fixings/SUPPLIED/floating/generate_known_and_projected_cashflows/rust"
+      ],
+      "entry_points": [
+        "convex::fixings::FixingResolution::project",
+        "convex::cashflows::CouponProfiles::coupon_amount",
+        "convex::cashflows::principal_cashflows"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/fixings.rs",
+          "text": "pub fn project<"
+        },
+        {
+          "path": "crates/convex-core/src/cashflows/amounts.rs",
+          "text": "pub fn coupon_amount("
+        },
+        {
+          "path": "crates/convex-core/src/cashflows/amounts.rs",
+          "text": "pub fn principal_cashflows("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex/tests/native_primitives.rs",
+          "function": "known_and_forecast_rates_preserve_independent_profiles_and_cash_dates"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac3_negative_coupons_advance_cash_and_rounding_are_contract_choices"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_missing_published_list_fails_before_any_projection_callback"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.report_missing_inputs": {
+      "required_record_ids": [
+        "LC-002/independent_profiles_fixings/SUPPLIED/floating/report_missing_inputs/rust"
+      ],
+      "entry_points": [
+        "convex::fixings::FixingResolution::missing"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-core/src/fixings.rs",
+          "text": "pub fn missing("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_missing_published_list_fails_before_any_projection_callback"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_not_yet_published_is_distinct_from_future_and_policy_is_explicit"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-core/tests/cashflow_primitives.rs",
+          "function": "ac2_fixing_input_and_request_sizes_are_bounded_before_resolution"
+        }
+      ],
+      "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    }
+  }
+}

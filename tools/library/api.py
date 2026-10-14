@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 INVENTORY = 'tools/library/library-inventory.json'
 MATRIX = 'tools/library/api-capabilities.json'
+NATIVE_ROUTES = 'tools/library/native-operations.json'
 SCOPE_FIELDS = ('requirement_areas', 'conventions', 'models', 'combinations',
                 'records', 'outside_or_inapplicable')
 
@@ -98,6 +99,67 @@ def check_operation_routes(routes, examples, required, root):
                     require(actual == expected, 'example calls another operation: ' + identifier)
 
 
+def native_routes(root=ROOT, inventory=None, document=None):
+    """Exact Rust-only operations retain their original native build profiles."""
+    import re
+    inventory = inventory if inventory is not None else read(root / INVENTORY)
+    document = document if document is not None else read(root / NATIVE_ROUTES)
+    require(type(document['schema_version']) is int and document['schema_version'] == 1
+            and document['certified'] is False,
+            'native mapping cannot certify or change schema')
+    required = {r['id']: r for r in inventory['records']}
+    combinations = {c['id']: c for c in inventory['combinations']}
+    profiles = ['rust-default', 'rust-no-default', 'rust-schemars']
+    require(set(document['build_commands']) == set(profiles), 'native build profile omitted')
+    files = {
+        'crates/convex-core/tests/cashflow_primitives.rs': ('convex-core', 'cashflow_primitives'),
+        'crates/convex/tests/native_primitives.rs': ('convex', 'native_primitives'),
+    }
+    for profile in profiles:
+        flags = [] if profile == 'rust-default' else ['--no-default-features'] if profile == 'rust-no-default' else ['--features', 'schemars']
+        expected = [['cargo', 'test', '--locked', '-p', crate, '--test', test, *flags]
+                    for crate, test in files.values()]
+        require(document['build_commands'][profile] == expected, 'native controls or feature command changed')
+    routes = document['routes']
+    require(isinstance(routes, dict) and routes, 'native operation mapping omitted')
+    for identity, route in routes.items():
+        require(identity.startswith('native.') and route['certified'] is False
+                and route['qualification'].strip(), 'invalid/unqualified native operation')
+        ids = route['required_record_ids']
+        require(ids and len(ids) == len(set(ids)) and set(ids) <= set(required),
+                'native mapping removed/invented required record')
+        for record in ids:
+            original = required[record]
+            require(original['operation'] == identity.removeprefix('native.'),
+                    'native mapping calls another required operation')
+            require(original['surface'] == 'rust'
+                    and combinations[original['combination_id']]['surfaces'] == ['rust'],
+                    'native-only evidence cannot replace required JSON/C dispatch')
+        require(route['entry_points'] and all(p.startswith('convex::') for p in route['entry_points']),
+                'native mapping needs actual public embedding methods')
+        require(route['anchors'], 'native method source omitted')
+        for entry in route['entry_points']:
+            method = entry.rsplit('::', 1)[-1]
+            require(any(re.search(r'\bpub\s+fn\s+' + re.escape(method) + r'\s*(?:<|\()', a['text'])
+                        for a in route['anchors']), 'native entry point lacks its actual method anchor')
+        for anchor in route['anchors']:
+            path = Path(anchor['path'])
+            require(not path.is_absolute() and '..' not in path.parts and path.suffix == '.rs',
+                    'unsafe native source anchor')
+            actual = (root / path).resolve()
+            require(actual.is_relative_to(root.resolve()) and actual.is_file()
+                    and anchor['text'] in actual.read_text(), 'missing native method source')
+        for kind in ('positive_controls', 'boundary_controls', 'negative_controls'):
+            require(route[kind], 'native operation lacks actual positive/boundary/negative controls')
+            for control in route[kind]:
+                require(control['path'] in files, 'unrecognized native control consumer')
+                path = (root / control['path']).resolve()
+                require(path.is_relative_to(root.resolve()) and path.is_file()
+                        and re.search(r'#\[test\]\s*fn\s+' + re.escape(control['function']) + r'\s*\(', path.read_text()),
+                        'native control must identify an actual executable test')
+    return routes
+
+
 def check(matrix=None, root=ROOT):
     inventory = read(root / INVENTORY)
     matrix = matrix if matrix is not None else read(root / MATRIX)
@@ -126,6 +188,7 @@ def check(matrix=None, root=ROOT):
     require(len(examples) == len(cases), 'duplicate example identity')
     check_routes(matrix['routes'], examples, root)
     check_operation_routes(matrix['operation_routes'], examples, required, root)
+    native = native_routes(root, inventory)
     by_id = {record['id']: record for record in inventory['records']}
     for record in matrix['records']:
         require(record['certificate_status'] == 'Planned', 'engineering route cannot promote original mandatory status')
@@ -140,6 +203,7 @@ def check(matrix=None, root=ROOT):
             require(record['remaining_owner_tasks'], 'unsupported required operation needs an owner')
     return {'status': 'passed', 'mandatory_records': len(actual), 'verified_records': 0, 'certified': False,
             'exact_operation_routes': len(matrix['operation_routes']), 'engineering_examples': len(cases),
+            'exact_native_operation_routes': len(native),
             'unsupported_records': sum(record['dispatch_status'] == 'unsupported' for record in matrix['records']),
             'qualification': 'Actual route examples are engineering subsets; every exact convention/model record remains Planned.'}
 

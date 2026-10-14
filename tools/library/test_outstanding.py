@@ -26,7 +26,8 @@ class OutstandingTests(unittest.TestCase):
             self.assertFalse(self.report['certified'])
 
     def test_family_examples_cannot_supply_an_exact_mapping(self):
-        routes = self.matrix['operation_routes']
+        routes = {**self.matrix['operation_routes'],
+                  **outstanding.api.native_routes(outstanding.ROOT, self.inventory)}
         for row in self.report['records']:
             expected = sorted(k for k, route in routes.items()
                               if row['record_id'] in route['required_record_ids'])

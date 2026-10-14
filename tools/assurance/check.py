@@ -31,6 +31,16 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-core --test cashflow_primitives',
+        'cargo test --locked -p convex --test native_primitives',
+        'cargo run --locked -p convex --example native_primitives',
+        'cargo test --locked -p convex-core --test cashflow_primitives --no-default-features',
+        'cargo test --locked -p convex --test native_primitives --no-default-features',
+        'cargo run --locked -p convex --example native_primitives --no-default-features',
+        'cargo test --locked -p convex-core --test cashflow_primitives --features schemars',
+        'cargo test --locked -p convex --test native_primitives --features schemars',
+        'cargo run --locked -p convex --example native_primitives --features schemars',
+        'python3 tests/scripts/native_primitives_reference.py check',
         'python3 tests/scripts/term_decimals_reference.py check',
         'python3 tests/scripts/swap_term_decimals_reference.py check',
         'cargo test --locked -p convex --test term_decimals',

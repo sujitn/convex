@@ -25,7 +25,8 @@ def report(root=ROOT):
     areas = {row['id']: row for row in inventory['requirement_areas']}
     assessed = {row['record_id']: row for row in matrix['records']}
     mapped = defaultdict(list)
-    for identity, operation in matrix['operation_routes'].items():
+    native = api.native_routes(root, inventory)
+    for identity, operation in {**matrix['operation_routes'], **native}.items():
         for record in operation['required_record_ids']:
             mapped[record].append(identity)
     records = []
@@ -71,6 +72,7 @@ def report(root=ROOT):
         mandatory_scope_sha256=api.scope_hash(inventory),
         summary=dict(mandatory_areas=len(areas), mandatory_combinations=len(combinations),
             mandatory_records=len(records), exact_operation_routes=len(matrix['operation_routes']),
+            exact_native_operation_routes=len(native),
             exact_mapped_records=sum(bool(r['exact_operation_routes']) for r in records),
             unmapped_records=sum(not r['exact_operation_routes'] for r in records),
             engineering_status=dict(sorted(Counter(r['engineering_dispatch_status'] for r in records).items())),
