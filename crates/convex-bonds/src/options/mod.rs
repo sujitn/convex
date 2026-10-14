@@ -31,6 +31,8 @@
 //! ```
 
 pub mod binomial_tree;
+/// Explicit normal/shifted-lognormal forward coupon option expectations.
+pub mod floating_coupon;
 pub mod hw1f;
 pub mod models;
 pub mod swaption_hw1f;

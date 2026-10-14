@@ -6,4 +6,4 @@
 //! their domain, finiteness, representability, residual and work-budget checks.
 //! No result rounding, output filtering or host-specific numerical policy occurs.
 
-pub use libm::{exp, expm1, hypot, log, log1p, pow};
+pub use libm::{erfc, exp, expm1, hypot, log, log1p, pow};

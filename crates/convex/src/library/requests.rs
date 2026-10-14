@@ -183,6 +183,11 @@ pub enum LibraryOperation {
         /// Complete legal-path price or yield/worst composition.
         action: IcmaWorkoutOperation,
     },
+    /// Actual stochastic bounds on original term accrual/profile/reset segments.
+    TermCouponOptions {
+        /// Full economics, exact calendars/history/curves and model sources.
+        input: Box<TermCouponOptionInput>,
+    },
     /// Full original floating conditional cash and frozen-projection DM inverses.
     FloatingWorkout {
         /// Complete original floating terms, resources, revisions and signed face.

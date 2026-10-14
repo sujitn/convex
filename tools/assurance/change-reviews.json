@@ -3926,6 +3926,50 @@
         "www/src/components/SpreadAnalysis.jsx": "e80bb177a68272494487b5b1dbb5533172d47a69ff89f7f8a5aec424d2f6f81e",
         "www/src/components/YieldAnalysis.jsx": "955119f7cce64ec05ae34cb2b36834496618dcfaf55ae0ab5bf5c63dc64a6244"
       }
+    },
+    {
+      "base_commit": "59142baf4efe2ec96f66748879fad794d38795b7",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 explicitly segmented term coupon cap/floor/collar under supplied normal or shifted-lognormal payment-measure models. Original full native reset/calendar/profile/notional/history/entitlement/principal and source revisions remain. Known cash uses exact Decimal and original rounding; future rounded cash and pending-publication conditional laws fail explicitly. Negative gearing reverses option side and Reject cannot imply a floor.48independent option and60coupon references plus3full-term cases precede candidate comparison;21shared requests include typed input/model/history/role failures. New scoped operation cannot qualify whole-coupon/overnight/callable/calibration/inverse/book-risk or full original optional requirements. Retain1665old numerical rows/defaults/files, every2154Planned record and80shared/12native exact mappings228mapped1926unmapped. Add21supplemental requests without promoting any required capability. Only unexecutable platform checks defer; independentCVX064/065 and authenticated production/latency owners remain. No acceptance/certificate.",
+      "tests": [
+        "Predeclared independent108option/coupon and3full-term controls; pinnedQuantLib1.40 premium comparison",
+        "21complete native/C/MCP/WASM requests, generated schema and all default/no-default/schema profiles",
+        "Full original5375requests retained plus21addition on actualnative/C/Java/wasm32Node/browser and original37943ISDA/QuantLib checks"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "791531c3c752f629fa1474856d07af0c88c3c17c77bf5f180104fd870fef441d",
+        "crates/convex-analytics/src/floating_coupon.rs": "3712caf3fe0a79bad58884c19f311b4ae043002119444b7906698eb849c9ad40",
+        "crates/convex-analytics/src/lib.rs": "30e671c3f24160f602d5f232a4af598bb8c27248c224520015c4b187b30483a0",
+        "crates/convex-analytics/tests/fixtures/term-coupon-options.json": "f8ab1b7becb292d542f286e801114e045e23493445018a6d0bffc3ababb258d2",
+        "crates/convex-analytics/tests/floating_coupon_options.rs": "39830cfaf6d71c44690e97f1d3c614ab40d289140c13e78237bbd49a9d4afec0",
+        "crates/convex-bonds/src/options/floating_coupon.rs": "67a23b8dbc5aeb6e8733ffbe4e6da748c75fef13d6bc6c3febbd1a747a256690",
+        "crates/convex-bonds/src/options/mod.rs": "e5d967d176318430d61147e03534df228d5cbbb1a707cd33169c922f3eb62991",
+        "crates/convex-bonds/tests/fixtures/floating-coupon-options.json": "2de2d01231f5e00ee0a7c5cebb0439c848d3e4ec6ed33da57b6a96b53ee296d1",
+        "crates/convex-bonds/tests/floating_coupon_options.rs": "3e854d19f89f785a48311eebc8786b79753515e2298a99b3a1a659eaab013111",
+        "crates/convex-ffi/tests/floating_coupon_options.rs": "8f6372928a4a8120f70d083c1486e1e352297ffab93d1c2529bbe447c688e5fb",
+        "crates/convex-math/src/portable.rs": "a1b2ea85830520e418d3d512d69df00f48364b52836987ee5696fdc6818e981a",
+        "crates/convex-mcp/tests/floating_coupon_options.rs": "d87a7b2850fc6b43e60ab53d94ec2889a88a73dc6cd6e4fe832ff9bbc7aaa7e5",
+        "crates/convex-wasm/tests/floating_coupon_options.rs": "08a4213f95c07660ef7862d6822fd786e01d30da85241f2ddff0e2ee90301c24",
+        "crates/convex/examples/floating_coupon_options.rs": "6bd61c5b42672e9e6fa4254440aab5f7c704673e88d55d8086cae48500de5dae",
+        "crates/convex/src/library/errors.rs": "4659fc84c81daeb6774187854232624459bb79e3b6a99f27c87856e3146c287a",
+        "crates/convex/src/library/floating_coupon.rs": "39cec367f6a6a637ebaa24aa73b8741e11e74f0c4804616ed65d9d4cc8357fff",
+        "crates/convex/src/library/mod.rs": "bba11c589d6f65c23982351c937cbf21f8a74acdadad95899074371793395669",
+        "crates/convex/src/library/products.rs": "4572d9f38c9654cf9a0f087ec55e1a695ae713eb15e64264785707fecaea553b",
+        "crates/convex/src/library/requests.rs": "73182f3a36b4215fd1fe18003e888b7cf65e3aac610c15c40e25ee22082d3a9e",
+        "crates/convex/tests/floating_coupon_options.rs": "5f17b47752104d567c198a0b8251ef20409230977749e2b2c811f7d3e676e029",
+        "docs/FLOATING-COUPON-OPTIONS.md": "185c8415947bf187fb0b095f1a8896fdbd0651f431fd0f0e3b022286c0295289",
+        "tests/fixtures/library/term-coupon-options.json": "b13954c1c93a6d8b3d1ceb8e0603c3638d22cad5067a216fed7ae91b2d8f7b52",
+        "tests/fixtures/library/term_coupon_options_contract.rs": "9116f116681150c17b2c99d1effb0e9283d29b3d12872eb98a7865e258b99e61",
+        "tests/scripts/floating_coupon_options_schema.py": "93a6249431806f443ade99558d9fddd32a3d9e67c9a700a47292c80968061170",
+        "tools/assurance/check.py": "65f6e18a3aacb3710ffb214005142104bff0d30f2c42d6fac8813bc2cc4c51ee",
+        "tools/assurance/inventory.json": "eee37e8085fa1129c6b81b7acbc0d448ec61e23904809fba84ddd864259d799d",
+        "tools/assurance/numeric-evidence.json": "4f80ad1b2d5f0ffbe283db49946ee1416d14213131512cfbe9f31d7a9a59e8f4",
+        "tools/assurance/test_policy.py": "b2cca7643898b4a18c7c90bc01496d650a4e004a8b543eb68eb37e0225be290e",
+        "tools/library/api-capabilities.json": "4958b2cf81a731505b28986f4cd7f713848c414e8062c8a79935e961403e5ee6",
+        "tools/library/library-inventory.json": "47dca7e3cd1be7614d465a55f90b4c5970385a2b5cca63fdec6e4eb853488529",
+        "tools/library/test_operations.py": "60af9abb33853fea8d36ee0d9e34d26eabf94d598e9c4cc7a2002d998d1335fd"
+      }
     }
   ]
 }

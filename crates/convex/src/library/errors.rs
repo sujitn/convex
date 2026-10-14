@@ -43,6 +43,24 @@ fn native<E: std::fmt::Debug + std::fmt::Display>(code: Code, e: &E) -> LibraryE
         details: json!({"native_kind":format!("{e:?}")}),
     }
 }
+impl From<convex_analytics::floating_coupon::TermCouponOptionError> for LibraryError {
+    fn from(e: convex_analytics::floating_coupon::TermCouponOptionError) -> Self {
+        use convex_analytics::floating_coupon::TermCouponOptionError as E;
+        match e {
+            E::Bond(e) => e.into(),
+            E::Cash(e) => e.into(),
+            E::Curve(e) => e.into(),
+            E::MissingModel { .. } => native(Code::MissingInput, &e),
+            E::Unsupported { .. } => native(Code::Unsupported, &e),
+            E::Bound(_) => native(Code::ResourceLimit, &e),
+            E::Invalid { .. } => native(Code::InvalidInput, &e),
+            E::Option(convex_bonds::options::floating_coupon::CouponOptionError::Invalid {
+                ..
+            }) => native(Code::InvalidInput, &e),
+            E::Option(_) => native(Code::Analytics, &e),
+        }
+    }
+}
 impl From<convex_analytics::cash_quotation::CashQuotationError> for LibraryError {
     fn from(e: convex_analytics::cash_quotation::CashQuotationError) -> Self {
         use convex_analytics::cash_quotation::CashQuotationError as E;

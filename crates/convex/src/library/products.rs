@@ -842,6 +842,7 @@ pub(super) fn execute(
             context,
             action,
         } => super::icma::workout(input, convention, context, action, r),
+        LibraryOperation::TermCouponOptions { input } => super::floating_coupon::execute(input, r),
         LibraryOperation::FloatingWorkout {
             input,
             context,

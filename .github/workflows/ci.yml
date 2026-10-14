@@ -127,6 +127,45 @@ jobs:
         run: cargo test --locked -p convex-ffi --test yas_output_retirement
       - name: Check native absolute cash component ownership
         run: cargo test --locked -p convex-wasm --lib cash_components_tests
+      - name: Qualify supplied term coupon options 0
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 1
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 2
+        run: cargo test --locked -p convex --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 3
+        run: cargo run --locked -p convex --example floating_coupon_options
+
+      - name: Qualify supplied term coupon options 4
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 5
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 6
+        run: cargo test --locked -p convex --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 7
+        run: cargo run --locked -p convex --example floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 8
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 9
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 10
+        run: cargo test --locked -p convex --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 11
+        run: cargo run --locked -p convex --example floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 12
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test floating_coupon_options
+
       - name: Check dated cash price and analytical yield risk
         run: cargo test --locked -p convex-bonds --test dated_cash_risk
       - name: Check WASM same-basis yield quotations

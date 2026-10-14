@@ -60,6 +60,8 @@ pub mod cashflows;
 pub mod credit_calibration;
 /// Distinct credit scenarios, signed sensitivities and checked bond-CDS mappings.
 pub mod credit_risk;
+/// Stochastic term coupon bounds on original supplied profiles, resets and history.
+pub mod floating_coupon;
 /// Actual supplied futures/cash carry, observation pricing, signed risk and settlement effects.
 pub mod futures;
 /// Pure ordered economic lifecycle and proposed contractual cash/position effects.
