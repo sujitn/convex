@@ -22,7 +22,8 @@ class NativeOperationTests(unittest.TestCase):
     def test_all_eight_original_rust_only_operations_have_concrete_controls(self):
         routes = api.native_routes(inventory=self.inventory, document=self.document)
         expected = {r['id'] for r in self.inventory['records'] if r['id'].startswith(('LC-001/', 'LC-002/'))}
-        self.assertEqual({record for route in routes.values() for record in route['required_record_ids']}, expected)
+        self.assertEqual({record for route in routes.values() for record in route['required_record_ids']
+                          if record.startswith(('LC-001/', 'LC-002/'))}, expected)
         self.assertEqual(len(expected), 8)
         self.assertFalse(self.document['certified'])
 
@@ -53,6 +54,36 @@ class NativeOperationTests(unittest.TestCase):
         self.rejects(lambda d: self.row(d).update(certified=True))
         self.rejects(lambda d: self.row(d)['anchors'][0].update(path='../../outside.rs'))
         self.rejects(lambda d: self.row(d)['positive_controls'][0].update(path='../../outside.rs'))
+
+    def test_every_original_rust_only_curve_operation_is_bound_once(self):
+        routes = api.native_routes(inventory=self.inventory, document=self.document)
+        expected = {r['id'] for r in self.inventory['records'] if r['id'].startswith('LC-015/')}
+        actual = [record for route in routes.values() for record in route['required_record_ids']
+                  if record.startswith('LC-015/')]
+        self.assertEqual(set(actual), expected)
+        self.assertEqual(len(actual), len(expected))
+        self.assertEqual(len(expected), 40)
+
+    def test_curve_control_consumer_and_all_profiles_cannot_be_omitted(self):
+        for profile in self.document['build_commands']:
+            self.rejects(lambda d: d['build_commands'][profile].pop())
+        self.rejects(lambda d: d['routes'][
+            'native.construct_from_typed_nodes_and_supported_dated_helpers'][
+                'positive_controls'][0].update(function='invented_curve_control'))
+
+    def test_curve_evidence_cannot_map_another_operation_or_shared_surface(self):
+        identity = 'native.return_native_unit_residuals_and_failure_diagnostics'
+        for record in [
+            next(r['id'] for r in self.inventory['records'] if r['surface'] == 'shared_json'),
+            next(r['id'] for r in self.inventory['records'] if r['id'].startswith('LC-015/')
+                 and r['operation'] != identity.removeprefix('native.')),
+        ]:
+            self.rejects(lambda d: d['routes'][identity].update(required_record_ids=[record]))
+
+    def test_original_primitive_commands_remain_required_with_curve_consumers(self):
+        for profile in self.document['build_commands']:
+            for index in [0, 1]:
+                self.rejects(lambda d: d['build_commands'][profile].pop(index))
 
 
 if __name__ == '__main__':

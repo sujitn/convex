@@ -433,3 +433,13 @@ sources204, library source pins528 and observations56; the original mandatory
 table bytes,30areas/174combinations/2154Planned records and50routes/3197requests
 remain unchanged. CVX-063 remains partial; actual unavailable hosts, independent
 financial/library/production/latency admission and remaining operations stay open.
+
+
+Original Rust-only curve operations now have exact native method and executable
+control mappings in tools/library/native-operations.json, with every original
+default/no-default/schema profile. The six existing curve consumers retain all
+original independent references, native quote units, residuals, rank/work limits,
+method restrictions and failure assertions. The facade directly preserves the
+original29construction and9parametric-fit failures. All forty LC-015 records
+remain Planned for independent approval. Native evidence cannot replace a
+required JSON/C operation or qualify broader models, markets or production.

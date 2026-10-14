@@ -155,6 +155,69 @@ jobs:
       - name: Qualify supplied native primitives rust-schemars-consumer
         run: cargo run --locked -p convex --example native_primitives --features schemars
 
+      - name: Qualify original native curve profile 0
+        run: cargo test --locked -p convex-curves --test curve_contracts
+
+      - name: Qualify original native curve profile 1
+        run: cargo test --locked -p convex-curves --test curve_numerics
+
+      - name: Qualify original native curve profile 2
+        run: cargo test --locked -p convex-curves --test curve_families
+
+      - name: Qualify original native curve profile 3
+        run: cargo test --locked -p convex-curves --test curve_methods
+
+      - name: Qualify original native curve profile 4
+        run: cargo test --locked -p convex-curves --test monotone_contracts
+
+      - name: Qualify original native curve profile 5
+        run: cargo test --locked -p convex-curves --test ufr_contracts
+
+      - name: Qualify original native curve profile 6
+        run: cargo test --locked -p convex --test native_curves
+
+      - name: Qualify original native curve profile 7
+        run: cargo test --locked -p convex-curves --test curve_contracts --no-default-features
+
+      - name: Qualify original native curve profile 8
+        run: cargo test --locked -p convex-curves --test curve_numerics --no-default-features
+
+      - name: Qualify original native curve profile 9
+        run: cargo test --locked -p convex-curves --test curve_families --no-default-features
+
+      - name: Qualify original native curve profile 10
+        run: cargo test --locked -p convex-curves --test curve_methods --no-default-features
+
+      - name: Qualify original native curve profile 11
+        run: cargo test --locked -p convex-curves --test monotone_contracts --no-default-features
+
+      - name: Qualify original native curve profile 12
+        run: cargo test --locked -p convex-curves --test ufr_contracts --no-default-features
+
+      - name: Qualify original native curve profile 13
+        run: cargo test --locked -p convex --test native_curves --no-default-features
+
+      - name: Qualify original native curve profile 14
+        run: cargo test --locked -p convex-curves --test curve_contracts --features schemars
+
+      - name: Qualify original native curve profile 15
+        run: cargo test --locked -p convex-curves --test curve_numerics --features schemars
+
+      - name: Qualify original native curve profile 16
+        run: cargo test --locked -p convex-curves --test curve_families --features schemars
+
+      - name: Qualify original native curve profile 17
+        run: cargo test --locked -p convex-curves --test curve_methods --features schemars
+
+      - name: Qualify original native curve profile 18
+        run: cargo test --locked -p convex-curves --test monotone_contracts --features schemars
+
+      - name: Qualify original native curve profile 19
+        run: cargo test --locked -p convex-curves --test ufr_contracts --features schemars
+
+      - name: Qualify original native curve profile 20
+        run: cargo test --locked -p convex --test native_curves --features schemars
+
       - name: Check independent dated native primitive cash reference
         run: python3 tests/scripts/native_primitives_reference.py check
 

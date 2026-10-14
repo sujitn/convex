@@ -8287,6 +8287,11 @@
       "path": "tests/scripts/wasm_checked_inputs.cjs",
       "mode": "file",
       "sha256": "eb6ee5918524e2865d4829fdb4ac1cb4345183e50423ed99b945bad2ea20adeb"
+    },
+    {
+      "path": "crates/convex/tests/native_curves.rs",
+      "mode": "file",
+      "sha256": "01948c4524cd851b2d4749164869207ddd27d23a8685259680e7c42dacaf82c9"
     }
   ]
 }

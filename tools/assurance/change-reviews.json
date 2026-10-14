@@ -3814,6 +3814,31 @@
         "www/src/components/BondInput.jsx": "8231326ea6f66d740bc2f84ef307b5a95a70b747e3ff472e4d4b9abd2b3494af",
         "www/src/components/ConventionSettings.jsx": "2f6e88f29c12191994ea1c33e6d9d0c3b1ca97fc77e65e85b3169f616a01086b"
       }
+    },
+    {
+      "base_commit": "93297ba0694f9fb4ad236cf51af0899ee03c101f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "Exact original Rust-only LC-015 curve operations bind all forty records across ten original combinations to concrete native methods and full positive/boundary/negative controls. Every original curve consumer runs all default/no-default/schema profiles; a direct facade consumer preserves29original construction and9parametric-fit failures with exact terms and error categories. Original8primitive mappings/commands stay. Forty candidate engineering assessments cannot promote any Planned certificate or waive required JSON/C/model/convention/claim scope. No native numerical source/fixture/dependency/solver bounds changes. Original1656numeric rows/defaults/files/sections remain;1new control pin gives1657. Original30areas/174combinations/2154Planned and80shared/5375requests stay;12native routes give228unique exact mapped and1926unmapped records. Full original financial and actual available hosts must qualify compiled capability metadata. No acceptance/certificate.",
+      "tests": [
+        "Original six curve consumers and direct29build/9fit errors in every promised Rust profile",
+        "Four additive metadata controls; original eight-record assertion retains the same primitive scope in the expanded registry",
+        "Original financial and complete actual native/C/Java/wasm32Node/browser output and full conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d806d92111f8b42b5fe72c821bc28268c8efe4b522889e2f45c99ba93bc0599c",
+        "crates/convex/tests/native_curves.rs": "01948c4524cd851b2d4749164869207ddd27d23a8685259680e7c42dacaf82c9",
+        "docs/LIBRARY-API.md": "a90295b758d9030a7b78ef79df3fe979d69cc25a2c8b0248a97e0cbc81c32ae9",
+        "docs/LIBRARY-COVERAGE.md": "ed7aba3cd2a77fed1204e74caea6ea613618e5c3433055332e44d8a3ddcb6d7b",
+        "tools/assurance/check.py": "2b59cfb21e7b9e705e410934e4072a0e5f13f853f6f65f03eb075b4e55e6506d",
+        "tools/assurance/numeric-evidence.json": "347bf32e0c9f250b79a93362dd66512d1117e5678dab295fb3a9b8dfcb8efd41",
+        "tools/assurance/test_policy.py": "28e9558a52b08f1e67e09e61778eae7a143074b13226368d03aa4530d5e1f8d6",
+        "tools/library/api-capabilities.json": "11c520b94790c17c3a18701da3ae40c0a9ebc1f759397eda4dd556081b6d48e1",
+        "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
+        "tools/library/library-inventory.json": "f8453186f328ecb48c9c56d12f9ac60f9a0b6bdf7857df4f6b7320abc37859da",
+        "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
+        "tools/library/test_native_operations.py": "3cbd7cd4d83d21787529cbf1e023097b73302346d8d5c8a1972f6133c3c0dc3d"
+      }
     }
   ]
 }

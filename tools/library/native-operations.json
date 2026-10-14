@@ -20,6 +20,69 @@
         "convex",
         "--test",
         "native_primitives"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_contracts"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_numerics"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_families"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_methods"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "monotone_contracts"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "ufr_contracts"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_curves"
       ]
     ],
     "rust-no-default": [
@@ -41,6 +104,76 @@
         "convex",
         "--test",
         "native_primitives",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_contracts",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_numerics",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_families",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_methods",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "monotone_contracts",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "ufr_contracts",
+        "--no-default-features"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_curves",
         "--no-default-features"
       ]
     ],
@@ -64,6 +197,83 @@
         "convex",
         "--test",
         "native_primitives",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_contracts",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_numerics",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_families",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "curve_methods",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "monotone_contracts",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex-curves",
+        "--test",
+        "ufr_contracts",
+        "--features",
+        "schemars"
+      ],
+      [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "convex",
+        "--test",
+        "native_curves",
         "--features",
         "schemars"
       ]
@@ -365,6 +575,597 @@
         }
       ],
       "qualification": "Exact original supplied Rust-only primitive operation. Original native tests retain actual complete dates/profiles/history/errors; the composed standalone public consumer binds known/future rates to independent cash. Execute every original default/no-default/schema profile. This mapping remains engineering evidence; all mandatory records and independent approval remain Planned.",
+      "certified": false
+    },
+    "native.construct_from_typed_nodes_and_supported_dated_helpers": {
+      "required_record_ids": [
+        "LC-015/zero_nodes_linear/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/df_nodes_loglinear/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/cubic_spline_nodes/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/monotone_convex_nodes/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/flat_forward_nodes/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/segmented_delegated_derived/SUPPLIED/nodes/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/global/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/piecewise/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/nelson_siegel/SUPPLIED/parametric/construct_from_typed_nodes_and_supported_dated_helpers/rust",
+        "LC-015/svensson/SUPPLIED/parametric/construct_from_typed_nodes_and_supported_dated_helpers/rust"
+      ],
+      "entry_points": [
+        "convex::curve_contracts::build_curve_set",
+        "convex::curve_contracts::fit_parametric_curve"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-curves/src/contracts/build.rs",
+          "text": "pub fn build_curve_set("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/parametric_fit.rs",
+          "text": "pub fn fit_parametric_curve("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "explicit_units_normalize_rates_and_refuse_prices"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "supported_cubic_interpolation_checks_actual_discount_postconditions"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "dated_deposit_fra_chain_reprices_every_original_native_quote"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_dated_helpers_reprice_native_quotes_and_preserve_negative_parameters"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "predeclared_exact_models_negative_rates_origins_horizons_and_forwards"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "bounded_original_parametric_fits_identify_parameters_and_reprice_frozen_targets"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "complete_native_segment_boundaries_and_delegated_raw_values_match_independent_controls"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "independent_step_and_flat_forward_points_sides_tails_and_discount_identities"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "complete_dated_sources_match_frozen_model_and_preserve_native_units"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "independent_full_curve_and_actual_dated_tail_values_preserve_original_units"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "negative_rates_and_discount_factors_above_one_are_supported"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "all_compounding_queries_use_the_actual_forward_period"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "date_queries_use_true_year_fractions_and_separate_output_basis"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "tail_policies_are_actual_raw_value_semantics_and_disclosed"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "extra_unobserved_parameters_are_diagnosed_as_ill_conditioned"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "failed_fit_or_later_build_keeps_previous_set_immutable"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "full_date_basis_origin_tail_and_recipe_validation_remain_explicit"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "terminal_sides_consume_the_declared_economics_without_grid_aliases"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "join_uses_actual_left_interval_and_source_remains_immutable"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "duplicate_near_duplicate_bad_unit_origin_and_nonfinite_nodes_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "unsupported_interpolation_and_extrapolation_never_fall_back"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "native_tolerance_failure_is_explicit_and_never_widened"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "helper_duplicates_unresolved_starts_expiry_history_and_bad_factors_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_bounds_iterations_callback_and_dimensions_are_declared_failures"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "overlapping_global_observations_are_retained_and_inconsistency_fails"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_build_failures_preserve_complete_recipe_and_error_kind"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_parametric_fit_failures_return_no_curve_and_keep_inputs"
+        }
+      ],
+      "qualification": "Complete original ten Rust-only LC-015 combinations with typed construction, actual declared methods and restrictions, direct/piecewise/global/parametric paths and native unit/residual/failure diagnostics. Every original consumer and unchanged independent reference runs in default/no-default/schema profiles; the facade directly preserves original 29 build and nine fit failures. No unsupported method becomes supported through a label, grid or family example. Every mandatory certificate remains Planned; no native or JSON/C scope waiver.",
+      "certified": false
+    },
+    "native.select_representation_interpolation_extrapolation": {
+      "required_record_ids": [
+        "LC-015/zero_nodes_linear/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/df_nodes_loglinear/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/cubic_spline_nodes/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/monotone_convex_nodes/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/flat_forward_nodes/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/segmented_delegated_derived/SUPPLIED/nodes/select_representation_interpolation_extrapolation/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/global/select_representation_interpolation_extrapolation/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/piecewise/select_representation_interpolation_extrapolation/rust",
+        "LC-015/nelson_siegel/SUPPLIED/parametric/select_representation_interpolation_extrapolation/rust",
+        "LC-015/svensson/SUPPLIED/parametric/select_representation_interpolation_extrapolation/rust"
+      ],
+      "entry_points": [
+        "convex::curve_contracts::build_curve_set",
+        "convex::curve_contracts::BuiltCurve::query"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-curves/src/contracts/build.rs",
+          "text": "pub fn build_curve_set("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/query.rs",
+          "text": "pub fn query("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "explicit_units_normalize_rates_and_refuse_prices"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "supported_cubic_interpolation_checks_actual_discount_postconditions"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "dated_deposit_fra_chain_reprices_every_original_native_quote"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_dated_helpers_reprice_native_quotes_and_preserve_negative_parameters"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "predeclared_exact_models_negative_rates_origins_horizons_and_forwards"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "bounded_original_parametric_fits_identify_parameters_and_reprice_frozen_targets"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "complete_native_segment_boundaries_and_delegated_raw_values_match_independent_controls"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "independent_step_and_flat_forward_points_sides_tails_and_discount_identities"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "complete_dated_sources_match_frozen_model_and_preserve_native_units"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "independent_full_curve_and_actual_dated_tail_values_preserve_original_units"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "negative_rates_and_discount_factors_above_one_are_supported"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "all_compounding_queries_use_the_actual_forward_period"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "date_queries_use_true_year_fractions_and_separate_output_basis"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "tail_policies_are_actual_raw_value_semantics_and_disclosed"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "extra_unobserved_parameters_are_diagnosed_as_ill_conditioned"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "failed_fit_or_later_build_keeps_previous_set_immutable"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "full_date_basis_origin_tail_and_recipe_validation_remain_explicit"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "terminal_sides_consume_the_declared_economics_without_grid_aliases"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "join_uses_actual_left_interval_and_source_remains_immutable"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "duplicate_near_duplicate_bad_unit_origin_and_nonfinite_nodes_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "unsupported_interpolation_and_extrapolation_never_fall_back"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "native_tolerance_failure_is_explicit_and_never_widened"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "helper_duplicates_unresolved_starts_expiry_history_and_bad_factors_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_bounds_iterations_callback_and_dimensions_are_declared_failures"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "overlapping_global_observations_are_retained_and_inconsistency_fails"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_build_failures_preserve_complete_recipe_and_error_kind"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_parametric_fit_failures_return_no_curve_and_keep_inputs"
+        }
+      ],
+      "qualification": "Complete original ten Rust-only LC-015 combinations with typed construction, actual declared methods and restrictions, direct/piecewise/global/parametric paths and native unit/residual/failure diagnostics. Every original consumer and unchanged independent reference runs in default/no-default/schema profiles; the facade directly preserves original 29 build and nine fit failures. No unsupported method becomes supported through a label, grid or family example. Every mandatory certificate remains Planned; no native or JSON/C scope waiver.",
+      "certified": false
+    },
+    "native.run_piecewise_and_global_supported_core_paths": {
+      "required_record_ids": [
+        "LC-015/zero_nodes_linear/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/df_nodes_loglinear/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/cubic_spline_nodes/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/monotone_convex_nodes/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/flat_forward_nodes/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/segmented_delegated_derived/SUPPLIED/nodes/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/global/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/piecewise/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/nelson_siegel/SUPPLIED/parametric/run_piecewise_and_global_supported_core_paths/rust",
+        "LC-015/svensson/SUPPLIED/parametric/run_piecewise_and_global_supported_core_paths/rust"
+      ],
+      "entry_points": [
+        "convex::curve_contracts::build_curve_set",
+        "convex::curve_contracts::fit_money_market_curve",
+        "convex::curve_contracts::fit_parametric_curve"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-curves/src/contracts/build.rs",
+          "text": "pub fn build_curve_set("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/numerics.rs",
+          "text": "pub fn fit_money_market_curve("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/parametric_fit.rs",
+          "text": "pub fn fit_parametric_curve("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "explicit_units_normalize_rates_and_refuse_prices"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "supported_cubic_interpolation_checks_actual_discount_postconditions"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "dated_deposit_fra_chain_reprices_every_original_native_quote"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_dated_helpers_reprice_native_quotes_and_preserve_negative_parameters"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "predeclared_exact_models_negative_rates_origins_horizons_and_forwards"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "bounded_original_parametric_fits_identify_parameters_and_reprice_frozen_targets"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "complete_native_segment_boundaries_and_delegated_raw_values_match_independent_controls"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "independent_step_and_flat_forward_points_sides_tails_and_discount_identities"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "complete_dated_sources_match_frozen_model_and_preserve_native_units"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "independent_full_curve_and_actual_dated_tail_values_preserve_original_units"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "negative_rates_and_discount_factors_above_one_are_supported"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "all_compounding_queries_use_the_actual_forward_period"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "date_queries_use_true_year_fractions_and_separate_output_basis"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "tail_policies_are_actual_raw_value_semantics_and_disclosed"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "extra_unobserved_parameters_are_diagnosed_as_ill_conditioned"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "failed_fit_or_later_build_keeps_previous_set_immutable"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "full_date_basis_origin_tail_and_recipe_validation_remain_explicit"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "terminal_sides_consume_the_declared_economics_without_grid_aliases"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "join_uses_actual_left_interval_and_source_remains_immutable"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "duplicate_near_duplicate_bad_unit_origin_and_nonfinite_nodes_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "unsupported_interpolation_and_extrapolation_never_fall_back"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "native_tolerance_failure_is_explicit_and_never_widened"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "helper_duplicates_unresolved_starts_expiry_history_and_bad_factors_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_bounds_iterations_callback_and_dimensions_are_declared_failures"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "overlapping_global_observations_are_retained_and_inconsistency_fails"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_build_failures_preserve_complete_recipe_and_error_kind"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_parametric_fit_failures_return_no_curve_and_keep_inputs"
+        }
+      ],
+      "qualification": "Complete original ten Rust-only LC-015 combinations with typed construction, actual declared methods and restrictions, direct/piecewise/global/parametric paths and native unit/residual/failure diagnostics. Every original consumer and unchanged independent reference runs in default/no-default/schema profiles; the facade directly preserves original 29 build and nine fit failures. No unsupported method becomes supported through a label, grid or family example. Every mandatory certificate remains Planned; no native or JSON/C scope waiver.",
+      "certified": false
+    },
+    "native.return_native_unit_residuals_and_failure_diagnostics": {
+      "required_record_ids": [
+        "LC-015/zero_nodes_linear/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/df_nodes_loglinear/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/cubic_spline_nodes/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/monotone_convex_nodes/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/flat_forward_nodes/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/segmented_delegated_derived/SUPPLIED/nodes/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/global/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/core_dated_helpers/SUPPLIED/piecewise/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/nelson_siegel/SUPPLIED/parametric/return_native_unit_residuals_and_failure_diagnostics/rust",
+        "LC-015/svensson/SUPPLIED/parametric/return_native_unit_residuals_and_failure_diagnostics/rust"
+      ],
+      "entry_points": [
+        "convex::curve_contracts::BuiltCurve::structured_diagnostics",
+        "convex::curve_contracts::BuiltCurve::query",
+        "convex::curve_contracts::fit_money_market_curve",
+        "convex::curve_contracts::fit_parametric_curve"
+      ],
+      "anchors": [
+        {
+          "path": "crates/convex-curves/src/contracts/build.rs",
+          "text": "pub fn structured_diagnostics("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/query.rs",
+          "text": "pub fn query("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/numerics.rs",
+          "text": "pub fn fit_money_market_curve("
+        },
+        {
+          "path": "crates/convex-curves/src/contracts/parametric_fit.rs",
+          "text": "pub fn fit_parametric_curve("
+        }
+      ],
+      "positive_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "explicit_units_normalize_rates_and_refuse_prices"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "supported_cubic_interpolation_checks_actual_discount_postconditions"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "dated_deposit_fra_chain_reprices_every_original_native_quote"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_dated_helpers_reprice_native_quotes_and_preserve_negative_parameters"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "predeclared_exact_models_negative_rates_origins_horizons_and_forwards"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "bounded_original_parametric_fits_identify_parameters_and_reprice_frozen_targets"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_families.rs",
+          "function": "complete_native_segment_boundaries_and_delegated_raw_values_match_independent_controls"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "independent_step_and_flat_forward_points_sides_tails_and_discount_identities"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "complete_dated_sources_match_frozen_model_and_preserve_native_units"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "independent_full_curve_and_actual_dated_tail_values_preserve_original_units"
+        }
+      ],
+      "boundary_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "negative_rates_and_discount_factors_above_one_are_supported"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "all_compounding_queries_use_the_actual_forward_period"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "date_queries_use_true_year_fractions_and_separate_output_basis"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "tail_policies_are_actual_raw_value_semantics_and_disclosed"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "extra_unobserved_parameters_are_diagnosed_as_ill_conditioned"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "failed_fit_or_later_build_keeps_previous_set_immutable"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_methods.rs",
+          "function": "full_date_basis_origin_tail_and_recipe_validation_remain_explicit"
+        },
+        {
+          "path": "crates/convex-curves/tests/monotone_contracts.rs",
+          "function": "terminal_sides_consume_the_declared_economics_without_grid_aliases"
+        },
+        {
+          "path": "crates/convex-curves/tests/ufr_contracts.rs",
+          "function": "join_uses_actual_left_interval_and_source_remains_immutable"
+        }
+      ],
+      "negative_controls": [
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "duplicate_near_duplicate_bad_unit_origin_and_nonfinite_nodes_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "unsupported_interpolation_and_extrapolation_never_fall_back"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "native_tolerance_failure_is_explicit_and_never_widened"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_contracts.rs",
+          "function": "helper_duplicates_unresolved_starts_expiry_history_and_bad_factors_fail"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "global_bounds_iterations_callback_and_dimensions_are_declared_failures"
+        },
+        {
+          "path": "crates/convex-curves/tests/curve_numerics.rs",
+          "function": "overlapping_global_observations_are_retained_and_inconsistency_fails"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_build_failures_preserve_complete_recipe_and_error_kind"
+        },
+        {
+          "path": "crates/convex/tests/native_curves.rs",
+          "function": "original_native_parametric_fit_failures_return_no_curve_and_keep_inputs"
+        }
+      ],
+      "qualification": "Complete original ten Rust-only LC-015 combinations with typed construction, actual declared methods and restrictions, direct/piecewise/global/parametric paths and native unit/residual/failure diagnostics. Every original consumer and unchanged independent reference runs in default/no-default/schema profiles; the facade directly preserves original 29 build and nine fit failures. No unsupported method becomes supported through a label, grid or family example. Every mandatory certificate remains Planned; no native or JSON/C scope waiver.",
       "certified": false
     }
   }

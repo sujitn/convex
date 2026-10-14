@@ -802,3 +802,13 @@ separate auction rounding and signed analytic rate sensitivities. Original zero
 terms/calendar/metadata survive; the existing bill_conversions route stays bounded.
 See [Treasury bill quotations](TREASURY-BILL-QUOTES.md). Engineering controls do
 not award original mandatory convention/model/host/library certificates.
+
+
+Original Rust-only curve operations now have exact native method and executable
+control mappings in tools/library/native-operations.json, with every original
+default/no-default/schema profile. The six existing curve consumers retain all
+original independent references, native quote units, residuals, rank/work limits,
+method restrictions and failure assertions. The facade directly preserves the
+original29construction and9parametric-fit failures. All forty LC-015 records
+remain Planned for independent approval. Native evidence cannot replace a
+required JSON/C operation or qualify broader models, markets or production.

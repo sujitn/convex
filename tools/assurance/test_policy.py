@@ -209,7 +209,7 @@ class AssuranceMutations(unittest.TestCase):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance']
                     if 'curve_family' in c or 'curve_families' in c]
-        self.assertEqual(len(commands), 7)
+        self.assertEqual(len(commands), 10)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -222,7 +222,7 @@ class AssuranceMutations(unittest.TestCase):
     def test_curve_method_checks_and_native_owners_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'curve_method' in c]
-        self.assertEqual(len(commands), 7)
+        self.assertEqual(len(commands), 10)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -233,7 +233,7 @@ class AssuranceMutations(unittest.TestCase):
     def test_monotone_checks_and_complete_native_owner_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'monotone' in c]
-        self.assertEqual(len(commands), 9)
+        self.assertEqual(len(commands), 12)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
@@ -246,7 +246,7 @@ class AssuranceMutations(unittest.TestCase):
     def test_ufr_checks_and_original_native_boundary_owner_cannot_be_bypassed(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         commands = [c for c in check.REQUIRED_RUNS['assurance'] if 'ufr' in c]
-        self.assertEqual(len(commands), 17)
+        self.assertEqual(len(commands), 20)
         for command in commands:
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))

@@ -114,6 +114,13 @@ def native_routes(root=ROOT, inventory=None, document=None):
     files = {
         'crates/convex-core/tests/cashflow_primitives.rs': ('convex-core', 'cashflow_primitives'),
         'crates/convex/tests/native_primitives.rs': ('convex', 'native_primitives'),
+        'crates/convex-curves/tests/curve_contracts.rs': ('convex-curves', 'curve_contracts'),
+        'crates/convex-curves/tests/curve_numerics.rs': ('convex-curves', 'curve_numerics'),
+        'crates/convex-curves/tests/curve_families.rs': ('convex-curves', 'curve_families'),
+        'crates/convex-curves/tests/curve_methods.rs': ('convex-curves', 'curve_methods'),
+        'crates/convex-curves/tests/monotone_contracts.rs': ('convex-curves', 'monotone_contracts'),
+        'crates/convex-curves/tests/ufr_contracts.rs': ('convex-curves', 'ufr_contracts'),
+        'crates/convex/tests/native_curves.rs': ('convex', 'native_curves'),
     }
     for profile in profiles:
         flags = [] if profile == 'rust-default' else ['--no-default-features'] if profile == 'rust-no-default' else ['--features', 'schemars']
