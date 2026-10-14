@@ -100,14 +100,6 @@ def validate(document, root=ROOT):
         for row in document[kind].values():
             require(all(isinstance(row.get(k), str) and row[k].strip() for k in fields),
                     f"incomplete {kind} policy")
-    pins = document["source_pins"]
-    require(isinstance(pins, dict) and pins, "no inspected source evidence")
-    contents = {}
-    for path, expected in pins.items():
-        data = file_path(root, path).read_bytes()
-        require(matches_source_pin(root, path, data, expected),
-                f"stale inspected source: {path}; review before refreshing evidence")
-        contents[path] = data.decode("utf-8")
     observations = document["observations"]
     require(isinstance(observations, dict) and observations, "no observations")
     for identity, row in observations.items():
@@ -116,14 +108,6 @@ def validate(document, root=ROOT):
                 f"unqualified source observation: {identity}")
         strings(row["gaps"], f"{identity}/gaps")
         require(isinstance(row["public_apis"], list), "invalid API observations")
-        for item in row["anchors"]:
-            require(item["path"] in contents and item["text"]
-                    and item["text"] in contents[item["path"]],
-                    f"missing inspected anchor: {identity}/{item}")
-            require(item["kind"] in {"code", "test"}, "unknown anchor kind")
-            if item["kind"] == "test":
-                require(re.search(r"\b(?:fn|class)\s", item["text"]),
-                        "test anchor must identify a test function/class")
     combinations = keyed(document["combinations"], "combination")
     covered = set()
     covered_surfaces = {key: set() for key in areas}
@@ -186,6 +170,23 @@ def validate(document, root=ROOT):
                 and isinstance(row.get("reason"), str) and row["reason"].strip(),
                 "inapplicable/deferred needs a reason and cannot waive mandatory coverage")
         require(row["product"].strip() and row["operation"].strip(), "unscoped exclusion")
+    pins = document["source_pins"]
+    require(isinstance(pins, dict) and pins, "no inspected source evidence")
+    contents = {}
+    for path, expected in pins.items():
+        data = file_path(root, path).read_bytes()
+        require(matches_source_pin(root, path, data, expected),
+                f"stale inspected source: {path}; review before refreshing evidence")
+        contents[path] = data.decode("utf-8")
+    for identity, row in observations.items():
+        for item in row["anchors"]:
+            require(item["path"] in contents and item["text"]
+                    and item["text"] in contents[item["path"]],
+                    f"missing inspected anchor: {identity}/{item}")
+            require(item["kind"] in {"code", "test"}, "unknown anchor kind")
+            if item["kind"] == "test":
+                require(re.search(r"\b(?:fn|class)\s", item["text"]),
+                        "test anchor must identify a test function/class")
     return document
 
 

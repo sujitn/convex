@@ -3710,6 +3710,21 @@
         "tools/assurance/numeric-evidence.json": "bb797d635694242cceebaba6b06e67ca261418acc0d20f4a3b4c9ac7c63fbcc6",
         "tools/library/library-inventory.json": "8d5f7701068ca77403a715a2efd85a10aadcacfcd9217e81ca3faf1f1d590246"
       }
+    },
+    {
+      "base_commit": "3f694a4d3275517bf5922ff4d666fb10a2ca70bd",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 capability validation checks the unchanged mandatory dimensions/status/owners before physical source reads. Valid metadata still verifies every source hash and code/test anchor on each invocation. No cache, source-evidence shortcut, numerical/native/host/dependency change or acceptance/certificate promotion. Three independently predeclared controls cover invalid scope before I/O, every valid pin, and changed source between calls. Retain all original30areas/174combinations/2154Planned records,80routes/5375requests,1647numerical rows/defaults/files/protected sections and preceding sealed packets. Remaining native models/conventions/claims/operations and advertised conveniences retain original scope; only unexecutable platforms deferred.",
+      "tests": [
+        "Existing51library controls and3new semantic-before-I/O/every-pin/source-drift controls",
+        "Original42assurance/private/harness/scope guards; full computational source/binary/evidence conservation"
+      ],
+      "candidate_files": {
+        "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
+        "tools/library/library-inventory.json": "7f3fb27db49fdff815ff9a5a40ede2ad48d0de7343a8e2e5106ef58e21848874",
+        "tools/library/test_validation_order.py": "8fada18fbaf4708cfeb28ac35b93b55a14b422d790878daad845ef2a849d6c10"
+      }
     }
   ]
 }
