@@ -72,6 +72,21 @@ jobs:
       - name: Exercise checked bill conversions with schema features
         run: cargo run --locked -p convex --example bill_methods --features schemars
 
+      - name: Check independent zero-coupon cash and rate references
+        run: python3 tests/scripts/zero_methods_reference.py check
+
+      - name: Exercise checked zero-coupon pricing and yield methods
+        run: cargo test --locked -p convex --test zero_methods
+
+      - name: Exercise checked zero-coupon methods through the facade
+        run: cargo run --locked -p convex --example zero_methods
+
+      - name: Exercise checked zero-coupon methods without default features
+        run: cargo run --locked -p convex --example zero_methods --no-default-features
+
+      - name: Exercise checked zero-coupon methods with schema features
+        run: cargo run --locked -p convex --example zero_methods --features schemars
+
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe
 

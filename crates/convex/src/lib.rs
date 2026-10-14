@@ -41,6 +41,8 @@ pub use convex_analytics::workflow;
 pub use convex_analytics::yields::treasury_bill;
 /// Checked explicit 360/fixed-365 bill rate conversions, in decimal units.
 pub use convex_bonds::pricing::bill as bill_yield;
+/// Checked absolute zero-coupon cash and decimal-rate conversions.
+pub use convex_bonds::pricing::zero as zero_yield;
 pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;

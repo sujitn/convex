@@ -20,6 +20,8 @@ pub mod bill;
 pub mod short_date;
 mod yield_engine;
 pub(crate) mod yield_solver;
+/// Checked absolute zero-coupon cash and decimal-rate conversions.
+pub mod zero;
 
 pub use short_date::{RollForwardMethod, ShortDateCalculator};
 pub use yield_engine::{

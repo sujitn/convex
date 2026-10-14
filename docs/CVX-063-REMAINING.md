@@ -75,3 +75,12 @@ are removed. Broader conventions, models, claims and host gates still need their
 original qualification. See
 [the route migration guide](ROUTE-MIGRATION.md); this cleanup does not complete
 the original convention/model/host requirements or award independent approval.
+
+The direct zero-coupon pricing/yield/continuous-rate and compounding APIs now
+return checked Results, retain contractual redemption cash and reject invalid
+dates/domains/arithmetic rather than inventing zero or face outputs. Run
+`cargo run --locked -p convex --example zero_methods`. This completes the scoped
+infallible-method migration; full original operation evidence, conventions,
+models, claims, hedges and available host qualifications still remain required.
+Unexecutable platform checks stay explicitly deferred under the user's latest
+instruction, with their original required economics and completion criteria.

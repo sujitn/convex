@@ -3530,6 +3530,34 @@
         "tools/assurance/numeric-evidence.json": "0809190fd5f430d9e08cb21c19b56479bc7faf6e0fe345b5dc3b24b9d9787b30",
         "tools/library/library-inventory.json": "48544f7b61fb8e9a13c1265aeb849fc9c38120dd0557b5644138f6d12209f614"
       }
+    },
+    {
+      "base_commit": "31ab4695f6e16079a7716d5a721fc31a6f050163",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 checked zero-coupon methods: original absolute contractual redemption cash, active original dates/positive face/redemption, checked context-free year fractions and five original compounding variants. Price/yield/continuous/convert_yield and discrete-period APIs return typed Results; no zero/face fallback or continuous-period panic. Exact Decimal admission and cash residuals precede binary64 projection; preserve small nonzero rates and positive periodic tails. Same-convention conversion validates its domain and preserves the original Decimal. Independent Decimal80 declaration precedes production edits:300prices/375inverses/125conversions/12poles, original absolute1e-12/relative5e-13 bounds and strict nonzero signs. Preserve1621old numerical rows/files/defaults,5375requests/80routes and literal2154Planned records. Existing bill/Treasury/shared per100 quote/curve/model/claim/hedge/CTD owners, constructors/serde/trait mechanics and dependencies/C exports/wires remain unchanged. Current full source-bound native/C/real Java FFM and scoped wasm32 runs determine engineering qualification. The user authorizes continuing remaining CVX063 local work and explicitly deferring unavailable platform checks; no native requirement or independent certificate is waived.",
+      "tests": [
+        "Independent300prices/375inverses/125conversions/12poles and typed cash/date/numerical failures",
+        "Full old numeric/source/scope/physical conservation; all required fresh actual engineering gates"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "834673d36c645f73c8231201b024889a0a0c5f0b7d37f7de622abb3db4babc33",
+        "crates/convex-bonds/src/instruments/zero_coupon.rs": "b6fe8bee931af03fe994c762dfe1616eb848fb7641dbe2f042fe6bc677f977ee",
+        "crates/convex-bonds/src/pricing/mod.rs": "3d773a70f5b2dde35d3d329ef8839e9a95b54128f6113047f471be6a55701290",
+        "crates/convex-bonds/src/pricing/zero.rs": "ae5baae8f2fcd795ecadfd89c29a581e7fad74cc907fb3d79ba47842cd087bd2",
+        "crates/convex/examples/zero_methods.rs": "5a9be345756d203a4a021c45617a5c38b0d8d2b26e81a5704e46df8f95bbd620",
+        "crates/convex/src/lib.rs": "8881c05bf4e14da61a682a85122cba1cff74f4dacd770b664cc62d2c910ca169",
+        "crates/convex/tests/zero_methods.rs": "8d055e2e559b4b5052ab13a021d381450619b855287b5ff5ce70958a92b4d4d8",
+        "docs/CVX-063-REMAINING.md": "8c04d98170ae2278b437e47baf75b5a9c8240bf0a872155db9ed5e5d36264a1d",
+        "docs/ROUTE-MIGRATION.md": "f4a5caf6d2565b6ab4e0f43136408901e0f38c6c5cac8b0522b621c7dd0f6f13",
+        "tests/fixtures/library/zero-methods-reference.json": "9a6328e98db7f3b9892e65515cde1304bbf876fc6edcad7260ccb6713c3cb26a",
+        "tests/fixtures/library/zero_methods_contract.rs": "5dd0979aba7e7208b01bc5827eb3bc09b472d9bfdc5ded96a0d00ff46fbe0b40",
+        "tests/scripts/zero_methods_reference.py": "ae2c54c525339fc4aff04057b8bd7c8aafb6685600df784cd562884e7174cae6",
+        "tools/assurance/check.py": "3fac50e0525189803c48ea34823f0935e058259381a30703df3c46d3800f4453",
+        "tools/assurance/inventory.json": "5e5ecc0d145e0c7ca972b93e8890ada5da1becba28ddf18bdd9345e0e09125d3",
+        "tools/assurance/numeric-evidence.json": "ce1feb4fa1fcdf0f2b047aa3fff36384f29385f09162c97687cdc976862f9c53",
+        "tools/library/library-inventory.json": "1dd654dc274d74a41614cd4d01b952a465be14d97efbdf81c42702fdfc2df2ec"
+      }
     }
   ]
 }

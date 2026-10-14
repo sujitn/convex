@@ -308,3 +308,32 @@ kernel functions return **decimal** rates. Generic zero price/yield, compounding
 full dated Treasury quotation, curve/risk/hedge/lifecycle and shared JSON/C
 entry points keep their distinct owners. This is a checked conversion migration,
 not a market convention, model, host or production certificate.
+
+### Checked zero-coupon pricing and compounding
+
+`ZeroCouponBond::price_from_yield`, `yield_from_price` and `continuous_rate`,
+plus `instruments::convert_yield` and `Compounding::periods_per_year`, now return
+`BondResult`. Propagate `?` or handle the error. Continuous compounding has no
+discrete period count: use `periods_per_year_opt` when that distinction is needed.
+There is no zero-yield, face-price or panic compatibility fallback.
+
+Object prices are **absolute cash amounts**, in the original face/redemption
+units. Pricing and inversion use contractual **redemption**, including non-face
+redemption. The shared quoted-price API retains its separate per-100 semantics.
+The checked methods require positive original face/redemption, issue before
+maturity, active settlement and a positive horizon of at most 150 years. They
+use the existing checked context-free ACT/360, ACT/365F, ACT/ACT ISDA, 30/360 US
+and 30E/360 year fractions. A convention needing missing reference or termination
+context errors explicitly; no builder preset or issue date is inferred here.
+
+The pure `convex::zero_yield` (`convex_bonds::pricing::zero`) cash/rate kernels
+accept explicit redemption and year fraction. Decimal domain checks precede
+binary64 projection. Small cash changes are applied before Decimal addition;
+small price differences are retained before logarithms. Positive residuals near
+periodic rate boundaries survive projection. Results beyond numerical/Decimal
+representation, including nonzero underflow, return errors. Same-compounding
+conversion validates its domain and returns the original Decimal exactly.
+
+Run `cargo run --locked -p convex --example zero_methods` for the independent
+price/inverse/conversion, dates/redemption, purity and typed failure controls.
+This migration does not qualify the remaining convention/model/host scope.

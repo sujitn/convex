@@ -8112,6 +8112,31 @@
       "path": "crates/convex/examples/bill_methods.rs",
       "mode": "file",
       "sha256": "2ff3d0003a0e77cc922b562fab1849016d81af7752c5c8698c6cf5042dade37b"
+    },
+    {
+      "path": "tests/scripts/zero_methods_reference.py",
+      "mode": "file",
+      "sha256": "ae2c54c525339fc4aff04057b8bd7c8aafb6685600df784cd562884e7174cae6"
+    },
+    {
+      "path": "tests/fixtures/library/zero-methods-reference.json",
+      "mode": "file",
+      "sha256": "9a6328e98db7f3b9892e65515cde1304bbf876fc6edcad7260ccb6713c3cb26a"
+    },
+    {
+      "path": "tests/fixtures/library/zero_methods_contract.rs",
+      "mode": "file",
+      "sha256": "5dd0979aba7e7208b01bc5827eb3bc09b472d9bfdc5ded96a0d00ff46fbe0b40"
+    },
+    {
+      "path": "crates/convex/tests/zero_methods.rs",
+      "mode": "file",
+      "sha256": "8d055e2e559b4b5052ab13a021d381450619b855287b5ff5ce70958a92b4d4d8"
+    },
+    {
+      "path": "crates/convex/examples/zero_methods.rs",
+      "mode": "file",
+      "sha256": "5a9be345756d203a4a021c45617a5c38b0d8d2b26e81a5704e46df8f95bbd620"
     }
   ]
 }

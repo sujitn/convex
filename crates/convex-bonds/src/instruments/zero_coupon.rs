@@ -34,7 +34,7 @@ use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin};
 ///     semi_annual_yield,
 ///     Compounding::SemiAnnual,
 ///     Compounding::Continuous,
-/// );
+/// ).unwrap();
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Compounding {
@@ -54,28 +54,22 @@ pub enum Compounding {
 impl Compounding {
     /// Returns the number of compounding periods per year.
     ///
-    /// # Panics
-    ///
-    /// Panics if called on `Compounding::Continuous` which has no discrete periods.
-    #[must_use]
-    pub fn periods_per_year(&self) -> u32 {
-        match self {
-            Compounding::Annual => 1,
-            Compounding::SemiAnnual => 2,
-            Compounding::Quarterly => 4,
-            Compounding::Monthly => 12,
-            Compounding::Continuous => {
-                panic!("Continuous compounding has no discrete periods")
-            }
-        }
+    /// Continuous compounding has no discrete periods and returns an error.
+    pub fn periods_per_year(&self) -> BondResult<u32> {
+        self.periods_per_year_opt().ok_or_else(|| {
+            BondError::invalid_spec("continuous compounding has no discrete periods")
+        })
     }
 
     /// Returns the number of periods per year, or None for continuous.
     #[must_use]
     pub fn periods_per_year_opt(&self) -> Option<u32> {
         match self {
+            Compounding::Annual => Some(1),
+            Compounding::SemiAnnual => Some(2),
+            Compounding::Quarterly => Some(4),
+            Compounding::Monthly => Some(12),
             Compounding::Continuous => None,
-            other => Some(other.periods_per_year()),
         }
     }
 
@@ -120,34 +114,15 @@ impl std::fmt::Display for Compounding {
 /// use rust_decimal_macros::dec;
 ///
 /// // Convert 5% semi-annual to continuous
-/// let continuous = convert_yield(dec!(0.05), Compounding::SemiAnnual, Compounding::Continuous);
+/// let continuous = convert_yield(dec!(0.05), Compounding::SemiAnnual, Compounding::Continuous).unwrap();
 /// assert!(continuous < dec!(0.05)); // Continuous yield is lower
 /// ```
-#[must_use]
-pub fn convert_yield(yield_rate: Decimal, from: Compounding, to: Compounding) -> Decimal {
-    if from == to {
-        return yield_rate;
-    }
-
-    let rate = yield_rate.to_string().parse::<f64>().unwrap_or(0.0);
-
-    // First convert to continuous
-    let continuous = if from == Compounding::Continuous {
-        rate
-    } else {
-        let m = f64::from(from.periods_per_year());
-        m * (1.0 + rate / m).ln()
-    };
-
-    // Then convert from continuous to target
-    let result = if to == Compounding::Continuous {
-        continuous
-    } else {
-        let m = f64::from(to.periods_per_year());
-        m * ((continuous / m).exp() - 1.0)
-    };
-
-    Decimal::try_from(result).unwrap_or(Decimal::ZERO)
+pub fn convert_yield(
+    yield_rate: Decimal,
+    from: Compounding,
+    to: Compounding,
+) -> BondResult<Decimal> {
+    crate::pricing::zero::convert_yield(yield_rate, from, to)
 }
 
 /// A zero coupon (discount) bond.
@@ -161,11 +136,6 @@ pub fn convert_yield(yield_rate: Decimal, from: Compounding, to: Compounding) ->
 /// - Day count convention support
 /// - Price-yield conversion methods
 /// - Full Bond trait implementation
-///
-/// # Performance
-///
-/// - Price from yield: < 50ns
-/// - Yield from price: < 50ns
 ///
 /// # Example
 ///
@@ -317,81 +287,49 @@ impl ZeroCouponBond {
         "UNKNOWN".to_string()
     }
 
-    /// Calculates the year fraction from settlement to maturity.
-    fn years_to_maturity(&self, settlement: Date) -> f64 {
-        let dc = self.day_count.to_day_count();
-        dc.year_fraction(settlement, self.maturity)
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(0.0)
+    /// Validate original active terms and use the shared checked year-fraction owner.
+    fn years_to_maturity(&self, settlement: Date) -> BondResult<f64> {
+        if !(1..=9999).contains(&self.issue_date.year())
+            || self.issue_date >= self.maturity
+            || settlement < self.issue_date
+            || settlement >= self.maturity
+            || self.face_value <= Decimal::ZERO
+            || self.redemption_value <= Decimal::ZERO
+        {
+            return Err(BondError::invalid_spec("zero-coupon pricing requires positive face/redemption and active original issue/settlement/maturity"));
+        }
+        let years =
+            convex_curves::contracts::year_fraction(settlement, self.maturity, self.day_count)
+                .map_err(|error| BondError::invalid_spec(error.to_string()))?;
+        if years > 150.0 {
+            return Err(BondError::invalid_spec(
+                "zero-coupon pricing horizon exceeds150years",
+            ));
+        }
+        Ok(years)
     }
 
-    /// Calculates the clean price from a yield.
-    ///
-    /// # Arguments
-    ///
-    /// * `yield_rate` - The yield rate as a decimal (e.g., 0.05 for 5%)
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// The clean price (per 100 face value if `face_value` is 100).
-    #[must_use]
-    pub fn price_from_yield(&self, yield_rate: Decimal, settlement: Date) -> Decimal {
-        if settlement >= self.maturity {
-            return self.redemption_value;
-        }
-
-        let years = self.years_to_maturity(settlement);
-        let rate = yield_rate.to_string().parse::<f64>().unwrap_or(0.0);
-        let face = self.face_value.to_string().parse::<f64>().unwrap_or(100.0);
-
-        let price = if self.compounding == Compounding::Continuous {
-            face * (-rate * years).exp()
-        } else {
-            let periods_per_year = f64::from(self.compounding.periods_per_year());
-            let n = years * periods_per_year;
-            let rate_per_period = rate / periods_per_year;
-            face / (1.0 + rate_per_period).powf(n)
-        };
-
-        Decimal::try_from(price).unwrap_or(self.face_value)
+    /// Checked absolute clean cash price of the original contractual redemption.
+    /// Yield is a decimal fraction. Settlement is supplied directly without lag.
+    /// Unsupported day-count context, inactive terms and numerical failures error.
+    pub fn price_from_yield(&self, yield_rate: Decimal, settlement: Date) -> BondResult<Decimal> {
+        crate::pricing::zero::price_from_yield(
+            self.redemption_value,
+            yield_rate,
+            self.years_to_maturity(settlement)?,
+            self.compounding,
+        )
     }
 
-    /// Calculates the yield from a clean price.
-    ///
-    /// # Arguments
-    ///
-    /// * `price` - The clean price as a decimal
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// The yield rate as a decimal.
-    #[must_use]
-    pub fn yield_from_price(&self, price: Decimal, settlement: Date) -> Decimal {
-        if settlement >= self.maturity || price.is_zero() {
-            return Decimal::ZERO;
-        }
-
-        let years = self.years_to_maturity(settlement);
-        if years <= 0.0 {
-            return Decimal::ZERO;
-        }
-
-        let price_f = price.to_string().parse::<f64>().unwrap_or(100.0);
-        let face = self.face_value.to_string().parse::<f64>().unwrap_or(100.0);
-        let price_ratio = face / price_f;
-
-        let yield_rate = if self.compounding == Compounding::Continuous {
-            price_ratio.ln() / years
-        } else {
-            let periods_per_year = f64::from(self.compounding.periods_per_year());
-            let n = years * periods_per_year;
-            (price_ratio.powf(1.0 / n) - 1.0) * periods_per_year
-        };
-
-        Decimal::try_from(yield_rate).unwrap_or(Decimal::ZERO)
+    /// Checked decimal yield from an absolute cash price and original redemption.
+    /// Par returns zero legitimately; invalid cash or dates never return a fallback.
+    pub fn yield_from_price(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
+        crate::pricing::zero::yield_from_price(
+            self.redemption_value,
+            price,
+            self.years_to_maturity(settlement)?,
+            self.compounding,
+        )
     }
 
     /// Checked explicit 360 bank-discount yield, as a decimal fraction.
@@ -433,12 +371,12 @@ impl ZeroCouponBond {
         Ok(settlement.days_between(&self.maturity))
     }
 
-    /// Calculates the implied continuously compounded rate.
-    #[must_use]
-    pub fn continuous_rate(&self, price: Decimal, settlement: Date) -> Decimal {
-        convert_yield(
-            self.yield_from_price(price, settlement),
-            self.compounding,
+    /// Checked continuous decimal rate from original redemption and absolute price.
+    pub fn continuous_rate(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
+        crate::pricing::zero::yield_from_price(
+            self.redemption_value,
+            price,
+            self.years_to_maturity(settlement)?,
             Compounding::Continuous,
         )
     }
@@ -906,7 +844,7 @@ mod tests {
             .unwrap();
 
         let settlement = date(2024, 6, 15);
-        let price = bond.price_from_yield(dec!(0.05), settlement);
+        let price = bond.price_from_yield(dec!(0.05), settlement).unwrap();
 
         // Price = 100 / (1 + 0.025)^2 = 100 / 1.050625 = 95.1814
         assert!(price > dec!(95.0));
@@ -926,7 +864,7 @@ mod tests {
             .unwrap();
 
         let settlement = date(2024, 6, 15);
-        let price = bond.price_from_yield(dec!(0.05), settlement);
+        let price = bond.price_from_yield(dec!(0.05), settlement).unwrap();
 
         // Price = 100 * e^(-0.05 * 1) = 100 * 0.9512... = 95.12
         assert!(price > dec!(95.0));
@@ -945,7 +883,7 @@ mod tests {
             .unwrap();
 
         let settlement = date(2024, 6, 15);
-        let yield_rate = bond.yield_from_price(dec!(95.18), settlement);
+        let yield_rate = bond.yield_from_price(dec!(95.18), settlement).unwrap();
 
         // Should be close to 5%
         assert!(yield_rate > dec!(0.049));
@@ -965,8 +903,8 @@ mod tests {
         let settlement = date(2024, 6, 15);
         let original_yield = dec!(0.045); // 4.5%
 
-        let price = bond.price_from_yield(original_yield, settlement);
-        let recovered_yield = bond.yield_from_price(price, settlement);
+        let price = bond.price_from_yield(original_yield, settlement).unwrap();
+        let recovered_yield = bond.yield_from_price(price, settlement).unwrap();
 
         // Should recover original yield within 1bp
         let diff = (original_yield - recovered_yield).abs();
@@ -975,10 +913,10 @@ mod tests {
 
     #[test]
     fn test_compounding_periods() {
-        assert_eq!(Compounding::Annual.periods_per_year(), 1);
-        assert_eq!(Compounding::SemiAnnual.periods_per_year(), 2);
-        assert_eq!(Compounding::Quarterly.periods_per_year(), 4);
-        assert_eq!(Compounding::Monthly.periods_per_year(), 12);
+        assert_eq!(Compounding::Annual.periods_per_year().unwrap(), 1);
+        assert_eq!(Compounding::SemiAnnual.periods_per_year().unwrap(), 2);
+        assert_eq!(Compounding::Quarterly.periods_per_year().unwrap(), 4);
+        assert_eq!(Compounding::Monthly.periods_per_year().unwrap(), 12);
         assert_eq!(Compounding::Continuous.periods_per_year_opt(), None);
     }
 
@@ -991,14 +929,15 @@ mod tests {
             semi_annual,
             Compounding::SemiAnnual,
             Compounding::Continuous,
-        );
+        )
+        .unwrap();
         // 2 * ln(1 + 0.05/2) = 2 * ln(1.025) = 0.04939...
         assert!(continuous > dec!(0.049));
         assert!(continuous < dec!(0.05));
 
         // Convert back
         let back_to_semi =
-            convert_yield(continuous, Compounding::Continuous, Compounding::SemiAnnual);
+            convert_yield(continuous, Compounding::Continuous, Compounding::SemiAnnual).unwrap();
         let diff = (semi_annual - back_to_semi).abs();
         assert!(diff < dec!(0.0001));
     }
@@ -1006,7 +945,7 @@ mod tests {
     #[test]
     fn test_convert_yield_same_convention() {
         let rate = dec!(0.05);
-        let result = convert_yield(rate, Compounding::Annual, Compounding::Annual);
+        let result = convert_yield(rate, Compounding::Annual, Compounding::Annual).unwrap();
         assert_eq!(result, rate);
     }
 
@@ -1093,6 +1032,7 @@ mod tests {
         for y in [0.02, 0.045, 0.0625, 0.10] {
             let closed = bond
                 .price_from_yield(Decimal::try_from(y).unwrap(), settle)
+                .unwrap()
                 .to_string()
                 .parse::<f64>()
                 .unwrap();
