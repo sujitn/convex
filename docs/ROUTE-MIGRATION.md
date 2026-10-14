@@ -375,3 +375,32 @@ same exact-string syntax and size constraints as native ingress.
 metadata controls. Existing valid string-valued terms and financial results retain
 their contracts. This does not supply the remaining stochastic optional models or
 independent production qualification.
+
+## Retired callable WASM convenience
+
+The fixed-bond browser convenience no longer accepts `call_schedule` or
+`volatility`, including null or empty values. `BondParams` rejects unknown payoff
+fields rather than silently treating them as a straight fixed bond. The separate
+`CallScheduleEntry` wire type and callable-only OAS/effective-risk output fields
+are removed, along with their demo controls and placeholder risk displays.
+
+The old wrapper assigned American exercise to a finite date list, assumed 1%
+volatility, and returned Z-spread as OAS after a failed option calculation. These
+results did not represent the supplied optional contract. Use `library()` with
+complete `BondTerms.exercise`, explicit model assumptions or calibration, and the
+`optional_bond` operation. Its supported European/Bermudan and aligned term-FRN
+model scopes, full diagnostics and remaining native model requirements are
+unchanged. American and broader joint/cap/floor models still require their own
+implementation and qualification; this removal does not waive them.
+
+Other fixed-bond convenience parsers, quotation units and model support remain
+separately scoped and unqualified. The full supplied-term shared API remains the
+available route for exact cash strings, calendars, history and model provenance.
+
+JavaScript-object callers use the same bounded own-field check before every fixed
+bond convenience. The JS serde backend visits declared struct fields only, so the
+JSON unknown-field annotation alone is insufficient. Retired/unknown/symbol keys
+and nonplain objects fail; inherited fields cannot supply economics. Invalid
+`get_cash_flows` inputs return an error object; valid inputs retain their cash
+array and units. Other fixed-parser, numeric, convention and unit qualification
+remains separate work.

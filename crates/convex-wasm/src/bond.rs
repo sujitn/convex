@@ -87,7 +87,7 @@ pub(crate) fn create_curve(
         .map_err(|e| format!("Failed to create curve: {:?}", e))
 }
 
-/// Create a DiscountCurve for OAS calculations (implements the Curve trait).
+/// Create the explicit discount curve used by the retained Z-spread convenience.
 pub(crate) fn create_discount_curve(
     reference_date: Date,
     points: &[CurvePoint],
@@ -293,15 +293,9 @@ pub(crate) fn convert_yas_result(
             .asw_spread
             .as_ref()
             .map(|s| decimal_to_f64(s.as_bps())),
-        oas: None,
-
-        effective_duration: None,
-        effective_convexity: None,
-        option_value: None,
 
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),
-        is_callable: None,
 
         market: market_display,
         instrument_type: instrument_display,
@@ -333,8 +327,6 @@ mod tests {
             day_count: Some("30/360".to_string()),
             currency: Some("USD".to_string()),
             first_coupon_date: None,
-            call_schedule: None,
-            volatility: None,
             market: None,
             instrument_type: None,
             yield_convention: None,

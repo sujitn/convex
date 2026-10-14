@@ -2,6 +2,8 @@
 
 use wasm_bindgen::prelude::*;
 
+use crate::ingress::decode_bond_params;
+
 use convex_analytics::spreads::ZSpreadCalculator;
 use convex_bonds::pricing::{StandardYieldEngine, YieldEngine};
 use convex_bonds::traits::Bond;
@@ -24,7 +26,7 @@ fn price_from_yield_impl(
     target_ytm: f64,
     _curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+    let bond_params: BondParams = match decode_bond_params(params) {
         Ok(p) => p,
         Err(e) => {
             return PriceFromYieldResult {
@@ -92,7 +94,7 @@ fn price_from_spread_impl(
     target_spread_bps: f64,
     curve_points: JsValue,
 ) -> PriceFromYieldResult {
-    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+    let bond_params: BondParams = match decode_bond_params(params) {
         Ok(p) => p,
         Err(e) => {
             return PriceFromYieldResult {

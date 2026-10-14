@@ -8267,6 +8267,16 @@
       "path": "crates/convex/examples/native_primitives.rs",
       "mode": "file",
       "sha256": "05caea3994e632bd36c31a3732b3753053114cabe4fcf3ebcd7db7e13bb18cfc"
+    },
+    {
+      "path": "crates/convex-wasm/tests/optional_retirement.rs",
+      "mode": "file",
+      "sha256": "a6f434b23afcca2614ba34fc9bb57891a7859270b4d0753627e059fa91272e2a"
+    },
+    {
+      "path": "crates/convex-wasm/src/ingress.rs",
+      "mode": "test_section",
+      "sha256": "f959918c4cb8c91730c2680efd3b925cd2c63f82b3ba187256afcc5f6acfea21"
     }
   ]
 }

@@ -20,6 +20,7 @@ pub mod bond;
 pub mod conventions;
 pub mod convert;
 pub mod dto;
+mod ingress;
 pub mod pricing;
 
 /// Complete versioned supplied-input library request. Returns the full native
@@ -38,8 +39,8 @@ pub fn library_schema() -> String {
 pub use analyze::{analyze_bond, calculate_accrued, calculate_simple_metrics, get_cash_flows};
 pub use conventions::{get_convention_options, get_default_conventions};
 pub use dto::{
-    AnalysisResult, BondParams, CallScheduleEntry, CashFlowEntry, ConventionOption,
-    ConventionOptions, CurvePoint, DefaultConventions, PriceFromYieldResult,
+    AnalysisResult, BondParams, CashFlowEntry, ConventionOption, ConventionOptions, CurvePoint,
+    DefaultConventions, PriceFromYieldResult,
 };
 pub use pricing::{price_from_spread, price_from_yield};
 

@@ -4532,14 +4532,15 @@
     },
     {
       "path": "crates/convex-wasm/src/bond.rs",
-      "sha256": "db84fcb282c533b102fa3fc3a5050e0e303109666ff1fbe14480b62598cb87ae",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics.",
+      "sha256": "b7df1fed00ece5de043fe6f0ba08779178f5278db038b8071ca44121dfce5374",
+      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
       "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
-        "tests/scripts/portable_math_reference.py"
+        "tests/scripts/portable_math_reference.py",
+        "crates/convex-wasm/tests/optional_retirement.rs"
       ],
       "exceptions": []
     },
@@ -4564,6 +4565,18 @@
       "failure_contract": "Malformed, raw numeric, overprecision and overflow inputs return serde errors; no successful substitute.",
       "tests": [
         "crates/convex/tests/term_decimals.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/ingress.rs",
+      "sha256": "05ce4f48e127af170011bdaa8f650698b3bbd4c959658e228fe444f37ec35fcd",
+      "invariants": "All own JS keys are checked before serde struct decoding; reject retired/unknown/symbol keys and nonplain objects. Snapshot only bounded own fields so inherited terms cannot supply pricing inputs. Complete serialized fixed fields match the shared allowlist.",
+      "bounds": "At most16fixed parameter keys; one bounded snapshot before pricing. No financial/provider/database/MQ dependency.",
+      "failure_contract": "Explicit input errors before pricing; cashflow ingress returns an error object instead of a successful empty array.",
+      "tests": [
+        "crates/convex-wasm/src/ingress.rs",
+        "crates/convex-wasm/tests/optional_retirement.rs"
       ],
       "exceptions": []
     }

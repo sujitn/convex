@@ -64,7 +64,7 @@ test('a successful loader passes the original engine to the application', async 
   assert.equal(element.props.children.props.wasmModule, engine);
 });
 
-test('spread display retains zero and never substitutes Z-spread for absent OAS', () => {
+test('fixed spread display retains zero and does not advertise retired OAS', () => {
   const module = { exports: {} };
   vm.runInNewContext(transform('components/SpreadAnalysis.jsx'), {
     require: () => React, module, exports: module.exports,
@@ -74,7 +74,7 @@ test('spread display retains zero and never substitutes Z-spread for absent OAS'
   }));
   assert.match(html, /value="0"/);
   assert.match(html, /12\.5/);
-  assert.match(html, /OAS<\/div><div class="spread-value">---/);
+  assert.doesNotMatch(html, /OAS|Option Adj/);
   assert.doesNotMatch(html, /G-Spread|Benchmark|≈ Z-Sprd|~0/);
 });
 

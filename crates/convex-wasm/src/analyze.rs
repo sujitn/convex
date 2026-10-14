@@ -2,15 +2,13 @@
 
 use wasm_bindgen::prelude::*;
 
-use convex_analytics::spreads::OASCalculator;
+use crate::ingress::decode_bond_params;
+
 use convex_analytics::yas::YASCalculator;
-use convex_bonds::instruments::CallableBond;
 use convex_bonds::traits::{Bond, FixedCouponBond};
-use convex_bonds::types::{CallEntry, CallSchedule, CallType};
 
 use crate::bond::{
-    calculate_convention_yield, convert_yas_result, create_bond, create_curve,
-    create_discount_curve, get_yield_rules,
+    calculate_convention_yield, convert_yas_result, create_bond, create_curve, get_yield_rules,
 };
 use crate::convert::{date_to_naive, decimal_to_f64, f64_to_decimal, parse_date};
 use crate::dto::{AnalysisResult, BondParams, CashFlowEntry, CurvePoint};
@@ -25,7 +23,7 @@ pub fn analyze_bond(params: JsValue, clean_price: f64, curve_points: JsValue) ->
 }
 
 fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -> AnalysisResult {
-    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+    let bond_params: BondParams = match decode_bond_params(params) {
         Ok(p) => p,
         Err(e) => {
             return AnalysisResult {
@@ -100,87 +98,6 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
         result.ytm = Some(convention_ytm * 100.0);
     }
 
-    if let Some(ref call_entries) = bond_params.call_schedule {
-        if !call_entries.is_empty() {
-            // Parse all call dates up front: a single bad date should fail the whole call,
-            // not silently flag the bond callable with a partial / empty schedule.
-            let parsed: Result<Vec<(convex_core::types::Date, f64)>, String> = call_entries
-                .iter()
-                .map(|entry| parse_date(&entry.date).map(|d| (d, entry.price)))
-                .collect();
-            let parsed = match parsed {
-                Ok(v) => v,
-                Err(e) => {
-                    return AnalysisResult {
-                        error: Some(format!("Invalid call schedule entry: {}", e)),
-                        ..Default::default()
-                    }
-                }
-            };
-
-            result.is_callable = Some(true);
-
-            let mut call_schedule = CallSchedule::new(CallType::American);
-            for (call_date, price) in parsed {
-                call_schedule = call_schedule.with_entry(CallEntry::new(call_date, price));
-            }
-
-            let callable = CallableBond::new(bond.clone(), call_schedule);
-            // OAS via Hull-White (default 1% vol if not provided).
-            let volatility = bond_params.volatility.unwrap_or(1.0) / 100.0;
-            let oas_calc = OASCalculator::default_hull_white(volatility);
-            let accrued = decimal_to_f64(bond.accrued_interest(settlement));
-            let dirty_price_f64 = clean_price + accrued;
-            let dirty_price = f64_to_decimal(dirty_price_f64);
-
-            match create_discount_curve(settlement, &points) {
-                Ok(discount_curve) => {
-                    match oas_calc.calculate(&callable, dirty_price, &discount_curve, settlement) {
-                        Ok(oas) => {
-                            result.oas = Some(decimal_to_f64(oas.as_bps()));
-
-                            let oas_decimal = decimal_to_f64(oas.as_bps()) / 10000.0;
-                            if let Ok(eff_dur) = oas_calc.effective_duration(
-                                &callable,
-                                &discount_curve,
-                                oas_decimal,
-                                settlement,
-                            ) {
-                                result.effective_duration = Some(eff_dur);
-                            }
-                            if let Ok(eff_conv) = oas_calc.effective_convexity(
-                                &callable,
-                                &discount_curve,
-                                oas_decimal,
-                                settlement,
-                            ) {
-                                result.effective_convexity = Some(eff_conv);
-                            }
-                            if let Ok(opt_val) = oas_calc.option_value(
-                                &callable,
-                                &discount_curve,
-                                oas_decimal,
-                                settlement,
-                            ) {
-                                result.option_value = Some(opt_val);
-                            }
-                        }
-                        Err(_e) => {
-                            // OAS calc failed (model price can't bracket market price);
-                            // fall back to Z-spread so the UI gets a sensible spread.
-                            result.oas = result.z_spread;
-                        }
-                    }
-                }
-                Err(_e) => {
-                    result.oas = None;
-                }
-            }
-        }
-    } else {
-        result.is_callable = Some(false);
-    }
-
     result
 }
 
@@ -189,28 +106,24 @@ fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -
 /// Returns all future cash flows from settlement date.
 #[wasm_bindgen]
 pub fn get_cash_flows(params: JsValue) -> JsValue {
-    let result = get_cash_flows_impl(params);
-    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+    match get_cash_flows_impl(params) {
+        Ok(result) => serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL),
+        Err(error) => serde_wasm_bindgen::to_value(&AnalysisResult {
+            error: Some(error),
+            ..Default::default()
+        })
+        .unwrap_or(JsValue::NULL),
+    }
 }
 
-fn get_cash_flows_impl(params: JsValue) -> Vec<CashFlowEntry> {
-    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
-        Ok(p) => p,
-        Err(_) => return vec![],
-    };
-
-    let bond = match create_bond(&bond_params) {
-        Ok(b) => b,
-        Err(_) => return vec![],
-    };
-
-    let settlement = match parse_date(&bond_params.settlement_date) {
-        Ok(d) => d,
-        Err(_) => return vec![],
-    };
+fn get_cash_flows_impl(params: JsValue) -> Result<Vec<CashFlowEntry>, String> {
+    let bond_params = decode_bond_params(params)?;
+    let bond = create_bond(&bond_params)?;
+    let settlement = parse_date(&bond_params.settlement_date)?;
 
     let face = decimal_to_f64(bond.face_value());
-    bond.cash_flows(settlement)
+    Ok(bond
+        .cash_flows(settlement)
         .iter()
         .map(|cf| {
             let amount = decimal_to_f64(cf.amount);
@@ -232,7 +145,7 @@ fn get_cash_flows_impl(params: JsValue) -> Vec<CashFlowEntry> {
                 cf_type: cf_type.to_string(),
             }
         })
-        .collect()
+        .collect())
 }
 
 /// Calculate accrued interest.
@@ -255,7 +168,7 @@ pub fn calculate_accrued(params: JsValue) -> JsValue {
 }
 
 fn calculate_accrued_impl(params: JsValue) -> Result<f64, String> {
-    let bond_params: BondParams = serde_wasm_bindgen::from_value(params)
+    let bond_params: BondParams = decode_bond_params(params)
         .map_err(|e| format!("Failed to parse bond parameters: {:?}", e))?;
 
     let bond = create_bond(&bond_params)?;
@@ -274,7 +187,7 @@ pub fn calculate_simple_metrics(params: JsValue, clean_price: f64) -> JsValue {
 }
 
 fn calculate_simple_metrics_impl(params: JsValue, clean_price: f64) -> AnalysisResult {
-    let bond_params: BondParams = match serde_wasm_bindgen::from_value(params) {
+    let bond_params: BondParams = match decode_bond_params(params) {
         Ok(p) => p,
         Err(e) => {
             return AnalysisResult {

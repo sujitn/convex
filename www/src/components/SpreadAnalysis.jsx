@@ -70,14 +70,7 @@ function SpreadAnalysis({ analysis, onSpreadChange }) {
           </div>
           <div className="spread-desc">Asset Swap</div>
         </div>
-        <div className={`spread-item ${spreadClass(analysis?.oas)}`}>
-          <div className="spread-label">OAS</div>
-          <div className="spread-value">
-            {analysis?.is_callable ? formatBps(analysis?.oas) : 'N/A'}
-            <span className="unit">bps</span>
-          </div>
-          <div className="spread-desc">Option Adj</div>
-        </div>
+
       </div>
     </div>
   );

@@ -298,7 +298,7 @@ body {
 }
 
 .grid-row.row-2 {
-  grid-template-columns: 1fr 1.5fr;
+  grid-template-columns: 1fr;
 }
 
 .grid-row.row-3 {
@@ -489,19 +489,16 @@ body {
   font-weight: 700;
 }
 
-.call-schedule,
 .curve-inputs {
   margin-top: var(--spacing-sm);
 }
 
-.call-entry,
 .curve-row {
   display: flex;
   gap: var(--spacing-xs);
   margin-bottom: var(--spacing-xs);
 }
 
-.call-entry input,
 .curve-row input {
   flex: 1;
   min-width: 0;
@@ -1246,7 +1243,7 @@ select {
 }
 
 /* ============================================================================
-   Enhanced Risk Table (Yield | OAS columns)
+   Fixed-bond yield risk table
    ============================================================================ */
 
 .risk-metrics-panel .panel-header {
@@ -1268,10 +1265,6 @@ select {
 
 .yield-label {
   color: var(--accent-yellow);
-}
-
-.oas-label {
-  color: var(--accent-blue);
 }
 
 .risk-table {
@@ -1318,10 +1311,6 @@ select {
 .risk-value.yield.highlight {
   color: var(--accent-orange);
   font-size: 14px;
-}
-
-.risk-value.oas {
-  color: var(--accent-blue);
 }
 
 .risk-value.dv01 {
@@ -1474,174 +1463,6 @@ select {
   color: var(--text-muted);
   margin-top: var(--spacing-xs);
   text-align: right;
-}
-
-/* ============================================================================
-   Call Schedule Panel
-   ============================================================================ */
-
-.call-schedule-panel {
-  background: var(--bg-panel);
-  border-top: 1px solid var(--border-primary);
-}
-
-.call-schedule-panel .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.call-content {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.no-calls {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.call-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.call-header {
-  display: grid;
-  grid-template-columns: 1fr 60px 24px;
-  gap: var(--spacing-xs);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  padding-bottom: var(--spacing-xs);
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.call-entry-row {
-  display: grid;
-  grid-template-columns: 1fr 60px 24px;
-  gap: var(--spacing-xs);
-  align-items: center;
-}
-
-.call-entry-row input[type="date"] {
-  width: 100%;
-  padding: 2px 4px;
-  font-size: 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-}
-
-.call-entry-row input[type="number"] {
-  width: 100%;
-  padding: 2px 4px;
-  font-size: 10px;
-  text-align: right;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-}
-
-.call-entry-row input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.call-entry-row .btn-remove {
-  padding: 0 4px;
-  background: transparent;
-  border: 1px solid var(--accent-red);
-  color: var(--accent-red);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  height: 20px;
-}
-
-.call-entry-row .btn-remove:hover {
-  background: var(--accent-red);
-  color: var(--bg-primary);
-}
-
-.volatility-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-primary);
-  margin-top: var(--spacing-sm);
-}
-
-.volatility-row label {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  min-width: 50px;
-}
-
-.volatility-row input {
-  width: 50px;
-  padding: 2px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-align: right;
-}
-
-.volatility-row input:focus {
-  outline: none;
-  border-color: var(--accent-blue);
-}
-
-.volatility-row .unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-.volatility-section {
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-primary);
-}
-
-.btn-tiny {
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-fetch-vol {
-  background: var(--accent-blue);
-  color: var(--bg-primary);
-  border: 1px solid var(--accent-blue);
-  margin-left: var(--spacing-xs);
-}
-
-.btn-fetch-vol:hover:not(:disabled) {
-  background: #33ddff;
-}
-
-.btn-fetch-vol:disabled {
-  background: var(--bg-hover);
-  color: var(--text-muted);
-  border-color: var(--border-primary);
-  cursor: not-allowed;
-}
-
-.vol-source {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: var(--spacing-xs);
-  font-style: italic;
 }
 
 /* ============================================================================

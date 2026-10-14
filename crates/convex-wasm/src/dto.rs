@@ -2,17 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Call schedule entry for callable bonds.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CallScheduleEntry {
-    /// Call date as "YYYY-MM-DD"
-    pub date: String,
-    /// Call price as percentage of par (e.g., 102.0 for 102%)
-    pub price: f64,
-}
-
 /// Bond parameters for creating a fixed coupon bond.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondParams {
     /// Coupon rate as percentage (e.g., 5.0 for 5%)
     pub coupon_rate: f64,
@@ -37,12 +29,6 @@ pub struct BondParams {
     pub currency: Option<String>,
     /// First coupon date as "YYYY-MM-DD" (optional)
     pub first_coupon_date: Option<String>,
-    /// Call schedule for callable bonds (optional)
-    pub call_schedule: Option<Vec<CallScheduleEntry>>,
-    /// Interest rate volatility for OAS calculation (as percentage, e.g., 1.0 for 1%)
-    /// Default is 1.0% if not provided
-    pub volatility: Option<f64>,
-
     // === New convention parameters ===
     /// Market: "US", "UK", "Germany", "France", "Italy", "Japan", etc.
     pub market: Option<String>,
@@ -83,17 +69,10 @@ pub struct AnalysisResult {
     // Spread metrics (in basis points)
     pub z_spread: Option<f64>,
     pub asw_spread: Option<f64>,
-    pub oas: Option<f64>, // Option-Adjusted Spread (for callable bonds)
-
-    // OAS-related metrics (for callable bonds)
-    pub effective_duration: Option<f64>,
-    pub effective_convexity: Option<f64>,
-    pub option_value: Option<f64>,
 
     // Additional info
     pub days_to_maturity: Option<i64>,
     pub years_to_maturity: Option<f64>,
-    pub is_callable: Option<bool>,
 
     // Convention info (returned for display)
     pub market: Option<String>,

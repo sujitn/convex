@@ -3751,6 +3751,38 @@
         "tools/library/test_native_operations.py": "2836a126fab8c47c9ad82e425314494c610b6895aa5196304fa04d90248e7057",
         "tools/library/test_outstanding.py": "3b7468acb9285f837c4dcf6a9b1dca827454ee444683a04a8335bc57670f87ff"
       }
+    },
+    {
+      "base_commit": "affad85ccca3e2cdf6d8d2e330cbdac4a69ea78c",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 retire the incorrect callable WASM convenience: finite call-date list labeledAmerican/default1%volatility/Z-spread substituted asOAS on model failure. RemoveCallScheduleEntry/call_schedule/volatility andcallable-only output fields, branch, demo senders/panel/placeholder displays/deadstyles. Strict fixed BondParams rejects retired/null/empty/unknown payoff fields before straight pricing. Complete shared optional_bond original fullterms/model/calendar/history/notice/OAS/risk/diagnostics remain unchanged; nativeAmerican/joint/capfloor and other mandatory scopes remain required. Oldfixed normal inputs andnative financial operators/references/bounds remain; other convenience parsers/units/unsupported semantics remain explicit work. Preserve1652oldnumeric rows/default/files/sections,80shared/8native routes/5375requests andliteral30areas/174combinations/2154Planned requirements. One new admission pin gives1653. Actualavailable wasm/browser must execute; only unexecutable platforms deferred. No certificate or acceptance promotion. Actual browser failure repaired with shared own-field validation for all6bond entrypoints, complete16field native control and typed cashflow errors.1654numeric pins. All original native arithmetic/references/bounds remain. Independent critical-source discovery explicitly includes the new JS ingress owner; first omission failure and second frozen snapshot retained.",
+      "tests": [
+        "Fixed metadata/8retired-unknown fields/native wasm/shared parity/actual browser andwebcontrols",
+        "Original numerical/body/scope/private conservation, warning-denied build/style andexplicit deletedsource binding"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "0cc6a96077f9ca3e1a463a93e9f4d033ff896ba2c56420efafbcfcc50994c34d",
+        "crates/convex-wasm/src/analyze.rs": "5fdff65a4afa335a2ff2cdbe8e342d94bf750363cb8da016e85030898069f894",
+        "crates/convex-wasm/src/bond.rs": "b7df1fed00ece5de043fe6f0ba08779178f5278db038b8071ca44121dfce5374",
+        "crates/convex-wasm/src/dto.rs": "cf46233e640af47afa796323e6753a3e1234fde37c6d89753c73767f1d431913",
+        "crates/convex-wasm/src/ingress.rs": "05ce4f48e127af170011bdaa8f650698b3bbd4c959658e228fe444f37ec35fcd",
+        "crates/convex-wasm/src/lib.rs": "22394a7eda65f1df720591879acefb450ad44f1b171c8eedb7653039c77627ce",
+        "crates/convex-wasm/src/pricing.rs": "1d2c22d9a72f0db232ee53481c71ceb0c2d48e744684359745ea710a004da66a",
+        "crates/convex-wasm/tests/optional_retirement.rs": "a6f434b23afcca2614ba34fc9bb57891a7859270b4d0753627e059fa91272e2a",
+        "docs/ROUTE-MIGRATION.md": "d0be1e6cb2f6c49c879d43a32ce6a77c79dc0254457c23a585fcd4ddf4dfd9c7",
+        "tools/assurance/check.py": "4a562600f1bcc0f3dfdab03578e7a1ba5c29b176b94c5c695ee297e01b2a96d0",
+        "tools/assurance/inventory.json": "1a0aefae0455f19b4d7c4164596aa5a2d2e13ba22e05b824a1ce183171b45d03",
+        "tools/assurance/numeric-evidence.json": "56dd093b5a888b332145b173e767500c843e98f071a3dd813b6362a5ea4117f8",
+        "tools/library/api-capabilities.json": "4060ffd366091a58f1447e6a939682b56d6e273fcaea0f077c9472ce767c0a8c",
+        "tools/library/library-inventory.json": "938c4ff91cd34a587cc4b1c552409227caa6b16c3d34e3bafae9d608821cae0d",
+        "www/src/App.jsx": "02d999b9956f4242da348b9d283117404e0ce520391cb0368d4b34bbfd20d884",
+        "www/src/components/RiskMetrics.jsx": "13016af2f7741fc4d5efbcecc42e5a6fe4d742bdc8a92538b38b8311b52d596f",
+        "www/src/components/SpreadAnalysis.jsx": "4e3c9c049fd097850678bcf746e656459d72bf409ef1a4cf29f0f6629bf53d3d",
+        "www/src/styles/bloomberg.css": "5959a99e582c7f9d8abc99d2dc7ff752c3b3415042d5e3b55936e0bcc425312a",
+        "www/tests/route-admission.cjs": "96917d1b9d8dda7b8bb34025d5ab21de9531da1fb598411895b003211c262450",
+        "www/src/components/CallSchedule.jsx": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
     }
   ]
 }

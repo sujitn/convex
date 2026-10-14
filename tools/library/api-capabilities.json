@@ -29792,9 +29792,9 @@
       "record_id": "LC-029/wasm_advertised_fixed_callable_analysis/SUPPLIED/workflow/declare_surface_capability_matrix/wasm_advertised",
       "surface": "wasm_advertised",
       "route_id": "LC-029",
-      "dispatch_status": "compatibility_unverified",
+      "dispatch_status": "partial",
       "certificate_status": "Planned",
-      "qualification": "Existing conveniences retain scoped inputs and tests; full supplied generic route uses the common implementation. Actual host/toolchain results and specific unsupported limits are reported separately; no full-host certificate.",
+      "qualification": "Incorrect callable convenience removed with its wire type and browser callers; retired optional/null/empty fields explicitly reject rather than price straight. Supported full-term/model library optional_bond route is retained. Fixed convenience and every original advertised profile still require exact input/unit/convention/host qualification; native American/joint/floating-option scope and independent approval are not waived.",
       "remaining_owner_tasks": [
         "CVX-063",
         "CVX-065"
@@ -29804,9 +29804,9 @@
       "record_id": "LC-029/wasm_advertised_fixed_callable_analysis/SUPPLIED/workflow/preserve_all_advertised_inputs/wasm_advertised",
       "surface": "wasm_advertised",
       "route_id": "LC-029",
-      "dispatch_status": "compatibility_unverified",
+      "dispatch_status": "partial",
       "certificate_status": "Planned",
-      "qualification": "Existing conveniences retain scoped inputs and tests; full supplied generic route uses the common implementation. Actual host/toolchain results and specific unsupported limits are reported separately; no full-host certificate.",
+      "qualification": "Incorrect callable convenience removed with its wire type and browser callers; retired optional/null/empty fields explicitly reject rather than price straight. Supported full-term/model library optional_bond route is retained. Fixed convenience and every original advertised profile still require exact input/unit/convention/host qualification; native American/joint/floating-option scope and independent approval are not waived.",
       "remaining_owner_tasks": [
         "CVX-063",
         "CVX-065"
@@ -29816,9 +29816,9 @@
       "record_id": "LC-029/wasm_advertised_fixed_callable_analysis/SUPPLIED/workflow/compare_results_and_errors_to_native/wasm_advertised",
       "surface": "wasm_advertised",
       "route_id": "LC-029",
-      "dispatch_status": "compatibility_unverified",
+      "dispatch_status": "partial",
       "certificate_status": "Planned",
-      "qualification": "Existing conveniences retain scoped inputs and tests; full supplied generic route uses the common implementation. Actual host/toolchain results and specific unsupported limits are reported separately; no full-host certificate.",
+      "qualification": "Incorrect callable convenience removed with its wire type and browser callers; retired optional/null/empty fields explicitly reject rather than price straight. Supported full-term/model library optional_bond route is retained. Fixed convenience and every original advertised profile still require exact input/unit/convention/host qualification; native American/joint/floating-option scope and independent approval are not waived.",
       "remaining_owner_tasks": [
         "CVX-063",
         "CVX-065"
@@ -29828,9 +29828,9 @@
       "record_id": "LC-029/wasm_advertised_fixed_callable_analysis/SUPPLIED/workflow/exercise_supported_build_feature_combinations/wasm_advertised",
       "surface": "wasm_advertised",
       "route_id": "LC-029",
-      "dispatch_status": "compatibility_unverified",
+      "dispatch_status": "partial",
       "certificate_status": "Planned",
-      "qualification": "Existing conveniences retain scoped inputs and tests; full supplied generic route uses the common implementation. Actual host/toolchain results and specific unsupported limits are reported separately; no full-host certificate.",
+      "qualification": "Incorrect callable convenience removed with its wire type and browser callers; retired optional/null/empty fields explicitly reject rather than price straight. Supported full-term/model library optional_bond route is retained. Fixed convenience and every original advertised profile still require exact input/unit/convention/host qualification; native American/joint/floating-option scope and independent approval are not waived.",
       "remaining_owner_tasks": [
         "CVX-063",
         "CVX-065"

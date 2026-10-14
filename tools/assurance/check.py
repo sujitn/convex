@@ -31,6 +31,8 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-wasm --test optional_retirement',
+        'cargo test --locked -p convex-wasm --lib ingress::tests',
         'cargo test --locked -p convex-core --test cashflow_primitives',
         'cargo test --locked -p convex --test native_primitives',
         'cargo run --locked -p convex --example native_primitives',
@@ -762,6 +764,7 @@ def inventory_paths(root: Path) -> set[str]:
                   'crates/convex-bonds/src/traits/analytics.rs', 'crates/convex-bonds/src/pricing/yield_solver.rs',
                   'crates/convex-engine/src/pricing_router.rs', 'crates/convex-ports/src/output.rs',
                   'crates/convex-ports/src/reference_master.rs', 'crates/convex-server/src/handlers.rs'])
+    paths.add('crates/convex-wasm/src/ingress.rs')
     # Explicit portable-kernel owners; keep the set independent of the manifest.
     paths.update(['crates/convex-analytics/src/risk/convexity/analytical.rs', 'crates/convex-analytics/src/risk/duration/macaulay.rs', 'crates/convex-analytics/src/spreads/discount_margin.rs', 'crates/convex-analytics/src/spreads/oas.rs', 'crates/convex-analytics/src/yas/calculator.rs', 'crates/convex-bonds/src/options/binomial_tree.rs', 'crates/convex-bonds/src/options/models/hull_white.rs', 'crates/convex-bonds/src/options/trinomial_tree.rs', 'crates/convex-bonds/src/types/compounding.rs', 'crates/convex-core/src/traits/mod.rs', 'crates/convex-core/src/types/yield_type.rs', 'crates/convex-curves/src/bumping/key_rate.rs', 'crates/convex-curves/src/bumping/parallel.rs', 'crates/convex-curves/src/bumping/scenario.rs', 'crates/convex-curves/src/conversion.rs', 'crates/convex-curves/src/wrappers/credit_curve.rs', 'crates/convex-curves/src/wrappers/rate_curve.rs', 'crates/convex-wasm/src/bond.rs'])
     return paths

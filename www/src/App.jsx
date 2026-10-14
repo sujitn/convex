@@ -9,7 +9,6 @@ import CashFlowTable from './components/CashFlowTable';
 import PriceYieldChart from './components/PriceYieldChart';
 import Invoice from './components/Invoice';
 import TreasuryCurve from './components/TreasuryCurve';
-import CallSchedule from './components/CallSchedule';
 
 // Default bond parameters
 const getDefaultBond = () => {
@@ -34,8 +33,6 @@ const getDefaultBond = () => {
     faceValue: 100,
     currency: 'USD',
     firstCouponDate: '',
-    callSchedule: [],
-    volatility: 1.0, // Interest rate volatility for OAS (%)
   };
 };
 
@@ -355,12 +352,6 @@ const CURVE_TYPE_NAMES = {
   NZGB: 'NZ Govt',
 };
 
-// ============================================================================
-// Interest Rate Volatility Fetching
-// ============================================================================
-
-// Default volatility assumptions by currency (in %)
-
 // Main function to fetch rates based on currency and curve type
 async function fetchRatesForCurrency(currency, curveType) {
   console.log(`Fetching rates for ${currency} (${curveType})...`);
@@ -459,10 +450,6 @@ function App({ wasmModule }) {
         day_count: bond.dayCount,
         currency: bond.currency,
         first_coupon_date: bond.firstCouponDate || null,
-        call_schedule: bond.callSchedule && bond.callSchedule.length > 0
-          ? bond.callSchedule.map(c => ({ date: c.date, price: c.price }))
-          : null,
-        volatility: bond.volatility || 1.0, // Interest rate volatility for OAS
         // Convention parameters
         market: conventions.market,
         instrument_type: conventions.instrumentType,
@@ -623,7 +610,6 @@ function App({ wasmModule }) {
         day_count: bond.dayCount,
         currency: bond.currency,
         first_coupon_date: bond.firstCouponDate || null,
-        call_schedule: null,
       };
 
       const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
@@ -655,7 +641,6 @@ function App({ wasmModule }) {
         day_count: bond.dayCount,
         currency: bond.currency,
         first_coupon_date: bond.firstCouponDate || null,
-        call_schedule: null,
       };
 
       const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
@@ -831,17 +816,8 @@ function App({ wasmModule }) {
           </div>
         </div>
 
-        {/* Row 2: Call Schedule | Spread Analysis */}
+        {/* Supplied fixed-bond spreads */}
         <div className="grid-row row-2">
-          <div className="grid-cell">
-            <CallSchedule
-              callSchedule={bond.callSchedule}
-              maturityDate={bond.maturityDate}
-              volatility={bond.volatility}
-              onChange={(schedule) => handleBondChange('callSchedule', schedule)}
-              onVolatilityChange={(vol) => handleBondChange('volatility', vol)}
-            />
-          </div>
           <div className="grid-cell">
             <SpreadAnalysis
               analysis={analysis}
