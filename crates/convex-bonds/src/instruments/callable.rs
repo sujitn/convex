@@ -8,6 +8,7 @@
 //! - Make-whole call price calculation
 
 use convex_core::types::{Currency, Date, Frequency};
+use convex_math::portable;
 use convex_math::solvers::{newton_raphson, SolverConfig};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -325,7 +326,7 @@ impl CallableBond {
                 .year_fraction(call_date, flow.date)
                 .to_f64()
                 .unwrap_or(0.0);
-            let df = 1.0 / (1.0 + discount_rate / freq).powf(freq * t);
+            let df = 1.0 / portable::pow(1.0 + discount_rate / freq, freq * t);
             let amount = flow.amount.to_string().parse::<f64>().unwrap_or(0.0);
             pv += amount * df;
         }
@@ -484,7 +485,7 @@ impl CallableBond {
         let objective = |y: f64| {
             let mut pv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 pv += amount * df;
             }
             pv - target
@@ -493,7 +494,7 @@ impl CallableBond {
         let derivative = |y: f64| {
             let mut dpv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 dpv += amount * (-t) * df / (1.0 + y / freq);
             }
             dpv

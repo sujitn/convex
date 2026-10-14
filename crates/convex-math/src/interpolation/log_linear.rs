@@ -6,6 +6,7 @@
 use crate::bounds::finite;
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
+use crate::portable;
 
 /// Log-linear interpolation between data points.
 ///
@@ -65,7 +66,7 @@ impl LogLinearInterpolator {
                     "y[{i}] = {y} is not positive; log-linear requires positive values"
                 )));
             }
-            log_ys.push(y.ln());
+            log_ys.push(portable::log(y));
         }
 
         Ok(Self {
@@ -166,7 +167,7 @@ impl Interpolator for LogLinearInterpolator {
 }
 
 fn positive_exp(log_value: f64) -> MathResult<f64> {
-    let value = finite(log_value.exp(), "log-linear interpolation")?;
+    let value = finite(portable::exp(log_value), "log-linear interpolation")?;
     if value <= 0.0 {
         return Err(MathError::invalid_input(
             "log-linear value underflowed to zero",

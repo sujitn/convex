@@ -6,6 +6,7 @@
 //! The bump profile is typically triangular, centered at the key tenor,
 //! with weights linearly decreasing to zero at adjacent key tenors.
 
+use convex_math::portable;
 use std::sync::Arc;
 
 use convex_core::types::Date;
@@ -257,10 +258,10 @@ impl<T: TermStructure> TermStructure for KeyRateBumpedCurve<'_, T> {
             | ValueType::CreditSpread { .. } => base_value + shift,
 
             // For discount factors: df' = df * exp(-shift * t)
-            ValueType::DiscountFactor => base_value * (-shift * t).exp(),
+            ValueType::DiscountFactor => base_value * portable::exp(-shift * t),
 
             // For survival probability: same as DF
-            ValueType::SurvivalProbability => base_value * (-shift * t).exp(),
+            ValueType::SurvivalProbability => base_value * portable::exp(-shift * t),
 
             // Default additive for others
             ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
@@ -332,8 +333,8 @@ impl<T: TermStructure> TermStructure for ArcKeyRateBumpedCurve<T> {
             | ValueType::ParSwapRate { .. }
             | ValueType::CreditSpread { .. } => base_value + shift,
 
-            ValueType::DiscountFactor => base_value * (-shift * t).exp(),
-            ValueType::SurvivalProbability => base_value * (-shift * t).exp(),
+            ValueType::DiscountFactor => base_value * portable::exp(-shift * t),
+            ValueType::SurvivalProbability => base_value * portable::exp(-shift * t),
 
             ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
         }

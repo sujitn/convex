@@ -15,6 +15,7 @@
 //! let bumped = scenario.apply(&curve);
 //! ```
 
+use convex_math::portable;
 use std::sync::Arc;
 
 use convex_core::types::Date;
@@ -554,8 +555,8 @@ impl<T: TermStructure> TermStructure for ScenarioCurve<'_, T> {
             | ValueType::ParSwapRate { .. }
             | ValueType::CreditSpread { .. } => base_value + total_shift,
 
-            ValueType::DiscountFactor => base_value * (-total_shift * t).exp(),
-            ValueType::SurvivalProbability => base_value * (-total_shift * t).exp(),
+            ValueType::DiscountFactor => base_value * portable::exp(-total_shift * t),
+            ValueType::SurvivalProbability => base_value * portable::exp(-total_shift * t),
 
             ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
         }
@@ -619,8 +620,8 @@ impl<T: TermStructure> TermStructure for ArcScenarioCurve<T> {
             | ValueType::ParSwapRate { .. }
             | ValueType::CreditSpread { .. } => base_value + total_shift,
 
-            ValueType::DiscountFactor => base_value * (-total_shift * t).exp(),
-            ValueType::SurvivalProbability => base_value * (-total_shift * t).exp(),
+            ValueType::DiscountFactor => base_value * portable::exp(-total_shift * t),
+            ValueType::SurvivalProbability => base_value * portable::exp(-total_shift * t),
 
             ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
         }

@@ -20,6 +20,7 @@ thiserror = { workspace = true }
 
 # Linear algebra
 nalgebra = { workspace = true }
+libm = { workspace = true }
 
 # Logging
 log = { workspace = true }

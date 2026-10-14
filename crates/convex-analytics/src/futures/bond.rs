@@ -4,6 +4,7 @@ use super::*;
 use convex_bonds::contracts::BondCoupon;
 use convex_core::{cashflows::PaymentDateEntitlement, daycounts::DayCountConvention};
 use convex_curves::contracts::{CurvePoint, CurveQuery, CurveRole};
+use convex_math::portable;
 use rust_decimal::RoundingStrategy;
 
 /// Explicit simple reinvestment or own-cash opportunity-cost input.
@@ -755,7 +756,7 @@ pub(super) fn shifted_cash_dirty(
     let at_time = number(dc.year_fraction(discount.recipe().reference_date, settlement))?;
     for flow in model.projection.cashflows()? {
         let time = number(dc.year_fraction(discount.recipe().reference_date, flow.date))? - at_time;
-        value += number(flow.amount)? * df(flow.date)? / anchor * (-bump * time).exp();
+        value += number(flow.amount)? * df(flow.date)? / anchor * portable::exp(-bump * time);
         if !value.is_finite() {
             return Err(invalid("risk", "nonfinite zero-shift cash PV"));
         }

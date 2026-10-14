@@ -1,5 +1,6 @@
 //! Yield type for bond analytics.
 
+use libm as portable;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -115,12 +116,12 @@ impl Yield {
         // r2 = n2 * ((1 + r1/n1)^(n1/n2) - 1)
         let r2 = if target == Compounding::Continuous {
             // Convert to continuous: r_c = n * ln(1 + r/n)
-            n1 * (1.0 + r1 / n1).ln()
+            n1 * portable::log(1.0 + r1 / n1)
         } else if self.compounding == Compounding::Continuous {
             // Convert from continuous: r = n * (e^(r_c/n) - 1)
-            n2 * ((r1 / n2).exp() - 1.0)
+            n2 * (portable::exp(r1 / n2) - 1.0)
         } else {
-            n2 * ((1.0 + r1 / n1).powf(n1 / n2) - 1.0)
+            n2 * (portable::pow(1.0 + r1 / n1, n1 / n2) - 1.0)
         };
 
         Self {

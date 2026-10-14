@@ -10,6 +10,7 @@ use convex_curves::{
     },
     ExtrapolationMethod, InterpolationMethod,
 };
+use convex_math::portable;
 use serde::Serialize;
 
 /// Actual credit input used; a conversion never invents a supplied curve version.
@@ -355,7 +356,7 @@ impl<'a> Prepared<'a> {
         self.points
             .iter()
             .map(|d| {
-                let q = (-hazard * d / 365.0).exp();
+                let q = portable::exp(-hazard * d / 365.0);
                 if q <= 0.0 {
                     Err(CdsError::Numerical("survival underflow"))
                 } else {
@@ -394,11 +395,12 @@ impl<'a> Prepared<'a> {
         let mut total = 0.0;
         for i in first..last {
             let dt = self.points[i + 1] - self.points[i];
-            let hazard_mass = qs[i].ln() - qs[i + 1].ln();
+            let hazard_mass = portable::log(qs[i]) - portable::log(qs[i + 1]);
             if hazard_mass < 0.0 {
                 return Err(CdsError::Numerical("increasing survival"));
             }
-            let exponent = hazard_mass + self.discounts[i].ln() - self.discounts[i + 1].ln();
+            let exponent = hazard_mass + portable::log(self.discounts[i])
+                - portable::log(self.discounts[i + 1]);
             let (zero, first) = moments(exponent)?;
             let weight = match accrual_origin {
                 None => zero,
@@ -597,8 +599,11 @@ fn moments(x: f64) -> Result<(f64, f64), CdsError> {
         }
         (zero, first)
     } else {
-        let e = (-x).exp();
-        (-(-x).exp_m1() / x, (-(-x).exp_m1() - x * e) / (x * x))
+        let e = portable::exp(-x);
+        (
+            -portable::expm1(-x) / x,
+            (-portable::expm1(-x) - x * e) / (x * x),
+        )
     };
     finite(zero)?;
     finite(first)?;
@@ -699,8 +704,8 @@ pub fn discounted_default_mass(
             "positive finite discount and nonincreasing survival endpoints in (0,1] required",
         ));
     }
-    let mass = start_survival.ln() - end_survival.ln();
-    let exponent = mass + start_discount.ln() - end_discount.ln();
+    let mass = portable::log(start_survival) - portable::log(end_survival);
+    let exponent = mass + portable::log(start_discount) - portable::log(end_discount);
     let (zero, _) = moments(exponent)?;
     finite(mass * start_survival * start_discount * zero)
 }

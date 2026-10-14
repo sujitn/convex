@@ -17,6 +17,7 @@ use convex_core::{
     contracts::{IndexId, UtcTimestamp},
     fixings::{FixingRequirement, FixingSeries, RateOrigin, ResolvedRate},
 };
+use convex_math::portable;
 use serde::{Deserialize, Serialize};
 
 mod model_risk;
@@ -926,7 +927,7 @@ impl PreparedOptionalBond {
                 .base_discounts
                 .iter()
                 .zip(grid.tree.times())
-                .map(|(df, t)| df * (-scenario.discount * t).exp())
+                .map(|(df, t)| df * portable::exp(-scenario.discount * t))
                 .collect::<Vec<_>>();
             shifted_tree = Hw1fTree::build(self.model.parameters(), grid.tree.times(), &discounts)?;
             &shifted_tree
@@ -945,8 +946,8 @@ impl PreparedOptionalBond {
             let unspread = tree.cash_value_at(start, &[(end, 1.0)], 0.0)?;
             let spread = tree.cash_value_at(start, &[(end, 1.0)], oas)?;
             let duration = time(coupon.start, coupon.end)?;
-            let basis =
-                coupon.basis_ratio * (-(scenario.projection - scenario.discount) * duration).exp();
+            let basis = coupon.basis_ratio
+                * portable::exp(-(scenario.projection - scenario.discount) * duration);
             let values = unspread
                 .iter()
                 .zip(spread)

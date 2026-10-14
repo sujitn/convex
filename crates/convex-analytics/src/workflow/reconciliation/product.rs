@@ -4,6 +4,7 @@ use crate::{cash_calibration as c, futures as f, optional_bond as o};
 use convex_bonds::contracts::{BondContract, BondCoupon, BondProjectionContext};
 use convex_core::cashflows::PaymentDateEntitlement;
 use convex_curves::contracts::{BuiltCurve, CurvePoint, CurveQuery, CurveRole, CurveSet};
+use convex_math::portable;
 
 /// Closed full original economics. Optional preparations are rebuilt here from
 /// the actual checked contract, preventing a foreign prepared-price substitution.
@@ -196,7 +197,7 @@ fn bond_removed(
     };
     let ratio=match &v.basis{
         BondValueBasis::DatedYield{decimal_rate,convention}=>convex_curves::contracts::discount_from_rate(*decimal_rate,convex_curves::contracts::year_fraction(date,due,convention.day_count).map_err(WorkflowError::from)?,convention.compounding).map_err(WorkflowError::from)?,
-        BondValueBasis::DiscountSpread{curve,decimal_spread,..}=>curve_ratio(curves.get(curve).map_err(WorkflowError::from)?.as_ref(),date,due)?*(-decimal_spread*num(Decimal::from(date.days_between(&due)))?/365.0).exp(),
+        BondValueBasis::DiscountSpread{curve,decimal_spread,..}=>curve_ratio(curves.get(curve).map_err(WorkflowError::from)?.as_ref(),date,due)?*portable::exp(-decimal_spread*num(Decimal::from(date.days_between(&due)))?/365.0),
         BondValueBasis::ContextualIcma{..}=>return Err(WorkflowError::Unsupported("contextual ICMA embedded future earned claims require the exact original contextual time model").into()),
     };
     Ok(num(amount)? * scale * ratio)

@@ -7,6 +7,7 @@
 //! - Average life and yield-to-average-life calculations
 //! - Factor-adjusted cash flows
 
+use convex_math::portable;
 use rust_decimal::Decimal;
 
 use convex_core::types::{Currency, Date, Frequency};
@@ -684,7 +685,7 @@ impl SinkingFundBond {
         let objective = |y: f64| {
             let mut pv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 pv += amount * df;
             }
             pv - target
@@ -693,7 +694,7 @@ impl SinkingFundBond {
         let derivative = |y: f64| {
             let mut dpv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 dpv += amount * (-t) * df / (1.0 + y / freq);
             }
             dpv

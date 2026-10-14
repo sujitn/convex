@@ -9,6 +9,7 @@ use convex_core::{
     daycounts::DayCountConvention,
     types::{Compounding, Date},
 };
+use convex_math::portable;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -237,7 +238,7 @@ impl BuiltCurve {
                         "a finite zero rate needs positive model time",
                     ));
                 }
-                -base.discount(t)?.ln() / t + spread
+                -portable::log(base.discount(t)?) / t + spread
             }
             CurveValues::Equivalent { base } => match self.recipe.representation {
                 CurveRepresentation::DiscountFactors => base.discount(t)?,

@@ -8,6 +8,7 @@ use convex_core::{
     daycounts::DayCountConvention,
     Currency,
 };
+use convex_math::portable;
 use convex_math::{
     optimization::{
         bounded_least_squares, FitDiagnostics, FitParameter, FitResidual, LeastSquaresSettings,
@@ -367,12 +368,12 @@ fn quotation_price(
             let z = difference / sd;
             p.annuity
                 * (difference * standard_normal_cdf(z)
-                    + sd * (-0.5 * z * z).exp() / (2.0 * std::f64::consts::PI).sqrt())
+                    + sd * portable::exp(-0.5 * z * z) / (2.0 * std::f64::consts::PI).sqrt())
         }
         SwaptionVolatility::ShiftedLognormal { shift, .. } => {
             let forward = p.forward + shift;
             let strike = q.strike_rate + shift;
-            let d1 = (forward / strike).ln() / sd + sd / 2.0;
+            let d1 = portable::log(forward / strike) / sd + sd / 2.0;
             let d2 = d1 - sd;
             p.annuity
                 * sign

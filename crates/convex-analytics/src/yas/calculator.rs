@@ -23,6 +23,7 @@ use crate::risk::{BondRiskCalculator, BondRiskMetrics};
 use crate::yields::{
     current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield,
 };
+use convex_math::portable;
 
 use convex_math::solvers::{brent, SolverConfig};
 use rust_decimal::prelude::ToPrimitive;
@@ -730,7 +731,7 @@ impl<'a> YASCalculator<'a> {
                 let cf_date = settlement.add_days((*t * 365.0) as i64);
                 let df_f64 = spot_curve.discount_factor(cf_date).unwrap_or(1.0);
                 // Adjust for z-spread: DF_adj = DF * exp(-z * t)
-                pv += amount * df_f64 * (-z * t).exp();
+                pv += amount * df_f64 * portable::exp(-z * t);
             }
             pv - target
         };

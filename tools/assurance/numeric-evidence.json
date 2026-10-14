@@ -8172,6 +8172,41 @@
       "path": "crates/convex/examples/zero_terms.rs",
       "mode": "file",
       "sha256": "d42d69f636fee5542e940dfdc71a6318823a47cc82ece6a0d9c3c6246ba133a9"
+    },
+    {
+      "path": "tests/scripts/portable_math_reference.py",
+      "mode": "file",
+      "sha256": "5c8acd3c31511487e3f3f32581444ab4ac384a82099ca38aa009c849e2e99bf6"
+    },
+    {
+      "path": "tests/fixtures/library/portable-math-reference.json",
+      "mode": "file",
+      "sha256": "cf867868eb6f7a3fc244635aaf8a4a5989708c33067b61e13c01e6cddfd70418"
+    },
+    {
+      "path": "tests/fixtures/library/portable_math_contract.rs",
+      "mode": "file",
+      "sha256": "cd2bb3abe48de03426c31bef8a81f3130773b055c26e7ba46a709a3253b9ad27"
+    },
+    {
+      "path": "crates/convex/tests/portable_math.rs",
+      "mode": "file",
+      "sha256": "2a7a89c65869b5ce7a9f7de37995798af09b9c50f9c5829e9ab155c59d40625a"
+    },
+    {
+      "path": "crates/convex/examples/portable_math.rs",
+      "mode": "file",
+      "sha256": "1548bb474f03dbfcbf554af4df1ce56d45c7baf7252b20b7d8dad0bfe97158eb"
+    },
+    {
+      "path": "tests/scripts/library_wasm_census.py",
+      "mode": "file",
+      "sha256": "09ba0fd12800b1c9e9840f25f4f0eb179848b6d6a66a37814ac851b51926ef90"
+    },
+    {
+      "path": "tests/scripts/library_wasm_census.cjs",
+      "mode": "file",
+      "sha256": "b54e344480be2d94c98d71626f67dab7e597673f0b14b28e6f51a558b3c194a3"
     }
   ]
 }

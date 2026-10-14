@@ -20,6 +20,7 @@
 //! curve-construction time instead.
 
 use super::Extrapolator;
+use crate::portable;
 use crate::{MathError, MathResult};
 
 /// Heuristic UFR-convergence extrapolator (see module docs).
@@ -111,7 +112,7 @@ impl UfrConvergence {
         if t == self.last_liquid_point {
             return Ok(forward_at_llp);
         }
-        let decay = (-self.convergence_speed * (t - self.last_liquid_point)).exp();
+        let decay = portable::exp(-self.convergence_speed * (t - self.last_liquid_point));
         crate::bounds::finite(
             self.ultimate_forward_rate + (forward_at_llp - self.ultimate_forward_rate) * decay,
             "UFR forward",
@@ -143,7 +144,7 @@ impl UfrConvergence {
         } else if x.is_infinite() {
             1.0 / alpha
         } else {
-            tau * (-(-x).exp_m1() / x)
+            tau * (-portable::expm1(-x) / x)
         };
         let ufr = self.ultimate_forward_rate;
         (zero * last_t + ufr * tau + (forward - ufr) * integrated_decay) / t

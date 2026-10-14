@@ -4,6 +4,7 @@
 
 use convex_core::types::Compounding as CoreCompounding;
 use convex_curves::contracts::{convert_rate, discount_from_rate};
+use convex_math::portable;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 use crate::{
@@ -79,7 +80,7 @@ fn continuous(rate: Decimal, compounding: Compounding) -> BondResult<f64> {
             // rate alone to binary64 would round it onto the periodic pole.
             let residual = rate.checked_add(Decimal::from(m)).ok_or_else(numerical)?;
             let base = positive(residual, "periodic residual")? / f64::from(m);
-            let result = f64::from(m) * base.ln();
+            let result = f64::from(m) * portable::log(base);
             return if result.is_finite() {
                 Ok(result)
             } else {
@@ -97,7 +98,7 @@ fn from_continuous(rate: f64, compounding: Compounding) -> BondResult<Decimal> {
         if raw <= -f64::from(m) {
             // exp_m1 can round a representable positive tail onto -1. Retain
             // that tail in Decimal before subtracting one and scaling by m.
-            let tail = decimal(f64::from(m) * (rate / f64::from(m)).exp())?;
+            let tail = decimal(f64::from(m) * portable::exp(rate / f64::from(m)))?;
             if tail <= Decimal::ZERO {
                 return Err(numerical());
             }
@@ -139,7 +140,7 @@ pub fn price_from_yield(
     let price = if log_discount.abs() < 0.5 {
         // Apply the actual small cash change before Decimal addition, avoiding
         // exp(x) rounding to one and silently returning redemption.
-        let change = decimal(cash * log_discount.exp_m1())?;
+        let change = decimal(cash * portable::expm1(log_discount))?;
         let result = redemption.checked_add(change).ok_or_else(numerical)?;
         if log_discount != 0.0 && result == redemption {
             return Err(numerical());
@@ -168,9 +169,9 @@ pub fn yield_from_price(
     let difference = redemption.checked_sub(price).ok_or_else(numerical)?;
     let relative = difference.to_f64().ok_or_else(numerical)? / paid;
     let log_ratio = if relative > -0.5 {
-        relative.ln_1p()
+        portable::log1p(relative)
     } else {
-        cash.ln() - paid.ln()
+        portable::log(cash) - portable::log(paid)
     };
     let annual = log_ratio / years;
     if difference != Decimal::ZERO && annual == 0.0 {

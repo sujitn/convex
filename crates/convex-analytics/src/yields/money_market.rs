@@ -8,6 +8,7 @@
 
 use convex_bonds::traits::BondCashFlow;
 use convex_core::types::Date;
+use convex_math::portable;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -220,7 +221,7 @@ fn periods_between(from: Date, to: Date, frequency: u32) -> Decimal {
 fn pow_decimal(base: Decimal, exp: Decimal) -> Decimal {
     let b = base.to_f64().unwrap_or(1.0);
     let e = exp.to_f64().unwrap_or(0.0);
-    Decimal::from_f64_retain(b.powf(e)).unwrap_or(Decimal::ONE)
+    Decimal::from_f64_retain(portable::pow(b, e)).unwrap_or(Decimal::ONE)
 }
 
 // ============================================================================

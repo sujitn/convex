@@ -10,6 +10,7 @@ use convex_core::{
 use convex_curves::contracts::{
     discount_from_rate, year_fraction, BuiltCurve, CurvePoint, CurveQuery, CurveRole,
 };
+use convex_math::portable;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 
@@ -311,7 +312,7 @@ impl PreparedBondCash {
                     year_fraction(self.settlement, date, DayCountConvention::Act365Fixed)?
                 };
                 finite(
-                    df(date)? / anchor * (-decimal_spread * t).exp(),
+                    df(date)? / anchor * portable::exp(-decimal_spread * t),
                     "spread discount",
                 )
             },

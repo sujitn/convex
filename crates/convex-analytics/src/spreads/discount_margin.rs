@@ -4,6 +4,7 @@
 //! projected coupons and used for discounting, makes the present value of
 //! an FRN's cash flows equal to its market price.
 
+use convex_math::portable;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -151,7 +152,7 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             let Ok(df_cf) = self.discount_curve.discount_factor(t_cf) else {
                 return 0.0;
             };
-            let adjusted_df = (df_cf / df_settle) * (-dm * dt).exp();
+            let adjusted_df = (df_cf / df_settle) * portable::exp(-dm * dt);
 
             let coupon = match (cf.accrual_start, cf.accrual_end) {
                 // Future period — project via the forward curve.

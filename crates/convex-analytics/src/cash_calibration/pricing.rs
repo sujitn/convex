@@ -7,6 +7,7 @@ use convex_core::{
     cashflows::{BoundarySide, CashRounding},
     daycounts::DayCountConvention,
 };
+use convex_math::portable;
 use convex_math::solvers::{brent, SolverConfig};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use std::cell::RefCell;
@@ -652,7 +653,7 @@ pub(super) fn basis_price(
         } else {
             1.0
         };
-        let v = finite(df * q * (-spread * t).exp(), "promised cash factor")?;
+        let v = finite(df * q * portable::exp(-spread * t), "promised cash factor")?;
         if v <= 0.0 {
             return Err(invalid(
                 "promised cash factor",

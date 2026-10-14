@@ -2,6 +2,7 @@
 //! The caller supplies a terminating, nonpanicking residual function in native
 //! units. A small objective alone never substitutes for native postconditions.
 
+use crate::portable;
 use nalgebra::{linalg::SVD, DMatrix, DVector, Dyn};
 
 use crate::bounds::MAX_SOLVER_ITERATIONS;
@@ -220,7 +221,9 @@ impl<F> Problem<'_, F> {
             "total weight",
         )?;
         // hypot avoids squaring an otherwise finite large residual into infinity.
-        let norm = scaled.iter().fold(0.0_f64, |n, value| n.hypot(*value));
+        let norm = scaled
+            .iter()
+            .fold(0.0_f64, |n, value| portable::hypot(n, *value));
         let rms = self.finite(norm / weight.sqrt(), "scaled RMS")?;
         self.diagnostics.scaled_rms = Some(rms);
         self.diagnostics.native_residuals = native.to_vec();
@@ -406,7 +409,7 @@ impl<F> Problem<'_, F> {
             }
             let trial_native = self.evaluate(&trial)?;
             let trial_scaled = self.scaled(&trial_native)?;
-            let norm = |v: &DVector<f64>| v.iter().fold(0.0_f64, |n, r| n.hypot(*r));
+            let norm = |v: &DVector<f64>| v.iter().fold(0.0_f64, |n, r| portable::hypot(n, *r));
             if norm(&trial_scaled) < norm(&residual) {
                 values = trial;
                 residual = self.measure(&trial_native, &values)?;

@@ -10,6 +10,7 @@ use convex_core::{
     daycounts::DayCountConvention,
     types::{Compounding, Date},
 };
+use convex_math::portable;
 use serde::{Deserialize, Serialize};
 
 /// Side of a survival pillar for instantaneous hazard. Derivatives can jump;
@@ -545,7 +546,9 @@ impl BuiltCurve {
         }
         let dt = tenors[upper] - tenors[upper - 1];
         let result = match self.recipe().interpolation {
-            InterpolationMethod::LogLinear => -(values[upper] / values[upper - 1]).ln() / dt,
+            InterpolationMethod::LogLinear => {
+                -portable::log(values[upper] / values[upper - 1]) / dt
+            }
             InterpolationMethod::Linear => -(values[upper] - values[upper - 1]) / dt / q,
             _ => {
                 return Err(CurveContractError::unsupported(

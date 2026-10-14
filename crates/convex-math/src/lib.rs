@@ -31,6 +31,7 @@ pub mod extrapolation;
 pub mod interpolation;
 pub mod linear_algebra;
 pub mod optimization;
+pub mod portable;
 pub mod solvers;
 pub mod stats;
 

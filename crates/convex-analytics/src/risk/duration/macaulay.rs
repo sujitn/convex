@@ -15,6 +15,7 @@
 //! - P = bond price (sum of all PVs)
 
 use convex_core::types::Compounding;
+use convex_math::portable;
 
 use super::Duration;
 use crate::error::{AnalyticsError, AnalyticsResult};
@@ -22,11 +23,11 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 /// Discount factor for time `t` at yield `ytm` under `compounding`.
 fn discount_factor(ytm: f64, compounding: Compounding, t: f64) -> f64 {
     match compounding {
-        Compounding::Continuous => (-ytm * t).exp(),
+        Compounding::Continuous => portable::exp(-ytm * t),
         Compounding::Simple => 1.0 / (1.0 + ytm * t),
         _ => {
             let f = compounding.periods_per_year() as f64;
-            (1.0 + ytm / f).powf(-t * f)
+            portable::pow(1.0 + ytm / f, -t * f)
         }
     }
 }

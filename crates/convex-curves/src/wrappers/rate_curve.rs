@@ -5,6 +5,7 @@ use convex_core::daycounts::DayCount;
 use convex_core::error::ConvexResult;
 use convex_core::traits::YieldCurve;
 use convex_core::types::{Compounding, Date};
+use convex_math::portable;
 use rust_decimal::Decimal;
 
 use crate::conversion::ValueConverter;
@@ -251,7 +252,7 @@ impl<T: TermStructure> RateCurve<T> {
                 let dt = 1.0 / 365.0; // 1 day
                 let df1 = self.discount_factor_at_tenor(t)?;
                 let df2 = self.discount_factor_at_tenor(t + dt)?;
-                let fwd = -(df2 / df1).ln() / dt;
+                let fwd = -portable::log(df2 / df1) / dt;
                 Ok(fwd)
             }
         }

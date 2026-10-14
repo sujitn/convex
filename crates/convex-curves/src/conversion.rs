@@ -35,6 +35,7 @@
 //! - `h(t) = -d/dt ln(Q(t))`
 
 use convex_core::types::Compounding;
+use convex_math::portable;
 
 /// Value conversion utilities for term structures.
 pub struct ValueConverter;
@@ -74,24 +75,24 @@ impl ValueConverter {
         }
 
         match compounding {
-            Compounding::Continuous => -df.ln() / t,
+            Compounding::Continuous => -portable::log(df) / t,
             Compounding::Simple => (1.0 / df - 1.0) / t,
-            Compounding::Annual => df.powf(-1.0 / t) - 1.0,
+            Compounding::Annual => portable::pow(df, -1.0 / t) - 1.0,
             Compounding::SemiAnnual => {
                 let n = 2.0;
-                n * (df.powf(-1.0 / (n * t)) - 1.0)
+                n * (portable::pow(df, -1.0 / (n * t)) - 1.0)
             }
             Compounding::Quarterly => {
                 let n = 4.0;
-                n * (df.powf(-1.0 / (n * t)) - 1.0)
+                n * (portable::pow(df, -1.0 / (n * t)) - 1.0)
             }
             Compounding::Monthly => {
                 let n = 12.0;
-                n * (df.powf(-1.0 / (n * t)) - 1.0)
+                n * (portable::pow(df, -1.0 / (n * t)) - 1.0)
             }
             Compounding::Daily => {
                 let n = 365.0;
-                n * (df.powf(-1.0 / (n * t)) - 1.0)
+                n * (portable::pow(df, -1.0 / (n * t)) - 1.0)
             }
         }
     }
@@ -126,24 +127,24 @@ impl ValueConverter {
         }
 
         match compounding {
-            Compounding::Continuous => (-rate * t).exp(),
+            Compounding::Continuous => portable::exp(-rate * t),
             Compounding::Simple => 1.0 / (1.0 + rate * t),
-            Compounding::Annual => (1.0 + rate).powf(-t),
+            Compounding::Annual => portable::pow(1.0 + rate, -t),
             Compounding::SemiAnnual => {
                 let n = 2.0;
-                (1.0 + rate / n).powf(-n * t)
+                portable::pow(1.0 + rate / n, -n * t)
             }
             Compounding::Quarterly => {
                 let n = 4.0;
-                (1.0 + rate / n).powf(-n * t)
+                portable::pow(1.0 + rate / n, -n * t)
             }
             Compounding::Monthly => {
                 let n = 12.0;
-                (1.0 + rate / n).powf(-n * t)
+                portable::pow(1.0 + rate / n, -n * t)
             }
             Compounding::Daily => {
                 let n = 365.0;
-                (1.0 + rate / n).powf(-n * t)
+                portable::pow(1.0 + rate / n, -n * t)
             }
         }
     }
@@ -198,13 +199,13 @@ impl ValueConverter {
             Compounding::Continuous => rate,
             Compounding::Simple => {
                 // For simple interest, approximation using 1-year period
-                (1.0 + rate).ln()
+                portable::log(1.0 + rate)
             }
-            Compounding::Annual => (1.0 + rate).ln(),
-            Compounding::SemiAnnual => 2.0 * (1.0 + rate / 2.0).ln(),
-            Compounding::Quarterly => 4.0 * (1.0 + rate / 4.0).ln(),
-            Compounding::Monthly => 12.0 * (1.0 + rate / 12.0).ln(),
-            Compounding::Daily => 365.0 * (1.0 + rate / 365.0).ln(),
+            Compounding::Annual => portable::log(1.0 + rate),
+            Compounding::SemiAnnual => 2.0 * portable::log(1.0 + rate / 2.0),
+            Compounding::Quarterly => 4.0 * portable::log(1.0 + rate / 4.0),
+            Compounding::Monthly => 12.0 * portable::log(1.0 + rate / 12.0),
+            Compounding::Daily => 365.0 * portable::log(1.0 + rate / 365.0),
         }
     }
 
@@ -213,11 +214,11 @@ impl ValueConverter {
     fn from_continuous(continuous_rate: f64, to: Compounding) -> f64 {
         match to {
             Compounding::Continuous => continuous_rate,
-            Compounding::Simple | Compounding::Annual => continuous_rate.exp() - 1.0,
-            Compounding::SemiAnnual => 2.0 * ((continuous_rate / 2.0).exp() - 1.0),
-            Compounding::Quarterly => 4.0 * ((continuous_rate / 4.0).exp() - 1.0),
-            Compounding::Monthly => 12.0 * ((continuous_rate / 12.0).exp() - 1.0),
-            Compounding::Daily => 365.0 * ((continuous_rate / 365.0).exp() - 1.0),
+            Compounding::Simple | Compounding::Annual => portable::exp(continuous_rate) - 1.0,
+            Compounding::SemiAnnual => 2.0 * (portable::exp(continuous_rate / 2.0) - 1.0),
+            Compounding::Quarterly => 4.0 * (portable::exp(continuous_rate / 4.0) - 1.0),
+            Compounding::Monthly => 12.0 * (portable::exp(continuous_rate / 12.0) - 1.0),
+            Compounding::Daily => 365.0 * (portable::exp(continuous_rate / 365.0) - 1.0),
         }
     }
 
@@ -298,11 +299,11 @@ impl ValueConverter {
         let ratio = df1 / df2;
 
         match compounding {
-            Compounding::Continuous => ratio.ln() / dt,
+            Compounding::Continuous => portable::log(ratio) / dt,
             Compounding::Simple => (ratio - 1.0) / dt,
             _ => {
                 // For periodic compounding, convert to continuous then back
-                let cont_fwd = ratio.ln() / dt;
+                let cont_fwd = portable::log(ratio) / dt;
                 Self::from_continuous(cont_fwd, compounding)
             }
         }
@@ -347,7 +348,7 @@ impl ValueConverter {
     /// The survival probability.
     #[must_use]
     pub fn hazard_to_survival(hazard_rate: f64, t: f64) -> f64 {
-        (-hazard_rate * t).exp()
+        portable::exp(-hazard_rate * t)
     }
 
     /// Computes implied hazard rate from survival probability.
@@ -368,7 +369,7 @@ impl ValueConverter {
         if t <= 0.0 || survival_prob <= 0.0 {
             return 0.0;
         }
-        -survival_prob.ln() / t
+        -portable::log(survival_prob) / t
     }
 
     /// Computes risky discount factor from risk-free DF and survival probability.

@@ -6,6 +6,7 @@ use convex_bonds::options::swaption_hw1f::{
 };
 use convex_curves::{Compounding, RateCurveDyn};
 use convex_math::optimization::golden_section_checked;
+use convex_math::portable;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
@@ -61,7 +62,7 @@ pub fn calibrate_hw1f_sigma(
     let curve_error = std::cell::RefCell::new(None);
     let discount = |t: f64| match curve.zero_rate(t, Compounding::Continuous) {
         Ok(z) if z.is_finite() => {
-            let df = (-z * t).exp();
+            let df = portable::exp(-z * t);
             if df.is_finite() && df > 0.0 {
                 df
             } else {

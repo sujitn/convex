@@ -11,6 +11,7 @@ use convex_core::{
     types::{Compounding, Date, Frequency, Mark, Price, Yield},
 };
 use convex_curves::{CurveError, CurveResult, RateCurveDyn};
+use convex_math::portable;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 use crate::{
@@ -394,7 +395,7 @@ impl RateCurveDyn for Shift<'_> {
                 }
             }
         };
-        let value = self.base.discount_factor(t)? * (-self.bump * weight * t).exp();
+        let value = self.base.discount_factor(t)? * portable::exp(-self.bump * weight * t);
         if !value.is_finite() || value <= 0.0 {
             return Err(CurveError::invalid_value("invalid shifted DF"));
         }
@@ -408,7 +409,7 @@ impl RateCurveDyn for Shift<'_> {
         if b <= a {
             return Err(CurveError::invalid_value("invalid forward interval"));
         }
-        Ok((self.discount_factor(a)? / self.discount_factor(b)?).ln() / (b - a))
+        Ok(portable::log(self.discount_factor(a)? / self.discount_factor(b)?) / (b - a))
     }
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
         self.forward_rate(t, t + 1e-5)

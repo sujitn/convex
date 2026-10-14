@@ -1,6 +1,7 @@
 //! Closed-form European swaption pricing under HW1F with constant `(a, σ)`,
 //! via Jamshidian's decomposition. See Brigo & Mercurio §3.3.2 / §3.11.2.
 
+use convex_math::portable;
 use convex_math::solvers::{brent, SolverConfig};
 use convex_math::stats::standard_normal_cdf;
 
@@ -10,7 +11,7 @@ pub(crate) fn b_hw1f(a: f64, t: f64, s: f64) -> f64 {
     if a.abs() < 1e-12 {
         return tau;
     }
-    (1.0 - (-a * tau).exp()) / a
+    (1.0 - portable::exp(-a * tau)) / a
 }
 
 /// Lognormal vol of `P(T, S)` under HW1F (Brigo-Mercurio 3.40).
@@ -19,13 +20,13 @@ pub(crate) fn zcb_option_vol(a: f64, sigma: f64, t_expiry: f64, t_maturity: f64)
     if a.abs() < 1e-12 {
         return sigma * t_expiry.sqrt() * bt;
     }
-    let var = sigma.powi(2) / (2.0 * a) * (1.0 - (-2.0 * a * t_expiry).exp()) * bt.powi(2);
+    let var = sigma.powi(2) / (2.0 * a) * (1.0 - portable::exp(-2.0 * a * t_expiry)) * bt.powi(2);
     var.sqrt()
 }
 
 /// Closed-form ZCB call/put under HW1F (Brigo-Mercurio 3.40-3.41).
 pub(crate) fn zcb_option(p_t: f64, p_s: f64, k: f64, sigma_p: f64, is_call: bool) -> f64 {
-    let h = (p_s / (k * p_t)).ln() / sigma_p + sigma_p / 2.0;
+    let h = portable::log(p_s / (k * p_t)) / sigma_p + sigma_p / 2.0;
     if is_call {
         p_s * standard_normal_cdf(h) - k * p_t * standard_normal_cdf(h - sigma_p)
     } else {
@@ -115,13 +116,13 @@ pub fn try_payer_swaption_hw1f<F: Fn(f64) -> f64>(
     let theta_factor = if a.abs() < 1e-12 {
         sigma.powi(2) * expiry / 2.0
     } else {
-        sigma.powi(2) / (4.0 * a) * (1.0 - (-2.0 * a * expiry).exp())
+        sigma.powi(2) / (4.0 * a) * (1.0 - portable::exp(-2.0 * a * expiry))
     };
 
     let big_b = |s: f64| b_hw1f(a, expiry, s);
     let big_a = |s: f64| {
         let bts = big_b(s);
-        discount(s) / p_t * (bts * f_0t - theta_factor * bts.powi(2)).exp()
+        discount(s) / p_t * portable::exp(bts * f_0t - theta_factor * bts.powi(2))
     };
 
     // Synthetic fixed-leg cashflows: τ_i = 1, c_i = K (final flow adds the
@@ -137,7 +138,7 @@ pub fn try_payer_swaption_hw1f<F: Fn(f64) -> f64>(
 
     let bond_value = |r: f64| -> f64 {
         cs.iter()
-            .map(|(ti, ci)| ci * big_a(*ti) * (-big_b(*ti) * r).exp())
+            .map(|(ti, ci)| ci * big_a(*ti) * portable::exp(-big_b(*ti) * r))
             .sum()
     };
 
@@ -147,7 +148,7 @@ pub fn try_payer_swaption_hw1f<F: Fn(f64) -> f64>(
     let price: f64 = cs
         .iter()
         .map(|(ti, ci)| {
-            let xi = big_a(*ti) * (-big_b(*ti) * r_star).exp();
+            let xi = big_a(*ti) * portable::exp(-big_b(*ti) * r_star);
             ci * zcb_option(
                 p_t,
                 discount(*ti),

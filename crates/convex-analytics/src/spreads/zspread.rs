@@ -3,6 +3,7 @@
 //! The Z-spread is the constant spread that, when added to the spot rate curve,
 //! makes the present value of a bond's cash flows equal to its market price.
 
+use convex_math::portable;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -132,11 +133,11 @@ impl<'a> ZSpreadCalculator<'a> {
     /// [`with_compounding`]: Self::with_compounding
     fn spread_df(&self, z: f64, dt: f64) -> f64 {
         match self.compounding {
-            convex_core::types::Compounding::Continuous => (-z * dt).exp(),
+            convex_core::types::Compounding::Continuous => portable::exp(-z * dt),
             convex_core::types::Compounding::Simple => 1.0 / (1.0 + z * dt),
             comp => {
                 let k = comp.periods_per_year() as f64;
-                (1.0 + z / k).powf(-k * dt)
+                portable::pow(1.0 + z / k, -k * dt)
             }
         }
     }

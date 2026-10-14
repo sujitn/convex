@@ -16,6 +16,7 @@
 //! println!("YTM: {:.6}%", result.yield_value * 100.0);
 //! ```
 
+use convex_math::portable;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -403,7 +404,7 @@ impl YieldSolver {
                 cf_data
                     .iter()
                     .map(|(years, amount)| {
-                        let df = (1.0 + yield_rate).powf(-years);
+                        let df = portable::pow(1.0 + yield_rate, -years);
                         amount * df
                     })
                     .sum()
@@ -413,7 +414,7 @@ impl YieldSolver {
                 cf_data
                     .iter()
                     .map(|(years, amount)| {
-                        let df = (-yield_rate * years).exp();
+                        let df = portable::exp(-yield_rate * years);
                         amount * df
                     })
                     .sum()
@@ -434,7 +435,7 @@ impl YieldSolver {
                     .iter()
                     .map(|(years, amount)| {
                         let periods = years * periods_per_year;
-                        let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+                        let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
                         amount * df
                     })
                     .sum()
@@ -450,7 +451,7 @@ impl YieldSolver {
             YieldConvention::TrueYield => cf_data
                 .iter()
                 .map(|(years, amount)| {
-                    let df = (1.0 + yield_rate).powf(-years);
+                    let df = portable::pow(1.0 + yield_rate, -years);
                     let ddf_dy = -years * df / (1.0 + yield_rate);
                     amount * ddf_dy
                 })
@@ -458,7 +459,7 @@ impl YieldSolver {
             YieldConvention::Continuous => cf_data
                 .iter()
                 .map(|(years, amount)| {
-                    let df = (-yield_rate * years).exp();
+                    let df = portable::exp(-yield_rate * years);
                     let ddf_dy = -years * df;
                     amount * ddf_dy
                 })
@@ -475,7 +476,7 @@ impl YieldSolver {
                 .iter()
                 .map(|(years, amount)| {
                     let periods = years * periods_per_year;
-                    let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+                    let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
                     let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
                     amount * ddf_dy
                 })
@@ -595,7 +596,7 @@ pub fn discount_margin(
             .iter()
             .map(|(years, amount)| {
                 let periods = years * periods_per_year;
-                let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+                let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
                 amount * df
             })
             .sum()

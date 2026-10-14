@@ -5,6 +5,7 @@ use super::{
 };
 use crate::{ExtrapolationMethod, InterpolationMethod};
 use convex_core::{daycounts::DayCountConvention, Date};
+use convex_math::portable;
 use std::collections::BTreeSet;
 
 /// Integrate actual piecewise constant ACT/365F intensities into survival nodes.
@@ -43,7 +44,7 @@ pub fn credit_survival_nodes(
             return Err(CurveContractError::BoundExceeded("credit tenor"));
         }
         cumulative += hazard * (previous.days_between(&date) as f64 / 365.0);
-        let q = (-cumulative).exp();
+        let q = portable::exp(-cumulative);
         if !q.is_finite() || q <= 0.0 {
             return Err(CurveContractError::Numerical(
                 "survival underflow/nonfinite intensity integral".into(),

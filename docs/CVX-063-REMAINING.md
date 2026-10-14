@@ -40,8 +40,9 @@ wire/schema/routes and exact Decimal helper remain; the only production change
 admits later actual receipts for explicitly excluded original child cash after
 custody, without acquiring P&L ownership. Earlier paid-prefix guards remain.
 
-The preceding actual current-host Java/C qualification executes all4975 original
-complete requests. New Treasury bill host evidence is qualified separately. Actual wasm32
+The preceding settlement Java/C qualification executes all4975 original
+complete requests. Later Java/C evidence includes all5375 requests, including
+Treasury bills. The settlement wasm32
 Node outputs pass45 complete original independent financial checks with unchanged
 bounds. Strict native-envelope comparison fails on floating-point model/OIS
 intermediates; it remains a separate open gate. Native-compiled WASM, actual wasm32
@@ -89,3 +90,18 @@ Direct zero-coupon terms now preserve exact Decimal strings and reject unknown
 day-count substitutions or ignored fields. The common identifier container also
 rejects unknown keys. This closes the scoped raw-term losslessness gap; it does
 not complete the remaining original operations, models or host requirements.
+
+The portable numerical owner replaces platform-dependent primitives with the
+existing locked pure Rust kernels, including the existing linear-algebra library's
+explicit portable feature. It retains every original financial operator, parameter,
+reference answer and bound. The full WASM census runner compares every current
+native field, including calibration diagnostics and mixed-book CTD/OIS/CDS output.
+See [portable numerical qualification](PORTABLE-NUMERICS.md). The earlier failed
+host captures remain evidence of the pre-repair behavior; fresh source-bound
+qualification is required for the replacement.
+
+Thirty-six stale hedge assessments now identify the implemented pure constrained
+solver as a candidate. All sixty original supplied hedge operation records already
+have exact aggregate/solve mappings. Their certificate status remains Planned;
+authenticated application limits, fills, reservations and orders remain with
+CVX-025/031.

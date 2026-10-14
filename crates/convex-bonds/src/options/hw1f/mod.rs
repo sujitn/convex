@@ -5,6 +5,7 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use convex_math::portable;
 mod european;
 mod lattice;
 
@@ -85,6 +86,6 @@ pub(super) fn b(a: f64, time: f64) -> f64 {
     if a == 0.0 {
         time
     } else {
-        -(-a * time).exp_m1() / a
+        -portable::expm1(-a * time) / a
     }
 }

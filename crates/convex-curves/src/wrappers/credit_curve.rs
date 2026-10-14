@@ -4,6 +4,7 @@
 //! for credit operations regardless of the underlying value type.
 
 use convex_core::types::Date;
+use convex_math::portable;
 
 use crate::conversion::ValueConverter;
 use crate::error::{CurveError, CurveResult};
@@ -409,7 +410,7 @@ impl<T: TermStructure> CreditCurve<T> {
         }
 
         let surv = self.survival_probability_at_tenor(t)?;
-        let annual_surv = surv.powf(1.0 / t);
+        let annual_surv = portable::pow(surv, 1.0 / t);
         Ok(1.0 - annual_surv)
     }
 

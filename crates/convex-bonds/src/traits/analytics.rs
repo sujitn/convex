@@ -19,6 +19,7 @@
 //! let duration = bond.modified_duration(settlement, ytm)?;
 //! ```
 
+use convex_math::portable;
 use std::str::FromStr;
 
 use rust_decimal::prelude::*;
@@ -148,7 +149,7 @@ pub trait BondAnalytics: Bond {
         let mut total_pv = 0.0;
         for (years, amount) in &cf_data {
             let periods = years * periods_per_year;
-            let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+            let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
             let pv = amount * df;
             weighted_time += years * pv;
             total_pv += pv;
@@ -232,7 +233,7 @@ pub trait BondAnalytics: Bond {
         let mut total_pv = 0.0;
         for (years, amount) in &cf_data {
             let periods = years * periods_per_year;
-            let df = 1.0 / (1.0 + rate_per_period).powf(periods);
+            let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
             let pv = amount * df;
 
             // Convexity contribution: t(t+1/f) * PV / (1+y/f)^2

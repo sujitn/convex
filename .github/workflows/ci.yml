@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -Dwarnings
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
   assurance:
@@ -104,6 +105,21 @@ jobs:
 
       - name: Exercise lossless zero-coupon terms with schema features
         run: cargo run --locked -p convex --example zero_terms --features schemars
+
+      - name: Check independently derived portable numerical references
+        run: python3 tests/scripts/portable_math_reference.py check
+
+      - name: Exercise shared portable numerical kernels
+        run: cargo test --locked -p convex --test portable_math
+
+      - name: Exercise portable numerical kernels through the standalone consumer
+        run: cargo run --locked -p convex --example portable_math
+
+      - name: Exercise portable numerical kernels without default features
+        run: cargo run --locked -p convex --example portable_math --no-default-features
+
+      - name: Exercise portable numerical kernels with schema features
+        run: cargo run --locked -p convex --example portable_math --features schemars
 
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe

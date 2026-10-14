@@ -1,6 +1,7 @@
 //! Exact discount views and declared roll policies, without grid resampling.
 
 use convex_core::types::Compounding;
+use convex_math::portable;
 use serde::{Deserialize, Serialize};
 
 use super::{build::positive, CurveContractError as Error, CurveContractResult as Result};
@@ -33,7 +34,7 @@ fn fraction(tau: f64) -> Result<()> {
 /// fraction. Negative rates are valid with positive simple/periodic bases.
 /// ln_1p avoids cancellation for very small rates/periods. P(0)=1 is mathematical.
 pub fn discount_from_rate(rate: f64, tau: f64, compounding: Compounding) -> Result<f64> {
-    let discount = (-log_accumulation(rate, tau, compounding)?).exp();
+    let discount = portable::exp(-log_accumulation(rate, tau, compounding)?);
     positive(discount, "rate-to-discount conversion")?;
     Ok(discount)
 }
@@ -48,12 +49,12 @@ fn log_accumulation(rate: f64, tau: f64, compounding: Compounding) -> Result<f64
         Compounding::Simple => {
             let accrual = rate * tau;
             positive(1.0 + accrual, "simple compounding base")?;
-            accrual.ln_1p()
+            portable::log1p(accrual)
         }
         _ => {
             let periods = f64::from(compounding.periods_per_year());
             positive(1.0 + rate / periods, "periodic compounding base")?;
-            periods * tau * (rate / periods).ln_1p()
+            periods * tau * portable::log1p(rate / periods)
         }
     };
     if !result.is_finite() {
@@ -68,7 +69,7 @@ pub fn rate_from_discount(discount: f64, tau: f64, compounding: Compounding) -> 
     fraction(tau)?;
     positive(tau, "rate year fraction")?;
     positive(discount, "period discount factor")?;
-    rate_from_log_accumulation(-discount.ln(), tau, compounding)
+    rate_from_log_accumulation(-portable::log(discount), tau, compounding)
 }
 
 fn rate_from_log_accumulation(
@@ -78,10 +79,10 @@ fn rate_from_log_accumulation(
 ) -> Result<f64> {
     let rate = match compounding {
         Compounding::Continuous => log_accumulation / tau,
-        Compounding::Simple => log_accumulation.exp_m1() / tau,
+        Compounding::Simple => portable::expm1(log_accumulation) / tau,
         _ => {
             let periods = f64::from(compounding.periods_per_year());
-            periods * (log_accumulation / (periods * tau)).exp_m1()
+            periods * portable::expm1(log_accumulation / (periods * tau))
         }
     };
     if !rate.is_finite() {

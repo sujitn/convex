@@ -2,11 +2,12 @@
 //! crate dep-light; this single closed-form is all the swaption / Black-76
 //! paths need and has tighter error bounds than statrs' default.
 
+use crate::portable;
 /// Standard normal CDF via Abramowitz & Stegun 26.2.17. Max abs error ~7.5e-8.
 pub fn standard_normal_cdf(x: f64) -> f64 {
     let ax = x.abs();
     let k = 1.0 / (1.0 + 0.231_641_9 * ax);
-    let phi = (-0.5 * ax * ax).exp() / (2.0 * std::f64::consts::PI).sqrt();
+    let phi = portable::exp(-0.5 * ax * ax) / (2.0 * std::f64::consts::PI).sqrt();
     let poly = k
         * (0.319_381_530
             + k * (-0.356_563_782

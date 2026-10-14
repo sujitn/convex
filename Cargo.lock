@@ -638,6 +638,7 @@ dependencies = [
  "approx",
  "chrono",
  "convex-curves",
+ "libm",
  "log",
  "proptest",
  "rust_decimal",
@@ -773,6 +774,7 @@ version = "0.13.0"
 dependencies = [
  "approx",
  "criterion 0.8.1",
+ "libm",
  "log",
  "nalgebra",
  "proptest",
@@ -3225,6 +3227,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
 dependencies = [
  "approx",
+ "libm",
  "num-complex",
  "num-traits",
  "paste",

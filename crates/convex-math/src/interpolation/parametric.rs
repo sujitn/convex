@@ -9,6 +9,7 @@
 use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
+use crate::portable;
 
 /// Nelson-Siegel yield curve model.
 ///
@@ -106,7 +107,7 @@ impl NelsonSiegel {
         }
 
         let x = t / self.tau;
-        let exp_x = (-x).exp();
+        let exp_x = portable::exp(-x);
 
         self.beta0 + self.beta1 * exp_x + self.beta2 * x * exp_x
     }
@@ -121,7 +122,7 @@ impl NelsonSiegel {
         if x.abs() < 1e-10 {
             1.0 - x / 2.0 + x * x / 6.0 // Taylor expansion for numerical stability
         } else {
-            (1.0 - (-x).exp()) / x
+            (1.0 - portable::exp(-x)) / x
         }
     }
 
@@ -130,7 +131,7 @@ impl NelsonSiegel {
         if x.abs() < 1e-10 {
             x / 2.0 - x * x / 3.0 // Taylor expansion for numerical stability
         } else {
-            Self::loading_factor_1(x) - (-x).exp()
+            Self::loading_factor_1(x) - portable::exp(-x)
         }
     }
 }
@@ -159,7 +160,7 @@ impl Interpolator for NelsonSiegel {
         }
 
         let x = t / self.tau;
-        let exp_x = (-x).exp();
+        let exp_x = portable::exp(-x);
 
         // dz/dt = (1/τ) * [β₁ * d(L1)/dx + β₂ * d(L2)/dx]
         // where L1 = (1 - e^(-x))/x and L2 = L1 - e^(-x)
@@ -296,8 +297,8 @@ impl Svensson {
 
         let x1 = t / self.tau1;
         let x2 = t / self.tau2;
-        let exp_x1 = (-x1).exp();
-        let exp_x2 = (-x2).exp();
+        let exp_x1 = portable::exp(-x1);
+        let exp_x2 = portable::exp(-x2);
 
         self.beta0 + self.beta1 * exp_x1 + self.beta2 * x1 * exp_x1 + self.beta3 * x2 * exp_x2
     }
@@ -314,7 +315,7 @@ impl Svensson {
         if x.abs() < 1e-10 {
             1.0 - x / 2.0 + x * x / 6.0
         } else {
-            (1.0 - (-x).exp()) / x
+            (1.0 - portable::exp(-x)) / x
         }
     }
 
@@ -323,7 +324,7 @@ impl Svensson {
         if x.abs() < 1e-10 {
             x / 2.0 - x * x / 3.0
         } else {
-            Self::loading_factor_1(x) - (-x).exp()
+            Self::loading_factor_1(x) - portable::exp(-x)
         }
     }
 }
@@ -354,8 +355,8 @@ impl Interpolator for Svensson {
 
         let x1 = t / self.tau1;
         let x2 = t / self.tau2;
-        let exp_x1 = (-x1).exp();
-        let exp_x2 = (-x2).exp();
+        let exp_x1 = portable::exp(-x1);
+        let exp_x2 = portable::exp(-x2);
 
         // Derivatives of loading factors
         let l1_1 = Self::loading_factor_1(x1);

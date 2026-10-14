@@ -1,6 +1,7 @@
 //! Analytical convexity calculation.
 
 use convex_core::types::Compounding;
+use convex_math::portable;
 
 use super::Convexity;
 use crate::error::{AnalyticsError, AnalyticsResult};
@@ -29,7 +30,7 @@ pub fn analytical_convexity(
     let mut price = 0.0;
     for (&t, &cf) in times.iter().zip(cash_flows.iter()) {
         let (df, weight) = match compounding {
-            Compounding::Continuous => ((-ytm * t).exp(), t * t),
+            Compounding::Continuous => (portable::exp(-ytm * t), t * t),
             Compounding::Simple => {
                 let g = 1.0 + ytm * t;
                 (1.0 / g, 2.0 * t * t / (g * g))
@@ -37,7 +38,7 @@ pub fn analytical_convexity(
             _ => {
                 let f = compounding.periods_per_year() as f64;
                 let base = 1.0 + ytm / f;
-                (base.powf(-t * f), t * (t + 1.0 / f))
+                (portable::pow(base, -t * f), t * (t + 1.0 / f))
             }
         };
         let pv = cf * df;

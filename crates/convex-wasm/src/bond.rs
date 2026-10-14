@@ -14,6 +14,7 @@ use convex_core::types::Date;
 use convex_curves::{
     DiscountCurve, DiscountCurveBuilder, InterpolationMethod, ZeroCurve, ZeroCurveBuilder,
 };
+use convex_math::portable;
 
 use crate::convert::{
     decimal_to_f64, f64_to_decimal, format_compounding, format_instrument_type, format_market_name,
@@ -112,7 +113,7 @@ pub(crate) fn create_discount_curve(
             continue;
         }
 
-        let df = (-rate * t).exp();
+        let df = portable::exp(-rate * t);
         pillars.push((t, df));
     }
 

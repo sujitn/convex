@@ -1,6 +1,7 @@
 //! Analytic European bond options and dated-payment Jamshidian decomposition.
 
 use super::{b, finite, invalid, positive, Hw1fError, Hw1fParameters};
+use convex_math::portable;
 use convex_math::{
     solvers::{brent, SolverConfig},
     stats::standard_normal_cdf,
@@ -66,7 +67,7 @@ pub fn bond_option(
         });
     }
     let h = finite(
-        (maturity_discount / discounted_strike).ln() / deviation + deviation / 2.0,
+        portable::log(maturity_discount / discounted_strike) / deviation + deviation / 2.0,
         "bond-option normal argument",
     )?;
     let value = match side {
@@ -152,7 +153,7 @@ pub fn swaption(
             Ok((
                 factor,
                 positive(
-                    p.discount / expiry_discount * (-0.5 * factor.powi(2) * variance).exp(),
+                    p.discount / expiry_discount * portable::exp(-0.5 * factor.powi(2) * variance),
                     "forward-measure bond scale",
                 )?,
             ))
@@ -162,7 +163,7 @@ pub fn swaption(
         coefficients
             .iter()
             .zip(&factors)
-            .map(|(c, (factor, scale))| c * scale * (-factor * state).exp())
+            .map(|(c, (factor, scale))| c * scale * portable::exp(-factor * state))
             .sum::<f64>()
             - 1.0
     };
@@ -170,7 +171,10 @@ pub fn swaption(
     let mut value = 0.0;
     for (i, payment) in payments.iter().enumerate() {
         let (factor, scale) = factors[i];
-        let bond_strike = positive(scale * (-factor * root).exp(), "Jamshidian bond strike")?;
+        let bond_strike = positive(
+            scale * portable::exp(-factor * root),
+            "Jamshidian bond strike",
+        )?;
         value += coefficients[i]
             * bond_option(
                 parameters,

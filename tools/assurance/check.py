@@ -31,6 +31,11 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'python3 tests/scripts/portable_math_reference.py check',
+        'cargo test --locked -p convex --test portable_math',
+        'cargo run --locked -p convex --example portable_math',
+        'cargo run --locked -p convex --example portable_math --no-default-features',
+        'cargo run --locked -p convex --example portable_math --features schemars',
         'python3 tests/scripts/zero_terms_reference.py check',
         'python3 tests/scripts/zero_terms_boundary_reference.py check',
         'cargo test --locked -p convex --test zero_terms',
@@ -740,6 +745,8 @@ def inventory_paths(root: Path) -> set[str]:
                   'crates/convex-bonds/src/traits/analytics.rs', 'crates/convex-bonds/src/pricing/yield_solver.rs',
                   'crates/convex-engine/src/pricing_router.rs', 'crates/convex-ports/src/output.rs',
                   'crates/convex-ports/src/reference_master.rs', 'crates/convex-server/src/handlers.rs'])
+    # Explicit portable-kernel owners; keep the set independent of the manifest.
+    paths.update(['crates/convex-analytics/src/risk/convexity/analytical.rs', 'crates/convex-analytics/src/risk/duration/macaulay.rs', 'crates/convex-analytics/src/spreads/discount_margin.rs', 'crates/convex-analytics/src/spreads/oas.rs', 'crates/convex-analytics/src/yas/calculator.rs', 'crates/convex-bonds/src/options/binomial_tree.rs', 'crates/convex-bonds/src/options/models/hull_white.rs', 'crates/convex-bonds/src/options/trinomial_tree.rs', 'crates/convex-bonds/src/types/compounding.rs', 'crates/convex-core/src/traits/mod.rs', 'crates/convex-core/src/types/yield_type.rs', 'crates/convex-curves/src/bumping/key_rate.rs', 'crates/convex-curves/src/bumping/parallel.rs', 'crates/convex-curves/src/bumping/scenario.rs', 'crates/convex-curves/src/conversion.rs', 'crates/convex-curves/src/wrappers/credit_curve.rs', 'crates/convex-curves/src/wrappers/rate_curve.rs', 'crates/convex-wasm/src/bond.rs'])
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

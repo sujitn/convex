@@ -1,6 +1,7 @@
 //! Bounded recombining OU lattice, with exact supplied curve state-price fit.
 
 use super::{b, finite, invalid, positive, Hw1fError, Hw1fParameters};
+use convex_math::portable;
 
 /// Maximum event-aligned intervals, after subdivision.
 pub const MAX_TREE_STEPS: usize = 2048;
@@ -127,7 +128,7 @@ impl Hw1fTree {
                 "OU variance",
             )?;
             let spacing = (3.0 * variance).sqrt();
-            let mean_factor = (-parameters.mean_reversion * dt).exp();
+            let mean_factor = portable::exp(-parameters.mean_reversion * dt);
             let current = &layers[i];
             let mut provisional = Vec::with_capacity(current.width);
             let mut next_min = i32::MAX;
@@ -135,7 +136,8 @@ impl Hw1fTree {
             let mut numerator = 0.0;
             for (index, state_price) in prices.iter().enumerate() {
                 let x = (current.minimum + index as i32) as f64 * current.spacing;
-                numerator += *state_price * positive((-x * dt).exp(), "state-price exponential")?;
+                numerator +=
+                    *state_price * positive(portable::exp(-x * dt), "state-price exponential")?;
                 let (center, probabilities) = if parameters.volatility == 0.0 {
                     (0, [0.0, 1.0, 0.0])
                 } else {
@@ -176,7 +178,7 @@ impl Hw1fTree {
             }
             diagnostics.nodes += next_width;
             let shift = finite(
-                (positive(numerator, "curve fit numerator")? / discounts[i + 1]).ln() / dt,
+                portable::log(positive(numerator, "curve fit numerator")? / discounts[i + 1]) / dt,
                 "curve fitting shift",
             )?;
             let mut next_prices = vec![0.0; next_width];
@@ -184,7 +186,7 @@ impl Hw1fTree {
             for (index, (center, probabilities)) in provisional.into_iter().enumerate() {
                 let x = (current.minimum + index as i32) as f64 * current.spacing;
                 let weight = finite(
-                    prices[index] * positive((-(shift + x) * dt).exp(), "fitted discount")?,
+                    prices[index] * positive(portable::exp(-(shift + x) * dt), "fitted discount")?,
                     "state price",
                 )?;
                 let middle = (center - next_min) as usize;
@@ -288,7 +290,10 @@ impl Hw1fTree {
                 let x = (row.minimum + index as i32) as f64 * row.spacing;
                 finite(
                     expectation
-                        * positive((-(row.shift + x + oas) * dt).exp(), "rollback discount")?,
+                        * positive(
+                            portable::exp(-(row.shift + x + oas) * dt),
+                            "rollback discount",
+                        )?,
                     "rollback value",
                 )
             })

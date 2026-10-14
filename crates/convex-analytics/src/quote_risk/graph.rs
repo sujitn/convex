@@ -10,6 +10,7 @@ use convex_core::{
     Date,
 };
 use convex_curves::contracts::*;
+use convex_math::portable;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Full mixed-rate input plus original immutable helper observation revisions.
@@ -718,7 +719,7 @@ pub(super) fn shifted(
                     compounding: Compounding::Continuous,
                 } if !basis => (v + change, QuoteUnit::DecimalRate),
                 CurveRepresentation::DiscountFactors if !basis => {
-                    (v * (-change * t).exp(), QuoteUnit::DiscountFactor)
+                    (v * portable::exp(-change * t), QuoteUnit::DiscountFactor)
                 }
                 CurveRepresentation::IssuerSpreads if basis => (v + change, QuoteUnit::DecimalRate),
                 _ => {
@@ -870,7 +871,7 @@ pub fn evaluate_quote_graph(
             for (i, &t) in times.iter().enumerate() {
                 if i > 0 {
                     let dt = t - times[i - 1];
-                    let hazard = -(values[i] / values[i - 1]).ln() / dt
+                    let hazard = -portable::log(values[i] / values[i - 1]) / dt
                         + if node.is_none_or(|n| n == i) {
                             delta
                         } else {
@@ -882,7 +883,7 @@ pub fn evaluate_quote_graph(
                             "negative or nonfinite bumped interval hazard",
                         ));
                     }
-                    survival *= (-hazard * dt).exp();
+                    survival *= portable::exp(-hazard * dt);
                 }
                 nodes.push(CurveNode {
                     pillar: CurvePoint::Tenor(t),

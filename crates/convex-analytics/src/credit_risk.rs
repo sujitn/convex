@@ -22,6 +22,7 @@ use convex_curves::{
     },
     ExtrapolationMethod, InterpolationMethod,
 };
+use convex_math::portable;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -212,7 +213,7 @@ fn shifted_discount(
         .map(|(&t, &p)| CurveNode {
             pillar: CurvePoint::Tenor(t),
             quote: MarketQuote {
-                value: p * (-shift * t).exp(),
+                value: p * portable::exp(-shift * t),
                 unit: QuoteUnit::DiscountFactor,
             },
         })

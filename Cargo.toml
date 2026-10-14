@@ -78,7 +78,8 @@ thiserror = "2.0"
 anyhow = "1.0"
 
 # Mathematical dependencies
-nalgebra = "0.34"
+nalgebra = { version = "0.34", features = ["libm-force"] }
+libm = { version = "=0.2.15", default-features = false, features = ["force-soft-floats"] }
 approx = "0.5"
 
 # Performance dependencies
