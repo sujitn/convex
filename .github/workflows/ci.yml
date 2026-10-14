@@ -125,6 +125,8 @@ jobs:
         run: cargo test --locked -p convex-wasm --test optional_retirement
       - name: Check actual WASM ingress field admission
         run: cargo test --locked -p convex-wasm --lib ingress::tests
+      - name: Check WASM numeric inputs and unit ownership
+        run: cargo test --locked -p convex-wasm --lib checked_inputs_tests
 
       - name: Qualify supplied native primitives rust-default-0
         run: cargo test --locked -p convex-core --test cashflow_primitives

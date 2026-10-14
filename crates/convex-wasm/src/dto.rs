@@ -14,7 +14,7 @@ pub struct BondParams {
     pub issue_date: String,
     /// Settlement date as "YYYY-MM-DD"
     pub settlement_date: String,
-    /// Face value (default 100)
+    /// Absolute currency face value (default100); price/risk/accrued outputs are per100.
     pub face_value: Option<f64>,
     /// Coupon frequency: 1=annual, 2=semi-annual, 4=quarterly, 12=monthly
     pub frequency: Option<u32>,
@@ -23,7 +23,7 @@ pub struct BondParams {
     /// - "30E/360" or "30/360 EU" - European (ISMA) method
     /// - "ACT/360" - Actual/360
     /// - "ACT/365" - Actual/365 Fixed
-    /// - "ACT/ACT" - Actual/Actual ICMA
+    /// - "ACT/ACT" - Actual/Actual ISDA; ICMA must be explicit
     pub day_count: Option<String>,
     /// Currency: "USD", "EUR", "GBP", etc.
     pub currency: Option<String>,
@@ -87,7 +87,7 @@ pub struct AnalysisResult {
     pub error: Option<String>,
 }
 
-/// Cash flow entry.
+/// Projected cashflow entry; amount is absolute bond-currency cash.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashFlowEntry {
     pub date: String,

@@ -1,161 +1,101 @@
-//! Solve-for-price entrypoints: price_from_yield and price_from_spread.
-
+//! Checked per100 price inverses with explicit numeric domains and native errors.
+use crate::{
+    bond::{create_discount_curve, create_price_bond, get_yield_rules},
+    convert::{decimal_to_f64, finite, parse_date, percentage_to_decimal, positive},
+    dto::PriceFromYieldResult,
+    ingress::{decode_bond_params, decode_curve_points},
+};
+use convex_analytics::spreads::ZSpreadCalculator;
+use convex_bonds::{
+    pricing::{StandardYieldEngine, YieldEngine},
+    traits::Bond,
+    types::CompoundingMethod,
+};
 use wasm_bindgen::prelude::*;
 
-use crate::ingress::decode_bond_params;
-
-use convex_analytics::spreads::ZSpreadCalculator;
-use convex_bonds::pricing::{StandardYieldEngine, YieldEngine};
-use convex_bonds::traits::Bond;
-
-use crate::bond::{create_bond, create_discount_curve, get_yield_rules};
-use crate::convert::{decimal_to_f64, parse_date};
-use crate::dto::{BondParams, CurvePoint, PriceFromYieldResult};
-
-/// Calculate clean price from target yield.
-///
-/// Given a target YTM, calculates the clean price that would produce that yield.
-#[wasm_bindgen]
-pub fn price_from_yield(params: JsValue, target_ytm: f64, curve_points: JsValue) -> JsValue {
-    let result = price_from_yield_impl(params, target_ytm, curve_points);
-    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
-}
-
-fn price_from_yield_impl(
-    params: JsValue,
-    target_ytm: f64,
-    _curve_points: JsValue,
-) -> PriceFromYieldResult {
-    let bond_params: BondParams = match decode_bond_params(params) {
-        Ok(p) => p,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let bond = match create_bond(&bond_params) {
-        Ok(b) => b,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let settlement = match parse_date(&bond_params.settlement_date) {
-        Ok(d) => d,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let cash_flows = bond.cash_flows(settlement);
-    let accrued = bond.accrued_interest(settlement);
-
-    // MUST use the same rules as analyze_bond to keep YTM round-trip consistent.
-    let yield_rules = get_yield_rules(&bond_params);
-
-    let yield_decimal = target_ytm / 100.0;
-
-    let engine = StandardYieldEngine::default();
-    let dirty_price = engine.price_from_yield(&cash_flows, yield_decimal, settlement, &yield_rules);
-    let clean_price = dirty_price - decimal_to_f64(accrued);
-
+fn failure(error: String) -> PriceFromYieldResult {
     PriceFromYieldResult {
-        clean_price: Some(clean_price),
-        dirty_price: Some(dirty_price),
-        accrued_interest: Some(decimal_to_f64(accrued)),
-        error: None,
+        error: Some(error),
+        ..Default::default()
     }
 }
 
-/// Calculate clean price from target Z-spread.
-///
-/// Given a target Z-spread (in basis points), calculates the clean price.
+/// Dirty/clean/accrued prices are per100 face; target YTM is percentage.
+#[wasm_bindgen]
+pub fn price_from_yield(params: JsValue, target_ytm: f64) -> JsValue {
+    let result = price_from_yield_impl(params, target_ytm).unwrap_or_else(failure);
+    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+}
+fn price_from_yield_impl(params: JsValue, target_ytm: f64) -> Result<PriceFromYieldResult, String> {
+    let params = decode_bond_params(params)?;
+    let bond = create_price_bond(&params)?;
+    let settlement = parse_date(&params.settlement_date)?;
+    let rules = get_yield_rules(&params)?;
+    let yield_decimal = decimal_to_f64(percentage_to_decimal(target_ytm)?)?;
+    if let CompoundingMethod::Periodic { frequency } = rules.compounding {
+        if frequency == 0 || 1.0 + yield_decimal / frequency as f64 <= 0.0 {
+            return Err("Yield outside periodic compounding domain".into());
+        }
+    }
+    let cash = bond.try_cash_flows(settlement).map_err(|e| e.to_string())?;
+    let dc = rules.accrual_day_count.to_day_count();
+    for flow in &cash {
+        let time = decimal_to_f64(dc.year_fraction(settlement, flow.date))?;
+        if time <= 0.0 {
+            return Err("Positive future cash times required".into());
+        }
+        positive(
+            rules.compounding.discount_factor(yield_decimal, time),
+            "yield discount factor",
+        )?;
+    }
+    let accrued = decimal_to_f64(bond.accrued_interest(settlement))?;
+    let dirty = positive(
+        StandardYieldEngine::default().price_from_yield(&cash, yield_decimal, settlement, &rules),
+        "dirty price",
+    )?;
+    let clean = finite(dirty - accrued, "clean price")?;
+    Ok(PriceFromYieldResult {
+        clean_price: Some(clean),
+        dirty_price: Some(dirty),
+        accrued_interest: Some(accrued),
+        error: None,
+    })
+}
+
+/// Target Z-spread is bps; cash price outputs are per100 face.
 #[wasm_bindgen]
 pub fn price_from_spread(
     params: JsValue,
     target_spread_bps: f64,
     curve_points: JsValue,
 ) -> JsValue {
-    let result = price_from_spread_impl(params, target_spread_bps, curve_points);
+    let result =
+        price_from_spread_impl(params, target_spread_bps, curve_points).unwrap_or_else(failure);
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
-
 fn price_from_spread_impl(
     params: JsValue,
     target_spread_bps: f64,
     curve_points: JsValue,
-) -> PriceFromYieldResult {
-    let bond_params: BondParams = match decode_bond_params(params) {
-        Ok(p) => p,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
-        Ok(p) => p,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(format!("Failed to parse curve points: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let bond = match create_bond(&bond_params) {
-        Ok(b) => b,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let settlement = match parse_date(&bond_params.settlement_date) {
-        Ok(d) => d,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let curve = match create_discount_curve(settlement, &points) {
-        Ok(c) => c,
-        Err(e) => {
-            return PriceFromYieldResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let accrued = bond.accrued_interest(settlement);
-
-    let spread_decimal = target_spread_bps / 10000.0;
-
-    let calculator = ZSpreadCalculator::new(&curve);
-    let dirty_price = calculator.price_with_spread(&bond, spread_decimal, settlement);
-    let clean_price = dirty_price - decimal_to_f64(accrued);
-
-    PriceFromYieldResult {
-        clean_price: Some(clean_price),
-        dirty_price: Some(dirty_price),
-        accrued_interest: Some(decimal_to_f64(accrued)),
+) -> Result<PriceFromYieldResult, String> {
+    let target = finite(target_spread_bps, "Z-spread")? / 10000.0;
+    let params = decode_bond_params(params)?;
+    let points = decode_curve_points(curve_points)?;
+    let bond = create_price_bond(&params)?;
+    let settlement = parse_date(&params.settlement_date)?;
+    let curve = create_discount_curve(settlement, &points)?;
+    let accrued = decimal_to_f64(bond.accrued_interest(settlement))?;
+    let dirty = positive(
+        ZSpreadCalculator::new(&curve)
+            .try_price_with_spread(&bond, target, settlement)
+            .map_err(|e| e.to_string())?,
+        "dirty price",
+    )?;
+    Ok(PriceFromYieldResult {
+        clean_price: Some(finite(dirty - accrued, "clean price")?),
+        dirty_price: Some(dirty),
+        accrued_interest: Some(accrued),
         error: None,
-    }
+    })
 }

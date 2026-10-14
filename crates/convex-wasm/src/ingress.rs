@@ -23,6 +23,7 @@ const FIELD_NAMES: &[&str] = &[
     "use_business_days",
 ];
 
+#[cfg(test)]
 fn admitted_field(name: &str) -> bool {
     FIELD_NAMES.contains(&name)
 }
@@ -30,38 +31,58 @@ fn admitted_field(name: &str) -> bool {
 /// serde-wasm-bindgen visits only declared struct fields, so serde's JSON unknown
 /// field guard is insufficient here. Inspect all own keys before decoding, and
 /// copy only own values into a snapshot so inherited values cannot supply terms.
-pub(crate) fn decode_bond_params(value: JsValue) -> Result<BondParams, String> {
+fn snapshot_record(value: JsValue, fields: &[&str]) -> Result<JsValue, String> {
     if value.is_null() || !value.is_object() || Array::is_array(&value) {
-        return Err("Bond parameters must be a plain object".into());
+        return Err("Record must be a plain object".into());
     }
     let prototype =
-        Reflect::get_prototype_of(&value).map_err(|_| "Cannot inspect bond parameter prototype")?;
+        Reflect::get_prototype_of(&value).map_err(|_| "Cannot inspect record prototype")?;
     let ordinary = Object::get_prototype_of(&Object::new());
     if !prototype.is_null() && prototype != ordinary {
-        return Err("Bond parameters must be a plain object".into());
+        return Err("Record must be a plain object".into());
     }
-    let keys = Reflect::own_keys(&value).map_err(|_| "Cannot inspect bond parameter fields")?;
-    if keys.length() as usize > FIELD_NAMES.len() {
-        return Err("Too many bond parameter fields".into());
+    let keys = Reflect::own_keys(&value).map_err(|_| "Cannot inspect record fields")?;
+    if keys.length() as usize > fields.len() {
+        return Err("Too many record fields".into());
     }
     let snapshot = Object::new();
-    for name in FIELD_NAMES {
+    for name in fields {
         Reflect::set(&snapshot, &JsValue::from_str(name), &JsValue::UNDEFINED)
-            .map_err(|_| "Cannot initialize bond parameter snapshot")?;
+            .map_err(|_| "Cannot initialize record snapshot")?;
     }
     for key in keys.iter() {
         let name = key
             .as_string()
-            .ok_or("Symbol bond parameter fields are unsupported")?;
-        if !admitted_field(&name) {
-            return Err(format!("Unknown bond parameter field: {name}"));
+            .ok_or("Symbol record fields are unsupported")?;
+        if !fields.contains(&name.as_str()) {
+            return Err(format!("Unknown record field: {name}"));
         }
-        let owned = Reflect::get(&value, &key).map_err(|_| "Cannot read bond parameter field")?;
-        Reflect::set(&snapshot, &key, &owned)
-            .map_err(|_| "Cannot snapshot bond parameter field")?;
+        let owned = Reflect::get(&value, &key).map_err(|_| "Cannot read record field")?;
+        Reflect::set(&snapshot, &key, &owned).map_err(|_| "Cannot snapshot record field")?;
     }
-    serde_wasm_bindgen::from_value(snapshot.into())
+    Ok(snapshot.into())
+}
+
+pub(crate) fn decode_bond_params(value: JsValue) -> Result<BondParams, String> {
+    serde_wasm_bindgen::from_value(snapshot_record(value, FIELD_NAMES)?)
         .map_err(|error| format!("Invalid bond parameters: {error}"))
+}
+
+pub(crate) fn decode_curve_points(value: JsValue) -> Result<Vec<crate::dto::CurvePoint>, String> {
+    if !Array::is_array(&value) {
+        return Err("Curve points must be an array".into());
+    }
+    let points = Array::from(&value);
+    if points.length() == 0 || points.length() > 4096 {
+        return Err("Curve point count must be1..4096".into());
+    }
+    points
+        .iter()
+        .map(|point| {
+            serde_wasm_bindgen::from_value(snapshot_record(point, &["date", "rate"])?)
+                .map_err(|error| format!("Invalid curve point: {error}"))
+        })
+        .collect()
 }
 
 #[cfg(test)]

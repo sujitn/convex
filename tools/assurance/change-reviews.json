@@ -3783,6 +3783,37 @@
         "www/tests/route-admission.cjs": "96917d1b9d8dda7b8bb34025d5ab21de9531da1fb598411895b003211c262450",
         "www/src/components/CallSchedule.jsx": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
+    },
+    {
+      "base_commit": "a19950497ed3cb39f9e34bfd744d57730f0fa5ee",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 checked fixed WASM numeric/enum ingress and units: preserve finite JSNumber shortest decimal, exact coefficient percent conversion and old positive aliases/assertions; no round10dp/zero/unknown enum/failed yield fallback. Bound own curve records, reject nonfixed classes, respect explicit overrides after registered presets and fail invalid/nonfinite pricing domains. Per100 price/yield/risk/accrued/current yield separate from absolute currency cash; explicit supplied face redemption repairs original terminal cash bug. Retire unused yield curve argument/caller and unsupported fixed UI payoff choices.66negative/15quote-face/3cash-face/16domain/10curve/1override controls and5native controls are scoped engineering. Old native formulas/solver bounds and1654numeric rows/defaults/files/sections remain;2new give1656. Literal30areas/174combinations/2154Planned and80shared/8native/5375requests remain. Known broader legacy convention/quote-risk limits and full original native models/claims/operations are not waived. Only unavailable platforms deferred; no certificate/acceptance.",
+      "tests": [
+        "Native checked scalar/parser/override/absolute redemption controls and actual JS negative/face/domain/curve inputs",
+        "Original all financial/mandatory/closed scope conservation and available full host parity; broader known convention gaps explicit"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "1229d774d928c659648d708575f85c0b353bca9f03820aaeb51a2e0f223fe00a",
+        "crates/convex-wasm/src/analyze.rs": "f82cff850d597a08ab9163c69c23082e04f329b831f063386a11e0d608adb123",
+        "crates/convex-wasm/src/bond.rs": "7850549dcfb2bd2c1c7eb21d2ef3bf1f263832001835ecdf5c051a4931ad6718",
+        "crates/convex-wasm/src/checked_inputs_tests.rs": "9144b5c17991154147ac6dad7a1d41f3f72e0c75ed491c888fc56e156a809751",
+        "crates/convex-wasm/src/conventions.rs": "32777b815bb597799cef39944ca3c91fcb9fda966b9b015ea32e99df8a702046",
+        "crates/convex-wasm/src/convert.rs": "e0f0313ae3f54de9a656ccfd678e7a26c1efafdaad6cc40774de1b7e2d15830f",
+        "crates/convex-wasm/src/dto.rs": "38581fe2b28e16028be6547c5592391162f6e49094992f21e98ab244b5117887",
+        "crates/convex-wasm/src/ingress.rs": "0eaadf0518715155227b74c32c6d981daf375c608f80a10e76e29959c126baef",
+        "crates/convex-wasm/src/lib.rs": "7aee02e440fb321ad84aa5f13892972b36d779331e6d2f02acb60dcd6fb23a06",
+        "crates/convex-wasm/src/pricing.rs": "f2aa227c3ef0a656ff26945b0fa6a82372af2232aa2a0650508085d84fc8d713",
+        "docs/ROUTE-MIGRATION.md": "1bd73a5c5c87842843398250c65b967e0d210b2b86fd6073c76a2a1385a19a2a",
+        "tests/scripts/wasm_checked_inputs.cjs": "eb6ee5918524e2865d4829fdb4ac1cb4345183e50423ed99b945bad2ea20adeb",
+        "tools/assurance/check.py": "98dd5034060df92a10cb5faed19c804cedc7c5b2eb5df978e3f21eeba30869e2",
+        "tools/assurance/inventory.json": "142f514c158fc422492af2c9d0192f756ef6f827ae6a43ef78066fbf8913a6c1",
+        "tools/assurance/numeric-evidence.json": "9f8cdc1d40e2a75eb3055d298155d74d1339b0dd3c0fda82afd729c9d1417f11",
+        "tools/library/library-inventory.json": "d973d497d2162305be2442a89df89b86d49eb9fbc97e2be1b3633283955dd2a9",
+        "www/src/App.jsx": "6ba6abae133c560ff0bd3106d2b00ad651e8786e2746fca00a5a06af5fd091e7",
+        "www/src/components/BondInput.jsx": "8231326ea6f66d740bc2f84ef307b5a95a70b747e3ff472e4d4b9abd2b3494af",
+        "www/src/components/ConventionSettings.jsx": "2f6e88f29c12191994ea1c33e6d9d0c3b1ca97fc77e65e85b3169f616a01086b"
+      }
     }
   ]
 }

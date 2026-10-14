@@ -613,7 +613,7 @@ function App({ wasmModule }) {
       };
 
       const curvePoints = generateCurvePoints(treasuryCurve, bond.maturityDate);
-      const result = wasmModule.price_from_yield(bondParams, targetYtm, curvePoints);
+      const result = wasmModule.price_from_yield(bondParams, targetYtm);
 
       if (result.clean_price && !result.error) {
         setPrice(result.clean_price);

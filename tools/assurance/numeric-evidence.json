@@ -8277,6 +8277,16 @@
       "path": "crates/convex-wasm/src/ingress.rs",
       "mode": "test_section",
       "sha256": "f959918c4cb8c91730c2680efd3b925cd2c63f82b3ba187256afcc5f6acfea21"
+    },
+    {
+      "path": "crates/convex-wasm/src/checked_inputs_tests.rs",
+      "mode": "file",
+      "sha256": "9144b5c17991154147ac6dad7a1d41f3f72e0c75ed491c888fc56e156a809751"
+    },
+    {
+      "path": "tests/scripts/wasm_checked_inputs.cjs",
+      "mode": "file",
+      "sha256": "eb6ee5918524e2865d4829fdb4ac1cb4345183e50423ed99b945bad2ea20adeb"
     }
   ]
 }

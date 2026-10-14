@@ -13,7 +13,6 @@ const frequencyOptions = [
   { value: 2, label: 'Semi-Annual' },
   { value: 4, label: 'Quarterly' },
   { value: 12, label: 'Monthly' },
-  { value: 0, label: 'Zero Coupon' },
 ];
 
 function BondInput({ bond, onChange }) {

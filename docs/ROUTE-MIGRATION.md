@@ -404,3 +404,17 @@ and nonplain objects fail; inherited fields cannot supply economics. Invalid
 `get_cash_flows` inputs return an error object; valid inputs retain their cash
 array and units. Other fixed-parser, numeric, convention and unit qualification
 remains separate work.
+
+The retained fixed WASM helpers now reject unknown enums and nonfinite/out-of-range
+numeric values. Finite JSNumber inputs use their shortest exact decimal spelling;
+unsupported Decimal scale/range fails without rounding or zero substitution.
+Percentage conversion shifts the coefficient exactly. Explicit quote/settlement
+settings apply after a registered preset, and nonfixed payoff classes fail.
+Prices/risk/accrued are per100 original face; projected cash is absolute currency,
+with redemption explicitly equal to the supplied face. The unused third curve
+argument on `price_from_yield` and its browser caller are removed. Curve-bearing
+operations reject unknown point fields instead of discarding them. All original
+broader Street/ICMA/ex-coupon/stub/tax/workout and quote-consistent risk qualification
+remains required: these unchanged legacy engines and preset labels are not a
+complete convention certificate. Use full supplied-term/contextual library routes
+for admitted complete economics. No native requirement or authority is waived.

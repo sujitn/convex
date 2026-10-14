@@ -1,134 +1,73 @@
-//! Public WASM analytics surface: analyze_bond, get_cash_flows, calculate_accrued, calculate_simple_metrics.
-
-use wasm_bindgen::prelude::*;
-
-use crate::ingress::decode_bond_params;
-
+//! Checked fixed bond conveniences; prices/risk/accrued are per100, cashflows absolute.
+use crate::bond::{
+    calculate_convention_yield, convert_yas_result, create_bond, create_curve, create_price_bond,
+    get_yield_rules,
+};
+use crate::convert::{date_to_naive, decimal_to_f64, f64_to_decimal, finite, parse_date, positive};
+use crate::dto::{AnalysisResult, CashFlowEntry};
+use crate::ingress::{decode_bond_params, decode_curve_points};
 use convex_analytics::yas::YASCalculator;
 use convex_bonds::traits::{Bond, FixedCouponBond};
+use wasm_bindgen::prelude::*;
 
-use crate::bond::{
-    calculate_convention_yield, convert_yas_result, create_bond, create_curve, get_yield_rules,
-};
-use crate::convert::{date_to_naive, decimal_to_f64, f64_to_decimal, parse_date};
-use crate::dto::{AnalysisResult, BondParams, CashFlowEntry, CurvePoint};
+fn failure(error: String) -> AnalysisResult {
+    AnalysisResult {
+        error: Some(error),
+        ..Default::default()
+    }
+}
 
-/// Calculate bond analytics given price and yield curve.
-///
-/// Takes bond parameters, a clean price, and curve points, returns comprehensive analytics.
+/// Checked quote and analytics with explicit positive per100 clean price.
 #[wasm_bindgen]
 pub fn analyze_bond(params: JsValue, clean_price: f64, curve_points: JsValue) -> JsValue {
-    let result = analyze_bond_impl(params, clean_price, curve_points);
+    let result = analyze_bond_impl(params, clean_price, curve_points).unwrap_or_else(failure);
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
-
-fn analyze_bond_impl(params: JsValue, clean_price: f64, curve_points: JsValue) -> AnalysisResult {
-    let bond_params: BondParams = match decode_bond_params(params) {
-        Ok(p) => p,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let points: Vec<CurvePoint> = match serde_wasm_bindgen::from_value(curve_points) {
-        Ok(p) => p,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(format!("Failed to parse curve points: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let bond = match create_bond(&bond_params) {
-        Ok(b) => b,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let settlement = match parse_date(&bond_params.settlement_date) {
-        Ok(d) => d,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let curve = match create_curve(settlement, &points) {
-        Ok(c) => c,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let yield_rules = get_yield_rules(&bond_params);
-
-    let calculator = YASCalculator::new(&curve);
-    let settlement_naive = date_to_naive(settlement);
-
-    let yas_result = match calculator.analyze(&bond, settlement_naive, f64_to_decimal(clean_price))
-    {
-        Ok(result) => result,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(format!("Analysis failed: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let mut result = convert_yas_result(&yas_result, &bond, settlement, &yield_rules, &bond_params);
-
-    // Convention-aware YTM via StandardYieldEngine — same engine the bond was priced with.
-    if let Some(convention_ytm) =
-        calculate_convention_yield(&bond, settlement, clean_price, &yield_rules)
-    {
-        result.ytm = Some(convention_ytm * 100.0);
-    }
-
-    result
+fn analyze_bond_impl(
+    params: JsValue,
+    clean_price: f64,
+    curve_points: JsValue,
+) -> Result<AnalysisResult, String> {
+    positive(clean_price, "clean price")?;
+    let params = decode_bond_params(params)?;
+    let points = decode_curve_points(curve_points)?;
+    let bond = create_price_bond(&params)?;
+    let settlement = parse_date(&params.settlement_date)?;
+    let curve = create_curve(settlement, &points)?;
+    let rules = get_yield_rules(&params)?;
+    let yas = YASCalculator::new(&curve)
+        .analyze(
+            &bond,
+            date_to_naive(settlement),
+            f64_to_decimal(clean_price)?,
+        )
+        .map_err(|e| format!("Analysis failed: {e}"))?;
+    let mut result = convert_yas_result(&yas, &bond, settlement, &rules, &params)?;
+    result.ytm = Some(finite(
+        calculate_convention_yield(&bond, settlement, clean_price, &rules)? * 100.0,
+        "percent yield",
+    )?);
+    Ok(result)
 }
 
-/// Get bond cash flows.
-///
-/// Returns all future cash flows from settlement date.
+/// Projected future cashflows in absolute bond currency; errors are explicit objects.
 #[wasm_bindgen]
 pub fn get_cash_flows(params: JsValue) -> JsValue {
     match get_cash_flows_impl(params) {
         Ok(result) => serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL),
-        Err(error) => serde_wasm_bindgen::to_value(&AnalysisResult {
-            error: Some(error),
-            ..Default::default()
-        })
-        .unwrap_or(JsValue::NULL),
+        Err(error) => serde_wasm_bindgen::to_value(&failure(error)).unwrap_or(JsValue::NULL),
     }
 }
-
 fn get_cash_flows_impl(params: JsValue) -> Result<Vec<CashFlowEntry>, String> {
-    let bond_params = decode_bond_params(params)?;
-    let bond = create_bond(&bond_params)?;
-    let settlement = parse_date(&bond_params.settlement_date)?;
-
-    let face = decimal_to_f64(bond.face_value());
-    Ok(bond
-        .cash_flows(settlement)
+    let params = decode_bond_params(params)?;
+    let bond = create_bond(&params)?;
+    let settlement = parse_date(&params.settlement_date)?;
+    let face = decimal_to_f64(bond.face_value())?;
+    bond.try_cash_flows(settlement)
+        .map_err(|e| e.to_string())?
         .iter()
         .map(|cf| {
-            let amount = decimal_to_f64(cf.amount);
-            // Classify against the bond's face value, not a hardcoded 100, so face_value != 100
-            // (e.g. 1000 for institutional notional) doesn't misclassify maturities.
+            let amount = decimal_to_f64(cf.amount)?;
             let cf_type = if cf.is_principal() && amount >= face / 2.0 {
                 if amount > face {
                     "coupon_and_principal"
@@ -138,114 +77,62 @@ fn get_cash_flows_impl(params: JsValue) -> Result<Vec<CashFlowEntry>, String> {
             } else {
                 "coupon"
             };
-
-            CashFlowEntry {
-                date: format!("{}", cf.date),
+            Ok(CashFlowEntry {
+                date: cf.date.to_string(),
                 amount,
-                cf_type: cf_type.to_string(),
-            }
+                cf_type: cf_type.into(),
+            })
         })
-        .collect())
+        .collect()
 }
 
-/// Calculate accrued interest.
-///
-/// Returns an `AnalysisResult`-shaped object with `accrued_interest` populated on success
-/// or `error` populated on failure — consistent with the other analytics entrypoints.
+/// Accrued per100 original face, matching the price quote units.
 #[wasm_bindgen]
 pub fn calculate_accrued(params: JsValue) -> JsValue {
     let result = match calculate_accrued_impl(params) {
-        Ok(v) => AnalysisResult {
-            accrued_interest: Some(v),
+        Ok(accrued) => AnalysisResult {
+            accrued_interest: Some(accrued),
             ..Default::default()
         },
-        Err(e) => AnalysisResult {
-            error: Some(e),
-            ..Default::default()
-        },
+        Err(error) => failure(error),
     };
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
-
 fn calculate_accrued_impl(params: JsValue) -> Result<f64, String> {
-    let bond_params: BondParams = decode_bond_params(params)
-        .map_err(|e| format!("Failed to parse bond parameters: {:?}", e))?;
-
-    let bond = create_bond(&bond_params)?;
-
-    let settlement = parse_date(&bond_params.settlement_date)?;
-
-    let accrued = bond.accrued_interest(settlement);
-    Ok(decimal_to_f64(accrued))
+    let params = decode_bond_params(params)?;
+    let bond = create_price_bond(&params)?;
+    decimal_to_f64(bond.accrued_interest(parse_date(&params.settlement_date)?))
 }
 
-/// Simple yield calculation without curve (only basic metrics).
+/// Basic metrics in per100 price/accrual units and percentage current yield.
 #[wasm_bindgen]
 pub fn calculate_simple_metrics(params: JsValue, clean_price: f64) -> JsValue {
-    let result = calculate_simple_metrics_impl(params, clean_price);
+    let result = calculate_simple_metrics_impl(params, clean_price).unwrap_or_else(failure);
     serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
 }
-
-fn calculate_simple_metrics_impl(params: JsValue, clean_price: f64) -> AnalysisResult {
-    let bond_params: BondParams = match decode_bond_params(params) {
-        Ok(p) => p,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(format!("Failed to parse bond parameters: {:?}", e)),
-                ..Default::default()
-            }
-        }
-    };
-
-    let bond = match create_bond(&bond_params) {
-        Ok(b) => b,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let settlement = match parse_date(&bond_params.settlement_date) {
-        Ok(d) => d,
-        Err(e) => {
-            return AnalysisResult {
-                error: Some(e),
-                ..Default::default()
-            }
-        }
-    };
-
-    let accrued = decimal_to_f64(bond.accrued_interest(settlement));
-    let dirty_price = clean_price + accrued;
-
-    let (days_to_mat, years_to_mat) = match bond.maturity() {
-        Some(maturity) => {
-            let days = settlement.days_between(&maturity);
-            (days, days as f64 / 365.0)
-        }
-        None => (0, 0.0),
-    };
-
-    // Current yield = annual coupon / clean price.
-    // coupon_rate() is decimal (0.05 for 5%), face_value() is per-100-face (100), so
-    // their product is the annual coupon amount; the percent conversion happens in current_yield.
-    let annual_coupon = decimal_to_f64(bond.coupon_rate()) * decimal_to_f64(bond.face_value());
-    let current_yield = if clean_price > 0.0 {
-        Some(annual_coupon / clean_price * 100.0)
-    } else {
-        None
-    };
-
-    AnalysisResult {
+fn calculate_simple_metrics_impl(
+    params: JsValue,
+    clean_price: f64,
+) -> Result<AnalysisResult, String> {
+    positive(clean_price, "clean price")?;
+    let params = decode_bond_params(params)?;
+    let bond = create_price_bond(&params)?;
+    let settlement = parse_date(&params.settlement_date)?;
+    let accrued = decimal_to_f64(bond.accrued_interest(settlement))?;
+    let dirty_price = finite(clean_price + accrued, "dirty price")?;
+    let maturity = bond.maturity().ok_or("Missing fixed maturity")?;
+    let days = settlement.days_between(&maturity);
+    let years = days as f64 / 365.0;
+    let annual_coupon = decimal_to_f64(bond.coupon_rate())? * decimal_to_f64(bond.face_value())?;
+    let current_yield = finite(annual_coupon / clean_price * 100.0, "current yield")?;
+    Ok(AnalysisResult {
         clean_price: Some(clean_price),
         dirty_price: Some(dirty_price),
         accrued_interest: Some(accrued),
-        current_yield,
-        days_to_maturity: Some(days_to_mat),
-        years_to_maturity: Some(years_to_mat),
+        current_yield: Some(current_yield),
+        days_to_maturity: Some(days),
+        years_to_maturity: Some(years),
         error: None,
         ..Default::default()
-    }
+    })
 }

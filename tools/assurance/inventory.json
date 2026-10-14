@@ -4532,15 +4532,17 @@
     },
     {
       "path": "crates/convex-wasm/src/bond.rs",
-      "sha256": "b7df1fed00ece5de043fe6f0ba08779178f5278db038b8071ca44121dfce5374",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay.",
+      "sha256": "7850549dcfb2bd2c1c7eb21d2ef3bf1f263832001835ecdf5c051a4931ad6718",
+      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay. Checked finite/exact input conversion, enum parsing, explicit overrides and per100 price/risk vs absolute cash units. Nonfixed classes fail; known broader conventions remain unqualified.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
       "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
         "tests/scripts/portable_math_reference.py",
-        "crates/convex-wasm/tests/optional_retirement.rs"
+        "crates/convex-wasm/tests/optional_retirement.rs",
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
       ],
       "exceptions": []
     },
@@ -4570,13 +4572,75 @@
     },
     {
       "path": "crates/convex-wasm/src/ingress.rs",
-      "sha256": "05ce4f48e127af170011bdaa8f650698b3bbd4c959658e228fe444f37ec35fcd",
-      "invariants": "All own JS keys are checked before serde struct decoding; reject retired/unknown/symbol keys and nonplain objects. Snapshot only bounded own fields so inherited terms cannot supply pricing inputs. Complete serialized fixed fields match the shared allowlist.",
+      "sha256": "0eaadf0518715155227b74c32c6d981daf375c608f80a10e76e29959c126baef",
+      "invariants": "All own JS keys are checked before serde struct decoding; reject retired/unknown/symbol keys and nonplain objects. Snapshot only bounded own fields so inherited terms cannot supply pricing inputs. Complete serialized fixed fields match the shared allowlist. Checked finite/exact input conversion, enum parsing, explicit overrides and per100 price/risk vs absolute cash units. Nonfixed classes fail; known broader conventions remain unqualified.",
       "bounds": "At most16fixed parameter keys; one bounded snapshot before pricing. No financial/provider/database/MQ dependency.",
       "failure_contract": "Explicit input errors before pricing; cashflow ingress returns an error object instead of a successful empty array.",
       "tests": [
         "crates/convex-wasm/src/ingress.rs",
-        "crates/convex-wasm/tests/optional_retirement.rs"
+        "crates/convex-wasm/tests/optional_retirement.rs",
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/convert.rs",
+      "sha256": "e0f0313ae3f54de9a656ccfd678e7a26c1efafdaad6cc40774de1b7e2d15830f",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
+      "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
+      "tests": [
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/analyze.rs",
+      "sha256": "f82cff850d597a08ab9163c69c23082e04f329b831f063386a11e0d608adb123",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
+      "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
+      "tests": [
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/pricing.rs",
+      "sha256": "f2aa227c3ef0a656ff26945b0fa6a82372af2232aa2a0650508085d84fc8d713",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
+      "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
+      "tests": [
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/conventions.rs",
+      "sha256": "32777b815bb597799cef39944ca3c91fcb9fda966b9b015ea32e99df8a702046",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
+      "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
+      "tests": [
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-wasm/src/dto.rs",
+      "sha256": "38581fe2b28e16028be6547c5592391162f6e49094992f21e98ab244b5117887",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
+      "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
+      "tests": [
+        "crates/convex-wasm/src/checked_inputs_tests.rs",
+        "tests/scripts/wasm_checked_inputs.cjs"
       ],
       "exceptions": []
     }

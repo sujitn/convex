@@ -8,6 +8,7 @@ use wasm_bindgen::prelude::*;
 
 use convex_bonds::conventions::{InstrumentType, Market};
 use convex_bonds::types::{CompoundingMethod, YieldConvention};
+use convex_core::contracts::ExactDecimal;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
@@ -33,58 +34,90 @@ pub(crate) fn parse_date(s: &str) -> Result<Date, String> {
         .parse()
         .map_err(|_| format!("Invalid day: {}", parts[2]))?;
 
-    Date::from_ymd(year, month, day).map_err(|e| format!("Invalid date {}: {:?}", s, e))
+    let date = Date::from_ymd(year, month, day).map_err(|e| format!("Invalid date {s}: {e:?}"))?;
+    if date.to_string() != s {
+        return Err("Date must use exact YYYY-MM-DD format".into());
+    }
+    Ok(date)
 }
 
 pub(crate) fn date_to_naive(date: Date) -> chrono::NaiveDate {
     date.into()
 }
 
-pub(crate) fn parse_day_count(s: &str) -> DayCountConvention {
-    // Delegate to the canonical parser; fall back to the 30/360 US that this
-    // endpoint defaulted to before, to preserve the "unknown input doesn't
-    // blow up the demo" guarantee for browser callers.
-    DayCountConvention::from_str(s).unwrap_or(DayCountConvention::Thirty360US)
+pub(crate) fn parse_day_count(s: &str) -> Result<DayCountConvention, String> {
+    DayCountConvention::from_str(s).map_err(|_| format!("Unknown day count: {s}"))
 }
 
-pub(crate) fn parse_frequency(f: u32) -> Frequency {
+pub(crate) fn parse_frequency(f: u32) -> Result<Frequency, String> {
     match f {
-        1 => Frequency::Annual,
-        2 => Frequency::SemiAnnual,
-        4 => Frequency::Quarterly,
-        12 => Frequency::Monthly,
-        _ => Frequency::SemiAnnual,
+        1 => Ok(Frequency::Annual),
+        2 => Ok(Frequency::SemiAnnual),
+        4 => Ok(Frequency::Quarterly),
+        12 => Ok(Frequency::Monthly),
+        _ => Err(format!("Unsupported fixed coupon frequency: {f}")),
     }
 }
 
-pub(crate) fn parse_currency(s: &str) -> Currency {
+pub(crate) fn parse_currency(s: &str) -> Result<Currency, String> {
     match s.to_uppercase().as_str() {
-        "USD" => Currency::USD,
-        "EUR" => Currency::EUR,
-        "GBP" => Currency::GBP,
-        "JPY" => Currency::JPY,
-        "CHF" => Currency::CHF,
-        "AUD" => Currency::AUD,
-        "CAD" => Currency::CAD,
-        "NZD" => Currency::NZD,
-        _ => Currency::USD,
+        "USD" => Ok(Currency::USD),
+        "EUR" => Ok(Currency::EUR),
+        "GBP" => Ok(Currency::GBP),
+        "JPY" => Ok(Currency::JPY),
+        "CHF" => Ok(Currency::CHF),
+        "AUD" => Ok(Currency::AUD),
+        "CAD" => Ok(Currency::CAD),
+        "NZD" => Ok(Currency::NZD),
+        _ => Err(format!("Unsupported currency: {s}")),
     }
 }
 
-pub(crate) fn decimal_to_f64(d: Decimal) -> f64 {
-    d.to_f64().unwrap_or(0.0)
+pub(crate) fn decimal_to_f64(d: Decimal) -> Result<f64, String> {
+    d.to_f64()
+        .filter(|n| n.is_finite())
+        .ok_or_else(|| "Decimal cannot enter the finite numeric model".into())
 }
 
-/// Convert an f64 to Decimal, rounding to 10 d.p. so values like
-/// 0.05000000000000001 don't leak through.
-pub(crate) fn f64_to_decimal(f: f64) -> Decimal {
-    Decimal::from_f64_retain(f)
-        .map(|d| d.round_dp(10))
-        .unwrap_or(Decimal::ZERO)
+/// Preserve the finite JSNumber's shortest decimal representation without rounding.
+/// Exact string economics use the complete supplied-term library instead.
+pub(crate) fn f64_to_decimal(f: f64) -> Result<Decimal, String> {
+    if !f.is_finite() {
+        return Err("Finite numeric input required".into());
+    }
+    ExactDecimal::parse(&f.to_string())
+        .map(|n| n.decimal())
+        .map_err(|e| e.to_string())
 }
 
-pub(crate) fn parse_market(s: &str) -> Market {
-    match s.to_uppercase().as_str() {
+/// Shift the exact input decimal coefficient by two places, rejecting scale loss.
+pub(crate) fn percentage_to_decimal(f: f64) -> Result<Decimal, String> {
+    let value = f64_to_decimal(f)?;
+    let scale = value
+        .scale()
+        .checked_add(2)
+        .filter(|n| *n <= 28)
+        .ok_or("Percentage exceeds exact decimal scale")?;
+    Decimal::try_from_i128_with_scale(value.mantissa(), scale).map_err(|e| e.to_string())
+}
+
+pub(crate) fn finite(value: f64, name: &str) -> Result<f64, String> {
+    if !value.is_finite() {
+        return Err(format!("Nonfinite {name}"));
+    }
+    Ok(value)
+}
+
+pub(crate) fn positive(value: f64, name: &str) -> Result<f64, String> {
+    finite(value, name)?;
+    if value <= 0.0 {
+        return Err(format!("Positive {name} required"));
+    }
+    Ok(value)
+}
+
+pub(crate) fn parse_market(s: &str) -> Result<Market, String> {
+    Ok(match s.to_uppercase().as_str() {
         "US" | "USA" | "UNITED STATES" => Market::US,
         "UK" | "GB" | "UNITED KINGDOM" => Market::UK,
         "GERMANY" | "DE" | "GER" => Market::Germany,
@@ -105,60 +138,66 @@ pub(crate) fn parse_market(s: &str) -> Market {
         "DENMARK" | "DK" | "DNK" => Market::Denmark,
         "FINLAND" | "FI" | "FIN" => Market::Finland,
         "EUROZONE" | "EUR" | "EU" => Market::Eurozone,
-        _ => Market::US,
-    }
+        _ => return Err(format!("Unknown market: {s}")),
+    })
 }
 
-pub(crate) fn parse_instrument_type(s: &str) -> InstrumentType {
-    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
-        "GOVERNMENTBOND" | "GOVT" | "SOVEREIGN" | "GOV" => InstrumentType::GovernmentBond,
-        "TREASURYBILL" | "TBILL" | "BILL" => InstrumentType::TreasuryBill,
-        "CORPORATEIG" | "IG" | "INVESTMENTGRADE" | "CORPORATE" => InstrumentType::CorporateIG,
-        "CORPORATEHY" | "HY" | "HIGHYIELD" | "JUNK" => InstrumentType::CorporateHY,
-        "MUNICIPAL" | "MUNI" => InstrumentType::Municipal,
-        "AGENCY" | "GSE" => InstrumentType::Agency,
-        "INFLATIONLINKED" | "TIPS" | "LINKER" | "ILB" => InstrumentType::InflationLinked,
-        "GOVERNMENTFRN" | "GOVFRN" => InstrumentType::GovernmentFRN,
-        "CORPORATEFRN" | "CORPFRN" | "FRN" | "FLOATER" => InstrumentType::CorporateFRN,
-        "COVERED" | "COVEREDBOND" | "PFANDBRIEF" => InstrumentType::CoveredBond,
-        "ABS" | "ASSETBACKED" => InstrumentType::ABS,
-        "MBS" | "MORTGAGEBACKED" => InstrumentType::MBS,
-        "SUPRANATIONAL" | "SUPRA" => InstrumentType::Supranational,
-        "COMMERCIALPAPER" | "CP" => InstrumentType::CommercialPaper,
-        "CONVERTIBLE" | "CONV" => InstrumentType::Convertible,
-        "STRIPS" | "STRIP" => InstrumentType::Strips,
-        _ => InstrumentType::GovernmentBond,
-    }
+pub(crate) fn parse_instrument_type(s: &str) -> Result<InstrumentType, String> {
+    Ok(
+        match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+            "GOVERNMENTBOND" | "GOVT" | "SOVEREIGN" | "GOV" => InstrumentType::GovernmentBond,
+            "TREASURYBILL" | "TBILL" | "BILL" => InstrumentType::TreasuryBill,
+            "CORPORATEIG" | "IG" | "INVESTMENTGRADE" | "CORPORATE" => InstrumentType::CorporateIG,
+            "CORPORATEHY" | "HY" | "HIGHYIELD" | "JUNK" => InstrumentType::CorporateHY,
+            "MUNICIPAL" | "MUNI" => InstrumentType::Municipal,
+            "AGENCY" | "GSE" => InstrumentType::Agency,
+            "INFLATIONLINKED" | "TIPS" | "LINKER" | "ILB" => InstrumentType::InflationLinked,
+            "GOVERNMENTFRN" | "GOVFRN" => InstrumentType::GovernmentFRN,
+            "CORPORATEFRN" | "CORPFRN" | "FRN" | "FLOATER" => InstrumentType::CorporateFRN,
+            "COVERED" | "COVEREDBOND" | "PFANDBRIEF" => InstrumentType::CoveredBond,
+            "ABS" | "ASSETBACKED" => InstrumentType::ABS,
+            "MBS" | "MORTGAGEBACKED" => InstrumentType::MBS,
+            "SUPRANATIONAL" | "SUPRA" => InstrumentType::Supranational,
+            "COMMERCIALPAPER" | "CP" => InstrumentType::CommercialPaper,
+            "CONVERTIBLE" | "CONV" => InstrumentType::Convertible,
+            "STRIPS" | "STRIP" => InstrumentType::Strips,
+            _ => return Err(format!("Unknown instrument_type: {s}")),
+        },
+    )
 }
 
-pub(crate) fn parse_yield_convention(s: &str) -> YieldConvention {
-    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
-        "STREET" | "STREETCONVENTION" | "US" => YieldConvention::StreetConvention,
-        "TRUE" | "TRUEYIELD" => YieldConvention::TrueYield,
-        "ISMA" | "ICMA" => YieldConvention::ISMA,
-        "SIMPLE" | "SIMPLEYIELD" | "JAPANESE" | "JGB" => YieldConvention::SimpleYield,
-        "DISCOUNT" | "DISCOUNTYIELD" => YieldConvention::DiscountYield,
-        "BONDEQUIVALENT" | "BEY" => YieldConvention::BondEquivalentYield,
-        "MUNICIPAL" | "MUNI" | "TAXEQUIVALENT" => YieldConvention::MunicipalYield,
-        "MOOSMULLER" | "GERMAN" => YieldConvention::Moosmuller,
-        "BRAESSFANGMEYER" | "BRAESS" => YieldConvention::BraessFangmeyer,
-        "ANNUAL" => YieldConvention::Annual,
-        "CONTINUOUS" | "CONT" => YieldConvention::Continuous,
-        _ => YieldConvention::StreetConvention,
-    }
+pub(crate) fn parse_yield_convention(s: &str) -> Result<YieldConvention, String> {
+    Ok(
+        match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+            "STREET" | "STREETCONVENTION" | "US" => YieldConvention::StreetConvention,
+            "TRUE" | "TRUEYIELD" => YieldConvention::TrueYield,
+            "ISMA" | "ICMA" => YieldConvention::ISMA,
+            "SIMPLE" | "SIMPLEYIELD" | "JAPANESE" | "JGB" => YieldConvention::SimpleYield,
+            "DISCOUNT" | "DISCOUNTYIELD" => YieldConvention::DiscountYield,
+            "BONDEQUIVALENT" | "BEY" => YieldConvention::BondEquivalentYield,
+            "MUNICIPAL" | "MUNI" | "TAXEQUIVALENT" => YieldConvention::MunicipalYield,
+            "MOOSMULLER" | "GERMAN" => YieldConvention::Moosmuller,
+            "BRAESSFANGMEYER" | "BRAESS" => YieldConvention::BraessFangmeyer,
+            "ANNUAL" => YieldConvention::Annual,
+            "CONTINUOUS" | "CONT" => YieldConvention::Continuous,
+            _ => return Err(format!("Unknown yield_convention: {s}")),
+        },
+    )
 }
 
-pub(crate) fn parse_compounding(s: &str) -> CompoundingMethod {
-    match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
-        "SEMIANNUAL" | "SEMI" | "2" => CompoundingMethod::Periodic { frequency: 2 },
-        "ANNUAL" | "1" => CompoundingMethod::Periodic { frequency: 1 },
-        "QUARTERLY" | "4" => CompoundingMethod::Periodic { frequency: 4 },
-        "MONTHLY" | "12" => CompoundingMethod::Periodic { frequency: 12 },
-        "CONTINUOUS" | "CONT" => CompoundingMethod::Continuous,
-        "SIMPLE" | "NONE" => CompoundingMethod::Simple,
-        "DISCOUNT" => CompoundingMethod::Discount,
-        _ => CompoundingMethod::Periodic { frequency: 2 },
-    }
+pub(crate) fn parse_compounding(s: &str) -> Result<CompoundingMethod, String> {
+    Ok(
+        match s.to_uppercase().replace(['_', '-', ' '], "").as_str() {
+            "SEMIANNUAL" | "SEMI" | "2" => CompoundingMethod::Periodic { frequency: 2 },
+            "ANNUAL" | "1" => CompoundingMethod::Periodic { frequency: 1 },
+            "QUARTERLY" | "4" => CompoundingMethod::Periodic { frequency: 4 },
+            "MONTHLY" | "12" => CompoundingMethod::Periodic { frequency: 12 },
+            "CONTINUOUS" | "CONT" => CompoundingMethod::Continuous,
+            "SIMPLE" | "NONE" => CompoundingMethod::Simple,
+            "DISCOUNT" => CompoundingMethod::Discount,
+            _ => return Err(format!("Unknown compounding: {s}")),
+        },
+    )
 }
 
 pub(crate) fn format_market_name(market: Market) -> String {
@@ -236,43 +275,43 @@ mod tests {
     fn test_parse_day_count() {
         // US 30/360
         assert!(matches!(
-            parse_day_count("30/360"),
+            parse_day_count("30/360").unwrap(),
             DayCountConvention::Thirty360US
         ));
         assert!(matches!(
-            parse_day_count("30/360 US"),
+            parse_day_count("30/360 US").unwrap(),
             DayCountConvention::Thirty360US
         ));
         // EU 30E/360
         assert!(matches!(
-            parse_day_count("30E/360"),
+            parse_day_count("30E/360").unwrap(),
             DayCountConvention::Thirty360E
         ));
         assert!(matches!(
-            parse_day_count("30/360 EU"),
+            parse_day_count("30/360 EU").unwrap(),
             DayCountConvention::Thirty360E
         ));
         assert!(matches!(
-            parse_day_count("30/360E"),
+            parse_day_count("30/360E").unwrap(),
             DayCountConvention::Thirty360E
         ));
         // Other conventions
         assert!(matches!(
-            parse_day_count("ACT/365"),
+            parse_day_count("ACT/365").unwrap(),
             DayCountConvention::Act365Fixed
         ));
         // Bare "ACT/ACT" maps to the ISDA interpretation (the canonical default).
         // Callers that want ICMA must spell it out as "ACT/ACT ICMA".
         assert!(matches!(
-            parse_day_count("act/act"),
+            parse_day_count("act/act").unwrap(),
             DayCountConvention::ActActIsda
         ));
     }
 
     #[test]
     fn test_parse_frequency() {
-        assert!(matches!(parse_frequency(1), Frequency::Annual));
-        assert!(matches!(parse_frequency(2), Frequency::SemiAnnual));
-        assert!(matches!(parse_frequency(4), Frequency::Quarterly));
+        assert!(matches!(parse_frequency(1).unwrap(), Frequency::Annual));
+        assert!(matches!(parse_frequency(2).unwrap(), Frequency::SemiAnnual));
+        assert!(matches!(parse_frequency(4).unwrap(), Frequency::Quarterly));
     }
 }
