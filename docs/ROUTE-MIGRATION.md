@@ -355,3 +355,23 @@ pricing formulas, calendar resolution and the shared request schema are unchange
 
 Run `cargo run --locked -p convex --example zero_terms` for all field roundtrips,
 unknown/missing/duplicate/type rejections and exact Decimal ingress boundaries.
+
+## Exact supplied term decimals
+
+Bond face and redemption multipliers, dated profile values, principal prices and
+partial amounts, exercise prices and fixing rates decode through the existing
+strict `ExactDecimal` owner. JSON values must be exact decimal strings, including compact fractional forms
+such as `.03` and `-.0500`; raw numbers,
+exponents, overflow and excessive precision are rejected. Native fields remain
+`Decimal`, with their original arithmetic and checked economic admission.
+
+The optional principal amount retains `null` and the existing omitted-field
+meaning. Present values use the same strict decoder. IRS/OIS profiles retain the
+original sequence bound and now use the shared dated-value decoder. The duplicate
+wire struct and rounding parser are removed. Generated field schemas expose the
+same exact-string syntax and size constraints as native ingress.
+
+`cargo run --locked -p convex --example term_decimals` exercises the independent
+metadata controls. Existing valid string-valued terms and financial results retain
+their contracts. This does not supply the remaining stochastic optional models or
+independent production qualification.

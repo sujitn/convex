@@ -333,25 +333,13 @@ impl SwapTerms {
 // Economic Decimal inputs remain exact strings even when workspace serde-float
 // is enabled. Bound profile allocation while decoding rather than afterwards.
 mod exact_profiles {
-    use convex_core::{
-        cashflows::{DatedValue, MAX_SCHEDULE_PERIODS},
-        Date,
-    };
-    use rust_decimal::Decimal;
+    use convex_core::cashflows::{DatedValue, MAX_SCHEDULE_PERIODS};
     use serde::{
         de::{SeqAccess, Visitor},
         ser::SerializeSeq,
-        Deserialize, Deserializer, Serialize, Serializer,
+        Deserializer, Serializer,
     };
-    use std::{fmt, str::FromStr};
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct WireValue {
-        start: Date,
-        end: Date,
-        value: String,
-    }
+    use std::fmt;
 
     pub fn serialize<S: Serializer>(
         values: &[DatedValue],
@@ -362,11 +350,7 @@ mod exact_profiles {
         }
         let mut seq = serializer.serialize_seq(Some(values.len()))?;
         for v in values {
-            seq.serialize_element(&WireValue {
-                start: v.start,
-                end: v.end,
-                value: v.value.to_string(),
-            })?;
+            seq.serialize_element(v)?;
         }
         seq.end()
     }
@@ -380,16 +364,11 @@ mod exact_profiles {
             fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
                 let mut values =
                     Vec::with_capacity(seq.size_hint().unwrap_or(0).min(MAX_SCHEDULE_PERIODS));
-                while let Some(v) = seq.next_element::<WireValue>()? {
-                    if values.len() == MAX_SCHEDULE_PERIODS || v.value.len() > 64 {
+                while let Some(v) = seq.next_element::<DatedValue>()? {
+                    if values.len() == MAX_SCHEDULE_PERIODS {
                         return Err(serde::de::Error::custom("bounded profile/value exceeded"));
                     }
-                    let value = Decimal::from_str(&v.value).map_err(serde::de::Error::custom)?;
-                    values.push(DatedValue {
-                        start: v.start,
-                        end: v.end,
-                        value,
-                    });
+                    values.push(v);
                 }
                 Ok(values)
             }

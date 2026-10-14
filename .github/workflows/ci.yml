@@ -121,6 +121,24 @@ jobs:
       - name: Exercise portable numerical kernels with schema features
         run: cargo run --locked -p convex --example portable_math --features schemars
 
+      - name: Check independently declared exact term decimals
+        run: python3 tests/scripts/term_decimals_reference.py check
+
+      - name: Check independently declared IRS OIS profile decimals
+        run: python3 tests/scripts/swap_term_decimals_reference.py check
+
+      - name: Exercise exact term metadata and ingress rejection
+        run: cargo test --locked -p convex --test term_decimals
+
+      - name: Exercise exact term decimals through the standalone consumer
+        run: cargo run --locked -p convex --example term_decimals
+
+      - name: Exercise exact term decimals without default features
+        run: cargo run --locked -p convex --example term_decimals --no-default-features
+
+      - name: Exercise exact term decimals with schema features
+        run: cargo run --locked -p convex --example term_decimals --features schemars
+
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe
 

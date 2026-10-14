@@ -67,8 +67,11 @@ pub struct ExerciseTerms {
     /// Discrete dates or inclusive continuous window.
     pub style: ExerciseStyle,
     /// Per 100 outstanding principal, Decimal contract price.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::decimal_serde::schema")
+    )]
     pub price_per_100: Decimal,
     /// Nonpositive notice offset from contractual exercise date.
     pub notice_offset: DateOffset,

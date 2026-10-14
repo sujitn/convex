@@ -177,13 +177,19 @@ pub struct PrincipalPrice {
     /// Exact effective internal reduction date.
     pub effective_date: Date,
     /// Redemption multiplier (1 = par), not a per-100 price.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::decimal_serde::schema")
+    )]
     pub multiplier: Decimal,
     /// Optional absolute part retired at this price. The remaining part keeps
     /// its par/final residual price as a separate cashflow, never an average.
-    #[serde(serialize_with = "rust_decimal::serde::str_option::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "Option<String>"))]
+    #[serde(default, with = "convex_core::contracts::decimal_serde::optional")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::decimal_serde::optional::schema")
+    )]
     pub amount: Option<Decimal>,
 }
 
@@ -200,8 +206,11 @@ pub struct BondTerms {
     /// Issue date, distinct from dated/accrual start.
     pub issue_date: Date,
     /// Original face, used for per-original-face quote normalization.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::decimal_serde::schema")
+    )]
     pub face_value: Decimal,
     /// Complete coupon accrual grid with retained irregular references.
     pub schedule: ScheduleSpec,
@@ -222,8 +231,11 @@ pub struct BondTerms {
     /// Principal choice at coupon boundaries.
     pub coupon_principal: CouponPrincipal,
     /// Final residual principal multiplier, distinct from internal repayments.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::decimal_serde::schema")
+    )]
     pub redemption_multiplier: Decimal,
     /// Explicit non-par internal repayments.
     pub principal_prices: Vec<PrincipalPrice>,

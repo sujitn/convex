@@ -31,6 +31,12 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'python3 tests/scripts/term_decimals_reference.py check',
+        'python3 tests/scripts/swap_term_decimals_reference.py check',
+        'cargo test --locked -p convex --test term_decimals',
+        'cargo run --locked -p convex --example term_decimals',
+        'cargo run --locked -p convex --example term_decimals --no-default-features',
+        'cargo run --locked -p convex --example term_decimals --features schemars',
         'python3 tests/scripts/portable_math_reference.py check',
         'cargo test --locked -p convex --test portable_math',
         'cargo run --locked -p convex --example portable_math',
@@ -704,6 +710,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))
     paths.add('crates/convex-portfolio/src/signed_risk.rs')
     paths.add('crates/convex-core/src/contracts/risk.rs')
+    paths.add('crates/convex-core/src/contracts/units.rs')
     paths.update(['crates/convex-ports/src/futures_reference.rs',
                   'crates/convex-ext-file/src/reference_repository.rs',
                   'crates/convex-ext-redb/src/reference_repository.rs'])

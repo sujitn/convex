@@ -29,8 +29,11 @@ pub struct DatedValue {
     /// Exclusive end of the economic value.
     pub end: Date,
     /// Value in the units declared by ProfileKind.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "crate::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::decimal_serde::schema")
+    )]
     pub value: Decimal,
 }
 

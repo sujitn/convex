@@ -36,8 +36,11 @@ pub struct FixingObservation {
     /// Value/observation date, distinct from publication date.
     pub observation_date: Date,
     /// Annualized decimal rate; negative rates are valid within ±10.
-    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
-    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
+    #[serde(with = "crate::contracts::decimal_serde")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::decimal_serde::schema")
+    )]
     pub rate: Decimal,
     /// Actual administrator publication instant.
     pub published_at: UtcTimestamp,

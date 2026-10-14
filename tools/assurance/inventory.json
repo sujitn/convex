@@ -1569,13 +1569,14 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/exercise.rs",
-      "sha256": "04eee3d1ef01b39f39a5ae347f6ef72bc3ee1adf876619386cc4e41c636c1f0b",
-      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation.",
+      "sha256": "020700201f7a72cbee8b4314e53259798d01948c6e4c75d3cdce352e3d84cdf8",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
       "tests": [
         "crates/convex-bonds/tests/bond_contracts.rs",
-        "crates/convex-analytics/tests/bond_contracts.rs"
+        "crates/convex-analytics/tests/bond_contracts.rs",
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     },
@@ -1630,15 +1631,16 @@
     },
     {
       "path": "crates/convex-bonds/src/contracts/terms.rs",
-      "sha256": "b3fea3e2c280a58c342f39548d778c857cfba01ee8cd6707a3e5ad5b5f9f1f84",
-      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged.",
+      "sha256": "a1ca80e6db5da81623a13469b22bed43494d6ef39e3ac67f0c0ee59cd748a39d",
+      "invariants": "CVX-055 checked supplied bond composition retains independent economic/reset/observation/principal/exercise dates, absolute Decimal cash and exact eligible history; expected cash is distinct from realized cash and optional valuation. CVX-059 reviewed impact: strict fixed-coupon JSON rejects unknown payoff fields; term reset slices retain actual construction calendars; checked calibrated optional price/OAS/fixed-model risk is a separate native facade. Existing compatibility routes and quantitative pins remain unqualified and unchanged. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
       "bounds": "Core schedule/profile/exercise entries <=4096; independent reset slices or overnight observations <=65536 per bond, unique fixing requirements <=65536 resolved in batches <=4096; face <=1e18 and offsets <=366 days. Caller calendar/publication/projection callbacks must terminate. No measured capacity or latency guarantee.",
       "failure_contract": "Invalid or conflicting profiles, schedules, dates, currencies, curve roles and history propagate checked errors. Entire missing published history is returned before forecasting. Unsupported segmented overnight, caps/floors and option valuation require explicit separate contracts/models, never averages or synthetic inputs.",
       "tests": [
         "crates/convex-bonds/tests/bond_contracts.rs",
         "crates/convex-analytics/tests/bond_contracts.rs",
         "crates/convex-bonds/tests/hw1f.rs",
-        "crates/convex-analytics/tests/optional_bonds.rs"
+        "crates/convex-analytics/tests/optional_bonds.rs",
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     },
@@ -1961,12 +1963,13 @@
     },
     {
       "path": "crates/convex-core/src/cashflows/profiles.rs",
-      "sha256": "9311374884bcdde5fc8dcf41db83905b7fbb2121b5db58c851154923eafb8246",
-      "invariants": "Immutable sorted contiguous independent coupon/spread/gearing/notional intervals; explicit before/after boundary principal and no unchecked deserialization.",
+      "sha256": "b2d9abd9adb51bfbb3ee916257b064b58f769e9259910430e39fda9d10e61c39",
+      "invariants": "Immutable sorted contiguous independent coupon/spread/gearing/notional intervals; explicit before/after boundary principal and no unchecked deserialization. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
       "bounds": "Each profile<=4096 entries; canonical years1..9999/span<=150*366days; coupon/spread \u00b110, gearing magnitude<=1e6, notional0..1e18. Full nonempty contiguous coverage and private immutable fields bound access.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
       "tests": [
-        "crates/convex-core/tests/cashflow_primitives.rs"
+        "crates/convex-core/tests/cashflow_primitives.rs",
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     },
@@ -2073,15 +2076,16 @@
     },
     {
       "path": "crates/convex-core/src/fixings.rs",
-      "sha256": "76872ab24fb57d44a4dfe544d31b98853ac59c44fa9c703b6ae56ae386b0809a",
-      "invariants": "Immutable source-selected revision history; both publication and receipt <=cutoff; no future observation leakage or missing-published projection; duplicates and inconsistent histories rejected. Reviewed CVX-061 additive impact: CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification.",
+      "sha256": "ae2e0dce8f85e01ad5ee6c249dbbbb74cc01528e1bfafedce001fcf8ec550f24",
+      "invariants": "Immutable source-selected revision history; both publication and receipt <=cutoff; no future observation leakage or missing-published projection; duplicates and inconsistent histories rejected. Reviewed CVX-061 additive impact: CVX-061: closed pure supplied-input construction/requirements/cash/price/inverse/scenario composition over complete original native bond/IRS/OIS/CDS/optional/futures APIs. Actual immutable curves/calendars/histories/publication/model inputs, no repository/provider/clock. Full dated coupon/principal cash, accrued/entitlement and original-face units; explicit dated yield and Z/frozen-projection DM. Floating curve scenarios reproject future cash while due history stays frozen. Clean/dirty original domains and final native residual mandatory. NoRoot, NonUnique, MissingInput, NotApplicable, Unsupported and numerical failures distinct. Signed native quantity/reference/currency scales once; futures unrounded quote levels remain separate from economic PV/posted cash. Complete graph risk retains original quote rebuild/half-step/history/model guards and checks original baseline compatibility. Optional/all-member bond-futures risk stays in the original native guarded routes. Expected trade/factor/gross/FX manifests keep incomplete/all-missing/unknown outcomes; indicative integer hedge never authorizes execution. Capability availability is not certification. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
       "bounds": "Dates1..9999; <=65536 history revisions, <=4096 unique resolution requests; input rates \u00b110 annualized decimal. No clock/repository calls or implicit source arbitration. History sorting/scans bounded by input size; callback must terminate without panic.",
       "failure_contract": "Typed validation/bound/date/arithmetic/MissingFixings errors; no date/rate/amount fallback.",
       "tests": [
         "crates/convex-core/tests/cashflow_primitives.rs",
         "crates/convex-analytics/tests/standalone_workflow.rs",
         "crates/convex/examples/standalone_book.rs",
-        "crates/convex/tests/standalone_book.rs"
+        "crates/convex/tests/standalone_book.rs",
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     },
@@ -3506,14 +3510,15 @@
     },
     {
       "path": "crates/convex-rates/src/terms.rs",
-      "sha256": "0d0486077fe6102a57b148774e3e8bbf48db98d8ed076455b2026da9ef05268a",
-      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency.",
+      "sha256": "6d148c26c6458fe761b2c0487d8e90edb1b368f673f8332d24c581b7511a4f14",
+      "invariants": "CVX-018 supplied swap economics retain independent actual accrual/payment/reset/quotation/observation dates and exact profile/version terms. Payer/receiver signs apply only to expected coupon cash; eligible published resets stay fixed and all missing due history fails before any forecast. Single core schedule/profile/overnight implementations; no runtime/provider/store/clock dependency. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
       "bounds": "Core grids/profiles <=4096, dates 0001..9999 and span <=150*366 days, offsets <=366 and calendar scans <=3660. Total reset slices/overnight observations/unique requirements <=65536; conservative profile/join visits <=16777216. History <=65536, resolution/compounding batches <=4096. Callback termination is a caller precondition; no measured latency/memory certificate.",
       "failure_contract": "Typed invalid/unsupported, missing published history, source/calendar version mismatch, bounds and checked Decimal arithmetic failures yield no partial cash success. Unknown fields/optional payoffs fail strict economic decoding; no forecasting required past rates, no caps/floors, no principal exchanges, no interpolated-stub/segmented-overnight or cross-currency approximation.",
       "tests": [
         "crates/convex-rates/tests/contracts.rs",
         "crates/convex-rates/tests/fixtures/swaps.json",
-        "crates/convex/examples/rates_contracts.rs"
+        "crates/convex/examples/rates_contracts.rs",
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     },
@@ -4548,6 +4553,17 @@
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
         "tests/scripts/portable_math_reference.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-core/src/contracts/units.rs",
+      "sha256": "1f5ab6e91378fd66f94de3e3d643110eae28086deef4dfa56ecae6693dadde78",
+      "invariants": "Existing exact units and strict bounded scalar ownership; no native arithmetic or economic admission changes. Exact supplied Decimal fields use the existing strict string owner; native arithmetic and economic checks remain. No lossy parser or ignored precision.",
+      "bounds": "Original96bit coefficient/28scale/59byte plain string limits; no rounding or exponent normalization.",
+      "failure_contract": "Malformed, raw numeric, overprecision and overflow inputs return serde errors; no successful substitute.",
+      "tests": [
+        "crates/convex/tests/term_decimals.rs"
       ],
       "exceptions": []
     }

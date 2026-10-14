@@ -91,6 +91,75 @@ impl<'de> Deserialize<'de> for ExactDecimal {
     }
 }
 
+/// Strict exact-string serde for native `Decimal` fields without changing their
+/// native arithmetic type. Input syntax and representation are owned by
+/// [`ExactDecimal`]; compact fractional strings retain their exact legacy value
+/// and scale. Economic admission remains with the containing contract.
+pub mod decimal_serde {
+    use super::ExactDecimal;
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Preserve the exact native value and scale as a plain string.
+    pub fn serialize<S: Serializer>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error> {
+        ExactDecimal::new(*value).serialize(serializer)
+    }
+
+    /// Reject raw numbers, unsupported syntax, rounding and overflow.
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Decimal, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        let canonical = if let Some(fraction) = text.strip_prefix("-.") {
+            format!("-0.{fraction}")
+        } else if let Some(fraction) = text.strip_prefix('.') {
+            format!("0.{fraction}")
+        } else {
+            text
+        };
+        ExactDecimal::parse(&canonical)
+            .map(ExactDecimal::decimal)
+            .map_err(serde::de::Error::custom)
+    }
+
+    /// Exact input grammar, including lossless compact fractional aliases.
+    #[cfg(feature = "schemars")]
+    pub fn schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({"type":"string", "minLength":1, "maxLength":59,
+            "pattern":"^-?([0-9]+(\\.[0-9]{1,28})?|\\.[0-9]{1,28})$",
+            "description":"Exact decimal string; compact fractions preserve value and scale. Checked ingress enforces 96-bit coefficient bounds without rounding."})
+    }
+
+    /// Nullable exact decimal fields retain explicit `null` and exact values.
+    pub mod optional {
+        use super::*;
+
+        /// Preserve `None` as `null`; present values use the same exact owner.
+        pub fn serialize<S: Serializer>(
+            value: &Option<Decimal>,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            value.map(ExactDecimal::new).serialize(serializer)
+        }
+
+        /// Present values cannot bypass the strict exact-string decoder.
+        pub fn deserialize<'de, D: Deserializer<'de>>(
+            deserializer: D,
+        ) -> Result<Option<Decimal>, D::Error> {
+            Option::<String>::deserialize(deserializer)?
+                .map(|text| {
+                    super::deserialize(serde::de::value::StringDeserializer::<D::Error>::new(text))
+                })
+                .transpose()
+        }
+
+        /// Nullable exact input with the same compact aliases and checked bounds.
+        #[cfg(feature = "schemars")]
+        pub fn schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+            let scalar = super::schema(generator).to_value();
+            schemars::json_schema!({"anyOf":[scalar,{"type":"null"}]})
+        }
+    }
+}
+
 /// Finite numerical-model scalar. NaN/infinity cannot be constructed or decoded.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(try_from = "f64", into = "f64")]

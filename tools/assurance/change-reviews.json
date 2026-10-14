@@ -3679,6 +3679,37 @@
         "tools/library/api-capabilities.json": "dab0852b4034336c211c4c1519f6f1f63e173f1315380172b9bdf5e33441e7ba",
         "tools/library/library-inventory.json": "19972c05f181948d1da22f457f466823cb4ae55c203ebe664aae4acce3359264"
       }
+    },
+    {
+      "base_commit": "bb53bbbca5af0dc47f56b1d7b1369f31a122321b",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 exact supplied term Decimal ingress: reuse existing ExactDecimal through scalar/nullable serde adapters for seven native Decimal fields and five IRS/OIS dated profile paths. Preserve all native arithmetic, economic admission, metadata fields, optional null/omission and original bounded profiles; remove duplicated rounding profile wire parser. Independently predeclare150complete metadata roundtrips,260invalid/lossy inputs,7duplicate rejections and48compatible compact aliases before the corresponding production grammar repair; retain both first declarations and original positive curve-regression failures, retaining original numeric-ingress failure. Preserve all1640original numerical rows/defaults/files/protected sections,5375requests/80routes and literal30areas/174combinations/2154Planned records. Complete original native models/conventions/claims/operations and advertised convenience scope remains; only unavailable platforms deferred. Independent CVX064/065 and measured production/latency owners remain; authenticated authority remains CVX025/031. No certificate or engineering acceptance promotion.",
+      "tests": [
+        "Independent150complete metadata roundtrips,272strict negative and7duplicate controls; original financial references and full source-body conservation",
+        "Complete actual native/C/Java/wasm32/browser transport and source-bound engineering gates"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "e1ca3506b5029da2f75e5d3b78dfe60ff284fd98f64f2180b70344529431eace",
+        "crates/convex-bonds/src/contracts/exercise.rs": "020700201f7a72cbee8b4314e53259798d01948c6e4c75d3cdce352e3d84cdf8",
+        "crates/convex-bonds/src/contracts/terms.rs": "a1ca80e6db5da81623a13469b22bed43494d6ef39e3ac67f0c0ee59cd748a39d",
+        "crates/convex-core/src/cashflows/profiles.rs": "b2d9abd9adb51bfbb3ee916257b064b58f769e9259910430e39fda9d10e61c39",
+        "crates/convex-core/src/contracts/units.rs": "1f5ab6e91378fd66f94de3e3d643110eae28086deef4dfa56ecae6693dadde78",
+        "crates/convex-core/src/fixings.rs": "ae2e0dce8f85e01ad5ee6c249dbbbb74cc01528e1bfafedce001fcf8ec550f24",
+        "crates/convex-rates/src/terms.rs": "6d148c26c6458fe761b2c0487d8e90edb1b368f673f8332d24c581b7511a4f14",
+        "crates/convex/examples/term_decimals.rs": "9d85d77fb7ce51afa005d856fbd2f4fed521a3c5cc5baa6f41281076c9babc4e",
+        "crates/convex/tests/term_decimals.rs": "66237a9ae40979de3db5a65acaa638a2c221918f8140acc28411770922ae6de4",
+        "docs/ROUTE-MIGRATION.md": "ca2c1ad2edf9c7d86b37a9f6393fec71fe39afa5459c35b9b3923f0390d73f68",
+        "tests/fixtures/library/swap-term-decimals-reference.json": "4654d050f9580662f8d7042b84c3aac6b0ac967b630205838a3d4b486eb446f8",
+        "tests/fixtures/library/term-decimals-reference.json": "c2a41b0f5f283700a15cb49afc8a68674ed58c678722dd9d9b5d243c21b24753",
+        "tests/fixtures/library/term_decimals_contract.rs": "2fe1e2ce3656786a572485a745b44da22406a75f063381a13139c06393992c05",
+        "tests/scripts/swap_term_decimals_reference.py": "b309154ee0136294591aee1b4657e687915d06777a212af062de6c038e0be946",
+        "tests/scripts/term_decimals_reference.py": "93196eb14fb7dacb3f4c3fc5bcca735ad38782adc19a24acf3eae636e169bbbb",
+        "tools/assurance/check.py": "8298839121bb78cca656c0ccd61606a8bb3e3604103cadaf85497f7089a822bb",
+        "tools/assurance/inventory.json": "fbe363792158791e40268dc95827b8b194cdb00af0b17cc806d249d82012a7a1",
+        "tools/assurance/numeric-evidence.json": "bb797d635694242cceebaba6b06e67ca261418acc0d20f4a3b4c9ac7c63fbcc6",
+        "tools/library/library-inventory.json": "8d5f7701068ca77403a715a2efd85a10aadcacfcd9217e81ca3faf1f1d590246"
+      }
     }
   ]
 }
