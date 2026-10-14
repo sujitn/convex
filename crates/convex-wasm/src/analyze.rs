@@ -1,12 +1,17 @@
 //! Checked fixed bond conveniences; prices/risk/accrued are per100, cashflows absolute.
 use crate::bond::{
-    calculate_convention_yield, convert_yas_result, create_bond, create_curve, create_price_bond,
-    get_yield_rules,
+    calculate_dated_yield_quote, create_bond, create_curve, create_price_bond, get_yield_rules,
 };
-use crate::convert::{date_to_naive, decimal_to_f64, f64_to_decimal, finite, parse_date, positive};
+use crate::convert::{
+    decimal_to_f64, f64_to_decimal, finite, format_compounding, format_instrument_type,
+    format_market_name, parse_date, parse_instrument_type, parse_market, positive,
+};
 use crate::dto::{AnalysisResult, CashFlowEntry};
 use crate::ingress::{decode_bond_params, decode_curve_points};
-use convex_analytics::yas::YASCalculator;
+use convex_analytics::{
+    spreads::ZSpreadCalculator,
+    yields::{current_yield_from_amount, simple_yield},
+};
 use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, FixedCouponBond};
 use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
@@ -36,19 +41,63 @@ fn analyze_bond_impl(
     let settlement = parse_date(&params.settlement_date)?;
     let curve = create_curve(settlement, &points)?;
     let rules = get_yield_rules(&params)?;
-    let yas = YASCalculator::new(&curve)
-        .analyze(
-            &bond,
-            date_to_naive(settlement),
-            f64_to_decimal(clean_price)?,
-        )
-        .map_err(|e| format!("Analysis failed: {e}"))?;
-    let mut result = convert_yas_result(&yas, &bond, settlement, &rules, &params)?;
-    result.ytm = Some(finite(
-        calculate_convention_yield(&bond, settlement, clean_price, &rules)? * 100.0,
-        "percent yield",
-    )?);
-    Ok(result)
+    let (yield_rate, risk) = calculate_dated_yield_quote(&bond, settlement, clean_price, &rules)?;
+    let accrued = decimal_to_f64(bond.accrued_interest(settlement))?;
+    let dirty = positive(clean_price + accrued, "dirty price")?;
+    let price_decimal = f64_to_decimal(clean_price)?;
+    let annual_coupon = bond.coupon_rate() * bond.face_value();
+    let days = settlement.days_between(&bond.maturity().ok_or("Missing fixed maturity")?);
+    let years = days as f64 / 365.0;
+    let spread =
+        ZSpreadCalculator::new(&curve).calculate(&bond, f64_to_decimal(dirty)?, settlement);
+    let (z_spread, z_spread_error) = match spread {
+        Ok(value) => (Some(decimal_to_f64(value.as_bps())?), None),
+        Err(error) => (None, Some(error.to_string())),
+    };
+    Ok(AnalysisResult {
+        clean_price: Some(clean_price),
+        dirty_price: Some(dirty),
+        accrued_interest: Some(accrued),
+        ytm: Some(finite(yield_rate * 100.0, "percent dated yield")?),
+        current_yield: Some(decimal_to_f64(
+            current_yield_from_amount(annual_coupon, price_decimal).map_err(|e| e.to_string())?,
+        )?),
+        simple_yield: Some(decimal_to_f64(
+            simple_yield(
+                annual_coupon,
+                price_decimal,
+                bond.redemption_value(),
+                f64_to_decimal(years)?,
+            )
+            .map_err(|e| e.to_string())?,
+        )?),
+        modified_duration: Some(risk.modified_duration),
+        macaulay_duration: Some(risk.macaulay_duration),
+        convexity: Some(risk.convexity),
+        dv01: Some(risk.dv01_loss),
+        z_spread,
+        z_spread_error,
+        days_to_maturity: Some(days),
+        years_to_maturity: Some(years),
+        market: params
+            .market
+            .as_deref()
+            .map(parse_market)
+            .transpose()?
+            .map(format_market_name),
+        instrument_type: params
+            .instrument_type
+            .as_deref()
+            .map(parse_instrument_type)
+            .transpose()?
+            .map(format_instrument_type),
+        yield_convention: Some("Dated cash".into()),
+        compounding_method: Some(format_compounding(rules.compounding)),
+        settlement_days: Some(rules.settlement_rules.days),
+        ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
+        is_ex_dividend: Some(false),
+        ..Default::default()
+    })
 }
 
 /// Projected future cashflows in absolute bond currency; errors are explicit objects.

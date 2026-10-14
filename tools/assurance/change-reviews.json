@@ -3894,6 +3894,38 @@
         "www/src/components/CashFlowTable.jsx": "86c5a21634cb80219ba768b972c8c586c9e76b3660d45d753875f3c609f5cc3c",
         "www/src/styles/bloomberg.css": "823e7219814aa2d7355c7fd511d4d9995697bffd88cf46545c55bf53d2bbeb9d"
       }
+    },
+    {
+      "base_commit": "b11391cc07987f7768d652d31121eb88f89b9c34",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
+      "tests": [
+        "Independent Decimal70 two-cash analytic PV/derivatives on28compounding/rate cases, actual same-price bumps and scale/context/domain failures with unchanged bounds",
+        "Actual original JS mismatch before edits; final native/WASM same-basis price/risk and complete old host/financial/numeric/scope conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "b9cda55a2f6a16721e88e946dbb733d2e0fa1f4f5df376be81af176f71c9e977",
+        "crates/convex-bonds/src/pricing/dated_cash.rs": "269d7addca78952afc4b9f1ef7055d00dc6dc854612aa2f1eb7d84cc60efdb8a",
+        "crates/convex-bonds/src/pricing/mod.rs": "b6971e9d3cd6a8434c82980945d90474aa76c4d076017271cd445bf6a05328a3",
+        "crates/convex-bonds/tests/dated_cash_risk.rs": "f684f9b3cb2f2f329cb836ae2c5c79e1077d4924e2539302523ebe5ab5b094e7",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json": "d4c88551322eb33b795de966f0a2440aca1544fbe96f6a057e8e19c012e52c9c",
+        "crates/convex-wasm/src/analyze.rs": "d93d204d2354b2d80f676a395f8834bcbbe615e618e699785c7f75db0a3ffd08",
+        "crates/convex-wasm/src/bond.rs": "c2fe2f9f0e0340332dd42881c773748b68026dbcecec253cdf618d03eae64499",
+        "crates/convex-wasm/src/convert.rs": "237494b9708ee5777965b3674dcaf51ffe80f1e7829807f92f9f112333492a33",
+        "crates/convex-wasm/src/dated_yield_tests.rs": "9a76fe196d10b5ce04f019e4146a1e36a226c5121c1d03d55f75de653794d296",
+        "crates/convex-wasm/src/dto.rs": "c00a5269106662911abbf58e24c1345aa22196d8f544549b5c9af1ae2670fa7d",
+        "crates/convex-wasm/src/lib.rs": "cec1ce2010aaa6ac19ebc494f27059c4fdf4ca2355cc4dd4183f1b180523158b",
+        "crates/convex-wasm/src/pricing.rs": "4ee0ab61f5c6012af90284e7bed10b13f01e76d303844a72c8ff93874bab2602",
+        "docs/ROUTE-MIGRATION.md": "079312cfb223143d60c9f1fcb5fc89434742564c81bb8cbca20135e95c5d3ec8",
+        "tests/scripts/wasm_dated_yield_risk.cjs": "9bed3cf7c2d4156334f1cbdda1af32dd6e1ce0a51f9086426cfaec22d5b0c152",
+        "tools/assurance/check.py": "603b8d35a30eea08342ff9386ee72beb31367152600625e4d170eb0a3dc90f94",
+        "tools/assurance/inventory.json": "9ea7161d9fe42ce9b390742eaea895da637d7db62f95d298f11aa5b7db7425b2",
+        "tools/assurance/numeric-evidence.json": "4f7568cdb3e679b9fd60261833577fa13081c2192e70d9c6d30e156905b0631e",
+        "tools/library/library-inventory.json": "52c1644d646852daaec1938e8cba04a5e0fda6a01d991dc5116df7f8ac16ff99",
+        "www/src/components/SpreadAnalysis.jsx": "e80bb177a68272494487b5b1dbb5533172d47a69ff89f7f8a5aec424d2f6f81e",
+        "www/src/components/YieldAnalysis.jsx": "955119f7cce64ec05ae34cb2b36834496618dcfaf55ae0ab5bf5c63dc64a6244"
+      }
     }
   ]
 }

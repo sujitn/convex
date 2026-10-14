@@ -41,10 +41,6 @@ pub(crate) fn parse_date(s: &str) -> Result<Date, String> {
     Ok(date)
 }
 
-pub(crate) fn date_to_naive(date: Date) -> chrono::NaiveDate {
-    date.into()
-}
-
 pub(crate) fn parse_day_count(s: &str) -> Result<DayCountConvention, String> {
     DayCountConvention::from_str(s).map_err(|_| format!("Unknown day count: {s}"))
 }

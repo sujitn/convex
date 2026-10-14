@@ -4536,8 +4536,8 @@
     },
     {
       "path": "crates/convex-wasm/src/bond.rs",
-      "sha256": "ca60676636677b8f5dee525b82858165513c632faf62ed0d4ac46d72560ec0a0",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay. Checked finite/exact input conversion, enum parsing, explicit overrides and per100 price/risk vs absolute cash units. Nonfixed classes fail; known broader conventions remain unqualified. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face.",
+      "sha256": "c2fe2f9f0e0340332dd42881c773748b68026dbcecec253cdf618d03eae64499",
+      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay. Checked finite/exact input conversion, enum parsing, explicit overrides and per100 price/risk vs absolute cash units. Nonfixed classes fail; known broader conventions remain unqualified. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
       "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
       "tests": [
@@ -4548,7 +4548,11 @@
         "crates/convex-wasm/src/checked_inputs_tests.rs",
         "tests/scripts/wasm_checked_inputs.cjs",
         "crates/convex-ffi/tests/yas_output_retirement.rs",
-        "tests/scripts/yas_output_retirement.cjs"
+        "tests/scripts/yas_output_retirement.cjs",
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
       ],
       "exceptions": []
     },
@@ -4592,39 +4596,51 @@
     },
     {
       "path": "crates/convex-wasm/src/convert.rs",
-      "sha256": "e0f0313ae3f54de9a656ccfd678e7a26c1efafdaad6cc40774de1b7e2d15830f",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "sha256": "237494b9708ee5777965b3674dcaf51ffe80f1e7829807f92f9f112333492a33",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
         "crates/convex-wasm/src/checked_inputs_tests.rs",
-        "tests/scripts/wasm_checked_inputs.cjs"
+        "tests/scripts/wasm_checked_inputs.cjs",
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-wasm/src/analyze.rs",
-      "sha256": "1ef626a715f722061c70ab55adb870d07f393a98614409bb1c3b3325d5d7abd5",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly.",
+      "sha256": "d93d204d2354b2d80f676a395f8834bcbbe615e618e699785c7f75db0a3ffd08",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
         "crates/convex-wasm/src/checked_inputs_tests.rs",
         "tests/scripts/wasm_checked_inputs.cjs",
         "crates/convex-wasm/src/cash_components_tests.rs",
-        "tests/scripts/wasm_cash_components.cjs"
+        "tests/scripts/wasm_cash_components.cjs",
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-wasm/src/pricing.rs",
-      "sha256": "f2aa227c3ef0a656ff26945b0fa6a82372af2232aa2a0650508085d84fc8d713",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "sha256": "4ee0ab61f5c6012af90284e7bed10b13f01e76d303844a72c8ff93874bab2602",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
         "crates/convex-wasm/src/checked_inputs_tests.rs",
-        "tests/scripts/wasm_checked_inputs.cjs"
+        "tests/scripts/wasm_checked_inputs.cjs",
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
       ],
       "exceptions": []
     },
@@ -4642,8 +4658,8 @@
     },
     {
       "path": "crates/convex-wasm/src/dto.rs",
-      "sha256": "87082bcefd649931e750ce13921e2bf9b96def6c7ad0cc6a90391b189bee125f",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly.",
+      "sha256": "c00a5269106662911abbf58e24c1345aa22196d8f544549b5c9af1ae2670fa7d",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
@@ -4652,7 +4668,25 @@
         "crates/convex-ffi/tests/yas_output_retirement.rs",
         "tests/scripts/yas_output_retirement.cjs",
         "crates/convex-wasm/src/cash_components_tests.rs",
-        "tests/scripts/wasm_cash_components.cjs"
+        "tests/scripts/wasm_cash_components.cjs",
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/pricing/dated_cash.rs",
+      "sha256": "269d7addca78952afc4b9f1ef7055d00dc6dc854612aa2f1eb7d84cc60efdb8a",
+      "invariants": "CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
+      "bounds": "1..4096 sorted future nonnegative cash, positive exposure/PV; finite checked Decimal/year fractions/DF/accumulations. Predeclared independent currency1e-10, duration/convexity1e-11, DV011e-12; original controls unchanged.",
+      "failure_contract": "Typed errors for invalid/mixed/past/zero/unsorted/contextual/nonfinite/domain/overflow inputs or results; no dropped cash/zero substitute. No inferred market or ICMA quotation.",
+      "tests": [
+        "crates/convex-bonds/tests/dated_cash_risk.rs",
+        "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
+        "crates/convex-wasm/src/dated_yield_tests.rs",
+        "tests/scripts/wasm_dated_yield_risk.cjs"
       ],
       "exceptions": []
     }

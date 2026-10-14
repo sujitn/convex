@@ -58,7 +58,6 @@ pub struct AnalysisResult {
     pub ytm: Option<f64>,
     pub current_yield: Option<f64>,
     pub simple_yield: Option<f64>,
-    pub money_market_yield: Option<f64>,
 
     // Risk metrics
     pub modified_duration: Option<f64>,
@@ -68,6 +67,8 @@ pub struct AnalysisResult {
 
     // Spread metrics (in basis points)
     pub z_spread: Option<f64>,
+    /// Explicit unavailable spread diagnostic; yield/risk retain their own checked basis.
+    pub z_spread_error: Option<String>,
 
     // Additional info
     pub days_to_maturity: Option<i64>,

@@ -56,3 +56,6 @@ mod checked_inputs_tests;
 
 #[cfg(test)]
 mod cash_components_tests;
+
+#[cfg(test)]
+mod dated_yield_tests;

@@ -1,8 +1,10 @@
 //! Bond / curve construction and YAS-result conversion shared by analytics and pricing modules.
 
-use convex_analytics::yas::YASResult;
 use convex_bonds::conventions::{ConventionKey, ConventionRegistry};
-use convex_bonds::pricing::{StandardYieldEngine, YieldEngine};
+use convex_bonds::pricing::{
+    dated_cash::{dated_cash_yield_risk, DatedCashYieldRisk},
+    StandardYieldEngine, YieldEngine,
+};
 use convex_bonds::traits::Bond;
 use convex_bonds::types::{
     CompoundingMethod, DayType, ExDivAccruedMethod, ExDividendRules, SettlementRules,
@@ -10,19 +12,18 @@ use convex_bonds::types::{
 };
 use convex_bonds::{prelude::BondIdentifiers, FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
-use convex_core::types::Date;
+use convex_core::types::{Compounding, Date};
 use convex_curves::{
     DiscountCurve, DiscountCurveBuilder, InterpolationMethod, ZeroCurve, ZeroCurveBuilder,
 };
 use convex_math::portable;
 
 use crate::convert::{
-    decimal_to_f64, f64_to_decimal, finite, format_compounding, format_instrument_type,
-    format_market_name, format_yield_convention, parse_compounding, parse_currency, parse_date,
+    decimal_to_f64, f64_to_decimal, finite, parse_compounding, parse_currency, parse_date,
     parse_day_count, parse_frequency, parse_instrument_type, parse_market, parse_yield_convention,
     percentage_to_decimal, positive,
 };
-use crate::dto::{AnalysisResult, BondParams, CurvePoint};
+use crate::dto::{BondParams, CurvePoint};
 
 pub(crate) fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> {
     let issue_date = parse_date(&params.issue_date)?;
@@ -228,101 +229,76 @@ pub(crate) fn create_price_bond(params: &BondParams) -> Result<FixedRateBond, St
     create_bond(&normalized)
 }
 
-/// Calculate yield using StandardYieldEngine with convention rules.
-/// Returns yield as a decimal (e.g., 0.05 for 5%).
-pub(crate) fn calculate_convention_yield(
+/// Explicit context-free dated-cash basis; unsupported market mechanics fail.
+pub(crate) fn dated_yield_compounding(
+    rules: &YieldCalculationRules,
+) -> Result<Compounding, String> {
+    if rules
+        .ex_dividend_rules
+        .as_ref()
+        .is_some_and(|r| r.days != 0)
+    {
+        return Err("Ex-dividend quotation requires full native entitlement/calendar terms".into());
+    }
+    match rules.compounding {
+        CompoundingMethod::Periodic { frequency } if frequency > 0 => {
+            Compounding::try_from_periods_per_year(frequency)
+                .ok_or_else(|| "Unsupported dated yield frequency".into())
+        }
+        CompoundingMethod::Continuous => Ok(Compounding::Continuous),
+        CompoundingMethod::Simple => Ok(Compounding::Simple),
+        CompoundingMethod::ActualPeriod { .. } => {
+            Err("Actual period quotation requires full contextual ICMA references".into())
+        }
+        _ => Err("Discount quotation requires an actual dated bill contract".into()),
+    }
+}
+
+/// Solve and reprice the same cash/rate basis before exposing yield or risk.
+pub(crate) fn calculate_dated_yield_quote(
     bond: &FixedRateBond,
     settlement: Date,
     clean_price: f64,
     rules: &YieldCalculationRules,
-) -> Result<f64, String> {
+) -> Result<(f64, DatedCashYieldRisk), String> {
     positive(clean_price, "clean price")?;
     let cash = bond.try_cash_flows(settlement).map_err(|e| e.to_string())?;
     let accrued = bond.accrued_interest(settlement);
+    let compounding = dated_yield_compounding(rules)?;
+    // Validate native cash and contextual day count before running the retained solver.
+    dated_cash_yield_risk(
+        &cash,
+        settlement,
+        0.0,
+        rules.discount_day_count,
+        compounding,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut solver_rules = rules.clone();
+    solver_rules.accrual_day_count = rules.discount_day_count;
     let result = StandardYieldEngine::default()
         .yield_from_price(
             &cash,
             f64_to_decimal(clean_price)?,
             accrued,
             settlement,
-            rules,
+            &solver_rules,
         )
         .map_err(|e| format!("Convention yield failed: {e}"))?;
-    finite(result.yield_value, "convention yield")
-}
-
-/// Convert a YAS-engine result into the wire-format AnalysisResult, including convention info.
-pub(crate) fn convert_yas_result(
-    result: &YASResult,
-    bond: &FixedRateBond,
-    settlement: Date,
-    rules: &YieldCalculationRules,
-    bond_params: &BondParams,
-) -> Result<AnalysisResult, String> {
-    let (days_to_mat, years_to_mat) = match bond.maturity() {
-        Some(maturity) => {
-            let days = settlement.days_between(&maturity);
-            (days, days as f64 / 365.0)
-        }
-        None => (0, 0.0),
-    };
-
-    let clean_price = decimal_to_f64(result.invoice.clean_price)?;
-    let accrued = decimal_to_f64(result.invoice.accrued_interest)?;
-    let dirty_price = decimal_to_f64(result.invoice.dirty_price)?;
-
-    let market_display = bond_params
-        .market
-        .as_ref()
-        .map(|s| parse_market(s).map(format_market_name))
-        .transpose()?;
-    let instrument_display = bond_params
-        .instrument_type
-        .as_ref()
-        .map(|s| parse_instrument_type(s).map(format_instrument_type))
-        .transpose()?;
-
-    let is_ex_dividend = if let Some(ref ex_rules) = rules.ex_dividend_rules {
-        if let Some(next_coupon) = bond.next_coupon_date(settlement) {
-            let days_to_coupon = settlement.days_between(&next_coupon);
-            days_to_coupon <= ex_rules.days as i64
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    Ok(AnalysisResult {
-        clean_price: Some(clean_price),
-        dirty_price: Some(dirty_price),
-        accrued_interest: Some(accrued),
-
-        ytm: Some(decimal_to_f64(result.ytm)?),
-        current_yield: Some(decimal_to_f64(result.current_yield)?),
-        simple_yield: Some(decimal_to_f64(result.simple_yield)?),
-        money_market_yield: result.money_market_yield.map(decimal_to_f64).transpose()?,
-
-        modified_duration: Some(decimal_to_f64(result.modified_duration())?),
-        macaulay_duration: Some(decimal_to_f64(result.risk.macaulay_duration.years())?),
-        convexity: Some(decimal_to_f64(result.convexity())?),
-        dv01: Some(decimal_to_f64(result.dv01())?),
-
-        z_spread: Some(decimal_to_f64(result.z_spread.as_bps())?),
-
-        days_to_maturity: Some(days_to_mat),
-        years_to_maturity: Some(years_to_mat),
-
-        market: market_display,
-        instrument_type: instrument_display,
-        yield_convention: Some(format_yield_convention(rules.convention)),
-        compounding_method: Some(format_compounding(rules.compounding)),
-        settlement_days: Some(rules.settlement_rules.days),
-        ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
-        is_ex_dividend: Some(is_ex_dividend),
-
-        error: None,
-    })
+    let rate = finite(result.yield_value, "dated yield")?;
+    let risk = dated_cash_yield_risk(
+        &cash,
+        settlement,
+        rate,
+        rules.discount_day_count,
+        compounding,
+    )
+    .map_err(|e| e.to_string())?;
+    let target = finite(clean_price + decimal_to_f64(accrued)?, "dirty yield target")?;
+    if (risk.present_value - target).abs() > 1e-8 {
+        return Err("Dated yield failed the unchanged absolute per100 repricing bound1e-8".into());
+    }
+    Ok((rate, risk))
 }
 
 #[cfg(test)]

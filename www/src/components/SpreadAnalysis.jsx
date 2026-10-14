@@ -60,7 +60,7 @@ function SpreadAnalysis({ analysis, onSpreadChange }) {
             />
             <span className="unit">bps</span>
           </div>
-          <div className="spread-desc">Zero Vol</div>
+          <div className="spread-desc">{analysis?.z_spread_error || 'Zero Vol'}</div>
         </div>
 
       </div>

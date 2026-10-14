@@ -449,3 +449,22 @@ columns are retired. No cash projection is a recorded payment or accepted model
 PV. Invalid non-array cash results clear the dependent display and show the native
 error. Actual native price/risk/P&L routes retain their own full curve roles and
 convention qualification; this cleanup creates no market/model certificate.
+
+
+### Checked dated-cash WASM quote basis
+
+`analyze_bond` and `price_from_yield` share native
+`convex_bonds::pricing::dated_cash::dated_cash_yield_risk`. Its absolute PV and
+annual-rate derivatives use the same entitled cash, settlement-to-payment basis
+and selected compounding. The fixed wrapper normalizes prices/risk per100 face.
+Yield must reprice within1e-8per100 before risk is returned. The result identifies
+`Dated cash`; it does not qualify a named Street/ISMA/tax market convention.
+Missing ICMA reference or ex-dividend calendar/entitlement context fails.
+
+Unrelated legacy YAS risk/money-market yield and the unused YAS result/date
+conversions are removed from this convenience. Full supplied-term native YAS,
+ICMA, money-market, quote-risk/hedge and model APIs remain separate. A missing
+Z-spread is `None` with `z_spread_error`, which the browser displays. No zero
+substitute or erase of valid dated-yield risk. The convenience's distinct legacy
+yield/Z curve representation and broader market mechanics retain their original
+qualification owners; this increment is not a production/model certificate.

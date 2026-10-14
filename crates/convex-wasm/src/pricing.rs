@@ -1,16 +1,12 @@
 //! Checked per100 price inverses with explicit numeric domains and native errors.
 use crate::{
-    bond::{create_discount_curve, create_price_bond, get_yield_rules},
+    bond::{create_discount_curve, create_price_bond, dated_yield_compounding, get_yield_rules},
     convert::{decimal_to_f64, finite, parse_date, percentage_to_decimal, positive},
     dto::PriceFromYieldResult,
     ingress::{decode_bond_params, decode_curve_points},
 };
 use convex_analytics::spreads::ZSpreadCalculator;
-use convex_bonds::{
-    pricing::{StandardYieldEngine, YieldEngine},
-    traits::Bond,
-    types::CompoundingMethod,
-};
+use convex_bonds::{pricing::dated_cash::dated_cash_yield_risk, traits::Bond};
 use wasm_bindgen::prelude::*;
 
 fn failure(error: String) -> PriceFromYieldResult {
@@ -32,28 +28,17 @@ fn price_from_yield_impl(params: JsValue, target_ytm: f64) -> Result<PriceFromYi
     let settlement = parse_date(&params.settlement_date)?;
     let rules = get_yield_rules(&params)?;
     let yield_decimal = decimal_to_f64(percentage_to_decimal(target_ytm)?)?;
-    if let CompoundingMethod::Periodic { frequency } = rules.compounding {
-        if frequency == 0 || 1.0 + yield_decimal / frequency as f64 <= 0.0 {
-            return Err("Yield outside periodic compounding domain".into());
-        }
-    }
     let cash = bond.try_cash_flows(settlement).map_err(|e| e.to_string())?;
-    let dc = rules.accrual_day_count.to_day_count();
-    for flow in &cash {
-        let time = decimal_to_f64(dc.year_fraction(settlement, flow.date))?;
-        if time <= 0.0 {
-            return Err("Positive future cash times required".into());
-        }
-        positive(
-            rules.compounding.discount_factor(yield_decimal, time),
-            "yield discount factor",
-        )?;
-    }
     let accrued = decimal_to_f64(bond.accrued_interest(settlement))?;
-    let dirty = positive(
-        StandardYieldEngine::default().price_from_yield(&cash, yield_decimal, settlement, &rules),
-        "dirty price",
-    )?;
+    let dirty = dated_cash_yield_risk(
+        &cash,
+        settlement,
+        yield_decimal,
+        rules.discount_day_count,
+        dated_yield_compounding(&rules)?,
+    )
+    .map_err(|e| e.to_string())?
+    .present_value;
     let clean = finite(dirty - accrued, "clean price")?;
     Ok(PriceFromYieldResult {
         clean_price: Some(clean),

@@ -17,6 +17,8 @@
 
 /// Explicit checked bank-discount, money-market and fixed-365 bill rates.
 pub mod bill;
+/// Checked absolute dated-cash PV and same-basis analytical yield risk.
+pub mod dated_cash;
 pub mod short_date;
 mod yield_engine;
 pub(crate) mod yield_solver;

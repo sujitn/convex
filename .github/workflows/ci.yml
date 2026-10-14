@@ -127,6 +127,10 @@ jobs:
         run: cargo test --locked -p convex-ffi --test yas_output_retirement
       - name: Check native absolute cash component ownership
         run: cargo test --locked -p convex-wasm --lib cash_components_tests
+      - name: Check dated cash price and analytical yield risk
+        run: cargo test --locked -p convex-bonds --test dated_cash_risk
+      - name: Check WASM same-basis yield quotations
+        run: cargo test --locked -p convex-wasm --lib dated_yield_tests
       - name: Check actual WASM ingress field admission
         run: cargo test --locked -p convex-wasm --lib ingress::tests
       - name: Check WASM numeric inputs and unit ownership

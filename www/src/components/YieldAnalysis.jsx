@@ -193,14 +193,6 @@ function YieldAnalysis({
             </div>
           </div>
 
-          <div className="metric-row">
-            <div className="metric-label">Money Market Yield</div>
-            <div className="metric-value">
-              {analysis?.money_market_yield !== null
-                ? formatPercent(analysis?.money_market_yield)
-                : 'N/A'}
-            </div>
-          </div>
         </div>
 
         {/* Settlement & Maturity Info */}
