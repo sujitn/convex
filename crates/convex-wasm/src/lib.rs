@@ -53,3 +53,6 @@ pub fn init() {
 
 #[cfg(test)]
 mod checked_inputs_tests;
+
+#[cfg(test)]
+mod cash_components_tests;

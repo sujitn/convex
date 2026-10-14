@@ -4604,13 +4604,15 @@
     },
     {
       "path": "crates/convex-wasm/src/analyze.rs",
-      "sha256": "f82cff850d597a08ab9163c69c23082e04f329b831f063386a11e0d608adb123",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection.",
+      "sha256": "1ef626a715f722061c70ab55adb870d07f393a98614409bb1c3b3325d5d7abd5",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
         "crates/convex-wasm/src/checked_inputs_tests.rs",
-        "tests/scripts/wasm_checked_inputs.cjs"
+        "tests/scripts/wasm_checked_inputs.cjs",
+        "crates/convex-wasm/src/cash_components_tests.rs",
+        "tests/scripts/wasm_cash_components.cjs"
       ],
       "exceptions": []
     },
@@ -4640,15 +4642,17 @@
     },
     {
       "path": "crates/convex-wasm/src/dto.rs",
-      "sha256": "a2d96bd607c6e56d7bae40fff0ee4e37592a97a87217a44648d2b4093f4f9f89",
-      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face.",
+      "sha256": "87082bcefd649931e750ce13921e2bf9b96def6c7ad0cc6a90391b189bee125f",
+      "invariants": "Checked finite/exact input conversion and own-field parsing before calculation. No silent unknown enum substitute, decimal round10dp/zero or failed-yield fallback. Price/risk/accrued per100, cash absolute; original face binds redemption; caller overrides survive preset selection. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. Native fixed cash identity selects coupon/principal/fee, using actual redemption for combined cash and checked Decimal before finite JS conversion. Absolute currency components preserve original amount/date; no amount-threshold or100principal inference. Browser uses native components and retires guessed PV/row-index/semiannual/5percent assumptions; invalid cash arrays fail explicitly.",
       "bounds": "Existing native financial owner/solver bounds unchanged; own records bounded16bond/2curve fields and1..4096curve points. No provider/database/MQ/native formula changes.",
       "failure_contract": "Result/typed JS errors for invalid/lossy/unsupported input or failed/nonfinite output; no synthetic zero/empty success. Broader original native conventions/models remain required.",
       "tests": [
         "crates/convex-wasm/src/checked_inputs_tests.rs",
         "tests/scripts/wasm_checked_inputs.cjs",
         "crates/convex-ffi/tests/yas_output_retirement.rs",
-        "tests/scripts/yas_output_retirement.cjs"
+        "tests/scripts/yas_output_retirement.cjs",
+        "crates/convex-wasm/src/cash_components_tests.rs",
+        "tests/scripts/wasm_cash_components.cjs"
       ],
       "exceptions": []
     }

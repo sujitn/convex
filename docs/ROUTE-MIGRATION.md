@@ -434,3 +434,18 @@ invoice face. Estimated benchmark/risk/proceeds hedges and the inert DV10/DV25
 selector are retired. Full-factor supplied instrument hedge APIs retain their
 original risk/model/quantity/eligibility contracts. Windows/Excel execution and
 broader quote-consistent convention/risk qualification remain separate owners.
+
+
+Fixed WASM cash entries now expose `coupon_amount`, `principal_amount` and
+`fee_amount` in absolute bond currency, alongside the original amount/date/type.
+Classification follows actual native `CashFlowType`; combined fixed terminal cash
+uses actual fixed-bond redemption and checked Decimal subtraction. The restricted
+fixed adapter cannot substitute for full supplied-term stepped, floating, optional,
+amortizing or lifecycle cash. Every original native requirement remains.
+
+The browser cash table displays native components and totals. Its5%fallback,
+semiannual/row-index discounting,100principal inference and PV/cumulative-PV
+columns are retired. No cash projection is a recorded payment or accepted model
+PV. Invalid non-array cash results clear the dependent display and show the native
+error. Actual native price/risk/P&L routes retain their own full curve roles and
+convention qualification; this cleanup creates no market/model certificate.

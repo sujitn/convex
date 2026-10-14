@@ -7,7 +7,8 @@ use crate::convert::{date_to_naive, decimal_to_f64, f64_to_decimal, finite, pars
 use crate::dto::{AnalysisResult, CashFlowEntry};
 use crate::ingress::{decode_bond_params, decode_curve_points};
 use convex_analytics::yas::YASCalculator;
-use convex_bonds::traits::{Bond, FixedCouponBond};
+use convex_bonds::traits::{Bond, BondCashFlow, CashFlowType, FixedCouponBond};
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 fn failure(error: String) -> AnalysisResult {
@@ -62,28 +63,44 @@ fn get_cash_flows_impl(params: JsValue) -> Result<Vec<CashFlowEntry>, String> {
     let params = decode_bond_params(params)?;
     let bond = create_bond(&params)?;
     let settlement = parse_date(&params.settlement_date)?;
-    let face = decimal_to_f64(bond.face_value())?;
+    let redemption = bond.redemption_value();
     bond.try_cash_flows(settlement)
         .map_err(|e| e.to_string())?
         .iter()
-        .map(|cf| {
-            let amount = decimal_to_f64(cf.amount)?;
-            let cf_type = if cf.is_principal() && amount >= face / 2.0 {
-                if amount > face {
-                    "coupon_and_principal"
-                } else {
-                    "principal"
-                }
-            } else {
-                "coupon"
-            };
-            Ok(CashFlowEntry {
-                date: cf.date.to_string(),
-                amount,
-                cf_type: cf_type.into(),
-            })
-        })
+        .map(|cf| fixed_cash_flow_entry(cf, redemption))
         .collect()
+}
+
+/// Restricted fixed-bond cash components use native identity and actual redemption.
+pub(crate) fn fixed_cash_flow_entry(
+    cf: &BondCashFlow,
+    redemption: Decimal,
+) -> Result<CashFlowEntry, String> {
+    if redemption <= Decimal::ZERO {
+        return Err("Positive actual fixed redemption required".into());
+    }
+    let zero = Decimal::ZERO;
+    let (kind, coupon, principal, fee) = match cf.flow_type {
+        CashFlowType::Coupon => ("coupon", cf.amount, zero, zero),
+        CashFlowType::Principal => ("principal", zero, cf.amount, zero),
+        CashFlowType::CouponAndPrincipal => (
+            "coupon_and_principal",
+            cf.amount
+                .checked_sub(redemption)
+                .ok_or("Cash component subtraction overflow")?,
+            redemption,
+            zero,
+        ),
+        CashFlowType::Fee => ("fee", zero, zero, cf.amount),
+    };
+    Ok(CashFlowEntry {
+        date: cf.date.to_string(),
+        amount: decimal_to_f64(cf.amount)?,
+        cf_type: kind.into(),
+        coupon_amount: decimal_to_f64(coupon)?,
+        principal_amount: decimal_to_f64(principal)?,
+        fee_amount: decimal_to_f64(fee)?,
+    })
 }
 
 /// Accrued per100 original face, matching the price quote units.

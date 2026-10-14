@@ -8302,6 +8302,16 @@
       "path": "tests/scripts/yas_output_retirement.cjs",
       "mode": "file",
       "sha256": "042aa20d62ed54eabb1cb88dba75a2db26f3eb356b01419597f5cb2f8c7e1313"
+    },
+    {
+      "path": "crates/convex-wasm/src/cash_components_tests.rs",
+      "mode": "file",
+      "sha256": "282e15a2ed5b558cfcce2f00f880bc033ca0a6aba150107497014e0032428cce"
+    },
+    {
+      "path": "tests/scripts/wasm_cash_components.cjs",
+      "mode": "file",
+      "sha256": "a85ac5d8e3b9fda2f8a41bfcac6922db86b12bfa876c053976b7ae6c348ba54a"
     }
   ]
 }

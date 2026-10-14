@@ -125,6 +125,8 @@ jobs:
         run: cargo test --locked -p convex-wasm --test optional_retirement
       - name: Check retired convenience output and schema contracts
         run: cargo test --locked -p convex-ffi --test yas_output_retirement
+      - name: Check native absolute cash component ownership
+        run: cargo test --locked -p convex-wasm --lib cash_components_tests
       - name: Check actual WASM ingress field admission
         run: cargo test --locked -p convex-wasm --lib ingress::tests
       - name: Check WASM numeric inputs and unit ownership

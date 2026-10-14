@@ -844,13 +844,7 @@ body {
   color: var(--accent-orange);
 }
 
-.cashflow-table td.pv {
-  color: var(--accent-blue);
-}
 
-.cashflow-table td.cumulative {
-  color: var(--text-muted);
-}
 
 .cashflow-table td.date-cell {
   font-size: 10px;

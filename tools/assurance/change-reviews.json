@@ -3868,6 +3868,32 @@
         "www/src/components/SpreadAnalysis.jsx": "e9f872155714c68ff571800b16aff482c6c159ec07054ab663bbbb724c132705",
         "www/src/styles/bloomberg.css": "a722a78183fc52d12ca3a74448bd53f371691219d4607377484291d2ad669734"
       }
+    },
+    {
+      "base_commit": "6c8a79a61bb7363133aa5c1657c6f840a3d8ff92",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 native fixed WASM cash components: actual CashFlowType replaces amount thresholds; actual fixed redemption and checked Decimal split combined coupon/principal, preserving absolute amount/date and fee identity without zero substitution. Browser consumes native components; retire5percent fallback/semiannual/row-index PV,100principal assumption, PV/cumulative fields and dead styles. Non-array native cash errors are explicit and clear dependent state. Literal25.015625coupon/1000.625principal/1025.640625terminal and1e-12bounds precede candidate execution across faces/frequencies. Original1659numerical rows/defaults/files/sections remain;2new give1661. Literal30areas/174combinations/2154Planned,80shared/12native/5375requests/228unique mappings1926unmapped remain. Genuine native conventions/models/claims/physical/operations remain required. No capability promotion/acceptance/certificate; only unexecutable platform checks deferred.",
+      "tests": [
+        "Native type/literal/negative/fee/domain components and actualJSnon100face/frequency values at predeclared1e-12bound",
+        "Actual browser native components/error state and retired unsupported PV; original full host/numeric/scope conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "50f6e1e85c142a67af662cbb2809edd8d94271342a67f1c2e434018b5c4c3328",
+        "crates/convex-wasm/src/analyze.rs": "1ef626a715f722061c70ab55adb870d07f393a98614409bb1c3b3325d5d7abd5",
+        "crates/convex-wasm/src/cash_components_tests.rs": "282e15a2ed5b558cfcce2f00f880bc033ca0a6aba150107497014e0032428cce",
+        "crates/convex-wasm/src/dto.rs": "87082bcefd649931e750ce13921e2bf9b96def6c7ad0cc6a90391b189bee125f",
+        "crates/convex-wasm/src/lib.rs": "e0eed9cc4234784ac5fb6d5bc64ac213cf95ff698d4065fb5643dba5a58366be",
+        "docs/ROUTE-MIGRATION.md": "41ac083056bad7471f68ee82473a555da3e0717b5d2993ca13156bb3741d8c9b",
+        "tests/scripts/wasm_cash_components.cjs": "a85ac5d8e3b9fda2f8a41bfcac6922db86b12bfa876c053976b7ae6c348ba54a",
+        "tools/assurance/check.py": "80dd9aca8c24a1e4472fadb2fc571a01f14432efd59ce414e36603c254206e7d",
+        "tools/assurance/inventory.json": "73f889aec6ba71ded4965811e93458ade09668afc8467e75156fe0d421652b20",
+        "tools/assurance/numeric-evidence.json": "a1d86689d8fbcec196db891323bfb062cfc2ec84195ce534d1309f8b0bdb6d24",
+        "tools/library/library-inventory.json": "d82208a76895d72ac4d48e815c4b1fb2a02470d40ef4a6031aaf4de2598baae4",
+        "www/src/App.jsx": "8272814705463954eb810b8ebba986070254c7aa7f219b28ca264405acff2578",
+        "www/src/components/CashFlowTable.jsx": "86c5a21634cb80219ba768b972c8c586c9e76b3660d45d753875f3c609f5cc3c",
+        "www/src/styles/bloomberg.css": "823e7219814aa2d7355c7fd511d4d9995697bffd88cf46545c55bf53d2bbeb9d"
+      }
     }
   ]
 }

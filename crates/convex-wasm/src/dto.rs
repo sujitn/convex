@@ -91,7 +91,13 @@ pub struct AnalysisResult {
 pub struct CashFlowEntry {
     pub date: String,
     pub amount: f64,
-    pub cf_type: String, // "coupon", "principal", "coupon_and_principal"
+    pub cf_type: String, // Actual native coupon/principal/combined/fee identity.
+    /// Absolute coupon cash in bond currency.
+    pub coupon_amount: f64,
+    /// Absolute principal cash in bond currency.
+    pub principal_amount: f64,
+    /// Absolute fee cash in bond currency; no coupon relabelling.
+    pub fee_amount: f64,
 }
 
 /// Curve point for yield curve construction.

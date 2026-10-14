@@ -476,7 +476,13 @@ function App({ wasmModule }) {
 
       // Get cash flows
       const flows = wasmModule.get_cash_flows(bondParams);
-      setCashFlows(flows || []);
+      if (Array.isArray(flows)) {
+        setCashFlows(flows);
+      } else {
+        setCashFlows([]);
+        setAnalysis(null);
+        setError(flows?.error || 'Native cash flow calculation failed');
+      }
 
       // Generate price/yield curve data
       generatePriceYieldCurve(bondParams, curvePoints);
@@ -856,7 +862,6 @@ function App({ wasmModule }) {
           <div className="grid-cell">
             <CashFlowTable
               cashFlows={cashFlows}
-              analysis={analysis}
             />
           </div>
         </div>
