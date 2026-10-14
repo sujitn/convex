@@ -337,3 +337,21 @@ conversion validates its domain and returns the original Decimal exactly.
 Run `cargo run --locked -p convex --example zero_methods` for the independent
 price/inverse/conversion, dates/redemption, purity and typed failure controls.
 This migration does not qualify the remaining convention/model/host scope.
+
+### Lossless direct zero-coupon terms
+
+Direct `ZeroCouponBond` serialization now encodes `issue_price`, `face_value`
+and `redemption_value` as exact plain Decimal **strings**. Optional issue price
+may be null. Use the same strings when decoding; JSON numbers, exponent notation,
+rounding, overflow and more than 28 fractional digits are rejected. This uses
+the existing `ExactDecimal` convention already used by the shared `ZeroInput`.
+
+The direct decoder accepts the ten canonical serialized day-count enum names and
+rejects unknown conventions. It also rejects extra outer fields. Serialized
+`BondIdentifiers` containers reject unknown keys across bond types; connectors
+must map provider data into the declared fields before decoding. Economic
+pricing validation remains in the checked pricing/terms owners. Constructors,
+pricing formulas, calendar resolution and the shared request schema are unchanged.
+
+Run `cargo run --locked -p convex --example zero_terms` for all field roundtrips,
+unknown/missing/duplicate/type rejections and exact Decimal ingress boundaries.

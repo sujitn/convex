@@ -3558,6 +3558,34 @@
         "tools/assurance/numeric-evidence.json": "ce1feb4fa1fcdf0f2b047aa3fff36384f29385f09162c97687cdc976862f9c53",
         "tools/library/library-inventory.json": "1dd654dc274d74a41614cd4d01b952a465be14d97efbdf81c42702fdfc2df2ec"
       }
+    },
+    {
+      "base_commit": "01c29054c73f0dae6a0ca604af685778eed6ef3b",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 lossless raw zero-coupon terms: serialize/decode issue price, face and redemption using existing ExactDecimal strings; retain all11original fields and exact scale. Typed day-count serde replaces two manual mapping helpers and rejects unknown conventions. Raw zero objects and common identifier containers reject ignored fields. Structural metadata decoding stays separate from checked economic/pricing admission. Original151metadata roundtrips/40rejections precede edits;24supplementary ExactDecimal ingress rejections are declared after repair and before their comparison. Preserve every1626old numerical row/file/default and all5375requests/80routes, original30areas/174combinations/2154Planned definitions. Pricing/curve/model/history/bill/Treasury/claim/hedge/CTD bodies, all old positive unit controls, constructors, dependencies and C exports remain. No raw-number compatibility alias, unknown-daycount substitute, ignored payoff or native financial oracle. Existing full shared ZeroInput already uses ExactDecimal; its wire/schema remain unchanged. User authorizes continuing remaining CVX063 local work, retaining unavailable platform checks as deferred with no native-scope waiver; independent certificates/production/latency keep their owners.",
+      "tests": [
+        "Declared151full metadata cases/40rejections and24supplementary exact-ingress boundaries; every original math/kernel body remains exact",
+        "Full old numeric/source/scope/physical conservation; all required fresh actual engineering gates"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "36de65ce854b70c485a23826fae43b700cbbde001bdd55f4e6a569edfdcf5803",
+        "crates/convex-bonds/src/instruments/zero_coupon.rs": "cb1ce48d1e18fb0e685a05ed51c80dbe7e514ae868554617d1c9439bb72512d7",
+        "crates/convex-bonds/src/types/identifiers.rs": "871659c5a30f9c63df645f40cc396a79038124ef3fa4f83ca71bec7b71db9a6e",
+        "crates/convex/examples/zero_terms.rs": "d42d69f636fee5542e940dfdc71a6318823a47cc82ece6a0d9c3c6246ba133a9",
+        "crates/convex/tests/zero_terms.rs": "abdb8388c519851be44f4582cb62194b4d8a4ac4ba7f6ce8981b1db6fb1bace5",
+        "docs/CVX-063-REMAINING.md": "9d085c6b7a04a3661541e6890e0ff61cec8ef03bc3e40cb7a27c9c2925327972",
+        "docs/ROUTE-MIGRATION.md": "f11d22cd74b7200127658503a4dfabbb06cebf5e3634ad6da0567df9bbc5eacc",
+        "tests/fixtures/library/zero-terms-boundaries.json": "16abad2c3f5188201b3e9d0071f56e7953f87c23c1ec6e70e3c8659343e3744d",
+        "tests/fixtures/library/zero-terms-reference.json": "65553df018b74c030cede3f4c82e7403725edd9a96d52768dfac3fcb63e9e7f4",
+        "tests/fixtures/library/zero_terms_contract.rs": "388025a16358a3e7e86aa8dbd970055c7ffff8739d9f21484be609f1d6d32aae",
+        "tests/scripts/zero_terms_boundary_reference.py": "054ce97367fb8ffe9c04789cde959212417b6f0e4a4a11d86ac096f8694440bb",
+        "tests/scripts/zero_terms_reference.py": "dc49d7cb791aa439a7f74b13d66dbc30ea43069fa9a23390c0b0102046a77ad3",
+        "tools/assurance/check.py": "031946a2666c57401a59c23f35a1942fbbce6211af5d8181a7b99ba1b3fb5949",
+        "tools/assurance/inventory.json": "a9bda810c62568682367bbde7b30feef4381fb46a97012c78c33102c4f995459",
+        "tools/assurance/numeric-evidence.json": "cf8d07d8736b497956c6cd0daf0282dc865f71da32f09f073b0b9af6e46cfe99",
+        "tools/library/library-inventory.json": "5f315060b0430c1cfaf5b72d810de7e94ee3cad9304056b5f0f48bb549705c3f"
+      }
     }
   ]
 }

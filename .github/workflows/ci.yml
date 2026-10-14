@@ -87,6 +87,24 @@ jobs:
       - name: Exercise checked zero-coupon methods with schema features
         run: cargo run --locked -p convex --example zero_methods --features schemars
 
+      - name: Check direct zero-coupon metadata declarations
+        run: python3 tests/scripts/zero_terms_reference.py check
+
+      - name: Check exact zero-coupon ingress boundaries
+        run: python3 tests/scripts/zero_terms_boundary_reference.py check
+
+      - name: Exercise lossless zero-coupon metadata and rejections
+        run: cargo test --locked -p convex --test zero_terms
+
+      - name: Exercise lossless zero-coupon terms through the facade
+        run: cargo run --locked -p convex --example zero_terms
+
+      - name: Exercise lossless zero-coupon terms without default features
+        run: cargo run --locked -p convex --example zero_terms --no-default-features
+
+      - name: Exercise lossless zero-coupon terms with schema features
+        run: cargo run --locked -p convex --example zero_terms --features schemars
+
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe
 

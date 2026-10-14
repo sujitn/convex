@@ -611,6 +611,7 @@ impl std::fmt::Display for Sedol {
 /// assert!(ids.cusip().is_some());
 /// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondIdentifiers {
     cusip: Option<Cusip>,
     isin: Option<Isin>,

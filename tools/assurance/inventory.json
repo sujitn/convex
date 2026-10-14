@@ -4232,16 +4232,17 @@
     },
     {
       "path": "crates/convex-bonds/src/instruments/zero_coupon.rs",
-      "sha256": "b6fe8bee931af03fe994c762dfe1616eb848fb7641dbe2f042fe6bc677f977ee",
-      "invariants": "Checked bill and zero-coupon pricing/yield/compounding methods only. Original absolute redemption, active dates and positive cash domains; existing bill units and strict short bound unchanged. Original constructors, serde and Bond trait bodies remain separate unqualified owners.",
-      "bounds": "Selected bill/zero methods delegate constant checked conversion owners and the original checked year-fraction domain; no selected-method panic or successful error fallback.",
+      "sha256": "cb1ce48d1e18fb0e685a05ed51c80dbe7e514ae868554617d1c9439bb72512d7",
+      "invariants": "Checked bill/zero pricing methods and lossless raw zero serde. ExactDecimal issue-price/face/redemption strings, typed canonical day counts and strict fields. Every original other native method and positive unit control remains unchanged.",
+      "bounds": "Constant original pricing delegates and existing exact96bit/plain-decimal bounded ingress; no unknown-field sink or manual default-day-count parser.",
       "failure_contract": "Existing BondResult/AnalyticsResult errors for input/spec/price and arithmetic failure; full original-date Treasury owner is the distinct long/leap convention replacement.",
       "tests": [
         "crates/convex/tests/bill_methods.rs",
         "tests/fixtures/library/bill_methods_contract.rs",
         "tests/scripts/bill_methods_reference.py",
         "tests/scripts/bill_methods_boundary_reference.py",
-        "crates/convex/tests/zero_methods.rs"
+        "crates/convex/tests/zero_methods.rs",
+        "crates/convex/tests/zero_terms.rs"
       ],
       "exceptions": []
     },
@@ -4255,6 +4256,19 @@
         "crates/convex/tests/zero_methods.rs",
         "tests/fixtures/library/zero_methods_contract.rs",
         "tests/scripts/zero_methods_reference.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/types/identifiers.rs",
+      "sha256": "871659c5a30f9c63df645f40cc396a79038124ef3fa4f83ca71bec7b71db9a6e",
+      "invariants": "Strict serialized BondIdentifiers container rejects unknown keys; every original declared identifier field and native method body remains unchanged. Identifier lexical/unchecked accessors retain separate qualification.",
+      "bounds": "Existing typed serde field count and domain strings; no unknown-field sink or added runtime dependency.",
+      "failure_contract": "Serde input error for unknown identifier field; no identifier substitution or silent omission. Pricing and reference-data admission retain their owners.",
+      "tests": [
+        "crates/convex/tests/zero_terms.rs",
+        "tests/fixtures/library/zero_terms_contract.rs",
+        "tests/scripts/zero_terms_reference.py"
       ],
       "exceptions": []
     }

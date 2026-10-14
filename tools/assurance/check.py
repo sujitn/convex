@@ -31,6 +31,12 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'python3 tests/scripts/zero_terms_reference.py check',
+        'python3 tests/scripts/zero_terms_boundary_reference.py check',
+        'cargo test --locked -p convex --test zero_terms',
+        'cargo run --locked -p convex --example zero_terms',
+        'cargo run --locked -p convex --example zero_terms --no-default-features',
+        'cargo run --locked -p convex --example zero_terms --features schemars',
         'python3 tests/scripts/zero_methods_reference.py check',
         'cargo test --locked -p convex --test zero_methods',
         'cargo run --locked -p convex --example zero_methods',
@@ -705,6 +711,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-analytics/src/yields/money_market.rs')
     paths.add('crates/convex-bonds/src/pricing/bill.rs')
     paths.add('crates/convex-bonds/src/pricing/zero.rs')
+    paths.add('crates/convex-bonds/src/types/identifiers.rs')
     paths.add('crates/convex-bonds/src/pricing/short_date.rs')
     paths.add('crates/convex-analytics/src/yields/short_date.rs')
     paths.add('crates/convex-bonds/src/instruments/zero_coupon.rs')

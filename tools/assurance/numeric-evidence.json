@@ -8137,6 +8137,41 @@
       "path": "crates/convex/examples/zero_methods.rs",
       "mode": "file",
       "sha256": "5a9be345756d203a4a021c45617a5c38b0d8d2b26e81a5704e46df8f95bbd620"
+    },
+    {
+      "path": "tests/scripts/zero_terms_reference.py",
+      "mode": "file",
+      "sha256": "dc49d7cb791aa439a7f74b13d66dbc30ea43069fa9a23390c0b0102046a77ad3"
+    },
+    {
+      "path": "tests/scripts/zero_terms_boundary_reference.py",
+      "mode": "file",
+      "sha256": "054ce97367fb8ffe9c04789cde959212417b6f0e4a4a11d86ac096f8694440bb"
+    },
+    {
+      "path": "tests/fixtures/library/zero-terms-reference.json",
+      "mode": "file",
+      "sha256": "65553df018b74c030cede3f4c82e7403725edd9a96d52768dfac3fcb63e9e7f4"
+    },
+    {
+      "path": "tests/fixtures/library/zero-terms-boundaries.json",
+      "mode": "file",
+      "sha256": "16abad2c3f5188201b3e9d0071f56e7953f87c23c1ec6e70e3c8659343e3744d"
+    },
+    {
+      "path": "tests/fixtures/library/zero_terms_contract.rs",
+      "mode": "file",
+      "sha256": "388025a16358a3e7e86aa8dbd970055c7ffff8739d9f21484be609f1d6d32aae"
+    },
+    {
+      "path": "crates/convex/tests/zero_terms.rs",
+      "mode": "file",
+      "sha256": "abdb8388c519851be44f4582cb62194b4d8a4ac4ba7f6ce8981b1db6fb1bace5"
+    },
+    {
+      "path": "crates/convex/examples/zero_terms.rs",
+      "mode": "file",
+      "sha256": "d42d69f636fee5542e940dfdc71a6318823a47cc82ece6a0d9c3c6246ba133a9"
     }
   ]
 }

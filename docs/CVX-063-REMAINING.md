@@ -84,3 +84,8 @@ infallible-method migration; full original operation evidence, conventions,
 models, claims, hedges and available host qualifications still remain required.
 Unexecutable platform checks stay explicitly deferred under the user's latest
 instruction, with their original required economics and completion criteria.
+
+Direct zero-coupon terms now preserve exact Decimal strings and reject unknown
+day-count substitutions or ignored fields. The common identifier container also
+rejects unknown keys. This closes the scoped raw-term losslessness gap; it does
+not complete the remaining original operations, models or host requirements.

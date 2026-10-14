@@ -9,6 +9,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use convex_core::contracts::ExactDecimal;
 use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
@@ -467,38 +468,6 @@ impl Bond for ZeroCouponBond {
     }
 }
 
-// Helper functions for DayCountConvention serialization
-fn day_count_to_string(dc: &DayCountConvention) -> &'static str {
-    match dc {
-        DayCountConvention::Act360 => "Act360",
-        DayCountConvention::Act365Fixed => "Act365Fixed",
-        DayCountConvention::Act365Leap => "Act365Leap",
-        DayCountConvention::ActActIsda => "ActActIsda",
-        DayCountConvention::ActActIcma => "ActActIcma",
-        DayCountConvention::ActActAfb => "ActActAfb",
-        DayCountConvention::Thirty360US => "Thirty360US",
-        DayCountConvention::Thirty360E => "Thirty360E",
-        DayCountConvention::Thirty360EIsda => "Thirty360EIsda",
-        DayCountConvention::Thirty360German => "Thirty360German",
-    }
-}
-
-fn string_to_day_count(s: &str) -> DayCountConvention {
-    match s {
-        "Act360" => DayCountConvention::Act360,
-        "Act365Fixed" => DayCountConvention::Act365Fixed,
-        "Act365Leap" => DayCountConvention::Act365Leap,
-        "ActActIsda" => DayCountConvention::ActActIsda,
-        "ActActIcma" => DayCountConvention::ActActIcma,
-        "ActActAfb" => DayCountConvention::ActActAfb,
-        "Thirty360US" => DayCountConvention::Thirty360US,
-        "Thirty360E" => DayCountConvention::Thirty360E,
-        "Thirty360EIsda" => DayCountConvention::Thirty360EIsda,
-        "Thirty360German" => DayCountConvention::Thirty360German,
-        _ => DayCountConvention::ActActIsda, // Default
-    }
-}
-
 // Custom Serialize implementation for ZeroCouponBond
 impl Serialize for ZeroCouponBond {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -510,14 +479,17 @@ impl Serialize for ZeroCouponBond {
         state.serialize_field("identifiers", &self.identifiers)?;
         state.serialize_field("maturity", &self.maturity)?;
         state.serialize_field("issue_date", &self.issue_date)?;
-        state.serialize_field("issue_price", &self.issue_price)?;
-        state.serialize_field("day_count", &day_count_to_string(&self.day_count))?;
+        state.serialize_field("issue_price", &self.issue_price.map(ExactDecimal::new))?;
+        state.serialize_field("day_count", &self.day_count)?;
         state.serialize_field("compounding", &self.compounding)?;
         state.serialize_field("settlement_days", &self.settlement_days)?;
         state.serialize_field("calendar", &self.calendar)?;
         state.serialize_field("currency", &self.currency)?;
-        state.serialize_field("face_value", &self.face_value)?;
-        state.serialize_field("redemption_value", &self.redemption_value)?;
+        state.serialize_field("face_value", &ExactDecimal::new(self.face_value))?;
+        state.serialize_field(
+            "redemption_value",
+            &ExactDecimal::new(self.redemption_value),
+        )?;
         state.end()
     }
 }
@@ -529,18 +501,19 @@ impl<'de> Deserialize<'de> for ZeroCouponBond {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
         struct ZeroCouponBondData {
             identifiers: BondIdentifiers,
             maturity: Date,
             issue_date: Date,
-            issue_price: Option<Decimal>,
-            day_count: String,
+            issue_price: Option<ExactDecimal>,
+            day_count: DayCountConvention,
             compounding: Compounding,
             settlement_days: u32,
             calendar: CalendarId,
             currency: Currency,
-            face_value: Decimal,
-            redemption_value: Decimal,
+            face_value: ExactDecimal,
+            redemption_value: ExactDecimal,
         }
 
         let data = ZeroCouponBondData::deserialize(deserializer)?;
@@ -548,14 +521,14 @@ impl<'de> Deserialize<'de> for ZeroCouponBond {
             identifiers: data.identifiers,
             maturity: data.maturity,
             issue_date: data.issue_date,
-            issue_price: data.issue_price,
-            day_count: string_to_day_count(&data.day_count),
+            issue_price: data.issue_price.map(ExactDecimal::decimal),
+            day_count: data.day_count,
             compounding: data.compounding,
             settlement_days: data.settlement_days,
             calendar: data.calendar,
             currency: data.currency,
-            face_value: data.face_value,
-            redemption_value: data.redemption_value,
+            face_value: data.face_value.decimal(),
+            redemption_value: data.redemption_value.decimal(),
         })
     }
 }
