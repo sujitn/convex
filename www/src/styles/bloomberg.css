@@ -1252,20 +1252,8 @@ select {
   align-items: center;
 }
 
-.risk-header-labels {
-  display: flex;
-  gap: var(--spacing-lg);
-}
 
-.risk-header-labels span {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
 
-.yield-label {
-  color: var(--accent-yellow);
-}
 
 .risk-table {
   padding: var(--spacing-sm) var(--spacing-md);
@@ -1291,10 +1279,6 @@ select {
   gap: var(--spacing-xs);
 }
 
-.radio-indicator {
-  color: var(--accent-orange);
-  font-size: 8px;
-}
 
 .risk-value {
   width: 80px;
@@ -1325,29 +1309,8 @@ select {
   border-bottom: 1px solid var(--border-light);
 }
 
-.dv-badge {
-  background: var(--accent-orange);
-  color: var(--bg-primary);
-  padding: 1px 4px;
-  font-size: 9px;
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-}
 
-.dv-select {
-  padding: 1px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  width: 40px;
-}
 
-.dv-unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
 
 /* ============================================================================
    Treasury Curve Panel (Compact)

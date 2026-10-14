@@ -68,7 +68,6 @@ pub struct AnalysisResult {
 
     // Spread metrics (in basis points)
     pub z_spread: Option<f64>,
-    pub asw_spread: Option<f64>,
 
     // Additional info
     pub days_to_maturity: Option<i64>,

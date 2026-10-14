@@ -8292,6 +8292,16 @@
       "path": "crates/convex/tests/native_curves.rs",
       "mode": "file",
       "sha256": "01948c4524cd851b2d4749164869207ddd27d23a8685259680e7c42dacaf82c9"
+    },
+    {
+      "path": "crates/convex-ffi/tests/yas_output_retirement.rs",
+      "mode": "file",
+      "sha256": "75a8fddd7f7c9102669f0a31d426c9cf4e29cd587402c0d18e464f0795556513"
+    },
+    {
+      "path": "tests/scripts/yas_output_retirement.cjs",
+      "mode": "file",
+      "sha256": "042aa20d62ed54eabb1cb88dba75a2db26f3eb356b01419597f5cb2f8c7e1313"
     }
   ]
 }

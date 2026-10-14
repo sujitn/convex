@@ -17,7 +17,6 @@ function SpreadAnalysis({ analysis, onSpreadChange }) {
     if (Number.isFinite(number) && onSpreadChange) onSpreadChange(number);
   };
 
-  const formatBps = (value) => value == null ? '---' : Number(value).toFixed(1);
   const spreadClass = (value) => {
     if (value == null) return '';
     if (value > 200) return 'spread-wide';
@@ -62,13 +61,6 @@ function SpreadAnalysis({ analysis, onSpreadChange }) {
             <span className="unit">bps</span>
           </div>
           <div className="spread-desc">Zero Vol</div>
-        </div>
-        <div className={`spread-item ${spreadClass(analysis?.asw_spread)}`}>
-          <div className="spread-label">ASW Spread</div>
-          <div className="spread-value">
-            {formatBps(analysis?.asw_spread)}<span className="unit">bps</span>
-          </div>
-          <div className="spread-desc">Asset Swap</div>
         </div>
 
       </div>

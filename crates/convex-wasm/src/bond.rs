@@ -309,11 +309,6 @@ pub(crate) fn convert_yas_result(
         dv01: Some(decimal_to_f64(result.dv01())?),
 
         z_spread: Some(decimal_to_f64(result.z_spread.as_bps())?),
-        asw_spread: result
-            .asw_spread
-            .as_ref()
-            .map(|s| decimal_to_f64(s.as_bps()))
-            .transpose()?,
 
         days_to_maturity: Some(days_to_mat),
         years_to_maturity: Some(years_to_mat),

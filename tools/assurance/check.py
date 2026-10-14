@@ -32,6 +32,7 @@ TREASURY_RUNS = (
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
         'cargo test --locked -p convex-wasm --test optional_retirement',
+        'cargo test --locked -p convex-ffi --test yas_output_retirement',
         'cargo test --locked -p convex-wasm --lib ingress::tests',
         'cargo test --locked -p convex-wasm --lib checked_inputs_tests',
         'cargo test --locked -p convex-core --test cashflow_primitives',

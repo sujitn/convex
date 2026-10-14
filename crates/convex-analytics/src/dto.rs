@@ -610,10 +610,6 @@ pub struct YasResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub money_market_yield_pct: Option<f64>,
     pub z_spread_bps: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asw_spread_bps: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub oas_bps: Option<f64>,
     pub modified_duration: f64,
     pub macaulay_duration: f64,
     pub convexity: f64,

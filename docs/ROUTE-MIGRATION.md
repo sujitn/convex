@@ -418,3 +418,19 @@ broader Street/ICMA/ex-coupon/stub/tax/workout and quote-consistent risk qualifi
 remains required: these unchanged legacy engines and preset labels are not a
 complete convention certificate. Use full supplied-term/contextual library routes
 for admitted complete economics. No native requirement or authority is waived.
+
+
+The fixed WASM convenience no longer returns `asw_spread`. The v1 YAS response
+and curated schema no longer expose `asw_spread_bps` or the unused `oas_bps`.
+Their browser/Excel grid consumers are removed. The old price-only YAS ASW
+formula binds no complete swap role and does not qualify as asset-swap valuation;
+the retained legacy native diagnostics remain unqualified. Use complete supplied-
+term ASW and optional-model/OAS library operations with actual curve/model roles.
+These native requirements remain required; retirement does not waive them.
+
+The browser risk panel displays supplied native measures, without substituting
+zero before calculation. DV01 loss per100face scales to the explicitly supplied
+invoice face. Estimated benchmark/risk/proceeds hedges and the inert DV10/DV25
+selector are retired. Full-factor supplied instrument hedge APIs retain their
+original risk/model/quantity/eligibility contracts. Windows/Excel execution and
+broader quote-consistent convention/risk qualification remain separate owners.

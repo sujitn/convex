@@ -480,10 +480,6 @@ namespace Convex.Excel
                 var mmy = (double?)r["money_market_yield_pct"];
                 if (mmy.HasValue) rows.Add(("MM Yield (%)", mmy.Value));
                 rows.Add(("Z-Spread (bps)", (double?)r["z_spread_bps"] ?? double.NaN));
-                var asw = (double?)r["asw_spread_bps"];
-                if (asw.HasValue) rows.Add(("ASW (bps)", asw.Value));
-                var oas = (double?)r["oas_bps"];
-                if (oas.HasValue) rows.Add(("OAS (bps)", oas.Value));
                 rows.Add(("Modified Duration", (double?)r["modified_duration"] ?? double.NaN));
                 rows.Add(("Macaulay Duration", (double?)r["macaulay_duration"] ?? double.NaN));
                 rows.Add(("Convexity", (double?)r["convexity"] ?? double.NaN));

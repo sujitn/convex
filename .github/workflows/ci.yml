@@ -123,6 +123,8 @@ jobs:
 
       - name: Reject retired callable WASM convenience inputs
         run: cargo test --locked -p convex-wasm --test optional_retirement
+      - name: Check retired convenience output and schema contracts
+        run: cargo test --locked -p convex-ffi --test yas_output_retirement
       - name: Check actual WASM ingress field admission
         run: cargo test --locked -p convex-wasm --lib ingress::tests
       - name: Check WASM numeric inputs and unit ownership

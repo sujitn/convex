@@ -3839,6 +3839,35 @@
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/test_native_operations.py": "3cbd7cd4d83d21787529cbf1e023097b73302346d8d5c8a1972f6133c3c0dc3d"
       }
+    },
+    {
+      "base_commit": "444feef0df0c3a7304a6221bd57ec105ec1c61fd",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 convenience output retirement: remove unbound price-only ASW from WASM/v1YAS wire types, curated schema and browser/Excel grid callers; remove unused v1YAS OAS output. Retained legacy native YAS diagnostics stay unqualified, while genuine complete native/library ASW/OAS/model/risk/hedge requirements remain. Browser supplies native measures without zero substitution and scales per100DV01 loss to explicit invoice face; estimated benchmark/risk/proceeds hedges, inert DV10/DV25 selector and seven dead style blocks are removed. Actual C/JS output/schema and browser controls qualify this scoped retirement. All1657old numerical rows/defaults/files/sections remain;2new give1659. All30areas/174combinations/2154Planned,80shared/12native/5375requests/228unique mapped1926unmapped remain. No native requirement waiver or independent approval. Excel source cleanup is reviewable but Windows/Excel execution remains deferred.",
+      "tests": [
+        "Actual C response/schema absence and generated JS fixed outputs across95/100/105",
+        "Actual browser missing metrics/explicit invoice face/retired estimates and available full transport/numerical/scope conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "82d9a37e5320bdd577194b9894a5f534ba76a71f03fe625177f2c0d211f4cc63",
+        "crates/convex-analytics/src/dto.rs": "1ae6f520c9bc5c62d1e51b229ae601f2e3c8c33c6764619c997235978d5ce920",
+        "crates/convex-ffi/src/dispatch.rs": "2e45a048c0901eb8ad24f12bdc0c6260ed7eafbc436ef42d3a208c959a68a108",
+        "crates/convex-ffi/src/schemas.rs": "e8ddbd1ff029c227bbdf2ff7a0d2b4b03d43cf8bcb32f1e5ab80f5bc1ffffb6b",
+        "crates/convex-ffi/tests/yas_output_retirement.rs": "75a8fddd7f7c9102669f0a31d426c9cf4e29cd587402c0d18e464f0795556513",
+        "crates/convex-wasm/src/bond.rs": "ca60676636677b8f5dee525b82858165513c632faf62ed0d4ac46d72560ec0a0",
+        "crates/convex-wasm/src/dto.rs": "a2d96bd607c6e56d7bae40fff0ee4e37592a97a87217a44648d2b4093f4f9f89",
+        "docs/ROUTE-MIGRATION.md": "0bb0f2465ab3721c95044bf4d2ce7312c323b5cf4c58e5e974a066710974e9b4",
+        "excel/Convex.Excel/Functions.cs": "3a2e4c4746dc7b1c5f05fdd1f7af9a631bc16f9f00b1c81b621158b51d29cbef",
+        "tests/scripts/yas_output_retirement.cjs": "042aa20d62ed54eabb1cb88dba75a2db26f3eb356b01419597f5cb2f8c7e1313",
+        "tools/assurance/check.py": "ec65f4d7d87820d91091759fbfd3d84c59a7937f458da8de507fc7f8ec699602",
+        "tools/assurance/inventory.json": "c8a4520af1c3fc57398b2c18066a9a0cf5f5c358182079b0606a96314dad4ca3",
+        "tools/assurance/numeric-evidence.json": "d5dc694fbcf9e713eebdd21c446ecb94fe9d7513c04bdd65e85c0553083470a7",
+        "tools/library/library-inventory.json": "661524fc0569f05ad6a0f700d590cde6571ec5485878a10a28f70b01ee60e134",
+        "www/src/components/RiskMetrics.jsx": "65012949610d133a95e48430da970c662d5b17835c574e1e46a0f05802176691",
+        "www/src/components/SpreadAnalysis.jsx": "e9f872155714c68ff571800b16aff482c6c159ec07054ab663bbbb724c132705",
+        "www/src/styles/bloomberg.css": "a722a78183fc52d12ca3a74448bd53f371691219d4607377484291d2ad669734"
+      }
     }
   ]
 }

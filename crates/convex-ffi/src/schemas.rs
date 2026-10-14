@@ -266,8 +266,6 @@ const YAS_RESPONSE: &str = r##"{
     "simple_yield_pct": {"type": "number"},
     "money_market_yield_pct": {"type": ["number","null"]},
     "z_spread_bps": {"type": "number"},
-    "asw_spread_bps": {"type": ["number","null"]},
-    "oas_bps": {"type": ["number","null"]},
     "modified_duration": {"type": "number"},
     "macaulay_duration": {"type": "number"},
     "convexity": {"type": "number"},
