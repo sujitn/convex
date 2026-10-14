@@ -31,6 +31,12 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'python3 tests/scripts/bill_methods_reference.py check',
+        'python3 tests/scripts/bill_methods_boundary_reference.py check',
+        'cargo test --locked -p convex --test bill_methods',
+        'cargo run --locked -p convex --example bill_methods',
+        'cargo run --locked -p convex --example bill_methods --no-default-features',
+        'cargo run --locked -p convex --example bill_methods --features schemars',
         'python3 tests/scripts/simple_bill_reference.py check',
         'cargo test --locked -p convex-analytics --test simple_bill_yield',
         'python3 tools/assurance/check.py',
@@ -692,6 +698,10 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-analytics/src/curve_inputs.rs')
     paths.add('crates/convex-analytics/src/yields/treasury_bill.rs')
     paths.add('crates/convex-analytics/src/yields/money_market.rs')
+    paths.add('crates/convex-bonds/src/pricing/bill.rs')
+    paths.add('crates/convex-bonds/src/pricing/short_date.rs')
+    paths.add('crates/convex-analytics/src/yields/short_date.rs')
+    paths.add('crates/convex-bonds/src/instruments/zero_coupon.rs')
     paths.add('crates/convex-analytics/src/swap_calibration.rs')
     paths.update(['crates/convex-analytics/src/credit_calibration.rs',
                   'crates/convex-analytics/src/credit_risk.rs'])

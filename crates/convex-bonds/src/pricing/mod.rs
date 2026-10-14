@@ -10,14 +10,19 @@
 //! ```compile_fail
 //! use convex_bonds::pricing::bond_equivalent_yield;
 //! ```
+//!
+//! ```compile_fail
+//! let _ = convex_bonds::pricing::discount_yield(99.0, 100.0, 90);
+//! ```
 
+/// Explicit checked bank-discount, money-market and fixed-365 bill rates.
+pub mod bill;
 pub mod short_date;
 mod yield_engine;
 pub(crate) mod yield_solver;
 
 pub use short_date::{RollForwardMethod, ShortDateCalculator};
 pub use yield_engine::{
-    current_yield_simple, discount_yield, simple_yield, StandardYieldEngine, YieldEngine,
-    YieldEngineResult,
+    current_yield_simple, simple_yield, StandardYieldEngine, YieldEngine, YieldEngineResult,
 };
 pub use yield_solver::{current_yield, current_yield_from_bond, YieldResult, YieldSolver};

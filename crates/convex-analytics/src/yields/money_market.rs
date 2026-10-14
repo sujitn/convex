@@ -245,22 +245,11 @@ pub fn discount_yield(
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
-
-    if face_value <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "face value must be positive".to_string(),
-        ));
-    }
-
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-    let dy = discount / face_value * (dec!(360) / days) * dec!(100);
-    Ok(dy)
+    bill_percent(convex_bonds::pricing::bill::bank_discount_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
 }
 
 /// Calculate a fixed-365 simple yield for instruments of at most 182 days.
@@ -285,43 +274,11 @@ pub fn bond_equivalent_yield(
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
-
-    if price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
-    }
-
-    if face_value <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "face value must be positive".to_string(),
-        ));
-    }
-
-    if days_to_maturity > 182 {
-        return Err(AnalyticsError::InvalidInput(
-            "long-bill quotation requires original issue, settlement and maturity dates; use quote_treasury_bill".to_string(),
-        ));
-    }
-
-    let overflow = || {
-        AnalyticsError::CalculationFailed(
-            "short-bill yield exceeds Decimal arithmetic domain".into(),
-        )
-    };
-    let discount = face_value.checked_sub(price).ok_or_else(overflow)?;
-    let gain = discount.checked_div(price).ok_or_else(overflow)?;
-    let basis = dec!(365)
-        .checked_div(Decimal::from(days_to_maturity))
-        .ok_or_else(overflow)?;
-    gain.checked_mul(basis)
-        .and_then(|rate| rate.checked_mul(dec!(100)))
-        .ok_or_else(overflow)
+    bill_percent(convex_bonds::pricing::bill::simple_bill_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
 }
 
 /// Calculate CD equivalent yield.
@@ -338,22 +295,32 @@ pub fn cd_equivalent_yield(
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
+    bill_percent(convex_bonds::pricing::bill::money_market_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
+}
 
-    if price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
+pub(super) fn bill_error(error: convex_bonds::BondError) -> AnalyticsError {
+    match error {
+        convex_bonds::BondError::InvalidSpec { reason }
+        | convex_bonds::BondError::InvalidPrice { reason } => AnalyticsError::InvalidInput(reason),
+        convex_bonds::BondError::PricingFailed { reason } => {
+            AnalyticsError::CalculationFailed(reason)
+        }
+        other => AnalyticsError::BondError(other.to_string()),
     }
+}
 
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-    let cd = discount / price * (dec!(360) / days) * dec!(100);
-    Ok(cd)
+fn bill_percent(rate: convex_bonds::BondResult<Decimal>) -> AnalyticsResult<Decimal> {
+    rate.map_err(bill_error)?
+        .checked_mul(dec!(100))
+        .ok_or_else(|| {
+            AnalyticsError::CalculationFailed(
+                "bill percent rate exceeds Decimal arithmetic domain".into(),
+            )
+        })
 }
 
 // ============================================================================

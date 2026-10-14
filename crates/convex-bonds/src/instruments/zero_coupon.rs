@@ -394,60 +394,43 @@ impl ZeroCouponBond {
         Decimal::try_from(yield_rate).unwrap_or(Decimal::ZERO)
     }
 
-    /// Calculates the discount yield (money market convention).
+    /// Checked explicit 360 bank-discount yield, as a decimal fraction.
     ///
-    /// Used for T-Bills and other money market instruments.
+    /// Requires active original issue/settlement/maturity and positive face
+    /// redemption. Generic non-face-redemption zero quotations use their own
+    /// pricing owner. This method does not infer a currency's market convention.
     ///
     /// Discount Yield = (Face - Price) / Face * (360 / Days)
-    #[must_use]
-    pub fn discount_yield(&self, price: Decimal, settlement: Date) -> Decimal {
-        if settlement >= self.maturity || price.is_zero() {
-            return Decimal::ZERO;
-        }
-
-        let days = settlement.days_between(&self.maturity);
-        if days <= 0 {
-            return Decimal::ZERO;
-        }
-
-        let discount = (self.face_value - price) / self.face_value;
-        discount * Decimal::from(360) / Decimal::from(days)
+    pub fn discount_yield(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
+        let days = self.bill_quote_days(settlement)?;
+        crate::pricing::bill::bank_discount_yield(price, self.face_value, days)
     }
 
-    /// Calculates the bond equivalent yield from discount yield.
+    /// Checked fixed-365 simple price-basis yield, as a decimal fraction.
     ///
-    /// Converts discount yield to semi-annual bond equivalent for
-    /// comparison with coupon-bearing securities.
-    #[must_use]
-    pub fn bond_equivalent_yield(&self, price: Decimal, settlement: Date) -> Decimal {
-        if settlement >= self.maturity || price.is_zero() {
-            return Decimal::ZERO;
+    /// Requires active original dates, face redemption and at most 182 remaining
+    /// days. Treasury investment-rate quotations, including leap-year short bills
+    /// and all long bills, require the separate complete dated Treasury API.
+    pub fn bond_equivalent_yield(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
+        let days = self.bill_quote_days(settlement)?;
+        crate::pricing::bill::simple_bill_yield(price, self.face_value, days)
+    }
+
+    fn bill_quote_days(&self, settlement: Date) -> BondResult<i64> {
+        if self.issue_date >= self.maturity {
+            return Err(BondError::invalid_spec(
+                "bill requires an original issue date before maturity",
+            ));
         }
-
-        let days = settlement.days_between(&self.maturity) as f64;
-        if days <= 0.0 {
-            return Decimal::ZERO;
+        if settlement < self.issue_date || settlement >= self.maturity {
+            return Err(BondError::invalid_spec(
+                "bill settlement must be on or after issue and strictly before maturity",
+            ));
         }
-
-        let price_f = price.to_string().parse::<f64>().unwrap_or(100.0);
-        let face = self.face_value.to_string().parse::<f64>().unwrap_or(100.0);
-
-        // For T-Bills with less than 6 months to maturity
-        let bey = if days <= 182.0 {
-            (face - price_f) / price_f * (365.0 / days)
-        } else {
-            // For longer maturities, use the quadratic formula
-            let x = days / 365.0;
-            let y = face / price_f;
-            let discriminant = x * x - (2.0 * x - 1.0) * (1.0 - y);
-            if discriminant < 0.0 {
-                0.0
-            } else {
-                2.0 * (discriminant.sqrt() - x) / (2.0 * x - 1.0)
-            }
-        };
-
-        Decimal::try_from(bey).unwrap_or(Decimal::ZERO)
+        if self.redemption_value != self.face_value {
+            return Err(BondError::invalid_spec("bill conversions require face redemption; use the complete zero quote for other redemption economics"));
+        }
+        Ok(settlement.days_between(&self.maturity))
     }
 
     /// Calculates the implied continuously compounded rate.
@@ -764,8 +747,12 @@ impl ZeroCouponBondBuilder {
     /// Applies US Treasury bill conventions.
     ///
     /// - Day count: ACT/360
-    /// - Compounding: Semi-annual (for BEY)
+    /// - Compounding: Semi-annual for generic zero quotation metadata
     /// - Settlement: T+1
+    ///
+    /// This construction preset does not implement Treasury investment-rate
+    /// quotation. Use the complete dated Treasury API for that convention;
+    /// bill-method settlement is supplied explicitly, without applying this lag.
     #[must_use]
     pub fn us_treasury_bill(mut self) -> Self {
         self.day_count = Some(DayCountConvention::Act360);
@@ -1035,7 +1022,7 @@ mod tests {
             .unwrap();
 
         let settlement = date(2024, 3, 17);
-        let discount_yield = bond.discount_yield(dec!(98.75), settlement);
+        let discount_yield = bond.discount_yield(dec!(98.75), settlement).unwrap();
 
         // Discount yield = (100 - 98.75) / 100 * 360 / 90 = 0.05 = 5%
         assert!(discount_yield > dec!(0.049));

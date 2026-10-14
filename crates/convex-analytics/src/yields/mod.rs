@@ -10,6 +10,12 @@
 //! use convex_analytics::yields::bond_equivalent_yield_simple;
 //! ```
 //!
+//! The unchecked floating-point discount helper is also removed:
+//!
+//! ```compile_fail
+//! let _ = convex_analytics::yields::discount_yield_simple(99.0, 100.0, 90);
+//! ```
+//!
 //! # Yield Types
 //!
 //! - **Yield-to-Maturity (YTM)**: Internal rate of return assuming all cash flows
@@ -74,8 +80,7 @@ pub mod treasury_bill;
 // Re-export all public types and functions
 pub use current::{current_yield, current_yield_from_amount, current_yield_from_bond};
 pub use engine::{
-    current_yield_simple, discount_yield_simple, simple_yield_f64, StandardYieldEngine,
-    YieldEngine, YieldEngineResult,
+    current_yield_simple, simple_yield_f64, StandardYieldEngine, YieldEngine, YieldEngineResult,
 };
 pub use money_market::{
     bond_equivalent_yield, cd_equivalent_yield, discount_yield, money_market_yield,

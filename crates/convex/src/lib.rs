@@ -39,6 +39,8 @@ pub use convex_analytics::swap_calibration;
 pub use convex_analytics::workflow;
 /// Explicit supplied-date Treasury bill quotation, inverse and signed quote risk.
 pub use convex_analytics::yields::treasury_bill;
+/// Checked explicit 360/fixed-365 bill rate conversions, in decimal units.
+pub use convex_bonds::pricing::bill as bill_yield;
 pub use convex_core::calendars::BusinessDayConvention;
 pub use convex_core::contracts;
 pub use convex_core::daycounts::DayCountConvention;

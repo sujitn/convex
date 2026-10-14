@@ -56,6 +56,12 @@ and `convex_bonds::pricing::bond_equivalent_yield` are removed. Use the dated
 Treasury route for investment-rate quotation, including short bills with an
 issue-year basis of366. See [the migration guide](ROUTE-MIGRATION.md).
 
+The remaining bill object methods now return checked `Result<Decimal>` and
+delegate to `convex::bill_yield`, with explicit 360/fixed-365 meanings. The old
+floating-point discount exports are removed. These generic conversions do not
+select Treasury investment-rate conventions from the bond builder's presets;
+the dated Treasury owner retains that complete original-date calculation.
+
 Independent Decimal60 controls, actual short/long/leap/seasoned/par/
 premium cases, both inverses, h/h2 sensitivities and typed failures can be run:
 

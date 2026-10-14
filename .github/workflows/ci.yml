@@ -54,6 +54,24 @@ jobs:
       - name: Reject unsupported long-bill proxies and cash overflow
         run: cargo test --locked -p convex-analytics --test simple_bill_yield
 
+      - name: Check independent bill object conversion references
+        run: python3 tests/scripts/bill_methods_reference.py check
+
+      - name: Check exact bill rate-pole references
+        run: python3 tests/scripts/bill_methods_boundary_reference.py check
+
+      - name: Exercise checked bill object admission and units
+        run: cargo test --locked -p convex --test bill_methods
+
+      - name: Exercise checked bill conversions through the standalone facade
+        run: cargo run --locked -p convex --example bill_methods
+
+      - name: Exercise checked bill conversions without default features
+        run: cargo run --locked -p convex --example bill_methods --no-default-features
+
+      - name: Exercise checked bill conversions with schema features
+        run: cargo run --locked -p convex --example bill_methods --features schemars
+
       - name: Exercise standalone public APIs with default features
         run: cargo run --locked -p convex --example inventory_probe
 

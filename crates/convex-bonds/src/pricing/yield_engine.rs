@@ -465,17 +465,6 @@ pub fn simple_yield(annual_coupon: f64, clean_price: f64, years_to_maturity: f64
     (annual_coupon + capital_gain) / clean_price
 }
 
-/// Calculate discount yield (T-Bill convention).
-///
-/// Discount Yield = (Face - Price) / Face × (360 / Days)
-#[must_use]
-pub fn discount_yield(price: f64, face: f64, days_to_maturity: i64) -> f64 {
-    if face <= 0.0 || days_to_maturity <= 0 {
-        return 0.0;
-    }
-    ((face - price) / face) * (360.0 / days_to_maturity as f64)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -729,8 +718,8 @@ mod tests {
     #[test]
     fn test_discount_yield() {
         // 3-month T-Bill at 99
-        let dy = discount_yield(99.0, 100.0, 90);
-        assert!(dy > 0.0);
-        assert!(dy < 0.05);
+        let dy = super::super::bill::bank_discount_yield(dec!(99), dec!(100), 90).unwrap();
+        assert!(dy > dec!(0));
+        assert!(dy < dec!(0.05));
     }
 }

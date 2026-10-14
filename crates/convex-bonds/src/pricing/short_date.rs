@@ -13,6 +13,7 @@ use rust_decimal::Decimal;
 
 use convex_core::types::Date;
 
+use crate::error::BondResult;
 use crate::types::YieldCalculationRules;
 
 /// Roll-forward methodology for short-dated bonds.
@@ -122,57 +123,25 @@ impl ShortDateCalculator {
     /// Calculates money market yield from price and days to maturity.
     ///
     /// Money market yield = (Face - Price) / Price * (360 / Days)
-    #[must_use]
     pub fn money_market_yield(
         &self,
         price: Decimal,
         face_value: Decimal,
         days_to_maturity: i64,
-    ) -> Decimal {
-        if price.is_zero() || days_to_maturity <= 0 {
-            return Decimal::ZERO;
-        }
-
-        let gain = face_value - price;
-        let days = Decimal::from(days_to_maturity);
-        let year_basis = Decimal::from(360);
-
-        (gain / price) * (year_basis / days)
+    ) -> BondResult<Decimal> {
+        super::bill::money_market_yield(price, face_value, days_to_maturity)
     }
 
     /// Calculates bond equivalent yield from money market yield.
     ///
-    /// Converts discount basis to semi-annual bond basis.
-    #[must_use]
+    /// Convert an explicit decimal price-basis 360 rate to fixed-365 simple
+    /// yield. Invalid domains, long terms and arithmetic failures return errors.
     pub fn bond_equivalent_yield(
         &self,
         money_market_yield: Decimal,
         days_to_maturity: i64,
-    ) -> Decimal {
-        if days_to_maturity <= 0 {
-            return Decimal::ZERO;
-        }
-
-        // BEY = (365 / Days) * (Face - Price) / Price
-        // For < 182 days: BEY = 365/360 * MMY * (360/Days) / (1 - MMY * Days/360)
-        let days = Decimal::from(days_to_maturity);
-        let year_basis = Decimal::from(365);
-        let mm_basis = Decimal::from(360);
-
-        if days <= Decimal::from(182) {
-            // Simple formula for < 6 months
-            money_market_yield * year_basis / mm_basis
-        } else {
-            // Quadratic formula for >= 6 months
-            // More complex calculation involving semi-annual compounding
-            let factor = days / year_basis;
-            let two = Decimal::from(2);
-
-            // Simplified: use linear approximation
-            let approx = money_market_yield * year_basis / mm_basis;
-            let compound_adj = Decimal::ONE + factor * approx / two;
-            approx / compound_adj
-        }
+    ) -> BondResult<Decimal> {
+        super::bill::simple_bill_yield_from_money_market(money_market_yield, days_to_maturity)
     }
 
     /// Calculates years to maturity from settlement and maturity dates.
@@ -218,7 +187,7 @@ mod tests {
         let calc = ShortDateCalculator::default();
 
         // 3-month T-bill: Price 99.5, Face 100, 90 days
-        let mmy = calc.money_market_yield(dec!(99.5), dec!(100), 90);
+        let mmy = calc.money_market_yield(dec!(99.5), dec!(100), 90).unwrap();
 
         // MMY = (100 - 99.5) / 99.5 * 360/90 = 0.5/99.5 * 4 = 2.01%
         assert!(mmy > dec!(0.019) && mmy < dec!(0.021));
@@ -229,7 +198,7 @@ mod tests {
         let calc = ShortDateCalculator::default();
 
         let mmy = dec!(0.02); // 2% money market yield
-        let bey = calc.bond_equivalent_yield(mmy, 90);
+        let bey = calc.bond_equivalent_yield(mmy, 90).unwrap();
 
         // BEY should be higher due to 365/360 adjustment
         assert!(bey > mmy);

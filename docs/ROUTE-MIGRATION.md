@@ -274,8 +274,37 @@ Never infer an issue date from remaining days or silently retain fixed365 for
 a leap-year Treasury investment-rate quote. See
 [the full contract and primary sources](TREASURY-BILL-QUOTES.md).
 
-The infallible `ShortDateCalculator::bond_equivalent_yield` methods in the bonds
-and analytics crates and `ZeroCouponBond::bond_equivalent_yield` remain
-unqualified. They require a separate checked API migration and must not be used
-as production Treasury quotation. Their independent original unit controls and
-historical bytes are retained; this cleanup does not qualify them.
+Both `ShortDateCalculator` types now return `Result<Decimal>` from
+`money_market_yield` and `bond_equivalent_yield`. `ZeroCouponBond::discount_yield`
+and `bond_equivalent_yield` also return `Result<Decimal>`. Update callers to
+propagate `?` or handle the error; invalid cash, zero/negative days, inactive
+dates, non-face redemption and arithmetic failure no longer produce a zero yield.
+The zero-bond methods require their actual issue date to precede maturity and
+settlement to be on or after issue and strictly before maturity. Its explicit
+settlement is used directly, without an inferred issue date or settlement lag.
+
+These six object methods delegate to one checked Decimal implementation in
+`convex_bonds::pricing::bill`, also available as `convex::bill_yield`:
+
+| Function | Rate meaning and units |
+|---|---|
+| `bank_discount_yield(price, face, days)` | Decimal rate on original face, explicit 360 basis. |
+| `money_market_yield(price, face, days)` | Decimal investment rate on original price, explicit 360 basis. |
+| `simple_bill_yield(price, face, days)` | Decimal price-basis simple rate on fixed 365, admitting 1 through 182 days inclusive. |
+| `simple_bill_yield_from_money_market(rate, days)` | Convert a decimal price-basis 360 rate to fixed 365; require positive implied face/price and 1 through 182 days. |
+
+Discount, par and premium cash remain valid in the positive cash domain.
+Negative money-market rates remain valid inside the exact face/price domain;
+the rate pole is checked using bounded integer arithmetic to avoid rounding away
+a positive residual. Decimal overflow is an error. The remaining infallible
+floating-point exports `convex_bonds::pricing::discount_yield` and
+`convex_analytics::yields::discount_yield_simple` are removed with their reexports.
+Use the checked Decimal functions; there is no floating-point compatibility alias.
+
+The existing analytics `discount_yield`, `cd_equivalent_yield` and
+`bond_equivalent_yield` retain their **percent** outputs and now delegate to the
+same owner, multiplying by 100 once. The six object methods and four checked
+kernel functions return **decimal** rates. Generic zero price/yield, compounding,
+full dated Treasury quotation, curve/risk/hedge/lifecycle and shared JSON/C
+entry points keep their distinct owners. This is a checked conversion migration,
+not a market convention, model, host or production certificate.

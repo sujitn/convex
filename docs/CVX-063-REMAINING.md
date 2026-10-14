@@ -69,7 +69,9 @@ remain required; additive engineering route mappings never verify Planned record
 The checked date-free bill helper now rejects long terms and arithmetic overflow.
 Two unused floating-point bill exports are removed with migration to original
 dated Treasury inputs. Existing shared short-bill values/units and all80routes
-remain. The remaining infallible ShortDateCalculator/ZeroCouponBond bill methods
-still need a separately declared checked migration. See
+remain. The ShortDateCalculator/ZeroCouponBond bill methods now return checked
+results over one Decimal owner; the remaining floating-point discount exports
+are removed. Broader conventions, models, claims and host gates still need their
+original qualification. See
 [the route migration guide](ROUTE-MIGRATION.md); this cleanup does not complete
 the original convention/model/host requirements or award independent approval.

@@ -3492,6 +3492,44 @@
         "tools/assurance/numeric-evidence.json": "aaf50976f10effc68644e9918ec9bab55401c5cbd9a5a4336a26dcff49a4cdc4",
         "tools/library/library-inventory.json": "8aeba0867031ff7e75e91d838a0bdb42cc43e1ec640111bc8834d0ccb201aef7"
       }
+    },
+    {
+      "base_commit": "2f5cee8ea6ffb46005197ae2396457acdfc9991a",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 complete bill-method migration: six object methods now return checked Results and delegate to one pure Decimal owner for explicit face/360 bank discount, price/360 money market and fixed365 simple rate/conversion. Preserve decimal object/kernel versus percent analytics units, signed discount/par/premium values, exact bounded integer admission at the MMY pole, and positive cash/active original zero dates/face-redemption/overflow failures. Remove two unused infallible f64 discount functions and reexports; no successful fallback or alias. Long investment-rate terms and Treasury365/366 use the unchanged full original-date Treasury owner. Forty cash/42rate independent Fraction/Decimal60 controls precede production edits; nine supplementary pole controls precede their first native comparison, after that code edit. Preserve all1614original numerical rows/files/defaults and full5375requests/80routes plus literal2154Planned requirements. No generic zero pricing/compounding/calendar/model/curve/claim/hedge/CTD/math change outside the selected conversion owner, no new dependency/C export/wire/provider/clock/MQ/ledger/order authority. Full actual source-bound checks determine qualification; CVX063 remains partial/unaccepted/uncertified, Windows/Excel and broader original convention/model/claim/host/production/latency/certificate scope stay open.",
+      "tests": [
+        "Independent40cash/42rate plus9supplementary exact pole controls; six checked object methods and two removed float exports",
+        "Full original numerical/scope/source/physical conservation; unchanged5375complete request/envelope/native/C and actual400Java/wasm32 Treasury calls",
+        "Workspace/profile/adapters/schema/writers/37943financial comparisons/lint/docs/fmt/assurance/library/harness actual source-bound gates"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "91469a8e540128cbfd60d63f8ad58ccce1059cfb8ffc78f61725e90832a6e02f",
+        "crates/convex-analytics/src/yields/engine.rs": "661f3742fa019ee4f485da10f8d6dd38975acdcdebfcfdc620ed383c1213a5bc",
+        "crates/convex-analytics/src/yields/mod.rs": "223f81a6c758a04307e1614a0b095772d0bb4b6a62c2a99f15ba9d06be1cddf4",
+        "crates/convex-analytics/src/yields/money_market.rs": "7e0a36f48b791c807c56d9d7f6a75bbe5525ee0d6f341feaee7798059cd94dbe",
+        "crates/convex-analytics/src/yields/short_date.rs": "3937b436bf055ae166159437b78c87bf7e0b3cf699810835cc5324d9638abe7d",
+        "crates/convex-bonds/src/instruments/zero_coupon.rs": "573147e4145da9bec279a5ee7073efcd26b027bf4463682e47a29c5f6103a705",
+        "crates/convex-bonds/src/pricing/bill.rs": "7d6524d8f21e63a3b3a50bf5dab5ed882799310e5c313c6cf95e857441d08200",
+        "crates/convex-bonds/src/pricing/mod.rs": "69a0f397d1433d407613644cabb5891cf53909ec61ffb2543fe45d080bf3e9f9",
+        "crates/convex-bonds/src/pricing/short_date.rs": "739e0e9e59caa92e7ff07e86ce2c707d041e16c7899dd0d13fa584623f1e11e8",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "179fcafd2d5b03054bc1a7e00ec0519dfee46f2693e97966692ff023b0167e87",
+        "crates/convex/examples/bill_methods.rs": "2ff3d0003a0e77cc922b562fab1849016d81af7752c5c8698c6cf5042dade37b",
+        "crates/convex/src/lib.rs": "9f19fceb8b9053d9474750b4fde19661ce15336dfb4d82b4b3bec23156494f23",
+        "crates/convex/tests/bill_methods.rs": "000b2f927c1f97c1ae44d792b06b2b6c101b1dfad2a2058cf44fbe2c217b91da",
+        "docs/CVX-063-REMAINING.md": "5882d6b9c2d254fcb09deb48271643c6c1853665289ba6ea0cef56c32d4b7996",
+        "docs/ROUTE-MIGRATION.md": "aa2e2707845a11dda49cc4f6f981477e8978d1e9f55daa8bb6426ab6ee74948e",
+        "docs/TREASURY-BILL-QUOTES.md": "2012ae7552f3937f26485f2a82a1887a3e5d39767ed4fe9f25d279b3aae213b9",
+        "tests/fixtures/library/bill-methods-boundary-reference.json": "cb0e67c65b2adeba267a64b3db67900437a4bb114637847ebd9c2c7340a3b5f0",
+        "tests/fixtures/library/bill-methods-reference.json": "e3ac3b6f4775f67ae58ca2e61982e1805a7c0250c9dfac40bc9cd28e8b76679d",
+        "tests/fixtures/library/bill_methods_contract.rs": "33c7370d3b9d282a6c27a54825c036213e9e4804279e11534881e81c0e1bb716",
+        "tests/scripts/bill_methods_boundary_reference.py": "e9313cf6e4c8e0bfafa13d4a17b878d2c33b46f4e8b83df0944bfead3bff57db",
+        "tests/scripts/bill_methods_reference.py": "e275c5b1757115435ef66726bf4731e563b3c0e264543a8ee09b29c2962b9430",
+        "tools/assurance/check.py": "45eefd717f3e7985e6eb97c6a73fc57ba1cebb0974f557c0f501efc1148ba4dd",
+        "tools/assurance/inventory.json": "41711b963341176623044431ed65ecc022014d56a1890412496f8d4ec5e70c2f",
+        "tools/assurance/numeric-evidence.json": "0809190fd5f430d9e08cb21c19b56479bc7faf6e0fe345b5dc3b24b9d9787b30",
+        "tools/library/library-inventory.json": "48544f7b61fb8e9a13c1265aeb849fc9c38120dd0557b5644138f6d12209f614"
+      }
     }
   ]
 }

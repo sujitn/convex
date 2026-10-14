@@ -8077,6 +8077,41 @@
       "path": "crates/convex-analytics/tests/simple_bill_yield.rs",
       "mode": "file",
       "sha256": "10941b7664f8fba6a4a0e09df7445595af5e492d0a4105292c919357e566c17c"
+    },
+    {
+      "path": "tests/scripts/bill_methods_reference.py",
+      "mode": "file",
+      "sha256": "e275c5b1757115435ef66726bf4731e563b3c0e264543a8ee09b29c2962b9430"
+    },
+    {
+      "path": "tests/scripts/bill_methods_boundary_reference.py",
+      "mode": "file",
+      "sha256": "e9313cf6e4c8e0bfafa13d4a17b878d2c33b46f4e8b83df0944bfead3bff57db"
+    },
+    {
+      "path": "tests/fixtures/library/bill-methods-reference.json",
+      "mode": "file",
+      "sha256": "e3ac3b6f4775f67ae58ca2e61982e1805a7c0250c9dfac40bc9cd28e8b76679d"
+    },
+    {
+      "path": "tests/fixtures/library/bill-methods-boundary-reference.json",
+      "mode": "file",
+      "sha256": "cb0e67c65b2adeba267a64b3db67900437a4bb114637847ebd9c2c7340a3b5f0"
+    },
+    {
+      "path": "tests/fixtures/library/bill_methods_contract.rs",
+      "mode": "file",
+      "sha256": "33c7370d3b9d282a6c27a54825c036213e9e4804279e11534881e81c0e1bb716"
+    },
+    {
+      "path": "crates/convex/tests/bill_methods.rs",
+      "mode": "file",
+      "sha256": "000b2f927c1f97c1ae44d792b06b2b6c101b1dfad2a2058cf44fbe2c217b91da"
+    },
+    {
+      "path": "crates/convex/examples/bill_methods.rs",
+      "mode": "file",
+      "sha256": "2ff3d0003a0e77cc922b562fab1849016d81af7752c5c8698c6cf5042dade37b"
     }
   ]
 }
