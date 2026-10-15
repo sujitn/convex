@@ -468,3 +468,15 @@ Z-spread is `None` with `z_spread_error`, which the browser displays. No zero
 substitute or erase of valid dated-yield risk. The convenience's distinct legacy
 yield/Z curve representation and broader market mechanics retain their original
 qualification owners; this increment is not a production/model certificate.
+
+
+## Checked yield scalar reporting
+
+`YieldResult::yield_percent/yield_decimal`, native/analytics simple-current f64
+helpers, native Decimal-current wrappers and their from-bond variants now return
+`Result`. Propagate with `?`; invalid input and nonzero underflow cannot return a
+successful zero. Analytics reexports the native `YieldEngineResult`. Existing
+fallible Decimal percentage APIs retain their units and now check arithmetic.
+From-bond per100 current yields no longer scale with original face. See
+[YIELD-SCALARS.md](YIELD-SCALARS.md). Raw solver and dated-convention qualification
+remain separate; no approximation is promoted to full instrument support.

@@ -130,3 +130,10 @@ convention coverage and the original mandatory certificate records remain open.
 Supplied-record arithmetic validation cannot replace native product repricing or
 independent model approval. Consult the source-bound Directional-Hedges packet
 for actual execution status; unavailable Windows/Excel remains separate.
+
+
+Scalar yield reporting and current/simple helpers now have a checked native owner;
+from-bond current yields retain actual positive face and per100 normalization.
+The retained raw general solvers, contextual time/convention preparation and
+infallible price/accrued methods still need genuine migration and qualification.
+See [checked yield scalars](YIELD-SCALARS.md) and its source-bound evidence.

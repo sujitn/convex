@@ -1,6 +1,6 @@
 //! Bond pricing calculations.
 //!
-//! - [`YieldSolver`]: Bloomberg YAS-style yield-to-maturity solver
+//! - [`YieldSolver`]: supplied-cash yield diagnostics
 //! - [`YieldEngine`] / [`StandardYieldEngine`]: unified yield calculation trait
 //! - [`current_yield`]: current yield calculation
 //!
@@ -21,6 +21,8 @@ pub mod bill;
 pub mod dated_cash;
 pub mod short_date;
 mod yield_engine;
+/// Checked scalar reporting and explicitly supplied current/simple yield measures.
+pub mod yield_scalars;
 pub(crate) mod yield_solver;
 /// Checked absolute zero-coupon cash and decimal-rate conversions.
 pub mod zero;

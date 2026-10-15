@@ -163,22 +163,20 @@ pub struct YieldResult {
 
 impl YieldResult {
     /// Returns the yield as a percentage (e.g., 5.0 for 5%).
-    #[must_use]
-    pub fn yield_percent(&self) -> f64 {
-        self.yield_value * 100.0
+    pub fn yield_percent(&self) -> BondResult<f64> {
+        super::yield_scalars::to_percent(self.yield_value)
     }
 
     /// Returns the yield as a Decimal.
-    #[must_use]
-    pub fn yield_decimal(&self) -> Decimal {
-        Decimal::from_f64_retain(self.yield_value).unwrap_or(Decimal::ZERO)
+    pub fn yield_decimal(&self) -> BondResult<Decimal> {
+        super::yield_scalars::to_decimal(self.yield_value)
     }
 }
 
 /// Yield-to-maturity solver.
 ///
-/// Uses Bloomberg YAS methodology with Newton-Raphson iteration
-/// and Brent's method fallback.
+/// Uses Newton-Raphson iteration and Brent's method fallback on supplied cash.
+/// This does not establish full dated market-convention support.
 #[derive(Debug, Clone)]
 pub struct YieldSolver {
     /// Solver configuration.
@@ -523,19 +521,20 @@ impl YieldSolver {
 ///
 /// This is a simple measure that ignores time value of money
 /// and capital gains/losses.
-#[must_use]
-pub fn current_yield(annual_coupon: Decimal, clean_price: Decimal) -> f64 {
-    if clean_price.is_zero() {
-        return 0.0;
-    }
-    (annual_coupon / clean_price).to_f64().unwrap_or(0.0)
+pub fn current_yield(annual_coupon: Decimal, clean_price: Decimal) -> BondResult<f64> {
+    super::yield_scalars::current_decimal_rate(annual_coupon, clean_price)
 }
 
-/// Calculates current yield from a fixed coupon bond.
-#[must_use]
-pub fn current_yield_from_bond(bond: &dyn FixedCouponBond, clean_price: Decimal) -> f64 {
-    let annual_coupon = bond.coupon_rate() * bond.face_value();
-    current_yield(annual_coupon, clean_price)
+/// Current annual decimal yield from a constant-coupon bond and a PER100 price.
+pub fn current_yield_from_bond(
+    bond: &dyn FixedCouponBond,
+    clean_price: Decimal,
+) -> BondResult<f64> {
+    super::yield_scalars::fixed_current_decimal_rate(
+        bond.coupon_rate(),
+        bond.face_value(),
+        clean_price,
+    )
 }
 
 /// Calculates discount margin for floating rate notes.
@@ -830,7 +829,7 @@ mod tests {
         let annual_coupon = dec!(7.5); // 7.5% coupon on 100 face
         let clean_price = dec!(110.503);
 
-        let cy = current_yield(annual_coupon, clean_price);
+        let cy = current_yield(annual_coupon, clean_price).unwrap();
 
         // Current yield should be approximately 6.787%
         // (7.5 / 110.503 = 0.0678...)
@@ -916,7 +915,7 @@ mod tests {
         );
 
         // Current yield should be around 6.79%
-        let cy = current_yield(dec!(7.5), clean_price);
+        let cy = current_yield(dec!(7.5), clean_price).unwrap();
         assert!(
             (cy * 100.0 - 6.787).abs() < 0.1,
             "Boeing current yield mismatch: expected ~6.787%, got {:.6}%",

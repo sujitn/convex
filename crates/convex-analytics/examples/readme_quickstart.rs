@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settlement = Date::from_ymd(2025, 5, 15)?;
     let ytm = yield_to_maturity(&bond, settlement, dec!(98.50), Frequency::SemiAnnual)?;
 
-    println!("Yield to Maturity: {:.4}%", ytm.yield_percent());
+    println!("Yield to Maturity: {:.4}%", ytm.yield_percent()?);
 
     Ok(())
 }

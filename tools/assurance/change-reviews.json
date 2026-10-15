@@ -4357,6 +4357,55 @@
         "tools/library/library-inventory.json": "ee265cb073d950ed8bf8f34bf89cfa135c7db3c6d511de134e442e936a981292",
         "tools/library/test_operations.py": "7b63820db0f4f08eb6fd99d30776f76f609b9325955d2d32752e692bc6f3f42c"
       }
+    },
+    {
+      "base_commit": "206237b7dd11480b56018b2a6391253577d3e41f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 checked native scalar yield reporting/current/simple measures and genuine per100 fixed-coupon normalization. One bonds-owned scalar implementation rejects nonfinite values, nonpositive price/time/face/par, checked Decimal overflow and nonzero underflow; signed rates/coupons and true zero remain valid. Preserve original arithmetic order, operator units and solver defaults on admitted values. Native YieldResult/YieldEngineResult conversions and current/simple wrappers return Result; analytics reexports the native engine result and delegates arithmetic. Retain existing fallible Decimal percentage units and domain-error vocabulary. Actual reproduced face5000 at price100 returns old decimal2.5/percent250 instead of .05/5; native/full fixed-bond wrappers now validate positive face and use annual coupon per100. Thin strict yield_scalar dispatch manufactures no instrument, schedule, convention or solver proof; explicit rate/percent and binary64/Decimal outputs.126pre-candidate Fraction/Decimal110 financial cases and183shared126financial57typed failures preserve references/bounds; independently rounded Decimal comparison points precede candidate. Every original engine/scalar financial assertion remains; only Result unwrap adaptations. All1778numeric records/defaults/files and5886requests stay;10newpins give1788,183requests give6069. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped and every sealed packet remain. Raw general solvers, ICMA/contextual time/accrued/excoupon/calendar shortcuts, infallible price helpers, all broader model/calibration/claim/physical/mixed-book native gaps and independent/platform qualification remain genuine work. No native waiver, independent approval or CVX063 acceptance.",
+      "tests": [
+        "126independent pre-candidate rational/Decimal110 cases,183shared126financial57failures and actual original face5000 normalization reproduction; all original scalar/engine financial assertions and bounds stay",
+        "All5886prior complete requests/envelopes except literal capability path append, original coupon/hedge/causal mixed-book/CTD controls and fresh37943ISDA/QuantLib checks",
+        "Default/no-default/schema/actual C/Java/wasm32Node/browser, workspace warnings-deniedClippy preflight,64library42assurance4private and original scope/source/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "a539d6be3d675d19e0f1b9de05d00dfa33e987592082e237cc0d4e154cddab71",
+        "README.md": "fc991565b114ec3d2457022cdc6d9d925adf6dfdc16c9c6d6d0337d6309cc5e1",
+        "crates/convex-analytics/examples/readme_quickstart.rs": "9741fff77c814c7a791af0b2ba4f675d19fa29175a69f2e98fef52fbee913d1f",
+        "crates/convex-analytics/src/yields/current.rs": "7edb2501d5c7dff1c64ab0126bb9320f07bb927699466a323849ceb89b0fa65e",
+        "crates/convex-analytics/src/yields/engine.rs": "0639a566955fd73df0abc0ed124e2aab159630c5fb8c4de917668ae10dad2c6d",
+        "crates/convex-analytics/src/yields/simple.rs": "b87f99351f316ed3fedfb69f189fb5d3dfbcfd79b6d652f0ccb1bcff89c95f86",
+        "crates/convex-analytics/src/yields/solver.rs": "cce8c94857cab8ffc641efa8293ec2d06574408c80d15026cb49b4672893d035",
+        "crates/convex-analytics/tests/fixtures/yield-scalars.json": "e64c37a787ac9c631c51f5a4c7cecda1c331c22a2f3e50948bf78b9a051ba83b",
+        "crates/convex-analytics/tests/yield_scalars.rs": "fb86dc001212a9e2341a22f2d867f52cee5fe8f5458e361d1f0c5790c5a6ed1a",
+        "crates/convex-bonds/src/pricing/mod.rs": "0d0c9b551fd0de40546a8ab1f397d1909f7acbcfd73c27e9209278df7cb5ddc1",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "b9a89b3238714a71ae778d382f28e197e7b3bad4dd5e4794b96e8b473eb437ec",
+        "crates/convex-bonds/src/pricing/yield_scalars.rs": "5f097f8c7480350ed807fb09b3173fc3267278a890fb0b8fd82c9752a0c411f7",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "1a89eab01ca5009d2e332e18e392ee2c1e65297c9f7074788610995095c3cb71",
+        "crates/convex-ffi/tests/yield_scalars.rs": "88d822afcb9fbfb1c9bfd3be87d4bcf0ed938a47593363c619bdf14f063f82be",
+        "crates/convex-mcp/tests/yield_scalars.rs": "6aa0531f5de4d26c02287c9fc11280f306abc1eeb10a34594aeb488d2ab86195",
+        "crates/convex-wasm/tests/yield_scalars.rs": "dc4402e3a145ff144ae48c896d36787045fc2f4e756b45d6f0f68c8047f4b014",
+        "crates/convex/examples/yield_scalars.rs": "38d6353796bba8612b66162f6a25bd7367f0f6a2aadab02b723d1a71a58a3949",
+        "crates/convex/src/library/mod.rs": "43bee877265172746be3e51882bc9efc36122b76f32a5e45cb88e4fc106116dc",
+        "crates/convex/src/library/products.rs": "c6269f85aeafd121f93002323eabb167702d934f42c93033e3dd9b3ae77b8a38",
+        "crates/convex/src/library/requests.rs": "49774e07b72aeac0ae24096d7581b5b4ac6d30b15160dbe8c4b8077220673bda",
+        "crates/convex/src/library/yield_scalars.rs": "439b5940756f477e4ba2c755018bbf403e6ba1c516334483163afe0602051dd8",
+        "crates/convex/tests/yield_scalars.rs": "c3ec02a1c6b6af2a03f91ebb71dc90abc5dceffad04ddc5af07538765a838b17",
+        "docs/CVX-063-REMAINING.md": "8dd86317334ad5c83ad348ee14348ed014147acc50ba43401a8c125fc5f40db9",
+        "docs/LIBRARY-API.md": "bd553090809450f2b96aa2586fd22c3406a515e6fec1e7c7f3ad21081cd34acc",
+        "docs/ROUTE-MIGRATION.md": "5252db1adba7054b0f20398f60e2cecf49a72a2b3991f821caa66113e030b757",
+        "docs/YIELD-SCALARS.md": "5afb79e130c23384c768caeb20c533197856e5ae821f1f9b6b645faf1e8ab023",
+        "tests/fixtures/library/yield-scalars.json": "e9b25930f1aea07badac3d7dace01fea8c599b506bd0775f8d4fd21ec160b553",
+        "tests/fixtures/library/yield_scalars_contract.rs": "49d83eb61aa6236d33545591561b773a8c1c5419f5df7cd1065941798bc15008",
+        "tests/scripts/yield_scalars_schema.py": "82b91bfdbfff2f1377d221a5bfdde8cf8e73a43f94ff4a4d00fe02d39e691bad",
+        "tools/assurance/check.py": "c94d92f94f7418bac46430800452e9f7905a8790caad72cd4eaee229aed22463",
+        "tools/assurance/inventory.json": "69899316addcac4357dc1ab96380286cb789975c868a40e1cdb9a0bbbb8e79b3",
+        "tools/assurance/numeric-evidence.json": "9c561b2f321191b83aa4a0d872d75aa4965ebfbe1ad5893109ea32442ff1920a",
+        "tools/assurance/test_policy.py": "fad8f898b5e7a7a57612c7d2e8ff2ab9fd5073218e7f2fe922b4c57bbaadf710",
+        "tools/library/api-capabilities.json": "eab246133fba62cb2c70e76201749139156a9bda690545bdadb8d49e7ac92922",
+        "tools/library/library-inventory.json": "cf251a888b2a3ad80f4541cdf0d64af94d784b4c523ef22ff908c80065c3e6aa",
+        "tools/library/test_operations.py": "679434f9b3db4509b805531119c66dce00a6c45afab446e8292f80866ada3039"
+      }
     }
   ]
 }

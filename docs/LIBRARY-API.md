@@ -833,3 +833,10 @@ original current/pending quantities, full factor coverage, FX/legal identity,
 liquidity/cost/lot/rank/work limits and final feasibility checks. Proposals carry
 no order authority. Run `cargo run --locked -p convex --example directional_hedges`
 for independent supplied-record and full five-factor coupon controls.
+
+
+`yield_scalar` delegates supplied current/simple measures and scalar reporting to
+checked native owners. Exact Decimal inputs, annual decimal-rate versus percentage
+outputs and original positive face/per100 normalization remain explicit. These
+are scalar measures; no dated instrument, market convention or solver result is
+manufactured. [The scalar guide](YIELD-SCALARS.md) describes the Result migration.

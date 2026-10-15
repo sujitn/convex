@@ -492,6 +492,7 @@ pub(super) fn execute(
     operation: &LibraryOperation,
 ) -> LibraryResult<Value> {
     match operation {
+        LibraryOperation::YieldScalar { action } => super::yield_scalars::execute(action),
         LibraryOperation::Workout {
             input,
             context,

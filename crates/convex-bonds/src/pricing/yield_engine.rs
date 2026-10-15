@@ -1,8 +1,8 @@
-//! Unified yield calculation engine.
+//! Supplied-cash yield diagnostics and checked scalar reporting.
 //!
-//! This module provides a comprehensive yield calculation engine that supports
-//! all yield conventions, compounding methods, and edge cases. It consolidates
-//! yield calculation logic to ensure consistency across the codebase.
+//! Scalar reporting and simple/current-yield measures have checked native owners.
+//! The retained general solver and accrued methods do not qualify missing market
+//! conventions or contextual cash mechanics; use the complete dated contract routes.
 //!
 //! # Example
 //!
@@ -47,22 +47,20 @@ pub struct YieldEngineResult {
 
 impl YieldEngineResult {
     /// Returns the yield as a percentage (e.g., 5.0 for 5%).
-    #[must_use]
-    pub fn yield_percent(&self) -> f64 {
-        self.yield_value * 100.0
+    pub fn yield_percent(&self) -> BondResult<f64> {
+        super::yield_scalars::to_percent(self.yield_value)
     }
 
     /// Returns the yield as a Decimal.
-    #[must_use]
-    pub fn yield_decimal(&self) -> Decimal {
-        Decimal::from_f64_retain(self.yield_value).unwrap_or(Decimal::ZERO)
+    pub fn yield_decimal(&self) -> BondResult<Decimal> {
+        super::yield_scalars::to_decimal(self.yield_value)
     }
 }
 
 /// Trait for yield calculation engines.
 ///
 /// Implementations provide methods to calculate yields from prices and vice versa,
-/// with full support for different conventions and edge cases.
+/// for their explicitly supplied cash and rules; this is not convention qualification.
 pub trait YieldEngine: Send + Sync {
     /// Calculate yield from price.
     ///
@@ -133,7 +131,8 @@ pub trait YieldEngine: Send + Sync {
 
 /// Standard yield calculation engine.
 ///
-/// Implements the `YieldEngine` trait with full support for all conventions.
+/// Retained supplied-cash diagnostics; complete contextual conventions need their
+/// original checked contract owners.
 /// Uses Newton-Raphson with Brent's method fallback for robust convergence.
 #[derive(Debug, Clone)]
 pub struct StandardYieldEngine {
@@ -443,26 +442,18 @@ impl YieldEngine for StandardYieldEngine {
 ///
 /// This is a simple measure that ignores time value of money
 /// and capital gains/losses.
-#[must_use]
-pub fn current_yield_simple(annual_coupon: f64, clean_price: f64) -> f64 {
-    if clean_price <= 0.0 {
-        return 0.0;
-    }
-    annual_coupon / clean_price
+pub fn current_yield_simple(annual_coupon: f64, clean_price: f64) -> BondResult<f64> {
+    super::yield_scalars::current_binary64(annual_coupon, clean_price)
 }
 
-/// Calculate simple yield (Japanese convention).
-///
-/// Simple Yield = (Annual Coupon + (100 - Price) / Years) / Price
-///
-/// No compounding - assumes simple interest.
-#[must_use]
-pub fn simple_yield(annual_coupon: f64, clean_price: f64, years_to_maturity: f64) -> f64 {
-    if clean_price <= 0.0 || years_to_maturity <= 0.0 {
-        return 0.0;
-    }
-    let capital_gain = (100.0 - clean_price) / years_to_maturity;
-    (annual_coupon + capital_gain) / clean_price
+/// Arithmetic per100 simple-yield estimate as an annual decimal rate.
+/// This does not identify a dated market convention.
+pub fn simple_yield(
+    annual_coupon: f64,
+    clean_price: f64,
+    years_to_maturity: f64,
+) -> BondResult<f64> {
+    super::yield_scalars::simple_binary64(annual_coupon, clean_price, years_to_maturity)
 }
 
 #[cfg(test)]
@@ -697,21 +688,21 @@ mod tests {
 
     #[test]
     fn test_current_yield() {
-        let cy = current_yield_simple(5.0, 100.0);
+        let cy = current_yield_simple(5.0, 100.0).unwrap();
         assert_relative_eq!(cy, 0.05, epsilon = 0.0001);
 
-        let cy = current_yield_simple(5.0, 110.0);
+        let cy = current_yield_simple(5.0, 110.0).unwrap();
         assert!(cy < 0.05);
     }
 
     #[test]
     fn test_simple_yield() {
         // At par, simple yield = coupon rate
-        let sy = simple_yield(5.0, 100.0, 5.0);
+        let sy = simple_yield(5.0, 100.0, 5.0).unwrap();
         assert_relative_eq!(sy, 0.05, epsilon = 0.0001);
 
         // Discount bond
-        let sy = simple_yield(5.0, 95.0, 5.0);
+        let sy = simple_yield(5.0, 95.0, 5.0).unwrap();
         assert!(sy > 0.05); // Should include capital gain
     }
 

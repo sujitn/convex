@@ -343,6 +343,35 @@ jobs:
 
       - name: Qualify complete directional hedge evidence 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test directional_hedges
+      - name: Qualify checked yield scalar arithmetic 0
+        run: cargo test --locked -p convex-analytics --test yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 1
+        run: cargo test --locked -p convex --test yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 2
+        run: cargo run --locked -p convex --example yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 3
+        run: cargo test --locked -p convex-analytics --test yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 4
+        run: cargo test --locked -p convex --test yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 5
+        run: cargo run --locked -p convex --example yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 6
+        run: cargo test --locked -p convex-analytics --test yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 7
+        run: cargo test --locked -p convex --test yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 8
+        run: cargo run --locked -p convex --example yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_scalars
 
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives

@@ -5,6 +5,7 @@
 //! the solver types and providing the `*_decimal` / `*_from_fixed_bond`
 //! naming variants that analytics callers have historically used.
 
+use crate::error::AnalyticsResult;
 use rust_decimal::Decimal;
 
 use convex_bonds::traits::FixedCouponBond;
@@ -14,13 +15,14 @@ pub use convex_bonds::pricing::{YieldResult, YieldSolver};
 /// Calculates current yield.
 ///
 /// Current yield = Annual Coupon / Clean Price.
-#[must_use]
-pub fn current_yield_decimal(annual_coupon: Decimal, clean_price: Decimal) -> f64 {
-    convex_bonds::pricing::current_yield(annual_coupon, clean_price)
+pub fn current_yield_decimal(annual_coupon: Decimal, clean_price: Decimal) -> AnalyticsResult<f64> {
+    convex_bonds::pricing::current_yield(annual_coupon, clean_price).map_err(Into::into)
 }
 
 /// Calculates current yield from a fixed coupon bond.
-#[must_use]
-pub fn current_yield_from_fixed_bond(bond: &dyn FixedCouponBond, clean_price: Decimal) -> f64 {
-    convex_bonds::pricing::current_yield_from_bond(bond, clean_price)
+pub fn current_yield_from_fixed_bond(
+    bond: &dyn FixedCouponBond,
+    clean_price: Decimal,
+) -> AnalyticsResult<f64> {
+    convex_bonds::pricing::current_yield_from_bond(bond, clean_price).map_err(Into::into)
 }

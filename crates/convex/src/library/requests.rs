@@ -150,6 +150,11 @@ pub enum CdsOperation {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LibraryOperation {
+    /// Checked scalar reporting and explicit current/simple-yield measures.
+    YieldScalar {
+        /// Original declared money/rate basis and output-unit operation.
+        action: Box<YieldScalarOperation>,
+    },
     /// Direct contextual own-yield sensitivity or positive reference hedge column.
     IcmaYieldRisk {
         /// Complete original economics, source/context/calendar/quantity revisions.
