@@ -20,9 +20,7 @@
 use super::invoice::SettlementInvoice;
 use crate::error::{AnalyticsError, AnalyticsResult};
 use crate::risk::{BondRiskCalculator, BondRiskMetrics};
-use crate::yields::{
-    current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield,
-};
+use crate::yields::{current_yield_from_amount, simple_yield, street_convention_yield};
 use convex_math::portable;
 
 use convex_math::solvers::{brent, SolverConfig};
@@ -47,17 +45,11 @@ pub struct YASResult {
     /// Street convention yield-to-maturity (standard market quote)
     pub ytm: Decimal,
 
-    /// True yield (accounts for actual settlement)
-    pub true_yield: Decimal,
-
     /// Current yield (annual coupon / clean price)
     pub current_yield: Decimal,
 
     /// Simple yield
     pub simple_yield: Decimal,
-
-    /// Money market equivalent yield (roll-forward methodology)
-    pub money_market_yield: Option<Decimal>,
 
     // ===== Spread Metrics =====
     /// G-Spread (yield - interpolated government yield)
@@ -191,12 +183,8 @@ impl std::fmt::Display for YASResult {
             " YIELDS                                                     "
         )?;
         writeln!(f, "   Street Convention:  {:>10.6}%", self.ytm)?;
-        writeln!(f, "   True Yield:         {:>10.6}%", self.true_yield)?;
         writeln!(f, "   Current Yield:      {:>10.3}%", self.current_yield)?;
         writeln!(f, "   Simple Yield:       {:>10.3}%", self.simple_yield)?;
-        if let Some(mmy) = self.money_market_yield {
-            writeln!(f, "   Money Market Yield: {:>10.6}%", mmy)?;
-        }
         writeln!(
             f,
             "------------------------------------------------------------"
@@ -658,32 +646,10 @@ impl<'a> YASCalculator<'a> {
             .build()
             .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
 
-        let ytm_decimal = ytm / dec!(100);
-        let days_per_year = match bond.currency() {
-            convex_core::Currency::GBP
-            | convex_core::Currency::AUD
-            | convex_core::Currency::NZD => 365,
-            _ => 360,
-        };
-
-        let mmy_result = money_market_yield(
-            &cash_flows,
-            dirty_price,
-            ytm_decimal,
-            settlement_date,
-            maturity_date,
-            bond_frequency,
-            days_per_year,
-        )
-        .map(|mmy| mmy * dec!(100))
-        .ok();
-
         Ok(YASResult {
             ytm,
-            true_yield: ytm,
             current_yield: current,
             simple_yield: simple,
-            money_market_yield: mmy_result,
             g_spread: g_spread_value,
             benchmark_spread: benchmark_spread_value,
             benchmark_tenor: benchmark_tenor_label.to_string(),

@@ -165,6 +165,11 @@ pub enum LibraryOperation {
         /// Actual period/year-fraction/remaining-interest calculation.
         action: Box<AccruedInterestOperation>,
     },
+    /// Explicit-rate cash projections and checked numeric horizon policies.
+    Reinvestment {
+        /// Complete actual native inputs, without a guessed market convention.
+        action: Box<ReinvestmentOperation>,
+    },
     /// Direct contextual own-yield sensitivity or positive reference hedge column.
     IcmaYieldRisk {
         /// Complete original economics, source/context/calendar/quantity revisions.

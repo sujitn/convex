@@ -881,7 +881,6 @@ fn yas_inner(request: serde_json::Value) -> Result<YasResponse, DispatchError> {
             ytm_pct: dec_to_f64(r.ytm),
             current_yield_pct: dec_to_f64(r.current_yield),
             simple_yield_pct: dec_to_f64(r.simple_yield),
-            money_market_yield_pct: r.money_market_yield.map(dec_to_f64),
             z_spread_bps: dec_to_f64(r.z_spread.as_bps()),
             modified_duration: dec_to_f64(r.risk.modified_duration.years()),
             macaulay_duration: dec_to_f64(r.risk.macaulay_duration.years()),

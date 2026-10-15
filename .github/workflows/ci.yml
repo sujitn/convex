@@ -433,6 +433,36 @@ jobs:
       - name: Qualify checked supplied calendar accrued interest 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test accrued_methods
 
+      - name: Qualify checked explicit cash reinvestment 0
+        run: cargo test --locked -p convex-analytics --test reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 1
+        run: cargo test --locked -p convex --test reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 2
+        run: cargo run --locked -p convex --example reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 3
+        run: cargo test --locked -p convex-analytics --test reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 4
+        run: cargo test --locked -p convex --test reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 5
+        run: cargo run --locked -p convex --example reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 6
+        run: cargo test --locked -p convex-analytics --test reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 7
+        run: cargo test --locked -p convex --test reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 8
+        run: cargo run --locked -p convex --example reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test reinvestment
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

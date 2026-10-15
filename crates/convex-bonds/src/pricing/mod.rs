@@ -19,6 +19,8 @@
 pub mod bill;
 /// Checked absolute dated-cash PV and same-basis analytical yield risk.
 pub mod dated_cash;
+/// Checked explicit-rate cash-account projections, separate from market quotations.
+pub mod reinvestment;
 pub mod short_date;
 pub mod yield_cash;
 mod yield_engine;
@@ -28,7 +30,7 @@ pub(crate) mod yield_solver;
 /// Checked absolute zero-coupon cash and decimal-rate conversions.
 pub mod zero;
 
-pub use short_date::{RollForwardMethod, ShortDateCalculator};
+pub use short_date::ShortDateCalculator;
 pub use yield_engine::{
     current_yield_simple, simple_yield, StandardYieldEngine, YieldEngine, YieldEngineResult,
 };

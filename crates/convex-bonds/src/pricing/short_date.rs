@@ -1,160 +1,127 @@
-//! Short-date yield calculation methodology.
-//!
-//! For bonds with less than one year to maturity, special calculation
-//! methodologies apply. This module provides the Bloomberg-compatible
-//! sequential roll-forward approach for short-dated bonds.
-//!
-//! # Reference
-//!
-//! - Bloomberg YAS Manual: Short-Dated Bonds
-//! - ISMA Rule Book: Price/Yield Calculations
-
+//! Checked horizon classification and explicit fixed-basis bill measures.
+//! No vendor roll-forward or overnight model is selected by this helper.
+use crate::{types::YieldCalculationRules, BondError, BondResult};
+use convex_core::{cashflows::MAX_CONTRACT_DAYS, types::Date};
 use rust_decimal::Decimal;
 
-use convex_core::types::Date;
-
-use crate::error::BondResult;
-use crate::types::YieldCalculationRules;
-
-/// Roll-forward methodology for short-dated bonds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RollForwardMethod {
-    /// Bloomberg sequential roll-forward
-    ///
-    /// For bonds < 1 year to maturity, calculates yield by rolling forward
-    /// cash flows at the reinvestment rate until maturity.
-    #[default]
-    Bloomberg,
-
-    /// Simple linear interpolation
-    ///
-    /// Linearly interpolates between money market and bond yields.
-    Linear,
-
-    /// Actual reinvestment assumption
-    ///
-    /// Uses actual overnight rates for reinvestment of cash flows.
-    Actual,
-}
-
-/// Short-date yield calculator.
-///
-/// Handles bonds with less than one year to maturity using money market
-/// conventions or sequential roll-forward methodology.
-///
-/// # Example
-///
-/// ```rust
-/// use convex_bonds::pricing::short_date::{ShortDateCalculator, RollForwardMethod};
-///
-/// let calculator = ShortDateCalculator::new(RollForwardMethod::Bloomberg);
-/// assert!(calculator.use_money_market_below(0.08));  // 8% of a year = ~1 month
+/// Validated numeric thresholds. Pricing and market conventions remain separate.
 /// ```
+/// use convex_bonds::pricing::ShortDateCalculator;
+/// let calculator=ShortDateCalculator::default();
+/// assert!(calculator.use_money_market_below(0.08).unwrap());
+/// ```
+#[derive(Debug, Clone, Copy)]
 pub struct ShortDateCalculator {
-    /// Threshold for using money market yield (in years)
     money_market_threshold: f64,
-
-    /// Threshold for using short-date method (in years)
     short_date_threshold: f64,
-
-    /// Roll-forward methodology
-    roll_forward_method: RollForwardMethod,
+    enabled: bool,
 }
-
+fn valid(money: f64, short: f64) -> BondResult<()> {
+    if !money.is_finite() || !short.is_finite() || money <= 0.0 || short < money {
+        return Err(BondError::invalid_spec(
+            "finite positive ordered short-date thresholds required",
+        ));
+    }
+    Ok(())
+}
+fn years(value: f64) -> BondResult<()> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(BondError::invalid_spec(
+            "positive finite remaining years required",
+        ));
+    }
+    Ok(())
+}
 impl ShortDateCalculator {
-    /// Creates a new short-date calculator with the specified roll-forward method.
-    #[must_use]
-    pub fn new(method: RollForwardMethod) -> Self {
-        Self {
-            money_market_threshold: 1.0 / 12.0, // 1 month
-            short_date_threshold: 1.0,          // 1 year
-            roll_forward_method: method,
-        }
+    /// Construct actual ordered thresholds; this selects no pricing methodology.
+    pub fn new(money_market_threshold: f64, short_date_threshold: f64) -> BondResult<Self> {
+        valid(money_market_threshold, short_date_threshold)?;
+        Ok(Self {
+            money_market_threshold,
+            short_date_threshold,
+            enabled: true,
+        })
     }
-
-    /// Creates a calculator from yield calculation rules.
-    #[must_use]
-    pub fn from_rules(rules: &YieldCalculationRules) -> Self {
-        Self {
-            money_market_threshold: 1.0 / 12.0,
-            short_date_threshold: rules.short_date_threshold,
-            roll_forward_method: RollForwardMethod::Bloomberg,
-        }
+    /// Consume only the actual threshold and enabled flag from the supplied rules.
+    pub fn from_rules(rules: &YieldCalculationRules) -> BondResult<Self> {
+        Ok(Self::new(1.0 / 12.0, rules.short_date_threshold)?
+            .with_enabled(rules.use_short_date_method))
     }
-
-    /// Sets the money market threshold.
+    /// Set whether classification can select either short-date regime.
     #[must_use]
-    pub fn with_money_market_threshold(mut self, threshold: f64) -> Self {
-        self.money_market_threshold = threshold;
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
-
-    /// Sets the short-date threshold.
-    #[must_use]
-    pub fn with_short_date_threshold(mut self, threshold: f64) -> Self {
-        self.short_date_threshold = threshold;
-        self
+    /// Set a validated threshold without creating an invalid intermediate policy.
+    pub fn with_money_market_threshold(mut self, value: f64) -> BondResult<Self> {
+        valid(value, self.short_date_threshold)?;
+        self.money_market_threshold = value;
+        Ok(self)
     }
-
-    /// Returns true if money market conventions should be used.
-    ///
-    /// Very short-dated bonds (typically < 1 month) use simple money market
-    /// yield calculations instead of bond yield.
-    #[must_use]
-    pub fn use_money_market_below(&self, years_to_maturity: f64) -> bool {
-        years_to_maturity <= self.money_market_threshold
+    /// Set a validated threshold without discarding the supplied enabled flag.
+    pub fn with_short_date_threshold(mut self, value: f64) -> BondResult<Self> {
+        valid(self.money_market_threshold, value)?;
+        self.short_date_threshold = value;
+        Ok(self)
     }
-
-    /// Returns true if short-date methodology should be used.
-    ///
-    /// Bonds < 1 year to maturity typically use sequential roll-forward
-    /// or linear interpolation instead of standard bond yield.
-    #[must_use]
-    pub fn is_short_dated(&self, years_to_maturity: f64) -> bool {
-        years_to_maturity < self.short_date_threshold
+    /// Original configured money-market threshold, in years.
+    pub const fn money_market_threshold(&self) -> f64 {
+        self.money_market_threshold
     }
-
-    /// Returns the roll-forward method.
-    #[must_use]
-    pub const fn roll_forward_method(&self) -> RollForwardMethod {
-        self.roll_forward_method
+    /// Original configured short-date threshold, in years.
+    pub const fn short_date_threshold(&self) -> f64 {
+        self.short_date_threshold
     }
-
-    /// Calculates money market yield from price and days to maturity.
-    ///
-    /// Money market yield = (Face - Price) / Price * (360 / Days)
+    /// Actual supplied classification flag.
+    pub const fn enabled(&self) -> bool {
+        self.enabled
+    }
+    /// Bounded-data classification only; this is not a quotation convention.
+    pub fn use_money_market_below(&self, value: f64) -> BondResult<bool> {
+        years(value)?;
+        Ok(self.enabled && value <= self.money_market_threshold)
+    }
+    /// Bounded-data classification only, retaining the original strict threshold.
+    pub fn is_short_dated(&self, value: f64) -> BondResult<bool> {
+        years(value)?;
+        Ok(self.enabled && value < self.short_date_threshold)
+    }
+    /// Explicit 360 price-basis bill investment rate, in annual decimal units.
     pub fn money_market_yield(
         &self,
         price: Decimal,
-        face_value: Decimal,
-        days_to_maturity: i64,
+        face: Decimal,
+        days: i64,
     ) -> BondResult<Decimal> {
-        super::bill::money_market_yield(price, face_value, days_to_maturity)
+        super::bill::money_market_yield(price, face, days)
     }
-
-    /// Calculates bond equivalent yield from money market yield.
-    ///
-    /// Convert an explicit decimal price-basis 360 rate to fixed-365 simple
-    /// yield. Invalid domains, long terms and arithmetic failures return errors.
-    pub fn bond_equivalent_yield(
-        &self,
-        money_market_yield: Decimal,
-        days_to_maturity: i64,
-    ) -> BondResult<Decimal> {
-        super::bill::simple_bill_yield_from_money_market(money_market_yield, days_to_maturity)
+    /// Explicit short-term fixed365 simple bill rate; it is not a coupon-bond model.
+    pub fn bond_equivalent_yield(&self, rate: Decimal, days: i64) -> BondResult<Decimal> {
+        super::bill::simple_bill_yield_from_money_market(rate, days)
     }
-
-    /// Calculates years to maturity from settlement and maturity dates.
-    #[must_use]
-    pub fn years_to_maturity(settlement: Date, maturity: Date) -> f64 {
+    /// Checked positive remaining ACT/365F time from the two actual dates.
+    pub fn years_to_maturity(settlement: Date, maturity: Date) -> BondResult<f64> {
         let days = settlement.days_between(&maturity);
-        days as f64 / 365.0
+        if !(1..=9999).contains(&settlement.year())
+            || !(1..=9999).contains(&maturity.year())
+            || days <= 0
+            || days > MAX_CONTRACT_DAYS
+        {
+            return Err(BondError::invalid_spec(
+                "invalid or excessive remaining maturity interval",
+            ));
+        }
+        Ok(days as f64 / 365.0)
     }
 }
-
 impl Default for ShortDateCalculator {
     fn default() -> Self {
-        Self::new(RollForwardMethod::Bloomberg)
+        Self {
+            money_market_threshold: 1.0 / 12.0,
+            short_date_threshold: 1.0,
+            enabled: true,
+        }
     }
 }
 
@@ -168,8 +135,8 @@ mod tests {
         let calc = ShortDateCalculator::default();
 
         // Very short-dated (< 1 month) should use money market
-        assert!(calc.use_money_market_below(0.02)); // ~1 week
-        assert!(!calc.use_money_market_below(0.5)); // 6 months
+        assert!(calc.use_money_market_below(0.02).unwrap()); // ~1 week
+        assert!(!calc.use_money_market_below(0.5).unwrap()); // 6 months
     }
 
     #[test]
@@ -177,9 +144,9 @@ mod tests {
         let calc = ShortDateCalculator::default();
 
         // < 1 year is short-dated
-        assert!(calc.is_short_dated(0.5));
-        assert!(calc.is_short_dated(0.9));
-        assert!(!calc.is_short_dated(1.5));
+        assert!(calc.is_short_dated(0.5).unwrap());
+        assert!(calc.is_short_dated(0.9).unwrap());
+        assert!(!calc.is_short_dated(1.5).unwrap());
     }
 
     #[test]
@@ -209,7 +176,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 1, 15).unwrap();
         let maturity = Date::from_ymd(2025, 7, 15).unwrap();
 
-        let ytm = ShortDateCalculator::years_to_maturity(settlement, maturity);
+        let ytm = ShortDateCalculator::years_to_maturity(settlement, maturity).unwrap();
         assert!(ytm > 0.49 && ytm < 0.51); // ~6 months
     }
 
@@ -217,17 +184,19 @@ mod tests {
     fn test_custom_thresholds() {
         let calc = ShortDateCalculator::default()
             .with_money_market_threshold(0.25)
-            .with_short_date_threshold(2.0);
+            .unwrap()
+            .with_short_date_threshold(2.0)
+            .unwrap();
 
-        assert!(calc.use_money_market_below(0.2));
-        assert!(calc.is_short_dated(1.5));
+        assert!(calc.use_money_market_below(0.2).unwrap());
+        assert!(calc.is_short_dated(1.5).unwrap());
     }
 
     #[test]
     fn test_from_rules() {
         let rules = YieldCalculationRules::us_treasury();
-        let calc = ShortDateCalculator::from_rules(&rules);
+        let calc = ShortDateCalculator::from_rules(&rules).unwrap();
 
-        assert_eq!(calc.short_date_threshold, rules.short_date_threshold);
+        assert_eq!(calc.short_date_threshold(), rules.short_date_threshold);
     }
 }

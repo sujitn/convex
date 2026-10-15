@@ -129,9 +129,8 @@ pub mod prelude {
 
     // Yields
     pub use crate::yields::{
-        current_yield, simple_yield, street_convention_yield, RollForwardMethod,
-        ShortDateCalculator, StandardYieldEngine, YieldEngine, YieldEngineResult, YieldResult,
-        YieldSolver,
+        current_yield, simple_yield, street_convention_yield, ShortDateCalculator,
+        StandardYieldEngine, YieldEngine, YieldEngineResult, YieldResult, YieldSolver,
     };
 
     // Risk

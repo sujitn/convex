@@ -503,3 +503,13 @@ Read [the accrued-interest contract and migration](ACCRUED-METHODS.md).
 Remaining general dated yield/reference and calendar methods, full product/model/
 calibration/claim/physical/mixed-book integration and mandatory mappings remain
 required. This increment supplies no independent approval or Windows/Excel check.
+
+
+## Checked cash projection and short-date policy
+
+The ambiguous flat-model money-market yield helpers are now checked
+`constant_rate_return` adapters. Shared `reinvestment` dispatch retains complete
+native terms, original cash units and explicit separate rates. Short-date policy
+construction/queries now return `Result` and consume the enabled flag. The
+unqualified YAS money-market row and fabricated calculator true yield are retired.
+Read [the supplied-cash projection and migration](REINVESTMENT.md).

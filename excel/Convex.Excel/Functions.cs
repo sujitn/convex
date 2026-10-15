@@ -477,8 +477,6 @@ namespace Convex.Excel
                     ("Current Yield (%)", (double?)r["current_yield_pct"] ?? double.NaN),
                     ("Simple Yield (%)", (double?)r["simple_yield_pct"] ?? double.NaN),
                 };
-                var mmy = (double?)r["money_market_yield_pct"];
-                if (mmy.HasValue) rows.Add(("MM Yield (%)", mmy.Value));
                 rows.Add(("Z-Spread (bps)", (double?)r["z_spread_bps"] ?? double.NaN));
                 rows.Add(("Modified Duration", (double?)r["modified_duration"] ?? double.NaN));
                 rows.Add(("Macaulay Duration", (double?)r["macaulay_duration"] ?? double.NaN));

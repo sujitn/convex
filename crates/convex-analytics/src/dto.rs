@@ -607,8 +607,6 @@ pub struct YasResponse {
     pub ytm_pct: f64,
     pub current_yield_pct: f64,
     pub simple_yield_pct: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub money_market_yield_pct: Option<f64>,
     pub z_spread_bps: f64,
     pub modified_duration: f64,
     pub macaulay_duration: f64,

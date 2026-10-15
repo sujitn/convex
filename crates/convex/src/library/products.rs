@@ -495,6 +495,7 @@ pub(super) fn execute(
         LibraryOperation::YieldScalar { action } => super::yield_scalars::execute(action),
         LibraryOperation::CashYield { action } => super::yield_pricing::execute(action),
         LibraryOperation::AccruedInterest { action } => super::accrued::execute(action, r),
+        LibraryOperation::Reinvestment { action } => super::reinvestment::execute(action),
         LibraryOperation::Workout {
             input,
             context,

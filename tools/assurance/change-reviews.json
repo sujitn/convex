@@ -4501,6 +4501,55 @@
         "tools/library/library-inventory.json": "67670c3bc8cd7477304cfe28c1a5be8caf6122b6f34e105a203b7e488c6ff146",
         "tools/library/test_operations.py": "8d4317eeb94c6e0343ef0905a07d0f30c2a2201b7f2698f72cd8c2975533a0f3"
       }
+    },
+    {
+      "base_commit": "ecb2456a178a2e1ac748aecf9006c6e0ec335907",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 checked supplied-cash constant-rate projection and short-date policy. One native checked owner consumes complete original dates, cash units, separate valuation/reinvestment rates, explicit periodic frequency, reporting basis and horizon. Sorted bounded actual transfers and terminal cash at maturity are required. Typed Result replaces panics, NaN unit-growth and silent frequency/rate loss. Analytics and shared JSON/C/Java/Excel/MCP/WASM delegate native terms. Short-date thresholds are checked and actual enabled flag is consumed. Remove idle RollForwardMethod, inferred YAS money-market output and fabricated calculator true_yield=ytm; separately supplied true-yield analysis remains. 74independent Decimal110 projections and12growth references precede candidate; 154shared97positive57typed failures retain all original1808numeric rows/defaults and6354prior inputs;10new pins give1818 and154requests give6508. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all original broader convention/model/calibration/optional/claim/physical/mixed-book native scope remain required. Numerical account model is not market bond-forward pricing or realized P&L. No independent approval or unavailable Windows/Excel qualification.",
+      "tests": [
+        "Seven actual original projection/short-date failures;74Decimal110 projections12growth factors154shared controls; original financial test bodies preserved except necessary Result/getter/rename adapters",
+        "Preserve all6354prior inputs/complete envelopes except literal supplemental-capability path append; fresh37943ISDA/QuantLib controls",
+        "Ten default/no-default/schema/native/C/MCP/WASM profiles; actual full C/JDK26/wasm32Node/browser; original coupon/yield/WASM controls; workspace warnings-deniedClippy preflight;64library42assurance4private and scope/source/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "1183eeb47bc2b650ae761b445823ac4fa80e020e19716159280687b2c77dd9ea",
+        "crates/convex-analytics/src/dto.rs": "5f69c2c083a194531a15a95827352c4d415d86dffd4457b77193e0b2824dea6e",
+        "crates/convex-analytics/src/lib.rs": "11c2b497288822de6b68e23b920edd474a60a517960de87760d87220c329c9a0",
+        "crates/convex-analytics/src/yas/calculator.rs": "f0eaad96aaa2486ccff2aae599ebf2308899782c0dc465ed15d0411ccc07a138",
+        "crates/convex-analytics/src/yields/mod.rs": "df0014542c032fc99693bded613b93937806f42ff07721206402540cc4b556e4",
+        "crates/convex-analytics/src/yields/money_market.rs": "bbffe3de83c14db7fd56606928ef14f1c3bcf2ebdee2da2e5ed020c9ccf4f543",
+        "crates/convex-analytics/src/yields/short_date.rs": "bfc53758c7da2e24bbe811ce7b64bd6e9f40be0c09d53da8b89964d150844567",
+        "crates/convex-analytics/tests/fixtures/reinvestment.json": "a7371c61638813e55493e6ace1fd84c7e274bffba8528aa8bf1dfb4a61b937d8",
+        "crates/convex-analytics/tests/reinvestment.rs": "13a16eeeac04c6aa2379bcbadc8e2fc4940dc5cd774e549bfab7e80d141013d9",
+        "crates/convex-bonds/src/pricing/mod.rs": "16261f4a3de5fcc5cd18b3e1ce72ef8d8dca6e0572b2d28681554481c697df92",
+        "crates/convex-bonds/src/pricing/reinvestment.rs": "e747e4a75e1c6e53c5cc28bceab18b2dd654a143f6d5d8ce71ca75990202b50e",
+        "crates/convex-bonds/src/pricing/short_date.rs": "e36a393a2e3b6c9a56809cae38ef09538c3dffbfb2963677926dc20fb31672c0",
+        "crates/convex-ffi/src/dispatch.rs": "d08c5fcc7c9e3225947fbc7d2fa04046775c3a41a22656d56a5a446697e14a65",
+        "crates/convex-ffi/src/schemas.rs": "26308173afbbcb39ccf1d352dde97cc24be641f4cf847d0f5a591ab89709fccb",
+        "crates/convex-ffi/tests/reinvestment.rs": "ef5a9006657ae2204943afe95d9237b6f6ac69b3ec5e79a8ee243deb91ddab40",
+        "crates/convex-mcp/tests/reinvestment.rs": "49e080a809608cdf66cc7c8cd9b94ee92c5a12b0250459a809dcedfc514a1e60",
+        "crates/convex-wasm/tests/reinvestment.rs": "dbe182d910f9379747a2553ccdee4c37166106f7fa13716b2b19a7c2482c30e6",
+        "crates/convex/examples/reinvestment.rs": "12625c58e56c739ba6918b0fb5159f6bf81e62d32b75e3b6755d5de3af0a952d",
+        "crates/convex/src/library/mod.rs": "c2ffa7d28f902035c8878ace7b3e924dd636fe537a4998f9a1d4bd1f6dd24ce1",
+        "crates/convex/src/library/products.rs": "2a8ce45906cf4a710cc38d685d589c7168d90533ed778b0419b17557c022ebb6",
+        "crates/convex/src/library/reinvestment.rs": "1f45ce392522b7bfd6c7ca044e1717ca08a707fa55163ce7fe103084b1b66671",
+        "crates/convex/src/library/requests.rs": "667458a135ca26abcce25e55d2a5a493f3157037dfe8ebe3259c8c0d0bba43bc",
+        "crates/convex/tests/reinvestment.rs": "1ed811d8d6f30c58715bdb11eec7255a33297e81ce46496f4c2725eba64cc54f",
+        "docs/REINVESTMENT.md": "b71e94d8e29e69120e346c52e60d900a2ae4ed5778ecde58783e6143ec94e8be",
+        "docs/ROUTE-MIGRATION.md": "2fe03eff999d0f4c920adda70fa71245abb480fa34b7d0c87b35c1ce8fe9da6e",
+        "excel/Convex.Excel/Functions.cs": "d4c412fab6926da0e27e7e2e3cb7e18763560ff8b470f99d64c02dc5b4b001bc",
+        "tests/fixtures/library/reinvestment.json": "06c8d85598af6bb253e05cc7969b2a0ff39419bee5b8b3b2cf1ef78f9b091609",
+        "tests/fixtures/library/reinvestment_contract.rs": "0bf25743aeb9ec6d4c066c0380e9b4c267da46922e8d051e8b606d273eaebe19",
+        "tests/scripts/reinvestment_schema.py": "31c4bc05d470e4429a1083341e93f23b435ade8d6d738bde7c95a48fc79209a8",
+        "tools/assurance/check.py": "aba908f04bfaf5d49e23caef3669ef5b31279e19b6cf7b5df0bba595a5c98e08",
+        "tools/assurance/inventory.json": "b7177cc906a5aaf21e7812c4efd467f3a2bc09bdb84348fb1687f9d59c814d5b",
+        "tools/assurance/numeric-evidence.json": "58b30dd745157d9419ffea695caa354ab1f6deac3b2f96e9392cd52506808f37",
+        "tools/assurance/test_policy.py": "8808052b28a293fb59d7a5fc852df3528908c2fe411bc01672ca5acc88edb11d",
+        "tools/library/api-capabilities.json": "57bcece965ccbdb3100224da26ffd5a4cb7f3b4c337e262ed72cf4db72cdc2ad",
+        "tools/library/library-inventory.json": "d0f685b6f775ad23045323ab9fb6f427f9e8c33d3f889fbd941dbbf1f9bab307",
+        "tools/library/test_operations.py": "f4eb917882b6116f2d521447060270e90b9a88e11473ccfe302125813995043f"
+      }
     }
   ]
 }

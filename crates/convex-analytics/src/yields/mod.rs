@@ -34,7 +34,7 @@
 //!   assumptions that differ from street convention.
 //!
 //! - **Money Market Yields**: Discount yield, bond equivalent yield (BEY),
-//!   CD equivalent yield, and money market equivalent yield (MMY).
+//!   CD equivalent yield, and explicit constant-rate model returns.
 //!
 //! # Usage
 //!
@@ -83,10 +83,10 @@ pub use engine::{
     current_yield_simple, simple_yield_f64, StandardYieldEngine, YieldEngine, YieldEngineResult,
 };
 pub use money_market::{
-    bond_equivalent_yield, cd_equivalent_yield, discount_yield, money_market_yield,
-    money_market_yield_with_horizon,
+    bond_equivalent_yield, cd_equivalent_yield, constant_rate_return,
+    constant_rate_return_with_horizon, discount_yield,
 };
-pub use short_date::{RollForwardMethod, ShortDateCalculator};
+pub use short_date::ShortDateCalculator;
 pub use simple::simple_yield;
 pub use solver::{current_yield_decimal, current_yield_from_fixed_bond, YieldResult, YieldSolver};
 pub use street::street_convention_yield;
