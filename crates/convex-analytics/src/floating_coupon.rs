@@ -128,6 +128,28 @@ pub enum TermCouponOptionError {
     /// Bounded native work/input ceiling.
     #[error("term coupon option work bound: {0}")]
     Bound(&'static str),
+    /// Actual central parameter derivatives disagree with their half-step values.
+    #[error("term coupon parameter derivative order {order}: {full} versus half-step {half} exceeds {bound}")]
+    UnstableDerivative {
+        /// Actual derivative order, first or second.
+        order: u8,
+        /// Native full-size derivative, in currency per native parameter unit.
+        full: f64,
+        /// Native half-size derivative in the same order and units.
+        half: f64,
+        /// Explicit finite absolute/relative discrepancy allowance.
+        bound: f64,
+    },
+    /// Price arithmetic cannot resolve the caller's derivative refinement bound.
+    #[error("term coupon parameter derivative order {order}: arithmetic resolution {resolution} exceeds {bound}")]
+    DerivativeResolution {
+        /// First or second derivative order.
+        order: u8,
+        /// Conservative binary64 cancellation floor in the derivative's units.
+        resolution: f64,
+        /// Actual explicit absolute/relative policy allowance in the same units.
+        bound: f64,
+    },
     /// Original incompatible or unavailable optional-coupon input.
     #[error("term coupon option {field}: {reason}")]
     Invalid {

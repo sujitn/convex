@@ -31,6 +31,16 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-analytics --test coupon_parameter_derivatives',
+        'cargo test --locked -p convex --test coupon_parameter_derivatives',
+        'cargo run --locked -p convex --example coupon_parameter_derivatives',
+        'cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --no-default-features',
+        'cargo test --locked -p convex --test coupon_parameter_derivatives --no-default-features',
+        'cargo run --locked -p convex --example coupon_parameter_derivatives --no-default-features',
+        'cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --features schemars',
+        'cargo test --locked -p convex --test coupon_parameter_derivatives --features schemars',
+        'cargo run --locked -p convex --example coupon_parameter_derivatives --features schemars',
+        'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_derivatives',
         'cargo test --locked -p convex-curves --test curve_state',
         'cargo test --locked -p convex-analytics --test coupon_curve_state',
         'cargo test --locked -p convex --test coupon_curve_state',
@@ -849,6 +859,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-wasm/src/ingress.rs')
     paths.add('crates/convex-bonds/src/pricing/dated_cash.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/scenario.rs')
+    paths.add('crates/convex-analytics/src/floating_coupon/derivatives.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/prepared.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/whole_coupon.rs')
     paths.update(['crates/convex-bonds/src/options/floating_coupon.rs', 'crates/convex-analytics/src/floating_coupon.rs'])

@@ -850,6 +850,13 @@ pub(super) fn execute(
         } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
             value(prepared.model_scenario(&r.curves, coordinate, *delta)?)
         }),
+        LibraryOperation::TermCouponParameterDerivatives {
+            input,
+            coordinate,
+            settings,
+        } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
+            value(prepared.parameter_derivatives(&r.curves, coordinate, *settings)?)
+        }),
         LibraryOperation::TermCouponGraphRisk {
             graph,
             input,

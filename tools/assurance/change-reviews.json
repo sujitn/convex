@@ -4116,6 +4116,43 @@
         "tools/library/library-inventory.json": "05a69a32bc2f6cdd78ac18fec6299986d79d1f259fb74c69b0679dbf0bfb2f98",
         "tools/library/test_operations.py": "d53a25caab0433d3108d4cedc7bad51829b22be88d4ac85924db9c4bb3f5dd7e"
       }
+    },
+    {
+      "base_commit": "d2afa857fba2a398ca5cc51874a42495fc908361",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 full native coupon parameter first/second derivatives. Five full original prices at0,+h,-h,+h/2,-h/2 retain exact parameter point/source/revision/units, actual curves/full terms/history/publication/cutoff and all other model fields. Explicit independent first/second currency derivative h/h2 policies; no ratePV01/HW1F alias, clipped boundary, fake zero or partial result. Typed instability retains derivative order/full/half/bound. Five independent Decimal100 full-contract cases plus exact constant-collar zero control retain PV1e-8/first2e-7/second0.002 bounds declared before native execution; second bound follows actual binary64 cancellation budget. An independent pre-candidate policy failure selected smaller loading bump before candidate creation.26shared requests include6financial20typed failures. Preserve1718old numerical rows/defaults/files and5505requests;10controls give1728,26requests give5531. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. Canonical parameter hedge-factor bindings, calibration/inverse, one-sided boundary risk and complete optional/lifecycle scope remain required. Only unexecutable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate. Native resolution refinement reports and checks conservative binary64 cancellation floors against both actual derivative policies; original financial answers/bounds remain exact. Both candidate freezes and pre-guard captures stay.",
+      "tests": [
+        "Five predeclared Decimal100 full-contract parameter derivative cases and exact constant-collar zero, all5native prices, complete model/history/input invariance and distinct first/second instability",
+        "26new complete requests and all5505old requests on actual native/C/Java/wasm32Node/browser;default/no-default/schema/adapter controls and warnings-deniedClippy preflight",
+        "Original37943financialchecks and1718numeric/scope/physical conservation;64library42assurance4private controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "0d7cffc67ebfe1121b27dc842147bf3a5632b8de312409ee3c0c65db640d5bd6",
+        "crates/convex-analytics/src/floating_coupon.rs": "14dfd075f30282ed59becd44dbbb595733c391ba10a759981ca78f99f078f4f0",
+        "crates/convex-analytics/src/floating_coupon/derivatives.rs": "dad594b0019740ed41fbf183f553af02ffc85236334861f16aedcc054ca73bc6",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "58694b8afc37920e052495ed210fe89ed0339355f3da650ec0d8b570f5fbaf0d",
+        "crates/convex-analytics/tests/coupon_parameter_derivatives.rs": "4cdb0b0ad5ce6d340eec4a2b63c879a9508afdae1b683a0744ef0f9fab5d35de",
+        "crates/convex-analytics/tests/fixtures/coupon-parameter-derivatives.json": "ac27d9e7ff442a30ba20bd6d16ad44a16ecd668e1043d76c9e0722d304e26a0c",
+        "crates/convex-ffi/tests/coupon_parameter_derivatives.rs": "6d860b276c9499854354e7bebb8b84c1d469bd1713d1fc186a1062f7eb72b460",
+        "crates/convex-mcp/tests/coupon_parameter_derivatives.rs": "c58d9e1e688a0794687b8d151e3f7fa026a3fb4eabbc15de2a8c41f8bf168e57",
+        "crates/convex-wasm/tests/coupon_parameter_derivatives.rs": "baec135fac49e3ef4fbf599f96b9547abdb805d41b8e8a29ee014a12309b4e44",
+        "crates/convex/examples/coupon_parameter_derivatives.rs": "34899208cc66184c03c4942f1a01c2dd32be02a1996a66860d17e7e3e75d9fd5",
+        "crates/convex/src/library/errors.rs": "8ff1287263641f9e60c5bba5ac9d89530540acf15869b27d4ad80fd2bcdcc512",
+        "crates/convex/src/library/products.rs": "2e9227f68724635fb785e3477f2e39866ce579cfb3d9566b49e26b7ac6f65e76",
+        "crates/convex/src/library/requests.rs": "83bd23c3d58fba880d5fa176474ed121f8152019c14948ab5393a2cc0b08f0c3",
+        "crates/convex/tests/coupon_parameter_derivatives.rs": "405fcc731ea7de06cef938feb0f5c8947d90a41f14d469fb6a96791370b3d79d",
+        "docs/FLOATING-COUPON-OPTIONS.md": "288a3c12ff8cc934a01745bd9c1dc2076d9dba94c3a77b4f166a974f8882f202",
+        "tests/fixtures/library/coupon-parameter-derivatives.json": "333217097e09b8e9913fbf53c38ecda730ae52dedcd5e1574ce0d590524401fc",
+        "tests/fixtures/library/coupon_parameter_derivatives_contract.rs": "20c06a054576ae58418a52f4d710066119b16257be96d9ebfdc34da65dbd8c41",
+        "tests/scripts/coupon_parameter_derivatives_schema.py": "40426e513b6ca0d58ad66f7324b7f039645d66e0f3b969bf242e4e34617d6fa0",
+        "tools/assurance/check.py": "0e6ad2da3367bf1844c32e15266583fc1fdc2da4a1c4eef70186499dc026e44e",
+        "tools/assurance/inventory.json": "f36384630c90e594472a3f15449f412a9e6c9a2a35f53ff1ec978cd708411275",
+        "tools/assurance/numeric-evidence.json": "945c9c89bcbc6595b78e72e5c89c5b3e4ed1bfcf28c8897975d6398be94183e2",
+        "tools/library/api-capabilities.json": "a082e86e5321b22b2a6d98c2963ae9a06480a5852b64760165c6841846fadcf1",
+        "tools/library/library-inventory.json": "e82df3774e3772d12faa56eecd02fe6647fdc4da557c505fb3017b5d7d55e44e",
+        "tools/library/test_operations.py": "2c1df3e912b172f739036cf49b61a5df983a6b94a4c050c3d8c440144e34a1d5"
+      }
     }
   ]
 }

@@ -197,6 +197,15 @@ pub enum LibraryOperation {
         /// Explicit finite move in the parameter's own native unit.
         delta: f64,
     },
+    /// Full same-contract native coupon parameter first/second h/h2 derivatives.
+    TermCouponParameterDerivatives {
+        /// Complete original terms, histories, models and actual curves.
+        input: Box<TermCouponOptionInput>,
+        /// Exact original source/point/revision/parameter and native units.
+        coordinate: convex_analytics::floating_coupon::CouponParameterCoordinate,
+        /// Explicit native bump and first/second currency refinement policies.
+        settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
+    },
     /// Actual full coupon-model graph sensitivity with five native valuations.
     TermCouponGraphRisk {
         /// Original complete calibration graph and fit controls.

@@ -196,6 +196,36 @@ jobs:
       - name: Qualify supplied whole coupon normal law 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal
 
+      - name: Qualify native coupon parameter derivatives 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 1
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 2
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 4
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 5
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 7
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 8
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_derivatives
+
       - name: Qualify exact coupon curve state 0
         run: cargo test --locked -p convex-curves --test curve_state
 

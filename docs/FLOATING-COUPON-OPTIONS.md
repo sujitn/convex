@@ -145,3 +145,37 @@ Run `cargo run --locked -p convex --example coupon_curve_state` and
 `cargo test --locked -p convex-curves --test curve_state`. Curve-family admission
 does not add a new graph-risk coordinate, calibrate a model, or complete the
 remaining optional-bond and mixed-book lifecycle requirements.
+
+### Native parameter derivatives
+
+`PreparedTermCouponModel::parameter_derivatives` and the shared
+`term_coupon_parameter_derivatives` operation evaluate the complete native
+contract at `0`, `+h`, `-h`, `+h/2` and `-h/2` of one exact supplied parameter.
+All five full valuations, the original parameter and source/point/revision,
+first and second currency-PV derivatives and their half-step values are retained.
+Units follow the selected annual normal volatility, annual relative volatility,
+displacement or terminal factor loading; these results are not rate PV01.
+
+Supply the native-unit bump and separate absolute/relative first and second
+refinement policies. Both policies must pass. Actual parameter-domain failure,
+including a central move crossing a volatility boundary, aborts the result;
+parameters are not clipped. A conservative binary64 cancellation floor must
+fit inside each declared derivative allowance. Both arithmetic floors are
+reported; they do not certify model or pricer error. Unresolved PV cancellation
+fails even if the two finite differences agree. An unstable derivative returns a typed numerical
+failure with its order, full/half values and declared allowance. Constant collars
+retain genuine zero derivatives. All original curves, terms, cash/profile/reset
+steps, known fixing revisions, publication decisions and other model fields stay
+fixed. No extra publication callback or market revision is introduced.
+
+Run `cargo run --locked -p convex --example coupon_parameter_derivatives`.
+Independent Decimal100 equations declare five complete parameter cases; an
+exact constant-collar control adds genuine zero risk. PV/first/second comparison
+bounds of `1e-8`, `2e-7` and `0.002` were declared before native execution. The
+second bound accounts for cancellation in full currency PVs at the declared
+bumps. Each caller's refinement policy remains independently explicit.26shared
+requests include6financial and20typed failure controls.
+
+This route supplies native central derivatives. Canonical source/parameter
+hedge-factor bindings, calibration, inverse valuation, one-sided boundary risk
+and complete mixed-book lifecycle integration remain subsequent requirements.

@@ -53,6 +53,9 @@ impl From<convex_analytics::floating_coupon::TermCouponOptionError> for LibraryE
             E::MissingModel { .. } => native(Code::MissingInput, &e),
             E::Unsupported { .. } => native(Code::Unsupported, &e),
             E::Bound(_) => native(Code::ResourceLimit, &e),
+            E::UnstableDerivative { .. } | E::DerivativeResolution { .. } => {
+                native(Code::NoConvergence, &e)
+            }
             E::Invalid { .. } => native(Code::InvalidInput, &e),
             E::Option(convex_bonds::options::floating_coupon::CouponOptionError::Invalid {
                 ..
