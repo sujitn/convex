@@ -188,6 +188,15 @@ pub enum LibraryOperation {
         /// Full economics, exact calendars/history/curves and model sources.
         input: Box<TermCouponOptionInput>,
     },
+    /// Full hypothetical native coupon-model parameter scenario.
+    TermCouponModelScenario {
+        /// Complete original terms, eligible history, model and curves.
+        input: Box<TermCouponOptionInput>,
+        /// Exact original source/revision/index/observation/payment parameter.
+        coordinate: convex_analytics::floating_coupon::CouponParameterCoordinate,
+        /// Explicit finite move in the parameter's own native unit.
+        delta: f64,
+    },
     /// Actual full coupon-model graph sensitivity with five native valuations.
     TermCouponGraphRisk {
         /// Original complete calibration graph and fit controls.

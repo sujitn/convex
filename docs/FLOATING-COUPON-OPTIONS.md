@@ -96,3 +96,27 @@ These operations freeze supplied model assumptions. They do not calculate
 model-parameter risk or model recalibration, nor add the coupon models to every
 mixed-book scenario/lifecycle path. Those integrations remain required. Existing
 HW1F/OAS lattice resolution and risk-refinement guards retain their own owner.
+### Supplied model-parameter scenarios
+
+`PreparedTermCouponModel::model_scenario` and the shared
+`term_coupon_model_scenario` operation move one explicitly identified original
+model parameter. The coordinate includes index, observation date, payment date,
+source identity and source revision. Normal annual decimal-rate volatility,
+shifted-lognormal annual relative volatility, decimal-rate displacement and one
+terminal normal-factor loading have distinct selectors and units.
+
+The result retains the full original and hypothetical valuations, the original
+parameter, the supplied move and its resulting value. It reuses the original
+curves, complete terms, calendars, profile steps, history, publication decisions,
+information cutoff and every other model parameter. It changes no market
+publication or source revision. Wrong coordinates, incompatible model families,
+absent factors, nonfinite moves and invalid resulting model domains return errors.
+Only the actual admitted direct-grid baseline is supported by this prepared
+view; broader exact curve-family admission remains required.
+
+Run `cargo run --locked -p convex --example coupon_model_scenarios`. Six
+independently declared full-contract scenario values use the original absolute
+currency-PV bound of `1e-8`; 21 rejection cases cover identity, model, history,
+publication, domain and strict-decoding failures. This operation does not supply
+calibration, inverse valuation, canonical parameter-risk units or mixed-book
+lifecycle integration. Those original requirements remain open.

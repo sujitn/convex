@@ -843,6 +843,13 @@ pub(super) fn execute(
             action,
         } => super::icma::workout(input, convention, context, action, r),
         LibraryOperation::TermCouponOptions { input } => super::floating_coupon::execute(input, r),
+        LibraryOperation::TermCouponModelScenario {
+            input,
+            coordinate,
+            delta,
+        } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
+            value(prepared.model_scenario(&r.curves, coordinate, *delta)?)
+        }),
         LibraryOperation::TermCouponGraphRisk {
             graph,
             input,

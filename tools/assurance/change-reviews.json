@@ -4044,6 +4044,42 @@
         "tools/library/library-inventory.json": "bbabb0562fc08810dd609acee8583e0d962b888f26b538c5f1c80bbac841ae72",
         "tools/library/test_operations.py": "c39f0c787a78e46e1e0a0700d290b2677eef95a8e82c0d24aa3081b9bc061e42"
       }
+    },
+    {
+      "base_commit": "eff148996cf88b6447cceed8826c4fe809da559a",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 full original coupon-model parameter scenarios. Exact original index/observation/payment/source/revision and model-family/native-unit coordinates select annual normal volatility, shifted-lognormal volatility/displacement or signed terminal normal loading. Clone only one supplied parameter; native full contract repricing retains every original curve, term, calendar, profile, fixing revision, publication/cutoff and other model field. Retain original/base/scenario parameter and both complete valuations. Six independent full-contract scenario PVs at1e-8, zero move, immutable baseline/publication and27shared requests including21typed failures. Preserve1697old numerical rows/defaults/files and5444requests;10pins give1707 and27requests give5471. Original30areas/174combinations/2154Planned,80shared/12native/228mapped1926unmapped stay. Model-risk normalization/hedging, calibration/inverse, broader exact curve admission, mixed-book lifecycle and full optional conventions remain required; only unexecutableplatform checks defer. IndependentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "Six predeclared independent full-contract scenario PVs1e-8; exact one-field move, original source/revision/family/units, zero move and full history/publication/baseline invariance",
+        "27new complete requests and all5444old requests on actual native/C/Java/wasm32Node/browser, default/no-default/schema/adapter checks",
+        "Original37943financialchecks and1697numeric/scope/physical conservation,64library42assurance4private inspectors"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "39ce525c7e07667d214e2db800a376db21e0bfa068d65be83320745c8774940e",
+        "crates/convex-analytics/src/floating_coupon.rs": "0f8e9c72a9c0d1244249bf4f8893a3b455ded726246d4a109a4ada4f5371cdc6",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "6f25aa291ed7a1b3b99bae87292fab6727007a8a3321160ed6af67b9bd80a33e",
+        "crates/convex-analytics/src/floating_coupon/scenario.rs": "e96f0c50a23a7c7fab72497e31bf368666211a08239219eb348ca062503b2ec8",
+        "crates/convex-analytics/tests/coupon_model_scenarios.rs": "0f6402888486eb42d16c57cb247353fb99dc25e77947c34a7c89bfde36b731ea",
+        "crates/convex-analytics/tests/fixtures/coupon-model-scenarios.json": "d4302d3859af7409ed109cb94748a47231988f40dbfeaa3b0596a98dcd7eb7bd",
+        "crates/convex-ffi/tests/coupon_model_scenarios.rs": "453cf9f843c4374bf52fe9210ecf4d3f929eae5d12419f8c71aea3b72e05d48f",
+        "crates/convex-mcp/tests/coupon_model_scenarios.rs": "43a5a7dee284cb753144066318c855f57bf1d5eec87c9f69d26d78101877ffa2",
+        "crates/convex-wasm/tests/coupon_model_scenarios.rs": "e5dc6e342495ff2c79142b8380ee47a3c88e923c58c7a44179713f1e6c11c02a",
+        "crates/convex/examples/coupon_model_scenarios.rs": "487cbae4a84fb1f744fa3024fe12f15bc80bbc6ea3a1189dece0f6f2956e3abd",
+        "crates/convex/src/library/products.rs": "2e50dd69b44da248237e1ec4929ae87cb7bb3359009b67b2af4261f134ca6d9c",
+        "crates/convex/src/library/requests.rs": "a14e0987151b631cf2198c52a7d903edbcc33f75f11787ca10097e06bb6bf71e",
+        "crates/convex/tests/coupon_model_scenarios.rs": "e1c1dfdf2588971720374eafb2330a69e0b416080d355a5891c2e0001759225b",
+        "docs/FLOATING-COUPON-OPTIONS.md": "b731df3ae080e27d72b3f9f127ed47f16a348b500f723b370ef2311b76c15bef",
+        "tests/fixtures/library/coupon-model-scenarios.json": "772294e8e919ac75962ac115053316110f68d6ed18a9491107f15550de92a494",
+        "tests/fixtures/library/coupon_model_scenarios_contract.rs": "1fd3f1e8ed8666b2be7af9a74dd824d04992b3b4aeb200fe2346fdf98be3bd9a",
+        "tests/scripts/coupon_model_scenarios_schema.py": "1173a104b3caac339965059a25d6e6c8051638b7d3f4c651e38bb4a27a3bde07",
+        "tools/assurance/check.py": "02f58e919a6d31588df92127ee8ab2f3c0713be98f004cae39aa6ff3fd27d29e",
+        "tools/assurance/inventory.json": "4677bfb840f095fd09805db5e82125f87875f30133ba75fb7daf7557ee4e75ec",
+        "tools/assurance/numeric-evidence.json": "3b39fd23f8e457dab9c804b27056928c3a186928849b867313381057d730b836",
+        "tools/library/api-capabilities.json": "1d1637517932a4db1a89e7a1d95d5d4a3922d0c0785be8b114df5d85bed7a297",
+        "tools/library/library-inventory.json": "32bdcef911851310b3bc8325e8eebeb65c2fede3c1f60e0431f89bd4bf9317e1",
+        "tools/library/test_operations.py": "3574ee8a49deec9b5acde1a53a7964868924b12606c08f8f53c44e2433a84fa7"
+      }
     }
   ]
 }

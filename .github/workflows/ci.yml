@@ -196,6 +196,36 @@ jobs:
       - name: Qualify supplied whole coupon normal law 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal
 
+      - name: Qualify supplied coupon model scenarios 0
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 1
+        run: cargo test --locked -p convex --test coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 2
+        run: cargo run --locked -p convex --example coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 3
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 4
+        run: cargo test --locked -p convex --test coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 5
+        run: cargo run --locked -p convex --example coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 6
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 7
+        run: cargo test --locked -p convex --test coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 8
+        run: cargo run --locked -p convex --example coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_model_scenarios
+
       - name: Qualify supplied coupon graph and hedge risk 0
         run: cargo test --locked -p convex-analytics --test coupon_graph_risk
 

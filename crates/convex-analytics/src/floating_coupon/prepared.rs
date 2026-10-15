@@ -64,6 +64,36 @@ impl PreparedTermCouponModel<'_> {
     pub fn price(&self, curves: &CurveSet) -> Result<TermCouponOptionPrice> {
         price_input(&self.input, &self.publications, curves)
     }
+    /// Hypothetical move of one exact original model parameter. Curves, history,
+    /// publications and every other model/economic field remain unchanged.
+    pub fn model_scenario(
+        &self,
+        curves: &CurveSet,
+        coordinate: &CouponParameterCoordinate,
+        delta: f64,
+    ) -> Result<CouponModelScenario> {
+        self.admit_baseline(curves)?;
+        let (options, before, after) =
+            super::scenario::changed_options(self.input.options, coordinate, delta)?;
+        let base = self.price(curves)?;
+        let input = TermCouponModelInputs {
+            bond: self.input.bond,
+            context: self.input.context,
+            history: self.input.history,
+            options: &options,
+            projection: self.input.projection.clone(),
+            discount: self.input.discount.clone(),
+        };
+        let scenario = price_input(&input, &self.publications, curves)?;
+        Ok(CouponModelScenario {
+            coordinate: coordinate.clone(),
+            original_parameter: before,
+            delta,
+            scenario_parameter: after,
+            base,
+            scenario,
+        })
+    }
 }
 
 fn price_input(
