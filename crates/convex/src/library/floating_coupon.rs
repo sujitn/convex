@@ -94,3 +94,42 @@ pub(super) fn execute(
     )?;
     value(result)
 }
+
+pub(super) fn with_prepared<T>(
+    input: &TermCouponOptionInput,
+    r: &ResolvedInputs<'_>,
+    curves: &convex_curves::contracts::CurveSet,
+    f: impl FnOnce(&c::PreparedTermCouponModel<'_>) -> LibraryResult<T>,
+) -> LibraryResult<T> {
+    let bond = r.bond(&input.bond)?;
+    let mut missing_publication = None;
+    let prepared = c::prepare_term_coupon_model(
+        c::TermCouponModelInputs {
+            bond: &bond,
+            context: &input.context,
+            history: &r.history,
+            options: &input.options,
+            projection: input.projection.clone(),
+            discount: input.discount.clone(),
+        },
+        curves,
+        |index, date| match r.publications.get(index, date) {
+            Ok(time) => Ok(time),
+            Err(error) => {
+                missing_publication = Some(LibraryError::missing(
+                    "publication",
+                    serde_json::json!({"index_id":index,"observation_date":date,"cause":error.to_string()}),
+                ));
+                Err(CashflowError::InvalidTerms {
+                    field: "publication",
+                    reason: "original required publication absent".into(),
+                })
+            }
+        },
+    );
+    if let Some(error) = missing_publication {
+        return Err(error);
+    }
+    let prepared = prepared?;
+    f(&prepared)
+}

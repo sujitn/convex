@@ -26,7 +26,9 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod prepared;
 mod whole_coupon;
+pub use prepared::*;
 use whole_coupon::{whole_coupon_value, WholeCouponTotals};
 pub use whole_coupon::{
     WholeCouponAccrualPolicy, WholeCouponNormalLaw, WholeCouponNormalValue, WholeCouponRateFactors,

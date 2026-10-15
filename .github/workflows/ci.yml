@@ -196,6 +196,36 @@ jobs:
       - name: Qualify supplied whole coupon normal law 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal
 
+      - name: Qualify supplied coupon graph and hedge risk 0
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 1
+        run: cargo test --locked -p convex --test coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 2
+        run: cargo run --locked -p convex --example coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 3
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 4
+        run: cargo test --locked -p convex --test coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 5
+        run: cargo run --locked -p convex --example coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 6
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 7
+        run: cargo test --locked -p convex --test coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 8
+        run: cargo run --locked -p convex --example coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_graph_risk
+
       - name: Check dated cash price and analytical yield risk
         run: cargo test --locked -p convex-bonds --test dated_cash_risk
       - name: Check WASM same-basis yield quotations

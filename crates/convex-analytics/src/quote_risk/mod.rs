@@ -3,6 +3,7 @@
 //! policies are explicit. No clock, provider, runtime, publication or ledger.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod coupon;
 pub(crate) mod finite;
 mod graph;
 mod optional;
@@ -10,6 +11,7 @@ mod optional_graph;
 mod scenario;
 mod types;
 
+pub use coupon::*;
 pub use finite::*;
 pub use graph::*;
 pub use optional::*;
@@ -20,6 +22,9 @@ pub use types::*;
 /// Typed admission, valuation and calibration failures; no accepted zero fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum QuoteRiskError {
+    /// Original full coupon option terms/history/model/input failure.
+    #[error(transparent)]
+    Coupon(#[from] crate::floating_coupon::TermCouponOptionError),
     /// Invalid or incompatible original risk input.
     #[error("quote risk {field}: {reason}")]
     Invalid {

@@ -325,6 +325,7 @@ impl From<risk::QuoteRiskError> for LibraryError {
     fn from(e: risk::QuoteRiskError) -> Self {
         use risk::QuoteRiskError as E;
         match e {
+            E::Coupon(e) => e.into(),
             E::Curve(e) => e.into(),
             E::Rate(e) => e.into(),
             E::Credit(e) => e.into(),

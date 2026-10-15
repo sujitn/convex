@@ -188,6 +188,30 @@ pub enum LibraryOperation {
         /// Full economics, exact calendars/history/curves and model sources.
         input: Box<TermCouponOptionInput>,
     },
+    /// Actual full coupon-model graph sensitivity with five native valuations.
+    TermCouponGraphRisk {
+        /// Original complete calibration graph and fit controls.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Full original supplied coupon terms/history/model/curve bindings.
+        input: Box<TermCouponOptionInput>,
+        /// Original graph factor/quote-unit/response identity.
+        key: Box<convex_analytics::quote_risk::QuoteRiskKey>,
+        /// Explicit original face and signed holding units.
+        position: convex_analytics::quote_risk::RiskPosition,
+        /// Actual immutable caller information set.
+        snapshot_id: convex_core::contracts::SnapshotId,
+        /// Original central and mandatory half-step stability policy.
+        settings: convex_analytics::quote_risk::QuoteRiskSettings,
+    },
+    /// Full native coupon-model column in existing constrained hedge units.
+    TermCouponHedgeRisk {
+        /// Original complete graph and fit policy.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Full original coupon-model contract.
+        input: Box<TermCouponOptionInput>,
+        /// Identity, positive face reference and every intended common factor.
+        risk: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
+    },
     /// Full original floating conditional cash and frozen-projection DM inverses.
     FloatingWorkout {
         /// Complete original floating terms, resources, revisions and signed face.

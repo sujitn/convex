@@ -69,3 +69,30 @@ cash still fails. Results expose the whole cash mean, common cash loadings,
 standard deviation, bounded expectation and complete original segment proof.
 A sum of shifted-lognormal rates, overnight or callable/path law requires its
 own model. This supplied normal law does not substitute for those requirements.
+
+## Graph sensitivities and hedge columns
+
+`term_coupon_graph_risk` accepts the same complete coupon input, an original
+calibration graph, a checked quote-risk key, signed position, snapshot and
+central/half-step policy. Preparation freezes the original publication decisions,
+history and model revisions. Each of the five valuations queries the actual
+scenario projection and discount curves and reprices the full option law.
+Baseline admission binds complete original recipes and interpolation grids.
+
+Results retain signed monetary risk and all five complete coupon valuations,
+with graph build order, native helper repricing residuals and evaluation counts.
+Known fixings stay fixed while permitted future forwards change. Original
+reference face and currency bind position scaling once; missing inputs, wrong
+roles/units/face, unstable bumps or failed pricing return no accepted risk.
+
+`term_coupon_hedge_risk` accepts the existing `GraphHedgeRiskInput`. It computes
+all requested factors, including actual zero exposures, and returns the existing
+`HedgeRiskVector` plus the full native baseline and factor valuations. That
+vector can enter `aggregate_hedge_risk` or the constrained hedge solver with
+explicit current/pending quantities, factor policies and application identities.
+A calculated vector supplies no fill, cash-posting, limit or order authority.
+
+These operations freeze supplied model assumptions. They do not calculate
+model-parameter risk or model recalibration, nor add the coupon models to every
+mixed-book scenario/lifecycle path. Those integrations remain required. Existing
+HW1F/OAS lattice resolution and risk-refinement guards retain their own owner.

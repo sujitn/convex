@@ -4003,6 +4003,47 @@
         "tools/library/library-inventory.json": "064d16fb3cebfefe8eeb7dadd2517135389c961584ea155ef78365c06859840e",
         "tools/library/test_operations.py": "140d957135b899cae1150c4b5e53334435dc0dbb5dafedcd4716e7c2222284ef"
       }
+    },
+    {
+      "base_commit": "d50c34b443f8fc3def679d06c3e9019c46c48ed8",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-14",
+      "rationale": "CVX-063 actual term coupon model graph risk and constrained hedge columns. Immutable prepared view binds original full recipes/grids, terms/calendars/history/publication decisions and segment/whole model source revisions. Every actual base,+h,-h,+h/2,-h/2 graph revaluation queries scenario projection/discount and reprices the same native law; no frozen forecast or per100 bump. Native face/currency/quantity/snapshot/key/response/unit/stability/work policy stays. Full native prices, original helper residual/build order/work and genuine zero factors remain. Existing HW1F/OAS lattice controls are not bypassed. Nine independently declared whole/normal/shifted law discount/projection/joint controls retain PV/risk1e-8; native zero/signed scale/work/duplicates/baseline/stability and actual current/pending constrained aggregation pass.27new complete shared requests retain typed missing/invalid failures. Preserve1687original numerical rows/defaults/files and5417requests;27addition gives5444,10pins give1697. Original30areas/174combinations/2154Planned,80shared/12native/228mapped1926unmapped stay. Broader model-parameter/calibration/inverse/mixed-book lifecycle/optional conventions remain required; only unexecutableplatform checks defer. IndependentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "Nine independently declared whole/normal/shifted coupon graph h/h2 PV/risk controls at1e-8;zero/scaling/known/history/work/stability/baseline and actual constrained current/pending aggregation",
+        "27new complete requests with financial/typed failure controls, schema and all original5417requests on actual native/C/Java/WASMNode/browser",
+        "Original37943financialchecks,1687numeric/scope/physical conservation and64library42assurance4private controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4fcc74ceb4188884058edbc776757c0945ced50ee502b55c3b61685f5ae4b984",
+        "crates/convex-analytics/src/floating_coupon.rs": "848c2b6d994d97ee7a437262c2db8f2a804ac22c961e043f20105c7f8859b288",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "8a332996ac2949a2d6673fed233232aa5a5c6a5b3a3060d9dcd91f16a2e69b8c",
+        "crates/convex-analytics/src/quote_risk/coupon.rs": "1eeda52977a33edd7cb4a5629e8c537e58648020c524b8ddf61f467548dcb8c8",
+        "crates/convex-analytics/src/quote_risk/mod.rs": "5b9bf2287650f236823a087162e408eed782b5d66b79b6b6c450cc9e3977747d",
+        "crates/convex-analytics/src/workflow/coupon_hedge.rs": "ac4b61463a0e8fa06ce2db2fc50530f553e85a5798e833cb08ac2113396f0180",
+        "crates/convex-analytics/src/workflow/mod.rs": "3ba9ac0bee4cfd066232ec2127a870732464d3fd0c04c455609b6601563dbaa7",
+        "crates/convex-analytics/tests/coupon_graph_risk.rs": "4b2bd46e17a2c56b021d6c8957935409fac6703d3b751409af62182c793d0d5d",
+        "crates/convex-analytics/tests/fixtures/coupon-graph-risk.json": "e8b8b92a17cdbb488351f397a04b6f917569f0f726e14d1456687ffad35e39b7",
+        "crates/convex-ffi/tests/coupon_graph_risk.rs": "c0c29b397263c74a4ec3e4a461bb091cca94828a0b3fb12e205e54e70df02278",
+        "crates/convex-mcp/tests/coupon_graph_risk.rs": "06d0656810eaa66733778c9186bb750a495b6deac7ac53e6f515af1a0b78d961",
+        "crates/convex-wasm/tests/coupon_graph_risk.rs": "a865f868e7620be852c2798f5ffaa3809cef8be4f4649a3425191514c8c88da2",
+        "crates/convex/examples/coupon_graph_risk.rs": "36e9eed4a38510a7073bced6f5ef850edd5e40ad818300035bd73271c870fc0b",
+        "crates/convex/src/library/errors.rs": "6c783a55d47cdb2239999b0f6e939d6b721be30d56feaad5cb5617d6f3472867",
+        "crates/convex/src/library/floating_coupon.rs": "eae5378bae93d07f4b3b24388c6b11b78f1f73b98a160d75c833f7c26024f89e",
+        "crates/convex/src/library/products.rs": "963ca87be2398b9ffb9acffb6ff25a2c291a90f041c323f95069c9a3da2660ce",
+        "crates/convex/src/library/requests.rs": "38b9976f128ae3895c4107cabbdcb699c6430993e11cd1fdf82a5453af829296",
+        "crates/convex/tests/coupon_graph_risk.rs": "4fdec194fefd275fde0e08d408451f648d629a6dc3973c3fde6f6c74137d836d",
+        "docs/FLOATING-COUPON-OPTIONS.md": "b12b6742042d57c6eec0dc58249aa6cedc5d2eb742c103794dfc0ec97c24f6f7",
+        "tests/fixtures/library/coupon-graph-risk.json": "2194080040857a8433b59768c73939967b3801a1e9c47416fc86c7af79e542a9",
+        "tests/fixtures/library/coupon_graph_risk_contract.rs": "3d8fb6ea7352e78ce791bb1c6d496524794e71642adbc9ed16147c4de82ab5f9",
+        "tests/scripts/coupon_graph_risk_schema.py": "18f0915a57c310b99c541ea7605fd6be6a134e8e6698807b018a7737041affa3",
+        "tools/assurance/check.py": "51846cefc535778cc82ba1a0db09039ffcd5a7380af5c0296788ab201199bb28",
+        "tools/assurance/inventory.json": "bd60d780744b8f2f8edb0960c606150e4b846e620d003091c25c485b6e3e43d1",
+        "tools/assurance/numeric-evidence.json": "60ae4ac6730a8778ec98fe79d485b471f85ccc0f93b3ea415a5df038288ebb9b",
+        "tools/library/api-capabilities.json": "deb382ba1863deafdfecba6e87ad716f817bda44f5750739ceb201fd3915b7e6",
+        "tools/library/library-inventory.json": "bbabb0562fc08810dd609acee8583e0d962b888f26b538c5f1c80bbac841ae72",
+        "tools/library/test_operations.py": "c39f0c787a78e46e1e0a0700d290b2677eef95a8e82c0d24aa3081b9bc061e42"
+      }
     }
   ]
 }

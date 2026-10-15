@@ -843,6 +843,34 @@ pub(super) fn execute(
             action,
         } => super::icma::workout(input, convention, context, action, r),
         LibraryOperation::TermCouponOptions { input } => super::floating_coupon::execute(input, r),
+        LibraryOperation::TermCouponGraphRisk {
+            graph,
+            input,
+            key,
+            position,
+            snapshot_id,
+            settings,
+        } => super::curves::with_graph(graph, r, |graph| {
+            super::floating_coupon::with_prepared(input, r, &graph.baseline().curves, |prepared| {
+                value(convex_analytics::quote_risk::term_coupon_graph_sensitivity(
+                    prepared,
+                    graph,
+                    *key.clone(),
+                    position.clone(),
+                    snapshot_id.clone(),
+                    settings.clone(),
+                )?)
+            })
+        }),
+        LibraryOperation::TermCouponHedgeRisk {
+            graph,
+            input,
+            risk: request,
+        } => super::curves::with_graph(graph, r, |graph| {
+            super::floating_coupon::with_prepared(input, r, &graph.baseline().curves, |prepared| {
+                value(w::term_coupon_hedge_risk(prepared, graph, request)?)
+            })
+        }),
         LibraryOperation::FloatingWorkout {
             input,
             context,
