@@ -6,6 +6,9 @@ use std::sync::Arc;
 #[path = "derivatives.rs"]
 mod derivatives;
 pub use derivatives::*;
+#[path = "inverse.rs"]
+mod inverse;
+pub use inverse::*;
 
 /// Original immutable coupon model and curve-role bindings for repeated pricing.
 pub struct TermCouponModelInputs<'a> {

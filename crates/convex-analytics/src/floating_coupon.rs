@@ -150,6 +150,62 @@ pub enum TermCouponOptionError {
         /// Actual explicit absolute/relative policy allowance in the same units.
         bound: f64,
     },
+    /// Supplied target is not bracketed; no global absence-of-roots claim.
+    #[error("coupon parameter target not bracketed in [{lower},{upper}]: residuals {low_residual}, {high_residual}")]
+    InverseNotBracketed {
+        /// Original actual lower native parameter.
+        lower: f64,
+        /// Original actual upper native parameter.
+        upper: f64,
+        /// Actual full currency PV residual at lower parameter.
+        low_residual: f64,
+        /// Actual full currency PV residual at upper parameter.
+        high_residual: f64,
+    },
+    /// Both distinct endpoints meet the target at the caller's price precision.
+    #[error("coupon parameter not identified in [{lower},{upper}] at currency price tolerance {price_tolerance}: residuals {low_residual}, {high_residual}")]
+    InverseUnidentified {
+        /// Original lower native parameter.
+        lower: f64,
+        /// Original upper native parameter.
+        upper: f64,
+        /// Actual lower-endpoint full currency residual.
+        low_residual: f64,
+        /// Actual upper-endpoint full currency residual.
+        high_residual: f64,
+        /// Original currency target allowance.
+        price_tolerance: f64,
+    },
+    /// Requested currency residual is below native arithmetic admission resolution.
+    #[error("coupon inverse arithmetic resolution {resolution} exceeds price tolerance {price_tolerance}")]
+    InverseResolution {
+        /// Explicit conservative binary64 arithmetic guard, not model error.
+        resolution: f64,
+        /// Original absolute currency price allowance.
+        price_tolerance: f64,
+    },
+    /// Work budget is checked before every full native valuation, including refresh.
+    #[error(
+        "coupon inverse exhausted {price_evaluations} actual price evaluations, limit {limit}"
+    )]
+    InverseWork {
+        /// Actual complete native prices already evaluated.
+        price_evaluations: usize,
+        /// Original caller ceiling.
+        limit: usize,
+    },
+    /// Iteration/stagnation/final repricing failed original price/width policy.
+    #[error("coupon inverse failed after {iterations} iterations/{price_evaluations} prices: residual {residual}, native parameter width {parameter_width}")]
+    InverseConvergence {
+        /// Actual completed bisection iterations.
+        iterations: u32,
+        /// Actual complete native prices.
+        price_evaluations: usize,
+        /// Actual full currency residual.
+        residual: f64,
+        /// Actual surviving native parameter width.
+        parameter_width: f64,
+    },
     /// Original incompatible or unavailable optional-coupon input.
     #[error("term coupon option {field}: {reason}")]
     Invalid {

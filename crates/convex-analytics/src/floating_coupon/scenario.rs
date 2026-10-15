@@ -66,6 +66,23 @@ pub(super) fn changed_options(
             "finite original native-unit move required",
         ));
     }
+    update_options(original, coordinate, |before| finite(before + delta))
+}
+
+pub(super) fn parameter_options(
+    original: &TermCouponOptionInputs,
+    coordinate: &CouponParameterCoordinate,
+    value: f64,
+) -> Result<(TermCouponOptionInputs, f64, f64)> {
+    finite(value)?;
+    update_options(original, coordinate, |_| Ok(value))
+}
+
+fn update_options(
+    original: &TermCouponOptionInputs,
+    coordinate: &CouponParameterCoordinate,
+    update: impl FnOnce(f64) -> Result<f64>,
+) -> Result<(TermCouponOptionInputs, f64, f64)> {
     let mut options = original.clone();
     let missing = || TermCouponOptionError::MissingModel {
         index_id: coordinate.index_id.clone(),
@@ -133,7 +150,7 @@ pub(super) fn changed_options(
         }
     };
     let before = *value;
-    *value = finite(before + delta)?;
+    *value = update(before)?;
     let after = *value;
     Ok((options, before, after))
 }

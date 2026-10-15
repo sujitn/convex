@@ -221,3 +221,32 @@ curve/model hedge control retain full economics and unchanged reference bounds.
 Complete model calibration/inverse, mixed-book parameter scenarios/lifecycle,
 one-sided boundary risk and all remaining original optional conventions/models
 still require implementation and qualification.
+
+### Full currency parameter price inverse
+
+`PreparedTermCouponModel::parameter_price_inverse` and the shared
+`term_coupon_parameter_inverse` operation select one parameter within an explicit
+native-unit bracket using full original contract PV. Supply the original point,
+same-currency `ModelMoney` target, absolute currency price tolerance, parameter
+width tolerance and actual iteration/price-call ceilings. Parameter values are
+assigned exactly; they are not reconstructed through a possibly cancelling delta.
+Every price retains original terms, curves, histories, publication decisions and
+all other model fields. The final complete valuation is freshly repriced.
+
+Endpoint price-policy acceptance, exact native zero and interior price-plus-width
+convergence are reported separately. Both distinct endpoints meeting the target
+at the declared precision fail as non-identified. An unbracketed target returns
+actual endpoint residuals; it does not prove absence of all roots of a potentially
+nonmonotone payoff. The result explicitly makes no global uniqueness claim.
+Arithmetic resolution, original model domains, work and final residual guards
+cannot be bypassed by an accepted partial parameter or a relaxed retry. The
+arithmetic guard does not certify model/pricer accuracy. Baseline, every actual
+parameter/PV/residual evaluation, remaining bracket and full final model proof stay.
+
+Run `cargo run --locked -p convex --example coupon_parameter_inverse`.
+Seven predeclared independent full-contract targets cover normal and Black
+volatility, displacement, two whole-normal loadings and both endpoint directions.
+PV1e-8 and parameter2e-7 comparison bounds are declared before execution. Full
+quote/surface calibration and global identification, one-sided parameter risk,
+mixed-book parameter scenarios/lifecycle and original remaining models remain
+required; this selected-root operation does not supply their certificates.

@@ -226,6 +226,36 @@ jobs:
       - name: Qualify native coupon parameter hedge factors 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_hedges
 
+      - name: Qualify native coupon parameter price inverse 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 1
+        run: cargo test --locked -p convex --test coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 2
+        run: cargo run --locked -p convex --example coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 4
+        run: cargo test --locked -p convex --test coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 5
+        run: cargo run --locked -p convex --example coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 7
+        run: cargo test --locked -p convex --test coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 8
+        run: cargo run --locked -p convex --example coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_inverse
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

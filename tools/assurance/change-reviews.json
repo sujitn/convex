@@ -4197,6 +4197,44 @@
         "tools/library/library-inventory.json": "f621924863e83838f6aee1a31462b96a3682d62e95a79abce5a545db2f914c91",
         "tools/library/test_operations.py": "70d6e09f1ee9a972ddc717e766ab360080d7327f3c6fca6cff29572e88c230a3"
       }
+    },
+    {
+      "base_commit": "da47151a81b3f94bb11ea7f4db58cf774847be42",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 full original coupon parameter price inverse. Exact original coordinate/native units and full currency target; every actual price uses unchanged complete terms/curves/history/publication/profile/reset and all other model fields. Absolute parameter assignment avoids cancellation through a reconstructed delta. Caller closed bracket, independent native currency price/parameter width tolerances and actual iteration/full-price work bounds; no expansion/clipping/relaxation. Endpoint policy/exact native zero/interior price+width stops are explicit; fresh final full native repricing and original residual required. Both endpoints matching at declared precision fail non-identified; unbracketed target carries actual endpoint residuals without a global no-roots claim. Arithmetic resolution is a guard, not model accuracy. One selected bracket root only, no global uniqueness/calibration certificate.7predeclared independent complete targets retain currencyPV1e-8/parameter2e-7;37shared7financial30typed failures. First fixture generator wrong existing constant-collar ID retained, corrected before candidate execution without financial/reference changes. Preserve1738old numeric rows/defaults/files and5600requests;10pins give1748,37requests give5637. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. Full quote/surface calibration/global identification/one-sided risk/mixed-book lifecycle and complete original optional/convention/claims scope remain genuine work. Only unavailable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "7predeclared independent full-contract model inverse targets with unchanged PV1e-8/parameter2e-7 and full fresh native final price; frozen original publications/history/model/curve/economic fields",
+        "37new plus5600old full requests on actual native/C/Java/wasm32Node/browser,400TreasuryJava,default/no-default/schema/adapter/native/old coupon controls and workspace warnings-deniedClippy preflight",
+        "Fresh37943original ISDA/QuantLib checks and1738numeric/scope/source/physical conservation;64library42assurance4private"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "19f7508db5d80d2e477ae9dfab526742fbf8967329539d2742aa8e8367e9302b",
+        "crates/convex-analytics/src/floating_coupon.rs": "7d23e7211912152ee58df63cbbc0cddfbc45f575d27a26378fcc855732f8b33c",
+        "crates/convex-analytics/src/floating_coupon/inverse.rs": "9635616ff751e4c81d2881e8b1b3b4bc22ed03e86a34f16c507b62663c449663",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "a6d18902a07dfbf765bbeeafc068de247361eb74a41799c539b1fc853f9d589a",
+        "crates/convex-analytics/src/floating_coupon/scenario.rs": "d547b403e02c68fa71d3d983116deed2051a1d2eb6ecfc65126edd4550e050ae",
+        "crates/convex-analytics/tests/coupon_parameter_inverse.rs": "f7aa69e11286245288c00320c7c2a408e610925ffc5cf09b70249c6c6559d235",
+        "crates/convex-analytics/tests/fixtures/coupon-parameter-inverse.json": "b19f16a19c4894bc661779c56cc46f636192074a109fe7ce0d534121b0ecda9c",
+        "crates/convex-ffi/tests/coupon_parameter_inverse.rs": "720aabcb42b242d5828b7fc6a9a7bd8d649c40a60eedbef4c97a6865737630b1",
+        "crates/convex-mcp/tests/coupon_parameter_inverse.rs": "685efd38d79b1885e8a69537d4dba79155aace47336195cdbb8bfb8e31d5f90c",
+        "crates/convex-wasm/tests/coupon_parameter_inverse.rs": "addfdb55fa165ca744c5e458f2ade91a1827496b06178173654ef13cf73fc76f",
+        "crates/convex/examples/coupon_parameter_inverse.rs": "79ab35a4ebfc1d72972306cdc73fede46c4e95df2db2390ebae596bfe9dc6e7b",
+        "crates/convex/src/library/errors.rs": "8279097aea60a71121b68291284e0badb7f63137e42867f85884fc7da6448a52",
+        "crates/convex/src/library/products.rs": "f4c4340160fa96303d059a4a46cea94ecc24436e054a7138da50dfe31e4692fd",
+        "crates/convex/src/library/requests.rs": "d4b7c4e3bc90a67050c22def6af1bfcb137b3f619937839a8119383889d1e08b",
+        "crates/convex/tests/coupon_parameter_inverse.rs": "2ad48369ea3220524c1015b81a872ffc001f5f0b66d5a92d0168debd3f3985e1",
+        "docs/FLOATING-COUPON-OPTIONS.md": "d38703895447114b8c40db042c01219e16cbbbe30e63ce264ba1a3e213ac5bc0",
+        "tests/fixtures/library/coupon-parameter-inverse.json": "5c3af92f331787a6666e4a156e33a42faca6f6b2b3ed843578ccf3b2e82608e6",
+        "tests/fixtures/library/coupon_parameter_inverse_contract.rs": "71e8790157c615aa9aecb03b7073bccb7a1972ebb82862044ba66d25a8a76aec",
+        "tests/scripts/coupon_parameter_inverse_schema.py": "f87c3aba4815776338b42c4219ccf3166cac6254d05aa38c534057c4cc9935b6",
+        "tools/assurance/check.py": "87063cd0a7fc9b384c85797277e765d5b64e64bc4a0aea6ab8d549227864e889",
+        "tools/assurance/inventory.json": "106b30d08fea2ec1e030b4bb7db43b33c2cdb2362e35e2006e654bedc38c9d48",
+        "tools/assurance/numeric-evidence.json": "a59de517bd9e8fc7f21d88ef2078d326f9edb339443d55f3688be9553cde95f2",
+        "tools/library/api-capabilities.json": "f2daf497b9417e9fd251782643c2a1385dcc156011e7b90ab345e77a8a225272",
+        "tools/library/library-inventory.json": "a6b5ac40fc53b49c6513a5ac366becd2098f2cfe2fced1d3b2e7a56c2e0354b2",
+        "tools/library/test_operations.py": "09f5948770338ee0952df65a178a766e73bf626dcfe905e9b84e2e686804487b"
+      }
     }
   ]
 }

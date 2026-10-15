@@ -53,6 +53,12 @@ impl From<convex_analytics::floating_coupon::TermCouponOptionError> for LibraryE
             E::MissingModel { .. } => native(Code::MissingInput, &e),
             E::Unsupported { .. } => native(Code::Unsupported, &e),
             E::Bound(_) => native(Code::ResourceLimit, &e),
+            E::InverseNotBracketed { .. } => native(Code::NoRoot, &e),
+            E::InverseUnidentified { .. } => native(Code::NonUnique, &e),
+            E::InverseWork { .. } => native(Code::ResourceLimit, &e),
+            E::InverseResolution { .. } | E::InverseConvergence { .. } => {
+                native(Code::NoConvergence, &e)
+            }
             E::UnstableDerivative { .. } | E::DerivativeResolution { .. } => {
                 native(Code::NoConvergence, &e)
             }

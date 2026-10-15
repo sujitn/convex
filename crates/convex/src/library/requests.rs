@@ -206,6 +206,17 @@ pub enum LibraryOperation {
         /// Explicit native bump and first/second currency refinement policies.
         settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
     },
+    /// One selected full-contract native coupon parameter root in a closed bracket.
+    TermCouponParameterInverse {
+        /// Complete original model/economics/history/curve resources.
+        input: Box<TermCouponOptionInput>,
+        /// Exact original source/revision/index/observation/payment parameter.
+        coordinate: convex_analytics::floating_coupon::CouponParameterCoordinate,
+        /// Actual original full currency PV target, not a per100 quote.
+        target: convex_core::contracts::ModelMoney,
+        /// Explicit native bracket, precision and actual full-price work bounds.
+        settings: convex_analytics::floating_coupon::CouponParameterInverseSettings,
+    },
     /// Checked native coupon parameter proof and canonical signed currency risk.
     TermCouponParameterRisk {
         /// Complete original contract, history, model and curve bindings.
