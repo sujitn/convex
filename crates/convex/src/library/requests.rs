@@ -160,6 +160,11 @@ pub enum LibraryOperation {
         /// Native price or unique nonnegative-cash inverse and explicit settings.
         action: Box<CashYieldOperation>,
     },
+    /// Checked constant-coupon period accrual with actual calendar bindings.
+    AccruedInterest {
+        /// Actual period/year-fraction/remaining-interest calculation.
+        action: Box<AccruedInterestOperation>,
+    },
     /// Direct contextual own-yield sensitivity or positive reference hedge column.
     IcmaYieldRisk {
         /// Complete original economics, source/context/calendar/quantity revisions.

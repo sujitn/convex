@@ -847,3 +847,17 @@ positive discount years, cash and mathematical compounding. Prices retain input
 cash units; inverses retain annual decimal rates and original native residual/
 iteration diagnostics. It does not construct an instrument or infer a market
 convention. See [supplied-cash yield pricing](YIELD-PRICING.md).
+
+
+## Checked accrued-interest migration
+
+The four native constant-coupon calculator methods and both yield-engine accrued
+traits now return Result. Full coupon context corrects ISDA and ACT/365L accrual;
+ex-coupon requests consume an actual supplied calendar and revision. The strict
+shared `accrued_interest` route retains original face cash units and delegates
+to the same native owner. Unsupported entitlement/calendar context fails.
+Use `Act365Fixed` and `Thirty360US`; their ambiguous short aliases are removed.
+Read [the accrued-interest contract and migration](ACCRUED-METHODS.md).
+Remaining general dated yield/reference and calendar methods, full product/model/
+calibration/claim/physical/mixed-book integration and mandatory mappings remain
+required. This increment supplies no independent approval or Windows/Excel check.

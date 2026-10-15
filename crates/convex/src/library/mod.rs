@@ -2,6 +2,7 @@
 //! financial formulas remain in their original pure product/curve modules.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod accrued;
 mod cash;
 mod cash_hedges;
 mod credit;
@@ -28,6 +29,7 @@ mod yield_pricing;
 mod yield_scalars;
 mod zero;
 
+pub use accrued::*;
 pub use cash::*;
 pub use cash_hedges::*;
 use convex_core::{Currency, Date};

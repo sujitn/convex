@@ -97,11 +97,6 @@ impl DayCount for Thirty360US {
     }
 }
 
-/// Type alias for backwards compatibility.
-///
-/// `Thirty360` is equivalent to [`Thirty360US`] (Bond Basis).
-pub type Thirty360 = Thirty360US;
-
 // =============================================================================
 // 30E/360 (Eurobond Basis)
 // =============================================================================

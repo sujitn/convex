@@ -304,6 +304,15 @@ impl CouponPeriod {
                     .checked_year_fraction(start, end)?,
             );
         }
+        if day_count == DayCountConvention::Act365Leap {
+            return act365l_year_fraction(
+                start,
+                end,
+                self.accrual_start,
+                self.accrual_end,
+                self.frequency,
+            );
+        }
         if day_count != DayCountConvention::ActActIcma {
             return Ok(day_count.to_day_count().year_fraction(start, end));
         }
@@ -372,6 +381,48 @@ pub fn icma_year_fraction(
         ));
     }
     Ok(total)
+}
+
+/// ACT/365L over the ORIGINAL coupon period and frequency, including subintervals.
+/// Annual coupons use366 when that period contains February29 (first day excluded,
+/// last included). Other frequencies use the coupon-end calendar year's basis.
+/// A date-only leap-day test cannot replace this supplied context.
+pub fn act365l_year_fraction(
+    start: Date,
+    end: Date,
+    coupon_start: Date,
+    coupon_end: Date,
+    frequency: Frequency,
+) -> Result<Decimal, CashflowError> {
+    validate_span(coupon_start, coupon_end)?;
+    validate_date(start)?;
+    validate_date(end)?;
+    if start < coupon_start || end > coupon_end || end < start || frequency.is_zero() {
+        return Err(CashflowError::terms(
+            "ACT/365L",
+            "complete coupon bounds and positive frequency required",
+        ));
+    }
+    let leap = |year: i32| year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let mut basis = if frequency.periods_per_year() != 1 && leap(coupon_end.year()) {
+        366
+    } else {
+        365
+    };
+    if frequency.periods_per_year() == 1 {
+        for year in coupon_start.year()..=coupon_end.year() {
+            if leap(year) {
+                let date = Date::from_ymd(year, 2, 29)?;
+                if date > coupon_start && date <= coupon_end {
+                    basis = 366;
+                    break;
+                }
+            }
+        }
+    }
+    Decimal::from(start.days_between(&end))
+        .checked_div(Decimal::from(basis))
+        .ok_or(CashflowError::Arithmetic("ACT/365L division"))
 }
 
 /// Check a complete supplied nominal mesh against the ORIGINAL schedule anchor.

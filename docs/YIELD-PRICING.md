@@ -25,8 +25,9 @@ or market approval.
 and analytics `YieldEngine::price_from_yield` now return `Result`. Propagate the
 error with `?`. The analytics `StandardYieldEngine` reexports the actual native
 type and delegates its trait calls; it no longer contains a second solver.
-Its accrued method and the retained dated-time preparation still need their
-complete contextual migrations. In particular, retained ICMA stub/reference
+Its accrued method now delegates the [checked accrual owner](ACCRUED-METHODS.md).
+The retained dated-time preparation still needs its complete contextual migration.
+In particular, retained ICMA stub/reference
 shortcuts are not qualified by the supplied-cash numerical checks.
 
 The strict shared `cash_yield` operation dispatches `price` or `solve` to these

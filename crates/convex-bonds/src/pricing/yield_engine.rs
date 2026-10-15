@@ -126,7 +126,7 @@ pub trait YieldEngine: Send + Sync {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal;
+    ) -> BondResult<Decimal>;
 }
 
 /// Standard yield calculation engine.
@@ -400,64 +400,23 @@ impl YieldEngine for StandardYieldEngine {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal {
+    ) -> BondResult<Decimal> {
         use crate::cashflows::AccruedInterestCalculator;
         use crate::types::AccruedConvention;
-
-        let frequency = rules.frequency;
-        let day_count = rules.accrual_day_count;
-
         match rules.accrued_convention {
-            AccruedConvention::None => Decimal::ZERO,
             AccruedConvention::Standard => AccruedInterestCalculator::standard(
-                settlement,
-                last_coupon,
-                next_coupon,
-                coupon_rate,
-                face_value,
-                day_count,
-                frequency,
-            ),
-            AccruedConvention::ExDividend => {
-                if let Some(ex_div_rules) = &rules.ex_dividend_rules {
-                    // Get calendar from settlement rules or use weekend-only
-                    let calendar = crate::types::CalendarId::weekend_only();
-                    AccruedInterestCalculator::ex_dividend(
-                        settlement,
-                        last_coupon,
-                        next_coupon,
-                        coupon_rate,
-                        face_value,
-                        day_count,
-                        frequency,
-                        ex_div_rules.days,
-                        &calendar,
-                    )
-                } else {
-                    AccruedInterestCalculator::standard(
-                        settlement,
-                        last_coupon,
-                        next_coupon,
-                        coupon_rate,
-                        face_value,
-                        day_count,
-                        frequency,
-                    )
-                }
+                settlement,last_coupon,next_coupon,coupon_rate,face_value,
+                rules.accrual_day_count,rules.frequency),
+            AccruedConvention::None => {
+                // Validate even when the explicitly selected convention is zero.
+                AccruedInterestCalculator::standard(settlement,last_coupon,next_coupon,
+                    coupon_rate,face_value,rules.accrual_day_count,rules.frequency)?;
+                Ok(Decimal::ZERO)
             }
-            AccruedConvention::RecordDate | AccruedConvention::CumDividend => {
-                // For record date, use standard accrued calculation
-                // The record date logic affects who receives the coupon, not the accrued amount
-                AccruedInterestCalculator::standard(
-                    settlement,
-                    last_coupon,
-                    next_coupon,
-                    coupon_rate,
-                    face_value,
-                    day_count,
-                    frequency,
-                )
-            }
+            AccruedConvention::ExDividend => Err(BondError::missing_field(
+                "actual ex-dividend calendar; use the checked supplied-calendar calculator or full contract")),
+            AccruedConvention::RecordDate | AccruedConvention::CumDividend =>
+                Err(BondError::invalid_spec("record-date/cum-dividend accrual requires original contract/entitlement context")),
         }
     }
 }

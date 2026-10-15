@@ -102,7 +102,7 @@ pub trait YieldEngine: Send + Sync {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal;
+    ) -> AnalyticsResult<Decimal>;
 }
 
 // One native implementation owns numerical checks and solver behavior.
@@ -145,7 +145,7 @@ impl YieldEngine for StandardYieldEngine {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal {
+    ) -> AnalyticsResult<Decimal> {
         convex_bonds::pricing::YieldEngine::accrued_interest(
             self,
             settlement,
@@ -155,6 +155,7 @@ impl YieldEngine for StandardYieldEngine {
             face_value,
             rules,
         )
+        .map_err(Into::into)
     }
 }
 

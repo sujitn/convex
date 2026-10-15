@@ -4452,6 +4452,55 @@
         "tools/library/library-inventory.json": "dab6cf410874104508efac8cd5a1446be9cd7c9a1a398f411dbf5499bfa4522f",
         "tools/library/test_operations.py": "3319e01cdc38c4a54f3f42ca0aaca26e2c66a4c73e099d810a7fa1224f1f5110"
       }
+    },
+    {
+      "base_commit": "64296ab6a34d8a7e1106d29bec7539fe882e8f29",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 checked constant-coupon accrued methods and actual calendar integration. Four native helpers and both engine traits return Result; native checked Decimal operators reject overflow/nonzero underflow, invalid dates/face/work and missing coupon/reference/maturity context. Full annual day fractions correct ISDA accrual; a single full-coupon ACT365L owner also serves actual CouponPeriod subintervals. Ex-coupon remaining-interest law consumes the supplied calendar and exact revision through thin shared dispatch. Old engine signatures fail for missing actual calendar/entitlement context. Explicit FrequencyZero is retained. Remove unused ambiguous Act365/Thirty360 type aliases and unsupported blanket YAS claims. 87 independent Fraction/Decimal110 cases precede candidate execution, with 127shared87financial40typed failures. Original three native failures retained. All1798numeric rows/defaults,6227prior inputs and sealed physical evidence stay; 10additive pins give1808,127requests give6354. Literal30areas174combinations 2154Planned80shared12native228mapped1926unmapped remain. General dated yield/reference/day-count/calendar methods and all broader original model/calibration/optional/claim/physical/mixed-book scope remain genuine required work. No independent approval, production latency or unavailable Windows/Excel qualification.",
+      "tests": [
+        "Actual original ISDA/ACT365L/overflow failures;87independent accrued cases and127shared controls; exact original financial test bodies except Result and actual-calendar adapters",
+        "Preserve all6227prior inputs/complete envelopes except literal supplemental-capability path append; fresh37943ISDA/QuantLib controls",
+        "Ten default/no-default/schema/native/C/MCP/WASM profiles; actual full C/JDK26/wasm32Node/browser; original coupon/yield/WASM controls; workspace warnings-deniedClippy preflight;64library42assurance4private and scope/source/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "c6bfc97362d0569a208696e7d886b94367a998ce25f90aa9f770deff6e08258c",
+        "crates/convex-analytics/src/yields/engine.rs": "fe96a33d56a10f7139ebeabc466c0c107ed3d65141e7d50c346eb57219c63b48",
+        "crates/convex-analytics/tests/accrued_methods.rs": "4e8a2d74e549e3dbe5bb6af3e8093c5488e9f6bddf4a17b980d17c3ee9149492",
+        "crates/convex-analytics/tests/fixtures/accrued-methods.json": "192347296f3fd56dc5dc7c2d3e84aee5c8304f16fadb81644e855cd4e56153f2",
+        "crates/convex-bonds/src/cashflows/accrued.rs": "ad81244dc807f389c290d3e721ab65de5c7b3f854d2834b0108dd7b89150351e",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "6f7c9310058db9bb7aeb5915ba68a58b49c980f43df51fb927458d9aa7dad9db",
+        "crates/convex-core/src/cashflows/mod.rs": "20251f1889519eb0cac1535f4c922ea167b7287da953fe686c4a11d42ec0cb2c",
+        "crates/convex-core/src/cashflows/schedule.rs": "e70663755abb818c421b7bc2cd95089f13b66ec9a581a06578b691aee3978e93",
+        "crates/convex-core/src/daycounts/act365.rs": "00d9cf27602042b8444f7c066106848d57177d586bb0eb8df837955f6586216e",
+        "crates/convex-core/src/daycounts/mod.rs": "204a48ec073e28a578156ad2c155da35cc89a03dc993c0166da644820e9c18aa",
+        "crates/convex-core/src/daycounts/thirty360.rs": "b92c23eeeb16e7d6d29cc30b379cb67f7d68e000d3b0c22f6f743a89b3c5170b",
+        "crates/convex-curves/src/calibration/global_fit.rs": "4e4d2590079d460a4e4dba0aa7d9e421ffecc8e11032063da1b8cd85030f7db8",
+        "crates/convex-ffi/tests/accrued_methods.rs": "8c5e2bdeceedd75712e1646b219416d2ef42bd5cfc5f128abbc7ddc0e4078968",
+        "crates/convex-mcp/tests/accrued_methods.rs": "2193b75b94a0e74d626377d7601122051ca3f29f253129b47e3a65ff4d029e8d",
+        "crates/convex-wasm/tests/accrued_methods.rs": "1bfb849129db35a5daff97a77fb3f3e52c4ecbd74101da71138cf28e8e6990dd",
+        "crates/convex/examples/accrued_methods.rs": "3e48eb1f12d9d8b5fc9badc8e71307faa61e1f064bc81de931c1bf4606bcdc23",
+        "crates/convex/src/library/accrued.rs": "183359c327b3f22a34a2c4281ad04f841c406840c251d2429f0ece679d14c9ed",
+        "crates/convex/src/library/mod.rs": "fb59f78c216580ce3a8462df60203a6df9c67b5e59530eba9d18a5939aaa8416",
+        "crates/convex/src/library/products.rs": "8d6219de3553100281a607b2cbb89ad47b547cbd9695e15aff3399231742e830",
+        "crates/convex/src/library/requests.rs": "610051af447d9754b710d656b0596a4a892c88d81ccae27a0573282d27b52b96",
+        "crates/convex/tests/accrued_methods.rs": "b9faeccd021c63ee89e5cf5746314fbe998ae53df1517986e6f2d363d31670b1",
+        "docs/ACCRUED-METHODS.md": "9a2677153eb1a4dd106c6bb82c565adffa719b0cf2f4043202dd7aabd88a66ef",
+        "docs/CVX-063-REMAINING.md": "fbcf4e9ea2500e04c1f95a001e729d7ed71fd3f04f3de4533571e8ec3e0c1816",
+        "docs/LIBRARY-API.md": "77d3fd13c098895a6c1ac3dd3b2bbc7521d290bd70697779b5f15328fdcef65e",
+        "docs/ROUTE-MIGRATION.md": "14d33206ce9ddeea1dd7ee025451576860a99a2b75fa55a6a8f2863330015da2",
+        "docs/YIELD-PRICING.md": "b777098f71d32d43805a587752e32d6fdc67931a937e508884848642e89bae40",
+        "tests/fixtures/library/accrued-methods.json": "14b994fdb0e28a315e68b6ddc4be77849d9bb4f8e80a43f2019edac3089cffc8",
+        "tests/fixtures/library/accrued_methods_contract.rs": "2e5a1353403857b6c759aa292232e4fd7f4e641b086d623c23a786fd7b889566",
+        "tests/scripts/accrued_methods_schema.py": "b441a14d59b047d6541d3dc861e69a3c8a9c7cdedc64d9517ca0aaeada65b1c0",
+        "tools/assurance/check.py": "069702e9689d1b57ad1f466c73599509ab88b70209343551e03faa92d0d26669",
+        "tools/assurance/inventory.json": "37da2395559ca8ade435524f0d94106017df7d33ac3cb6c08f57bc60db0bce55",
+        "tools/assurance/numeric-evidence.json": "de2d87d80749062660e2c252f1ee5e07eb193aa1bb35cf175a05d7aa728d9caf",
+        "tools/assurance/test_policy.py": "9e9e0b39a8f850fd2296a35223085346f342f9f88838312dddf15cf14e32d032",
+        "tools/library/api-capabilities.json": "a5b0f6f4776fa5988a1de98f24e08e5350b2152526a993a54ae12f6581d8a7cc",
+        "tools/library/library-inventory.json": "67670c3bc8cd7477304cfe28c1a5be8caf6122b6f34e105a203b7e488c6ff146",
+        "tools/library/test_operations.py": "8d4317eeb94c6e0343ef0905a07d0f30c2a2201b7f2698f72cd8c2975533a0f3"
+      }
     }
   ]
 }

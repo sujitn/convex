@@ -403,6 +403,36 @@ jobs:
       - name: Qualify checked supplied cash yield pricing 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_pricing
 
+      - name: Qualify checked supplied calendar accrued interest 0
+        run: cargo test --locked -p convex-analytics --test accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 1
+        run: cargo test --locked -p convex --test accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 2
+        run: cargo run --locked -p convex --example accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 3
+        run: cargo test --locked -p convex-analytics --test accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 4
+        run: cargo test --locked -p convex --test accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 5
+        run: cargo run --locked -p convex --example accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 6
+        run: cargo test --locked -p convex-analytics --test accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 7
+        run: cargo test --locked -p convex --test accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 8
+        run: cargo run --locked -p convex --example accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test accrued_methods
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

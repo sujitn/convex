@@ -19,7 +19,7 @@
 //!
 //! let mut instruments = InstrumentSet::new();
 //! instruments.add(Deposit::from_tenor(today, 0.25, 0.04, Act360));
-//! instruments.add(Swap::from_tenor(today, 2.0, 0.045, SemiAnnual, Thirty360));
+//! instruments.add(Swap::from_tenor(today, 2.0, 0.045, SemiAnnual, Thirty360US));
 //!
 //! let fitter = GlobalFitter::default();
 //! let result = fitter.fit(today, &instruments)?;
