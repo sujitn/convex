@@ -17,8 +17,8 @@ cargo run --locked -p convex --example settled_claims_pnl
 
 The report retains all30 areas,174 product/convention/model combinations and2154
 original mandatory operation/surface records. At this review,80 exact engineering
-routes explicitly map192 records;1962 records lack such mappings. This does not
-mean1962 native implementations are absent: many already have full family/native
+routes and12 exact native routes explicitly map228 records;1926 records lack
+such mappings. This does not mean1926 native implementations are absent: many already have full family/native
 examples. Each still needs exact operation-level evidence for its original scope.
 No record is removed, marked Verified, or certified by this report.
 
@@ -40,14 +40,16 @@ wire/schema/routes and exact Decimal helper remain; the only production change
 admits later actual receipts for explicitly excluded original child cash after
 custody, without acquiring P&L ownership. Earlier paid-prefix guards remain.
 
-The preceding settlement Java/C qualification executes all4975 original
-complete requests. Later Java/C evidence includes all5375 requests, including
-Treasury bills. The settlement wasm32
-Node outputs pass45 complete original independent financial checks with unchanged
-bounds. Strict native-envelope comparison fails on floating-point model/OIS
-intermediates; it remains a separate open gate. Native-compiled WASM, actual wasm32
-Node and actual browser execution must be reported separately. Supplied Windows/
-Excel or browser CI declarations are not executed host evidence.
+Actual native/C/JDK26FFM/wasm32Node/browser parity now executes complete response
+envelopes, including floating-point model/OIS/CTD diagnostics. The committed
+directional-parameter snapshot compares5686complete requests and400additional
+JavaTreasury controls; its original reference answers and tolerances remain.
+Each later source-bound packet records its own complete request count. Native-
+compiled WASM, actual wasm32Node and an actual browser remain distinct checks.
+Windows .NET/PInvoke/Excel execution remains unavailable on this machine and
+explicitly unvalidated. CI declarations do not substitute for actual execution.
+The user has no independent approved convention/model packs; CVX064/065 retain
+independent approval and no agent-issued certificate is implied.
 
 Use one scoped implementation commit per completed owner. Preserve every old
 numerical row/file/default and closed physical evidence. Freeze public source and
@@ -105,3 +107,16 @@ solver as a candidate. All sixty original supplied hedge operation records alrea
 have exact aggregate/solve mappings. Their certificate status remains Planned;
 authenticated application limits, fills, reservations and orders remain with
 CVX-025/031.
+
+The current term-coupon optional owner prices full segmented normal/shifted-Black
+and joint whole-coupon Gaussian laws. Exact curve-state admission, central and
+explicit directional parameter derivatives, selected-bracket price inversion,
+canonical central risk and complete graph/parameter hedge columns retain their
+original native precision and history/curve/source guards. Signed directional
+risk has a dedicated full-native proof and separate first/second position policies.
+Directional hedge/aggregation integration, full quote/surface identification,
+whole shifted/overnight/path/rounding/intraday models and mixed-book parameter
+scenario/lifecycle integration remain genuine required work. Remaining infallible
+yield/YAS conveniences need checked genuine replacements with preserved financial
+cases, answers and bounds. Use the actual outstanding report and the latest
+source-bound evidence for current engineering scope.

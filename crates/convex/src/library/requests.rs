@@ -241,6 +241,19 @@ pub enum LibraryOperation {
         /// Native reference currency first/second and arithmetic resolution policy.
         native_settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
     },
+    /// Dedicated signed one-sided parameter risk with full six-price native proof.
+    TermCouponDirectionalParameterRisk {
+        /// Complete original contract, model, history and exact curves.
+        input: Box<TermCouponOptionInput>,
+        /// Exact original canonical point/source/native-unit key.
+        key: Box<convex_analytics::quote_risk::QuoteRiskKey>,
+        /// Actual signed quantity and original positive reference face.
+        position: convex_analytics::quote_risk::RiskPosition,
+        /// Actual caller information set; no publication is inferred.
+        snapshot_id: convex_core::contracts::SnapshotId,
+        /// Native side/precision plus separate signed first/second admission.
+        settings: convex_analytics::quote_risk::CouponDirectionalRiskSettings,
+    },
     /// All original coupon graph and parameter factors in constrained hedge units.
     TermCouponCompleteHedgeRisk {
         /// Original complete calibration graph and work policies.

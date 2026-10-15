@@ -61,6 +61,16 @@ REQUIRED_RUNS = {
         'cargo test --locked -p convex --test coupon_parameter_directional --features schemars',
         'cargo run --locked -p convex --example coupon_parameter_directional --features schemars',
         'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_directional',
+        'cargo test --locked -p convex-analytics --test coupon_directional_risk',
+        'cargo test --locked -p convex --test coupon_directional_risk',
+        'cargo run --locked -p convex --example coupon_directional_risk',
+        'cargo test --locked -p convex-analytics --test coupon_directional_risk --no-default-features',
+        'cargo test --locked -p convex --test coupon_directional_risk --no-default-features',
+        'cargo run --locked -p convex --example coupon_directional_risk --no-default-features',
+        'cargo test --locked -p convex-analytics --test coupon_directional_risk --features schemars',
+        'cargo test --locked -p convex --test coupon_directional_risk --features schemars',
+        'cargo run --locked -p convex --example coupon_directional_risk --features schemars',
+        'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_directional_risk',
         'cargo test --locked -p convex-analytics --test coupon_parameter_derivatives',
         'cargo test --locked -p convex --test coupon_parameter_derivatives',
         'cargo run --locked -p convex --example coupon_parameter_derivatives',
@@ -892,6 +902,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-analytics/src/floating_coupon/derivatives.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/inverse.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/directional.rs')
+    paths.add('crates/convex-analytics/src/quote_risk/coupon_directional.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/prepared.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/whole_coupon.rs')
     paths.update(['crates/convex-bonds/src/options/floating_coupon.rs', 'crates/convex-analytics/src/floating_coupon.rs'])

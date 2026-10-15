@@ -892,6 +892,24 @@ pub(super) fn execute(
                 )?,
             )
         }),
+        LibraryOperation::TermCouponDirectionalParameterRisk {
+            input,
+            key,
+            position,
+            snapshot_id,
+            settings,
+        } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
+            value(
+                convex_analytics::quote_risk::term_coupon_directional_parameter_sensitivity(
+                    prepared,
+                    &r.curves,
+                    *key.clone(),
+                    position.clone(),
+                    snapshot_id.clone(),
+                    *settings,
+                )?,
+            )
+        }),
         LibraryOperation::TermCouponCompleteHedgeRisk {
             graph,
             input,

@@ -4,6 +4,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod coupon;
+mod coupon_directional;
 mod coupon_parameter;
 pub(crate) mod finite;
 mod graph;
@@ -13,6 +14,7 @@ mod scenario;
 mod types;
 
 pub use coupon::*;
+pub use coupon_directional::*;
 pub use coupon_parameter::*;
 pub use finite::*;
 pub use graph::*;
@@ -24,6 +26,28 @@ pub use types::*;
 /// Typed admission, valuation and calibration failures; no accepted zero fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum QuoteRiskError {
+    /// Position-scaled directional h/h2 derivatives exceed their own policy.
+    #[error("directional risk order {order}: {full} versus half-step {half} exceeds {bound}")]
+    DirectionalStability {
+        /// First or second derivative in signed position units.
+        order: u8,
+        /// Original full-step scaled derivative.
+        full: f64,
+        /// Original half-step scaled derivative.
+        half: f64,
+        /// Caller-admitted absolute/relative monetary allowance.
+        bound: f64,
+    },
+    /// Signed monetary arithmetic cannot resolve the requested precision.
+    #[error("directional risk order {order}: arithmetic resolution {resolution} exceeds {bound}")]
+    DirectionalResolution {
+        /// First or second derivative in signed position units.
+        order: u8,
+        /// Native cancellation guard after scaling plus multiplication allowance.
+        resolution: f64,
+        /// Actual caller policy allowance in the same units.
+        bound: f64,
+    },
     /// Original full coupon option terms/history/model/input failure.
     #[error(transparent)]
     Coupon(#[from] crate::floating_coupon::TermCouponOptionError),

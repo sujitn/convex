@@ -274,3 +274,23 @@ QuoteSensitivity or hedge vectors by relabeling its samples. Directional
 canonical aggregation/hedging and complete surface/model identification remain
 separate work. The existing central derivative, risk, hedge and selected inverse
 operations retain their original contracts.
+
+## Signed directional parameter risk
+
+term_coupon_directional_parameter_sensitivity binds the existing canonical
+coupon parameter key to the exact original face, signed quantity, currency and
+snapshot. CouponDirectionalRiskSettings supplies native directional precision
+and separate signed first/second RiskTolerance policies with an explicit policy
+version. The shared operation is term_coupon_directional_parameter_risk.
+
+Both native refinement/resolution guards apply before position scaling, including
+for zero holdings. Accepted native derivatives and all six full PVs use the same
+single signed scale. Separate signed first/second refinements and scaled arithmetic
+guards must pass. Results retain the exact key, position, snapshot, settings,
+full native proof, scaled PVs and both derivative orders. Curvature explicitly
+uses currency_per_model_parameter_squared. These arithmetic guards do not bound
+total model/pricer error.
+
+This dedicated directional result preserves its side and native parameter units.
+Existing Central QuoteSensitivity and hedge vectors require their own actual
+central proof; full directional hedge/aggregation integration remains separate.

@@ -30246,7 +30246,8 @@
     "tests/fixtures/library/coupon-parameter-derivatives.json",
     "tests/fixtures/library/coupon-parameter-hedges.json",
     "tests/fixtures/library/coupon-parameter-inverse.json",
-    "tests/fixtures/library/coupon-parameter-directional.json"
+    "tests/fixtures/library/coupon-parameter-directional.json",
+    "tests/fixtures/library/coupon-directional-risk.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

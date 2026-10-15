@@ -285,6 +285,36 @@ jobs:
       - name: Qualify native coupon parameter price directional 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_directional
 
+      - name: Qualify signed directional coupon parameter risk 0
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 1
+        run: cargo test --locked -p convex --test coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 2
+        run: cargo run --locked -p convex --example coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 3
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 4
+        run: cargo test --locked -p convex --test coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 5
+        run: cargo run --locked -p convex --example coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 6
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 7
+        run: cargo test --locked -p convex --test coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 8
+        run: cargo run --locked -p convex --example coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_directional_risk
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

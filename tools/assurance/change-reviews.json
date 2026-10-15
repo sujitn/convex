@@ -4271,6 +4271,43 @@
         "tools/library/library-inventory.json": "9a7817bdf4197476893b5c9ad1fa5b30e5a12544be7c044209668de2a9df271b",
         "tools/library/test_operations.py": "8e90c861bf1dece4856ea9eda124d2ad64404c8f963a51d9dd36d5dacfe395ab"
       }
+    },
+    {
+      "base_commit": "5e52d658e44b9cee178fe9c721c6926be38ca16f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 canonical signed directional coupon parameter risk over genuine native six-price proof. Exact original full canonical point/source/revision/native units, currency, signed quantity/positive face and snapshot. Native side, first/second refinement and arithmetic guards apply before linear position scaling, including zero holdings. Each derivative and actual native PV uses one signed scale; separate scaled first/second tolerances and native guard times absolute scale plus4EPS multiplication allowance must pass. Overflow/underflow or either precision failure aborts with no partial result. Curvature explicitly uses currency_per_model_parameter_squared. No fabricated opposite price, Central record, callback bypass or runtime/provider dependency. 72predeclared independent rational signed cases inherit all18Decimal100 complete native directional prices/derivatives with unchanged original bounds scaled by absolute exact quantity/face. 110shared72financial38typed failures verify full native embedded proof, key/face/unit/quantity/source/history/resource and both native/scaled precision orders. Current public remaining guide removes stale unexecuted browser/WASM claims; Windows/Excel and independentCVX064/065 stay unvalidated. 1758old numeric rows/defaults/files and5686old requests remain;10newpins give1768,110requests give5796. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. Genuine directional hedge/aggregation, full calibration/identification, optional/convention/claim/physical/mixed-book lifecycle scope remain required. No acceptance/certificate/native waiver.",
+      "tests": [
+        "72predeclared independent signed/zero full native six-price controls; exact factor/source/face/quantity, retained native and signed first/second policy/refinement/resolution and unchanged reference bounds",
+        "110new plus5686old complete native/C/Java/wasm32Node/browser requests,400TreasuryJava,default/no-default/schema/adapter/native and all prior coupon controls; workspace warnings-deniedClippy preflight",
+        "Fresh37943original ISDA/QuantLib checks;1758numeric/scope/source/physical conservation and64library42assurance4private controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "a77bc41b17993cd19e6c1690b1b9306d138fda72657bd8c623819292babc6c24",
+        "crates/convex-analytics/src/quote_risk/coupon_directional.rs": "f8f649f9dc886c710a2fb11f0b03ec5fc8494a7885dc8ea1e28af3a6e6ae7fbc",
+        "crates/convex-analytics/src/quote_risk/mod.rs": "b3676cb317e7f7471d2066d41ea545023cd0c48347d7a132ddada7a360ca5c0f",
+        "crates/convex-analytics/tests/coupon_directional_risk.rs": "aa31860155c2513996ea03f2f4c494822ef09350af15abd5ce4c28cb3cc044ad",
+        "crates/convex-analytics/tests/fixtures/coupon-directional-risk.json": "ea02c8e5c1db52b49fca954531acafc1b34d62a46efb5e81f75e7db2c9486bc7",
+        "crates/convex-ffi/tests/coupon_directional_risk.rs": "71bb8ed6dff3b43b232800a9c745999e2724e684ca1869723786aac0f0f42766",
+        "crates/convex-mcp/tests/coupon_directional_risk.rs": "e7c4ebefa910f9909627a2a60fc4116fa791768c389ab28c3f0b28e2f90d7cb4",
+        "crates/convex-wasm/tests/coupon_directional_risk.rs": "57de6ea73df5a6c58743dc2cbfb735538b95cea769bbf448f2d866ce13adcd35",
+        "crates/convex/examples/coupon_directional_risk.rs": "57f36a8cd17da9e2a2dd4ef99f6c371eb702d3d703205d3856bc7e4935045b2b",
+        "crates/convex/src/library/errors.rs": "42e5d28605f03a5470ec160aae0b0f4f5760e318f71e5f096023fdce3bb893aa",
+        "crates/convex/src/library/products.rs": "dad812d270fb4db4cdbef99ba861499fe441794d776025f7b21819e10d5e622f",
+        "crates/convex/src/library/requests.rs": "f75647fff5ed66ccb426d8887d8bac4b65ef7709c342c5e02af190ed18361855",
+        "crates/convex/tests/coupon_directional_risk.rs": "0553fab60f99e34fedd0f34bc75876c87552c5364a4ad9216a9b93759a63a951",
+        "docs/CVX-063-REMAINING.md": "a1ee1739c8a72142956b24c25bc094b2cb63633e82036e86db6379de5eb1a040",
+        "docs/FLOATING-COUPON-OPTIONS.md": "c3b09d30a9d2da97bd96adba345ac16012184885a0bccbb055f199c41bce732f",
+        "tests/fixtures/library/coupon-directional-risk.json": "6a8c939cef5e183dc44abc3a2cad035ed494eba1b6c982eef91a2efc46ed03f2",
+        "tests/fixtures/library/coupon_directional_risk_contract.rs": "80c5719bb93a3b6f63bec70977709936af211847132ebde5c35080f63fac3b5b",
+        "tests/scripts/coupon_directional_risk_schema.py": "ee39b6c1c2e6259f8b192cc350053030249fb3560f52c8f1f63f1893eb7ff7f1",
+        "tools/assurance/check.py": "e2c312f02623acc86bd18ea8af2c54d86b4af1d10c27145142278f333bf72227",
+        "tools/assurance/inventory.json": "f513f100646d14770a21b23b514f2a4534c724469d0ca47184ab52bd23ed34de",
+        "tools/assurance/numeric-evidence.json": "8d189f5f90ed152a20e3515a01d624dbe65a089c7f801d9606655bb79fa6434f",
+        "tools/library/api-capabilities.json": "2f741dd2593f384aab3eac9c282dad04c2c2611c27117570fa193f3a394d230f",
+        "tools/library/library-inventory.json": "07c81837b789bd9f75ea6685722237ac3a84d1f1b8602615df8c51ec9e53edeb",
+        "tools/library/test_operations.py": "58e6e4649b0ded286755bdfa00b07e91d44456986b9e5ba475a017223f3bc5a1"
+      }
     }
   ]
 }
