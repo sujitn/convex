@@ -463,6 +463,36 @@ jobs:
       - name: Qualify checked explicit cash reinvestment 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test reinvestment
 
+      - name: Qualify checked periodic growth accuracy 0
+        run: cargo test --locked -p convex-analytics --test periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 1
+        run: cargo test --locked -p convex --test periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 2
+        run: cargo run --locked -p convex --example periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 3
+        run: cargo test --locked -p convex-analytics --test periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 4
+        run: cargo test --locked -p convex --test periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 5
+        run: cargo run --locked -p convex --example periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 6
+        run: cargo test --locked -p convex-analytics --test periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 7
+        run: cargo test --locked -p convex --test periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 8
+        run: cargo run --locked -p convex --example periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test periodic_growth
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

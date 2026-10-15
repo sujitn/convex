@@ -4550,6 +4550,42 @@
         "tools/library/library-inventory.json": "d0f685b6f775ad23045323ab9fb6f427f9e8c33d3f889fbd941dbbf1f9bab307",
         "tools/library/test_operations.py": "f4eb917882b6116f2d521447060270e90b9a88e11473ccfe302125813995043f"
       }
+    },
+    {
+      "base_commit": "25d11319ce815735efb2bf15c42e164b721c9ff9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 periodic growth accuracy and retirement of an unused zero-default facade. Existing native reinvestment owner uses locked portable log1p for small period rates, log of the positive checked Decimal base near its negative boundary, and exp of periodic log-growth. Preserve original time conversion order. Reject more than1e-12 relative binary64-to-Decimal factor loss before multiplying cash, including nonzero rounded values. Actual old native failures and19percent conversion loss remain. 383independent Decimal110 growth cases32projections precede candidate execution; 433shared415positive18typed failures add to6508old requests, giving6941. Retire unused YasAnalysis/YasAnalysisBuilder and three implementation-mirror tests; all actual pricing/yield/risk/invoice controls remain. Remove blanket vendor-equivalence claims, retaining supplied historical targets as unapproved engineering lineage. All1818old numeric rows/defaults/references/bounds stay;10additive pins give1828. All mandatory literal30areas174combinations2154Planned80shared12native228mapped 1926unmapped and original broader convention/model/calibration/optional/claim/physical/causal mixed-book scope remain required. No independent approval or unavailable Windows/Excel execution is inferred.",
+      "tests": [
+        "Actual original numerical failures;383Decimal110 factors32projections;433shared controls; original1818numeric rows and solver defaults conserved",
+        "Preserve6508old inputs; explicitly compare changed old projection/growth fields against ORIGINAL110digit references/bounds, all other fields exact except new capability corpus-path append",
+        "Warnings-denied workspace all-target/all-featureClippy preflight; ten native/shared profiles;64library42assurance4private; fresh37943ISDA/QuantLib; all6941native/C/JDK26/wasm32Node/browser and400JavaTreasury; exact source/scope/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "66a45a6065e14f1750e11f3e471de709e57a5ce4fefcfac9c3cb76533c496e71",
+        "crates/convex-analytics/src/lib.rs": "b2b902e795a986f2893d7a3d19c4df242f6be18db7671b2305620ed8cbb743f8",
+        "crates/convex-analytics/src/yas/calculator.rs": "826ab1598b8ceaf65455d3e4042d082ac862fe3080a67d49756279d929861e79",
+        "crates/convex-analytics/src/yas/mod.rs": "a0abc92dcc555ee2c16d04f34875097afe5b48256f79f6f650d93d95f0c72391",
+        "crates/convex-analytics/tests/fixtures/periodic-growth.json": "518d81275d0a97a7626aa942a3c85158331cba38dd3465468776bc55b7ed093e",
+        "crates/convex-analytics/tests/periodic_growth.rs": "747ff9e153961bf6b9056babcdcaf803d6ceec110afc3185bd9a689ad5e0379d",
+        "crates/convex-bonds/src/pricing/reinvestment.rs": "c29f25c1b1658df01001dbbcd39e9305b5a352c150adbb1fa43eacbdf8b891df",
+        "crates/convex-ffi/tests/periodic_growth.rs": "67e642c6f307c1e68bd553a403895b32c5bc5de2c1e0dcab594360a1a25183f2",
+        "crates/convex-mcp/tests/periodic_growth.rs": "af174abbba83ecd0c5f3b8280669bcf844d7fb2a5b42698f67d450e9ebfb7fc5",
+        "crates/convex-wasm/tests/periodic_growth.rs": "793f25ba2ad283d0ceb418829e3d77d60e3e376fd608a6881606cc3d0d1c4140",
+        "crates/convex/examples/periodic_growth.rs": "4428afa31a6346d4257fecd27e14b53d1f786596dc75689d9dbc79f421fe8841",
+        "crates/convex/tests/periodic_growth.rs": "57804bc918c482fc59acaaf78317b52e89614145cab591a6fff6837723cb45a4",
+        "docs/REINVESTMENT.md": "0540e89fa5b20dd1091e0cd800ffe08a5393353884c6dc9d72b985c423ee75e9",
+        "docs/ROUTE-MIGRATION.md": "b58f0d6fd5edc56ec3299197d76f4d2f2afeec4dbb1dbfc64c514e28beb859b6",
+        "tests/fixtures/library/periodic-growth.json": "bf507ddd4d6e5fc02b2880756eaba05e48e00ed7346b7c25010b40630132bc74",
+        "tests/fixtures/library/periodic_growth_contract.rs": "adc12a448130352d1eac9c4262600444efb84821346bbec5b5ac150651ed6b64",
+        "tests/scripts/periodic_growth_schema.py": "a215273c11e57538204b6ac0585112f73045db60bb017fc86eae11b213fe4a6a",
+        "tools/assurance/inventory.json": "b6156df0020520c43062712c6a29d5e8e85e3a27f274ef6af9d1c0514852599a",
+        "tools/assurance/numeric-evidence.json": "936bfe787ce3ce6115138ed91f92bd378b135ba87335bd7d586c5bbd41c702aa",
+        "tools/library/api-capabilities.json": "8a513bddf3bc01e944822e50788d5ca801c62cd634650d9096ac64fbd5ebc5d5",
+        "tools/library/library-inventory.json": "ee5e554f674804fe36794eb06572fedccd5946821ccb89f2e9dadf4839a80f58",
+        "tools/library/test_operations.py": "a453067cf74081063d71cf550f7bb314651ad0465654ef90e61091cd999438a9",
+        "crates/convex-analytics/src/yas/analysis.rs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
     }
   ]
 }

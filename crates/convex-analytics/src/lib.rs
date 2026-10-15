@@ -8,7 +8,7 @@
 //! - **Spreads**: Z-spread, G-spread, I-spread, OAS, ASW, discount margin
 //! - **Risk**: Duration, convexity, DV01, VaR, hedging
 //! - **Options**: Binomial trees, Hull-White model for callable/putable bonds
-//! - **YAS**: Bloomberg YAS replication
+//! - **YAS**: Supplied fixed-bond yield, spread, risk and invoice diagnostics
 //! - **Cash Flows**: Cash flow generation, accrued interest, schedules
 //!
 //! ## Architecture
@@ -181,11 +181,11 @@ pub mod prelude {
         ZSpreadCalculator,
     };
 
-    // YAS (Bloomberg YAS replication)
+    // Supplied fixed-bond diagnostics
     pub use crate::yas::{
         calculate_accrued_amount, calculate_proceeds, calculate_settlement_date,
         BatchYASCalculator, BloombergReference, SettlementInvoice, SettlementInvoiceBuilder,
-        ValidationFailure, YASCalculator, YASResult, YasAnalysis, YasAnalysisBuilder,
+        ValidationFailure, YASCalculator, YASResult,
     };
 
     // Options (callable/puttable bonds)

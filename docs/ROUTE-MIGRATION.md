@@ -513,3 +513,13 @@ native terms, original cash units and explicit separate rates. Short-date policy
 construction/queries now return `Result` and consume the enabled flag. The
 unqualified YAS money-market row and fabricated calculator true yield are retired.
 Read [the supplied-cash projection and migration](REINVESTMENT.md).
+
+
+## Stable periodic growth and retired supplied-value analysis
+
+The native reinvestment owner evaluates logarithmic growth before exponentiation
+and rejects material nonzero Decimal conversion loss. Existing supplied terms
+and units remain. The unused `YasAnalysis` / `YasAnalysisBuilder` facade, which
+manufactured zero for missing measurements, is removed with its reexports. Use
+actual supported `YASCalculator` results and genuine absence in caller records.
+See [the projection migration](REINVESTMENT.md).

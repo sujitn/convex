@@ -115,23 +115,36 @@ pub fn periodic_growth(
     if !per.is_zero() && base == Decimal::ONE {
         return Err(arithmetic());
     }
-    let b = number(base)?;
-    if base != Decimal::ONE && b == 1.0 {
-        return Err(arithmetic());
-    }
-    // Retain the original ordinary time/conversion/power operator order.
+    // Retain the original time/conversion order. Forming a binary64 unit base
+    // first can amplify rounding by billions of periods, or erase a small rate.
+    // Near the negative domain edge the exact Decimal base must be retained:
+    // the period rate itself can round to -1.0 even while that base is positive.
+    let logarithm = if per.abs() <= Decimal::new(5, 1) {
+        portable::log1p(number(per)?)
+    } else {
+        portable::log(number(base)?)
+    };
     let periods = (days as f64 / 365.0) * f64::from(frequency);
     let periods = Decimal::from_f64_retain(periods).ok_or_else(arithmetic)?;
     if days != 0 && periods.is_zero() {
         return Err(arithmetic());
     }
-    let growth = portable::pow(b, number(periods)?);
+    let exponent = logarithm * number(periods)?;
+    if !logarithm.is_finite() || !exponent.is_finite() {
+        return Err(arithmetic());
+    }
+    let growth = portable::exp(exponent);
     if !growth.is_finite() || growth <= 0.0 || (days != 0 && base != Decimal::ONE && growth == 1.0)
     {
         return Err(arithmetic());
     }
     let value = Decimal::from_f64_retain(growth).ok_or_else(arithmetic)?;
     if value <= Decimal::ZERO || (days != 0 && base != Decimal::ONE && value == Decimal::ONE) {
+        return Err(arithmetic());
+    }
+    // A nonzero Decimal can still discard a material fraction of a tiny factor.
+    // Such rounding would be amplified when the factor multiplies actual cash.
+    if (number(value)? - growth).abs() / growth > 1e-12 {
         return Err(arithmetic());
     }
     Ok(value)

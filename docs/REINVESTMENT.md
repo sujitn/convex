@@ -8,6 +8,14 @@ uses the same original cash units. Dates are bounded and sorted; at most 4096
 transfers are accepted. Same-day components retain their original order.
 
 Growth is `(1 + annual_rate / frequency)^(frequency * actual_days / 365)`.
+The native kernel evaluates logarithmic growth before exponentiation. For small
+period rates it uses the existing portable `log1p` kernel, preventing a rounded
+unit base from losing or amplifying the rate at large frequencies. Near the
+negative domain boundary it takes the logarithm of the checked Decimal base;
+rounding the period rate itself to `-1` must not destroy a positive base. A
+binary64-to-Decimal conversion that loses more than `1e-12` of the factor is an
+explicit precision error, including nonzero rounded values. These guards use
+the existing locked portable kernels on native and WebAssembly targets.
 The residual account grows at the valuation rate and pays each supplied transfer;
 the separate reinvestment account receives that transfer and grows at the
 reinvestment rate. Signed transfers and negative rates inside the positive-base
@@ -40,7 +48,10 @@ unused `RollForwardMethod` selector is removed; the enabled flag is honored.
 The old YAS calculator inferred a money-market reporting basis from currency and
 silently discarded projection errors. Its money-market output, DTO/schema field
 and Excel row are removed. The calculator's fabricated `true_yield = ytm` output
-is also removed. Separately supplied true-yield analysis remains available.
+is also removed. The unused `YasAnalysis` / `YasAnalysisBuilder` value-only facade
+is retired: it manufactured zero for missing yields, spreads and risk. Use the
+actual `YASCalculator` for supported supplied-input diagnostics and retain genuine
+absence in caller-owned records; the old builder did not compute true yield.
 Neither a flat account return nor ordinary YTM establishes a vendor true yield.
 
 Independent 110-digit Decimal references cover separate rates, original unit

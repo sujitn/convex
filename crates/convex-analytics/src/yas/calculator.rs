@@ -1,10 +1,9 @@
-//! YAS Calculator - Bloomberg YAS Replication.
+//! Supplied fixed-bond yield, spread, risk and invoice diagnostics.
 //!
-//! This module provides the main YAS calculator that integrates yield, spread,
-//! and risk calculations into a single comprehensive analysis matching Bloomberg's
-//! YAS (Yield Analysis System) function.
+//! Actual supported measures require their original pricing and convention context.
+//! Historical supplied comparison targets do not establish vendor/model certification.
 //!
-//! # Bloomberg Validation Target
+//! # Historical supplied diagnostic example (unapproved)
 //!
 //! Boeing 7.5% 06/15/2025 (CUSIP: 097023AH7)
 //! Settlement: 04/29/2020, Price: 110.503
@@ -35,10 +34,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::sync::Arc;
 
-/// Complete YAS result matching Bloomberg YAS output.
-///
-/// This struct provides all metrics that would be displayed on a
-/// Bloomberg YAS screen, using proper typed values for spreads and risk metrics.
+/// Supported supplied-input diagnostic results, with explicit spread/risk types.
+/// This is not a declaration of vendor or market-convention equivalence.
 #[derive(Debug, Clone)]
 pub struct YASResult {
     // ===== Yield Metrics =====
@@ -338,10 +335,8 @@ impl std::fmt::Display for ValidationFailure {
     }
 }
 
-/// YAS Calculator - main calculator for Bloomberg YAS replication.
-///
-/// This calculator integrates yield, spread, and risk calculations to produce
-/// a complete YAS analysis matching Bloomberg's output.
+/// Compute supported supplied fixed-bond diagnostics.
+/// Missing economic context remains an error; no full vendor equivalence is implied.
 pub struct YASCalculator<'a> {
     /// Government/benchmark curve for G-spread
     govt_curve: &'a ZeroCurve,
