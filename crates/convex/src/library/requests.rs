@@ -155,6 +155,11 @@ pub enum LibraryOperation {
         /// Original declared money/rate basis and output-unit operation.
         action: Box<YieldScalarOperation>,
     },
+    /// Checked mathematical discount laws over actual supplied years and cash.
+    CashYield {
+        /// Native price or unique nonnegative-cash inverse and explicit settings.
+        action: Box<CashYieldOperation>,
+    },
     /// Direct contextual own-yield sensitivity or positive reference hedge column.
     IcmaYieldRisk {
         /// Complete original economics, source/context/calendar/quantity revisions.

@@ -373,6 +373,36 @@ jobs:
       - name: Qualify checked yield scalar arithmetic 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_scalars
 
+      - name: Qualify checked supplied cash yield pricing 0
+        run: cargo test --locked -p convex-analytics --test yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 1
+        run: cargo test --locked -p convex --test yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 2
+        run: cargo run --locked -p convex --example yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 3
+        run: cargo test --locked -p convex-analytics --test yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 4
+        run: cargo test --locked -p convex --test yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 5
+        run: cargo run --locked -p convex --example yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 6
+        run: cargo test --locked -p convex-analytics --test yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 7
+        run: cargo test --locked -p convex --test yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 8
+        run: cargo run --locked -p convex --example yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_pricing
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

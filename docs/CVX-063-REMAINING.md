@@ -137,3 +137,11 @@ from-bond current yields retain actual positive face and per100 normalization.
 The retained raw general solvers, contextual time/convention preparation and
 infallible price/accrued methods still need genuine migration and qualification.
 See [checked yield scalars](YIELD-SCALARS.md) and its source-bound evidence.
+
+
+Direct numerical yield prices now return checked Results, and analytics delegates
+to the native engine. Explicit supplied-cash mathematical pricing and unique
+nonnegative-cash inverses share native arithmetic/domain/residual checks. This
+does not qualify retained dated ICMA/reference shortcuts, accrued/calendar
+mechanics, full signed-cash root selection or the broader original mandatory
+scope. See [supplied-cash yield pricing](YIELD-PRICING.md).

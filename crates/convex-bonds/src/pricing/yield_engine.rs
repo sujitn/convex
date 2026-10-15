@@ -102,7 +102,7 @@ pub trait YieldEngine: Send + Sync {
         yield_rate: f64,
         settlement: Date,
         rules: &YieldCalculationRules,
-    ) -> f64;
+    ) -> BondResult<f64>;
 
     /// Calculate accrued interest.
     ///
@@ -181,7 +181,10 @@ impl StandardYieldEngine {
         cash_flows: &[BondCashFlow],
         settlement: Date,
         rules: &YieldCalculationRules,
-    ) -> Vec<(f64, f64)> {
+    ) -> BondResult<Vec<(f64, f64)>> {
+        if cash_flows.len() > 4096 {
+            return Err(BondError::invalid_spec("cash-flow capacity exceeded"));
+        }
         let dc = rules.accrual_day_count.to_day_count();
 
         cash_flows
@@ -189,8 +192,13 @@ impl StandardYieldEngine {
             .filter(|cf| cf.date > settlement)
             .map(|cf| {
                 let years = dc.year_fraction(settlement, cf.date);
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years.to_f64().unwrap_or(0.0), amount)
+                let number = |value: Decimal| {
+                    value
+                        .to_f64()
+                        .filter(|v| v.is_finite() && (value.is_zero() || *v != 0.0))
+                        .ok_or_else(|| BondError::pricing_failed("yield-engine Decimal conversion"))
+                };
+                Ok((number(years)?, number(cf.amount)?))
             })
             .collect()
     }
@@ -227,38 +235,36 @@ impl StandardYieldEngine {
         }
     }
 
-    /// Calculates present value at a given yield using the specified compounding.
-    fn pv_at_yield(
-        &self,
-        cf_data: &[(f64, f64)],
-        yield_rate: f64,
-        rules: &YieldCalculationRules,
-    ) -> f64 {
-        cf_data
-            .iter()
-            .map(|(years, amount)| {
-                let df = rules.compounding.discount_factor(yield_rate, *years);
-                amount * df
-            })
-            .sum()
+    fn pv_at_yield(&self, cash: &[(f64, f64)], rate: f64, rules: &YieldCalculationRules) -> f64 {
+        match super::yield_cash::standard_value(cash, rate, rules.compounding) {
+            Ok((price, _)) => price,
+            Err(_) => f64::NAN,
+        }
     }
 
-    /// Calculates the derivative of PV with respect to yield.
-    fn pv_derivative(
+    fn pv_derivative(&self, cash: &[(f64, f64)], rate: f64, rules: &YieldCalculationRules) -> f64 {
+        match super::yield_cash::standard_value(cash, rate, rules.compounding) {
+            Ok((_, first)) => first,
+            Err(_) => f64::NAN,
+        }
+    }
+
+    fn accept_result(
         &self,
-        cf_data: &[(f64, f64)],
-        yield_rate: f64,
+        result: YieldEngineResult,
+        cash: &[(f64, f64)],
+        target: f64,
         rules: &YieldCalculationRules,
-    ) -> f64 {
-        cf_data
-            .iter()
-            .map(|(years, amount)| {
-                let ddf_dy = rules
-                    .compounding
-                    .discount_factor_derivative(yield_rate, *years);
-                amount * ddf_dy
-            })
-            .sum()
+    ) -> BondResult<YieldEngineResult> {
+        let residual =
+            super::yield_cash::standard_value(cash, result.yield_value, rules.compounding)?.0
+                - target;
+        if !residual.is_finite() || residual.abs() >= self.tolerance {
+            return Err(BondError::YieldConvergenceFailed {
+                iterations: result.iterations,
+            });
+        }
+        Ok(YieldEngineResult { residual, ..result })
     }
 
     /// Solves using Brent's method when Newton-Raphson fails.
@@ -307,10 +313,18 @@ impl YieldEngine for StandardYieldEngine {
         settlement: Date,
         rules: &YieldCalculationRules,
     ) -> BondResult<YieldEngineResult> {
-        let dirty_price = clean_price + accrued;
-        let target = dirty_price.to_f64().unwrap_or(100.0);
+        SolverConfig::new(self.tolerance, self.max_iterations)
+            .validate()
+            .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+        let dirty_price = clean_price
+            .checked_add(accrued)
+            .ok_or_else(|| BondError::pricing_failed("yield-engine dirty target overflow"))?;
+        let target = dirty_price
+            .to_f64()
+            .filter(|v| v.is_finite() && *v > 0.0)
+            .ok_or_else(|| BondError::invalid_spec("positive finite dirty target required"))?;
 
-        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules);
+        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules)?;
 
         if cf_data.is_empty() {
             return Err(BondError::InvalidSpec {
@@ -318,6 +332,7 @@ impl YieldEngine for StandardYieldEngine {
             });
         }
 
+        super::yield_cash::validate_cash(&cf_data, true)?;
         let initial_guess = self.estimate_initial_yield(&cf_data, target, rules);
 
         // Objective function: PV(yield) - target = 0
@@ -330,28 +345,39 @@ impl YieldEngine for StandardYieldEngine {
 
         // Try Newton-Raphson first
         if let Ok(result) = newton_raphson(objective, derivative, initial_guess, &config) {
-            Ok(YieldEngineResult {
-                yield_value: result.root,
-                iterations: result.iterations,
-                residual: result.residual,
-                convention: rules.convention,
-            })
+            self.accept_result(
+                YieldEngineResult {
+                    yield_value: result.root,
+                    iterations: result.iterations,
+                    residual: result.residual,
+                    convention: rules.convention,
+                },
+                &cf_data,
+                target,
+                rules,
+            )
         } else {
             // Try multiple initial guesses
             let guesses = [0.01, 0.03, 0.05, 0.08, 0.10, 0.15];
             for guess in guesses {
                 if let Ok(result) = newton_raphson(objective, derivative, guess, &config) {
-                    return Ok(YieldEngineResult {
-                        yield_value: result.root,
-                        iterations: result.iterations,
-                        residual: result.residual,
-                        convention: rules.convention,
-                    });
+                    return self.accept_result(
+                        YieldEngineResult {
+                            yield_value: result.root,
+                            iterations: result.iterations,
+                            residual: result.residual,
+                            convention: rules.convention,
+                        },
+                        &cf_data,
+                        target,
+                        rules,
+                    );
                 }
             }
 
             // Fallback to Brent's method
-            self.solve_with_brent(objective, initial_guess, rules.convention)
+            let result = self.solve_with_brent(objective, initial_guess, rules.convention)?;
+            self.accept_result(result, &cf_data, target, rules)
         }
     }
 
@@ -361,9 +387,9 @@ impl YieldEngine for StandardYieldEngine {
         yield_rate: f64,
         settlement: Date,
         rules: &YieldCalculationRules,
-    ) -> f64 {
-        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules);
-        self.pv_at_yield(&cf_data, yield_rate, rules)
+    ) -> BondResult<f64> {
+        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules)?;
+        super::yield_cash::standard_value(&cf_data, yield_rate, rules.compounding).map(|v| v.0)
     }
 
     fn accrued_interest(
@@ -587,7 +613,9 @@ mod tests {
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::us_corporate();
 
-        let price = engine.price_from_yield(&cash_flows, 0.05, settlement, &rules);
+        let price = engine
+            .price_from_yield(&cash_flows, 0.05, settlement, &rules)
+            .unwrap();
 
         // At par yield, price should be close to par
         assert_relative_eq!(price, 100.0, epsilon = 1.0);
@@ -620,8 +648,9 @@ mod tests {
             .unwrap();
 
         // Yield -> Price
-        let calculated_dirty =
-            engine.price_from_yield(&cash_flows, result.yield_value, settlement, &rules);
+        let calculated_dirty = engine
+            .price_from_yield(&cash_flows, result.yield_value, settlement, &rules)
+            .unwrap();
         let calculated_clean = calculated_dirty - accrued.to_f64().unwrap();
 
         // Should round-trip

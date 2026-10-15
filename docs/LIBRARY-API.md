@@ -840,3 +840,10 @@ checked native owners. Exact Decimal inputs, annual decimal-rate versus percenta
 outputs and original positive face/per100 normalization remain explicit. These
 are scalar measures; no dated instrument, market convention or solver result is
 manufactured. [The scalar guide](YIELD-SCALARS.md) describes the Result migration.
+
+
+`cash_yield` accepts strict `price` or `solve` operations with the actual supplied
+positive discount years, cash and mathematical compounding. Prices retain input
+cash units; inverses retain annual decimal rates and original native residual/
+iteration diagnostics. It does not construct an instrument or infer a market
+convention. See [supplied-cash yield pricing](YIELD-PRICING.md).

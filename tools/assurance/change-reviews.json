@@ -4406,6 +4406,52 @@
         "tools/library/library-inventory.json": "cf251a888b2a3ad80f4541cdf0d64af94d784b4c523ef22ff908c80065c3e6aa",
         "tools/library/test_operations.py": "679434f9b3db4509b805531119c66dce00a6c45afab446e8292f80866ada3039"
       }
+    },
+    {
+      "base_commit": "f8ddcf62c3ef65664d16faefe99c2c02ed293d4d",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 checked supplied-cash numerical yield pricing/inverses. One native owner retains input cash/time units and original ordinary financial operators, with explicit periodic/annual/continuous/simple laws, finite domains, overflow/nonzero-underflow and bounded cash/settings checks. Signed cash may be priced; unique inverse admission requires nonnegative cash with positive exposure. Existing Newton/Brent/defaults/seeds remain; failed trials cannot become accepted roots and final native price residuals are checked. Unsupported convention enums cannot silently use Street. Direct dirty/clean and YieldEngine prices return Result. Analytics StandardYieldEngine delegates to the native type; Street Decimal conversion uses checked native reporting. Retain dated-time/ICMA/accrued/calendar limitations as genuine separate requirements.72 independent Decimal110 prices and48 inverses precede candidate execution; one exact rational dated-year control,158shared120financial38typed failures. Actual initial invalid annual-domain and ambiguous signed inverse failures retained. Preserve1788 numeric rows/defaults,6069prior requests and all sealed physical evidence;10additive pins give1798,158requests give6227. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. No full contextual conventions/signed-root selection, broader model/calibration/claim/physical/mixed-book scope, independent approval, production latency or unavailable Windows/Excel qualification inferred.",
+      "tests": [
+        "Actual original domain/ambiguity failures;72independent Decimal110 prices48inverses and158shared controls; exact original financial test bodies except Result adapters",
+        "Preserve all6069prior inputs/complete envelopes except literal supplemental-capability path append; fresh37943ISDA/QuantLib controls",
+        "Ten default/no-default/schema/native/C/MCP/WASM profiles; actual full C/JDK26/wasm32Node/browser; original coupon/yield/WASM controls; workspace warnings-deniedClippy preflight;64library42assurance4private and scope/source/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4b8b6849b0498fcb4518d6bd07b757090c2fbb61a5c0f13117d3b08897d1e8d2",
+        "crates/convex-analytics/src/yields/engine.rs": "cb406379aaf4c467715ee29aa698b0c7823e824c55fe67c7ec29fc54eb77c051",
+        "crates/convex-analytics/src/yields/street.rs": "fedbc0382a56f68488a589059e4ae55d8993151ff625a35e9fdb02f294187032",
+        "crates/convex-analytics/tests/fixtures/yield-pricing.json": "27feaa1d2385c9b063ae0c8475a422d068725c981221c4edc4871669737213a5",
+        "crates/convex-analytics/tests/yield_pricing.rs": "30a749c4cc02953ab949ffef2a7378e42d75ecd71d135df91317e8bd0f650800",
+        "crates/convex-bonds/src/pricing/mod.rs": "6bc4d58315d4394aa778dbb2c763835fd534a047f5b1f29fbc1a2bea4914d6e0",
+        "crates/convex-bonds/src/pricing/yield_cash.rs": "f67ba073cbc09f1161ae79762358a252b70b8a6140e0bda7011ef760290373ef",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "5ba167b17c4e2f6a032b52f945e0bb1a262165e57c00b6b5db618e217958f733",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "3e14af8b164a041f68b55f5e525ffc6d359e402f40d92ba08d1793ceb71fb52c",
+        "crates/convex-bonds/src/traits/bond.rs": "cb541474c80894a6b08cde49fdd137ceafadf89d9cde8a9e7dfb3298eea35f46",
+        "crates/convex-ffi/tests/yield_pricing.rs": "9a175141d403d7cc43d6451fcedd7900f56a4376d435d56984ec19be4417bcca",
+        "crates/convex-mcp/tests/yield_pricing.rs": "159d3815d7430b152af92dd65b879954c93cd276ef03fe1a96ea68fc0914baeb",
+        "crates/convex-wasm/tests/yield_pricing.rs": "b71cdf10395e85303cc5d97ad2c05d7455f72b5454889dbac1e30ef84b4218e7",
+        "crates/convex/examples/yield_pricing.rs": "7648658fe64a839511fb887b4b641481094b37f4e697b5546669ec84a493a23a",
+        "crates/convex/src/library/mod.rs": "2c9968c47ade10546d21f69312ad9f73e3985a5cc90139da13741410458e904d",
+        "crates/convex/src/library/products.rs": "5aa1e67feba937db1f53d8ca38b4fa4b7986461a7840f5701d0af466a4c24310",
+        "crates/convex/src/library/requests.rs": "09316bea191548ac17f22ae80e715c1d0228446464f46ec7446a73d51778b128",
+        "crates/convex/src/library/yield_pricing.rs": "f7ffa11d42d9630588689ce96d4ab34a6bd3c1ebfdf8af634a8450d08448ba58",
+        "crates/convex/tests/yield_pricing.rs": "dcf5b065823c84a249223226a4ffd47c67196a3c0db37cce17c2ab58ed0749df",
+        "docs/CVX-063-REMAINING.md": "b5ffc9210409d70210ef19e672f5a59d786821bbe5d40f994d7b9edc235521cd",
+        "docs/LIBRARY-API.md": "72044c5a1bed24df4636ca26428b8fd4c595fcc5e1754eb0f47b8d02e9e86bb1",
+        "docs/ROUTE-MIGRATION.md": "d0ff11dc725325a99b8a68e526e1121958ec56447a5d37a9d2eae4d1070bf802",
+        "docs/YIELD-PRICING.md": "dd9aeb7e7d13bf336461a440b49e23a8794442c3cbf0b6a6dadeeeb6fefceb4f",
+        "tests/fixtures/library/yield-pricing.json": "1d6c84f87c2c6528703b2425de225048b7428bfe16ad78f150da013430e3c7ca",
+        "tests/fixtures/library/yield_pricing_contract.rs": "211dc3bd26ee6daa24d85957ed0915c5ce60f5256eb822e3c5227ae250306a12",
+        "tests/scripts/yield_pricing_schema.py": "76fdd7eda929579bb272dc981a91a2feb83baf127cf50070c065d25a15778738",
+        "tools/assurance/check.py": "7a73fb9c5ca65a66db126ddc11f4f3a65bf0fe1a9ccd42aeed93ad0d30051aaa",
+        "tools/assurance/inventory.json": "0404e601409cc2eaae1d6a6ab7b696445baaf1188909cd39892505f82e2cb845",
+        "tools/assurance/numeric-evidence.json": "017d71a4f07ae2000fe33bacb91d84e85344984249616a7c67d569b7820b23d8",
+        "tools/assurance/test_policy.py": "270ab1ddde1cc6c6b38894652b165f902de6748e51b6e24c03541adfb6951df9",
+        "tools/library/api-capabilities.json": "081ada535238920c2da0a894242c1a87a55d30afcf990385c649f48d40da27c2",
+        "tools/library/library-inventory.json": "dab6cf410874104508efac8cd5a1446be9cd7c9a1a398f411dbf5499bfa4522f",
+        "tools/library/test_operations.py": "3319e01cdc38c4a54f3f42ca0aaca26e2c66a4c73e099d810a7fa1224f1f5110"
+      }
     }
   ]
 }

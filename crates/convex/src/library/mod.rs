@@ -24,6 +24,7 @@ mod requests;
 mod risk;
 mod scenarios;
 mod workout;
+mod yield_pricing;
 mod yield_scalars;
 mod zero;
 
@@ -49,6 +50,7 @@ pub use scenarios::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use workout::*;
+pub use yield_pricing::*;
 pub use yield_scalars::*;
 pub use zero::*;
 

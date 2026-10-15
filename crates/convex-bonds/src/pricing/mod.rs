@@ -20,6 +20,7 @@ pub mod bill;
 /// Checked absolute dated-cash PV and same-basis analytical yield risk.
 pub mod dated_cash;
 pub mod short_date;
+pub mod yield_cash;
 mod yield_engine;
 /// Checked scalar reporting and explicitly supplied current/simple yield measures.
 pub mod yield_scalars;

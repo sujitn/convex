@@ -480,3 +480,12 @@ fallible Decimal percentage APIs retain their units and now check arithmetic.
 From-bond per100 current yields no longer scale with original face. See
 [YIELD-SCALARS.md](YIELD-SCALARS.md). Raw solver and dated-convention qualification
 remain separate; no approximation is promoted to full instrument support.
+
+
+Direct supplied-cash yield dirty/clean prices and both YieldEngine price methods
+now return Result; propagate errors with `?`. Analytics StandardYieldEngine is
+the native type with an analytics error adapter. Explicit supplied-cash pricing
+and unique nonnegative-cash inverses use `cash_yield`; unsupported convention
+enums cannot silently use a periodic approximation. See [supplied-cash yield
+pricing](YIELD-PRICING.md). Contextual date/ICMA/accrued/calendar methods still
+require their genuine complete migration and qualification.

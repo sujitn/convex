@@ -493,6 +493,7 @@ pub(super) fn execute(
 ) -> LibraryResult<Value> {
     match operation {
         LibraryOperation::YieldScalar { action } => super::yield_scalars::execute(action),
+        LibraryOperation::CashYield { action } => super::yield_pricing::execute(action),
         LibraryOperation::Workout {
             input,
             context,

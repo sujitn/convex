@@ -240,7 +240,7 @@ pub trait Bond {
             settlement,
             dc,
             f64::from(frequency.periods_per_year()),
-        );
+        )?;
         for (time, amount) in &mut result {
             *amount *= 100.0 / face;
             if !time.is_finite() || *time <= 0.0 || !amount.is_finite() {

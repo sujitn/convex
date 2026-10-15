@@ -30249,7 +30249,8 @@
     "tests/fixtures/library/coupon-parameter-directional.json",
     "tests/fixtures/library/coupon-directional-risk.json",
     "tests/fixtures/library/directional-hedges.json",
-    "tests/fixtures/library/yield-scalars.json"
+    "tests/fixtures/library/yield-scalars.json",
+    "tests/fixtures/library/yield-pricing.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

@@ -1,7 +1,5 @@
-//! Yield-to-maturity solver using Bloomberg YAS methodology.
-//!
-//! This module implements yield calculations that match Bloomberg's YAS (Yield Analysis)
-//! system using the sequential roll-forward discounting method.
+//! Checked supplied-cash yield calculations and retained dated-time preparation.
+//! Supplied numeric discount laws do not establish a market quotation convention.
 //!
 //! # Example
 //!
@@ -16,7 +14,6 @@
 //! println!("YTM: {:.6}%", result.yield_value * 100.0);
 //! ```
 
-use convex_math::portable;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -24,6 +21,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Date, Frequency};
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
+use super::yield_cash::{self, CashYieldCompounding};
 use crate::error::{BondError, BondResult};
 use crate::traits::{BondCashFlow, FixedCouponBond};
 use crate::types::YieldConvention;
@@ -55,7 +53,18 @@ pub(crate) fn project_discount_fractions(
     settlement: Date,
     day_count: DayCountConvention,
     periods_per_year: f64,
-) -> Vec<(f64, f64)> {
+) -> BondResult<Vec<(f64, f64)>> {
+    if cash_flows.len() > 4096 || !periods_per_year.is_finite() || periods_per_year <= 0.0 {
+        return Err(BondError::invalid_spec(
+            "invalid cash projection capacity/frequency",
+        ));
+    }
+    let number = |value: Decimal| {
+        value
+            .to_f64()
+            .filter(|v| v.is_finite() && (value.is_zero() || *v != 0.0))
+            .ok_or_else(|| BondError::pricing_failed("cash projection Decimal conversion"))
+    };
     let future: Vec<&BondCashFlow> = cash_flows
         .iter()
         .filter(|cf| cf.date > settlement)
@@ -78,12 +87,18 @@ pub(crate) fn project_discount_fractions(
 
     if period_aware {
         let first = future[0];
-        let astart = first.accrual_start.unwrap();
-        let aend = first.accrual_end.unwrap();
+        let astart = first
+            .accrual_start
+            .ok_or_else(|| BondError::invalid_spec("missing accrual start"))?;
+        let aend = first
+            .accrual_end
+            .ok_or_else(|| BondError::invalid_spec("missing accrual end"))?;
         let dc = day_count.to_day_count();
 
         let months_per_period = (12.0 / periods_per_year).round() as i32;
-        let nominal_start = aend.add_months(-months_per_period).unwrap_or(astart);
+        let nominal_start = aend
+            .add_months(-months_per_period)
+            .map_err(|e| BondError::invalid_spec(e.to_string()))?;
         let actual_days = dc.day_count(astart, aend).abs() as f64;
         let nominal_days = dc.day_count(nominal_start, aend).abs() as f64;
         let is_stub = (actual_days - nominal_days).abs() > 5.0 && nominal_days > 0.0;
@@ -133,8 +148,7 @@ pub(crate) fn project_discount_fractions(
                     };
                     let t_periods = (period_idx as f64 - 1.0 - v) + frac_in_period;
                     let years = t_periods / periods_per_year;
-                    let amount = cf.amount.to_f64().unwrap_or(0.0);
-                    (years, amount)
+                    Ok((years, number(cf.amount)?))
                 })
                 .collect();
         }
@@ -144,8 +158,7 @@ pub(crate) fn project_discount_fractions(
         .iter()
         .map(|cf| {
             let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-            let amount = cf.amount.to_f64().unwrap_or(0.0);
-            (years.to_f64().unwrap_or(0.0), amount)
+            Ok((number(years)?, number(cf.amount)?))
         })
         .collect()
 }
@@ -255,12 +268,17 @@ impl YieldSolver {
         day_count: DayCountConvention,
         frequency: Frequency,
     ) -> BondResult<YieldResult> {
-        let dirty_price = clean_price + accrued;
-        let target = dirty_price.to_f64().unwrap_or(100.0);
+        let dirty_price = clean_price
+            .checked_add(accrued)
+            .ok_or_else(|| BondError::pricing_failed("dirty target Decimal overflow"))?;
+        let target = dirty_price
+            .to_f64()
+            .filter(|v| v.is_finite() && *v > 0.0)
+            .ok_or_else(|| BondError::invalid_spec("positive finite dirty target required"))?;
 
         let periods_per_year = f64::from(frequency.periods_per_year());
         let cf_data =
-            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year);
+            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year)?;
 
         if cf_data.is_empty() {
             return Err(BondError::InvalidSpec {
@@ -284,24 +302,7 @@ impl YieldSolver {
             0.05
         };
 
-        // Objective function: PV(yield) - target = 0
-        let objective = |y: f64| self.pv_at_yield(&cf_data, y, periods_per_year) - target;
-
-        // Analytical derivative for Newton-Raphson
-        let derivative = |y: f64| self.pv_derivative(&cf_data, y, periods_per_year);
-
-        // Try Newton-Raphson first
-        match newton_raphson(objective, derivative, initial_guess, &self.config) {
-            Ok(result) => Ok(YieldResult {
-                yield_value: result.root,
-                iterations: result.iterations,
-                residual: result.residual,
-            }),
-            Err(_) => {
-                // Fallback to Brent's method with wider bracket
-                self.solve_with_brent(objective, initial_guess)
-            }
-        }
+        self.solve_primitive(&cf_data, target, periods_per_year, initial_guess)
     }
 
     /// Solves for yield from pre-computed (year_fraction, amount) pairs.
@@ -316,49 +317,88 @@ impl YieldSolver {
         periods_per_year: f64,
         initial_guess: f64,
     ) -> BondResult<YieldResult> {
-        self.price_primitive(cash_flows, initial_guess, periods_per_year)?;
+        self.solve_cash(
+            cash_flows,
+            target_dirty_price,
+            self.cash_basis(periods_per_year)?,
+            initial_guess,
+        )
+    }
+
+    /// Checked inverse over explicit mathematical compounding and cash units.
+    /// Nonnegative cash is required so the positive-price yield is unique.
+    pub fn solve_cash(
+        &self,
+        cash_flows: &[(f64, f64)],
+        target_dirty_price: f64,
+        compounding: CashYieldCompounding,
+        initial_guess: f64,
+    ) -> BondResult<YieldResult> {
+        self.config
+            .validate()
+            .map_err(|e| BondError::invalid_spec(e.to_string()))?;
+        yield_cash::validate_cash(cash_flows, true)?;
+        yield_cash::price_cash(cash_flows, initial_guess, compounding)?;
         if !target_dirty_price.is_finite() || target_dirty_price <= 0.0 {
-            return Err(BondError::invalid_spec("invalid yield target"));
+            return Err(BondError::invalid_spec(
+                "positive finite yield target required",
+            ));
         }
-
-        let objective =
-            |y: f64| self.pv_at_yield(cash_flows, y, periods_per_year) - target_dirty_price;
-        let derivative = |y: f64| self.pv_derivative(cash_flows, y, periods_per_year);
-
-        match newton_raphson(objective, derivative, initial_guess, &self.config) {
-            Ok(result) => Ok(YieldResult {
+        // The existing solvers reject nonfinite trial evaluations. A failed
+        // trial terminates that attempt; it is never an accepted price/root.
+        let objective = |y| match yield_cash::value_cash(cash_flows, y, compounding) {
+            Ok((price, _)) => price - target_dirty_price,
+            Err(_) => f64::NAN,
+        };
+        let derivative = |y| match yield_cash::value_cash(cash_flows, y, compounding) {
+            Ok((_, first)) => first,
+            Err(_) => f64::NAN,
+        };
+        let result = match newton_raphson(objective, derivative, initial_guess, &self.config) {
+            Ok(result) => YieldResult {
                 yield_value: result.root,
                 iterations: result.iterations,
                 residual: result.residual,
-            }),
-            Err(_) => self.solve_with_brent(objective, initial_guess),
+            },
+            Err(_) => self.solve_with_brent(objective, initial_guess)?,
+        };
+        let residual = yield_cash::price_cash(cash_flows, result.yield_value, compounding)?
+            - target_dirty_price;
+        if !residual.is_finite() || residual.abs() >= self.config.tolerance {
+            return Err(BondError::YieldConvergenceFailed {
+                iterations: result.iterations,
+            });
         }
+        Ok(YieldResult { residual, ..result })
     }
 
-    /// Checked price over precomputed dated times and per-100 cash amounts.
+    /// Checked price over explicit positive years and unchanged cash units.
     pub fn price_primitive(
         &self,
         cash: &[(f64, f64)],
         yield_rate: f64,
         frequency: f64,
     ) -> BondResult<f64> {
-        if cash.is_empty()
-            || cash.len() > 4096
-            || !frequency.is_finite()
-            || frequency <= 0.0
-            || !yield_rate.is_finite()
-            || 1.0 + yield_rate / frequency <= 0.0
-            || cash
-                .iter()
-                .any(|(t, a)| !t.is_finite() || *t <= 0.0 || !a.is_finite())
-        {
-            return Err(BondError::invalid_spec("invalid yield price input"));
+        yield_cash::price_cash(cash, yield_rate, self.cash_basis(frequency)?)
+    }
+
+    fn cash_basis(&self, frequency: f64) -> BondResult<CashYieldCompounding> {
+        if !frequency.is_finite() || frequency <= 0.0 {
+            return Err(BondError::invalid_spec(
+                "positive finite supplied frequency required",
+            ));
         }
-        let price = self.pv_at_yield(cash, yield_rate, frequency);
-        if !price.is_finite() || price <= 0.0 {
-            return Err(BondError::invalid_spec("invalid yield price output"));
+        match self.convention {
+            YieldConvention::StreetConvention => Ok(CashYieldCompounding::Periodic { frequency }),
+            YieldConvention::TrueYield | YieldConvention::Annual => {
+                Ok(CashYieldCompounding::Annual)
+            }
+            YieldConvention::Continuous => Ok(CashYieldCompounding::Continuous),
+            YieldConvention::SimpleYield => Ok(CashYieldCompounding::Simple),
+            _ => Err(BondError::invalid_spec(
+                "yield convention requires its complete contextual pricing owner",
+            )),
         }
-        Ok(price)
     }
 
     /// Solves using Brent's method when Newton-Raphson fails.
@@ -389,101 +429,7 @@ impl YieldSolver {
         })
     }
 
-    /// Calculates present value at a given yield.
-    ///
-    /// Uses Bloomberg's sequential method: each cash flow is discounted
-    /// using the number of periods from settlement.
-    fn pv_at_yield(&self, cf_data: &[(f64, f64)], yield_rate: f64, periods_per_year: f64) -> f64 {
-        let rate_per_period = yield_rate / periods_per_year;
-
-        match self.convention {
-            YieldConvention::TrueYield => {
-                // True yield: exact time discounting
-                cf_data
-                    .iter()
-                    .map(|(years, amount)| {
-                        let df = portable::pow(1.0 + yield_rate, -years);
-                        amount * df
-                    })
-                    .sum()
-            }
-            YieldConvention::Continuous => {
-                // Continuous compounding
-                cf_data
-                    .iter()
-                    .map(|(years, amount)| {
-                        let df = portable::exp(-yield_rate * years);
-                        amount * df
-                    })
-                    .sum()
-            }
-            YieldConvention::SimpleYield => {
-                // Japanese convention - simple interest
-                cf_data
-                    .iter()
-                    .map(|(years, amount)| {
-                        let df = 1.0 / (1.0 + yield_rate * years);
-                        amount * df
-                    })
-                    .sum()
-            }
-            _ => {
-                // Street Convention and others: periodic compounding
-                cf_data
-                    .iter()
-                    .map(|(years, amount)| {
-                        let periods = years * periods_per_year;
-                        let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
-                        amount * df
-                    })
-                    .sum()
-            }
-        }
-    }
-
-    /// Derivative of PV with respect to yield.
-    fn pv_derivative(&self, cf_data: &[(f64, f64)], yield_rate: f64, periods_per_year: f64) -> f64 {
-        let rate_per_period = yield_rate / periods_per_year;
-
-        match self.convention {
-            YieldConvention::TrueYield => cf_data
-                .iter()
-                .map(|(years, amount)| {
-                    let df = portable::pow(1.0 + yield_rate, -years);
-                    let ddf_dy = -years * df / (1.0 + yield_rate);
-                    amount * ddf_dy
-                })
-                .sum(),
-            YieldConvention::Continuous => cf_data
-                .iter()
-                .map(|(years, amount)| {
-                    let df = portable::exp(-yield_rate * years);
-                    let ddf_dy = -years * df;
-                    amount * ddf_dy
-                })
-                .sum(),
-            YieldConvention::SimpleYield => cf_data
-                .iter()
-                .map(|(years, amount)| {
-                    let denom = 1.0 + yield_rate * years;
-                    let ddf_dy = -years / (denom * denom);
-                    amount * ddf_dy
-                })
-                .sum(),
-            _ => cf_data
-                .iter()
-                .map(|(years, amount)| {
-                    let periods = years * periods_per_year;
-                    let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
-                    let ddf_dy = -periods * df / (1.0 + rate_per_period) / periods_per_year;
-                    amount * ddf_dy
-                })
-                .sum(),
-        }
-    }
-
     /// Calculates dirty price from yield.
-    #[must_use]
     pub fn dirty_price_from_yield(
         &self,
         cash_flows: &[BondCashFlow],
@@ -491,15 +437,14 @@ impl YieldSolver {
         settlement: Date,
         day_count: DayCountConvention,
         frequency: Frequency,
-    ) -> f64 {
+    ) -> BondResult<f64> {
         let periods_per_year = f64::from(frequency.periods_per_year());
         let cf_data =
-            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year);
-        self.pv_at_yield(&cf_data, yield_rate, periods_per_year)
+            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year)?;
+        self.price_primitive(&cf_data, yield_rate, periods_per_year)
     }
 
     /// Calculates clean price from yield.
-    #[must_use]
     pub fn clean_price_from_yield(
         &self,
         cash_flows: &[BondCashFlow],
@@ -508,10 +453,20 @@ impl YieldSolver {
         settlement: Date,
         day_count: DayCountConvention,
         frequency: Frequency,
-    ) -> f64 {
+    ) -> BondResult<f64> {
         let dirty =
-            self.dirty_price_from_yield(cash_flows, yield_rate, settlement, day_count, frequency);
-        dirty - accrued.to_f64().unwrap_or(0.0)
+            self.dirty_price_from_yield(cash_flows, yield_rate, settlement, day_count, frequency)?;
+        let accrued = accrued
+            .to_f64()
+            .filter(|v| v.is_finite())
+            .ok_or_else(|| BondError::pricing_failed("accrued conversion"))?;
+        let clean = dirty - accrued;
+        if !clean.is_finite() || clean <= 0.0 {
+            return Err(BondError::invalid_spec(
+                "positive finite clean price required",
+            ));
+        }
+        Ok(clean)
     }
 }
 
@@ -570,7 +525,15 @@ pub fn discount_margin(
         return Err(BondError::invalid_spec("No cash flows provided"));
     }
 
-    let target = dirty_price.to_f64().unwrap_or(100.0);
+    let target = dirty_price
+        .to_f64()
+        .filter(|v| v.is_finite() && *v > 0.0)
+        .ok_or_else(|| {
+            BondError::invalid_spec("positive finite discount-margin target required")
+        })?;
+    if !reference_rate.is_finite() {
+        return Err(BondError::invalid_spec("finite reference rate required"));
+    }
     let periods_per_year = f64::from(frequency.periods_per_year());
 
     // Period-aware year fractions (matches QL ISMA), same helper as the
@@ -580,25 +543,19 @@ pub fn discount_margin(
         settlement,
         day_count,
         periods_per_year,
-    );
+    )?;
 
     if cf_data.is_empty() {
         return Err(BondError::invalid_spec("No future cash flows"));
     }
 
-    // PV function: discount at (reference_rate + margin)
-    let pv_at_margin = |margin: f64| -> f64 {
-        let discount_rate = reference_rate + margin;
-        let rate_per_period = discount_rate / periods_per_year;
-
-        cf_data
-            .iter()
-            .map(|(years, amount)| {
-                let periods = years * periods_per_year;
-                let df = 1.0 / portable::pow(1.0 + rate_per_period, periods);
-                amount * df
-            })
-            .sum()
+    yield_cash::validate_cash(&cf_data, true)?;
+    let basis = CashYieldCompounding::Periodic {
+        frequency: periods_per_year,
+    };
+    let pv_at_margin = |margin: f64| {
+        yield_cash::price_cash(&cf_data, reference_rate + margin, basis)
+            .map_or(f64::NAN, std::convert::identity)
     };
 
     // Objective function: PV - target
@@ -609,7 +566,16 @@ pub fn discount_margin(
     let config = SolverConfig::new(1e-10, 100);
 
     match brent(objective, -0.10, 0.20, &config) {
-        Ok(result) => Ok(result.root),
+        Ok(result) => {
+            let residual =
+                yield_cash::price_cash(&cf_data, reference_rate + result.root, basis)? - target;
+            if !residual.is_finite() || residual.abs() >= config.tolerance {
+                return Err(BondError::YieldConvergenceFailed {
+                    iterations: result.iterations,
+                });
+            }
+            Ok(result.root)
+        }
         Err(e) => Err(BondError::pricing_failed(format!(
             "Failed to solve for discount margin: {}",
             e
@@ -810,14 +776,16 @@ mod tests {
             .unwrap();
 
         // Calculate clean price from YTM
-        let calculated_clean = solver.clean_price_from_yield(
-            &cash_flows,
-            result.yield_value,
-            accrued,
-            settlement,
-            DayCountConvention::Thirty360US,
-            Frequency::SemiAnnual,
-        );
+        let calculated_clean = solver
+            .clean_price_from_yield(
+                &cash_flows,
+                result.yield_value,
+                accrued,
+                settlement,
+                DayCountConvention::Thirty360US,
+                Frequency::SemiAnnual,
+            )
+            .unwrap();
 
         // Should round-trip to within tolerance
         let diff = (calculated_clean - original_price.to_f64().unwrap()).abs();
@@ -1071,7 +1039,8 @@ mod tests {
         ];
 
         let projected =
-            project_discount_fractions(&cfs, settlement, DayCountConvention::ActActIcma, 2.0);
+            project_discount_fractions(&cfs, settlement, DayCountConvention::ActActIcma, 2.0)
+                .unwrap();
 
         assert_eq!(projected.len(), 3);
         // First coupon: full first period elapsed → 0.5y.
