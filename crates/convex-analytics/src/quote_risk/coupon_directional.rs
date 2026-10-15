@@ -8,8 +8,12 @@ use convex_core::contracts::SnapshotId;
 use convex_curves::contracts::CurveSet;
 use serde::{Deserialize, Serialize};
 
+#[path = "coupon_directional_record.rs"]
+mod record;
+pub use record::*;
+
 /// Native reference and independent signed first/second currency precision.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CouponDirectionalRiskSettings {

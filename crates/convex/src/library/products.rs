@@ -910,6 +910,21 @@ pub(super) fn execute(
                 )?,
             )
         }),
+        LibraryOperation::TermCouponDirectionalHedgeRisk {
+            graph,
+            input,
+            risk: request,
+            parameter_policies,
+        } => super::curves::with_graph(graph, r, |graph| {
+            super::floating_coupon::with_prepared(input, r, &graph.baseline().curves, |prepared| {
+                value(w::term_coupon_directional_hedge_risk(
+                    prepared,
+                    graph,
+                    request,
+                    parameter_policies,
+                )?)
+            })
+        }),
         LibraryOperation::TermCouponCompleteHedgeRisk {
             graph,
             input,
@@ -959,6 +974,9 @@ pub(super) fn execute(
             action,
         } => super::floating_workout::execute(input, context, action, r),
         LibraryOperation::Hedge { problem, action } => super::hedges::hedge(problem, action),
+        LibraryOperation::DirectionalHedge { problem, action } => {
+            super::hedges::directional_hedge(problem, action)
+        }
         LibraryOperation::CreditRisk { input, action } => {
             super::credit::credit_risk(input, action, r)
         }

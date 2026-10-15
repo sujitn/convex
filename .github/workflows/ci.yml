@@ -314,6 +314,35 @@ jobs:
 
       - name: Qualify signed directional coupon parameter risk 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_directional_risk
+      - name: Qualify complete directional hedge evidence 0
+        run: cargo test --locked -p convex-analytics --test directional_hedges
+
+      - name: Qualify complete directional hedge evidence 1
+        run: cargo test --locked -p convex --test directional_hedges
+
+      - name: Qualify complete directional hedge evidence 2
+        run: cargo run --locked -p convex --example directional_hedges
+
+      - name: Qualify complete directional hedge evidence 3
+        run: cargo test --locked -p convex-analytics --test directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 4
+        run: cargo test --locked -p convex --test directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 5
+        run: cargo run --locked -p convex --example directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 6
+        run: cargo test --locked -p convex-analytics --test directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 7
+        run: cargo test --locked -p convex --test directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 8
+        run: cargo run --locked -p convex --example directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test directional_hedges
 
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives

@@ -114,9 +114,19 @@ explicit directional parameter derivatives, selected-bracket price inversion,
 canonical central risk and complete graph/parameter hedge columns retain their
 original native precision and history/curve/source guards. Signed directional
 risk has a dedicated full-native proof and separate first/second position policies.
-Directional hedge/aggregation integration, full quote/surface identification,
+Full quote/surface identification,
 whole shifted/overnight/path/rounding/intraday models and mixed-book parameter
 scenario/lifecycle integration remain genuine required work. Remaining infallible
 yield/YAS conveniences need checked genuine replacements with preserved financial
 cases, answers and bounds. Use the actual outstanding report and the latest
 source-bound evidence for current engineering scope.
+
+
+The native directional coupon column and tagged supplied-risk aggregation/hedge
+route now preserve actual six-price evidence alongside graph columns and reuse
+the original constrained optimizer. This is a scoped engineering candidate;
+full mixed-book parameter scenario/lifecycle binding, broader product/model/
+convention coverage and the original mandatory certificate records remain open.
+Supplied-record arithmetic validation cannot replace native product repricing or
+independent model approval. Consult the source-bound Directional-Hedges packet
+for actual execution status; unavailable Windows/Excel remains separate.

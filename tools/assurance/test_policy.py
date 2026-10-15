@@ -150,7 +150,10 @@ class AssuranceMutations(unittest.TestCase):
             check.check_lifecycle_source((ROOT/path).read_text())
         constrained = {p.relative_to(ROOT).as_posix() for p in
                        (ROOT/'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs')}
-        self.assertEqual(len(constrained), 4)
+        self.assertEqual(constrained, {
+            'crates/convex-analytics/src/risk/hedging/constrained/' + name
+            for name in ['mod.rs', 'types.rs', 'admission.rs', 'solver.rs', 'evidence.rs']
+        })
         self.assertTrue(constrained <= check.inventory_paths(ROOT))
 
     def test_complete_calibration_replay_checks_and_owners_cannot_be_bypassed(self):

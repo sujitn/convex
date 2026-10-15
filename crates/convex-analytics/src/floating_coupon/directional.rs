@@ -21,7 +21,7 @@ impl CouponParameterSide {
 }
 
 /// Explicit side and the original native first/second h/h2 admission policy.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CouponDirectionalDerivativeSettings {
@@ -69,7 +69,7 @@ pub struct CouponParameterDirectionalDerivatives {
     pub prices: Vec<CouponDirectionalPrice>,
 }
 
-fn stencil(base: f64, one: f64, two: f64, three: f64, step: f64) -> Result<(f64, f64)> {
+pub(crate) fn stencil(base: f64, one: f64, two: f64, three: f64, step: f64) -> Result<(f64, f64)> {
     // Differences retain the algebraic coefficients without repeatedly summing
     // the much larger baseline currency PV. The arithmetic guard still applies.
     let one = finite(one - base)?;

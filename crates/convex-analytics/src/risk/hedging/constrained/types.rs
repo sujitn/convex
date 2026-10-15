@@ -52,7 +52,7 @@ pub struct HedgeFxPin {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeRiskVector {
+pub struct RiskVector<S = QuoteSensitivity> {
     /// Expected holding/candidate identity.
     pub id: TradeId,
     /// Original product family, without product repricing claims.
@@ -73,7 +73,7 @@ pub struct HedgeRiskVector {
     /// Positive original reference size already included in each native risk PV.
     pub reference_position: RiskPosition,
     /// All required factors in the problem's original order, including explicit zeros.
-    pub sensitivities: Vec<QuoteSensitivity>,
+    pub sensitivities: Vec<S>,
     /// Required only when original monetary currency differs from reporting.
     #[serde(deserialize_with = "required_option")]
     #[cfg_attr(
@@ -86,9 +86,9 @@ pub struct HedgeRiskVector {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeHolding {
+pub struct Holding<S = QuoteSensitivity> {
     /// Actual complete reference risk.
-    pub risk: HedgeRiskVector,
+    pub risk: RiskVector<S>,
     /// Signed actual holdings; never gross absolute exposure.
     pub current_quantity: ExactDecimal,
     /// Signed pending exposure supplied by the application; explicit zero is allowed.
@@ -151,9 +151,9 @@ pub struct HedgeCosts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeCandidate {
+pub struct Candidate<S = QuoteSensitivity> {
     /// Full original reference risk; matching held IDs require exact vector equality.
-    pub risk: HedgeRiskVector,
+    pub risk: RiskVector<S>,
     /// Actual supplied eligibility; no live permission is inferred.
     pub eligibility: HedgeEligibility,
     /// Closed native signed trade interval.
@@ -210,7 +210,7 @@ pub struct HedgeSolveSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeProblem {
+pub struct Problem<S = QuoteSensitivity> {
     /// Actual common information set; reference risks and FX must match.
     pub snapshot_id: SnapshotId,
     /// One actual owning entity; this calculation does not authorize it.
@@ -224,11 +224,11 @@ pub struct HedgeProblem {
     /// Complete expected holding IDs; missing, unrequested and duplicate entries fail.
     pub expected_holdings: Vec<TradeId>,
     /// Actual complete current and pending risk; at most256 holdings.
-    pub holdings: Vec<HedgeHolding>,
+    pub holdings: Vec<Holding<S>>,
     /// 1..16 complete factors in preserved original order.
     pub factors: Vec<HedgeFactor>,
     /// At most4 candidates, in preserved original order; empty is aggregate-only.
-    pub candidates: Vec<HedgeCandidate>,
+    pub candidates: Vec<Candidate<S>>,
     /// Nonnegative maximum reporting-money transaction cost, including explicit zero.
     pub max_cost: f64,
     /// Original scaling/rank/work/feasibility policy.
@@ -238,9 +238,9 @@ pub struct HedgeProblem {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeExposure {
+pub struct Exposure<S = QuoteSensitivity> {
     /// Full original problem, including every source, quantity, constraint and policy.
-    pub problem: HedgeProblem,
+    pub problem: Problem<S>,
     /// Scaled current reporting exposure per complete factor.
     pub current: Vec<f64>,
     /// Separately scaled pending reporting exposure.
@@ -346,9 +346,9 @@ pub struct HedgeWork {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct HedgeSolveReport {
+pub struct SolveReport<S = QuoteSensitivity> {
     /// All original request data and separately aggregated current/pending exposure.
-    pub exposure: HedgeExposure,
+    pub exposure: Exposure<S>,
     /// Measured outcome, never an executable classification.
     pub status: HedgeSolveStatus,
     /// Actual diagnostic explanation.
@@ -364,3 +364,21 @@ pub struct HedgeSolveReport {
     /// Actual work counts, retaining original maximum in exposure.problem.settings.
     pub work: HedgeWork,
 }
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeRiskVector = RiskVector<QuoteSensitivity>;
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeHolding = Holding<QuoteSensitivity>;
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeCandidate = Candidate<QuoteSensitivity>;
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeProblem = Problem<QuoteSensitivity>;
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeExposure = Exposure<QuoteSensitivity>;
+
+/// Existing central-only API with its original concrete evidence type.
+pub type HedgeSolveReport = SolveReport<QuoteSensitivity>;

@@ -4308,6 +4308,55 @@
         "tools/library/library-inventory.json": "07c81837b789bd9f75ea6685722237ac3a84d1f1b8602615df8c51ec9e53edeb",
         "tools/library/test_operations.py": "58e6e4649b0ded286755bdfa00b07e91d44456986b9e5ba475a017223f3bc5a1"
       }
+    },
+    {
+      "base_commit": "5e2887e4a00e90f1dad1da3b99b023f90983bfc3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 genuine tagged directional numerical records and complete graph/six-price coupon hedge columns reuse the existing constrained admission and optimizer. Original central public names remain concrete aliases and old wire records remain unchanged. Supplied directional records recompute the SAME native stencil, distinct actual parameter domains, both native/signed policies and single quantity scaling; conformance is not source/model approval. Across columns require identical method/side/original parameter/full directional policies. Full native builder retains every graph and directional valuation, canonical identity, original history/curve/model proof and factor order. One exact policy per intended parameter; reserve5graph/6directional prices before pricing. Current/pending entity/snapshot/FX/credit/coverage/eligibility/liquidity/cost/lots/rank/work/final feasibility remain owned by one original solver.72independent pre-candidate signed records inherit Decimal100 references unchanged.90shared40financial50failures include native5factor book with current10000pending-2500 and independently specified-7500on500lots, actual zero graph exposure, method/side/policy/tampering/work/constraints and unchanged central mixed-book control. Original1768numeric rows/defaults/files and5796requests remain;10newpins give1778,90requests give5886. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped and all sealed physical evidence remain. Full remaining model/calibration/convention/claim/physical/mixed-book scope remains required. No native waiver, independent approval or CVX063 acceptance.",
+      "tests": [
+        "72independent pre-candidate signed directional records,90shared40financial50failures and full native five-factor/current10000pending-2500/lot500 proposal control",
+        "All5796prior requests/unchanged prior native envelopes except literal capability path append, original coupon/hedge/causal mixed-book/CTD controls and fresh37943ISDA/QuantLib checks",
+        "Default/no-default/schema/actual C/Java/wasm32Node/browser, workspace warnings-deniedClippy preflight,64library42assurance4private and original scope/source/physical conservation"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "588a5a246ecc8cd2429ea09e84c416e0241acd74ea443d109d6f90ed76bacda0",
+        "crates/convex-analytics/src/floating_coupon.rs": "bd3f9f0226e27371a041a6e357aa0712280573b64987337cb045f861ebddbd19",
+        "crates/convex-analytics/src/floating_coupon/derivatives.rs": "005b4845e00460d7a53b63e0ff79406b2b603c57cea0bdd0d5ac43d9a11984ba",
+        "crates/convex-analytics/src/floating_coupon/directional.rs": "495ae2fb551581d51ef7b1c2f628533777c5b06b86430d615706c9e3e15c1bab",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "6f1343ebc4ff30867ebdb82459b203f021a8eebd189ce0eb08a321f10e9154a4",
+        "crates/convex-analytics/src/quote_risk/coupon_directional.rs": "b252e9fed7e5b2300e15001a8f8eb1df17a386bacfb398c25e9b5a6bf6d26d76",
+        "crates/convex-analytics/src/quote_risk/coupon_directional_record.rs": "886e519b66c23ba1092cef0f556d640a751f9165fee025e871e427b25b462c36",
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "ea57727e7f47cd88eaced6fc4f5a257b0db672580e92946dbf5f502351da3e24",
+        "crates/convex-analytics/src/risk/hedging/constrained/evidence.rs": "6813f28b223eccc3e0409693df00ea92308a7a6b1cdb769ebcda699bc90cdb10",
+        "crates/convex-analytics/src/risk/hedging/constrained/mod.rs": "87097e110ff11dd47b92b9ee3ddda9b52564f8f1c8652951bfa47311c3e71fa8",
+        "crates/convex-analytics/src/risk/hedging/constrained/solver.rs": "36b51216eaa5d4ed3753fce2b37e6ea0bec2c5f3e020b1670ce7fe84bc930a25",
+        "crates/convex-analytics/src/risk/hedging/constrained/types.rs": "45b916c6bcf173b92e7140f306fa4c24a8559dad77b768f02afbc6c3843c078a",
+        "crates/convex-analytics/src/workflow/coupon_directional_hedge.rs": "7393f9f5511dd6ce46670d13de20a5e6d48e5b9a49ed8f3da66bc0ac7cf3d96d",
+        "crates/convex-analytics/src/workflow/mod.rs": "a62555496dfe2fe88d4b58f18fb1b204bdbe9f8b23069437d9e5235d050da8a5",
+        "crates/convex-analytics/tests/directional_hedges.rs": "de9a110ab4522f046673e468aa9271042888659191baaad711f317206ff6628d",
+        "crates/convex-analytics/tests/fixtures/directional-hedges.json": "8890d8fc439fbcb75058f2a92516920543a26df2e55323e560ef7517446bc3f3",
+        "crates/convex-ffi/tests/directional_hedges.rs": "e8f9c78ec03ea490dc8b435ece1a543500915229d744132891179be9aac974ef",
+        "crates/convex-mcp/tests/directional_hedges.rs": "440c09881caf278507d7190fb3fa67f560037508741f351c9213eaa3ef817b18",
+        "crates/convex-wasm/tests/directional_hedges.rs": "236af268f086e119caea58795b36c80fc2c76853f368215b1997b011cd76f15a",
+        "crates/convex/examples/directional_hedges.rs": "558fe2e8af03952e9a3521d176d7193c22fc3f362a2605bab7ead6da55292534",
+        "crates/convex/src/library/hedges.rs": "9a00b2467e2be3215554eec701bcf69cb1f5803137385531830f9426ee378a5d",
+        "crates/convex/src/library/products.rs": "dc867ed37239a8af39cc1f0742825f95b00ff445099aab005fd686717f1e6045",
+        "crates/convex/src/library/requests.rs": "c66d083b1660743929b55224918ddb11c841512c7bcaf638744fafdb2ba0e5fc",
+        "crates/convex/tests/directional_hedges.rs": "4fe06cb3d5b84e78a9694c84eee1aebd24401f1d2da01a8651e8470e2571e919",
+        "docs/CVX-063-REMAINING.md": "72bf4351fbf10f392e39024cc653149177f5c019685b1634db10385715a7c26c",
+        "docs/LIBRARY-API.md": "444d883cc707e8ae3cee4d01f63dbf261c8ae4b851739c188fde509c9c869afc",
+        "tests/fixtures/library/directional-hedges.json": "4701fa5487cb819493b78d0aa1a87e81637fa538ea95cf4aeef47b4e6d74a320",
+        "tests/fixtures/library/directional_hedges_contract.rs": "301efa70337d5b63de961976501e5f2df0804072295c49e652dd444983386a31",
+        "tests/scripts/directional_hedges_schema.py": "337b2205f025c6f6212691b66327f5115d47080891230b910ffaa24d02791b77",
+        "tools/assurance/check.py": "ad62a90241f54f4a01d9092bc82f8f07786dc97c7148acf796d8d8c3e54780f0",
+        "tools/assurance/inventory.json": "a237a4688769773d766d6587572023c819131b705560271347bc676d9cc27eef",
+        "tools/assurance/numeric-evidence.json": "d5ba3cae120281b635a36db4a42e8d98009d2afbc03d71abe7ea7d13024e2f74",
+        "tools/assurance/test_policy.py": "ff82e70e3dd633562606b47e80ffd25244aaca37e346b6d51cbd7ac413237c4e",
+        "tools/library/api-capabilities.json": "7063049927bc586b44cc5912ce61d1f1f39feebaf046c4e221bf77045097a2e1",
+        "tools/library/library-inventory.json": "ee265cb073d950ed8bf8f34bf89cfa135c7db3c6d511de134e442e936a981292",
+        "tools/library/test_operations.py": "7b63820db0f4f08eb6fd99d30776f76f609b9325955d2d32752e692bc6f3f42c"
+      }
     }
   ]
 }

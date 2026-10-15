@@ -1,8 +1,10 @@
 //! Small deterministic active-set/lot search; every bound and stopping policy is supplied.
+use super::evidence::AdmittedSensitivity;
 use super::{
     admission::{number, prepare, Prepared},
     *,
 };
+use crate::quote_risk::HedgeSensitivityEvidence;
 use convex_core::contracts::ExactDecimal;
 use nalgebra::{linalg::SVD, DMatrix, DVector};
 use rust_decimal::Decimal;
@@ -104,7 +106,7 @@ fn add_constraint(
     constraints.push(Constraint { row, rhs });
     Ok(true)
 }
-fn objective(p: &Prepared, x: &DVector<f64>) -> Search<f64> {
+fn objective<S: AdmittedSensitivity>(p: &Prepared<S>, x: &DVector<f64>) -> Search<f64> {
     let residual = &p.design * x + &p.offset;
     let costs: f64 = x
         .iter()
@@ -127,8 +129,8 @@ fn objective(p: &Prepared, x: &DVector<f64>) -> Search<f64> {
 }
 /// Solve all sign regions. Each is a strictly convex QP; independent active
 /// constraint sets up to the free dimension suffice for its KKT optimum.
-fn quadratic(
-    p: &Prepared,
+fn quadratic<S: AdmittedSensitivity>(
+    p: &Prepared<S>,
     fixed: &[Option<f64>],
     work: &mut HedgeWork,
 ) -> Search<Option<DVector<f64>>> {
@@ -361,8 +363,8 @@ fn decimal_interval(
         0.0,
     ))
 }
-fn solution(
-    p: &Prepared,
+fn solution<S: AdmittedSensitivity>(
+    p: &Prepared<S>,
     x: &DVector<f64>,
     exact: &[Option<Decimal>],
     lots: bool,
@@ -516,8 +518,8 @@ fn lot_bound(value: Decimal, lot: Decimal, upper: bool) -> Search<Decimal> {
         Ok(base)
     }
 }
-fn lattice(
-    p: &Prepared,
+fn lattice<S: AdmittedSensitivity>(
+    p: &Prepared<S>,
     index: usize,
     exact: &mut Vec<Option<Decimal>>,
     work: &mut HedgeWork,
@@ -584,6 +586,21 @@ fn lattice(
 /// combinations are searched before a final proposal is returned; incomplete work
 /// retains diagnostics only. Provider/clock/storage/order authority is absent.
 pub fn solve_hedge_proposal(problem: &HedgeProblem) -> Result<HedgeSolveReport, HedgeError> {
+    solve(problem)
+}
+/// Solve explicit central/directional supplied evidence with the original optimizer.
+pub fn solve_directional_hedge_proposal(
+    problem: &Problem<HedgeSensitivityEvidence>,
+) -> Result<SolveReport<HedgeSensitivityEvidence>, HedgeError> {
+    solve(problem)
+}
+/// Aggregate complete original quantities with explicit directional evidence.
+pub fn aggregate_directional_hedge_risk(
+    problem: &Problem<HedgeSensitivityEvidence>,
+) -> Result<Exposure<HedgeSensitivityEvidence>, HedgeError> {
+    Ok(prepare(problem)?.exposure)
+}
+fn solve<S: AdmittedSensitivity>(problem: &Problem<S>) -> Result<SolveReport<S>, HedgeError> {
     let p = prepare(problem)?;
     if problem.candidates.is_empty() {
         return Err(invalid(
@@ -592,7 +609,7 @@ pub fn solve_hedge_proposal(problem: &HedgeProblem) -> Result<HedgeSolveReport, 
         ));
     }
     let mut work = HedgeWork::default();
-    let mut report = HedgeSolveReport {
+    let mut report = SolveReport {
         exposure: p.exposure.clone(),
         status: HedgeSolveStatus::NumericalFailure,
         message: "bounded design decomposition unresolved".into(),

@@ -1,4 +1,5 @@
 //! Original risk validation, exact quantity admission and complete aggregation.
+use super::evidence::{AdmittedSensitivity, MethodBinding};
 use super::*;
 use crate::quote_risk::{RiskPosition, RiskQuantityUnit};
 use convex_core::{contracts::*, Currency};
@@ -6,8 +7,8 @@ use nalgebra::{DMatrix, DVector};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use std::collections::{HashMap, HashSet};
 
-pub(super) struct Prepared {
-    pub exposure: HedgeExposure,
+pub(super) struct Prepared<S> {
+    pub exposure: Exposure<S>,
     pub design: DMatrix<f64>,
     pub offset: DVector<f64>,
     pub risk: DMatrix<f64>,
@@ -38,7 +39,7 @@ fn quantity(value: Decimal, unit: RiskQuantityUnit) -> Result<(), HedgeError> {
     }
     Ok(())
 }
-fn scaled(vector: &HedgeRiskVector, q: Decimal) -> Result<f64, HedgeError> {
+fn scaled<S>(vector: &RiskVector<S>, q: Decimal) -> Result<f64, HedgeError> {
     let p = RiskPosition {
         quantity: ExactDecimal::new(q),
         ..vector.reference_position.clone()
@@ -76,7 +77,10 @@ fn settings(s: &HedgeSolveSettings) -> Result<(), HedgeError> {
     }
     Ok(())
 }
-fn validate_vector(p: &HedgeProblem, v: &HedgeRiskVector) -> Result<Vec<f64>, HedgeError> {
+fn validate_vector<S: AdmittedSensitivity>(
+    p: &Problem<S>,
+    v: &RiskVector<S>,
+) -> Result<Vec<f64>, HedgeError> {
     let position = &v.reference_position;
     position
         .scale()
@@ -128,20 +132,23 @@ fn validate_vector(p: &HedgeProblem, v: &HedgeRiskVector) -> Result<Vec<f64>, He
         )));
     }
     let mut values = Vec::with_capacity(p.factors.len());
+    let mut baseline = None;
     for (factor, s) in p.factors.iter().zip(&v.sensitivities) {
-        s.validate()
+        s.validate_record()
             .map_err(|e| invalid("sensitivity", e.to_string()))?;
-        if s.key != factor.key
-            || s.settings != factor.risk_settings
-            || s.position != *position
-            || s.snapshot_id != p.snapshot_id
-            || v.sensitivities
-                .first()
-                .is_some_and(|first| s.base_pv != first.base_pv)
+        let base_pv = s
+            .baseline()
+            .map_err(|e| invalid("sensitivity", e.to_string()))?;
+        if *s.key() != factor.key
+            || !s.matches_settings(&factor.risk_settings)
+            || s.position() != position
+            || s.snapshot() != &p.snapshot_id
+            || baseline.is_some_and(|first| base_pv != first)
         {
             return Err(invalid("sensitivity", "full factor order/units/revisions/bump/model/snapshot/reference PV/quantity mismatch"));
         }
-        if s.value != 0.0
+        baseline = Some(base_pv);
+        if s.value() != 0.0
             && factor
                 .credit
                 .as_ref()
@@ -149,11 +156,11 @@ fn validate_vector(p: &HedgeProblem, v: &HedgeRiskVector) -> Result<Vec<f64>, He
         {
             return Err(invalid("credit_scope", "nonzero credit exposure requires the exact original entity/seniority/document/restructuring/recovery scope"));
         }
-        values.push(finite(s.value * fx, "FX risk")?);
+        values.push(finite(s.value() * fx, "FX risk")?);
     }
     Ok(values)
 }
-pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
+pub(super) fn prepare<S: AdmittedSensitivity>(p: &Problem<S>) -> Result<Prepared<S>, HedgeError> {
     if p.factors.is_empty()
         || p.factors.len() > 16
         || p.candidates.len() > 4
@@ -212,7 +219,7 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
     let mut current = vec![0.0; p.factors.len()];
     let mut pending = current.clone();
     let mut fx_by_currency = HashMap::<Currency, Option<HedgeFxPin>>::new();
-    let mut check_fx = |v: &HedgeRiskVector| -> Result<(), HedgeError> {
+    let mut check_fx = |v: &RiskVector<S>| -> Result<(), HedgeError> {
         let currency = v.reference_position.currency;
         if let Some(previous) = fx_by_currency.insert(currency, v.fx.clone()) {
             if previous != v.fx {
@@ -220,6 +227,19 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
                     "fx",
                     "different original FX observations for the same native currency",
                 ));
+            }
+        }
+        Ok(())
+    };
+    let mut methods = HashMap::<crate::quote_risk::QuoteRiskKey, MethodBinding>::new();
+    let mut check_methods = |v: &RiskVector<S>| -> Result<(), HedgeError> {
+        for sensitivity in &v.sensitivities {
+            let method = sensitivity.method_binding();
+            if methods
+                .insert(sensitivity.key().clone(), method)
+                .is_some_and(|previous| previous != method)
+            {
+                return Err(invalid("risk method", "same full factor requires matching computation method, side and original parameter across every column"));
             }
         }
         Ok(())
@@ -235,6 +255,7 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
             ));
         }
         let values = validate_vector(p, &h.risk)?;
+        check_methods(&h.risk)?;
         check_fx(&h.risk)?;
         let unit = h.risk.reference_position.quantity_unit;
         quantity(h.current_quantity.decimal(), unit)?;
@@ -292,6 +313,7 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
             ));
         }
         let values = validate_vector(p, &c.risk)?;
+        check_methods(&c.risk)?;
         check_fx(&c.risk)?;
         let unit = c.risk.reference_position.quantity_unit;
         for value in [
@@ -397,7 +419,7 @@ pub(super) fn prepare(p: &HedgeProblem) -> Result<Prepared, HedgeError> {
         }
     }
     Ok(Prepared {
-        exposure: HedgeExposure {
+        exposure: Exposure {
             problem: p.clone(),
             current,
             pending,

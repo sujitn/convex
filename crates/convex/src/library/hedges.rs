@@ -26,6 +26,19 @@ pub(super) fn hedge(
     }
 }
 
+pub(super) fn directional_hedge(
+    problem: &convex_analytics::risk::hedging::constrained::Problem<
+        convex_analytics::quote_risk::HedgeSensitivityEvidence,
+    >,
+    action: &HedgeOperation,
+) -> LibraryResult<Value> {
+    use convex_analytics::risk::hedging::constrained as h;
+    match action {
+        HedgeOperation::Aggregate {} => value(h::aggregate_directional_hedge_risk(problem)?),
+        HedgeOperation::Solve {} => value(h::solve_directional_hedge_proposal(problem)?),
+    }
+}
+
 /// Actual checked full security/universe and separate model/execution assumptions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

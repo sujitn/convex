@@ -812,3 +812,24 @@ method restrictions and failure assertions. The facade directly preserves the
 original29construction and9parametric-fit failures. All forty LC-015 records
 remain Planned for independent approval. Native evidence cannot replace a
 required JSON/C operation or qualify broader models, markets or production.
+
+
+The supplied `directional_hedge` aggregate/solve route accepts explicitly tagged
+central or directional numerical records. Directional records retain all six
+actual sample parameters/PVs, the selected side, native and signed first/second
+precision policies, original canonical point/units/source, reference position and
+snapshot. Admission recomputes the original native stencil and arithmetic guards;
+record conformance does not qualify the supplied financial source. All columns
+for one full factor must agree on computation method, side, original parameter
+and directional policies. Original central-only `hedge` requests and Rust entry
+points retain their concrete API and wire fields.
+
+`term_coupon_directional_hedge_risk` constructs the complete original coupon
+column from native graph and selected-side parameter revaluation. Each intended
+parameter needs one exact policy; original work controls reserve five graph and
+six directional prices per factor before pricing. Every full native valuation
+survives alongside the solver records. The existing constrained optimizer keeps
+original current/pending quantities, full factor coverage, FX/legal identity,
+liquidity/cost/lot/rank/work limits and final feasibility checks. Proposals carry
+no order authority. Run `cargo run --locked -p convex --example directional_hedges`
+for independent supplied-record and full five-factor coupon controls.

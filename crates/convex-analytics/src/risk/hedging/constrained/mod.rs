@@ -2,9 +2,13 @@
 //! Product valuation, provider freshness, authoritative limits and orders stay outside.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod admission;
+mod evidence;
 mod solver;
 mod types;
-pub use solver::{aggregate_hedge_risk, solve_hedge_proposal};
+pub use solver::{
+    aggregate_directional_hedge_risk, aggregate_hedge_risk, solve_directional_hedge_proposal,
+    solve_hedge_proposal,
+};
 pub use types::*;
 
 /// Invalid, missing, unsupported or bounded immutable input; no accepted proposal.

@@ -8,6 +8,7 @@ mod derivatives;
 pub use derivatives::*;
 #[path = "directional.rs"]
 mod directional;
+pub(crate) use directional::stencil as directional_parameter_stencil;
 pub use directional::*;
 #[path = "inverse.rs"]
 mod inverse;

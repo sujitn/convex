@@ -254,6 +254,17 @@ pub enum LibraryOperation {
         /// Native side/precision plus separate signed first/second admission.
         settings: convex_analytics::quote_risk::CouponDirectionalRiskSettings,
     },
+    /// Complete graph and selected-side parameter columns with full native proofs.
+    TermCouponDirectionalHedgeRisk {
+        /// Original full graph and calibration work controls.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Complete original coupon contract and model.
+        input: Box<TermCouponOptionInput>,
+        /// Original positive face, identities and intended factor order.
+        risk: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
+        /// Every intended parameter's exact selected-side numerical policy.
+        parameter_policies: Vec<convex_analytics::workflow::CouponDirectionalHedgePolicy>,
+    },
     /// All original coupon graph and parameter factors in constrained hedge units.
     TermCouponCompleteHedgeRisk {
         /// Original complete calibration graph and work policies.
@@ -297,6 +308,17 @@ pub enum LibraryOperation {
         context: convex_analytics::workflow::WorkoutContext,
         /// Full conditional price, single DM or every eligible original legal path.
         action: FloatingWorkoutOperation,
+    },
+    /// Complete explicitly tagged central/directional supplied risk and proposals.
+    DirectionalHedge {
+        /// Full original numerical evidence, current/pending state and constraints.
+        problem: Box<
+            convex_analytics::risk::hedging::constrained::Problem<
+                convex_analytics::quote_risk::HedgeSensitivityEvidence,
+            >,
+        >,
+        /// Existing pure aggregate or proposal operation, without order authority.
+        action: super::hedges::HedgeOperation,
     },
     /// Complete supplied common-factor aggregation or constrained native-lot proposals.
     Hedge {

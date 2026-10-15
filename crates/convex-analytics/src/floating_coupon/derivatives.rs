@@ -3,7 +3,7 @@ use super::*;
 
 /// Caller-supplied native parameter and currency-derivative refinement policy.
 /// No market-volatility or interest-rate normalization is inferred.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CouponParameterDerivativeSettings {
@@ -48,7 +48,7 @@ impl CouponParameterDerivativeSettings {
         }
         Ok(())
     }
-    pub(super) fn admit(self, order: u8, full: f64, half: f64, resolution: f64) -> Result<()> {
+    pub(crate) fn admit(self, order: u8, full: f64, half: f64, resolution: f64) -> Result<()> {
         let (absolute, relative) = if order == 1 {
             (self.absolute_first_tolerance, self.relative_first_tolerance)
         } else {

@@ -29,6 +29,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod prepared;
 mod scenario;
 mod whole_coupon;
+pub(crate) use prepared::directional_parameter_stencil;
 pub use prepared::*;
 pub use scenario::*;
 use whole_coupon::{whole_coupon_value, WholeCouponTotals};
