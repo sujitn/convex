@@ -1,6 +1,7 @@
 //! Immutable term coupon model view with frozen original publication decisions.
 use super::*;
-use convex_curves::contracts::{CurveKey, CurveRecipe, CurveSet};
+use convex_curves::contracts::{BuiltCurve, CurveKey, CurveSet};
+use std::sync::Arc;
 
 /// Original immutable coupon model and curve-role bindings for repeated pricing.
 pub struct TermCouponModelInputs<'a> {
@@ -24,8 +25,7 @@ pub struct PreparedTermCouponModel<'a> {
     input: TermCouponModelInputs<'a>,
     publications: BTreeMap<(IndexId, Date), UtcTimestamp>,
     baseline: TermCouponOptionPrice,
-    curve_recipes: Vec<CurveRecipe>,
-    curve_grids: Vec<(Vec<f64>, Vec<f64>)>,
+    curves: Vec<Arc<BuiltCurve>>,
 }
 
 impl PreparedTermCouponModel<'_> {
@@ -47,10 +47,9 @@ impl PreparedTermCouponModel<'_> {
     }
     /// Reject reuse against another curve information set before any risk call.
     pub fn admit_baseline(&self, curves: &CurveSet) -> Result<()> {
-        for (recipe, (times, values)) in self.curve_recipes.iter().zip(&self.curve_grids) {
-            let actual = curves.get(&recipe.key)?;
-            let grid = actual.interpolation_grid()?;
-            if actual.recipe() != recipe || grid.0 != times || grid.1 != values {
+        for original in &self.curves {
+            let actual = curves.get(&original.recipe().key)?;
+            if !original.same_valuation_state(actual)? {
                 return Err(invalid(
                     "coupon baseline",
                     "original full curve recipe differs",
@@ -171,20 +170,16 @@ where
             Ok(time)
         },
     )?;
-    let mut recipes = Vec::new();
-    let mut grids = Vec::new();
+    let mut originals = Vec::new();
     for key in std::iter::once(&input.discount).chain(input.projection.iter()) {
         let curve = curves.get(key)?;
-        recipes.push(curve.recipe().clone());
-        let (times, values) = curve.interpolation_grid()?;
-        grids.push((times.to_vec(), values.to_vec()));
+        originals.push(Arc::clone(curve));
     }
     let baseline = price_input(&input, &publications, curves)?;
     Ok(PreparedTermCouponModel {
         input,
         publications,
         baseline,
-        curve_recipes: recipes,
-        curve_grids: grids,
+        curves: originals,
     })
 }

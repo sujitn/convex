@@ -77,7 +77,7 @@ calibration graph, a checked quote-risk key, signed position, snapshot and
 central/half-step policy. Preparation freezes the original publication decisions,
 history and model revisions. Each of the five valuations queries the actual
 scenario projection and discount curves and reprices the full option law.
-Baseline admission binds complete original recipes and interpolation grids.
+Baseline admission binds complete immutable native curve states and dependencies.
 
 Results retain signed monetary risk and all five complete coupon valuations,
 with graph build order, native helper repricing residuals and evaluation counts.
@@ -96,6 +96,7 @@ These operations freeze supplied model assumptions. They do not calculate
 model-parameter risk or model recalibration, nor add the coupon models to every
 mixed-book scenario/lifecycle path. Those integrations remain required. Existing
 HW1F/OAS lattice resolution and risk-refinement guards retain their own owner.
+
 ### Supplied model-parameter scenarios
 
 `PreparedTermCouponModel::model_scenario` and the shared
@@ -111,8 +112,8 @@ curves, complete terms, calendars, profile steps, history, publication decisions
 information cutoff and every other model parameter. It changes no market
 publication or source revision. Wrong coordinates, incompatible model families,
 absent factors, nonfinite moves and invalid resulting model domains return errors.
-Only the actual admitted direct-grid baseline is supported by this prepared
-view; broader exact curve-family admission remains required.
+The prepared view retains the actual immutable native curve states described
+below; a different curve state cannot replace the original baseline.
 
 Run `cargo run --locked -p convex --example coupon_model_scenarios`. Six
 independently declared full-contract scenario values use the original absolute
@@ -120,3 +121,27 @@ currency-PV bound of `1e-8`; 21 rejection cases cover identity, model, history,
 publication, domain and strict-decoding failures. This operation does not supply
 calibration, inverse valuation, canonical parameter-risk units or mixed-book
 lifecycle integration. Those original requirements remain open.
+
+### Exact original curve state
+
+`BuiltCurve::same_valuation_state` compares the full validated recipe,
+construction diagnostics, actual fitted grid or parameters and the complete
+dependency states. Derived spread/equivalent/rolled views, segmented and delegated
+sources, UFR joins, parametric models and native grids retain their original
+query, domain and tail policies. Independently rebuilt identical states compare
+equal. Matching recipes or selected prices cannot hide changed fitted values or
+dependency states. Comparison visits bounded pairs of original native states;
+it samples no query points and creates no replacement grid.
+
+Prepared coupon models retain immutable curve references and use this comparison
+for baseline admission. The full original curve functions still own every
+valuation.26 independently declared full-contract scenarios cover13 equivalent
+flat curve families, including actual UFR-tail and rolled/delegated/segmented
+queries. Native controls distinguish changed actual fitted grids/parameters
+under identical product recipes and original repricing diagnostics.34 complete
+shared requests retain source/version/domain/history/model failures.
+
+Run `cargo run --locked -p convex --example coupon_curve_state` and
+`cargo test --locked -p convex-curves --test curve_state`. Curve-family admission
+does not add a new graph-risk coordinate, calibrate a model, or complete the
+remaining optional-bond and mixed-book lifecycle requirements.

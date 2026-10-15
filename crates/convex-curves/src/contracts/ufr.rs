@@ -306,6 +306,9 @@ pub(super) fn validate_shape(recipe: &CurveRecipe) -> Result<()> {
 }
 
 impl UfrCurve {
+    pub(super) fn original_base(&self) -> &Arc<BuiltCurve> {
+        &self.base
+    }
     pub(super) fn new(recipe: &CurveRecipe, supplied: &CurveSet) -> Result<(Self, usize)> {
         validate_shape(recipe)?;
         let CurveSource::UfrConvergence {

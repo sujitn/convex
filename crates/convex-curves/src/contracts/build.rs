@@ -15,6 +15,9 @@ use std::{
     sync::Arc,
 };
 
+#[path = "state.rs"]
+mod state;
+
 #[derive(Debug, Clone)]
 enum CurveValues {
     Monotone(super::monotone::MonotoneCurve),

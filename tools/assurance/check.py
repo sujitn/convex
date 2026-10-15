@@ -31,6 +31,19 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-curves --test curve_state',
+        'cargo test --locked -p convex-analytics --test coupon_curve_state',
+        'cargo test --locked -p convex --test coupon_curve_state',
+        'cargo run --locked -p convex --example coupon_curve_state',
+        'cargo test --locked -p convex-curves --test curve_state --no-default-features',
+        'cargo test --locked -p convex-analytics --test coupon_curve_state --no-default-features',
+        'cargo test --locked -p convex --test coupon_curve_state --no-default-features',
+        'cargo run --locked -p convex --example coupon_curve_state --no-default-features',
+        'cargo test --locked -p convex-curves --test curve_state --features schemars',
+        'cargo test --locked -p convex-analytics --test coupon_curve_state --features schemars',
+        'cargo test --locked -p convex --test coupon_curve_state --features schemars',
+        'cargo run --locked -p convex --example coupon_curve_state --features schemars',
+        'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_curve_state',
         'cargo test --locked -p convex-analytics --test coupon_model_scenarios',
         'cargo test --locked -p convex --test coupon_model_scenarios',
         'cargo run --locked -p convex --example coupon_model_scenarios',

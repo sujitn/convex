@@ -30241,7 +30241,8 @@
     "tests/fixtures/library/term-coupon-options.json",
     "tests/fixtures/library/whole-coupon-normal.json",
     "tests/fixtures/library/coupon-graph-risk.json",
-    "tests/fixtures/library/coupon-model-scenarios.json"
+    "tests/fixtures/library/coupon-model-scenarios.json",
+    "tests/fixtures/library/coupon-curve-state.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

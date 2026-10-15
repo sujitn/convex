@@ -4080,6 +4080,42 @@
         "tools/library/library-inventory.json": "32bdcef911851310b3bc8325e8eebeb65c2fede3c1f60e0431f89bd4bf9317e1",
         "tools/library/test_operations.py": "3574ee8a49deec9b5acde1a53a7964868924b12606c08f8f53c44e2433a84fa7"
       }
+    },
+    {
+      "base_commit": "aebca66c8b08b9601d2c1ac612a79a95587c47a3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 exact complete native curve valuation-state admission. Full original recipe/diagnostics and actual fitted grids or parameters, original view/segment/delegation/UFR/roll policies and complete recursive source states bind without sampling/resampling or pointer-only admission. Independently rebuilt identical state remains valid; changed fitted values under identical helper recipes/diagnostics and changed dependencies under identical parent recipes fail. Prepared coupons retain immutable actual curves and reprice original full laws/history/terms unchanged.26independent full-contract scenarios across13flat-equivalent families retain currency PV1e-8; actual UFR-tail/roll/segment/delegation queries and4native state identity controls plus34shared requests preserve8typed failures. Preserve1707old numeric rows/defaults/files and5471requests;11newpins give1718,34requests give5505. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. Full canonical coupon model risk/hedging/calibration/inverse/optional conventions and mixed-book lifecycle remain required. Only unexecutable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "26predeclared independent full-contract scenario PVs across13families1e-8; exact one-field move, original source/revision/family/units, zero move and full history/publication/baseline invariance",
+        "34new complete requests and all5471old requests on actual native/C/Java/wasm32Node/browser, default/no-default/schema/adapter checks",
+        "Original37943financialchecks and1707numeric/scope/physical conservation,64library42assurance4private inspectors"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "6c02665e13bfa6f063da98319a84c2fc7f964559d4bab58d339bb5e0cd6c61c3",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "ebb1438522a99dc96ce077c53b3d1ad83b36f29b50f9312f983bcf74cc09a8d3",
+        "crates/convex-analytics/tests/coupon_curve_state.rs": "6aa79c2ff3001393839d66aacb5efc381328596a63ed7508f186756f3d528b9e",
+        "crates/convex-analytics/tests/fixtures/coupon-curve-state.json": "01b43af6acb63838c4cc46a0c28d4e1b8bdc2a51a290255a6dc4b9363512f3e2",
+        "crates/convex-curves/src/contracts/build.rs": "5a52f47d514b1a9064d26f6386bd82fed92f439efa3bab025c98f75e5b68b896",
+        "crates/convex-curves/src/contracts/state.rs": "92955b12cb0ca1842fc492cb545114e07c88af91fe68cfdcc56cd6c91967b7de",
+        "crates/convex-curves/src/contracts/ufr.rs": "4a442c2c9f26ec3823074d00e13f800960da8ca90a30d60b5cc13ed418925104",
+        "crates/convex-curves/tests/curve_state.rs": "40a4b50698dea129d253a6a8ef5e3473ed4e9cc7fc294d7ae6d1720342324ffd",
+        "crates/convex-ffi/tests/coupon_curve_state.rs": "d9a094ad1560b5ce5db5cfb47e9c0a11289c532131f23c8b40b690bb7880e31a",
+        "crates/convex-mcp/tests/coupon_curve_state.rs": "6ee09e80e9515fa812aa266271a0fb0e59aaf320d6d38137ffef0686e01d07dc",
+        "crates/convex-wasm/tests/coupon_curve_state.rs": "4c3ab88065c5e878ee760d01f6aba0e54402f8cf3875fa36c796d7e6392a5f3e",
+        "crates/convex/examples/coupon_curve_state.rs": "3703dc9a333058e32d294793c041e3ec9f28d3f4c1670d613fc3bfcaa1b18583",
+        "crates/convex/tests/coupon_curve_state.rs": "1fd4d8f9664b64c15774a8f32a4301bb04e8a5906ddf009d4ecb123805568571",
+        "docs/FLOATING-COUPON-OPTIONS.md": "0d1bb19f480b7b68f780671061282a4c3d5efb467c34b30c3f20e8e524324912",
+        "tests/fixtures/library/coupon-curve-state.json": "14679e2b029ca8f82c18380a2a4625c4157aae93474ea82d21b1038e24e84db4",
+        "tests/fixtures/library/coupon_curve_state_contract.rs": "ff1b0c0af52bdda96d18bd30f3f8d3b04db65a7430a344187e24b58ab093d9df",
+        "tests/scripts/coupon_curve_state_schema.py": "a5620ac6fe3837c8ad7bf0cd8e99627015941c75e85110bd7a8b6a6249d1dee3",
+        "tools/assurance/check.py": "b592b744d42ffe657cbe3c1a199688748579b505cfe23993d781665744ee0c2e",
+        "tools/assurance/inventory.json": "1d3fe101c4b3762f12fe4ea5901c11876c326f5e46c95802edac546755ffc68d",
+        "tools/assurance/numeric-evidence.json": "81e714d2798bb64ba8d6cac92e30eb71211bbc386ce000c1a999522c112b7e2c",
+        "tools/library/api-capabilities.json": "e55160482a9d7b956be7ee64b7e406250d35ce050824f05f2ebdac697fa9a0fe",
+        "tools/library/library-inventory.json": "05a69a32bc2f6cdd78ac18fec6299986d79d1f259fb74c69b0679dbf0bfb2f98",
+        "tools/library/test_operations.py": "d53a25caab0433d3108d4cedc7bad51829b22be88d4ac85924db9c4bb3f5dd7e"
+      }
     }
   ]
 }

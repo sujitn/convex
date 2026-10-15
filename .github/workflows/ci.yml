@@ -196,6 +196,45 @@ jobs:
       - name: Qualify supplied whole coupon normal law 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal
 
+      - name: Qualify exact coupon curve state 0
+        run: cargo test --locked -p convex-curves --test curve_state
+
+      - name: Qualify exact coupon curve state 1
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state
+
+      - name: Qualify exact coupon curve state 2
+        run: cargo test --locked -p convex --test coupon_curve_state
+
+      - name: Qualify exact coupon curve state 3
+        run: cargo run --locked -p convex --example coupon_curve_state
+
+      - name: Qualify exact coupon curve state 4
+        run: cargo test --locked -p convex-curves --test curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 5
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 6
+        run: cargo test --locked -p convex --test coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 7
+        run: cargo run --locked -p convex --example coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 8
+        run: cargo test --locked -p convex-curves --test curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 9
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 10
+        run: cargo test --locked -p convex --test coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 11
+        run: cargo run --locked -p convex --example coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 12
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_curve_state
+
       - name: Qualify supplied coupon model scenarios 0
         run: cargo test --locked -p convex-analytics --test coupon_model_scenarios
 
