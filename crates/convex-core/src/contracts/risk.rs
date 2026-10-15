@@ -129,6 +129,27 @@ pub enum QuoteType {
     Hw1fVolatility,
     /// Explicit parallel discount-and-projection move, distinct from either axis.
     JointZeroRate,
+    /// Supplied Bachelier annual decimal-rate volatility per square-root year.
+    CouponNormalVolatility,
+    /// Supplied shifted-Black annual relative volatility per square-root year.
+    CouponLognormalVolatility,
+    /// Supplied shifted-Black decimal-rate displacement.
+    CouponLognormalDisplacement,
+    /// Supplied terminal decimal-rate loading on one common unit normal factor.
+    CouponNormalFactorLoading,
+}
+
+impl QuoteType {
+    /// Exact supplied coupon parameters, distinct from market quotes and HW1F.
+    pub const fn is_coupon_parameter(self) -> bool {
+        matches!(
+            self,
+            Self::CouponNormalVolatility
+                | Self::CouponLognormalVolatility
+                | Self::CouponLognormalDisplacement
+                | Self::CouponNormalFactorLoading
+        )
+    }
 }
 
 /// Definition of the bump/rebuild operation.
@@ -260,12 +281,15 @@ impl RiskFactorKey {
                 value.quote_type,
                 QuoteType::CashCleanPrice | QuoteType::CashDirtyPrice
             ),
-            FactorFamily::Model => matches!(
-                value.quote_type,
-                QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility
-            ),
+            FactorFamily::Model => {
+                matches!(
+                    value.quote_type,
+                    QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility
+                ) || value.quote_type.is_coupon_parameter()
+            }
         };
         let basis_valid = match value.quote_type {
+            q if q.is_coupon_parameter() => value.basis == RiskBasis::ModelParameter,
             QuoteType::ZeroRate | QuoteType::JointZeroRate => value.basis == RiskBasis::ZeroNode,
             QuoteType::HazardRate
             | QuoteType::RecoveryRate

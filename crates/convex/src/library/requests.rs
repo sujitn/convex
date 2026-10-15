@@ -206,6 +206,32 @@ pub enum LibraryOperation {
         /// Explicit native bump and first/second currency refinement policies.
         settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
     },
+    /// Checked native coupon parameter proof and canonical signed currency risk.
+    TermCouponParameterRisk {
+        /// Complete original contract, history, model and curve bindings.
+        input: Box<TermCouponOptionInput>,
+        /// Exact structured source/point/parameter and native unit.
+        key: Box<convex_analytics::quote_risk::QuoteRiskKey>,
+        /// Actual signed position and original positive reference face.
+        position: convex_analytics::quote_risk::RiskPosition,
+        /// Actual immutable caller information set.
+        snapshot_id: convex_core::contracts::SnapshotId,
+        /// Canonical bump and scaled currency h/h2 policy.
+        settings: convex_analytics::quote_risk::QuoteRiskSettings,
+        /// Native reference currency first/second and arithmetic resolution policy.
+        native_settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
+    },
+    /// All original coupon graph and parameter factors in constrained hedge units.
+    TermCouponCompleteHedgeRisk {
+        /// Original complete calibration graph and work policies.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Complete original coupon-model contract.
+        input: Box<TermCouponOptionInput>,
+        /// Exact positive face, identities, snapshot and intended factor order.
+        risk: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
+        /// Additional exact native policies for every parameter factor.
+        parameter_policies: Vec<convex_analytics::workflow::CouponParameterHedgePolicy>,
+    },
     /// Actual full coupon-model graph sensitivity with five native valuations.
     TermCouponGraphRisk {
         /// Original complete calibration graph and fit controls.

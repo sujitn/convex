@@ -857,6 +857,41 @@ pub(super) fn execute(
         } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
             value(prepared.parameter_derivatives(&r.curves, coordinate, *settings)?)
         }),
+        LibraryOperation::TermCouponParameterRisk {
+            input,
+            key,
+            position,
+            snapshot_id,
+            settings,
+            native_settings,
+        } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
+            value(
+                convex_analytics::quote_risk::term_coupon_parameter_sensitivity(
+                    prepared,
+                    &r.curves,
+                    *key.clone(),
+                    position.clone(),
+                    snapshot_id.clone(),
+                    settings.clone(),
+                    *native_settings,
+                )?,
+            )
+        }),
+        LibraryOperation::TermCouponCompleteHedgeRisk {
+            graph,
+            input,
+            risk: request,
+            parameter_policies,
+        } => super::curves::with_graph(graph, r, |graph| {
+            super::floating_coupon::with_prepared(input, r, &graph.baseline().curves, |prepared| {
+                value(w::term_coupon_complete_hedge_risk(
+                    prepared,
+                    graph,
+                    request,
+                    parameter_policies,
+                )?)
+            })
+        }),
         LibraryOperation::TermCouponGraphRisk {
             graph,
             input,

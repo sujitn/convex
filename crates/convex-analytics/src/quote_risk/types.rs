@@ -1,3 +1,4 @@
+use super::coupon_parameter::decode_coupon_parameter_coordinate;
 use super::*;
 use convex_core::{
     contracts::{ExactDecimal, FactorTarget, QuoteType, RiskBasis, RiskFactorKey, Version},
@@ -149,14 +150,33 @@ impl QuoteRiskKey {
             QuoteType::CdsUpfront | QuoteType::CdsDirtyUpfront | QuoteType::RecoveryRate
         ) {
             QuoteRiskUnit::CurrencyPerFraction
-        } else if matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility) {
+        } else if matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility)
+            || q.is_coupon_parameter()
+        {
             QuoteRiskUnit::CurrencyPerModelParameter
         } else if q == QuoteType::HazardRate {
             QuoteRiskUnit::CurrencyPerAnnualRate
         } else {
             QuoteRiskUnit::CurrencyPerPricePoint
         };
-        let native_valid = if q == QuoteType::RateFutureRate {
+        let native_valid = if q.is_coupon_parameter() {
+            matches!(
+                (q, d.native_unit),
+                (
+                    QuoteType::CouponNormalVolatility,
+                    QuoteUnit::CouponNormalVolatility
+                ) | (
+                    QuoteType::CouponLognormalVolatility,
+                    QuoteUnit::CouponLognormalVolatility
+                ) | (
+                    QuoteType::CouponLognormalDisplacement,
+                    QuoteUnit::CouponLognormalDisplacement
+                ) | (
+                    QuoteType::CouponNormalFactorLoading,
+                    QuoteUnit::CouponNormalFactorLoading
+                )
+            )
+        } else if q == QuoteType::RateFutureRate {
             d.native_unit == QuoteUnit::FuturePrice100MinusRate
         } else if rate {
             matches!(
@@ -217,6 +237,16 @@ impl QuoteRiskKey {
                     && d.response == RiskResponse::FrozenCurves
                     && (node.is_some() || f.tenor.as_str() == "parallel"),
             ),
+            RiskCoordinate::Raw { input_id, version } if q.is_coupon_parameter() => {
+                let point = decode_coupon_parameter_coordinate(input_id, *version)?;
+                (
+                    None,
+                    coupon_parameter_units(point.parameter) == (q, d.native_unit)
+                        && f.basis == RiskBasis::ModelParameter
+                        && f.tenor.as_str() == "spot"
+                        && d.response == RiskResponse::FrozenCurves,
+                )
+            }
             RiskCoordinate::Raw { input_id, .. } => (
                 None,
                 label(input_id)
@@ -245,8 +275,24 @@ impl QuoteRiskKey {
             (FactorTarget::Curve { curve_id }, Some(c)) => curve_id.as_str() == c.id,
             (FactorTarget::Entity { .. }, Some(_)) => q == QuoteType::RecoveryRate,
             (FactorTarget::Instrument { .. }, None) => true,
-            (FactorTarget::Model { .. }, None) => {
-                matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility)
+            (
+                FactorTarget::Model {
+                    model_id,
+                    model_version,
+                },
+                None,
+            ) => {
+                if q.is_coupon_parameter() {
+                    if let RiskCoordinate::Raw { input_id, version } = &d.coordinate {
+                        let point = decode_coupon_parameter_coordinate(input_id, *version)?;
+                        model_id.as_str() == point.source_id.as_str()
+                            && *model_version == point.source_version.get().to_string()
+                    } else {
+                        false
+                    }
+                } else {
+                    matches!(q, QuoteType::Hw1fMeanReversion | QuoteType::Hw1fVolatility)
+                }
             }
             (FactorTarget::CurvePair { .. }, None) => q == QuoteType::JointZeroRate,
             _ => false,

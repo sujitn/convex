@@ -175,6 +175,18 @@ pub fn reference_quote_sensitivity<F>(
 where
     F: FnMut(f64) -> QuoteRiskResult<convex_core::contracts::ModelMoney>,
 {
+    if key
+        .definition()
+        .factor
+        .definition()
+        .quote_type
+        .is_coupon_parameter()
+    {
+        return Err(invalid(
+            "coupon parameter risk",
+            "complete native parameter first/second refinement and resolution guards required",
+        ));
+    }
     if key.definition().factor.definition().quote_type
         == convex_core::contracts::QuoteType::OasSpread
     {

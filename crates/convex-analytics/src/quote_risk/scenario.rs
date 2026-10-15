@@ -17,6 +17,18 @@ pub struct QuoteGraphMove {
 // Expanded slots detect overlap even when differently named factors target the
 // same actual input. A parallel grid cannot coexist with one of its own nodes.
 fn slots(key: &QuoteRiskKey) -> QuoteRiskResult<Vec<(String, String, Option<usize>)>> {
+    if key
+        .definition()
+        .factor
+        .definition()
+        .quote_type
+        .is_coupon_parameter()
+    {
+        return Err(invalid(
+            "scenario moves",
+            "coupon parameter scenarios require the complete original coupon product owner",
+        ));
+    }
     let curve = |c: &convex_curves::contracts::CurveKey| format!("{c:?}");
     Ok(match &key.definition().coordinate {
         RiskCoordinate::Quote {

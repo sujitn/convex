@@ -4,6 +4,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod coupon;
+mod coupon_parameter;
 pub(crate) mod finite;
 mod graph;
 mod optional;
@@ -12,6 +13,7 @@ mod scenario;
 mod types;
 
 pub use coupon::*;
+pub use coupon_parameter::*;
 pub use finite::*;
 pub use graph::*;
 pub use optional::*;

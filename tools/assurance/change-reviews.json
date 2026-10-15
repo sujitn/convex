@@ -4153,6 +4153,50 @@
         "tools/library/library-inventory.json": "e82df3774e3772d12faa56eecd02fe6647fdc4da557c505fb3017b5d7d55e44e",
         "tools/library/test_operations.py": "2c1df3e912b172f739036cf49b61a5df983a6b94a4c050c3d8c440144e34a1d5"
       }
+    },
+    {
+      "base_commit": "94da33f0ddc93dc45600f8d18ce813067937599b",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 exact supplied native coupon parameter factors and complete graph/model hedge columns. Distinct annual normal/relative Black volatility, decimal displacement and terminal loading units; complete index/observation/payment/source/revision/parameter identity in canonical existing Raw coordinate with typed factory/decoder, no hash/truncation/alias. Retain5full native prices, first/second h/h2 and arithmetic resolution before signed face scaling; generic callbacks/graph scenarios reject parameter bypass. Exact native policies once per intended point; duplicates/aliases/missing/unused/work/unit/currency/reference failures abort.20independent signed/zero controls and5factor graph/model book preserve original Decimal100 references/bounds, current10000pending-2500scale1.5 and native500lot proposal-7500. First workspace compile failure in pinned historical helper retained; separate pre-native raw-coordinate representation binding preserves all original financial values/inputs/bounds and that full-file helper.69shared21financial48typed failures. Preserve1728original numeric rows/defaults/files and5531requests;10controls give1738 and69requests give5600. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped unchanged. Full calibration/inverse/optional/convention/mixed-book lifecycle scope remains genuine work; unavailable platform execution only defers. IndependentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate.",
+      "tests": [
+        "20predeclared independent signed/zero full-contract parameter cases;complete5factor current/pending native book and exact500lot proposal;unchanged native reference/history/model fields",
+        "69new complete requests and5531old on actual native/C/Java/wasm32Node/browser;default/no-default/schema/adapters and workspace warnings-deniedClippy preflight",
+        "Original37943financial comparisons;1728numeric rows,scope/source/physical conservation;64library42assurance4private"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "3cc61291fa8b335c6d5ce3c385a6cd51999059b102088ef1a5a888d5a4867f52",
+        "crates/convex-analytics/src/floating_coupon/scenario.rs": "4b27eb5e7931d7bbe4b22624dac15577385405e2a374fcd7d7b1c0c311d0ab30",
+        "crates/convex-analytics/src/quote_risk/coupon_parameter.rs": "a9f749bff95268c408df794cd8db7e33e16057e369696d41180a3b15e09e268d",
+        "crates/convex-analytics/src/quote_risk/finite.rs": "1c1772b853f4e10e727d612f62d7991a15fbb2fd2e4c0668e18226c5bc8369cc",
+        "crates/convex-analytics/src/quote_risk/mod.rs": "b1c119cddcb1ca4eac0a2a08ccd34ebd866cff43daa9ef408cc5abb6b9f5da7f",
+        "crates/convex-analytics/src/quote_risk/scenario.rs": "091a9653203c672524b94137159bb41ea3e00dbfadf6c6d5ebc392d75c301b1e",
+        "crates/convex-analytics/src/quote_risk/types.rs": "79d2d9945e5105d7880cd21b513b31bcc2559a07b44a5821dad55c20f8700d4a",
+        "crates/convex-analytics/src/workflow/coupon_parameter_hedge.rs": "32f14edd461a47c2ecb5f0883d463cdbff9b52781b309709838510e87690ac15",
+        "crates/convex-analytics/src/workflow/mod.rs": "f56c45b532b1fbf8d576ac796f256e7f45f73b36538c86f4be63dee2dab9fdce",
+        "crates/convex-analytics/tests/coupon_parameter_hedges.rs": "22056d652b0ed5ad5a5c4d06472a8de4f5751b776e0531045396573999de5257",
+        "crates/convex-analytics/tests/fixtures/coupon-parameter-hedges.json": "7fa3a8c4cdafc655e02d5cc664cb9199e21a8e30d9cb4f83277d38514d041b69",
+        "crates/convex-core/schemas/canonical-contracts.json": "518a264a32597071199fdb4059bafdca6d4ac7e6f9ffc65d361936cb486ca027",
+        "crates/convex-core/src/contracts/risk.rs": "5b64343538118049b6ed5a7b730154e40b4eecb12cd32c60fcf021155d5e94ca",
+        "crates/convex-curves/src/contracts/inputs.rs": "0368fac0b8847c52ab10530dbddbd4f2aebf389ea6f655eb99404a7569ba9c1a",
+        "crates/convex-ffi/tests/coupon_parameter_hedges.rs": "9cf0e82e2d1c56788c0b9a55f6e0f24b9e6512b4085b310f55ce95102dd83bc3",
+        "crates/convex-mcp/tests/coupon_parameter_hedges.rs": "662516e52425422582c720c0d6697ba9205f6a2973cd8e1a0c10dc382b3631cf",
+        "crates/convex-wasm/tests/coupon_parameter_hedges.rs": "23c6b14d0b405da19e586d8a93a782fc1f9e4a7dc7176220048a665b13ee4784",
+        "crates/convex/examples/coupon_parameter_hedges.rs": "2eb8bfb3ae7afc2de00c8b117131cfd59bdc85a80bd913b414d4abba423c8874",
+        "crates/convex/src/library/products.rs": "6bbef950b6d2ed625735ab99332ce35be4d3691227d6f9c5f240ad697ee8a075",
+        "crates/convex/src/library/requests.rs": "6373b4a689eeac4f744b547a113e1b5a01a2380bbe6fe15ebad020b27f7a8755",
+        "crates/convex/tests/coupon_parameter_hedges.rs": "2cd3d7ea05f4ed31c7d7acd7506440e7109777762350abb7cc67903bf5290185",
+        "docs/FLOATING-COUPON-OPTIONS.md": "bc37bec4941d1501b7e24170260b75b1f7433186ea52c84bf88da6a2388fda9a",
+        "tests/fixtures/library/coupon-parameter-hedges.json": "8db5bed62a9f99d4cb8a2d84efeda44f9f1c4f4d74134870be812b2a7bdc0884",
+        "tests/fixtures/library/coupon_parameter_hedges_contract.rs": "230104233e8d77ec011f01196c09c6cda2f64c31ea742bdfbe4f1b495cdee2f9",
+        "tests/scripts/coupon_parameter_hedges_schema.py": "70b9a65a644d2a0a4676e92f5eea29eba901ea4cf3a86c889eb598bed4b61a1b",
+        "tools/assurance/check.py": "91d2521fac03babebe84b0be3cb17d84dfa96d4188d0df9eed47e50381b7940b",
+        "tools/assurance/inventory.json": "10021cb5eaf01220847451301d3d2de0c688ac79b9d29b5da32a4989496862f9",
+        "tools/assurance/numeric-evidence.json": "1926c29a94729faf7d668399007fd6e0526acdeabb053fc467c6199d5779bb7e",
+        "tools/library/api-capabilities.json": "32ea2cccccecd69b1dcfb23cd3c808c7b47bcc354ec6d5e57737d622a88a6e91",
+        "tools/library/library-inventory.json": "f621924863e83838f6aee1a31462b96a3682d62e95a79abce5a545db2f914c91",
+        "tools/library/test_operations.py": "70d6e09f1ee9a972ddc717e766ab360080d7327f3c6fca6cff29572e88c230a3"
+      }
     }
   ]
 }

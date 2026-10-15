@@ -30243,7 +30243,8 @@
     "tests/fixtures/library/coupon-graph-risk.json",
     "tests/fixtures/library/coupon-model-scenarios.json",
     "tests/fixtures/library/coupon-curve-state.json",
-    "tests/fixtures/library/coupon-parameter-derivatives.json"
+    "tests/fixtures/library/coupon-parameter-derivatives.json",
+    "tests/fixtures/library/coupon-parameter-hedges.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

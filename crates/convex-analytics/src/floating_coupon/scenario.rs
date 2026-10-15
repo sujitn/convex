@@ -2,7 +2,7 @@
 use super::*;
 
 /// Native units and model families remain explicit; no HW1F parameter aliases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CouponModelParameter {
@@ -20,7 +20,7 @@ pub enum CouponModelParameter {
 }
 
 /// Complete actual supplied model-point identity; every field must match.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CouponParameterCoordinate {

@@ -1146,6 +1146,26 @@
             "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
             "type": "string",
             "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
           }
         ]
       },
@@ -1978,6 +1998,26 @@
             "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
             "type": "string",
             "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
           }
         ]
       },
@@ -2865,6 +2905,26 @@
             "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
             "type": "string",
             "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
           }
         ]
       },

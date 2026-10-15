@@ -49,6 +49,14 @@ pub enum QuoteUnit {
     FuturePrice100MinusRate,
     /// Signed CDS clean/dirty upfront as a fraction of notional.
     UpfrontFraction,
+    /// Supplied annual decimal-rate normal volatility per square-root year.
+    CouponNormalVolatility,
+    /// Supplied annual relative lognormal volatility per square-root year.
+    CouponLognormalVolatility,
+    /// Supplied decimal-rate lognormal displacement.
+    CouponLognormalDisplacement,
+    /// Supplied terminal decimal-rate loading on a common unit normal factor.
+    CouponNormalFactorLoading,
 }
 
 /// Finite value in an explicitly named native unit. DTOs are validated on use.
@@ -72,6 +80,15 @@ impl MarketQuote {
             ));
         }
         match self.unit {
+            QuoteUnit::CouponNormalVolatility
+            | QuoteUnit::CouponLognormalVolatility
+            | QuoteUnit::CouponLognormalDisplacement
+            | QuoteUnit::CouponNormalFactorLoading => {
+                return Err(Error::invalid(
+                    "quote.unit",
+                    "supplied coupon parameters require their complete native model owner",
+                ))
+            }
             QuoteUnit::DecimalRate | QuoteUnit::PercentRate | QuoteUnit::BasisPoints => {
                 let scale = self.rate_scale()?;
                 if (self.value / scale).abs() > 10.0 {

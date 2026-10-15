@@ -179,3 +179,45 @@ requests include6financial and20typed failure controls.
 This route supplies native central derivatives. Canonical source/parameter
 hedge-factor bindings, calibration, inverse valuation, one-sided boundary risk
 and complete mixed-book lifecycle integration remain subsequent requirements.
+
+### Canonical parameter risk and complete hedge columns
+
+`term_coupon_parameter_sensitivity` and the shared
+`term_coupon_parameter_risk` operation retain the full native derivative proof
+and normalize those same five currency PVs for an explicitly signed position.
+`coupon_parameter_key` accepts the exact typed index, observation date, payment
+date, source, revision and parameter. It stores their complete canonical JSON
+in the existing raw coordinate; `coupon_parameter_coordinate` recovers the
+typed point. The representation is bounded to1024bytes and must match canonical
+serialization exactly. No hashes, shortened labels or omitted fields are used.
+The four quote types and native
+units distinguish annual normal rate volatility, annual relative Black
+volatility, decimal displacement and a terminal normal factor loading.
+Parameter keys require model family, model-parameter basis, spot bucket and
+frozen response. The model target is the original source identity and its
+positive revision rendered as a decimal string. Convention and model semantics
+remain caller-supplied pins; they are never provider lookups.
+
+Supply both the native reference derivative policy and signed position risk
+settings with the same bump. Both apply: native first/second refinement and
+arithmetic resolution pass before signed reference-face scaling, then the
+existing canonical h/h2 check applies to scaled PVs. Currency and the original
+positive face must match. A zero holding still evaluates the native proof.
+Generic quote callbacks and curve scenarios reject coupon parameter keys;
+parameter units cannot be used as curve-helper market quotes.
+
+`term_coupon_complete_hedge_risk` combines actual graph and parameter columns
+in the supplied order and returns the existing `HedgeRiskVector` plus every
+complete native proof. Each parameter needs one exact native policy. Duplicate
+economic points under different metadata, missing or unused policies and
+insufficient five-price work reservations fail. The existing graph-only
+`term_coupon_hedge_risk` route retains its scope. The constrained solver accepts
+the resulting vector with explicit original holdings, pending quantities, lots,
+costs and limits; its result remains a proposal without execution authority.
+
+Run `cargo run --locked -p convex --example coupon_parameter_hedges`.
+Twenty independent signed/zero parameter controls and a five-factor mixed
+curve/model hedge control retain full economics and unchanged reference bounds.
+Complete model calibration/inverse, mixed-book parameter scenarios/lifecycle,
+one-sided boundary risk and all remaining original optional conventions/models
+still require implementation and qualification.

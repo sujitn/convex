@@ -31,6 +31,16 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-analytics --test coupon_parameter_hedges',
+        'cargo test --locked -p convex --test coupon_parameter_hedges',
+        'cargo run --locked -p convex --example coupon_parameter_hedges',
+        'cargo test --locked -p convex-analytics --test coupon_parameter_hedges --no-default-features',
+        'cargo test --locked -p convex --test coupon_parameter_hedges --no-default-features',
+        'cargo run --locked -p convex --example coupon_parameter_hedges --no-default-features',
+        'cargo test --locked -p convex-analytics --test coupon_parameter_hedges --features schemars',
+        'cargo test --locked -p convex --test coupon_parameter_hedges --features schemars',
+        'cargo run --locked -p convex --example coupon_parameter_hedges --features schemars',
+        'cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_hedges',
         'cargo test --locked -p convex-analytics --test coupon_parameter_derivatives',
         'cargo test --locked -p convex --test coupon_parameter_derivatives',
         'cargo run --locked -p convex --example coupon_parameter_derivatives',
