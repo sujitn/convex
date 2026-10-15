@@ -523,3 +523,17 @@ and units remain. The unused `YasAnalysis` / `YasAnalysisBuilder` facade, which
 manufactured zero for missing measurements, is removed with its reexports. Use
 actual supported `YASCalculator` results and genuine absence in caller records.
 See [the projection migration](REINVESTMENT.md).
+
+## Explicit dated discount context
+
+The dated yield solvers no longer infer nominal periods or stub status from
+cash order, round a month interval, clamp off-cycle timing or silently fall back
+to a date-only convention. Bind the actual `DiscountTimeBasis` using
+`StandardYieldEngine::with_discount_basis` or `YieldSolver::with_discount_basis`.
+Missing ICMA, ACT365L or termination context now returns a typed error.
+The standard engine uses the supplied discount day count independently of accrual;
+callers must remove the workaround that overwrote the accrual role.
+Use [dated cash timing](DATED-YIELD.md) and shared `cash_yield/dated_price`,
+`dated_solve`, `dated_risk` for explicitly supplied entitled dated cash. Full
+contract schedules, entitlement, quotation policy and paid-claim state retain
+their actual instrument/workflow owners.

@@ -1808,15 +1808,26 @@
     },
     {
       "path": "crates/convex-bonds/src/pricing/yield_solver.rs",
-      "sha256": "3e14af8b164a041f68b55f5e525ffc6d359e402f40d92ba08d1793ceb71fb52c",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Portable locked primitive selection preserves all original financial operators, arguments, terms and admission; no result rounding/filtering.",
-      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
-      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "sha256": "1b09441b5f09098fd8a90c9d611f513e97e871823f2b6132b8b0a0264388e72a",
+      "invariants": "CVX-063 actual dated discount-time context. StandardYieldEngine consumes the original discount role independently of accrual. Replace the nominal-month/stub-threshold/cash-index/clamp/ISDA fallback with one checked native timing owner. Full anchored ICMA meshes, actual ACT365L coupon periods and termination-dependent30E360 are explicit; missing/mismatched/gapped/uncovered context fails. Coupon frequency remains separate from compounding. Native price, inverse and analytical risk and thin native/JSON/C/Java/MCP/WASM adapters share actual entitled payment times and original cash units. Preserve all1828original numerical rows/files/bounds/defaults, all6941old requests, every mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped dimension and all sealed history. Three original actual failures remain;207independent Fraction/Decimal110 cases and665shared621positive44typed failures precede candidate execution. Remove the WASM accrual-overwrite workaround. Existing full-contract schedules/entitlement/claims and ICMA quotation owners retain their roles. Original financial test assertions stay; only previously missing synthetic nominal context is supplied explicitly to four native/analytics engine tests and two solver tests. No independent approval, native scope waiver, unavailable platform validation, acceptance or certification is inferred.",
+      "bounds": "1..4096sorted strictly future cash and bounded original meshes; date years1..9999;150*366day span; max4096*4096cash/reference pairs, with ICMA validation and accumulation traversals per payment. Original1828numeric rows/files/defaults/bounds stay. New time1e-14; price1e-10; annual-rate1e-11; seven risk fields1e-9 absolute, declared independently before execution.",
+      "failure_contract": "Typed failure for missing/mismatched discount context, invalid/incomplete/unsorted/unanchored mesh, actual dates/cash/frequency/domain/conversion/work failures. No cash-order period inference, clamping, fallback basis, dropped cash or replacement schedule/entitlement.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs",
-        "crates/convex/tests/portable_math.rs"
+        "crates/convex/tests/portable_math.rs",
+        "crates/convex-analytics/tests/fixtures/dated-yield.json",
+        "crates/convex-analytics/tests/fixtures/dated-yield-grid.json",
+        "crates/convex-analytics/tests/dated_yield.rs",
+        "tests/fixtures/library/dated-yield.json",
+        "tests/fixtures/library/dated_yield_contract.rs",
+        "crates/convex/tests/dated_yield.rs",
+        "crates/convex/examples/dated_yield.rs",
+        "crates/convex-ffi/tests/dated_yield.rs",
+        "crates/convex-mcp/tests/dated_yield.rs",
+        "crates/convex-wasm/tests/dated_yield.rs",
+        "tests/scripts/dated_yield_schema.py"
       ],
       "exceptions": []
     },
@@ -1836,7 +1847,7 @@
     },
     {
       "path": "crates/convex-bonds/src/traits/bond.rs",
-      "sha256": "cb541474c80894a6b08cde49fdd137ceafadf89d9cde8a9e7dfb3298eea35f46",
+      "sha256": "4a7df0ab4e35d0bc7e140782434a58b98679a592813e91c3fe6f9a967765629c",
       "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
@@ -4536,7 +4547,7 @@
     },
     {
       "path": "crates/convex-wasm/src/bond.rs",
-      "sha256": "c2fe2f9f0e0340332dd42881c773748b68026dbcecec253cdf618d03eae64499",
+      "sha256": "7bef86b093b18fe39448423eace090aa9fd18d9d3aa5a88702b21da60c6a6761",
       "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Incorrect optional convenience terms/outputs are retired; retained fixed helper arithmetic and positive coupon/curve assertions stay. Checked finite/exact input conversion, enum parsing, explicit overrides and per100 price/risk vs absolute cash units. Nonfixed classes fail; known broader conventions remain unqualified. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
       "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
@@ -4678,15 +4689,26 @@
     },
     {
       "path": "crates/convex-bonds/src/pricing/dated_cash.rs",
-      "sha256": "269d7addca78952afc4b9f1ef7055d00dc6dc854612aa2f1eb7d84cc60efdb8a",
-      "invariants": "CVX-063 checked native dated-cash PV and same-basis yield derivatives/risk. Absolute cash, actual settlement-to-payment context-free time and selected annual/semiannual/quarterly/monthly/daily/continuous/simple discounting bind price, first/second annual-rate derivatives, PV-weighted time, modified duration, convexity and DV01 loss. Periodic log1p preserves small rates without changing prior kernels. WASM solves and reprices the same cash/basis at unchanged1e-8per100 bound; unrelated YAS risk and money-market rollforward are retired with unused conversion/UI. Output identifies actual Dated cash basis, and Z-spread failure has a separate explicit diagnostic. Full-context ICMA, ActualPeriod, bill-discount and positive ex-dividend settings cannot be silently substituted. Original native YAS/solver/math bodies, original1661numeric rows/defaults/files and every mandatory30areas/174combinations/2154Planned record remain. Four new independent/control pins give1665. All80shared/12native/5375requests/228mapped1926unmapped definitions stay. No native scope waiver, independent approval, acceptance or certificate; only unexecutable platform checks defer.",
-      "bounds": "1..4096 sorted future nonnegative cash, positive exposure/PV; finite checked Decimal/year fractions/DF/accumulations. Predeclared independent currency1e-10, duration/convexity1e-11, DV011e-12; original controls unchanged.",
-      "failure_contract": "Typed errors for invalid/mixed/past/zero/unsorted/contextual/nonfinite/domain/overflow inputs or results; no dropped cash/zero substitute. No inferred market or ICMA quotation.",
+      "sha256": "4d2db79b7b079c9c7a56f87a911f1708d0d9cb28ce1a089c8e483d69f492c3e6",
+      "invariants": "CVX-063 actual dated discount-time context. StandardYieldEngine consumes the original discount role independently of accrual. Replace the nominal-month/stub-threshold/cash-index/clamp/ISDA fallback with one checked native timing owner. Full anchored ICMA meshes, actual ACT365L coupon periods and termination-dependent30E360 are explicit; missing/mismatched/gapped/uncovered context fails. Coupon frequency remains separate from compounding. Native price, inverse and analytical risk and thin native/JSON/C/Java/MCP/WASM adapters share actual entitled payment times and original cash units. Preserve all1828original numerical rows/files/bounds/defaults, all6941old requests, every mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped dimension and all sealed history. Three original actual failures remain;207independent Fraction/Decimal110 cases and665shared621positive44typed failures precede candidate execution. Remove the WASM accrual-overwrite workaround. Existing full-contract schedules/entitlement/claims and ICMA quotation owners retain their roles. Original financial test assertions stay; only previously missing synthetic nominal context is supplied explicitly to four native/analytics engine tests and two solver tests. No independent approval, native scope waiver, unavailable platform validation, acceptance or certification is inferred.",
+      "bounds": "1..4096sorted strictly future cash and bounded original meshes; date years1..9999;150*366day span; max4096*4096cash/reference pairs, with ICMA validation and accumulation traversals per payment. Original1828numeric rows/files/defaults/bounds stay. New time1e-14; price1e-10; annual-rate1e-11; seven risk fields1e-9 absolute, declared independently before execution.",
+      "failure_contract": "Typed failure for missing/mismatched discount context, invalid/incomplete/unsorted/unanchored mesh, actual dates/cash/frequency/domain/conversion/work failures. No cash-order period inference, clamping, fallback basis, dropped cash or replacement schedule/entitlement.",
       "tests": [
         "crates/convex-bonds/tests/dated_cash_risk.rs",
         "crates/convex-bonds/tests/fixtures/dated-cash-risk.json",
         "crates/convex-wasm/src/dated_yield_tests.rs",
-        "tests/scripts/wasm_dated_yield_risk.cjs"
+        "tests/scripts/wasm_dated_yield_risk.cjs",
+        "crates/convex-analytics/tests/fixtures/dated-yield.json",
+        "crates/convex-analytics/tests/fixtures/dated-yield-grid.json",
+        "crates/convex-analytics/tests/dated_yield.rs",
+        "tests/fixtures/library/dated-yield.json",
+        "tests/fixtures/library/dated_yield_contract.rs",
+        "crates/convex/tests/dated_yield.rs",
+        "crates/convex/examples/dated_yield.rs",
+        "crates/convex-ffi/tests/dated_yield.rs",
+        "crates/convex-mcp/tests/dated_yield.rs",
+        "crates/convex-wasm/tests/dated_yield.rs",
+        "tests/scripts/dated_yield_schema.py"
       ],
       "exceptions": []
     },
@@ -5111,7 +5133,7 @@
     },
     {
       "path": "crates/convex/src/library/yield_pricing.rs",
-      "sha256": "f7ffa11d42d9630588689ce96d4ab34a6bd3c1ebfdf8af634a8450d08448ba58",
+      "sha256": "ad44f24563952cadec1c5f95ee53f5b784a85e3a3ea0bf629b481c8889e5e7d0",
       "invariants": "CVX-063 checked supplied-cash numerical yield pricing/inverses. One native owner retains input cash/time units and original ordinary financial operators, with explicit periodic/annual/continuous/simple laws, finite domains, overflow/nonzero-underflow and bounded cash/settings checks. Signed cash may be priced; unique inverse admission requires nonnegative cash with positive exposure. Existing Newton/Brent/defaults/seeds remain; failed trials cannot become accepted roots and final native price residuals are checked. Unsupported convention enums cannot silently use Street. Direct dirty/clean and YieldEngine prices return Result. Analytics StandardYieldEngine delegates to the native type; Street Decimal conversion uses checked native reporting. Retain dated-time/ICMA/accrued/calendar limitations as genuine separate requirements.72 independent Decimal110 prices and48 inverses precede candidate execution; one exact rational dated-year control,158shared120financial38typed failures. Actual initial invalid annual-domain and ambiguous signed inverse failures retained. Preserve1788 numeric rows/defaults,6069prior requests and all sealed physical evidence;10additive pins give1798,158requests give6227. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. No full contextual conventions/signed-root selection, broader model/calibration/claim/physical/mixed-book scope, independent approval, production latency or unavailable Windows/Excel qualification inferred.",
       "bounds": "1..4096 cash; positive finite time/frequency/target; finite discount-law domain; settings validated with original10000 iteration ceiling.72Decimal110 prices1e-10 absolute,48inverses1e-9 rate and unchanged1e-10 native price residual; no market convention inferred.",
       "failure_contract": "Typed native Result on invalid inputs, unsupported aliases, arithmetic overflow/nonzero underflow, ambiguity or convergence; no successful price/root from failed trials. Thin shared dispatch preserves actual native diagnostics.",
@@ -5216,6 +5238,48 @@
         "crates/convex-mcp/tests/reinvestment.rs",
         "crates/convex-wasm/tests/reinvestment.rs",
         "tests/scripts/reinvestment_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/pricing/discount_time.rs",
+      "sha256": "10aea338f9f524a6684ec9f2041fac7ae50a65ad305a3deb5ffeab88fd56a93f",
+      "invariants": "CVX-063 actual dated discount-time context. StandardYieldEngine consumes the original discount role independently of accrual. Replace the nominal-month/stub-threshold/cash-index/clamp/ISDA fallback with one checked native timing owner. Full anchored ICMA meshes, actual ACT365L coupon periods and termination-dependent30E360 are explicit; missing/mismatched/gapped/uncovered context fails. Coupon frequency remains separate from compounding. Native price, inverse and analytical risk and thin native/JSON/C/Java/MCP/WASM adapters share actual entitled payment times and original cash units. Preserve all1828original numerical rows/files/bounds/defaults, all6941old requests, every mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped dimension and all sealed history. Three original actual failures remain;207independent Fraction/Decimal110 cases and665shared621positive44typed failures precede candidate execution. Remove the WASM accrual-overwrite workaround. Existing full-contract schedules/entitlement/claims and ICMA quotation owners retain their roles. Original financial test assertions stay; only previously missing synthetic nominal context is supplied explicitly to four native/analytics engine tests and two solver tests. No independent approval, native scope waiver, unavailable platform validation, acceptance or certification is inferred.",
+      "bounds": "1..4096sorted strictly future cash and bounded original meshes; date years1..9999;150*366day span; max4096*4096cash/reference pairs, with ICMA validation and accumulation traversals per payment. Original1828numeric rows/files/defaults/bounds stay. New time1e-14; price1e-10; annual-rate1e-11; seven risk fields1e-9 absolute, declared independently before execution.",
+      "failure_contract": "Typed failure for missing/mismatched discount context, invalid/incomplete/unsorted/unanchored mesh, actual dates/cash/frequency/domain/conversion/work failures. No cash-order period inference, clamping, fallback basis, dropped cash or replacement schedule/entitlement.",
+      "tests": [
+        "crates/convex-analytics/tests/fixtures/dated-yield.json",
+        "crates/convex-analytics/tests/fixtures/dated-yield-grid.json",
+        "crates/convex-analytics/tests/dated_yield.rs",
+        "tests/fixtures/library/dated-yield.json",
+        "tests/fixtures/library/dated_yield_contract.rs",
+        "crates/convex/tests/dated_yield.rs",
+        "crates/convex/examples/dated_yield.rs",
+        "crates/convex-ffi/tests/dated_yield.rs",
+        "crates/convex-mcp/tests/dated_yield.rs",
+        "crates/convex-wasm/tests/dated_yield.rs",
+        "tests/scripts/dated_yield_schema.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-bonds/src/pricing/yield_engine.rs",
+      "sha256": "0b3170b32ef21e17c052dac41845e68bd0ba300d4eaeb4116df7fb78818cf0de",
+      "invariants": "CVX-063 actual dated discount-time context. StandardYieldEngine consumes the original discount role independently of accrual. Replace the nominal-month/stub-threshold/cash-index/clamp/ISDA fallback with one checked native timing owner. Full anchored ICMA meshes, actual ACT365L coupon periods and termination-dependent30E360 are explicit; missing/mismatched/gapped/uncovered context fails. Coupon frequency remains separate from compounding. Native price, inverse and analytical risk and thin native/JSON/C/Java/MCP/WASM adapters share actual entitled payment times and original cash units. Preserve all1828original numerical rows/files/bounds/defaults, all6941old requests, every mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped dimension and all sealed history. Three original actual failures remain;207independent Fraction/Decimal110 cases and665shared621positive44typed failures precede candidate execution. Remove the WASM accrual-overwrite workaround. Existing full-contract schedules/entitlement/claims and ICMA quotation owners retain their roles. Original financial test assertions stay; only previously missing synthetic nominal context is supplied explicitly to four native/analytics engine tests and two solver tests. No independent approval, native scope waiver, unavailable platform validation, acceptance or certification is inferred.",
+      "bounds": "1..4096sorted strictly future cash and bounded original meshes; date years1..9999;150*366day span; max4096*4096cash/reference pairs, with ICMA validation and accumulation traversals per payment. Original1828numeric rows/files/defaults/bounds stay. New time1e-14; price1e-10; annual-rate1e-11; seven risk fields1e-9 absolute, declared independently before execution.",
+      "failure_contract": "Typed failure for missing/mismatched discount context, invalid/incomplete/unsorted/unanchored mesh, actual dates/cash/frequency/domain/conversion/work failures. No cash-order period inference, clamping, fallback basis, dropped cash or replacement schedule/entitlement.",
+      "tests": [
+        "crates/convex-analytics/tests/fixtures/dated-yield.json",
+        "crates/convex-analytics/tests/fixtures/dated-yield-grid.json",
+        "crates/convex-analytics/tests/dated_yield.rs",
+        "tests/fixtures/library/dated-yield.json",
+        "tests/fixtures/library/dated_yield_contract.rs",
+        "crates/convex/tests/dated_yield.rs",
+        "crates/convex/examples/dated_yield.rs",
+        "crates/convex-ffi/tests/dated_yield.rs",
+        "crates/convex-mcp/tests/dated_yield.rs",
+        "crates/convex-wasm/tests/dated_yield.rs",
+        "tests/scripts/dated_yield_schema.py"
       ],
       "exceptions": []
     }

@@ -28,6 +28,7 @@ use rust_decimal::Decimal;
 use convex_core::types::Date;
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
+use super::discount_time::{prepare_bond_cash, DiscountTimeBasis};
 use crate::error::{BondError, BondResult};
 use crate::traits::BondCashFlow;
 use crate::types::{YieldCalculationRules, YieldConvention};
@@ -140,6 +141,7 @@ pub struct StandardYieldEngine {
     tolerance: f64,
     /// Maximum iterations.
     max_iterations: u32,
+    discount_basis: Option<DiscountTimeBasis>,
 }
 
 impl Default for StandardYieldEngine {
@@ -158,6 +160,7 @@ impl StandardYieldEngine {
         Self {
             tolerance: 1e-10,
             max_iterations: 100,
+            discount_basis: None,
         }
     }
 
@@ -175,32 +178,26 @@ impl StandardYieldEngine {
         self
     }
 
-    /// Prepares cash flow data for calculation.
+    /// Bind the original discount-time context, independently of accrued rules.
+    /// Its day count must match `rules.discount_day_count` on every call.
+    #[must_use]
+    pub fn with_discount_basis(mut self, basis: DiscountTimeBasis) -> Self {
+        self.discount_basis = Some(basis);
+        self
+    }
+
     fn prepare_cash_flows(
         &self,
         cash_flows: &[BondCashFlow],
         settlement: Date,
         rules: &YieldCalculationRules,
     ) -> BondResult<Vec<(f64, f64)>> {
-        if cash_flows.len() > 4096 {
-            return Err(BondError::invalid_spec("cash-flow capacity exceeded"));
-        }
-        let dc = rules.accrual_day_count.to_day_count();
-
-        cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = dc.year_fraction(settlement, cf.date);
-                let number = |value: Decimal| {
-                    value
-                        .to_f64()
-                        .filter(|v| v.is_finite() && (value.is_zero() || *v != 0.0))
-                        .ok_or_else(|| BondError::pricing_failed("yield-engine Decimal conversion"))
-                };
-                Ok((number(years)?, number(cf.amount)?))
-            })
-            .collect()
+        prepare_bond_cash(
+            cash_flows,
+            settlement,
+            rules.discount_day_count,
+            self.discount_basis.as_ref(),
+        )
     }
 
     /// Estimates initial yield guess.
@@ -502,6 +499,41 @@ mod tests {
         flows
     }
 
+    // The original synthetic test now supplies its missing nominal context.
+    // Reference construction uses original schedule terms, not cash order.
+    fn supplied_icma_basis(
+        start: Date,
+        end: Date,
+        frequency: convex_core::types::Frequency,
+    ) -> crate::pricing::discount_time::DiscountTimeBasis {
+        use convex_core::{
+            calendars::WeekendCalendar,
+            cashflows::{CouponSchedule, DateRules, ScheduleSpec, StubType},
+        };
+        let spec = ScheduleSpec {
+            start_date: start,
+            end_date: end,
+            frequency,
+            stub_type: StubType::ShortFirst,
+            end_of_month: false,
+            first_regular_date: None,
+            penultimate_date: None,
+        };
+        let schedule =
+            CouponSchedule::generate(&spec, &DateRules::default(), &WeekendCalendar).unwrap();
+        let mut references = Vec::new();
+        for p in schedule.periods() {
+            for r in p.reference_periods() {
+                if references.last() != Some(r) {
+                    references.push(*r);
+                }
+            }
+        }
+        crate::pricing::discount_time::DiscountTimeBasis::Icma {
+            schedule: spec,
+            reference_periods: references,
+        }
+    }
     #[test]
     fn test_engine_yield_at_par() {
         let settlement = date(2025, 1, 15);
@@ -638,6 +670,9 @@ mod tests {
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::uk_gilt();
 
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
+
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)
             .unwrap();
@@ -665,6 +700,9 @@ mod tests {
 
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::german_bund();
+
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
 
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)

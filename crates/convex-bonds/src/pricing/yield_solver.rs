@@ -21,147 +21,11 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Date, Frequency};
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
+use super::discount_time::{prepare_bond_cash, DiscountTimeBasis};
 use super::yield_cash::{self, CashYieldCompounding};
 use crate::error::{BondError, BondResult};
 use crate::traits::{BondCashFlow, FixedCouponBond};
 use crate::types::YieldConvention;
-
-/// Project future cash flows into `(year_fraction_from_settlement, amount)` pairs
-/// suitable for PV / duration / convexity loops.
-///
-/// Implements the period-based ISMA/ICMA formula QuantLib uses for
-/// `BondFunctions::cleanPrice`:
-///
-/// ```text
-///   v   = day_count_days(period_start, settlement) / day_count_days(period_start, period_end)
-///   t_i = ((i + 1) - v) / freq     for i = 0, 1, 2, …            [in years]
-/// ```
-///
-/// Using `day_count.day_count()` for both the accrued and the period length is
-/// what lets this unify the ACT/ACT ICMA case (where `accrued + remaining =
-/// period_days`) with the 30/360 US case (where the d1=31→30 rule breaks that
-/// identity by one day).
-///
-/// For short first stubs (issue after the nominal period start) the reference
-/// period is extended back to the nominal start, again matching QL's ISMA
-/// behaviour. Long stubs aren't handled.
-///
-/// If the leading cash flow has no accrual boundaries we fall back to the
-/// plain `day_count.year_fraction(settlement, cashflow_date)` path.
-pub(crate) fn project_discount_fractions(
-    cash_flows: &[BondCashFlow],
-    settlement: Date,
-    day_count: DayCountConvention,
-    periods_per_year: f64,
-) -> BondResult<Vec<(f64, f64)>> {
-    if cash_flows.len() > 4096 || !periods_per_year.is_finite() || periods_per_year <= 0.0 {
-        return Err(BondError::invalid_spec(
-            "invalid cash projection capacity/frequency",
-        ));
-    }
-    let number = |value: Decimal| {
-        value
-            .to_f64()
-            .filter(|v| v.is_finite() && (value.is_zero() || *v != 0.0))
-            .ok_or_else(|| BondError::pricing_failed("cash projection Decimal conversion"))
-    };
-    let future: Vec<&BondCashFlow> = cash_flows
-        .iter()
-        .filter(|cf| cf.date > settlement)
-        .collect();
-
-    // ACT/360 and ACT/365* aren't period-based — time-to-cash-flow is literally
-    // day_count / {360,365}, not `(i+1-v)/freq`. The ISMA block below would give
-    // the wrong answer; fall straight through to the day-count-driven formula.
-    let use_raw_year_fraction = matches!(
-        day_count,
-        DayCountConvention::Act360
-            | DayCountConvention::Act365Fixed
-            | DayCountConvention::Act365Leap
-    );
-
-    let period_aware = !use_raw_year_fraction
-        && future.first().map_or(false, |cf| {
-            cf.accrual_start.is_some() && cf.accrual_end.is_some()
-        });
-
-    if period_aware {
-        let first = future[0];
-        let astart = first
-            .accrual_start
-            .ok_or_else(|| BondError::invalid_spec("missing accrual start"))?;
-        let aend = first
-            .accrual_end
-            .ok_or_else(|| BondError::invalid_spec("missing accrual end"))?;
-        let dc = day_count.to_day_count();
-
-        let months_per_period = (12.0 / periods_per_year).round() as i32;
-        let nominal_start = aend
-            .add_months(-months_per_period)
-            .map_err(|e| BondError::invalid_spec(e.to_string()))?;
-        let actual_days = dc.day_count(astart, aend).abs() as f64;
-        let nominal_days = dc.day_count(nominal_start, aend).abs() as f64;
-        let is_stub = (actual_days - nominal_days).abs() > 5.0 && nominal_days > 0.0;
-        let (ref_start, ref_period_days) = if is_stub {
-            (nominal_start, nominal_days)
-        } else {
-            (astart, actual_days)
-        };
-
-        if ref_period_days > 0.0 {
-            let v = if settlement > ref_start {
-                dc.day_count(ref_start, settlement).abs() as f64 / ref_period_days
-            } else {
-                0.0
-            };
-            // Period index is driven by each CF's accrual_end so two CFs in
-            // the same period (sinker SF + coupon, or coincident dates) share
-            // an index. CFs that fall strictly inside their accrual period
-            // (off-cycle sinks) get a fractional offset within the period
-            // instead of being treated as if they were at period_end.
-            //
-            // ICMA period-aware time-to-CF, generalised:
-            //   t_periods = (period_idx - 1 - v) + frac_in_period
-            // where frac_in_period = 1 for on-cycle CFs (cf.date == accrual_end)
-            // and (cf.date - accrual_start) / accrual_period_days otherwise.
-            // For on-cycle CFs this collapses to the canonical (i+1 - v)/freq.
-            let mut period_idx: usize = 0;
-            let mut last_period_end: Option<Date> = None;
-            return future
-                .iter()
-                .map(|cf| {
-                    let cf_aend = cf.accrual_end.unwrap_or(cf.date);
-                    if last_period_end != Some(cf_aend) {
-                        period_idx += 1;
-                        last_period_end = Some(cf_aend);
-                    }
-                    let frac_in_period = match (cf.accrual_start, cf.accrual_end) {
-                        (Some(astart), Some(aend)) if cf.date < aend => {
-                            let pd = dc.day_count(astart, aend).abs() as f64;
-                            if pd > 0.0 {
-                                (dc.day_count(astart, cf.date).abs() as f64 / pd).clamp(0.0, 1.0)
-                            } else {
-                                1.0
-                            }
-                        }
-                        _ => 1.0,
-                    };
-                    let t_periods = (period_idx as f64 - 1.0 - v) + frac_in_period;
-                    let years = t_periods / periods_per_year;
-                    Ok((years, number(cf.amount)?))
-                })
-                .collect();
-        }
-    }
-
-    future
-        .iter()
-        .map(|cf| {
-            let years = day_count.to_day_count().year_fraction(settlement, cf.date);
-            Ok((number(years)?, number(cf.amount)?))
-        })
-        .collect()
-}
 
 /// Result of a yield calculation.
 #[derive(Debug, Clone, Copy)]
@@ -196,6 +60,7 @@ pub struct YieldSolver {
     config: SolverConfig,
     /// Yield convention to use.
     convention: YieldConvention,
+    discount_basis: Option<DiscountTimeBasis>,
 }
 
 impl Default for YieldSolver {
@@ -215,7 +80,16 @@ impl YieldSolver {
         Self {
             config: SolverConfig::new(1e-10, 100),
             convention: YieldConvention::StreetConvention,
+            discount_basis: None,
         }
+    }
+
+    /// Bind original reference/coupon/termination context for dated methods.
+    /// The context's exact day count must match the separately supplied role.
+    #[must_use]
+    pub fn with_discount_basis(mut self, basis: DiscountTimeBasis) -> Self {
+        self.discount_basis = Some(basis);
+        self
     }
 
     /// Sets the yield convention.
@@ -277,8 +151,12 @@ impl YieldSolver {
             .ok_or_else(|| BondError::invalid_spec("positive finite dirty target required"))?;
 
         let periods_per_year = f64::from(frequency.periods_per_year());
-        let cf_data =
-            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year)?;
+        let cf_data = prepare_bond_cash(
+            cash_flows,
+            settlement,
+            day_count,
+            self.discount_basis.as_ref(),
+        )?;
 
         if cf_data.is_empty() {
             return Err(BondError::InvalidSpec {
@@ -439,8 +317,12 @@ impl YieldSolver {
         frequency: Frequency,
     ) -> BondResult<f64> {
         let periods_per_year = f64::from(frequency.periods_per_year());
-        let cf_data =
-            project_discount_fractions(cash_flows, settlement, day_count, periods_per_year)?;
+        let cf_data = prepare_bond_cash(
+            cash_flows,
+            settlement,
+            day_count,
+            self.discount_basis.as_ref(),
+        )?;
         self.price_primitive(&cf_data, yield_rate, periods_per_year)
     }
 
@@ -538,12 +420,7 @@ pub fn discount_margin(
 
     // Period-aware year fractions (matches QL ISMA), same helper as the
     // yield solver.
-    let cf_data = project_discount_fractions(
-        projected_cash_flows,
-        settlement,
-        day_count,
-        periods_per_year,
-    )?;
+    let cf_data = prepare_bond_cash(projected_cash_flows, settlement, day_count, None)?;
 
     if cf_data.is_empty() {
         return Err(BondError::invalid_spec("No future cash flows"));
@@ -646,6 +523,41 @@ mod tests {
         flows
     }
 
+    // The original synthetic test now supplies its missing nominal context.
+    // Reference construction uses original schedule terms, not cash order.
+    fn supplied_icma_basis(
+        start: Date,
+        end: Date,
+        frequency: convex_core::types::Frequency,
+    ) -> crate::pricing::discount_time::DiscountTimeBasis {
+        use convex_core::{
+            calendars::WeekendCalendar,
+            cashflows::{CouponSchedule, DateRules, ScheduleSpec, StubType},
+        };
+        let spec = ScheduleSpec {
+            start_date: start,
+            end_date: end,
+            frequency,
+            stub_type: StubType::ShortFirst,
+            end_of_month: false,
+            first_regular_date: None,
+            penultimate_date: None,
+        };
+        let schedule =
+            CouponSchedule::generate(&spec, &DateRules::default(), &WeekendCalendar).unwrap();
+        let mut references = Vec::new();
+        for p in schedule.periods() {
+            for r in p.reference_periods() {
+                if references.last() != Some(r) {
+                    references.push(*r);
+                }
+            }
+        }
+        crate::pricing::discount_time::DiscountTimeBasis::Icma {
+            schedule: spec,
+            reference_periods: references,
+        }
+    }
     #[test]
     fn test_ytm_at_par() {
         // A bond priced at par should have YTM = coupon rate
@@ -1001,7 +913,11 @@ mod tests {
             Frequency::Annual,
         );
 
-        let solver = YieldSolver::new();
+        let solver = YieldSolver::new().with_discount_basis(supplied_icma_basis(
+            settlement,
+            maturity,
+            Frequency::Annual,
+        ));
         let result = solver
             .solve(
                 &cash_flows,
@@ -1038,9 +954,17 @@ mod tests {
                 .with_accrual(p1_end, p2_end),
         ];
 
-        let projected =
-            project_discount_fractions(&cfs, settlement, DayCountConvention::ActActIcma, 2.0)
-                .unwrap();
+        let projected = prepare_bond_cash(
+            &cfs,
+            settlement,
+            DayCountConvention::ActActIcma,
+            Some(&supplied_icma_basis(
+                settlement,
+                p2_end,
+                Frequency::SemiAnnual,
+            )),
+        )
+        .unwrap();
 
         assert_eq!(projected.len(), 3);
         // First coupon: full first period elapsed → 0.5y.

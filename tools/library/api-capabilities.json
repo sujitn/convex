@@ -30253,7 +30253,8 @@
     "tests/fixtures/library/yield-pricing.json",
     "tests/fixtures/library/accrued-methods.json",
     "tests/fixtures/library/reinvestment.json",
-    "tests/fixtures/library/periodic-growth.json"
+    "tests/fixtures/library/periodic-growth.json",
+    "tests/fixtures/library/dated-yield.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

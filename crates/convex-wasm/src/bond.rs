@@ -274,15 +274,13 @@ pub(crate) fn calculate_dated_yield_quote(
         compounding,
     )
     .map_err(|e| e.to_string())?;
-    let mut solver_rules = rules.clone();
-    solver_rules.accrual_day_count = rules.discount_day_count;
     let result = StandardYieldEngine::default()
         .yield_from_price(
             &cash,
             f64_to_decimal(clean_price)?,
             accrued,
             settlement,
-            &solver_rules,
+            rules,
         )
         .map_err(|e| format!("Convention yield failed: {e}"))?;
     let rate = finite(result.yield_value, "dated yield")?;

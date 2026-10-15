@@ -19,6 +19,8 @@
 pub mod bill;
 /// Checked absolute dated-cash PV and same-basis analytical yield risk.
 pub mod dated_cash;
+/// Checked actual payment-time context, independent of accrual and compounding.
+pub mod discount_time;
 /// Checked explicit-rate cash-account projections, separate from market quotations.
 pub mod reinvestment;
 pub mod short_date;

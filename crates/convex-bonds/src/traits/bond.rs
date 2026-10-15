@@ -235,12 +235,8 @@ pub trait Bond {
         use std::str::FromStr;
         let dc = convex_core::daycounts::DayCountConvention::from_str(self.day_count_convention())
             .map_err(|e| crate::BondError::invalid_spec(e.to_string()))?;
-        let mut result = crate::pricing::yield_solver::project_discount_fractions(
-            &flows,
-            settlement,
-            dc,
-            f64::from(frequency.periods_per_year()),
-        )?;
+        let mut result =
+            crate::pricing::discount_time::prepare_bond_cash(&flows, settlement, dc, None)?;
         for (time, amount) in &mut result {
             *amount *= 100.0 / face;
             if !time.is_finite() || *time <= 0.0 || !amount.is_finite() {

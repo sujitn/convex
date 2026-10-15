@@ -3,16 +3,17 @@
 //! quotation convention or manufacture ICMA reference periods.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use super::discount_time::{prepare_dated_cash, DatedYieldCash, DiscountTimeBasis};
+use super::yield_cash;
 use crate::{error::BondResult, traits::BondCashFlow, BondError};
 use convex_core::{
     daycounts::DayCountConvention,
     types::{Compounding, Date},
 };
 use convex_math::portable;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 /// All monetary fields use the exact input cash currency and scale.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize)]
 pub struct DatedCashYieldRisk {
     /// Absolute entitled-cash PV at the explicit annual decimal yield.
     pub present_value: f64,
@@ -30,14 +31,6 @@ pub struct DatedCashYieldRisk {
     pub dv01_loss: f64,
 }
 
-fn number(value: Decimal) -> BondResult<f64> {
-    value
-        .to_f64()
-        .filter(|n| n.is_finite() && (value.is_zero() || *n != 0.0))
-        .ok_or_else(|| {
-            BondError::pricing_failed("dated cash Decimal conversion overflow/underflow")
-        })
-}
 fn finite(value: f64) -> BondResult<f64> {
     if value.is_finite() {
         Ok(value)
@@ -53,8 +46,8 @@ fn finite(value: f64) -> BondResult<f64> {
 /// At most 4096 sorted future nonnegative amounts are admitted; at least one
 /// positive amount and positive PV are required. Equal payment dates remain
 /// separate cash components. Past/settlement cash is rejected, never filtered.
-/// ACT/ACT ICMA and maturity-dependent 30E/360 ISDA require full contextual
-/// quotation inputs elsewhere. A valid enum is not a market convention model.
+/// ICMA, ACT365L and maturity-dependent 30E/360 ISDA require
+/// [`dated_cash_yield_risk_with_basis`]. This does not infer a market convention.
 pub fn dated_cash_yield_risk(
     cash: &[BondCashFlow],
     settlement: Date,
@@ -67,37 +60,38 @@ pub fn dated_cash_yield_risk(
             "1..4096 cash entries and finite annual yield required",
         ));
     }
-    if matches!(
-        day_count,
-        DayCountConvention::ActActIcma | DayCountConvention::Thirty360EIsda
-    ) {
+    let original: Vec<_> = cash.iter().map(DatedYieldCash::from).collect();
+    dated_cash_yield_risk_with_basis(
+        &original,
+        settlement,
+        annual_yield,
+        &DiscountTimeBasis::Calendar { day_count },
+        compounding,
+    )
+}
+
+/// Same native price and derivatives using the complete supplied discount context.
+/// Actual entitled payment dates and original cash units are consumed directly.
+/// No payment adjustment, schedule construction or entitlement decision is inferred.
+pub fn dated_cash_yield_risk_with_basis(
+    cash: &[DatedYieldCash],
+    settlement: Date,
+    annual_yield: f64,
+    basis: &DiscountTimeBasis,
+    compounding: Compounding,
+) -> BondResult<DatedCashYieldRisk> {
+    if cash.is_empty() || cash.len() > 4096 || !annual_yield.is_finite() {
         return Err(BondError::invalid_spec(
-            "dated cash day count requires explicit reference/maturity context",
+            "1..4096 cash entries and finite annual yield required",
         ));
     }
-    if cash
-        .iter()
-        .any(|c| c.date <= settlement || c.amount < Decimal::ZERO)
-        || cash.windows(2).any(|c| c[1].date < c[0].date)
-        || !cash.iter().any(|c| c.amount > Decimal::ZERO)
-    {
-        return Err(BondError::invalid_spec(
-            "sorted future nonnegative cash with positive exposure required",
-        ));
-    }
-    let dc = day_count.to_day_count();
+    let prepared = prepare_dated_cash(cash, settlement, basis)?;
+    yield_cash::validate_cash(&prepared, true)?;
     let mut pv = 0.0;
     let mut first = 0.0;
     let mut second = 0.0;
     let mut weighted = 0.0;
-    for c in cash {
-        let time = number(dc.year_fraction(settlement, c.date))?;
-        let amount = number(c.amount)?;
-        if time <= 0.0 {
-            return Err(BondError::invalid_spec(
-                "positive dated cash year fraction required",
-            ));
-        }
+    for (time, amount) in prepared {
         let (df, d1, d2) = match compounding {
             Compounding::Continuous => {
                 let df = portable::exp(-annual_yield * time);

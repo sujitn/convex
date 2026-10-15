@@ -22,7 +22,7 @@ class OperationRoutes(unittest.TestCase):
         self.assertEqual(result['mandatory_records'], 2154)
         # Preserve all 77 original routes/4975 requests; add three full Treasury quote axes.
         self.assertEqual(result['exact_operation_routes'], 80)
-        self.assertEqual(result['engineering_examples'], 4975 + 400 + 21 + 21 + 27 + 27 + 34 + 26 + 69 + 37 + 49 + 110 + 90 + 183 + 158 + 127 + 154 + 433)
+        self.assertEqual(result['engineering_examples'], 4975 + 400 + 21 + 21 + 27 + 27 + 34 + 26 + 69 + 37 + 49 + 110 + 90 + 183 + 158 + 127 + 154 + 433 + 665)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

@@ -4586,6 +4586,48 @@
         "tools/library/test_operations.py": "a453067cf74081063d71cf550f7bb314651ad0465654ef90e61091cd999438a9",
         "crates/convex-analytics/src/yas/analysis.rs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
+    },
+    {
+      "base_commit": "6dd9293fb5f55798748c2bb4066ebbb1312b9169",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 actual dated discount-time context. StandardYieldEngine consumes the original discount role independently of accrual. Replace the nominal-month/stub-threshold/cash-index/clamp/ISDA fallback with one checked native timing owner. Full anchored ICMA meshes, actual ACT365L coupon periods and termination-dependent30E360 are explicit; missing/mismatched/gapped/uncovered context fails. Coupon frequency remains separate from compounding. Native price, inverse and analytical risk and thin native/JSON/C/Java/MCP/WASM adapters share actual entitled payment times and original cash units. Preserve all1828original numerical rows/files/bounds/defaults, all6941old requests, every mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped dimension and all sealed history. Three original actual failures remain;207independent Fraction/Decimal110 cases and665shared621positive44typed failures precede candidate execution. Remove the WASM accrual-overwrite workaround. Existing full-contract schedules/entitlement/claims and ICMA quotation owners retain their roles. Original financial test assertions stay; only previously missing synthetic nominal context is supplied explicitly to four native/analytics engine tests and two solver tests. No independent approval, native scope waiver, unavailable platform validation, acceptance or certification is inferred.",
+      "tests": [
+        "Actual original three native failures;207independent Fraction/Decimal110 cases;665shared621positive44typed failures; original1828numeric rows/files/bounds/defaults conserved",
+        "All6941old full requests and responses exact except literal additive capability corpus path; every changed original native financial assertion conserved through required context adapters",
+        "Fmt then workspace all-target/all-feature warnings-deniedClippy; native/shared feature and actual schema gates; affected original native suites;64library42assurance4private; same-base/source/scope/physical checks; stable14binary binding; fresh37943originalISDA/QuantLib; actual7606native/C/JDK26/wasm32Node/browser and400JavaTreasury complete envelopes"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "fbfe13f678f8ffd00a35cab86d5015910f154b60299ca30b03a51df859aa3179",
+        "crates/convex-analytics/src/yields/engine.rs": "6da084018c251b34806ebbb5870d477fce5bf976a82dfa31b18bfdd1dc6aad75",
+        "crates/convex-analytics/tests/dated_yield.rs": "52640889b2818616eeaeae81a934cd9d20306ea9a20b8d2474063e6e6cae4077",
+        "crates/convex-analytics/tests/fixtures/dated-yield-grid.json": "a19ad7b6bf3a8eb5c658e1a51be305b46e0ad9f4d70b33d348c603cd45816011",
+        "crates/convex-analytics/tests/fixtures/dated-yield.json": "3b3dba8800b5058fe69f06bf4a9f98ef621be7d6f5f88dd73f6207a6ef234d2f",
+        "crates/convex-bonds/src/pricing/dated_cash.rs": "4d2db79b7b079c9c7a56f87a911f1708d0d9cb28ce1a089c8e483d69f492c3e6",
+        "crates/convex-bonds/src/pricing/discount_time.rs": "10aea338f9f524a6684ec9f2041fac7ae50a65ad305a3deb5ffeab88fd56a93f",
+        "crates/convex-bonds/src/pricing/mod.rs": "b41fc7a03d878cdc6627829c0aaed209b97504df25db0378529a7247a7780910",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "0b3170b32ef21e17c052dac41845e68bd0ba300d4eaeb4116df7fb78818cf0de",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "1b09441b5f09098fd8a90c9d611f513e97e871823f2b6132b8b0a0264388e72a",
+        "crates/convex-bonds/src/traits/bond.rs": "4a7df0ab4e35d0bc7e140782434a58b98679a592813e91c3fe6f9a967765629c",
+        "crates/convex-ffi/tests/dated_yield.rs": "bcfe5f41e833f1f89b01280f7923a08a4b0acd6747da96b493f60026663524fa",
+        "crates/convex-mcp/tests/dated_yield.rs": "46ca4c65d6bb680626f5ff9e6a8c52d9d4a1a6b2945ba566a38a8c82af013f23",
+        "crates/convex-wasm/src/bond.rs": "7bef86b093b18fe39448423eace090aa9fd18d9d3aa5a88702b21da60c6a6761",
+        "crates/convex-wasm/tests/dated_yield.rs": "1d4310e2d5d8c1b0290bab150d8c67fc98245bf3229768212d46de3da3b2f09d",
+        "crates/convex/examples/dated_yield.rs": "54ca6ef43ee63f28648df7d96cbc46f27895afafef2222bb43b8dd4dfda6c0e8",
+        "crates/convex/src/library/yield_pricing.rs": "ad44f24563952cadec1c5f95ee53f5b784a85e3a3ea0bf629b481c8889e5e7d0",
+        "crates/convex/tests/dated_yield.rs": "df67f480e22f1a646389909b74ba58a7d1552468e7df8190410e95ef2dc8222f",
+        "docs/DATED-YIELD.md": "df564c38014a82fa8daef303a89154a16295d52e95ab9b6f8d651a035f38bc12",
+        "docs/ROUTE-MIGRATION.md": "7bd4fd4dc02e05674a78149a6346ae25d55d94da0aa163cd2c9415569a4527f1",
+        "tests/fixtures/library/dated-yield.json": "47070cbb63a121dd2a84bc92e180b2857d11948ad744574c15e0b4448002bf9d",
+        "tests/fixtures/library/dated_yield_contract.rs": "be230c8761d00ecd560168ad028595ccfe90c1db5826bfb1a9add61593889e4f",
+        "tests/scripts/dated_yield_schema.py": "0ea34b5d18604ac93ecbf9153ca87866ba583347a8f5ab0dfa1e25edfd57aa33",
+        "tools/assurance/check.py": "95fc43c29830f944829eec5cf6d25a67a1692addbc6f540d6ee9cb2631efa4c1",
+        "tools/assurance/inventory.json": "e04e44a9d436073ff0031b9c531f5bad109c5bf58bbe1ba46b950297b4a2ce20",
+        "tools/assurance/numeric-evidence.json": "94cc9cc52bfe84c83e836a984666101c41d88db6dcbb57db9570e45c6cff6f21",
+        "tools/library/api-capabilities.json": "f116c2def2e3d7c793c13544e390f5416d5bb352bd15b59e9ab87dec66d81b5f",
+        "tools/library/library-inventory.json": "ad39e8f8b21d3447c0fb48f0511256d73772192d8f170bb5d8540262e918adbc",
+        "tools/library/test_operations.py": "9e4e16228196112cd9822189162579db3bddb3e2d11280525c41feb238a6b617"
+      }
     }
   ]
 }

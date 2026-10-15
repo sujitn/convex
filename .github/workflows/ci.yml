@@ -493,6 +493,36 @@ jobs:
       - name: Qualify checked periodic growth accuracy 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test periodic_growth
 
+      - name: Qualify checked explicit dated discount time 0
+        run: cargo test --locked -p convex-analytics --test dated_yield
+
+      - name: Qualify checked explicit dated discount time 1
+        run: cargo test --locked -p convex --test dated_yield
+
+      - name: Qualify checked explicit dated discount time 2
+        run: cargo run --locked -p convex --example dated_yield
+
+      - name: Qualify checked explicit dated discount time 3
+        run: cargo test --locked -p convex-analytics --test dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 4
+        run: cargo test --locked -p convex --test dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 5
+        run: cargo run --locked -p convex --example dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 6
+        run: cargo test --locked -p convex-analytics --test dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 7
+        run: cargo test --locked -p convex --test dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 8
+        run: cargo run --locked -p convex --example dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

@@ -902,6 +902,8 @@ def inventory_paths(root: Path) -> set[str]:
                   'crates/convex-ports/src/reference_master.rs', 'crates/convex-server/src/handlers.rs'])
     paths.add('crates/convex-wasm/src/ingress.rs')
     paths.add('crates/convex-bonds/src/pricing/dated_cash.rs')
+    paths.add('crates/convex-bonds/src/pricing/discount_time.rs')
+    paths.add('crates/convex-bonds/src/pricing/yield_engine.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/scenario.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/derivatives.rs')
     paths.add('crates/convex-analytics/src/floating_coupon/inverse.rs')

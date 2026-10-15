@@ -242,6 +242,41 @@ mod tests {
         flows
     }
 
+    // The original synthetic test now supplies its missing nominal context.
+    // Reference construction uses original schedule terms, not cash order.
+    fn supplied_icma_basis(
+        start: Date,
+        end: Date,
+        frequency: convex_core::types::Frequency,
+    ) -> convex_bonds::pricing::discount_time::DiscountTimeBasis {
+        use convex_core::{
+            calendars::WeekendCalendar,
+            cashflows::{CouponSchedule, DateRules, ScheduleSpec, StubType},
+        };
+        let spec = ScheduleSpec {
+            start_date: start,
+            end_date: end,
+            frequency,
+            stub_type: StubType::ShortFirst,
+            end_of_month: false,
+            first_regular_date: None,
+            penultimate_date: None,
+        };
+        let schedule =
+            CouponSchedule::generate(&spec, &DateRules::default(), &WeekendCalendar).unwrap();
+        let mut references = Vec::new();
+        for p in schedule.periods() {
+            for r in p.reference_periods() {
+                if references.last() != Some(r) {
+                    references.push(*r);
+                }
+            }
+        }
+        convex_bonds::pricing::discount_time::DiscountTimeBasis::Icma {
+            schedule: spec,
+            reference_periods: references,
+        }
+    }
     #[test]
     fn test_engine_yield_at_par() {
         let settlement = date(2025, 1, 15);
@@ -378,6 +413,9 @@ mod tests {
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::uk_gilt();
 
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
+
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)
             .unwrap();
@@ -405,6 +443,9 @@ mod tests {
 
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::german_bund();
+
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
 
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)
