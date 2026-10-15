@@ -48,7 +48,7 @@ impl CouponParameterDerivativeSettings {
         }
         Ok(())
     }
-    fn admit(self, order: u8, full: f64, half: f64, resolution: f64) -> Result<()> {
+    pub(super) fn admit(self, order: u8, full: f64, half: f64, resolution: f64) -> Result<()> {
         let (absolute, relative) = if order == 1 {
             (self.absolute_first_tolerance, self.relative_first_tolerance)
         } else {

@@ -4235,6 +4235,42 @@
         "tools/library/library-inventory.json": "a6b5ac40fc53b49c6513a5ac366becd2098f2cfe2fced1d3b2e7a56c2e0354b2",
         "tools/library/test_operations.py": "09f5948770338ee0952df65a178a766e73bf626dcfe905e9b84e2e686804487b"
       }
+    },
+    {
+      "base_commit": "da7b7fcba6736fe1347660b9f0fb3bf68ae263b2",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 explicit one-sided full original coupon parameter derivatives. Caller-selected Forward/Backward, exact original source/point/native units and absolute assignment. Six actual full prices at signed multipliers0,.5,1,1.5,2,3 retain complete original economics/model/history/publications/curves. Three-point first and four-point second h/h2 derivatives retain increasing-parameter orientation, independent original native policies and64EPS arithmetic guards, not total model error. No inferred side/clipping/fabricated opposite price or Central risk/hedge record. Original native model domains apply to every price; no partial accepted risk. 18predeclared Decimal100 full-contract cases retain PV1e-8/first2e-7/second2e-3, both interior sides, normal/Black/displacement boundaries and constant collar. 49shared18financial31typed failures include wrong sides, original source/history/resources and actual stability/resolution failures. First declaration container KeyError retained; only actual inputs container corrected before candidate, no financial/reference/bound changes. 1748old numeric rows/defaults/files and5637old requests stay;10newpins give1758,49requests give5686. Original30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. Directional canonical aggregation/hedging, full calibration/identification, remaining optional/convention/claim/physical/mixed-book lifecycle scope remain genuine work. Only unavailable platforms defer; independentCVX064/065 and measured/authenticated production owners remain. No acceptance/certificate/native waiver.",
+      "tests": [
+        "18predeclared Decimal100 full native one-sided stencils; both domains/directions, actual native resolution guards, unchanged original full economics/model/history/publication/curve and PV/first/second bounds",
+        "49new plus5637old complete native/C/Java/wasm32Node/browser requests,400TreasuryJava,default/no-default/schema/adapter/native and all original coupon controls; workspace warnings-deniedClippy preflight",
+        "Fresh37943original ISDA/QuantLib checks;1748numeric/scope/source/physical conservation and64library42assurance4private controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "f85455e4407cd69d92d2823bc311e848410a5dfb8524187d9b9ae2e3d043a4ae",
+        "crates/convex-analytics/src/floating_coupon/derivatives.rs": "b77e2062fcc3ab005f2c153cfe86f3828a838d8dae2d920f76f5745735e5335f",
+        "crates/convex-analytics/src/floating_coupon/directional.rs": "e418b400362df566c0e11e05c6425779038ce2020279622d4f8203284dcb16cc",
+        "crates/convex-analytics/src/floating_coupon/prepared.rs": "a5982399297ba35b895b7044eef7d428f6c4277f49c722660bc0039289dd67c3",
+        "crates/convex-analytics/tests/coupon_parameter_directional.rs": "51f19938abca7ff15dd59c1651b1fabad439c25cd51fc4b442902432997084d8",
+        "crates/convex-analytics/tests/fixtures/coupon-parameter-directional.json": "a4dd457c33058204859473c788148cd1509f8df6136a1d9c11a9fe0647c94ed6",
+        "crates/convex-ffi/tests/coupon_parameter_directional.rs": "f3c294b67943a68f33dc685bf2f8ada216ced39024296bd1b128b91410fbe909",
+        "crates/convex-mcp/tests/coupon_parameter_directional.rs": "5fd8ffd73d21ff946ae05787e9e0ff8824db03f038039ad7214010d3dbe789c0",
+        "crates/convex-wasm/tests/coupon_parameter_directional.rs": "52e6af6a0c131e80637a608d021e9c973c210f4e9517620e5f1e4a682a897f5c",
+        "crates/convex/examples/coupon_parameter_directional.rs": "878278e3a6bd73417c3a7dc4d3072020e6ba2f12261ceb2a13976d8c5ebf29cc",
+        "crates/convex/src/library/products.rs": "69728ecfc9ae13ba02b9aaa322359eb02aebefc27a6e568b61ca3e548eb0733c",
+        "crates/convex/src/library/requests.rs": "a7804910e6de52572bf0ca6a15199342c95232ae97d00966a767cab2786a57d4",
+        "crates/convex/tests/coupon_parameter_directional.rs": "23928d118caf5561128e44c618fee843f2e3e7950e050a7e93735b32eca1d042",
+        "docs/FLOATING-COUPON-OPTIONS.md": "39536a71e47532f36e7cacaa4ed387e27a0df84862f7421fbeae4cf7e65f64a6",
+        "tests/fixtures/library/coupon-parameter-directional.json": "b96c7260dd4642ab8b9150792cff89b65c36d8e01621110fc3bbe9ca7d11f8c0",
+        "tests/fixtures/library/coupon_parameter_directional_contract.rs": "ddf1b9b3a7f5e10dd4b45e188b0b01d49f750088db22d6188318335fad8fae52",
+        "tests/scripts/coupon_parameter_directional_schema.py": "c24015c12134e2e8cccb03f93374ff0dfc5864ffaf77ccc0d8b7e673550075cc",
+        "tools/assurance/check.py": "fa6ea91eac7d993cb3fcd7d70dac8e814353ab355fa9cfc40fd3a5b6006aa841",
+        "tools/assurance/inventory.json": "098a3e29cc2ee95fecbdc36447996d259dd349d0a6a62f95239aa6f4e11568a4",
+        "tools/assurance/numeric-evidence.json": "47794115d384945e35569a515dea2b2e6d92f18509a2159dbdcb295c6c231bd5",
+        "tools/library/api-capabilities.json": "958ed260ec944531629aa6e2da64c3b258ac8b29763fe782b8ed734cb34329f1",
+        "tools/library/library-inventory.json": "9a7817bdf4197476893b5c9ad1fa5b30e5a12544be7c044209668de2a9df271b",
+        "tools/library/test_operations.py": "8e90c861bf1dece4856ea9eda124d2ad64404c8f963a51d9dd36d5dacfe395ab"
+      }
     }
   ]
 }

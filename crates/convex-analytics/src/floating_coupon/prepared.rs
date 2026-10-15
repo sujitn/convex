@@ -6,6 +6,9 @@ use std::sync::Arc;
 #[path = "derivatives.rs"]
 mod derivatives;
 pub use derivatives::*;
+#[path = "directional.rs"]
+mod directional;
+pub use directional::*;
 #[path = "inverse.rs"]
 mod inverse;
 pub use inverse::*;

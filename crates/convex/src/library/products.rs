@@ -857,6 +857,13 @@ pub(super) fn execute(
         } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
             value(prepared.parameter_derivatives(&r.curves, coordinate, *settings)?)
         }),
+        LibraryOperation::TermCouponDirectionalDerivatives {
+            input,
+            coordinate,
+            settings,
+        } => super::floating_coupon::with_prepared(input, r, &r.curves, |prepared| {
+            value(prepared.parameter_directional_derivatives(&r.curves, coordinate, *settings)?)
+        }),
         LibraryOperation::TermCouponParameterInverse {
             input,
             coordinate,

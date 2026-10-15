@@ -206,6 +206,15 @@ pub enum LibraryOperation {
         /// Explicit native bump and first/second currency refinement policies.
         settings: convex_analytics::floating_coupon::CouponParameterDerivativeSettings,
     },
+    /// Explicit one-sided native coupon parameter derivatives with six full prices.
+    TermCouponDirectionalDerivatives {
+        /// Complete original economics, model, history and exact curve resources.
+        input: Box<TermCouponOptionInput>,
+        /// Exact original source/revision/index/observation/payment parameter.
+        coordinate: convex_analytics::floating_coupon::CouponParameterCoordinate,
+        /// Caller-selected side and independent native derivative precision.
+        settings: convex_analytics::floating_coupon::CouponDirectionalDerivativeSettings,
+    },
     /// One selected full-contract native coupon parameter root in a closed bracket.
     TermCouponParameterInverse {
         /// Complete original model/economics/history/curve resources.

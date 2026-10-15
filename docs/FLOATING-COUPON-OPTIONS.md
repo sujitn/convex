@@ -250,3 +250,27 @@ PV1e-8 and parameter2e-7 comparison bounds are declared before execution. Full
 quote/surface calibration and global identification, one-sided parameter risk,
 mixed-book parameter scenarios/lifecycle and original remaining models remain
 required; this selected-root operation does not supply their certificates.
+
+## Explicit directional parameter sensitivities
+
+Use prepared.parameter_directional_derivatives with the original complete
+coordinate and CouponDirectionalDerivativeSettings. Select forward or backward
+explicitly and supply the existing native first/second bump/refinement policy.
+The thin shared operation is term_coupon_directional_derivatives. Six complete
+prices at signed multipliers0,0.5,1,1.5,2,3 retain actual parameters and full original
+economics/model/history/publication/curve state. Every actual domain must pass;
+the operation does not select a side, clip a point or invent an opposite price.
+
+Both three-point first derivatives and four-point second derivatives compare
+full and half steps. The backward first derivative still measures change per
+increasing native parameter. Separate first/second cancellation guards must fit
+the caller policy; they do not bound total model/pricer error. Every successful
+result retains the six actual full prices, original side/settings/source units,
+all derivatives and resolution diagnostics. A domain or precision failure has
+no accepted partial sensitivity.
+
+This dedicated directional result cannot populate the existing Central
+QuoteSensitivity or hedge vectors by relabeling its samples. Directional
+canonical aggregation/hedging and complete surface/model identification remain
+separate work. The existing central derivative, risk, hedge and selected inverse
+operations retain their original contracts.

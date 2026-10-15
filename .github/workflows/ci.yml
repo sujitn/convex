@@ -255,6 +255,35 @@ jobs:
 
       - name: Qualify native coupon parameter price inverse 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_inverse
+      - name: Qualify native coupon parameter price directional 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 1
+        run: cargo test --locked -p convex --test coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 2
+        run: cargo run --locked -p convex --example coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 4
+        run: cargo test --locked -p convex --test coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 5
+        run: cargo run --locked -p convex --example coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 7
+        run: cargo test --locked -p convex --test coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 8
+        run: cargo run --locked -p convex --example coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_directional
 
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
