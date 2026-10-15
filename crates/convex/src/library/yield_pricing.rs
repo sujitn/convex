@@ -2,7 +2,7 @@
 use super::*;
 use convex_bonds::pricing::{
     dated_cash::dated_cash_yield_risk_with_basis,
-    discount_time::{prepare_dated_cash, DatedYieldCash, DiscountTimeBasis},
+    discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash},
 };
 use convex_bonds::pricing::{yield_cash, YieldSolver};
 use convex_core::types::Compounding;
@@ -88,17 +88,17 @@ pub enum CashYieldOperation {
 pub(super) fn execute(action: &CashYieldOperation) -> LibraryResult<Value> {
     let result = match action {
         CashYieldOperation::DatedPrice { cash, settlement, basis, compounding, annual_yield } =>
-            prepare_dated_cash(cash,*settlement,basis).and_then(|prepared|
-                yield_cash::price_cash(&prepared,*annual_yield,*compounding)
-                    .map(|price| json!({"unit":"input_cash", "present_value":price, "discount_cash":prepared}))),
+            PreparedDatedCash::new(cash,*settlement,basis).and_then(|prepared|
+                prepared.price(*annual_yield,*compounding)
+                    .map(|price| json!({"unit":"input_cash", "present_value":price, "discount_cash":prepared.discount_cash()}))),
         CashYieldOperation::DatedSolve { cash, settlement, basis, compounding,
             target_dirty_price, initial_guess, tolerance, max_iterations } =>
-            prepare_dated_cash(cash,*settlement,basis).and_then(|prepared| YieldSolver::new()
+            PreparedDatedCash::new(cash,*settlement,basis).and_then(|prepared| YieldSolver::new()
                 .with_tolerance(*tolerance).with_max_iterations(*max_iterations)
-                .solve_cash(&prepared,*target_dirty_price,*compounding,*initial_guess)
+                .solve_dated_cash(&prepared,*target_dirty_price,*compounding,*initial_guess)
                 .map(|result| json!({"unit":"annual_decimal_rate", "yield_value":result.yield_value,
                     "iterations":result.iterations, "residual":result.residual, "residual_unit":"input_cash",
-                    "discount_cash":prepared}))),
+                    "discount_cash":prepared.discount_cash()}))),
         CashYieldOperation::DatedRisk { cash, settlement, basis, compounding, annual_yield } =>
             dated_cash_yield_risk_with_basis(cash,*settlement,*annual_yield,basis,*compounding)
                 .map(|risk| json!({"unit":"input_cash", "risk":risk})),

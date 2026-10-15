@@ -3,6 +3,7 @@
 //! ownership belong to the original contract and are never inferred here.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use super::yield_cash::{self, CashYieldCompounding};
 use crate::{traits::BondCashFlow, BondError, BondResult};
 use convex_core::{
     cashflows::{
@@ -25,6 +26,41 @@ pub struct DatedYieldCash {
     pub date: Date,
     /// Original signed cash, without face or coupon-frequency substitution.
     pub amount: ExactDecimal,
+}
+
+/// Numerical cash prepared from actual sorted, strictly future payment dates.
+/// Zero discount time never changes the original payment or entitlement state.
+/// Construction requires the full original discount context. This value cannot
+/// be deserialized or constructed from arbitrary supplied numerical times.
+#[derive(Debug, Clone)]
+pub struct PreparedDatedCash {
+    cash: Vec<(f64, f64)>,
+}
+
+impl PreparedDatedCash {
+    /// Build from actual dates and the complete supplied discount context.
+    pub fn new(
+        cash: &[DatedYieldCash],
+        settlement: Date,
+        basis: &DiscountTimeBasis,
+    ) -> BondResult<Self> {
+        prepare_dated_cash(cash, settlement, basis).map(Self::from_validated_dates)
+    }
+
+    pub(crate) fn from_validated_dates(cash: Vec<(f64, f64)>) -> Self {
+        Self { cash }
+    }
+
+    /// Read-only original cash order and settlement-to-payment discount years.
+    #[must_use]
+    pub fn discount_cash(&self) -> &[(f64, f64)] {
+        &self.cash
+    }
+
+    /// Price the same original cash, including strictly future zero-time cash.
+    pub fn price(&self, annual_yield: f64, compounding: CashYieldCompounding) -> BondResult<f64> {
+        yield_cash::value_dated_cash(&self.cash, annual_yield, compounding).map(|value| value.0)
+    }
 }
 
 /// Complete discount-time input, separate from coupon accrual and compounding.
@@ -194,6 +230,8 @@ impl DiscountTimeBasis {
 /// Prepare 1..4096 sorted, strictly future original cash entries exactly once.
 /// The mesh may contain periods with no cash, and multiple amounts may share a
 /// payment date. Full ICMA/ACT365L coverage is mandatory, including payment tails.
+/// A strictly future payment may have zero discount years under 30/360.
+/// Use PreparedDatedCash for pricing; raw supplied-time pricing remains positive-only.
 /// Signed cash is admitted for pricing; inverse owners enforce root selection.
 pub fn prepare_dated_cash(
     cash: &[DatedYieldCash],
@@ -214,8 +252,8 @@ pub fn prepare_dated_cash(
             }
             previous = c.date;
             let time = number(basis.fraction(settlement, c.date)?)?;
-            if time <= 0.0 {
-                return Err(invalid("positive discount years required"));
+            if time < 0.0 {
+                return Err(invalid("negative discount years are not supported"));
             }
             Ok((time, number(c.amount.decimal())?))
         })

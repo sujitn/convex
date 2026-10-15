@@ -73,6 +73,14 @@ pub enum BondError {
         reason: String,
     },
 
+    /// No yield can produce the supplied target from the complete cash.
+    #[error("No yield matches the supplied dated cash and target")]
+    YieldNoRoot,
+
+    /// Constant cash price cannot identify a unique yield.
+    #[error("Yield is not uniquely identified by constant dated cash")]
+    YieldNonUnique,
+
     /// Yield calculation failed to converge.
     #[error("Yield calculation failed to converge after {iterations} iterations")]
     YieldConvergenceFailed {

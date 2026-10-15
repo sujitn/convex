@@ -523,6 +523,48 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify future-native-default
+        run: cargo test --locked -p convex-bonds --test future_zero_time
+
+      - name: Qualify future-native-no-default
+        run: cargo test --locked -p convex-bonds --test future_zero_time --no-default-features
+
+      - name: Qualify future-native-schema
+        run: cargo test --locked -p convex-bonds --test future_zero_time --features schemars
+
+      - name: Qualify future-shared-default
+        run: cargo test --locked -p convex --test future_zero_time
+
+      - name: Qualify future-shared-no-default
+        run: cargo test --locked -p convex --test future_zero_time --no-default-features
+
+      - name: Qualify future-shared-schema
+        run: cargo test --locked -p convex --test future_zero_time --features schemars
+
+      - name: Qualify future-c
+        run: cargo test --locked -p convex-ffi --test future_zero_time
+
+      - name: Qualify future-mcp
+        run: cargo test --locked -p convex-mcp --test future_zero_time
+
+      - name: Qualify future-wasm
+        run: cargo test --locked -p convex-wasm --test future_zero_time
+
+      - name: Qualify future-wasm-no-default
+        run: cargo test --locked -p convex-wasm --test future_zero_time --no-default-features
+
+      - name: Qualify future-example-default
+        run: cargo run --locked -p convex --example future_zero_time
+
+      - name: Qualify future-example-no-default
+        run: cargo run --locked -p convex --example future_zero_time --no-default-features
+
+      - name: Qualify future-example-schema
+        run: cargo run --locked -p convex --example future_zero_time --features schemars
+
+      - name: Verify future zero-time independent references
+        run: python3 tests/scripts/future_zero_time_reference.py
+
       - name: Qualify 30E/360 ISDA termination
         run: cargo test --locked -p convex-core --test thirty360_isda --all-features
 

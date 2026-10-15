@@ -3,7 +3,7 @@
 //! quotation convention or manufacture ICMA reference periods.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use super::discount_time::{prepare_dated_cash, DatedYieldCash, DiscountTimeBasis};
+use super::discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash};
 use super::yield_cash;
 use crate::{error::BondResult, traits::BondCashFlow, BondError};
 use convex_core::{
@@ -85,13 +85,13 @@ pub fn dated_cash_yield_risk_with_basis(
             "1..4096 cash entries and finite annual yield required",
         ));
     }
-    let prepared = prepare_dated_cash(cash, settlement, basis)?;
-    yield_cash::validate_cash(&prepared, true)?;
+    let prepared = PreparedDatedCash::new(cash, settlement, basis)?;
+    yield_cash::validate_dated_cash(prepared.discount_cash(), true)?;
     let mut pv = 0.0;
     let mut first = 0.0;
     let mut second = 0.0;
     let mut weighted = 0.0;
-    for (time, amount) in prepared {
+    for &(time, amount) in prepared.discount_cash() {
         let (df, d1, d2) = match compounding {
             Compounding::Continuous => {
                 let df = portable::exp(-annual_yield * time);

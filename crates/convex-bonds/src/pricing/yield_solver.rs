@@ -21,7 +21,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Date, Frequency};
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
-use super::discount_time::{prepare_bond_cash, DiscountTimeBasis};
+use super::discount_time::{prepare_bond_cash, DiscountTimeBasis, PreparedDatedCash};
 use super::yield_cash::{self, CashYieldCompounding};
 use crate::error::{BondError, BondResult};
 use crate::traits::{BondCashFlow, FixedCouponBond};
@@ -180,6 +180,14 @@ impl YieldSolver {
             0.05
         };
 
+        if cf_data.iter().any(|(time, _)| *time == 0.0) {
+            return self.solve_dated_cash(
+                &PreparedDatedCash::from_validated_dates(cf_data),
+                target,
+                self.cash_basis(periods_per_year)?,
+                initial_guess,
+            );
+        }
         self.solve_primitive(&cf_data, target, periods_per_year, initial_guess)
     }
 
@@ -242,6 +250,67 @@ impl YieldSolver {
         };
         let residual = yield_cash::price_cash(cash_flows, result.yield_value, compounding)?
             - target_dirty_price;
+        if !residual.is_finite() || residual.abs() >= self.config.tolerance {
+            return Err(BondError::YieldConvergenceFailed {
+                iterations: result.iterations,
+            });
+        }
+        Ok(YieldResult { residual, ..result })
+    }
+
+    /// Invert cash prepared from actual future dates, retaining constant cash.
+    /// Ordinary positive-time cash uses the unchanged raw solver. Constant price
+    /// has no identified yield; distinct typed outcomes report nonunique/no root.
+    pub fn solve_dated_cash(
+        &self,
+        prepared: &PreparedDatedCash,
+        target_dirty_price: f64,
+        compounding: CashYieldCompounding,
+        initial_guess: f64,
+    ) -> BondResult<YieldResult> {
+        let cash = prepared.discount_cash();
+        if cash.iter().all(|(time, _)| *time > 0.0) {
+            return self.solve_cash(cash, target_dirty_price, compounding, initial_guess);
+        }
+        self.config
+            .validate()
+            .map_err(|error| BondError::invalid_spec(error.to_string()))?;
+        yield_cash::validate_dated_cash(cash, true)?;
+        let initial_price = prepared.price(initial_guess, compounding)?;
+        if !target_dirty_price.is_finite() || target_dirty_price <= 0.0 {
+            return Err(BondError::invalid_spec(
+                "positive finite yield target required",
+            ));
+        }
+        let mut constant = 0.0;
+        let mut variable = Vec::with_capacity(cash.len());
+        for &(time, amount) in cash {
+            if time == 0.0 {
+                constant += amount;
+                if !constant.is_finite() {
+                    return Err(BondError::pricing_failed("constant dated cash overflow"));
+                }
+            } else {
+                variable.push((time, amount));
+            }
+        }
+        if !variable.iter().any(|(_, amount)| *amount > 0.0) {
+            return Err(if initial_price == target_dirty_price {
+                BondError::YieldNonUnique
+            } else {
+                BondError::YieldNoRoot
+            });
+        }
+        if target_dirty_price <= constant {
+            return Err(BondError::YieldNoRoot);
+        }
+        let result = self.solve_cash(
+            &variable,
+            target_dirty_price - constant,
+            compounding,
+            initial_guess,
+        )?;
+        let residual = prepared.price(result.yield_value, compounding)? - target_dirty_price;
         if !residual.is_finite() || residual.abs() >= self.config.tolerance {
             return Err(BondError::YieldConvergenceFailed {
                 iterations: result.iterations,
@@ -323,6 +392,10 @@ impl YieldSolver {
             day_count,
             self.discount_basis.as_ref(),
         )?;
+        if cf_data.iter().any(|(time, _)| *time == 0.0) {
+            return PreparedDatedCash::from_validated_dates(cf_data)
+                .price(yield_rate, self.cash_basis(periods_per_year)?);
+        }
         self.price_primitive(&cf_data, yield_rate, periods_per_year)
     }
 
@@ -372,92 +445,6 @@ pub fn current_yield_from_bond(
         bond.face_value(),
         clean_price,
     )
-}
-
-/// Calculates discount margin for floating rate notes.
-///
-/// Discount margin is the spread over the reference rate that makes
-/// the present value of projected cash flows equal to the dirty price.
-///
-/// Used for floating rate notes (FRNs) to determine the margin over
-/// the reference rate that equates the present value of projected
-/// cash flows to the market dirty price.
-///
-/// # Arguments
-///
-/// * `projected_cash_flows` - Cash flows projected using forward rates
-/// * `dirty_price` - Market dirty price (per 100 face value)
-/// * `reference_rate` - Current reference rate (e.g., SOFR, as decimal)
-/// * `settlement` - Settlement date
-/// * `day_count` - Day count convention
-/// * `frequency` - Payment frequency
-///
-/// # Returns
-///
-/// The discount margin as a decimal (e.g., 0.005 for 50bp)
-pub fn discount_margin(
-    projected_cash_flows: &[BondCashFlow],
-    dirty_price: Decimal,
-    reference_rate: f64,
-    settlement: Date,
-    day_count: DayCountConvention,
-    frequency: Frequency,
-) -> BondResult<f64> {
-    if projected_cash_flows.is_empty() {
-        return Err(BondError::invalid_spec("No cash flows provided"));
-    }
-
-    let target = dirty_price
-        .to_f64()
-        .filter(|v| v.is_finite() && *v > 0.0)
-        .ok_or_else(|| {
-            BondError::invalid_spec("positive finite discount-margin target required")
-        })?;
-    if !reference_rate.is_finite() {
-        return Err(BondError::invalid_spec("finite reference rate required"));
-    }
-    let periods_per_year = f64::from(frequency.periods_per_year());
-
-    // Period-aware year fractions (matches QL ISMA), same helper as the
-    // yield solver.
-    let cf_data = prepare_bond_cash(projected_cash_flows, settlement, day_count, None)?;
-
-    if cf_data.is_empty() {
-        return Err(BondError::invalid_spec("No future cash flows"));
-    }
-
-    yield_cash::validate_cash(&cf_data, true)?;
-    let basis = CashYieldCompounding::Periodic {
-        frequency: periods_per_year,
-    };
-    let pv_at_margin = |margin: f64| {
-        yield_cash::price_cash(&cf_data, reference_rate + margin, basis)
-            .map_or(f64::NAN, std::convert::identity)
-    };
-
-    // Objective function: PV - target
-    let objective = |margin: f64| pv_at_margin(margin) - target;
-
-    // Use Brent's method to solve for margin
-    // Search range: -10% to +20% spread (reasonable for most FRNs)
-    let config = SolverConfig::new(1e-10, 100);
-
-    match brent(objective, -0.10, 0.20, &config) {
-        Ok(result) => {
-            let residual =
-                yield_cash::price_cash(&cf_data, reference_rate + result.root, basis)? - target;
-            if !residual.is_finite() || residual.abs() >= config.tolerance {
-                return Err(BondError::YieldConvergenceFailed {
-                    iterations: result.iterations,
-                });
-            }
-            Ok(result.root)
-        }
-        Err(e) => Err(BondError::pricing_failed(format!(
-            "Failed to solve for discount margin: {}",
-            e
-        ))),
-    }
 }
 
 #[cfg(test)]

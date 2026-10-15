@@ -537,3 +537,24 @@ Use [dated cash timing](DATED-YIELD.md) and shared `cash_yield/dated_price`,
 `dated_solve`, `dated_risk` for explicitly supplied entitled dated cash. Full
 contract schedules, entitlement, quotation policy and paid-claim state retain
 their actual instrument/workflow owners.
+
+## Strictly future cash with zero discount time
+
+An actual payment after settlement can have zero discount years under 30/360.
+`PreparedDatedCash::new` validates the original dates and full discount context;
+its price retains that cash at a discount factor of one. Dated analytical risk
+keeps its PV with zero first and second yield derivatives. A zero discount time
+does not mean a payment has settled or an outstanding claim has disappeared.
+
+`YieldSolver::solve_dated_cash` retains constant cash and reprices the complete
+original cash before accepting a variable-cash yield. Constant price has no
+identified yield: a matching target returns `BondError::YieldNonUnique`, and
+other targets return `BondError::YieldNoRoot`. Mixed nonnegative cash also has
+no root at or below its constant-cash floor. Rust callers with exhaustive
+`BondError` matches must handle these two added variants. Shared diagnostics
+retain `invalid_input` with the distinct native kind. Raw supplied-time price
+and inverse methods retain their positive-time contract.
+
+The uncalled crate-private flat-reference discount-margin helper is removed.
+It had no public reexport or callers. Existing fixing-aware FRN and complete
+curve/model workflows retain their original requirements and owners.

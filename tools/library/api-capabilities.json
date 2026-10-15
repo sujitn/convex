@@ -30255,7 +30255,8 @@
     "tests/fixtures/library/reinvestment.json",
     "tests/fixtures/library/periodic-growth.json",
     "tests/fixtures/library/dated-yield.json",
-    "tests/fixtures/library/discount-accuracy.json"
+    "tests/fixtures/library/discount-accuracy.json",
+    "tests/fixtures/library/future-zero-time.json"
   ],
   "operation_routes": {
     "curve_time.date_to_tenor": {

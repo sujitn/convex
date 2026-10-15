@@ -4708,6 +4708,43 @@
           ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/receipts/complete-core-tests-and-doctests.json"
         ]
       }
+    },
+    {
+      "base_commit": "d7295511ba4c9cb90c56894ea6407fa2c52bb8a9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "Handle strictly future cash with zero explicit discount years in checked native dated price, analytical risk and inverse owners. A private numerical admission mode preserves raw positive-time APIs and ordinary positive-time outputs/diagnostics. PreparedDatedCash requires actual sorted future dates and complete original context; no deserializer or numerical-time constructor bypasses that boundary. Zero-time cash remains in PV with zero yield derivatives. Nonnegative constant price returns typed YieldNonUnique or YieldNoRoot; mixed targets at/below the constant floor have NoRoot. Variable cash uses the original bounded solver and acceptance reprices the full cash. Thin shared dispatch delegates native owners. Both native dated engines share admission. Remove the uncalled, nonexported private flat-reference discount-margin diagnostic. Preserve all1851original numeric pins/defaults/references/bounds and all8154original inputs. Original288Decimal520references and actual old-native rejection precede the candidate;80algebraic signed/floor edges precede its first financial execution.368new cases give8522 shared requests. New price1e-10/time1e-14/risk1e-8/rate1e-11/residual1e-10 bounds never alter old bounds. Retain literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all sealed history. No dependency/runtime/provider/database/MQ/C export/authority change, native waiver, acceptance or certificate. Full original broader native scope remains; only unavailable platform execution defers.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "b5c4a54f8238b7392271ade35279ae23d5473662c0917aabe9e0ba224e102e56",
+        "crates/convex-bonds/src/error.rs": "9594375156c4487e7944a59bf0537971480b32632c7959cfff7279e8046b143a",
+        "crates/convex-bonds/src/pricing/dated_cash.rs": "00fbd677a4cedfe256537f08946c98b722fb53cb0d74df9cff166509672e29c5",
+        "crates/convex-bonds/src/pricing/discount_time.rs": "7cafe26c813c3a4d46ae521f0e95f3e829966ca5234bbabab3273bf25343e2da",
+        "crates/convex-bonds/src/pricing/yield_cash.rs": "ca894176a06350bc237d078c75ecfd7b2baedd251e5e5227c23502b3136be281",
+        "crates/convex-bonds/src/pricing/yield_engine.rs": "be62ebd85bac5edb8f861d47498fedcaa890171ea1634893901d51e98592e262",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "8b49977d204bd15ae08ff700f65b8a6972b97c5f281fa6d4ff360a02cd3f3462",
+        "crates/convex-bonds/tests/future_zero_time.rs": "dcc0b962457adb78fb723efbbf96c4c11703084e50c00e918c86e75d26380bb3",
+        "crates/convex-ffi/tests/future_zero_time.rs": "d523fdad878aeb88c9f357b6a38e0d22768643b4f2975766836b2c40cc01709f",
+        "crates/convex-mcp/tests/future_zero_time.rs": "6a5850bea6b3a624c883c36fc6596caf5bf116de380bef28f56e4c70aaddb1b8",
+        "crates/convex-wasm/tests/future_zero_time.rs": "e42016462cfdc276330127c375ea1c74e6104f489852f5ee3929259321865bb0",
+        "crates/convex/examples/future_zero_time.rs": "89f3f418a84ae183fedfd792830ee7165ef6a2fc0a459e24d78df876bf4ef085",
+        "crates/convex/src/library/yield_pricing.rs": "3bcc3a8ae64c18432b27201af12bb8b9b453997161f6740b912655c98161016f",
+        "crates/convex/tests/future_zero_time.rs": "97fcc7c21faf94529a2b100d518e802af4a60610aa3f54564400310b783fadf9",
+        "docs/ROUTE-MIGRATION.md": "1d49349f52c6f12e55c4f9d9724af8276bc520a2849609606ef373af25443c89",
+        "tests/fixtures/library/future-zero-time.json": "3df8627426bffc0d7367eb0f74359dce4a72c51240207c7b29e6f1a22099dd93",
+        "tests/fixtures/library/future_zero_time_contract.rs": "f4a95a94e76a43ca2f79fe40f50503f5f16e71a65557a287c9c0a6ae012137d3",
+        "tests/scripts/future_zero_time_reference.py": "bb74c09b554771d9675c9d81d6bd899bed65d59cd8ae3a3b5879076acece6d74",
+        "tools/assurance/inventory.json": "7c5f6f1e1f573c2c6d8b66d64dc9fa98bc30a8a4c8de77ecc57f53821fa5b3ca",
+        "tools/assurance/numeric-evidence.json": "82c620b46d147018e1d003061b13164db43381c25f9b416bb71a8045024927c0",
+        "tools/library/api-capabilities.json": "37bba16a301834da56df737a6198352b513c72a6c2cdcb99b64ca27ef976e829",
+        "tools/library/library-inventory.json": "5d3211cd83793f4b530cd44eb020ebd94d9ef5fa731722d3ca8dcd158a12722d",
+        "tools/library/test_operations.py": "6cd727a0dbc524e5fd814532f90fa6227b01eb403779d2e9e517874842e9a364"
+      },
+      "tests": [
+        "Retain actual original native1failure and prior/current-bound288request rejection before repair. Original288references stay exact;80algebraic edges declared before first candidate financial execution.",
+        "Independent read-only Decimal520verifier and actual QuantLib1.40times/prices; direct prepared/native risk/inverse/both engines; raw positive-only and original date/context/domain/settings/cash guards.",
+        "All1851old numeric rows/physical bytes/defaults/bounds and embedded financial test sections remain. Fmt, workspace all-target/all-feature warnings-deniedClippy, native/default/no-default/schema/C/MCP/WASM and affected original suites.",
+        "64library42assurance4private/harness/API/scope/same-base checks. Preserve all14old final computational paths and bind15including the new control after builders stop. Fresh37943old financial comparisons,368independent final-native cases and8522native/C/actualJavaFFM/Node/browser envelopes, plus400JavaTreasury controls. Only one old capability corpus-path append may change its envelope."
+      ]
     }
   ]
 }

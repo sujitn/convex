@@ -28,7 +28,7 @@ use rust_decimal::Decimal;
 use convex_core::types::Date;
 use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
-use super::discount_time::{prepare_bond_cash, DiscountTimeBasis};
+use super::discount_time::{prepare_bond_cash, DiscountTimeBasis, PreparedDatedCash};
 use crate::error::{BondError, BondResult};
 use crate::traits::BondCashFlow;
 use crate::types::{YieldCalculationRules, YieldConvention};
@@ -329,6 +329,24 @@ impl YieldEngine for StandardYieldEngine {
             });
         }
 
+        if cf_data.iter().any(|(time, _)| *time == 0.0) {
+            let initial_guess = self.estimate_initial_yield(&cf_data, target, rules);
+            let result = super::YieldSolver::new()
+                .with_tolerance(self.tolerance)
+                .with_max_iterations(self.max_iterations)
+                .solve_dated_cash(
+                    &PreparedDatedCash::from_validated_dates(cf_data),
+                    target,
+                    super::yield_cash::standard_basis(rules.compounding)?,
+                    initial_guess,
+                )?;
+            return Ok(YieldEngineResult {
+                yield_value: result.yield_value,
+                iterations: result.iterations,
+                residual: result.residual,
+                convention: rules.convention,
+            });
+        }
         super::yield_cash::validate_cash(&cf_data, true)?;
         let initial_guess = self.estimate_initial_yield(&cf_data, target, rules);
 
