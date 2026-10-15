@@ -425,6 +425,32 @@ pub fn act365l_year_fraction(
         .ok_or(CashflowError::Arithmetic("ACT/365L division"))
 }
 
+/// Generate nominal periods from the exact supplied schedule anchor and roll.
+/// The requested coverage is explicit, including any actual payment tail.
+/// This does not adjust payments or infer a market convention or coupon tenor.
+pub fn generate_icma_reference_periods(
+    spec: &ScheduleSpec,
+    start: Date,
+    end: Date,
+) -> Result<Vec<ReferencePeriod>, CashflowError> {
+    validate_span(spec.start_date, spec.end_date)?;
+    validate_span(start, end)?;
+    if spec.frequency.is_zero() {
+        return Err(CashflowError::terms(
+            "frequency",
+            "ICMA references require a positive coupon frequency",
+        ));
+    }
+    let (_, anchor) = generate_dates(spec)?;
+    references(
+        start,
+        end,
+        anchor,
+        spec.frequency.months_per_period() as i32,
+        spec.end_of_month,
+    )
+}
+
 /// Check a complete supplied nominal mesh against the ORIGINAL schedule anchor.
 /// This only validates supplied context; it does not manufacture missing dates.
 /// Independent payments beyond maturity require explicit additional periods.

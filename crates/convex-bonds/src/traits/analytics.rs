@@ -89,9 +89,13 @@ pub trait BondAnalytics: Bond {
         if target <= 0.0 {
             return Err(BondError::invalid_spec("dirty price must be positive"));
         }
-        YieldSolver::new()
-            .with_convention(convention)
-            .solve_primitive(&cash, target, f64::from(frequency.periods_per_year()), 0.05)
+        let solver = YieldSolver::new().with_convention(convention);
+        solver.solve_dated_cash(
+            &cash,
+            target,
+            solver.cash_basis(f64::from(frequency.periods_per_year()))?,
+            0.05,
+        )
     }
 
     /// Dirty price per 100 using the canonical dated yield cashflows.
@@ -102,7 +106,12 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
     ) -> BondResult<f64> {
         let cash = self.yield_cash_flows(settlement, frequency)?;
-        YieldSolver::new().price_primitive(&cash, ytm, f64::from(frequency.periods_per_year()))
+        cash.price(
+            ytm,
+            crate::pricing::yield_cash::CashYieldCompounding::Periodic {
+                frequency: f64::from(frequency.periods_per_year()),
+            },
+        )
     }
 
     /// Clean price per 100 using the same accrued convention as inversion.
@@ -114,7 +123,7 @@ pub trait BondAnalytics: Bond {
     ) -> BondResult<f64> {
         let dirty = self.dirty_price_from_yield(settlement, ytm, frequency)?;
         let accrued = self
-            .accrued_interest(settlement)
+            .try_accrued_interest(settlement)?
             .to_f64()
             .ok_or_else(|| BondError::invalid_spec("accrued conversion"))?;
         Ok(dirty - accrued)

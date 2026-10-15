@@ -113,6 +113,41 @@ fn from_continuous(rate: f64, compounding: Compounding) -> BondResult<Decimal> {
     Ok(result)
 }
 
+/// Actual instrument dates have already validated zero discount time.
+/// Retain absolute original Decimal cash rather than a floating conversion.
+pub(crate) fn dated_price_from_yield(
+    redemption: Decimal,
+    rate: Decimal,
+    years: f64,
+    compounding: Compounding,
+) -> BondResult<Decimal> {
+    if years != 0.0 {
+        return price_from_yield(redemption, rate, years, compounding);
+    }
+    positive(redemption, "redemption")?;
+    continuous(rate, compounding)?;
+    Ok(redemption)
+}
+
+/// Constant cash has either no yield solution or no uniquely identified yield.
+pub(crate) fn dated_yield_from_price(
+    redemption: Decimal,
+    price: Decimal,
+    years: f64,
+    compounding: Compounding,
+) -> BondResult<Decimal> {
+    if years != 0.0 {
+        return yield_from_price(redemption, price, years, compounding);
+    }
+    positive(redemption, "redemption")?;
+    positive(price, "price")?;
+    Err(if price == redemption {
+        BondError::YieldNonUnique
+    } else {
+        BondError::YieldNoRoot
+    })
+}
+
 /// Equivalent annualized decimal rate. Same-convention inputs are validated
 /// and returned exactly; negative rates require an exactly positive source base.
 pub fn convert_yield(rate: Decimal, from: Compounding, to: Compounding) -> BondResult<Decimal> {

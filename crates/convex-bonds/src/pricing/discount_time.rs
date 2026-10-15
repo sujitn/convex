@@ -37,6 +37,23 @@ pub struct PreparedDatedCash {
     cash: Vec<(f64, f64)>,
 }
 
+impl std::ops::Deref for PreparedDatedCash {
+    type Target = [(f64, f64)];
+
+    fn deref(&self) -> &Self::Target {
+        self.discount_cash()
+    }
+}
+
+impl<'a> IntoIterator for &'a PreparedDatedCash {
+    type Item = &'a (f64, f64);
+    type IntoIter = std::slice::Iter<'a, (f64, f64)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.cash.iter()
+    }
+}
+
 impl PreparedDatedCash {
     /// Build from actual dates and the complete supplied discount context.
     pub fn new(
@@ -105,7 +122,7 @@ fn number(value: Decimal) -> BondResult<f64> {
             BondError::pricing_failed("discount time/cash conversion overflow or underflow")
         })
 }
-fn interval(start: Date, end: Date, allow_equal: bool) -> BondResult<()> {
+pub(crate) fn interval(start: Date, end: Date, allow_equal: bool) -> BondResult<()> {
     if !(1..=9999).contains(&start.year())
         || !(1..=9999).contains(&end.year())
         || end < start

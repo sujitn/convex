@@ -329,7 +329,7 @@ impl YieldSolver {
         yield_cash::price_cash(cash, yield_rate, self.cash_basis(frequency)?)
     }
 
-    fn cash_basis(&self, frequency: f64) -> BondResult<CashYieldCompounding> {
+    pub(crate) fn cash_basis(&self, frequency: f64) -> BondResult<CashYieldCompounding> {
         if !frequency.is_finite() || frequency <= 0.0 {
             return Err(BondError::invalid_spec(
                 "positive finite supplied frequency required",

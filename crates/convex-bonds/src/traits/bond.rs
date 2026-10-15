@@ -211,13 +211,14 @@ pub trait Bond {
         Ok(flows)
     }
 
-    /// Future yield discount times and cash amounts per 100 quote face.
-    /// Fixed bonds override this with their validated period references.
+    /// Validated future yield cash per100quote face, with immutable discount times.
+    /// Fixed bonds retain their original schedule references. A strictly future
+    /// zero-time payment stays in cash; raw numerical times cannot construct this value.
     fn yield_cash_flows(
         &self,
         settlement: Date,
         frequency: Frequency,
-    ) -> crate::BondResult<Vec<(f64, f64)>> {
+    ) -> crate::BondResult<crate::pricing::discount_time::PreparedDatedCash> {
         use rust_decimal::prelude::ToPrimitive;
         let face = self
             .face_value()
@@ -239,11 +240,11 @@ pub trait Bond {
             crate::pricing::discount_time::prepare_bond_cash(&flows, settlement, dc, None)?;
         for (time, amount) in &mut result {
             *amount *= 100.0 / face;
-            if !time.is_finite() || *time <= 0.0 || !amount.is_finite() {
+            if !time.is_finite() || *time < 0.0 || !amount.is_finite() {
                 return Err(crate::BondError::invalid_spec("invalid yield cashflow"));
             }
         }
-        Ok(result)
+        Ok(crate::pricing::discount_time::PreparedDatedCash::from_validated_dates(result))
     }
 
     /// Returns the next coupon date after the given date.

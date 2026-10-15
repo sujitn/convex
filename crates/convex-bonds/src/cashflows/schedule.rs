@@ -136,6 +136,8 @@ impl ScheduleConfig {
 /// Contains unadjusted and adjusted dates for a bond's coupon schedule.
 #[derive(Debug, Clone)]
 pub struct Schedule {
+    /// Exact original schedule terms used by the anchored native generator.
+    spec: ScheduleSpec,
     /// Shared validated contractual dates, references and coupon periods.
     coupon_schedule: CouponSchedule,
     /// Adjusted schedule dates (for payment)
@@ -215,11 +217,17 @@ impl Schedule {
                 .map(CouponPeriod::payment_date),
         );
         Ok(Self {
+            spec,
             coupon_schedule,
             adjusted_dates,
             calendar: config.calendar,
             convention: config.business_day_convention,
         })
+    }
+
+    /// Original validated anchor, roll and stub terms; no payment dates substitute.
+    pub(crate) fn spec(&self) -> &ScheduleSpec {
+        &self.spec
     }
 
     /// Shared period details, including unadjusted accrual and ICMA references.

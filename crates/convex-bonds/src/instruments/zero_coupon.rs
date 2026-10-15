@@ -14,6 +14,7 @@ use convex_core::daycounts::DayCountConvention;
 use convex_core::types::{Currency, Date, Frequency};
 
 use crate::error::{BondError, BondResult};
+use crate::pricing::discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash};
 use crate::traits::{Bond, BondCashFlow};
 use crate::types::{BondIdentifiers, BondType, CalendarId, Cusip, Isin};
 
@@ -199,7 +200,7 @@ impl ZeroCouponBond {
         ZeroCouponBondBuilder::default()
     }
 
-    /// Creates a simple zero coupon bond (backward compatible).
+    /// Creates a zero coupon bond; supply its original issue date before pricing.
     #[must_use]
     pub fn new(isin: impl Into<String>, maturity: Date, currency: Currency) -> Self {
         let isin_str = isin.into();
@@ -218,7 +219,7 @@ impl ZeroCouponBond {
         }
     }
 
-    /// Sets the face value (backward compatible builder method).
+    /// Sets the face and redemption value.
     #[must_use]
     pub fn with_face_value(mut self, value: Decimal) -> Self {
         self.face_value = value;
@@ -226,7 +227,7 @@ impl ZeroCouponBond {
         self
     }
 
-    /// Sets the issue date (backward compatible builder method).
+    /// Sets the original issue date.
     #[must_use]
     pub fn with_issue_date(mut self, date: Date) -> Self {
         self.issue_date = date;
@@ -288,8 +289,8 @@ impl ZeroCouponBond {
         "UNKNOWN".to_string()
     }
 
-    /// Validate original active terms and use the shared checked year-fraction owner.
-    fn years_to_maturity(&self, settlement: Date) -> BondResult<f64> {
+    /// Validate original active dates and absolute contractual amounts.
+    fn validate_active(&self, settlement: Date) -> BondResult<()> {
         if !(1..=9999).contains(&self.issue_date.year())
             || self.issue_date >= self.maturity
             || settlement < self.issue_date
@@ -299,9 +300,33 @@ impl ZeroCouponBond {
         {
             return Err(BondError::invalid_spec("zero-coupon pricing requires positive face/redemption and active original issue/settlement/maturity"));
         }
-        let years =
-            convex_curves::contracts::year_fraction(settlement, self.maturity, self.day_count)
-                .map_err(|error| BondError::invalid_spec(error.to_string()))?;
+        Ok(())
+    }
+
+    fn years_with_basis(&self, settlement: Date, basis: &DiscountTimeBasis) -> BondResult<f64> {
+        self.validate_active(settlement)?;
+        if basis.day_count() != self.day_count {
+            return Err(BondError::invalid_spec(
+                "explicit context does not match the zero-coupon discount day count",
+            ));
+        }
+        if let DiscountTimeBasis::Thirty360EIsda { termination_date } = basis {
+            if *termination_date != self.maturity {
+                return Err(BondError::invalid_spec(
+                    "zero-coupon termination must match original maturity",
+                ));
+            }
+        }
+        let cash = [DatedYieldCash {
+            date: self.maturity,
+            amount: ExactDecimal::new(self.redemption_value),
+        }];
+        let prepared = PreparedDatedCash::new(&cash, settlement, basis)?;
+        let years = prepared
+            .discount_cash()
+            .first()
+            .ok_or_else(|| BondError::invalid_spec("missing zero-coupon redemption"))?
+            .0;
         if years > 150.0 {
             return Err(BondError::invalid_spec(
                 "zero-coupon pricing horizon exceeds150years",
@@ -310,11 +335,34 @@ impl ZeroCouponBond {
         Ok(years)
     }
 
+    /// Retain the existing context-free convention boundary.
+    fn years_to_maturity(&self, settlement: Date) -> BondResult<f64> {
+        self.validate_active(settlement)?;
+        if !matches!(
+            self.day_count,
+            DayCountConvention::Act360
+                | DayCountConvention::Act365Fixed
+                | DayCountConvention::ActActIsda
+                | DayCountConvention::Thirty360US
+                | DayCountConvention::Thirty360E
+        ) {
+            return Err(BondError::invalid_spec(
+                "zero-coupon convention requires an explicit discount-time basis",
+            ));
+        }
+        self.years_with_basis(
+            settlement,
+            &DiscountTimeBasis::Calendar {
+                day_count: self.day_count,
+            },
+        )
+    }
+
     /// Checked absolute clean cash price of the original contractual redemption.
     /// Yield is a decimal fraction. Settlement is supplied directly without lag.
     /// Unsupported day-count context, inactive terms and numerical failures error.
     pub fn price_from_yield(&self, yield_rate: Decimal, settlement: Date) -> BondResult<Decimal> {
-        crate::pricing::zero::price_from_yield(
+        crate::pricing::zero::dated_price_from_yield(
             self.redemption_value,
             yield_rate,
             self.years_to_maturity(settlement)?,
@@ -323,13 +371,60 @@ impl ZeroCouponBond {
     }
 
     /// Checked decimal yield from an absolute cash price and original redemption.
-    /// Par returns zero legitimately; invalid cash or dates never return a fallback.
+    /// At positive time par returns zero. Zero time returns a structural root error.
     pub fn yield_from_price(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
-        crate::pricing::zero::yield_from_price(
+        crate::pricing::zero::dated_yield_from_price(
             self.redemption_value,
             price,
             self.years_to_maturity(settlement)?,
             self.compounding,
+        )
+    }
+
+    /// Absolute original redemption price with the full supplied discount context.
+    /// Contextual conventions require actual nominal/coupon/termination inputs.
+    /// A strictly future zero-time redemption is retained exactly at any valid yield.
+    pub fn price_from_yield_with_basis(
+        &self,
+        yield_rate: Decimal,
+        settlement: Date,
+        basis: &DiscountTimeBasis,
+    ) -> BondResult<Decimal> {
+        crate::pricing::zero::dated_price_from_yield(
+            self.redemption_value,
+            yield_rate,
+            self.years_with_basis(settlement, basis)?,
+            self.compounding,
+        )
+    }
+
+    /// Same original cash and supplied time basis as pricing; no seed yield is inferred.
+    pub fn yield_from_price_with_basis(
+        &self,
+        price: Decimal,
+        settlement: Date,
+        basis: &DiscountTimeBasis,
+    ) -> BondResult<Decimal> {
+        crate::pricing::zero::dated_yield_from_price(
+            self.redemption_value,
+            price,
+            self.years_with_basis(settlement, basis)?,
+            self.compounding,
+        )
+    }
+
+    /// Continuous inverse over the same supplied original context and absolute cash.
+    pub fn continuous_rate_with_basis(
+        &self,
+        price: Decimal,
+        settlement: Date,
+        basis: &DiscountTimeBasis,
+    ) -> BondResult<Decimal> {
+        crate::pricing::zero::dated_yield_from_price(
+            self.redemption_value,
+            price,
+            self.years_with_basis(settlement, basis)?,
+            Compounding::Continuous,
         )
     }
 
@@ -374,7 +469,7 @@ impl ZeroCouponBond {
 
     /// Checked continuous decimal rate from original redemption and absolute price.
     pub fn continuous_rate(&self, price: Decimal, settlement: Date) -> BondResult<Decimal> {
-        crate::pricing::zero::yield_from_price(
+        crate::pricing::zero::dated_yield_from_price(
             self.redemption_value,
             price,
             self.years_to_maturity(settlement)?,

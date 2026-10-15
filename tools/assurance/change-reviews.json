@@ -4745,6 +4745,43 @@
         "All1851old numeric rows/physical bytes/defaults/bounds and embedded financial test sections remain. Fmt, workspace all-target/all-feature warnings-deniedClippy, native/default/no-default/schema/C/MCP/WASM and affected original suites.",
         "64library42assurance4private/harness/API/scope/same-base checks. Preserve all14old final computational paths and bind15including the new control after builders stop. Fresh37943old financial comparisons,368independent final-native cases and8522native/C/actualJavaFFM/Node/browser envelopes, plus400JavaTreasury controls. Only one old capability corpus-path append may change its envelope."
       ]
+    },
+    {
+      "base_commit": "95e65372b3d28843f35ffac7f0b8ebf66f2e7b8f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "Retain five actual original native instrument failures and their full source freeze. Use actual future dates for zero-coupon zero-time cash, preserving exact original Decimal redemption and distinct YieldNonUnique/YieldNoRoot outcomes. Add explicit matching complete time-basis price/yield/continuous methods for all ten day counts; retain the old context-free convention guard and raw positive-time zero helpers. Bind 30E360ISDA termination to original maturity. PreparedDatedCash is the immutable Bond yield-cash return type: no external raw-time constructor/mutation. Fixed analytics delegates prepared native price/inverse; ordinary positive time uses the original bounded solver. ICMA fixed payment time uses native original schedule anchor/stubs/roll and the complete nominal mesh through actual payments. Remove the final-denominator tail extension and cash-index assumption from that ICMA path. Other fixed quotation laws retain their existing semantics and qualification requirements. Preserve every1860old numeric pin/reference/default/bound and all8522shared requests/envelopes; eight additive controls give1868pins. Original60zero instruments and fixed price/time/risk/structural references precede implementation;150additional Decimal520complete-context cases are declared after original failures/source edits but before first candidate execution. Price1e-10/time1e-14/risk1e-8/yield1e-11/full-residual1e-10 bounds do not alter old bounds. Bind all15prior computational paths plus two actual final-profile native control executables after builders stop. No dependency/provider/runtime/DB/MQ/C export/route/count/authority change, native waiver, acceptance or certificate. Retain literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all sealed history. Full original broader native scope remains; only unavailable platform execution defers.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "c8fb5be1c6109be2e2d965903655de6a2427cf1c93b2b1292a1673e628f5c463",
+        "crates/convex-bonds/src/cashflows/schedule.rs": "4ca386b2202864933ea770eed427956b01fe12d9ca8a3bb4ac6f91ff02f567c0",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "b4cbab3048caa9c64601dd8e4ce4e0baa0804075996c192a583db8812a00fbbf",
+        "crates/convex-bonds/src/instruments/zero_coupon.rs": "4b235c5158a2b8dfc168e92012d2c970ba80a4c671b9646950bafa35cbff0a55",
+        "crates/convex-bonds/src/pricing/discount_time.rs": "8e7c9c6cb46877d6e9e577c9bb807a36afdde5acac472c71e472cacec5b5aa52",
+        "crates/convex-bonds/src/pricing/yield_solver.rs": "f27da8663299390e97cf6b24d0efe90ef2c53c48724ace42627535edd07b115a",
+        "crates/convex-bonds/src/pricing/zero.rs": "a0c3e60d7cbf247ad2099142b9fa46b1cfcc6f5dd1d53bb094bb7919953c9477",
+        "crates/convex-bonds/src/traits/analytics.rs": "839f968c17a95c40d7673d18f83b23841f0bb781138d253db94026d02b3e921c",
+        "crates/convex-bonds/src/traits/bond.rs": "f9be2f0b205ed58e457c166a2a67c1c72d2af3ef3f38621db9c6dfd4c7917750",
+        "crates/convex-bonds/tests/fixed_payment_time.rs": "3bd265a4f4a491afb4094e1d1e475287a234f599a487a17a0893addbaf50dc07",
+        "crates/convex-bonds/tests/fixtures/fixed-icma-tail-risk.json": "fb0718b9172149b38174e9511e3e037d9c3424dc02396f8daeb11e9784b5f572",
+        "crates/convex-bonds/tests/fixtures/fixed-icma-tail.json": "c5308bc0025194fd15a7ad6a1100f6ff67b219e5778114e12558f08aaddb93e0",
+        "crates/convex-bonds/tests/fixtures/fixed-zero-time.json": "ab803a57b83da4ab516da4a18b509e33ed65f5644c842f710ccd45054d2dbcf7",
+        "crates/convex-bonds/tests/fixtures/future-zero-instrument.json": "b567956bd6b9a959e1f8518b6948666cebd311ea83df23db6855e1bb1c3e539a",
+        "crates/convex-bonds/tests/fixtures/zero-instrument-context.json": "cbd1215a109d5f9db20f64cd0370339e6dcedb3fcec62d2c1d184d2f179529a4",
+        "crates/convex-bonds/tests/zero_instrument_time.rs": "0c0b5bbfe4b0d9f8df5afdfadb525d989a9c71d662113ba7c1fc0fc0c76c14ae",
+        "crates/convex-core/src/cashflows/mod.rs": "7cd0903a970d1f702fa63045ca0255857e88ae022be1593768c71348d06a21e3",
+        "crates/convex-core/src/cashflows/schedule.rs": "e883e21da2cbbed772ea2347321364d12b861057abb7aa7e44c6cbe0f0cd59f2",
+        "docs/ROUTE-MIGRATION.md": "21e91014ef38764d34a2a3b1a9523b84c12f3b7d94dee0535e7a8026e9c3284b",
+        "tests/scripts/dated_instrument_reference.py": "92c3565e4ee015ff0a37ecd6f13b51a14001baf8a80e123ed1599de5d8c00801",
+        "tools/assurance/inventory.json": "4da02cc55c1ed622e3c10f1ef5d5d503dbde14869245d89fefd60373059b4173",
+        "tools/assurance/numeric-evidence.json": "e940887a5b5c20a987ad1e9afb0158b6c69ab3ec35660934a0d2c196be05fe7f",
+        "tools/library/library-inventory.json": "e252eecf03510cea894be836aeb3725bf6b5c16e6fda1a88559e7de1e1831b7e"
+      },
+      "tests": [
+        "Retain actual original native1pass5failures and complete source. No original numerical expectation changes; full protected test bodies and all1860oldpins/defaults/bounds remain.",
+        "Independent original60zero instruments, fixed zero-time/ICMA-tail references and150new complete-context cases. Read-only Decimal/Fraction verification; actual available QuantLib comparison. Direct default/no-default/schema native controls.",
+        "Fmt and full workspace/all-target/all-feature warnings-deniedClippy; complete core tests/doctests,365bond330analytics, original zero/terms/quotes/dated/accuracy/yield/risk and full no-defaultWASM suites.",
+        "64library42assurance4private/harness/API/literal-scope/same-base/source/physical conservation. Bind15oldplus2actualnativecontrol binaries after all builders stop; fresh bound native controls,37943original financial comparisons,8522unchanged native/C/JDK26FFM/Node/browser envelopes and400JavaTreasury checks."
+      ]
     }
   ]
 }

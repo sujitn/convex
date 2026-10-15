@@ -558,3 +558,31 @@ and inverse methods retain their positive-time contract.
 The uncalled crate-private flat-reference discount-margin helper is removed.
 It had no public reexport or callers. Existing fixing-aware FRN and complete
 curve/model workflows retain their original requirements and owners.
+
+
+### Native instrument discount-time context
+
+`Bond::yield_cash_flows` now returns `PreparedDatedCash`. Its slice view and
+iteration retain original per100cash units; mutation and construction from raw
+numerical times are unavailable. Custom implementations must return cash checked
+against actual future dates and a complete `DiscountTimeBasis`. Fixed-bond ICMA
+time uses the original schedule anchor, stub and roll through every actual
+payment, including the next nominal period after maturity. Coupon entitlement
+and accrued amounts retain their original owners. Other fixed-bond quotation
+conventions retain their existing semantics and their remaining qualification.
+
+Fixed-bond price and inverse methods delegate to the prepared native cash owner.
+Strictly future zero-time cash stays in PV. Matching constant-price targets return
+`YieldNonUnique`; other positive targets return `YieldNoRoot`. Ordinary positive
+time follows the same original solver and native zero-coupon kernel.
+
+`ZeroCouponBond::{price_from_yield_with_basis,yield_from_price_with_basis,
+continuous_rate_with_basis}` accepts an explicit matching discount context.
+ICMA requires its actual nominal mesh; ACT365L requires actual determination
+periods; 30E/360 ISDA requires the original termination matching maturity. The
+context-free methods keep their existing convention boundary. These methods
+use absolute original Decimal redemption and price, independently of face. At
+zero time, a valid yield prices the exact redemption and inverse methods return
+a structural root error. Public raw time-only zero-coupon helpers still require
+positive years. This API does not choose a market convention or supply a model
+or production certificate.
