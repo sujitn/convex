@@ -2084,12 +2084,14 @@
     },
     {
       "path": "crates/convex-core/src/daycounts/thirty360.rs",
-      "sha256": "b92c23eeeb16e7d6d29cc30b379cb67f7d68e000d3b0c22f6f743a89b3c5170b",
-      "invariants": "New checked 30E/360 ISDA only exempts final February end; 31 always becomes30. Existing infallible compatibility kernel and all old tests unchanged.",
-      "bounds": "Checked ordered canonical dates1..9999; finite integer days and denominator360.",
-      "failure_contract": "New checked typed date/domain errors; old compatibility preconditions tracked separately.",
+      "sha256": "2dd7c698b802f2c0bbcfd74ac9c99413e8a4b8dd3a5f038105848eb4fbe572ef",
+      "invariants": "One raw and checked 30E/360 ISDA integer-day rule. Every31st becomes30; only February month-end is excepted at termination. The single original61to60unit correction has explicit human approval.",
+      "bounds": "Checked ordered canonical dates1..9999; unchanged termination-date validation; finite integer days divided by360. New1752case reference grid: exact day counts and original1e-14fraction bound.",
+      "failure_contract": "Unchanged checked typed date/domain errors. No all-month compatibility exception or unqualified vendor-matching claim.",
       "tests": [
-        "crates/convex-core/tests/cashflow_primitives.rs"
+        "crates/convex-core/tests/cashflow_primitives.rs",
+        "crates/convex-core/tests/thirty360_isda.rs",
+        "crates/convex-core/tests/fixtures/thirty360-isda.json"
       ],
       "exceptions": [
         "ASR-002"

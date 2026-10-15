@@ -523,6 +523,9 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify 30E/360 ISDA termination
+        run: cargo test --locked -p convex-core --test thirty360_isda --all-features
+
       - name: Qualify checked periodic and AFB accuracy 0
         run: cargo test --locked -p convex-analytics --test discount_accuracy
 

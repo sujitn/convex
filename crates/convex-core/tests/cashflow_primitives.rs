@@ -472,10 +472,10 @@ fn ac1_checked_30e_isda_only_february_termination_is_exceptional() {
             .unwrap(),
         dec!(30) / dec!(360)
     );
-    // Existing compatibility kernel's numerical fixtures are deliberately unchanged.
+    // Raw and checked counters share the February-only termination rule.
     assert_eq!(
         last31.year_fraction(d("2025-02-28"), d("2025-03-31")),
-        dec!(31) / dec!(360)
+        dec!(30) / dec!(360)
     );
     let feb = Thirty360EIsda::new(Some(d("2025-02-28")));
     assert_eq!(

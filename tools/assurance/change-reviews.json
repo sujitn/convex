@@ -4672,6 +4672,42 @@
           ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/protected-frequency-review/proposed-pinned-correction.patch"
         ]
       }
+    },
+    {
+      "base_commit": "3c8285dce44b669e3456d24a18f7e35eaa5edf00",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "Correct the human-approved 30E/360 ISDA March-maturity error: every 31st becomes day 30; only February month-end retains its actual day at termination. The checked fraction reuses the same native integer-day rule after unchanged forward-date, calendar-range and termination-date validation. Remove duplicated checked arithmetic and incorrect all-month compatibility/provider claims. Two exact original expectations have explicit human approval: the January-March61to60unit assertion and the protected February-March31to30raw fraction, with their obsolete comments. The existing checked30expectation, all other original assertions, all positive references/defaults/bounds and8154shared requests remain. Exactly1848old numeric pins are unchanged; one old file/pin changes only by the approved two-line patch. Two additive native controls pin the predeclared 1,752-case exact calendar grid and its raw/checked typed consumer; 882 cases have actual QuantLib1.40 evidence. Preserve original compile/import and actual native-failure receipts. No dependency, runtime, provider, database, MQ, C export, route or authority change. Preserve literal 30 areas/174 combinations/2,154 Planned/80 shared/12 native/228 mapped/1,926 unmapped, every sealed packet and all broader required native scope. No task acceptance, native waiver or certificate.",
+      "tests": [
+        "Original new-control import compiler failure and actual old-native day-count failure retained; exact1752case independent calendar/Fraction grid at original1e-14fraction bound; original typed invalid-date controls.",
+        "Exact human-approved original61to60unit and protected31to30fraction/comments corrections only; 1848other original numeric pins, all other test assertions and all financial inputs/references/defaults/bounds stay exact. Retain the actual complete-core29pass1fail compatibility failure before the approved repair.",
+        "Fmt then workspace all-target/all-feature warnings-deniedClippy; default/all-feature core grid, complete core/bond/analytics/no-defaultWASM and original affected native controls;64library42assurance4private/harness/API/scope/same-base conservation.",
+        "Bind14binaries after every builder/reader stops; fresh37943originalISDA/QuantLib checks and exact8154native/C/actualJavaFFM/Node/browser full envelopes plus400JavaTreasury controls."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5bef06f316d230dc3251a2a0560be7ce0582a427694ac47e914a2c98d07276fc",
+        "crates/convex-core/src/daycounts/thirty360.rs": "2dd7c698b802f2c0bbcfd74ac9c99413e8a4b8dd3a5f038105848eb4fbe572ef",
+        "crates/convex-core/tests/cashflow_primitives.rs": "d20de6bfc1640027960d0f1b1677c1962a39bb211f258b525d85668566fb5b87",
+        "crates/convex-core/tests/fixtures/thirty360-isda.json": "8da72db9f3d33a4aabe81af676c111529cda604e1a03d60845cf1e408bf65f7b",
+        "crates/convex-core/tests/thirty360_isda.rs": "59ec7993112bc8493edc0139285993873f148b2bc7df39dcb860abdafa041135",
+        "tools/assurance/inventory.json": "34af22ff907861e5748f9f5dd219af48b05984f404f7342a9c7bebfc27ea678e",
+        "tools/assurance/numeric-evidence.json": "b102fc5f2e7092cb2c0fc93888e4b43fb6ea100ec5827bc0081a541209e0571d",
+        "tools/library/library-inventory.json": "688f312e7e410ae26e998a190e2066893ca64ad86b60cf38be18978364fc222c"
+      },
+      "quantitative_review": {
+        "reviewer": "Human user via explicit Codex conversation approval",
+        "reviewed_on": "2026-10-15",
+        "rationale": "Two actual explicit human conversation approvals, limited to the original2025Jan31toMar31maturity61to60unit correction and matching raw fix, and the protected2025Feb28toMar31maturity31to30raw fraction plus its obsolete compatibility comment. Existing checked expectations and actual QuantLib1.40 agree. The exact old protected file/pin refresh has a version increase and unchanged inputs, other29test functions and all bounds/defaults. No broader model/market/production certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/human-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/thirty360-review/proposal.json",
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/thirty360-review/proposed-oracle-correction.patch",
+          ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/human-compatibility-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/protected-compatibility-review/proposal.json",
+          ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/protected-compatibility-review/proposed-correction.patch",
+          ".ai/production-readiness/evidence/CVX-063-Thirty360-ISDA/receipts/complete-core-tests-and-doctests.json"
+        ]
+      }
     }
   ]
 }
