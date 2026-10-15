@@ -2061,12 +2061,22 @@
     },
     {
       "path": "crates/convex-core/src/daycounts/actact.rs",
-      "sha256": "88422e12838c961709763b037996299ef2be10507984166674bfeb1f0a746c72",
-      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress.",
-      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives.",
-      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total.",
+      "sha256": "a288e4e89aa6d857c2db83769763fe9574b86bbcf01b4bda85d9a8c294c715b3",
+      "invariants": "Compatibility calendar/daycount/compounding/fixing preconditions and file conveniences explicitly inventoried; checked inputs required at ingress. CVX-063 periodic discount and ACT/ACT AFB accuracy. Five actual original native failures are retained. One checked native periodic/annual price kernel uses portable log1p/log/exp, retaining tiny rates and finite discount exponents without overflowing intermediate period counts; remove duplicate power/derivative ordering. Correct AFB backward anniversaries and half-open leap-day remainder, with reversed-date sign and bounded calendar work. Original1839numeric rows/files/defaults/bounds and7606full requests remain;548new independent Decimal>=520 emitted110digit price cases and855exact Fraction AFB forward/reverse/equal cases precede candidate execution. The five original references/bounds stay unchanged. New f64 range references explicitly use exact binary64 inputs before any candidate run. Old financial test bodies/expectations remain exact. No provider/storage/MQ/runtime/dependency/C export or authority change. Original literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all historical sealed evidence remain. Full original native product/model/calibration/optional/claim/physical/causal mixed-book/exact-operation scope remains; no acceptance, native waiver, independent quantitative approval or certificate. Only unavailable platform execution defers. The new raw AFB control compares the actual native Decimal output before optional binary64 conversion. Retain its actual9998year conversion-adapter failure.24fractional reference digits plus the entire1e-24truncation reserve are checked INSIDE the ORIGINAL1e-14bound; no reference or bound changes. The exact engineering-request count control retains every old4975+...+665addend and appends548only. Preserve the partial64control run and interrupted schema-profile receipts(actual-2), plus isolated actual8154!=7606failure. Production financial Rust, all request/reference/bound bytes, all1839original numeric rows/defaults and literal scope stay exact.",
+      "bounds": "Host dates1..9999/span150*366days; calendar searches require a reachable business day; general custom callbacks need checked shared primitives. Accuracy owner: original price1e-10/time1e-14 absolute;548prices855rawAFBcontrols declared before candidate execution. Periodic cash remains1..4096 with original finite/positive domain and nonzero-underflow guards; AFB anniversary work is bounded by the actual representable calendar year span.",
+      "failure_contract": "Existing fallible APIs return typed errors; legacy infallible preconditions not certified as total. Invalid periodic/annual domains, arithmetic overflow or nonzero underflow remain typed errors. No high-frequency cap or replacement day count.",
       "tests": [
-        "crates/convex-core/tests/assurance.rs"
+        "crates/convex-core/tests/assurance.rs",
+        "crates/convex-analytics/tests/discount_accuracy.rs",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy-reproduction.json",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy.json",
+        "tests/fixtures/library/discount-accuracy.json",
+        "tests/fixtures/library/discount_accuracy_contract.rs",
+        "crates/convex/tests/discount_accuracy.rs",
+        "crates/convex/examples/discount_accuracy.rs",
+        "crates/convex-ffi/tests/discount_accuracy.rs",
+        "crates/convex-mcp/tests/discount_accuracy.rs",
+        "crates/convex-wasm/tests/discount_accuracy.rs"
       ],
       "exceptions": [
         "ASR-002"
@@ -5113,10 +5123,10 @@
     },
     {
       "path": "crates/convex-bonds/src/pricing/yield_cash.rs",
-      "sha256": "f67ba073cbc09f1161ae79762358a252b70b8a6140e0bda7011ef760290373ef",
-      "invariants": "CVX-063 checked supplied-cash numerical yield pricing/inverses. One native owner retains input cash/time units and original ordinary financial operators, with explicit periodic/annual/continuous/simple laws, finite domains, overflow/nonzero-underflow and bounded cash/settings checks. Signed cash may be priced; unique inverse admission requires nonnegative cash with positive exposure. Existing Newton/Brent/defaults/seeds remain; failed trials cannot become accepted roots and final native price residuals are checked. Unsupported convention enums cannot silently use Street. Direct dirty/clean and YieldEngine prices return Result. Analytics StandardYieldEngine delegates to the native type; Street Decimal conversion uses checked native reporting. Retain dated-time/ICMA/accrued/calendar limitations as genuine separate requirements.72 independent Decimal110 prices and48 inverses precede candidate execution; one exact rational dated-year control,158shared120financial38typed failures. Actual initial invalid annual-domain and ambiguous signed inverse failures retained. Preserve1788 numeric rows/defaults,6069prior requests and all sealed physical evidence;10additive pins give1798,158requests give6227. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. No full contextual conventions/signed-root selection, broader model/calibration/claim/physical/mixed-book scope, independent approval, production latency or unavailable Windows/Excel qualification inferred.",
-      "bounds": "1..4096 cash; positive finite time/frequency/target; finite discount-law domain; settings validated with original10000 iteration ceiling.72Decimal110 prices1e-10 absolute,48inverses1e-9 rate and unchanged1e-10 native price residual; no market convention inferred.",
-      "failure_contract": "Typed native Result on invalid inputs, unsupported aliases, arithmetic overflow/nonzero underflow, ambiguity or convergence; no successful price/root from failed trials. Thin shared dispatch preserves actual native diagnostics.",
+      "sha256": "e85340e76c2d0344da25c3a248077a672da2c4eff578c8f2df5bae983761b898",
+      "invariants": "CVX-063 checked supplied-cash numerical yield pricing/inverses. One native owner retains input cash/time units and original ordinary financial operators, with explicit periodic/annual/continuous/simple laws, finite domains, overflow/nonzero-underflow and bounded cash/settings checks. Signed cash may be priced; unique inverse admission requires nonnegative cash with positive exposure. Existing Newton/Brent/defaults/seeds remain; failed trials cannot become accepted roots and final native price residuals are checked. Unsupported convention enums cannot silently use Street. Direct dirty/clean and YieldEngine prices return Result. Analytics StandardYieldEngine delegates to the native type; Street Decimal conversion uses checked native reporting. Retain dated-time/ICMA/accrued/calendar limitations as genuine separate requirements.72 independent Decimal110 prices and48 inverses precede candidate execution; one exact rational dated-year control,158shared120financial38typed failures. Actual initial invalid annual-domain and ambiguous signed inverse failures retained. Preserve1788 numeric rows/defaults,6069prior requests and all sealed physical evidence;10additive pins give1798,158requests give6227. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. No full contextual conventions/signed-root selection, broader model/calibration/claim/physical/mixed-book scope, independent approval, production latency or unavailable Windows/Excel qualification inferred. CVX-063 periodic discount and ACT/ACT AFB accuracy. Five actual original native failures are retained. One checked native periodic/annual price kernel uses portable log1p/log/exp, retaining tiny rates and finite discount exponents without overflowing intermediate period counts; remove duplicate power/derivative ordering. Correct AFB backward anniversaries and half-open leap-day remainder, with reversed-date sign and bounded calendar work. Original1839numeric rows/files/defaults/bounds and7606full requests remain;548new independent Decimal>=520 emitted110digit price cases and855exact Fraction AFB forward/reverse/equal cases precede candidate execution. The five original references/bounds stay unchanged. New f64 range references explicitly use exact binary64 inputs before any candidate run. Old financial test bodies/expectations remain exact. No provider/storage/MQ/runtime/dependency/C export or authority change. Original literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all historical sealed evidence remain. Full original native product/model/calibration/optional/claim/physical/causal mixed-book/exact-operation scope remains; no acceptance, native waiver, independent quantitative approval or certificate. Only unavailable platform execution defers. The new raw AFB control compares the actual native Decimal output before optional binary64 conversion. Retain its actual9998year conversion-adapter failure.24fractional reference digits plus the entire1e-24truncation reserve are checked INSIDE the ORIGINAL1e-14bound; no reference or bound changes. The exact engineering-request count control retains every old4975+...+665addend and appends548only. Preserve the partial64control run and interrupted schema-profile receipts(actual-2), plus isolated actual8154!=7606failure. Production financial Rust, all request/reference/bound bytes, all1839original numeric rows/defaults and literal scope stay exact.",
+      "bounds": "1..4096 cash; positive finite time/frequency/target; finite discount-law domain; settings validated with original10000 iteration ceiling.72Decimal110 prices1e-10 absolute,48inverses1e-9 rate and unchanged1e-10 native price residual; no market convention inferred. Accuracy owner: original price1e-10/time1e-14 absolute;548prices855rawAFBcontrols declared before candidate execution. Periodic cash remains1..4096 with original finite/positive domain and nonzero-underflow guards; AFB anniversary work is bounded by the actual representable calendar year span.",
+      "failure_contract": "Typed native Result on invalid inputs, unsupported aliases, arithmetic overflow/nonzero underflow, ambiguity or convergence; no successful price/root from failed trials. Thin shared dispatch preserves actual native diagnostics. Invalid periodic/annual domains, arithmetic overflow or nonzero underflow remain typed errors. No high-frequency cap or replacement day count.",
       "tests": [
         "crates/convex-analytics/tests/fixtures/yield-pricing.json",
         "crates/convex-analytics/tests/yield_pricing.rs",
@@ -5127,7 +5137,17 @@
         "crates/convex-ffi/tests/yield_pricing.rs",
         "crates/convex-mcp/tests/yield_pricing.rs",
         "crates/convex-wasm/tests/yield_pricing.rs",
-        "tests/scripts/yield_pricing_schema.py"
+        "tests/scripts/yield_pricing_schema.py",
+        "crates/convex-analytics/tests/discount_accuracy.rs",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy-reproduction.json",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy.json",
+        "tests/fixtures/library/discount-accuracy.json",
+        "tests/fixtures/library/discount_accuracy_contract.rs",
+        "crates/convex/tests/discount_accuracy.rs",
+        "crates/convex/examples/discount_accuracy.rs",
+        "crates/convex-ffi/tests/discount_accuracy.rs",
+        "crates/convex-mcp/tests/discount_accuracy.rs",
+        "crates/convex-wasm/tests/discount_accuracy.rs"
       ],
       "exceptions": []
     },

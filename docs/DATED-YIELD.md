@@ -59,3 +59,18 @@ The controls retain three actual original failures and predeclared independent
 Fraction/Decimal110 timing, prices, inverses and derivatives. These engineering
 checks do not approve a market convention, model, host platform, latency target
 or production deployment.
+# Discount accuracy
+
+Periodic supplied-cash pricing evaluates `exp(-time * frequency * log1p(rate /
+frequency))`, multiplying the smallest and largest factor magnitudes first.
+This retains tiny period rates at high frequencies and avoids overflowing an
+intermediate product when the complete discount exponent is representable. Near the negative domain boundary the positive base
+comes from `(frequency + rate) / frequency`. Annual pricing uses `log1p(rate)`.
+The same native kernel supplies both price engines and inverse trial prices.
+Invalid domains, nonfinite arithmetic and nonzero underflow still return errors.
+
+ACT/ACT AFB counts whole anniversaries backwards from the end date. A February
+28 anniversary becomes February 29 in a leap year; the remainder includes a leap
+day only in the interval with start included and end excluded. Reversed dates
+negate the forward calculation. This correction covers the actual AFB day count;
+it does not establish a vendor quotation convention or model certification.

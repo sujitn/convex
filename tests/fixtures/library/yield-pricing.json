@@ -5202,9 +5202,9 @@
           "publications": []
         }
       },
-      "expected": null,
-      "absolute_bound": null,
-      "expected_error": "invalid_input"
+      "expected": "122.14027581601698339210719946396741703075809415205036412734250985992062330836378162422887440133724739690278376",
+      "absolute_bound": "1e-10",
+      "expected_error": null
     },
     {
       "id": "yield-pricing-reject-131",

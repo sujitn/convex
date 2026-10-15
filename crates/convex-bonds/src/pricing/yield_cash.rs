@@ -79,7 +79,7 @@ pub(crate) fn value_cash(
     annual_yield: f64,
     compounding: CashYieldCompounding,
 ) -> BondResult<(f64, f64)> {
-    evaluate(cash, annual_yield, compounding, false)
+    evaluate(cash, annual_yield, compounding)
 }
 pub(crate) fn standard_value(
     cash: &[(f64, f64)],
@@ -99,16 +99,9 @@ pub(crate) fn standard_value(
             ))
         }
     };
-    // Preserve the existing engine's power/derivative operator order. Supplied
-    // ActualPeriod times do not establish that its date preparation was complete.
-    evaluate(cash, annual_yield, basis, true)
+    evaluate(cash, annual_yield, basis)
 }
-fn evaluate(
-    cash: &[(f64, f64)],
-    rate: f64,
-    basis: CashYieldCompounding,
-    standard_order: bool,
-) -> BondResult<(f64, f64)> {
+fn evaluate(cash: &[(f64, f64)], rate: f64, basis: CashYieldCompounding) -> BondResult<(f64, f64)> {
     validate_cash(cash, false)?;
     finite(rate)?;
     if let CashYieldCompounding::Periodic { frequency } = basis {
@@ -121,28 +114,39 @@ fn evaluate(
     for &(time, amount) in cash {
         let (df, derivative) = match basis {
             CashYieldCompounding::Periodic { frequency } => {
-                let base = finite(1.0 + quotient(rate, frequency)?)?;
-                if base <= 0.0 {
+                if rate <= -frequency {
                     return Err(invalid("yield outside periodic compounding domain"));
                 }
-                let periods = product(time, frequency)?;
-                if standard_order {
-                    let df = finite(portable::pow(base, -periods))?;
-                    (df, quotient(product(-time, df)?, base)?)
+                let periodic_rate = quotient(rate, frequency)?;
+                let (base, logarithm) = if periodic_rate < -0.5 {
+                    // Subtraction near the domain edge retains the actual
+                    // positive base even when rate/frequency rounds to -1.
+                    let base = quotient(finite(frequency + rate)?, frequency)?;
+                    (base, finite(portable::log(base))?)
                 } else {
-                    let df = quotient(1.0, finite(portable::pow(base, periods))?)?;
                     (
-                        df,
-                        quotient(quotient(product(-periods, df)?, base)?, frequency)?,
+                        finite(1.0 + periodic_rate)?,
+                        finite(portable::log1p(periodic_rate))?,
                     )
-                }
+                };
+                // Multiply the smallest and largest magnitudes first. Either
+                // time*frequency or frequency*logarithm can overflow although
+                // the complete exponent is representable.
+                let mut factors = [-time, frequency, logarithm];
+                factors.sort_by(|left, right| left.abs().total_cmp(&right.abs()));
+                let exponent = product(product(factors[0], factors[2])?, factors[1])?;
+                let df = finite(portable::exp(exponent))?;
+                (df, quotient(product(-time, df)?, base)?)
             }
             CashYieldCompounding::Annual => {
                 let base = finite(1.0 + rate)?;
                 if base <= 0.0 {
                     return Err(invalid("yield outside annual compounding domain"));
                 }
-                let df = finite(portable::pow(base, -time))?;
+                let df = finite(portable::exp(product(
+                    -time,
+                    finite(portable::log1p(rate))?,
+                )?))?;
                 (df, quotient(product(-time, df)?, base)?)
             }
             CashYieldCompounding::Continuous => {

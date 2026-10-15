@@ -523,6 +523,36 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify checked periodic and AFB accuracy 0
+        run: cargo test --locked -p convex-analytics --test discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 1
+        run: cargo test --locked -p convex --test discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 2
+        run: cargo run --locked -p convex --example discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 3
+        run: cargo test --locked -p convex-analytics --test discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 4
+        run: cargo test --locked -p convex --test discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 5
+        run: cargo run --locked -p convex --example discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 6
+        run: cargo test --locked -p convex-analytics --test discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 7
+        run: cargo test --locked -p convex --test discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 8
+        run: cargo run --locked -p convex --example discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test discount_accuracy
+
       - name: Qualify native coupon parameter derivatives 0
         run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
 

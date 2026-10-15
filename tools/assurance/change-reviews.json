@@ -4628,6 +4628,50 @@
         "tools/library/library-inventory.json": "ad39e8f8b21d3447c0fb48f0511256d73772192d8f170bb5d8540262e918adbc",
         "tools/library/test_operations.py": "9e4e16228196112cd9822189162579db3bddb3e2d11280525c41feb238a6b617"
       }
+    },
+    {
+      "base_commit": "952a1b3cfab134cc32f7dd25104a17733abd6e64",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "CVX-063 periodic discount and ACT/ACT AFB accuracy. Five actual original native failures are retained. One checked native periodic/annual price kernel uses portable log1p/log/exp, retaining tiny rates and finite discount exponents without overflowing intermediate period counts; remove duplicate power/derivative ordering. Correct AFB backward anniversaries and half-open leap-day remainder, with reversed-date sign and bounded calendar work. Original1839numeric rows/files/defaults/bounds and7606full requests remain;548new independent Decimal>=520 emitted110digit price cases and855exact Fraction AFB forward/reverse/equal cases precede candidate execution. The five original references/bounds stay unchanged. New f64 range references explicitly use exact binary64 inputs before any candidate run. Old financial test bodies/expectations remain exact. No provider/storage/MQ/runtime/dependency/C export or authority change. Original literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all historical sealed evidence remain. Full original native product/model/calibration/optional/claim/physical/causal mixed-book/exact-operation scope remains; no acceptance, native waiver, independent quantitative approval or certificate. Only unavailable platform execution defers. The new raw AFB control compares the actual native Decimal output before optional binary64 conversion. Retain its actual9998year conversion-adapter failure.24fractional reference digits plus the entire1e-24truncation reserve are checked INSIDE the ORIGINAL1e-14bound; no reference or bound changes. The exact engineering-request count control retains every old4975+...+665addend and appends548only. Preserve the partial64control run and interrupted schema-profile receipts(actual-2), plus isolated actual8154!=7606failure. Production financial Rust, all request/reference/bound bytes, all1839original numeric rows/defaults and literal scope stay exact. Explicit human approval now permits exactly yield-pricing-reject-130 to replace a spurious intermediate-overflow rejection with its independent finite price at the original1e-10positive-price bound. Its full input and other157cases remain exact.1838old numerical pins remain unchanged; one old file/pin changes only by this approved correction;10new pins give1849. All old positive references/defaults/bounds and47original financial unit-test sections remain exact. The reference was proposed after the failed old assertion and approved explicitly; no blind-reference or certification claim. The separately approved raw30E360ISDA61to60correction remains for the next owner.",
+      "tests": [
+        "Five original failing native reproductions and548price855rawAFB independent controls; 1838old numerical rows unchanged; exactly one human-approved file/pin correction; old positive references/defaults/bounds conserved",
+        "Original financial test sections exact; original7606full requests retained, changed original numerical fields reviewed explicitly against original independent controls and bounds",
+        "Fmt then workspace all-target/all-feature warnings-deniedClippy; ten feature/native/C/MCP/WASM profiles; original schema/affected native suites;64library42assurance4private; same-base/source/scope/physical checks; stable14binary binding; fresh37943originalISDA/QuantLib; actual8154native/C/JDK26/wasm32Node/browser full envelopes and400JavaTreasury controls"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "7cbc3136e80aaf522ecfd8ca93f93f669d7c173829d62a05968ca831398eedc3",
+        "crates/convex-analytics/tests/discount_accuracy.rs": "a8170d2e84280801a7f841868e41d0486b9104da52e9eabcc21bba6bf2986984",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy-reproduction.json": "5b9ff3f00c44b3d7054e25736ebf66ccd75c60d80fbad6e965cb6440ccd28554",
+        "crates/convex-analytics/tests/fixtures/discount-accuracy.json": "aa220a5603eb0d076f904b93993899a76c1540ece9c9d0c6bb04e51d6fabf63b",
+        "crates/convex-bonds/src/pricing/yield_cash.rs": "e85340e76c2d0344da25c3a248077a672da2c4eff578c8f2df5bae983761b898",
+        "crates/convex-core/src/daycounts/actact.rs": "a288e4e89aa6d857c2db83769763fe9574b86bbcf01b4bda85d9a8c294c715b3",
+        "crates/convex-ffi/tests/discount_accuracy.rs": "38dbd74bed5a38040d18e87e67e7315ee38c08fe3cc97e1f2d3aed3a0162ba95",
+        "crates/convex-mcp/tests/discount_accuracy.rs": "4e23ba02ef1c7cf2ed9574fd873e4cf3e7388a2a4d41ecc40156afe929ec03bc",
+        "crates/convex-wasm/tests/discount_accuracy.rs": "0867a82b30e150e76c44d5eb5d619d4cfc73551c25782f7610344eac33e1d8e5",
+        "crates/convex/examples/discount_accuracy.rs": "963a88d8f0c32de97a122902752956b3920801941e67caf4e015355d43eb0878",
+        "crates/convex/tests/discount_accuracy.rs": "bb75b4721005bc5382ab905e27925e2075b79809351baba47675fdcf66507337",
+        "docs/DATED-YIELD.md": "8022fbb7e23d7a535eb1d49991714bc2080f5a897ba300063776f27bd23d913b",
+        "tests/fixtures/library/discount-accuracy.json": "c38a3736bc44f7bb9f56547c5a564d98c415b15b05c611264dd971aab08b30a2",
+        "tests/fixtures/library/discount_accuracy_contract.rs": "cf8f1d3c9a9130142b103b1167de164d6b3da536a24bf1bd85b024a3c86879e0",
+        "tests/fixtures/library/yield-pricing.json": "0262153485b62bf880df781602bbb753ff5f3db299c6ff00db71cd1188d420eb",
+        "tools/assurance/inventory.json": "fea117cb9dc769d8de2739f7ccc18da34a725a37977ad52732b49caece4b2c18",
+        "tools/assurance/numeric-evidence.json": "14ad4b23112848f7d76d7fe4e63976431d692e09e01b16e8846c4e5afbd19398",
+        "tools/library/api-capabilities.json": "5a9a2b8d01b56e95d1276acafada45b97f63898f6a8300206f74cc492482d0e9",
+        "tools/library/library-inventory.json": "a4b2df791b5509991aa29322263cbaca405071a033478fa36a0be171f0fb8326",
+        "tools/library/test_operations.py": "a4056ff9b13e3ed8fb83fd0eae4f51eba70f676f503bbfb482cb33e0d6060860"
+      },
+      "quantitative_review": {
+        "reviewer": "Human user via explicit Codex conversation approval",
+        "reviewed_on": "2026-10-15",
+        "rationale": "The human explicitly approved only the protected yield-pricing-reject-130 correction. The original cash100/time2/frequency1e308/yield-0.1 has finite independent price122.140275816016983392107199463967417... at the existing positive-price1e-10bound. Preserve the request, other157cases, old positive references/defaults/bounds. No broader model/market/production approval or certificate.",
+        "reference_evidence": [
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/human-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/protected-frequency-review/declaration.json",
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/protected-frequency-review/actual-native-review.json",
+          ".ai/production-readiness/evidence/CVX-063-Discount-Accuracy/protected-frequency-review/proposed-pinned-correction.patch"
+        ]
+      }
     }
   ]
 }
