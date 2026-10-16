@@ -20,9 +20,9 @@ class OperationRoutes(unittest.TestCase):
     def test_exact_requests_and_all_original_mandatory_records_remain(self):
         result = api.check(self.matrix)
         self.assertEqual(result['mandatory_records'], 2154)
-        # Preserve every earlier request count explicitly; append548accuracy cases and368future-cash cases.
+        # Preserve every earlier request count explicitly; append548accuracy cases,368future-cash cases and27selected-yield cases.
         self.assertEqual(result['exact_operation_routes'], 80)
-        self.assertEqual(result['engineering_examples'], 4975 + 400 + 21 + 21 + 27 + 27 + 34 + 26 + 69 + 37 + 49 + 110 + 90 + 183 + 158 + 127 + 154 + 433 + 665 + 548 + 368)
+        self.assertEqual(result['engineering_examples'], 4975 + 400 + 21 + 21 + 27 + 27 + 34 + 26 + 69 + 37 + 49 + 110 + 90 + 183 + 158 + 127 + 154 + 433 + 665 + 548 + 368 + 27)
         self.assertEqual({name for name in self.matrix['operation_routes'] if name.startswith('icma_risk.')},
                          {'icma_risk.yield_sensitivity', 'icma_risk.hedge_vector'})
         self.assertFalse(result['certified'])

@@ -28,6 +28,8 @@ pub mod yield_cash;
 mod yield_engine;
 /// Checked scalar reporting and explicitly supplied current/simple yield measures.
 pub mod yield_scalars;
+/// Explicit unique-branch selection for complete signed-cash inverses.
+pub mod yield_selection;
 pub(crate) mod yield_solver;
 /// Checked absolute zero-coupon cash and decimal-rate conversions.
 pub mod zero;

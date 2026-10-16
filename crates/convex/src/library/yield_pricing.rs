@@ -1,5 +1,6 @@
 //! Thin dispatch over checked native supplied-cash discount laws and inverses.
 use super::*;
+use convex_bonds::pricing::yield_selection::YieldBranch;
 use convex_bonds::pricing::{
     dated_cash::dated_cash_yield_risk_with_basis,
     discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash},
@@ -14,6 +15,40 @@ use serde_json::json;
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CashYieldOperation {
+    /// Signed-cash inverse on an explicitly selected, numerically unique branch.
+    SolveSelected {
+        /// Complete positive discount years and original signed cash units.
+        cash: Vec<(f64, f64)>,
+        /// Original mathematical law; no quotation convention is inferred.
+        compounding: yield_cash::CashYieldCompounding,
+        /// Positive target in original cash units.
+        target_dirty_price: f64,
+        /// Explicit closed branch and absolute annual-rate precision.
+        branch: YieldBranch,
+        /// Positive absolute full original-cash price-residual ceiling.
+        tolerance: f64,
+        /// Bounded native bisection iterations, with no seed or fallback branch.
+        max_iterations: u32,
+    },
+    /// Selected signed inverse retaining complete original dated cash/context.
+    DatedSolveSelected {
+        /// Actual strictly future cash, including valid zero discount time.
+        cash: Vec<DatedYieldCash>,
+        /// Original purchase/valuation boundary.
+        settlement: Date,
+        /// Complete original reference/coupon/termination context.
+        basis: DiscountTimeBasis,
+        /// Mathematical annual-rate discount law.
+        compounding: yield_cash::CashYieldCompounding,
+        /// Positive original cash-unit target, without constant-cash subtraction.
+        target_dirty_price: f64,
+        /// Actual caller-selected closed branch and annual-rate precision.
+        branch: YieldBranch,
+        /// Full original-cash price-residual ceiling.
+        tolerance: f64,
+        /// Bounded native bisection iterations.
+        max_iterations: u32,
+    },
     /// Price actual entitled dated cash on its complete supplied discount basis.
     DatedPrice {
         /// Sorted strictly future cash in original input units.
@@ -86,7 +121,53 @@ pub enum CashYieldOperation {
 }
 
 pub(super) fn execute(action: &CashYieldOperation) -> LibraryResult<Value> {
+    match action {
+        CashYieldOperation::SolveSelected {
+            cash,
+            compounding,
+            target_dirty_price,
+            branch,
+            tolerance,
+            max_iterations,
+        } => {
+            return selected_result(
+                YieldSolver::new()
+                    .with_tolerance(*tolerance)
+                    .with_max_iterations(*max_iterations)
+                    .solve_cash_selected(cash, *target_dirty_price, *compounding, *branch),
+                None,
+            )
+        }
+        CashYieldOperation::DatedSolveSelected {
+            cash,
+            settlement,
+            basis,
+            compounding,
+            target_dirty_price,
+            branch,
+            tolerance,
+            max_iterations,
+        } => {
+            let prepared =
+                PreparedDatedCash::new(cash, *settlement, basis).map_err(selected_error)?;
+            return selected_result(
+                YieldSolver::new()
+                    .with_tolerance(*tolerance)
+                    .with_max_iterations(*max_iterations)
+                    .solve_dated_cash_selected(
+                        &prepared,
+                        *target_dirty_price,
+                        *compounding,
+                        *branch,
+                    ),
+                Some(prepared.discount_cash()),
+            );
+        }
+        _ => {}
+    }
     let result = match action {
+        CashYieldOperation::SolveSelected { .. } | CashYieldOperation::DatedSolveSelected { .. } =>
+            return Err(LibraryError::invalid("action", "selected yield action was not dispatched")),
         CashYieldOperation::DatedPrice { cash, settlement, basis, compounding, annual_yield } =>
             PreparedDatedCash::new(cash,*settlement,basis).and_then(|prepared|
                 prepared.price(*annual_yield,*compounding)
@@ -117,4 +198,35 @@ pub(super) fn execute(action: &CashYieldOperation) -> LibraryResult<Value> {
         message: error.to_string(),
         details: json!({"native_kind":format!("{error:?}")}),
     })
+}
+
+fn selected_error(error: convex_bonds::BondError) -> LibraryError {
+    use convex_bonds::BondError;
+    let (code, scope) = match &error {
+        BondError::YieldBranchNoRoot => (LibraryErrorCode::NoRoot, "selected_branch"),
+        BondError::YieldNoRoot => (LibraryErrorCode::NoRoot, "constant_cash"),
+        BondError::YieldNonUnique => (LibraryErrorCode::NonUnique, "constant_cash"),
+        BondError::YieldSelectionUnresolved { .. } | BondError::YieldConvergenceFailed { .. } => {
+            (LibraryErrorCode::NoConvergence, "selected_branch")
+        }
+        _ => (LibraryErrorCode::InvalidInput, "input"),
+    };
+    LibraryError {
+        code,
+        message: error.to_string(),
+        details: json!({"native_kind":format!("{error:?}"),"root_scope":scope}),
+    }
+}
+
+fn selected_result(
+    result: convex_bonds::BondResult<convex_bonds::pricing::yield_selection::SelectedYieldResult>,
+    cash: Option<&[(f64, f64)]>,
+) -> LibraryResult<Value> {
+    let result = result.map_err(selected_error)?;
+    let mut data =
+        json!({"unit":"annual_decimal_rate","residual_unit":"input_cash","selection":result});
+    if let Some(cash) = cash {
+        data["discount_cash"] = json!(cash);
+    }
+    Ok(data)
 }

@@ -861,3 +861,42 @@ Read [the accrued-interest contract and migration](ACCRUED-METHODS.md).
 Remaining general dated yield/reference and calendar methods, full product/model/
 calibration/claim/physical/mixed-book integration and mandatory mappings remain
 required. This increment supplies no independent approval or Windows/Excel check.
+
+
+## Explicit signed-cash yield selection
+
+`cash_yield.solve_selected` and `cash_yield.dated_solve_selected` add explicit
+closed-branch inversion. Supply the original cash, target, compounding,
+`branch: {lower, upper, rate_tolerance}`, absolute cash-unit `tolerance` and
+`max_iterations`. The dated action also requires the complete original
+settlement and discount-time context. There is no seed or inferred branch.
+Existing `solve` and `dated_solve` continue to require nonnegative cash.
+
+The native `YieldSolver::solve_cash_selected` and `solve_dated_cash_selected`
+reuse the same checked cash discount owner. Each absolute cash derivative is
+monotonic under the four admitted mathematical discount laws. Endpoint bounds,
+signed reversal, conditioning and accumulation allowances must establish one
+strict derivative sign over the entire branch. Unresolved cancellation, poles,
+subnormal terms, insufficient numerical precision and exhausted work fail.
+The result retains the supplied branch, full original-cash residual, derivative
+bounds, numerical price/rate allowances and actual discount-evaluation counts.
+These are scoped numerical diagnostics, not a formal interval-arithmetic or
+market-convention certificate. All4096cash/10000iteration hard bounds remain.
+
+`no_root` with `details.root_scope = "selected_branch"` concerns only that
+branch. A wide branch containing both roots can return `no_convergence` rather
+than claim the complete price law has no root. Actual constant dated cash uses
+`constant_cash` scope with `non_unique` or `no_root`. Only checked
+`PreparedDatedCash` admits strictly future payments whose actual discount time
+is zero; those payments stay in the full target and final repricing.
+
+For cash230at1year and-132at2years at target100 under annual compounding,
+branches[.099,.101]and[.199,.201]select10%and20%respectively. Neither branch is
+selected by default. The wire change is additive within schema1; existing
+requests/envelopes and the original nonnegative inverse behavior are preserved.
+Native exhaustive matches on `BondError` must handle the additive
+`YieldBranchNoRoot` and `YieldSelectionUnresolved` variants.
+
+Selected-yield numerical bounds are checked again after outward rounding.
+Overflow to an infinite diagnostic returns a typed failure. The exact captured
+extreme-value regression also runs through the shared request contract.

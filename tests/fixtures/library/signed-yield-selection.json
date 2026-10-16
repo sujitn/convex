@@ -1,0 +1,1270 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "signed-selection.following-signed-annual-lower",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.1",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-annual-upper",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.199,
+              "upper": 0.201,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.2",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-periodic2-lower",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                0.5,
+                230.0
+              ],
+              [
+                1.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.199,
+              "upper": 0.201,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.2",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-periodic2-upper",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                0.5,
+                230.0
+              ],
+              [
+                1.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.399,
+              "upper": 0.401,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.4",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-periodic4-lower",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                0.25,
+                230.0
+              ],
+              [
+                0.5,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.399,
+              "upper": 0.401,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.4",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-periodic4-upper",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                0.25,
+                230.0
+              ],
+              [
+                0.5,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.799,
+              "upper": 0.801,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.8",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-continuous-lower",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.09431017980432486,
+              "upper": 0.09631017980432487,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.095310179804324860043952123280765092220605365308644199185239808163001014235884232839057502913036493072747941846",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-continuous-upper",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.18132155679395462,
+              "upper": 0.18332155679395462,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.18232155679395462621171802515451463319738933791448698394272645165670892748064591784934520371697116553000520706",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-simple-lower",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                264.0
+              ],
+              [
+                2.0,
+                -168.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.1",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.following-signed-simple-upper",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                264.0
+              ],
+              [
+                2.0,
+                -168.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.199,
+              "upper": 0.201,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.2",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10"
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.ambiguous-wide",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.0,
+              "upper": 0.3,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_convergence",
+      "expected_root_scope": "selected_branch"
+    },
+    {
+      "id": "signed-selection.local-no-root",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 101.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_root",
+      "expected_root_scope": "selected_branch"
+    },
+    {
+      "id": "signed-selection.budget",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.1003,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_convergence",
+      "expected_root_scope": "selected_branch"
+    },
+    {
+      "id": "signed-selection.precision",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-20,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_convergence",
+      "expected_root_scope": "selected_branch"
+    },
+    {
+      "id": "signed-selection.negative-exposure",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                -100.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": "input"
+    },
+    {
+      "id": "signed-selection.raw-zero-time",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                0.0,
+                100.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": "input"
+    },
+    {
+      "id": "signed-selection.annual-pole",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": -1.0,
+              "upper": 0.0,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": "input"
+    },
+    {
+      "id": "signed-selection.missing-branch",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.bad-branch",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.101,
+              "upper": 0.099,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.unknown-branch-field",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11,
+              "seed": 0.1
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.dated-zero-time-0.1",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_solve_selected",
+            "cash": [
+              {
+                "date": "2025-01-31",
+                "amount": "100"
+              },
+              {
+                "date": "2026-01-30",
+                "amount": "230"
+              },
+              {
+                "date": "2027-01-30",
+                "amount": "-132"
+              }
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 200.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "settlement": "2025-01-30",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "Thirty360E"
+            }
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.1",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10",
+        "discount_cash": [
+          [
+            0.0,
+            100.0
+          ],
+          [
+            1.0,
+            230.0
+          ],
+          [
+            2.0,
+            -132.0
+          ]
+        ]
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.dated-zero-time-0.2",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_solve_selected",
+            "cash": [
+              {
+                "date": "2025-01-31",
+                "amount": "100"
+              },
+              {
+                "date": "2026-01-30",
+                "amount": "230"
+              },
+              {
+                "date": "2027-01-30",
+                "amount": "-132"
+              }
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 200.0,
+            "branch": {
+              "lower": 0.199,
+              "upper": 0.201,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "settlement": "2025-01-30",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "Thirty360E"
+            }
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": {
+        "root": "0.2",
+        "rate_bound": "1e-11",
+        "price_bound": "1e-10",
+        "discount_cash": [
+          [
+            0.0,
+            100.0
+          ],
+          [
+            1.0,
+            230.0
+          ],
+          [
+            2.0,
+            -132.0
+          ]
+        ]
+      },
+      "expected_error": null,
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.constant-100.0",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_solve_selected",
+            "cash": [
+              {
+                "date": "2025-01-31",
+                "amount": "100"
+              }
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "settlement": "2025-01-30",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "Thirty360E"
+            }
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "non_unique",
+      "expected_root_scope": "constant_cash"
+    },
+    {
+      "id": "signed-selection.constant-101.0",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_solve_selected",
+            "cash": [
+              {
+                "date": "2025-01-31",
+                "amount": "100"
+              }
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 101.0,
+            "branch": {
+              "lower": 0.099,
+              "upper": 0.101,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "settlement": "2025-01-30",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "Thirty360E"
+            }
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_root",
+      "expected_root_scope": "constant_cash"
+    },
+    {
+      "id": "signed-selection.original-guard-0.1",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "initial_guess": 0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.original-guard-0.2",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                1.0,
+                230.0
+              ],
+              [
+                2.0,
+                -132.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.0,
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "initial_guess": 0.2
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "invalid_input",
+      "expected_root_scope": null
+    },
+    {
+      "id": "signed-selection.actual-outward-overflow",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve_selected",
+            "cash": [
+              [
+                1e+306,
+                179.76931348622054
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 179.76931348622054,
+            "branch": {
+              "lower": 0.0,
+              "upper": 1e-308,
+              "rate_tolerance": 1e-11
+            },
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "expected_error": "no_convergence",
+      "expected_root_scope": "selected_branch"
+    }
+  ],
+  "certified": false
+}

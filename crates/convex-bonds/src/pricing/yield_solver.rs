@@ -319,6 +319,44 @@ impl YieldSolver {
         Ok(YieldResult { residual, ..result })
     }
 
+    /// Invert complete signed positive-net cash on an explicit unique branch.
+    /// The original raw nonnegative inverse and seed behavior stay unchanged.
+    pub fn solve_cash_selected(
+        &self,
+        cash: &[(f64, f64)],
+        target_dirty_price: f64,
+        compounding: CashYieldCompounding,
+        branch: super::yield_selection::YieldBranch,
+    ) -> BondResult<super::yield_selection::SelectedYieldResult> {
+        super::yield_selection::solve(
+            cash,
+            target_dirty_price,
+            compounding,
+            branch,
+            &self.config,
+            false,
+        )
+    }
+
+    /// Select a signed root while retaining actual future zero-time cash.
+    /// Only immutable checked dated preparation admits zero-time entries.
+    pub fn solve_dated_cash_selected(
+        &self,
+        prepared: &PreparedDatedCash,
+        target_dirty_price: f64,
+        compounding: CashYieldCompounding,
+        branch: super::yield_selection::YieldBranch,
+    ) -> BondResult<super::yield_selection::SelectedYieldResult> {
+        super::yield_selection::solve(
+            prepared.discount_cash(),
+            target_dirty_price,
+            compounding,
+            branch,
+            &self.config,
+            true,
+        )
+    }
+
     /// Checked price over explicit positive years and unchanged cash units.
     pub fn price_primitive(
         &self,

@@ -523,6 +523,15 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify selected-yield-default
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection
+
+      - name: Qualify selected-yield-no-default
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection --no-default-features
+
+      - name: Qualify selected-yield-schema
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection --features schemars
+
       - name: Qualify calendar-default
         run: cargo test --locked -p convex-bonds --test calendar_dates
 
