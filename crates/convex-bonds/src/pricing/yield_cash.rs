@@ -44,7 +44,7 @@ pub(crate) fn product(left: f64, right: f64) -> BondResult<f64> {
     }
     Ok(result)
 }
-fn quotient(left: f64, right: f64) -> BondResult<f64> {
+pub(crate) fn quotient(left: f64, right: f64) -> BondResult<f64> {
     let result = finite(left / right)?;
     if left != 0.0 && result == 0.0 {
         return Err(numerical());

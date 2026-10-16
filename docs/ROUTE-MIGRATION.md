@@ -681,3 +681,39 @@ invalid domains, unrepresentable measures and nonzero arithmetic underflow fail.
 Signed cash retains its actual positive net PV; supplied signed/zero face scales
 position DV01 explicitly. Genuine future zero-time payments retain PV with zero
 yield derivatives and require validated dated context.
+
+
+## Checked risk arithmetic and MCP request admission
+
+Native bond analytical risk now consumes the same immutable full-cash derivative
+owner as the raw/prepared calculator. Native effective risk validates the actual
+yield bump before repricing. Supplied-price duration/spread/key-rate stencils,
+convexity, DV01 and price-change approximations share the native
+`convex_bonds::pricing::risk_math` owner. These arithmetic stencils do not establish
+model h/h2 convergence. Original effective/spread1e-12 bump minima and price1e-10
+admission remain; native/key-rate methods retain smaller finite nonzero bumps.
+
+`BondAnalytics::dv01_notional` consumes a per100 dirty price and scales actual
+signed notional by100, independently of instrument face. For an instrument face
+of200, the previous face denominator incorrectly halved the position result.
+Analytical risk and every derived measure reject nonfinite or unrepresentable
+arithmetic. Genuine zero positions and zero effects remain zero.
+
+The following raw analytics now return `AnalyticsResult`: `price_change_from_duration`,
+`price_change_with_convexity`, `dv01_from_duration`, `dv01_from_prices`,
+`dv01_per_100_face`, `notional_from_dv01`, `BondRiskMetrics::estimate_price_change`,
+`BondRiskMetrics::convexity_adjustment`, `EffectiveDurationCalculator::new`,
+`KeyRateDurationCalculator::with_tenors`, `KeyRateDurationCalculator::with_bump_bps`
+and `KeyRateDurations::total_duration`. Propagate `?` at actual callers; no zero
+fallback or infallible compatibility route is supplied. Default10bp effective
+and1bp key-rate bumps and standard tenors are unchanged. The key-rate calculator
+requires the complete finite, positive, unique declared tenor set (at most4096),
+accepts supplied row permutations and emits declaration order. Missing/duplicate/
+unexpected factors fail. An undefined notional inverse fails explicitly.
+
+The MCP `library` wrapper keeps its exact opaque `request_json` string and now
+rejects extra wrapper fields, matching its generated schema. The native inner
+request/diagnostic contract and library operations stay with their existing owner.
+Legacy convenience-tool DTOs, registries and their qualifications remain separate.
+The legacy risk-type `From<f64>` conversions require their separately reviewed
+protected-test migration; this change does not qualify that remaining surface.

@@ -1,6 +1,8 @@
 //! `BondRiskCalculator`: duration, convexity, DV01 for a single bond.
 
+use convex_bonds::pricing::risk_math;
 use rust_decimal::prelude::*;
+use std::collections::HashMap;
 
 use convex_bonds::{
     pricing::{dated_cash::DatedCashYieldRisk, discount_time::PreparedDatedCash},
@@ -36,17 +38,25 @@ impl BondRiskMetrics {
     ///
     /// Uses duration + convexity approximation:
     /// ΔP/P ≈ -D_mod × Δy + (1/2) × C × (Δy)²
-    pub fn estimate_price_change(&self, yield_change: f64, dirty_price: f64) -> f64 {
-        let duration_effect = -self.modified_duration.as_f64() * dirty_price * yield_change;
-        let convexity_effect = 0.5 * self.convexity.as_f64() * dirty_price * yield_change.powi(2);
-        duration_effect + convexity_effect
+    pub fn estimate_price_change(
+        &self,
+        yield_change: f64,
+        dirty_price: f64,
+    ) -> AnalyticsResult<f64> {
+        risk_math::price_change(
+            self.modified_duration.as_f64(),
+            self.convexity.as_f64(),
+            dirty_price,
+            yield_change,
+        )
+        .map_err(Into::into)
     }
 
     /// Get the convexity adjustment factor.
     ///
     /// The convexity adjustment = (1/2) × C × (Δy)²
-    pub fn convexity_adjustment(&self, yield_change: f64) -> f64 {
-        0.5 * self.convexity.as_f64() * yield_change.powi(2)
+    pub fn convexity_adjustment(&self, yield_change: f64) -> AnalyticsResult<f64> {
+        risk_math::convexity_adjustment(self.convexity.as_f64(), yield_change).map_err(Into::into)
     }
 }
 
@@ -170,10 +180,7 @@ impl BondRiskCalculator {
     }
 
     fn per100_dv01(&self) -> AnalyticsResult<f64> {
-        super::cash::product(
-            super::cash::product(self.risk.modified_duration, self.dirty_price)?,
-            0.0001,
-        )
+        risk_math::dv01(self.risk.modified_duration, self.dirty_price, 100.0).map_err(Into::into)
     }
 
     /// First-order loss at the supplied dirty price for +1bp annual yield.
@@ -183,15 +190,10 @@ impl BondRiskCalculator {
 
     /// Same supplied-price DV01 scaled by the actual signed face exposure.
     pub fn dv01(&self) -> AnalyticsResult<DV01> {
-        let scale = self.face_value / 100.0;
-        if self.face_value != 0.0 && scale == 0.0 {
-            return Err(AnalyticsError::CalculationFailed(
-                "face scaling underflow".into(),
-            ));
-        }
-        Ok(DV01::new(super::cash::decimal(super::cash::product(
-            self.per100_dv01()?,
-            scale,
+        Ok(DV01::new(super::cash::decimal(risk_math::dv01(
+            self.risk.modified_duration,
+            self.dirty_price,
+            self.face_value,
         )?)?))
     }
 
@@ -220,6 +222,16 @@ impl BondRiskCalculator {
     }
 }
 
+fn checked_bump(bps: f64, minimum: f64) -> AnalyticsResult<f64> {
+    let bump = bps / 10_000.0;
+    if !bps.is_finite() || !bump.is_finite() || bump == 0.0 || bump.abs() < minimum {
+        return Err(AnalyticsError::InvalidInput(
+            "finite representable nonzero bump required".into(),
+        ));
+    }
+    Ok(bump)
+}
+
 /// Effective duration calculator using curve shifts.
 ///
 /// Calculates effective duration by repricing the bond with shifted curves.
@@ -232,7 +244,7 @@ pub struct EffectiveDurationCalculator {
 impl Default for EffectiveDurationCalculator {
     /// Default calculator with 10bp bump.
     fn default() -> Self {
-        Self::new(10.0)
+        Self { bump_size: 0.001 }
     }
 }
 
@@ -242,10 +254,9 @@ impl EffectiveDurationCalculator {
     /// # Arguments
     ///
     /// * `bump_bps` - Bump size in basis points (default: 10)
-    pub fn new(bump_bps: f64) -> Self {
-        Self {
-            bump_size: bump_bps / 10_000.0,
-        }
+    pub fn new(bump_bps: f64) -> AnalyticsResult<Self> {
+        let bump_size = checked_bump(bump_bps, 1e-12)?;
+        Ok(Self { bump_size })
     }
 
     /// Calculates effective duration from pre-computed prices.
@@ -305,17 +316,18 @@ impl KeyRateDurationCalculator {
     }
 
     /// Creates a calculator with custom tenors.
-    pub fn with_tenors(tenors: Vec<f64>) -> Self {
-        Self {
+    pub fn with_tenors(tenors: Vec<f64>) -> AnalyticsResult<Self> {
+        KeyRateDurations::validate_tenors(&tenors)?;
+        Ok(Self {
             tenors,
             bump_size: 0.0001,
-        }
+        })
     }
 
     /// Sets the bump size in basis points.
-    pub fn with_bump_bps(mut self, bps: f64) -> Self {
-        self.bump_size = bps / 10_000.0;
-        self
+    pub fn with_bump_bps(mut self, bps: f64) -> AnalyticsResult<Self> {
+        self.bump_size = checked_bump(bps, 0.0)?;
+        Ok(self)
     }
 
     /// Calculates key rate durations from price sensitivities.
@@ -335,20 +347,36 @@ impl KeyRateDurationCalculator {
             ));
         }
 
-        let durations: Result<Vec<_>, _> = tenor_prices
+        KeyRateDurations::validate_tenors(&self.tenors)?;
+        if tenor_prices.len() != self.tenors.len() {
+            return Err(AnalyticsError::InvalidInput(
+                "exact declared key rate prices required".into(),
+            ));
+        }
+        let mut supplied = HashMap::with_capacity(tenor_prices.len());
+        for &(tenor, up, down) in tenor_prices {
+            if !tenor.is_finite()
+                || tenor <= 0.0
+                || supplied.insert(tenor.to_bits(), (up, down)).is_some()
+            {
+                return Err(AnalyticsError::InvalidInput(
+                    "finite positive unique supplied key rate tenors required".into(),
+                ));
+            }
+        }
+        let durations = self
+            .tenors
             .iter()
-            .map(|(tenor, price_up, price_down)| {
-                key_rate_duration_at_tenor(
-                    *price_up,
-                    *price_down,
-                    base_price,
-                    self.bump_size,
-                    *tenor,
-                )
+            .map(|tenor| {
+                let (up, down) = supplied.remove(&tenor.to_bits()).ok_or_else(|| {
+                    AnalyticsError::InvalidInput(
+                        "supplied key rate tenor does not match declaration".into(),
+                    )
+                })?;
+                key_rate_duration_at_tenor(up, down, base_price, self.bump_size, *tenor)
             })
-            .collect();
-
-        Ok(KeyRateDurations::new(durations?))
+            .collect::<AnalyticsResult<Vec<_>>>()?;
+        Ok(KeyRateDurations::new(durations))
     }
 
     /// Returns the tenors being analyzed.
@@ -434,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_effective_duration_calculator() {
-        let calc = EffectiveDurationCalculator::new(10.0); // 10 bps
+        let calc = EffectiveDurationCalculator::new(10.0).unwrap(); // 10 bps
 
         // Simulate bond with mod dur ≈ 5
         let price_base = 100.0;
@@ -448,7 +476,10 @@ mod tests {
 
     #[test]
     fn test_key_rate_duration_calculator() {
-        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0]).with_bump_bps(1.0);
+        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0])
+            .unwrap()
+            .with_bump_bps(1.0)
+            .unwrap();
 
         let base_price = 100.0;
         let tenor_prices = vec![
@@ -460,7 +491,7 @@ mod tests {
         let krds = calc.calculate(base_price, &tenor_prices).unwrap();
 
         // Check total is reasonable
-        let total = krds.total_duration().as_f64();
+        let total = krds.total_duration().unwrap().as_f64();
         assert!(
             total > 7.0 && total < 9.0,
             "Total KRD {} not in expected range",
@@ -497,7 +528,7 @@ mod tests {
         let metrics = calc.all_metrics().unwrap();
 
         // Estimate price change for +100 bps
-        let change = metrics.estimate_price_change(0.01, 100.0);
+        let change = metrics.estimate_price_change(0.01, 100.0).unwrap();
 
         // Should be negative (price drops when yield rises)
         assert!(change < 0.0);

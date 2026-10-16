@@ -77,10 +77,9 @@ pub fn price_change_with_convexity(
     convexity: f64,
     price: f64,
     yield_change: f64,
-) -> f64 {
-    let duration_effect = -mod_duration * price * yield_change;
-    let convexity_effect = 0.5 * convexity * price * yield_change.powi(2);
-    duration_effect + convexity_effect
+) -> crate::error::AnalyticsResult<f64> {
+    convex_bonds::pricing::risk_math::price_change(mod_duration, convexity, price, yield_change)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -95,7 +94,7 @@ mod tests {
         let price = 100.0;
         let yield_change = 0.01; // 100 bps
 
-        let change = price_change_with_convexity(mod_dur, conv, price, yield_change);
+        let change = price_change_with_convexity(mod_dur, conv, price, yield_change).unwrap();
 
         // Duration effect: -5 × 100 × 0.01 = -5.0
         // Convexity effect: 0.5 × 50 × 100 × 0.0001 = 0.25

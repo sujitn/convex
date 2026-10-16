@@ -4948,6 +4948,42 @@
         "Seven native controls in default/no-default/schema profiles; original core/bond/analytics/WASM and existing controls; full required lint/assurance/library/harness/source conservation.",
         "Bind once after builders; actual native/C/JDK26/Node/browser8549envelopes,400Treasury368futurecash37943financial and retained independent references. Actual C YAS must satisfy the unchanged independent yield bound."
       ]
+    },
+    {
+      "base_commit": "6a0aefa93bd8c8550dbe1e382075c467599c2db1",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Repair actual source-frozen original native risk failures: effective1pass2fail, raw scalar/tenor1pass5fail, native bond1pass7fail and actual MCP stdio ignored wrapper input. Reuse one native complete-cash derivative owner for analytical bond risk; add one native supplied-price arithmetic owner for stencils, DV01 and price approximations. Analytics converts checked native measures rather than duplicating financial formulas or inventing zero on failure. Fix native dv01_notional to use per100price and actual signed notional/100 independently of instrument face; the original face200case wrongly halves independent759.90056364017556. Check actual yield bumps before repricing. Preserve original effective/spread1e-12minima and price1e-10guards, native/key-rate smaller nonzero bumps, original standard tenors/default10bp effective/1bp key-rate settings and every input/answer/bound. Migrate raw price/DV01/inverse/metric/configuration/total APIs to Result at actual callers. Consume complete positive finite unique bounded1..4096declared key-rate tenors, reject missing/duplicate/unexpected supplied rows, preserve declaration order and accept permutations. Preserve signed prices/bumps/face and genuine zeros; nonfinite/undefined/overflow/nonzero-underflow arithmetic fails. Strict MCP library wrapper denies unknown fields and preserves exact opaque request_json; generated schema must match actual stdio behavior. Do not blindly modify flattened legacy convenience DTOs or claim HTTP/full-model qualification. Independent Fraction/Decimal90 references precede implementation:96stencils27DV0181priceeffects4smallkeybumps, retained original72dated full-cash references and explicitly scaled per100position bounds. Small-key-bump relative5e-16roundoff is declared before implementation/native execution; initial new unexecuted absolute-only declaration remains immutable. Nine new native risk functions and three strict MCP functions, complete original controls and actual8549stdio/native/C/JDK26/Node/browser envelopes are required. Keep all1882original numerical pins/test assertions/defaults/physical files; only mechanical Result adapters in unpinned unit sections change. Three additive pins give1885. Exact five spread-mock,12Date and five risk-type protected adapter patches stay unapplied pending their separate actual reviews; legacy Fromf64type retirement remains required. Keep literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and all existing assessments, native/model/calendar/claim/physical/causal/CTD/exact-operation requirements. No dependency/provider/DB/MQ/Cexport/authority change, native waiver, acceptance or certificate. Only unavailable actual platform execution defers; user has no Windows/Excel or approved convention/model packs. Retain complete first frozen candidate and actual8pass1fail/earlyClippy0/metadata0captures. Correct only the new test lookup from absent bounds.dv01_per_100to existing bounds.dv01=1e-10; no reference, operand, answer or bound changes. Same-base review is amended, not duplicated.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "bd82e4dc8773cb7c15af6665bfd90c5b9e28209eb5a54390a8d126c3765af955",
+        "crates/convex-analytics/src/risk/calculator.rs": "effafc9790115e887fb641a3fe40a39bd655ed0e01c92b8739949e80c421af18",
+        "crates/convex-analytics/src/risk/cash.rs": "1783e4a8067b8b54a8a270ec1311a1e594cced00fc4f8ca9127a602a3e50402b",
+        "crates/convex-analytics/src/risk/convexity/effective.rs": "84629a8375518ad662f1c8756705e811850e4659c9775820653b1315331c8c2e",
+        "crates/convex-analytics/src/risk/convexity/mod.rs": "08ff7bf85d2519bbd4030662c51467d540ee08a4b04633cb95b26c5a33e457e3",
+        "crates/convex-analytics/src/risk/duration/effective.rs": "84118362632db45f260fbc8d4565d8eaff92ae29a64fe1bcb31cd4126403520c",
+        "crates/convex-analytics/src/risk/duration/key_rate.rs": "96979ff610f7227741dc0849f6ae6d806315837db360fd2d6551ed6b6a64f15a",
+        "crates/convex-analytics/src/risk/duration/modified.rs": "c629ac66677d463ea9e1e9b5670584a1bb931aa4a951a685f539df6f63849e7d",
+        "crates/convex-analytics/src/risk/duration/spread_duration.rs": "434383545dd4fcce2dc4800dd8053f4532b286c696e238579d371883077603bf",
+        "crates/convex-analytics/src/risk/dv01.rs": "68e5134cb196d91107a39ea33421faab4918f4b77d4f00285ef908ce71770931",
+        "crates/convex-analytics/tests/fixtures/risk-stencils.json": "12fd2455e969af7f78e246786ca6f035e38a3175822aaab44c0988ac090e2866",
+        "crates/convex-analytics/tests/risk_stencils.rs": "e8d4015b40e0c36b9195fbcfa56427b082b70a9663d178bfc4fbd69ea8b57d19",
+        "crates/convex-bonds/src/pricing/mod.rs": "e5586303b9b8fd1287dd2ffe900797e535c090129aa8a6cf5f983ff7b2540822",
+        "crates/convex-bonds/src/pricing/risk_math.rs": "563c2370dfb58ebdfbb6b38a4fbfc9f4fb0740eb24edf1913681174464db3107",
+        "crates/convex-bonds/src/pricing/yield_cash.rs": "f8b6c577eeece978685e68d40c329d407ed93b0ed311b50f6b7ea6f18497c4e5",
+        "crates/convex-bonds/src/traits/analytics.rs": "317d9779b27a0109dc0c83174948f29cde13d652d32f3b80d43fd6be5afe3b28",
+        "crates/convex-mcp/src/server.rs": "4af2c8542aa4b2bede0afcd723f617fda6768720a36810f15a6287784097693b",
+        "crates/convex-mcp/tests/library_wrapper.rs": "a102a2b7ea743b2b6a424717c2a44859c02f4ef2751add8519d00cd97c8d568a",
+        "docs/ROUTE-MIGRATION.md": "139a22b6ee087b545e2f5649bee537d531d6dd4c66984b345be372f1412cf9c9",
+        "tools/assurance/check.py": "a60ddafa3c80e2315a622436af236e61e53083bf22bccc63710041e481d5ef7a",
+        "tools/assurance/inventory.json": "b66639b0dbe7c253be0d97d18fc2d24d66313ac6ae9ba8e51139a1889eeca7e5",
+        "tools/assurance/numeric-evidence.json": "042f2fdb00631d57e2513dd634e2f06ce5a410776b5e8e4235fcb1adc3ee49fc",
+        "tools/library/library-inventory.json": "cb4ffdce18c727164d0e67f62d696332004610647db80bdcbd2657726b4761c9"
+      },
+      "tests": [
+        "Frozen original actual native1pass2fail and independent63Decimal90fullcash derivative and three original Simple references before candidate execution.",
+        "Seven native controls in default/no-default/schema profiles; original core/bond/analytics/WASM and existing controls; full required lint/assurance/library/harness/source conservation.",
+        "Bind once after builders; actual native/C/JDK26/Node/browser8549envelopes,400Treasury368futurecash37943financial and retained independent references. Actual C YAS must satisfy the unchanged independent yield bound."
+      ]
     }
   ]
 }

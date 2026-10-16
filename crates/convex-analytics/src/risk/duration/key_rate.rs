@@ -5,7 +5,9 @@
 
 use super::Duration;
 use crate::error::{AnalyticsError, AnalyticsResult};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Standard key rate tenors
 pub const STANDARD_KEY_RATE_TENORS: &[f64] = &[
@@ -44,9 +46,43 @@ impl KeyRateDurations {
     }
 
     /// Get the total parallel duration (sum of all key rate durations)
-    pub fn total_duration(&self) -> Duration {
-        let total: f64 = self.durations.iter().map(|krd| krd.duration.as_f64()).sum();
-        Duration::from(total)
+    pub fn total_duration(&self) -> AnalyticsResult<Duration> {
+        if self.durations.len() > 4096 {
+            return Err(AnalyticsError::InvalidInput(
+                "at most4096key rates required".into(),
+            ));
+        }
+        if !self.durations.is_empty() {
+            Self::validate_tenors(
+                &self
+                    .durations
+                    .iter()
+                    .map(|row| row.tenor)
+                    .collect::<Vec<_>>(),
+            )?;
+        }
+        let total = self.durations.iter().try_fold(Decimal::ZERO, |sum, row| {
+            sum.checked_add(row.duration.years())
+                .ok_or_else(|| AnalyticsError::CalculationFailed("key rate sum overflow".into()))
+        })?;
+        Ok(Duration::new(total))
+    }
+
+    pub(crate) fn validate_tenors(tenors: &[f64]) -> AnalyticsResult<()> {
+        if tenors.is_empty() || tenors.len() > 4096 {
+            return Err(AnalyticsError::InvalidInput(
+                "1..4096key rate tenors required".into(),
+            ));
+        }
+        let mut seen = HashSet::with_capacity(tenors.len());
+        for &tenor in tenors {
+            if !tenor.is_finite() || tenor <= 0.0 || !seen.insert(tenor.to_bits()) {
+                return Err(AnalyticsError::InvalidInput(
+                    "finite positive unique key rate tenors required".into(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Get duration at a specific tenor
@@ -84,11 +120,17 @@ pub fn key_rate_duration_at_tenor(
         )));
     }
 
-    let krd = (price_down - price_up) / (2.0 * price_base * bump_size);
-
+    if !tenor.is_finite() || tenor <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(
+            "positive finite key rate tenor required".into(),
+        ));
+    }
+    let value = convex_bonds::pricing::risk_math::duration_stencil(
+        price_up, price_down, price_base, bump_size,
+    )?;
     Ok(KeyRateDuration {
         tenor,
-        duration: Duration::from(krd),
+        duration: Duration::new(crate::risk::cash::decimal(value)?),
     })
 }
 
@@ -113,7 +155,7 @@ mod tests {
             },
         ]);
 
-        let total = krds.total_duration();
+        let total = krds.total_duration().unwrap();
         assert!((total.as_f64() - 5.0).abs() < 0.001);
     }
 

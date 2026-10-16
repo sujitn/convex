@@ -9,7 +9,9 @@
 //! DV01 = Modified Duration × Dirty Price × Face Value × 0.0001
 //! ```
 
+use crate::error::AnalyticsResult;
 use crate::risk::duration::Duration;
+use convex_bonds::pricing::risk_math;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -65,10 +67,13 @@ impl From<f64> for DV01 {
 /// # Returns
 ///
 /// DV01 in absolute dollar terms
-pub fn dv01_from_duration(modified_duration: Duration, dirty_price: f64, face_value: f64) -> DV01 {
-    // DV01 = ModDur × (DirtyPrice/100) × FaceValue × 0.0001
-    let dv01 = modified_duration.as_f64() * (dirty_price / 100.0) * face_value * 0.0001;
-    DV01::from(dv01)
+pub fn dv01_from_duration(
+    modified_duration: Duration,
+    dirty_price: f64,
+    face_value: f64,
+) -> AnalyticsResult<DV01> {
+    let value = risk_math::dv01(modified_duration.as_f64(), dirty_price, face_value)?;
+    Ok(DV01::new(crate::risk::cash::decimal(value)?))
 }
 
 /// Calculate DV01 directly from price bumps.
@@ -81,10 +86,9 @@ pub fn dv01_from_duration(modified_duration: Duration, dirty_price: f64, face_va
 /// # Returns
 ///
 /// DV01 as the average of up and down price changes
-pub fn dv01_from_prices(price_up: f64, price_down: f64) -> DV01 {
-    // DV01 = (Price_down - Price_up) / 2
-    let dv01 = (price_down - price_up) / 2.0;
-    DV01::from(dv01)
+pub fn dv01_from_prices(price_up: f64, price_down: f64) -> AnalyticsResult<DV01> {
+    let value = risk_math::dv01_from_prices(price_up, price_down)?;
+    Ok(DV01::new(crate::risk::cash::decimal(value)?))
 }
 
 /// Calculate DV01 per $100 face value.
@@ -95,7 +99,7 @@ pub fn dv01_from_prices(price_up: f64, price_down: f64) -> DV01 {
 ///
 /// * `modified_duration` - Modified duration
 /// * `dirty_price` - Dirty price as percentage of par
-pub fn dv01_per_100_face(modified_duration: Duration, dirty_price: f64) -> DV01 {
+pub fn dv01_per_100_face(modified_duration: Duration, dirty_price: f64) -> AnalyticsResult<DV01> {
     dv01_from_duration(modified_duration, dirty_price, 100.0)
 }
 
@@ -108,11 +112,17 @@ pub fn dv01_per_100_face(modified_duration: Duration, dirty_price: f64) -> DV01 
 /// * `target_dv01` - Target DV01 value
 /// * `modified_duration` - Modified duration of the instrument
 /// * `dirty_price` - Dirty price as percentage of par
-pub fn notional_from_dv01(target_dv01: DV01, modified_duration: Duration, dirty_price: f64) -> f64 {
-    if modified_duration.as_f64().abs() < 1e-10 || dirty_price.abs() < 1e-10 {
-        return 0.0;
-    }
-    target_dv01.as_f64() / (modified_duration.as_f64() * (dirty_price / 100.0) * 0.0001)
+pub fn notional_from_dv01(
+    target_dv01: DV01,
+    modified_duration: Duration,
+    dirty_price: f64,
+) -> AnalyticsResult<f64> {
+    risk_math::notional_from_dv01(
+        target_dv01.as_f64(),
+        modified_duration.as_f64(),
+        dirty_price,
+    )
+    .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -126,7 +136,7 @@ mod tests {
         let dirty_price = 105.0; // 105% of par
         let face_value = 1_000_000.0;
 
-        let dv01 = dv01_from_duration(mod_dur, dirty_price, face_value);
+        let dv01 = dv01_from_duration(mod_dur, dirty_price, face_value).unwrap();
 
         // DV01 = 5 × 1.05 × 1,000,000 × 0.0001 = 525
         assert_relative_eq!(dv01.as_f64(), 525.0, epsilon = 0.01);
@@ -137,7 +147,7 @@ mod tests {
         let mod_dur = Duration::from(5.0);
         let dirty_price = 100.0;
 
-        let dv01 = dv01_per_100_face(mod_dur, dirty_price);
+        let dv01 = dv01_per_100_face(mod_dur, dirty_price).unwrap();
 
         // DV01 = 5 × 1.0 × 100 × 0.0001 = 0.05
         assert_relative_eq!(dv01.as_f64(), 0.05, epsilon = 0.001);
@@ -148,7 +158,7 @@ mod tests {
         let price_up = 99.95; // -0.05 from base
         let price_down = 100.05; // +0.05 from base
 
-        let dv01 = dv01_from_prices(price_up, price_down);
+        let dv01 = dv01_from_prices(price_up, price_down).unwrap();
 
         // (100.05 - 99.95) / 2 = 0.05
         assert_relative_eq!(dv01.as_f64(), 0.05, epsilon = 0.001);
@@ -160,7 +170,7 @@ mod tests {
         let mod_dur = Duration::from(5.0);
         let dirty_price = 100.0;
 
-        let notional = notional_from_dv01(target, mod_dur, dirty_price);
+        let notional = notional_from_dv01(target, mod_dur, dirty_price).unwrap();
 
         // 1000 / (5 × 1.0 × 0.0001) = 2,000,000
         assert_relative_eq!(notional, 2_000_000.0, epsilon = 1.0);

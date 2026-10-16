@@ -34,13 +34,3 @@ pub(super) fn decimal(value: f64) -> AnalyticsResult<Decimal> {
     }
     Ok(result)
 }
-
-pub(super) fn product(left: f64, right: f64) -> AnalyticsResult<f64> {
-    let result = left * right;
-    if !result.is_finite() || (left != 0.0 && right != 0.0 && result == 0.0) {
-        return Err(AnalyticsError::CalculationFailed(
-            "risk arithmetic overflow/underflow".into(),
-        ));
-    }
-    Ok(result)
-}

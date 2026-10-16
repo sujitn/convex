@@ -769,6 +769,7 @@ pub struct ListOutput<T> {
 
 /// Exact library request text, retaining monetary strings and complete native terms.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct LibraryToolParams {
     /// Versioned complete LibraryRequest JSON; see the generated library schema.
     pub request_json: String,

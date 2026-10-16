@@ -23,6 +23,8 @@ pub mod dated_cash;
 pub mod discount_time;
 /// Checked explicit-rate cash-account projections, separate from market quotations.
 pub mod reinvestment;
+/// Checked supplied-price stencils, price approximations and per100 position scaling.
+pub mod risk_math;
 pub mod short_date;
 pub mod yield_cash;
 mod yield_engine;

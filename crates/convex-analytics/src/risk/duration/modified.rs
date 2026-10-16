@@ -45,8 +45,17 @@ pub fn modified_from_macaulay(
 }
 
 /// First-order price change: `ΔP ≈ −D_mod · P · Δy`.
-pub fn price_change_from_duration(mod_duration: Duration, price: f64, yield_change: f64) -> f64 {
-    -mod_duration.as_f64() * price * yield_change
+pub fn price_change_from_duration(
+    mod_duration: Duration,
+    price: f64,
+    yield_change: f64,
+) -> AnalyticsResult<f64> {
+    convex_bonds::pricing::risk_math::duration_price_change(
+        mod_duration.as_f64(),
+        price,
+        yield_change,
+    )
+    .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -86,7 +95,7 @@ mod tests {
         let price = 100.0;
         let yield_change = 0.01; // 100 bps
 
-        let change = price_change_from_duration(mod_dur, price, yield_change);
+        let change = price_change_from_duration(mod_dur, price, yield_change).unwrap();
 
         // Price should drop by approximately 5% for 100bp yield increase
         assert_relative_eq!(change, -5.0, epsilon = 0.01);

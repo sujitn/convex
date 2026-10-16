@@ -39,8 +39,10 @@ pub fn effective_convexity(
         ));
     }
 
-    let conv = (price_down + price_up - 2.0 * price_base) / (price_base * bump_size.powi(2));
-    Ok(Convexity::from(conv))
+    let value = convex_bonds::pricing::risk_math::convexity_stencil(
+        price_up, price_down, price_base, bump_size,
+    )?;
+    Ok(Convexity::new(crate::risk::cash::decimal(value)?))
 }
 
 #[cfg(test)]
