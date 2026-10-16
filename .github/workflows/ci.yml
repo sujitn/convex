@@ -523,6 +523,15 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify native-risk-default
+        run: cargo test --locked -p convex-analytics --test native_yield_risk
+
+      - name: Qualify native-risk-no-default
+        run: cargo test --locked -p convex-analytics --test native_yield_risk --no-default-features
+
+      - name: Qualify native-risk-schema
+        run: cargo test --locked -p convex-analytics --test native_yield_risk --features schemars
+
       - name: Qualify yas-quote-default
         run: cargo test --locked -p convex-analytics --test yas_quote_owner
 

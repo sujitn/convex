@@ -663,3 +663,21 @@ yield, government/benchmark proxies, Z/ASW and batch cardinality work retains it
 native owner. Those diagnostics require separate qualification. Full supplied
 security/curve/model routes remain documented above; no vendor equivalence or
 market/model/production certificate is implied.
+
+## Complete-cash native yield risk
+
+`BondRiskCalculator::from_bond` now takes the actual `Frequency` quotation basis
+and prepares the bond's original normalized dated cash, including ICMA references.
+Pass that same frequency through pricing and risk. For explicit Simple, continuous
+or other compounding with supplied dated context, use `from_prepared_cash`.
+`from_cash_flows` remains an explicit numerical-time route; it infers no dates.
+
+The calculator, scalar duration/convexity helpers and dated cash share the checked
+native derivative owner. Simple-interest modified duration consumes every cash
+flow's denominator. `modified_from_macaulay` now returns `Result` and rejects
+Simple interest because an aggregate time cannot determine its derivative; use
+`modified_duration` with the original complete cash instead. Nonfinite inputs,
+invalid domains, unrepresentable measures and nonzero arithmetic underflow fail.
+Signed cash retains its actual positive net PV; supplied signed/zero face scales
+position DV01 explicitly. Genuine future zero-time payments retain PV with zero
+yield derivatives and require validated dated context.

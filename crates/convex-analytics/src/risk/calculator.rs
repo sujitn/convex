@@ -2,16 +2,19 @@
 
 use rust_decimal::prelude::*;
 
-use convex_bonds::traits::Bond;
-use convex_core::types::{Compounding, Date};
+use convex_bonds::{
+    pricing::{dated_cash::DatedCashYieldRisk, discount_time::PreparedDatedCash},
+    traits::Bond,
+};
+use convex_core::types::{Compounding, Date, Frequency};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::risk::convexity::{analytical_convexity, effective_convexity, Convexity};
+use crate::risk::convexity::{effective_convexity, Convexity};
 use crate::risk::duration::{
-    effective_duration, key_rate_duration_at_tenor, macaulay_duration, modified_duration,
-    modified_from_macaulay, Duration, KeyRateDurations, STANDARD_KEY_RATE_TENORS,
+    effective_duration, key_rate_duration_at_tenor, Duration, KeyRateDurations,
+    STANDARD_KEY_RATE_TENORS,
 };
-use crate::risk::dv01::{dv01_from_duration, DV01};
+use crate::risk::dv01::DV01;
 
 /// Complete risk metrics for a bond.
 #[derive(Debug, Clone)]
@@ -49,70 +52,65 @@ impl BondRiskMetrics {
 
 /// Calculator for bond risk metrics.
 pub struct BondRiskCalculator {
-    times: Vec<f64>,
-    cash_flows: Vec<f64>,
+    risk: DatedCashYieldRisk,
     ytm: f64,
-    compounding: Compounding,
     dirty_price: f64,
     face_value: f64,
 }
 
 impl BondRiskCalculator {
-    /// Creates a new risk calculator for a bond.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond to analyze
-    /// * `settlement` - Settlement date
-    /// * `dirty_price` - Dirty price as percentage of par (e.g., 105.5)
-    /// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-    /// * `compounding` - Compounding convention attached to `ytm`
-    ///
-    /// # Errors
-    ///
-    /// Returns error if no future cash flows exist.
+    /// Prepare original normalized bond cash and its complete native time context.
+    /// `quote_frequency` is the actual periodic quotation basis, independent of coupons.
     pub fn from_bond(
         bond: &dyn Bond,
         settlement: Date,
         dirty_price: f64,
         ytm: f64,
-        compounding: Compounding,
+        quote_frequency: Frequency,
     ) -> AnalyticsResult<Self> {
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no future cash flows".to_string(),
-            ));
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity".into()))?;
+        if settlement < bond.issue_date() || settlement >= maturity {
+            return Err(AnalyticsError::InvalidSettlement {
+                settlement: settlement.to_string(),
+                maturity: maturity.to_string(),
+            });
         }
-
-        let (times, amounts): (Vec<f64>, Vec<f64>) = cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = settlement.days_between(&cf.date) as f64 / 365.0;
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years, amount)
-            })
-            .unzip();
-
-        if times.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no future cash flows after settlement".to_string(),
-            ));
-        }
-
-        let face_value = bond.face_value().to_f64().unwrap_or(100.0);
-        Ok(Self {
-            times,
-            cash_flows: amounts,
+        let cash = bond.yield_cash_flows(settlement, quote_frequency)?;
+        let face = bond
+            .face_value()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("invalid face".into()))?;
+        Self::from_prepared_cash(
+            &cash,
             ytm,
-            compounding,
+            Compounding::from(quote_frequency),
             dirty_price,
-            face_value,
-        })
+            face,
+        )
     }
 
-    /// Build directly from `(times, cash_flows)`, bypassing a `Bond`.
+    /// Reuse full supplied dated context for periodic, continuous or Simple risk.
+    /// Amounts use per100quote units; `face_value` scales the reported position DV01.
+    pub fn from_prepared_cash(
+        cash: &PreparedDatedCash,
+        ytm: f64,
+        compounding: Compounding,
+        dirty_price: f64,
+        face_value: f64,
+    ) -> AnalyticsResult<Self> {
+        Self::from_risk(
+            cash.yield_risk(ytm, compounding)?,
+            ytm,
+            dirty_price,
+            face_value,
+        )
+    }
+
+    /// Explicit positive numerical times and original per100cash, without inferred dates.
+    /// Complete cash owns derivatives; dirty price is the caller's DV01 price basis.
+    /// Finite signed face preserves long/short and zero position scaling.
     pub fn from_cash_flows(
         times: Vec<f64>,
         cash_flows: Vec<f64>,
@@ -121,83 +119,102 @@ impl BondRiskCalculator {
         dirty_price: f64,
         face_value: f64,
     ) -> AnalyticsResult<Self> {
-        if times.len() != cash_flows.len() {
+        Self::from_risk(
+            super::cash::evaluate(&times, &cash_flows, ytm, compounding)?,
+            ytm,
+            dirty_price,
+            face_value,
+        )
+    }
+
+    fn from_risk(
+        risk: DatedCashYieldRisk,
+        ytm: f64,
+        dirty_price: f64,
+        face_value: f64,
+    ) -> AnalyticsResult<Self> {
+        if !ytm.is_finite()
+            || !dirty_price.is_finite()
+            || dirty_price <= 0.0
+            || !face_value.is_finite()
+        {
             return Err(AnalyticsError::InvalidInput(
-                "times and cash_flows must have same length".to_string(),
-            ));
-        }
-        if times.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no cash flows provided".to_string(),
+                "finite yield/face and positive finite DV01 price required".into(),
             ));
         }
         Ok(Self {
-            times,
-            cash_flows,
+            risk,
             ytm,
-            compounding,
             dirty_price,
             face_value,
         })
     }
 
-    /// Macaulay duration: PV-weighted average time to cash flows.
+    /// Same complete-cash PV-weighted time in years.
     pub fn macaulay_duration(&self) -> AnalyticsResult<Duration> {
-        macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Duration::new(super::cash::decimal(
+            self.risk.macaulay_duration,
+        )?))
     }
 
-    /// Modified duration. Continuous compounding equals Macaulay (no divisor).
+    /// Minus the complete first derivative divided by actual cash PV.
     pub fn modified_duration(&self) -> AnalyticsResult<Duration> {
-        modified_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Duration::new(super::cash::decimal(
+            self.risk.modified_duration,
+        )?))
     }
 
-    /// Analytical convexity in years².
+    /// Complete second derivative divided by actual cash PV.
     pub fn convexity(&self) -> AnalyticsResult<Convexity> {
-        analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Convexity::new(super::cash::decimal(self.risk.convexity)?))
     }
 
-    /// DV01 per 100 face: `D_mod · dirty_price/100 · 0.0001 · 100`.
+    fn per100_dv01(&self) -> AnalyticsResult<f64> {
+        super::cash::product(
+            super::cash::product(self.risk.modified_duration, self.dirty_price)?,
+            0.0001,
+        )
+    }
+
+    /// First-order loss at the supplied dirty price for +1bp annual yield.
     pub fn dv01_per_100(&self) -> AnalyticsResult<DV01> {
-        Ok(dv01_from_duration(
-            self.modified_duration()?,
-            self.dirty_price,
-            100.0,
-        ))
+        Ok(DV01::new(super::cash::decimal(self.per100_dv01()?)?))
     }
 
-    /// DV01 for the full position (scaled by `face_value`).
+    /// Same supplied-price DV01 scaled by the actual signed face exposure.
     pub fn dv01(&self) -> AnalyticsResult<DV01> {
-        Ok(dv01_from_duration(
-            self.modified_duration()?,
-            self.dirty_price,
-            self.face_value,
-        ))
+        let scale = self.face_value / 100.0;
+        if self.face_value != 0.0 && scale == 0.0 {
+            return Err(AnalyticsError::CalculationFailed(
+                "face scaling underflow".into(),
+            ));
+        }
+        Ok(DV01::new(super::cash::decimal(super::cash::product(
+            self.per100_dv01()?,
+            scale,
+        )?)?))
     }
 
-    /// Compute Macaulay, modified, convexity, and both DV01 flavours in one pass.
+    /// One checked cash evaluation owns all measures, including Simple derivatives.
     pub fn all_metrics(&self) -> AnalyticsResult<BondRiskMetrics> {
-        let macaulay = self.macaulay_duration()?;
-        let modified = modified_from_macaulay(macaulay, self.ytm, self.compounding);
         Ok(BondRiskMetrics {
-            macaulay_duration: macaulay,
-            modified_duration: modified,
+            macaulay_duration: self.macaulay_duration()?,
+            modified_duration: self.modified_duration()?,
             convexity: self.convexity()?,
-            dv01_per_100: dv01_from_duration(modified, self.dirty_price, 100.0),
-            dv01: dv01_from_duration(modified, self.dirty_price, self.face_value),
+            dv01_per_100: self.dv01_per_100()?,
+            dv01: self.dv01()?,
         })
     }
 
-    /// Returns the yield to maturity.
+    /// Actual supplied annual decimal yield.
     pub fn ytm(&self) -> f64 {
         self.ytm
     }
-
-    /// Returns the dirty price.
+    /// Actual supplied per100DV01 price basis.
     pub fn dirty_price(&self) -> f64 {
         self.dirty_price
     }
-
-    /// Returns the face value.
+    /// Actual signed face exposure used for position scaling.
     pub fn face_value(&self) -> f64 {
         self.face_value
     }

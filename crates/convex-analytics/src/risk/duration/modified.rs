@@ -1,35 +1,47 @@
-//! Modified duration. `D_mod = D_mac / (1 + y/f)` for periodic compounding;
-//! `D_mod = D_mac` for continuous; `D_mod = D_mac / (1 + y·D_mac)` for simple.
-
+//! Complete-cash modified duration; Simple needs each original cash denominator.
+use super::Duration;
+use crate::error::{AnalyticsError, AnalyticsResult};
 use convex_core::types::Compounding;
 
-use super::{macaulay_duration, Duration};
-use crate::error::AnalyticsResult;
-
-fn modified_denominator(ytm: f64, compounding: Compounding, mac_dur: f64) -> f64 {
-    match compounding {
-        Compounding::Continuous => 1.0,
-        Compounding::Simple => 1.0 + ytm * mac_dur,
-        _ => 1.0 + ytm / compounding.periods_per_year() as f64,
-    }
-}
-
-/// Modified duration from cash flows and yield. See module docs for the
-/// per-compounding formula.
+/// Minus the native first derivative divided by the same complete cash PV.
 pub fn modified_duration(
     times: &[f64],
     cash_flows: &[f64],
     ytm: f64,
     compounding: Compounding,
 ) -> AnalyticsResult<Duration> {
-    let mac = macaulay_duration(times, cash_flows, ytm, compounding)?;
-    Ok(modified_from_macaulay(mac, ytm, compounding))
+    let risk = crate::risk::cash::evaluate(times, cash_flows, ytm, compounding)?;
+    Ok(Duration::new(crate::risk::cash::decimal(
+        risk.modified_duration,
+    )?))
 }
 
-/// Convert a Macaulay duration to modified, given yield and compounding.
-pub fn modified_from_macaulay(macaulay: Duration, ytm: f64, compounding: Compounding) -> Duration {
-    let denom = modified_denominator(ytm, compounding, macaulay.as_f64());
-    Duration::from(macaulay.as_f64() / denom)
+/// Convert a Macaulay duration under periodic or continuous compounding.
+/// Simple interest requires complete cash; an aggregate time cannot recover its derivative.
+pub fn modified_from_macaulay(
+    macaulay: Duration,
+    ytm: f64,
+    compounding: Compounding,
+) -> AnalyticsResult<Duration> {
+    if !ytm.is_finite() || compounding == Compounding::Simple {
+        return Err(AnalyticsError::InvalidInput(
+            "finite yield and periodic/continuous basis required; Simple needs complete cash"
+                .into(),
+        ));
+    }
+    let denominator = if compounding == Compounding::Continuous {
+        1.0
+    } else {
+        1.0 + ytm / f64::from(compounding.periods_per_year())
+    };
+    if !denominator.is_finite() || denominator <= 0.0 {
+        return Err(AnalyticsError::InvalidInput(
+            "invalid periodic yield domain".into(),
+        ));
+    }
+    Ok(Duration::new(crate::risk::cash::decimal(
+        macaulay.as_f64() / denominator,
+    )?))
 }
 
 /// First-order price change: `ΔP ≈ −D_mod · P · Δy`.
@@ -40,6 +52,7 @@ pub fn price_change_from_duration(mod_duration: Duration, price: f64, yield_chan
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::risk::macaulay_duration;
     use approx::assert_relative_eq;
 
     #[test]
@@ -53,7 +66,8 @@ mod tests {
 
     #[test]
     fn test_modified_from_macaulay() {
-        let mod_dur = modified_from_macaulay(Duration::from(5.0), 0.06, Compounding::SemiAnnual);
+        let mod_dur =
+            modified_from_macaulay(Duration::from(5.0), 0.06, Compounding::SemiAnnual).unwrap();
         assert_relative_eq!(mod_dur.as_f64(), 4.854, epsilon = 0.001);
     }
 

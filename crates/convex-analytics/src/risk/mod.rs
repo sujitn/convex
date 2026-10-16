@@ -2,6 +2,7 @@
 //! hedge advisor surface.
 
 pub mod calculator;
+mod cash;
 pub mod convexity;
 pub mod duration;
 pub mod dv01;

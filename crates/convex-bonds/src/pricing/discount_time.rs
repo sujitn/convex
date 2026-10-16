@@ -78,6 +78,16 @@ impl PreparedDatedCash {
     pub fn price(&self, annual_yield: f64, compounding: CashYieldCompounding) -> BondResult<f64> {
         yield_cash::value_dated_cash(&self.cash, annual_yield, compounding).map(|value| value.0)
     }
+
+    /// Same original dated cash and time context for complete analytical yield risk.
+    /// Future zero-time cash retains its PV and contributes zero yield derivatives.
+    pub fn yield_risk(
+        &self,
+        annual_yield: f64,
+        compounding: convex_core::types::Compounding,
+    ) -> BondResult<super::dated_cash::DatedCashYieldRisk> {
+        super::dated_cash::prepared_yield_risk(self, annual_yield, compounding)
+    }
 }
 
 /// Complete discount-time input, separate from coupon accrual and compounding.

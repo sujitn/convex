@@ -4917,6 +4917,37 @@
         "Four native controls in default/no-default/schema profiles; original core/bond/analytics/WASM and existing controls; full required lint/assurance/library/harness/source conservation.",
         "Bind once after builders; actual native/C/JDK26/Node/browser8549envelopes,400Treasury368futurecash37943financial and retained independent references. Actual C YAS must satisfy the unchanged independent yield bound."
       ]
+    },
+    {
+      "base_commit": "3539bc2fb8adda8a29bceb0151835681de9724bb",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Repair the source-frozen actual original native risk1pass2fail: full Simple cash modified duration1.2878787878787878versus independent1.2714097496706192, and NaNyield accepted as successful risk. Reuse the existing native dated-cash derivative kernel for explicit raw times and immutable PreparedDatedCash. Preserve the old dated API nonnegative domain and all original arithmetic order/inputs; explicit raw risk retains signed cash with positive net PV, no inferred dates or inverse root selection. Shared checked products reject nonzero underflow; all rates/cash/work/domain/result scalars are checked. Remove duplicate analytics exponent/derivative formulas and fabricated conversion zeros. BondRiskCalculator caches one complete-cash evaluation and uses actual native normalized bond time/context with an explicit Frequency quotation basis; callers retain original complete terms. from_prepared_cash admits explicitly supplied context under any original Compounding enum. Raw signed/zero face scales actual position DV01; dirty price is the supplied per100DV01 price basis. All five methods/all_metrics agree. modified_from_macaulay returns Result and rejects Simple, which requires the complete cash denominators. One unprotected existing test adds only the required Result unwrap/import, preserving every old operand/answer/bound; all protected test sections and1880old numeric pins/defaults/physical bytes stay. Independent Decimal90fullcash63cases/7laws/negative-zero-positive yields and three original Simple references precede implementation; unchanged price1e-10/risk1e-11/DV011e-10bounds. Seven new controls plus72retained independent YAS dated-context references cover normal/signed/invalid/bounded/underflow/actualfuture-zero-time inputs. Two additive pins give1882. Keep all8549original shared inputs/references/envelopes, literal30areas174combinations2154Planned80shared12native228mapped1926unmapped, original assessments and all native model/calendar/claim/physical/causal/CTD requirements. Other raw risk estimation/effective/KRD and legacy scalar conversions remain required owners; do not certify an entire module from this scope. Pending exact five spread-mock and12Date-test approvals stay unapplied. Only unavailable actual platform execution defers. User has no Windows/Excel or approved packs. No dependency/provider/DB/MQ/Cexport/authority, native waiver, acceptance or certificate.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "106f7caac217563fd817ae9f4191bdac8176226b0e06f622362d151cfbb497ee",
+        "crates/convex-analytics/src/risk/calculator.rs": "51f5b670ca238a2ce0926a58d414f21179e1dce6c5eef20a1cc5e90e153885f4",
+        "crates/convex-analytics/src/risk/cash.rs": "c12a47b061527eab6056f5fd5f5f47fb442878ef1be223f189cada2a38d5c5a7",
+        "crates/convex-analytics/src/risk/convexity/analytical.rs": "cf4705002c5318b984c9e9706e8e064de8c2978602d8fd4227295861bee5809a",
+        "crates/convex-analytics/src/risk/duration/macaulay.rs": "20b21bbdfd5a2f076dfddc94a0340159325c6c5cfbf49590e1f4049837fd9c4c",
+        "crates/convex-analytics/src/risk/duration/modified.rs": "024ea492186e3bbed704677e10fde77d1a0f443b27933873da2d33b709a4ddd5",
+        "crates/convex-analytics/src/risk/mod.rs": "0160b66ae04a3c7c4d1e46c041aef67c4e1e879a8e9370c232f297bc8bd8b5e0",
+        "crates/convex-analytics/src/risk/profile.rs": "8cb31bee445657bd743c04597997d03cc2ca9b8bfcba8e10464cad463413bbba",
+        "crates/convex-analytics/tests/fixtures/native-yield-risk.json": "a9bc1a4018db6a0df2903b6b9843f3f3b51a376b4f3d7296604518b863fc7a69",
+        "crates/convex-analytics/tests/native_yield_risk.rs": "4e90192239c2ac359632355aa184a6d3d2cb62005c5105973e6cec309b88a3ef",
+        "crates/convex-bonds/src/pricing/dated_cash.rs": "afffb26306c5d46b5b65443c4f9046bcb30c603b7b09f206a5d4a28bc0773e03",
+        "crates/convex-bonds/src/pricing/discount_time.rs": "3052f267d477fa81613be0651314898abd1c5158517c54b457be7a00e4022f66",
+        "crates/convex-bonds/src/pricing/yield_cash.rs": "b72616cb2800c31397481bb293c84da2a6d195af49bf6fddac2d52eafdfbfbb6",
+        "docs/ROUTE-MIGRATION.md": "c21bea315b94b9eade9ebe5579f08c18d73cc099b8c7aa14b86253008decb553",
+        "tools/assurance/check.py": "c79681f963049aafdaaa7cabe5d3f9fc57cf2b02fae96dd0ebb50b29f2517cad",
+        "tools/assurance/inventory.json": "91acc926efebd714735ce5598af2420d28e6959a20454c1f599706153509a26f",
+        "tools/assurance/numeric-evidence.json": "5aad5f66015b2ebe50f5b871624d30d2551f9ba35cd25c38df99ee81e04ca30e",
+        "tools/library/library-inventory.json": "dc9e2bb758e8ad9ecd22da1e161f615f6d187e0efa508515a8cc246909e46500"
+      },
+      "tests": [
+        "Frozen original actual native1pass2fail and independent63Decimal90fullcash derivative and three original Simple references before candidate execution.",
+        "Seven native controls in default/no-default/schema profiles; original core/bond/analytics/WASM and existing controls; full required lint/assurance/library/harness/source conservation.",
+        "Bind once after builders; actual native/C/JDK26/Node/browser8549envelopes,400Treasury368futurecash37943financial and retained independent references. Actual C YAS must satisfy the unchanged independent yield bound."
+      ]
     }
   ]
 }

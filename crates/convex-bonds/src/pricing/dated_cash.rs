@@ -87,11 +87,42 @@ pub fn dated_cash_yield_risk_with_basis(
     }
     let prepared = PreparedDatedCash::new(cash, settlement, basis)?;
     yield_cash::validate_dated_cash(prepared.discount_cash(), true)?;
+    evaluate_risk(prepared.discount_cash(), annual_yield, compounding)
+}
+
+/// Checked yield risk over explicit positive numerical times in original cash units.
+/// Signed cash is retained; at least one positive amount and a positive net PV
+/// are required. This supplies no dates, entitlement, quotation law or root selection.
+pub fn cash_yield_risk(
+    cash: &[(f64, f64)],
+    annual_yield: f64,
+    compounding: Compounding,
+) -> BondResult<DatedCashYieldRisk> {
+    yield_cash::validate_cash(cash, false)?;
+    finite(annual_yield)?;
+    evaluate_risk(cash, annual_yield, compounding)
+}
+
+pub(crate) fn prepared_yield_risk(
+    cash: &PreparedDatedCash,
+    annual_yield: f64,
+    compounding: Compounding,
+) -> BondResult<DatedCashYieldRisk> {
+    yield_cash::validate_dated_cash(cash.discount_cash(), false)?;
+    finite(annual_yield)?;
+    evaluate_risk(cash.discount_cash(), annual_yield, compounding)
+}
+
+fn evaluate_risk(
+    cash: &[(f64, f64)],
+    annual_yield: f64,
+    compounding: Compounding,
+) -> BondResult<DatedCashYieldRisk> {
     let mut pv = 0.0;
     let mut first = 0.0;
     let mut second = 0.0;
     let mut weighted = 0.0;
-    for &(time, amount) in prepared.discount_cash() {
+    for &(time, amount) in cash {
         let (df, d1, d2) = match compounding {
             Compounding::Continuous => {
                 let df = portable::exp(-annual_yield * time);
@@ -130,10 +161,10 @@ pub fn dated_cash_yield_risk_with_basis(
                 "positive finite dated cash discount factor required",
             ));
         }
-        pv = finite(pv + amount * df)?;
-        first = finite(first + amount * finite(d1)?)?;
-        second = finite(second + amount * finite(d2)?)?;
-        weighted = finite(weighted + amount * df * time)?;
+        pv = finite(pv + yield_cash::product(amount, df)?)?;
+        first = finite(first + yield_cash::product(amount, finite(d1)?)?)?;
+        second = finite(second + yield_cash::product(amount, finite(d2)?)?)?;
+        weighted = finite(weighted + yield_cash::product(yield_cash::product(amount, df)?, time)?)?;
     }
     if pv <= 0.0 {
         return Err(BondError::pricing_failed("positive dated cash PV required"));

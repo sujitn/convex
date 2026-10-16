@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::traits::{Bond, FixedCouponBond};
-use convex_core::types::{Compounding, Currency, Date, Frequency, Mark, SpreadType};
+#[cfg(test)]
+use convex_core::types::Compounding;
+use convex_core::types::{Currency, Date, Frequency, Mark, SpreadType};
 use convex_curves::bumping::KeyRateBump;
 use convex_curves::{DiscreteCurve, RateCurve, RateCurveDyn};
 
@@ -114,7 +116,7 @@ where
         settlement,
         priced.dirty_price_per_100,
         priced.ytm_decimal,
-        Compounding::from(freq),
+        freq,
     )?;
     let metrics = calc.all_metrics()?;
     let dv01 = metrics.dv01_per_100.as_f64() * face_scale;
@@ -433,7 +435,7 @@ pub fn compute_callable_position_risk(
         settlement,
         priced.dirty_price_per_100,
         priced.ytm_decimal,
-        Compounding::from(freq),
+        freq,
     )?;
     let bullet_macaulay = bullet_calc.all_metrics()?.macaulay_duration.as_f64();
 

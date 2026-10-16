@@ -1,67 +1,17 @@
-//! Analytical convexity calculation.
-
-use convex_core::types::Compounding;
-use convex_math::portable;
-
+//! Full-cash analytical convexity from the native checked derivative owner.
 use super::Convexity;
-use crate::error::{AnalyticsError, AnalyticsResult};
+use crate::error::AnalyticsResult;
+use convex_core::types::Compounding;
 
-/// Analytical convexity. Periodic: `Σ t·(t+1/f)·PV / (P·(1+y/f)²)`.
-/// Continuous: `Σ t²·PV / P` (limit as `f → ∞`).
-/// Simple: `Σ 2·t²·PV / (P·(1+y·t)²)` (second derivative of `1/(1+y·t)`).
+/// Second annual-yield derivative divided by the same complete cash PV.
 pub fn analytical_convexity(
     times: &[f64],
     cash_flows: &[f64],
     ytm: f64,
     compounding: Compounding,
 ) -> AnalyticsResult<Convexity> {
-    if times.len() != cash_flows.len() {
-        return Err(AnalyticsError::InvalidInput(
-            "times and cash_flows must have same length".to_string(),
-        ));
-    }
-    if times.is_empty() {
-        return Err(AnalyticsError::InvalidInput(
-            "no cash flows provided".to_string(),
-        ));
-    }
-
-    let mut weighted_sum = 0.0;
-    let mut price = 0.0;
-    for (&t, &cf) in times.iter().zip(cash_flows.iter()) {
-        let (df, weight) = match compounding {
-            Compounding::Continuous => (portable::exp(-ytm * t), t * t),
-            Compounding::Simple => {
-                let g = 1.0 + ytm * t;
-                (1.0 / g, 2.0 * t * t / (g * g))
-            }
-            _ => {
-                let f = compounding.periods_per_year() as f64;
-                let base = 1.0 + ytm / f;
-                (portable::pow(base, -t * f), t * (t + 1.0 / f))
-            }
-        };
-        let pv = cf * df;
-        weighted_sum += weight * pv;
-        price += pv;
-    }
-
-    if price.abs() < 1e-10 {
-        return Err(AnalyticsError::CalculationFailed(
-            "price is zero in convexity calculation".to_string(),
-        ));
-    }
-
-    // Periodic conventions divide by (1+y/f)²; continuous and simple already
-    // bake the second-derivative scaling into the per-cash-flow `weight`.
-    let scale = match compounding {
-        Compounding::Continuous | Compounding::Simple => 1.0,
-        _ => {
-            let f = compounding.periods_per_year() as f64;
-            (1.0 + ytm / f).powi(2)
-        }
-    };
-    Ok(Convexity::from(weighted_sum / (price * scale)))
+    let risk = crate::risk::cash::evaluate(times, cash_flows, ytm, compounding)?;
+    Ok(Convexity::new(crate::risk::cash::decimal(risk.convexity)?))
 }
 
 #[cfg(test)]
