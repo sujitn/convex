@@ -5048,6 +5048,40 @@
         "Independent25normal100parametric180historical12hedge and165Date/154count/11weekday references; three feature profiles plus original suites, complete lint/assurance/library/harness/source conservation.",
         "Bind once after builders; actual8549native/C/Java/Node/browser/MCPstdio/HTTPfullenvelopes plus retained37943financial/400Treasury/368futurecash and unchanged independent packs; only unavailable actual platform execution defers."
       ]
+    },
+    {
+      "base_commit": "bf7e7346de08284bb7f83733ffd0d79ab109a558",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Repair actual source/lock/binary-frozen Holding key-rate1pass4fail observations: nearby factors conflate, missing risk inflates known DV01, presentation weights alter currency risk and zero covered weight invents a duration. One bounded checked native owner validates full supplied sets, exact positive finite binary64 factors and identities, and deterministic checked Decimal products/sums/divisions. Require a strictly positive dirty normalization base for supplied relative duration; no zero absolute risk is inferred for zero-value instruments, which use the existing absolute-sensitivity owner. Return per-factor known dirty-value currency DV01 and coverage separately from optional known weighted durations; missing factors and undefined ratios never become successful zeros. Dirty value uses supplied par*(clean+actual accrued)*explicit FX/100; MarketValue weights use that value. ParValue/EqualWeight affect presentation only. Optional profile and partial-DV01 views delegate the same owner; missing requested factors are omitted from the known view and explicit in the full result. REST invokes the checked owner, rejects unknown/invalid whole inputs, echoes actual name/identity, uses nullable unavailable duration/contribution/bucket metrics and separates known DV01 from complete factor DV01. Exact plain-decimal notional/full dirty market_price strings on the supplied duration basis are mandatory; no clean quote, accrual, currency, FX, source revision or instrument valuation is inferred. Migrate nullable client types and remove fake triangular factor allocations/live-looking fallback risk and NAV-multiple VaR from the demo. Independent predeclared Fraction/Decimal90 references retain36oldzero-accrual cases and add12actual-accrual/FXcases:48configured cases (45 valid with69factor rows,3invalid zero-normalization cases), unchanged1e-12absolute/1e-14relative bounds. Move the existing pure bounded JSON parser into core contracts and delegate from the full-library ingress and supplied-risk REST adapter, without changing its bounds or adding dependencies. The full-library bounded JSON ingress additionally rejects nonzero raw model numbers erased to binary64zero before formal parsing, retaining byte/depth/node/item/text/duplicate/syntax owners and quoted strings.15predeclared exact Fraction/Decimal1200boundaries include9healthy zeros/finite/subnormal cases and6rejections. No new dependency or second JSON parser is introduced; typed risk Deserialize and legacy v1 boundaries remain required. All1889old numerical rows/defaults and8549complete shared requests stay unchanged; add5new numerical controls. Preserve original test sections/assertions/answers/bounds, every physical historical packet and CTD switches/actual cash/security ownership. No dependency/Cexport/API mapping or mandatory-definition change; literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. This supplied positive-par single-axis Holding view does not replace full signed mixed-product risk/hedge or qualify scenario interpolation/stress percentages. The separately captured risk Deserialize1pass6fail gap, other native/calendar/ARRC/YAS/model/calibration/claim/physical/causal/exact-operation and MCP remote/convenience work remain required. Only unavailable actual platform execution defers; user has no Windows/Excel or approved convention/model packs. No native waiver, acceptance or independent certificate. Preserve the complete first failed candidate and actual owned-process stop proof. CI insertion occurred after the inspected CI source pin was generated; refresh that exact CI pin and coverage fingerprint, without changing production sources, original or new financial answers, bounds, tests or solver defaults. Refreeze the same-base candidate before all required reruns.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "99a356f12d029d91e7c7eb7085707b4c197cbd89c904687bbfb8be2d77723811",
+        "crates/convex-core/src/contracts/json.rs": "540a1e7062ea309e15964c49a7989321364767d6c2bd06b956bcfdd6ce194ec2",
+        "crates/convex-core/src/contracts/mod.rs": "620a6023d7bc90502317947be750131faa897839ffe26c0c95fa64d789388530",
+        "crates/convex-portfolio/src/analytics/key_rates.rs": "6f20d703c1d7c2801fa2e92e405ffea91c83f16958bd136bda0fe396bd6c1658",
+        "crates/convex-portfolio/src/lib.rs": "8d3023112b6a46d8ce8169405ac4c143c0d66980fa5c24f4d23e47ee6be16f12",
+        "crates/convex-portfolio/tests/fixtures/holding-key-rates.json": "938e33c606aa74c3768824408f938cf83d727989a69567e9bb449cdcec267176",
+        "crates/convex-portfolio/tests/holdings_key_rates.rs": "c51348abdcc97b3f7def444b44677327ff82171e366fcc4046e7d54bcb876056",
+        "crates/convex-server/src/handlers.rs": "ae0d7fccf13d726b231a49a1f976f5d98b6ae1f07ad4728d70f08094d148cdb9",
+        "crates/convex-server/tests/key_rate_coverage.rs": "d0e3c058cb951812937e592d3cc2a865e754a2ecd1bbfa56d35c159626d8c580",
+        "crates/convex/src/library/ingress.rs": "8ad3fe533da6edcc517afcbd28cc071e59d11872518701aff4942dc6a2d3dbdb",
+        "crates/convex/tests/fixtures/number-admission.json": "94e1ebc1c3f83fb3350d4495dab512f7e45dae4df9e747ed23686066babda372",
+        "crates/convex/tests/ingress_numbers.rs": "015bf36410d9f9bc5eed50062276ecf2fbb59ce26aaa0f2a36d887e1493efb2c",
+        "demo/frontend/src/components/PortfolioDemo.tsx": "de4a65b9b2bbd65cd944844aabfaea626d70ac65a7019437a26546bf7c68aaf7",
+        "demo/frontend/src/lib/api.ts": "fd5679eee4c073aa121cca604ea630fa2e2c7b95a40556d99ccd611b288161ef",
+        "docs/PORTFOLIO-KEY-RATE-RISK.md": "83803af3d6e13a9d77870219b67ede96b057af09cb2650421b518116237522ba",
+        "docs/RISK-CONTRACTS.md": "3f40aa638c231e2427f84bc367fb82e026adfe697d0284c846ba60b874e4152f",
+        "docs/ROUTE-MIGRATION.md": "a96e9ff2e452e4c40e228437d1d01b97568dbee563d1bdda53f49701700b1bec",
+        "tools/assurance/check.py": "d8c6189d44ac20188cf6f7055866035293835a7ee4b19f97ba15f93ebcac1ed1",
+        "tools/assurance/inventory.json": "15a1d2a2c849c62a42e20224802a16cd783748ff332b38d7b8c5a6eaf36ed208",
+        "tools/assurance/numeric-evidence.json": "c475922ef0b5dbc77d510c9c5d603f364c1a9f8a339b565ae3f1df8c7a2b1c15",
+        "tools/library/library-inventory.json": "c0967f91e755fb4ddc00740b600c156f26e9d2437a8d69c9af3263f59592cc54"
+      },
+      "tests": [
+        "Original bound1pass4fail native Holding probe replayed before public mutation.",
+        "Independent48case declarations (45valid,69factor rows,3zero-normalization rejections) and15exact raw-number boundaries precede candidate execution;6holding,3actualHTTProuter and3JSON-admission functions, feature profiles, full retained native/library/assurance/lint/financial/host checks.",
+        "Bind final artifacts once after all actual builders/readers exit; no original financial answer or bound changes; only unavailable actual platform execution defers."
+      ]
     }
   ]
 }

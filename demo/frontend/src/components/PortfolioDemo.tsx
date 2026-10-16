@@ -17,7 +17,6 @@ import { formatNumber, formatBps, cn } from '../lib/utils';
 import {
   priceBondWithDetails,
   calculatePortfolioAnalytics,
-  calculateKeyRateDuration,
   runStandardStressTest,
   BondQuoteResponse,
   BondReferenceInput,
@@ -63,17 +62,7 @@ const DEMO_PORTFOLIO = {
   dv01: 26_150,
 };
 
-const DEMO_KRD_DATA = [
-  { tenor: 0.5, duration: 0.12, contribution_pct: 2.3 },
-  { tenor: 1, duration: 0.28, contribution_pct: 5.4 },
-  { tenor: 2, duration: 0.85, contribution_pct: 16.3 },
-  { tenor: 3, duration: 0.95, contribution_pct: 18.2 },
-  { tenor: 5, duration: 1.45, contribution_pct: 27.7 },
-  { tenor: 7, duration: 0.78, contribution_pct: 14.9 },
-  { tenor: 10, duration: 0.65, contribution_pct: 12.4 },
-  { tenor: 20, duration: 0.12, contribution_pct: 2.3 },
-  { tenor: 30, duration: 0.03, contribution_pct: 0.5 },
-];
+
 
 const DEMO_STRESS_RESULTS = [
   { scenario_name: 'Rates +100bp', initial_value: '50000000', stressed_value: '47385000', pnl: '-2615000', pnl_pct: '-5.23' },
@@ -213,55 +202,6 @@ export default function PortfolioDemo() {
     refetchOnWindowFocus: false,
   });
 
-  // Calculate key rate durations
-  const {
-    data: krdData,
-    isLoading: isKrdLoading,
-  } = useQuery({
-    queryKey: ['portfolio-krd', bondPrices?.size],
-    queryFn: async () => {
-      if (!bondPrices || bondPrices.size === 0) {
-        return null;
-      }
-
-      // Build positions with KRD data from bond quotes
-      const positions = SAMPLE_HOLDINGS.map((h) => {
-        const quote = bondPrices.get(h.id);
-        // Approximate KRD based on modified duration and maturity
-        const maturityYears = (new Date(h.maturity).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000);
-        const modDur = quote?.modified_duration || maturityYears * 0.9;
-
-        // Distribute duration across tenors based on maturity
-        const krd: Array<[number, number]> = [];
-        const tenors = [0.5, 1, 2, 3, 5, 7, 10, 20, 30];
-        for (const t of tenors) {
-          if (t <= maturityYears + 2) {
-            // Simple triangular distribution around maturity
-            const weight = Math.max(0, 1 - Math.abs(t - maturityYears) / maturityYears);
-            krd.push([t, modDur * weight]);
-          }
-        }
-
-        return {
-          instrument_id: h.id,
-          notional: h.notional,
-          market_price: quote?.clean_price_mid || 100,
-          key_rate_durations: krd,
-        };
-      });
-
-      return calculateKeyRateDuration({
-        portfolio_id: 'demo-portfolio',
-        name: 'Sample IG Corporate Portfolio',
-        positions,
-      });
-    },
-    enabled: !!bondPrices && bondPrices.size > 0,
-    staleTime: 60000,
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
-
   // Run stress tests
   const {
     data: stressData,
@@ -308,9 +248,6 @@ export default function PortfolioDemo() {
   const ytm = portfolioAnalytics?.weighted_yield ? portfolioAnalytics.weighted_yield * 100 : DEMO_PORTFOLIO.ytm;
   const dv01 = portfolioAnalytics?.dv01 || DEMO_PORTFOLIO.dv01;
   const zSpread = portfolioAnalytics?.weighted_spread ? portfolioAnalytics.weighted_spread * 10000 : DEMO_PORTFOLIO.zSpread;
-
-  // Use live KRD or demo
-  const krdProfile = krdData?.profile?.length ? krdData.profile : DEMO_KRD_DATA;
 
   // Use live stress results or demo
   const stressResults = stressData?.results?.length ? stressData.results : DEMO_STRESS_RESULTS;
@@ -594,32 +531,10 @@ export default function PortfolioDemo() {
       {/* Risk Analytics Tab */}
       {activeTab === 'risk' && (
         <div className="space-y-6">
-          {/* Key Rate Durations */}
           <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="card-header mb-0">Key Rate Durations</h3>
-              {krdData && !isKrdLoading && (
-                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
-                  Live ({krdData.coverage_pct?.toFixed(0)}% coverage)
-                </span>
-              )}
-            </div>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={krdProfile.map((k) => ({ tenor: `${k.tenor}Y`, krd: k.duration }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="tenor" />
-                  <YAxis tickFormatter={(v) => formatNumber(v, 2)} />
-                  <Tooltip
-                    formatter={(value: number) => [formatNumber(value, 3), 'KRD']}
-                  />
-                  <Bar dataKey="krd" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-sm text-slate-500 mt-4">
-              Key rate duration measures sensitivity to changes at specific points on the yield curve.
-              Total duration: {formatNumber(krdProfile.reduce((sum, k) => sum + k.duration, 0), 2)}.
+            <h3 className="card-header">Key Rate Durations</h3>
+            <p className="text-sm text-slate-500">
+              Unavailable. Supply calculated key-rate sensitivities to view this portfolio’s factor risk.
             </p>
           </div>
 
@@ -627,38 +542,25 @@ export default function PortfolioDemo() {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="card">
               <div className="stat-label">Duration Breakdown</div>
-              <div className="space-y-2 mt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Short-end (&lt;2Y)</span>
-                  <span className="font-mono">{formatNumber(krdData?.short_duration || 0.4, 2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Intermediate (2-10Y)</span>
-                  <span className="font-mono">{formatNumber(krdData?.intermediate_duration || 4.2, 2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Long-end (&gt;10Y)</span>
-                  <span className="font-mono">{formatNumber(krdData?.long_duration || 0.6, 2)}</span>
-                </div>
-              </div>
+              <p className="text-sm text-slate-500 mt-2">Unavailable without supplied factor sensitivities.</p>
             </div>
             <div className="card">
               <div className="stat-label">Spread Risk</div>
               <div className="space-y-2 mt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Spread Duration</span>
-                  <span className="font-mono">{formatNumber(portfolioAnalytics?.spread_duration || 5.15, 2)}</span>
+                  <span className="font-mono">{portfolioAnalytics?.spread_duration == null ? 'Unavailable' : formatNumber(portfolioAnalytics.spread_duration, 2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">CS01 (per bp)</span>
-                  <span className="font-mono">${formatNumber(portfolioAnalytics?.cs01 || 25750, 0)}</span>
+                  <span className="font-mono">{portfolioAnalytics?.cs01 == null ? 'Unavailable' : `$${formatNumber(portfolioAnalytics.cs01, 0)}`}</span>
                 </div>
               </div>
             </div>
             <div className="card">
               <div className="stat-label">VaR (95%, 1-day)</div>
-              <div className="stat-value text-loss">-${formatNumber(navValue * 0.00365, 0)}</div>
-              <p className="text-sm text-slate-500 mt-1">-0.37% of NAV</p>
+              <div className="stat-value">Unavailable</div>
+              <p className="text-sm text-slate-500 mt-1">No loss distribution has been supplied.</p>
             </div>
           </div>
         </div>

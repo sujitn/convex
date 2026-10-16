@@ -886,6 +886,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-analytics/src/risk/convexity/effective.rs')
     paths.add('crates/convex-analytics/src/risk/dv01.rs')
     paths.add('crates/convex-mcp/src/server.rs')
+    paths.add('crates/convex-core/src/contracts/json.rs')
     paths.add('crates/convex-analytics/src/risk/duration/mod.rs')
     paths.add('crates/convex-analytics/src/risk/hedging/hedge_ratio.rs')
     paths.add('crates/convex-analytics/src/risk/hedging/portfolio.rs')

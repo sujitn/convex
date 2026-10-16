@@ -37,6 +37,9 @@
     deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
 )]
 
+/// Bounded JSON parsing and numeric-token admission, shared by application adapters.
+pub mod json;
+
 mod identity;
 mod results;
 mod risk;

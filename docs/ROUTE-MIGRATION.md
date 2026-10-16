@@ -757,3 +757,14 @@ The older portfolio key-rate HTTP adapter now requires each actual market price,
 rejects an invalid position as a whole and no longer invents an ISIN or drops a
 failed conversion. Its broader Holding aggregation, factor coverage, weighting
 and missing-result presentation still require their own migration.
+
+
+## Supplied portfolio key-rate exposure
+
+The existing key-rate endpoint now preserves missing factors and undefined ratios as
+null, reports known currency DV01 separately from complete factor exposure, and
+requires the supplied full dirty market_price basis. Migrate nullable client fields
+and inspect per-factor coverage; never send a clean quote as a full dirty price.
+The native optional views delegate the checked aggregate_key_rate_exposure owner.
+Synthetic demo factor allocations, fallback risk and NAV-multiple VaR are removed.
+See [the contract](PORTFOLIO-KEY-RATE-RISK.md) for units, bounds and remaining scope.

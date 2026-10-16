@@ -481,8 +481,8 @@ export async function calculatePortfolioAnalytics(
 // Position with key rate duration data
 export interface KeyRatePosition {
   instrument_id: string;
-  notional: number;
-  market_price?: number;
+  notional: string; // Exact plain decimal, without exponent or rounding.
+  market_price: string; // Full dirty price per100, matching the supplied duration basis.
   key_rate_durations?: Array<[number, number]>; // [tenor, duration] pairs
 }
 
@@ -491,27 +491,35 @@ export interface KeyRateDurationRequest {
   portfolio_id: string;
   name: string;
   positions: KeyRatePosition[];
-  tenors?: number[]; // Custom tenor points
+  tenors?: number[]; // Exact custom tenor points
+  weighting?: 'MarketValue' | 'ParValue' | 'EqualWeight';
 }
 
-// Key rate point output
+// Exact requested factor; null preserves unavailable risk and undefined ratios.
 export interface KeyRatePointOutput {
   tenor: number;
-  duration: number;
-  contribution_pct: number;
+  duration: number | null;
+  contribution_pct: number | null;
+  known_partial_dv01: number | null;
+  partial_dv01: number | null;
+  covered_holdings: number;
+  total_holdings: number;
+  complete: boolean;
 }
 
-// Key rate duration response
 export interface KeyRateDurationResponse {
   portfolio_id: string;
+  name: string;
   profile: KeyRatePointOutput[];
-  total_duration: number;
-  short_duration: number;
-  intermediate_duration: number;
-  long_duration: number;
+  total_duration: number | null;
+  short_duration: number | null;
+  intermediate_duration: number | null;
+  long_duration: number | null;
   coverage: number;
   total_holdings: number;
   coverage_pct: number;
+  coverage_complete: boolean;
+  duration_available: boolean;
   timestamp: number;
 }
 

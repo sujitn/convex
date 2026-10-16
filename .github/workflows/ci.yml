@@ -523,6 +523,27 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify holding-key-rate-default
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates
+
+      - name: Qualify holding-key-rate-no-default
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates --no-default-features
+
+      - name: Qualify holding-key-rate-schema
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates --features schemars
+
+      - name: Qualify holding-key-rate-http
+        run: cargo test --locked -p convex-server --test key_rate_coverage
+
+      - name: Qualify numeric-ingress-default
+        run: cargo test --locked -p convex --test ingress_numbers
+
+      - name: Qualify numeric-ingress-no-default
+        run: cargo test --locked -p convex --test ingress_numbers --no-default-features
+
+      - name: Qualify numeric-ingress-schema
+        run: cargo test --locked -p convex --test ingress_numbers --features schemars
+
       - name: Qualify risk-contract-default
         run: cargo test --locked -p convex-analytics --test risk_contracts
 

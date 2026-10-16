@@ -111,6 +111,7 @@ pub use portfolio::{Portfolio, PortfolioBuilder};
 // Re-export analytics types and functions
 pub use analytics::{
     // Key Rates
+    aggregate_key_rate_exposure,
     aggregate_key_rate_profile,
     // Credit Quality
     calculate_credit_quality,
@@ -161,6 +162,8 @@ pub use analytics::{
     CreditQualityMetrics,
     DaysToLiquidate,
     FallenAngelRisk,
+    KeyRateExposure,
+    KeyRateExposurePoint,
     KeyRateProfile,
     LiquidityBucket,
     LiquidityDistribution,

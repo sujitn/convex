@@ -3,17 +3,17 @@
 //! Aggregates key rate duration profiles across holdings to understand
 //! interest rate sensitivity at different points on the curve.
 //!
-//! Key rate durations are additive across the portfolio when weighted
-//! by market value or DV01.
+//! Supplied key-rate durations use exact factor identity and explicit coverage.
+//! Currency risk adds actual position exposures independently of presentation weights.
 
-use crate::analytics::parallel::maybe_parallel_fold;
 use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
+use crate::{PortfolioError, PortfolioResult};
 use convex_analytics::risk::{
     Duration, KeyRateDuration, KeyRateDurations, STANDARD_KEY_RATE_TENORS,
 };
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{HashMap, HashSet};
 
 /// Aggregated key rate duration profile for a portfolio.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,10 +21,10 @@ pub struct KeyRateProfile {
     /// Key rate durations at each tenor point.
     pub durations: Vec<KeyRateDuration>,
 
-    /// Total duration (sum of all key rate durations).
+    /// Sum of known weighted factors; missing requested factors are not inferred.
     pub total_duration: f64,
 
-    /// Number of holdings with KRD data.
+    /// Number of holdings explicitly declaring every requested factor.
     pub coverage: usize,
 
     /// Total number of holdings.
@@ -48,10 +48,19 @@ impl KeyRateProfile {
     /// Gets the duration at a specific tenor.
     #[must_use]
     pub fn at_tenor(&self, tenor: f64) -> Option<f64> {
+        if !tenor.is_finite() || tenor <= 0.0 || self.durations.len() > MAX_KEY_RATE_FACTORS {
+            return None;
+        }
+        let mut seen = HashSet::with_capacity(self.durations.len());
+        if self.durations.iter().any(|row| {
+            !row.tenor.is_finite() || row.tenor <= 0.0 || !seen.insert(row.tenor.to_bits())
+        }) {
+            return None;
+        }
         self.durations
             .iter()
-            .find(|krd| tenor.is_finite() && tenor > 0.0 && krd.tenor.to_bits() == tenor.to_bits())
-            .map(|krd| krd.duration.as_f64())
+            .find(|row| row.tenor.to_bits() == tenor.to_bits())
+            .map(|row| row.duration.as_f64())
     }
 
     /// Gets the duration for tenors in a range.
@@ -100,146 +109,298 @@ impl KeyRateProfile {
     }
 }
 
-/// Aggregates key rate durations across a portfolio.
+/// Hard bound on holding count admitted by supplied key-rate aggregation.
+pub const MAX_KEY_RATE_HOLDINGS: usize = 65_536;
+/// Hard bound on requested or per-holding factors.
+pub const MAX_KEY_RATE_FACTORS: usize = 4096;
+/// Bound both the requested holding/factor product and all supplied factor rows.
+pub const MAX_KEY_RATE_WORK: usize = 1_048_576;
+
+/// One exactly requested factor with explicit known and missing exposure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyRateExposurePoint {
+    /// Exact supplied tenor, in years.
+    pub tenor: f64,
+    /// Known holding-weighted ratio; unavailable if no covered weight exists.
+    pub duration: Option<Duration>,
+    /// Known common-base currency loss for an upward one-basis-point move.
+    /// Missing holdings are excluded, and never assumed to have zero risk.
+    pub known_partial_dv01: Option<Decimal>,
+    /// Actual market value of only holdings that declare this factor.
+    pub covered_market_value: Decimal,
+    /// Number of holdings that explicitly declare this factor, including zeros.
+    pub covered_holdings: usize,
+    /// Number of supplied holdings, including those without risk.
+    pub total_holdings: usize,
+}
+
+impl KeyRateExposurePoint {
+    /// Whether every supplied holding explicitly declares this factor.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        self.total_holdings > 0 && self.covered_holdings == self.total_holdings
+    }
+}
+
+/// Checked factor exposures and optional known weighted-duration presentation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyRateExposure {
+    /// Factors retain caller order, including unavailable factors.
+    pub factors: Vec<KeyRateExposurePoint>,
+    /// Known weighted factors only. No defined ratio exists at zero covered weight.
+    pub profile: Option<KeyRateProfile>,
+    /// Holdings explicitly declaring every requested factor.
+    pub complete_holdings: usize,
+    /// All admitted supplied holdings.
+    pub total_holdings: usize,
+}
+
+fn arithmetic_error() -> PortfolioError {
+    PortfolioError::invalid_portfolio("key-rate arithmetic exceeds the admitted Decimal range")
+}
+
+fn product(a: Decimal, b: Decimal) -> PortfolioResult<Decimal> {
+    let value = a.checked_mul(b).ok_or_else(arithmetic_error)?;
+    if a != Decimal::ZERO && b != Decimal::ZERO && value == Decimal::ZERO {
+        return Err(arithmetic_error());
+    }
+    Ok(value)
+}
+
+fn quotient(a: Decimal, b: Decimal) -> PortfolioResult<Decimal> {
+    let value = a.checked_div(b).ok_or_else(arithmetic_error)?;
+    if a != Decimal::ZERO && value == Decimal::ZERO {
+        return Err(arithmetic_error());
+    }
+    Ok(value)
+}
+
+/// Aggregate supplied holdings through one bounded checked native owner.
 ///
-/// ## Formula
+/// Duration presentation uses the configured weight of only holdings declaring
+/// each exact factor. Currency DV01 always sums each covered holding's actual
+/// par * (clean price + supplied accrued) * explicit FX / 100 * duration / 10,000. Presentation weighting
+/// cannot alter it. Supplied prices and durations must use one declared price
+/// basis and caller-declared common base currency; this function does no pricing
+/// or FX inference. Missing factors remain unavailable with explicit coverage.
+/// `tenors` overrides configured tenors; otherwise the configured or standard
+/// tenors apply. Parallel flags do not change deterministic Decimal aggregation.
 ///
-/// For each tenor point:
-/// ```text
-/// KRD_portfolio(t) = Σ(w_i × KRD_i(t)) / Σ(w_i)
-/// ```
+/// # Errors
+/// Rejects invalid/duplicate identities or factors, invalid holding amounts/FX,
+/// bounded-work excess, Decimal overflow and nonzero arithmetic underflow.
+pub fn aggregate_key_rate_exposure(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+    tenors: Option<&[f64]>,
+) -> PortfolioResult<KeyRateExposure> {
+    let requested = tenors
+        .or(config.key_rate_tenors.as_deref())
+        .unwrap_or(STANDARD_KEY_RATE_TENORS);
+    if holdings.len() > MAX_KEY_RATE_HOLDINGS
+        || requested.is_empty()
+        || requested.len() > MAX_KEY_RATE_FACTORS
+        || holdings
+            .len()
+            .checked_mul(requested.len())
+            .is_none_or(|work| work > MAX_KEY_RATE_WORK)
+    {
+        return Err(PortfolioError::invalid_portfolio(
+            "key-rate holding/factor work bound exceeded",
+        ));
+    }
+    let mut unique = HashSet::with_capacity(requested.len());
+    for &tenor in requested {
+        if !tenor.is_finite() || tenor <= 0.0 || !unique.insert(tenor.to_bits()) {
+            return Err(PortfolioError::invalid_portfolio(
+                "finite positive unique key-rate tenors required",
+            ));
+        }
+    }
+    let mut ids = HashSet::with_capacity(holdings.len());
+    let mut admitted = Vec::with_capacity(holdings.len());
+    let mut supplied_work = 0usize;
+    let mut complete_holdings = 0usize;
+    for holding in holdings {
+        if holding.id.trim().is_empty()
+            || holding.id.len() > 8192
+            || !ids.insert(holding.id.as_str())
+            || holding.par_amount <= Decimal::ZERO
+            || holding.market_price < Decimal::ZERO
+            || holding.fx_rate <= Decimal::ZERO
+        {
+            return Err(PortfolioError::invalid_holding(
+                &holding.id,
+                "bounded unique identity, positive par/FX and nonnegative actual price required",
+            ));
+        }
+        let dirty_price = holding
+            .market_price
+            .checked_add(holding.accrued_interest)
+            .ok_or_else(arithmetic_error)?;
+        if dirty_price < Decimal::ZERO {
+            return Err(PortfolioError::invalid_holding(
+                &holding.id,
+                "supplied dirty price cannot be negative",
+            ));
+        }
+        if dirty_price == Decimal::ZERO
+            && holding
+                .analytics
+                .key_rate_durations
+                .as_ref()
+                .is_some_and(|risk| !risk.durations.is_empty())
+        {
+            return Err(PortfolioError::invalid_holding(&holding.id,"relative key-rate durations require a positive dirty valuation basis; supply absolute sensitivities for zero-value instruments"));
+        }
+        let local_value = quotient(
+            product(holding.par_amount, dirty_price)?,
+            Decimal::ONE_HUNDRED,
+        )?;
+        let market_value = product(local_value, holding.fx_rate)?;
+        let weight = match config.weighting {
+            WeightingMethod::MarketValue => market_value,
+            WeightingMethod::ParValue => product(holding.par_amount, holding.fx_rate)?,
+            WeightingMethod::EqualWeight => Decimal::ONE,
+        };
+        let mut factors = HashMap::new();
+        if let Some(risk) = &holding.analytics.key_rate_durations {
+            supplied_work = supplied_work
+                .checked_add(risk.durations.len())
+                .ok_or_else(arithmetic_error)?;
+            if risk.durations.len() > MAX_KEY_RATE_FACTORS || supplied_work > MAX_KEY_RATE_WORK {
+                return Err(PortfolioError::invalid_portfolio(
+                    "supplied key-rate row bound exceeded",
+                ));
+            }
+            for row in &risk.durations {
+                if !row.tenor.is_finite()
+                    || row.tenor <= 0.0
+                    || factors
+                        .insert(row.tenor.to_bits(), row.duration.years())
+                        .is_some()
+                {
+                    return Err(PortfolioError::invalid_holding(
+                        &holding.id,
+                        "finite positive distinct supplied factors required",
+                    ));
+                }
+            }
+        }
+        if requested
+            .iter()
+            .all(|tenor| factors.contains_key(&tenor.to_bits()))
+        {
+            complete_holdings += 1;
+        }
+        admitted.push((weight, market_value, factors));
+    }
+    let mut points = Vec::with_capacity(requested.len());
+    let mut durations = Vec::with_capacity(requested.len());
+    for &tenor in requested {
+        let mut weighted = Decimal::ZERO;
+        let mut weight_sum = Decimal::ZERO;
+        let mut market_sum = Decimal::ZERO;
+        let mut currency_risk = Decimal::ZERO;
+        let mut covered = 0usize;
+        for (weight, market_value, factors) in &admitted {
+            if let Some(&duration) = factors.get(&tenor.to_bits()) {
+                covered += 1;
+                weighted = weighted
+                    .checked_add(product(*weight, duration)?)
+                    .ok_or_else(arithmetic_error)?;
+                weight_sum = weight_sum
+                    .checked_add(*weight)
+                    .ok_or_else(arithmetic_error)?;
+                market_sum = market_sum
+                    .checked_add(*market_value)
+                    .ok_or_else(arithmetic_error)?;
+                currency_risk = currency_risk
+                    .checked_add(quotient(
+                        product(*market_value, duration)?,
+                        Decimal::from(10_000),
+                    )?)
+                    .ok_or_else(arithmetic_error)?;
+            }
+        }
+        let duration = if weight_sum != Decimal::ZERO {
+            Some(Duration::new(quotient(weighted, weight_sum)?))
+        } else {
+            None
+        };
+        if let Some(duration) = duration {
+            durations.push(KeyRateDuration { tenor, duration });
+        }
+        points.push(KeyRateExposurePoint {
+            tenor,
+            duration,
+            known_partial_dv01: (covered > 0).then_some(currency_risk),
+            covered_market_value: market_sum,
+            covered_holdings: covered,
+            total_holdings: holdings.len(),
+        });
+    }
+    let profile = if durations.is_empty() {
+        None
+    } else {
+        let total = durations.iter().try_fold(Decimal::ZERO, |sum, row| {
+            sum.checked_add(row.duration.years())
+                .ok_or_else(arithmetic_error)
+        })?;
+        Some(KeyRateProfile {
+            durations,
+            total_duration: total.as_f64(),
+            coverage: complete_holdings,
+            total_holdings: holdings.len(),
+            tenors: requested.to_vec(),
+        })
+    };
+    Ok(KeyRateExposure {
+        factors: points,
+        profile,
+        complete_holdings,
+        total_holdings: holdings.len(),
+    })
+}
+
+/// Known weighted factors, with unavailable factors omitted from `durations`.
 ///
-/// Where weights are based on market value (default) or other weighting method.
-///
-/// # Arguments
-///
-/// * `holdings` - Portfolio holdings
-/// * `config` - Analytics configuration
-/// * `tenors` - Optional custom tenors; uses standard tenors if None
-///
-/// # Returns
-///
-/// Returns `None` if no holdings have KRD data.
+/// Use `aggregate_key_rate_exposure` for typed errors and per-factor coverage.
+/// Invalid inputs or no defined weighted factors return `None`; missing input
+/// and zero covered weight never become a successful zero duration.
 #[must_use]
 pub fn aggregate_key_rate_profile(
     holdings: &[Holding],
     config: &AnalyticsConfig,
     tenors: Option<&[f64]>,
 ) -> Option<KeyRateProfile> {
-    let tenor_points = tenors.unwrap_or(STANDARD_KEY_RATE_TENORS);
-
-    // Count coverage
-    let coverage = holdings
-        .iter()
-        .filter(|h| h.analytics.key_rate_durations.is_some())
-        .count();
-
-    if coverage == 0 {
-        return None;
-    }
-
-    // For each tenor, calculate weighted average KRD
-    let mut aggregated: BTreeMap<i64, (f64, f64)> = BTreeMap::new(); // tenor_key -> (weighted_sum, weight_sum)
-
-    // Initialize all tenors
-    for &tenor in tenor_points {
-        let key = (tenor * 1000.0) as i64; // Convert to integer key for BTreeMap
-        aggregated.insert(key, (0.0, 0.0));
-    }
-
-    // Aggregate using parallel fold if configured
-    let tenor_sums = maybe_parallel_fold(
-        holdings,
-        config,
-        aggregated,
-        |mut acc, h| {
-            if let Some(krd) = &h.analytics.key_rate_durations {
-                let weight = weight_for_holding(h, config.weighting);
-
-                for &tenor in tenor_points {
-                    let key = (tenor * 1000.0) as i64;
-                    if let Some(krd_at_tenor) = krd.at_tenor(tenor) {
-                        let duration_val = krd_at_tenor.duration.as_f64();
-                        if let Some((sum, wt)) = acc.get_mut(&key) {
-                            *sum += duration_val * weight;
-                            *wt += weight;
-                        }
-                    }
-                }
-            }
-            acc
-        },
-        |mut a, b| {
-            for (k, (sum, wt)) in b {
-                if let Some((a_sum, a_wt)) = a.get_mut(&k) {
-                    *a_sum += sum;
-                    *a_wt += wt;
-                }
-            }
-            a
-        },
-    );
-
-    // Convert to KeyRateDuration vector
-    let durations: Vec<KeyRateDuration> = tenor_points
-        .iter()
-        .map(|&tenor| {
-            let key = (tenor * 1000.0) as i64;
-            let (sum, wt) = tenor_sums.get(&key).copied().unwrap_or((0.0, 0.0));
-            let avg_duration = if wt > 0.0 { sum / wt } else { 0.0 };
-            Some(KeyRateDuration {
-                tenor,
-                duration: Duration::try_from(avg_duration).ok()?,
-            })
-        })
-        .collect::<Option<Vec<_>>>()?;
-
-    let total_duration: f64 = durations.iter().map(|krd| krd.duration.as_f64()).sum();
-
-    Some(KeyRateProfile {
-        durations,
-        total_duration,
-        coverage,
-        total_holdings: holdings.len(),
-        tenors: tenor_points.to_vec(),
-    })
+    aggregate_key_rate_exposure(holdings, config, tenors)
+        .ok()?
+        .profile
 }
 
-/// Calculates partial DV01s at each key rate tenor.
+/// Known common-base currency DV01 at each actually declared requested factor.
 ///
-/// Partial DV01 = Market Value × Key Rate Duration × 0.0001
-///
-/// This gives the dollar change for a 1bp shift at each tenor.
+/// This is the sum of individual known exposures, regardless of presentation
+/// weights. Missing factors are omitted; a supplied zero remains an actual zero.
+/// Use `aggregate_key_rate_exposure` to inspect missing holding coverage or errors.
 #[must_use]
 pub fn partial_dv01s(
     holdings: &[Holding],
     config: &AnalyticsConfig,
     tenors: Option<&[f64]>,
 ) -> Option<Vec<(f64, f64)>> {
-    let profile = aggregate_key_rate_profile(holdings, config, tenors)?;
-
-    // Calculate total market value
-    let total_mv: f64 = holdings
+    let exposure = aggregate_key_rate_exposure(holdings, config, tenors).ok()?;
+    let known: Vec<_> = exposure
+        .factors
         .iter()
-        .map(|h| h.market_value().to_f64().unwrap_or(0.0))
-        .sum();
-
-    Some(
-        profile
-            .durations
-            .iter()
-            .map(|krd| {
-                let partial_dv01 = total_mv * krd.duration.as_f64() * 0.0001;
-                (krd.tenor, partial_dv01)
-            })
-            .collect(),
-    )
-}
-
-/// Returns the weight for a holding as f64.
-fn weight_for_holding(holding: &Holding, method: WeightingMethod) -> f64 {
-    let weight_dec = holding.weight_value(method);
-    weight_dec.to_f64().unwrap_or(0.0)
+        .filter_map(|point| {
+            point
+                .known_partial_dv01
+                .map(|risk| (point.tenor, risk.as_f64()))
+        })
+        .collect();
+    (!known.is_empty()).then_some(known)
 }
 
 #[cfg(test)]

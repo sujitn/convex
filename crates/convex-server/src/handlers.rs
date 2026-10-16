@@ -20,7 +20,7 @@ use convex_ext_file::{InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, 
 use convex_portfolio::{
     active_weights,
     // Key rate duration
-    aggregate_key_rate_profile,
+    aggregate_key_rate_exposure,
     analyze_basket,
     // Benchmark comparison
     benchmark_comparison,
@@ -5251,142 +5251,220 @@ fn convert_basket_positions(positions: &[BasketPosition]) -> Vec<Holding> {
 // KEY RATE DURATION ANALYTICS
 // =============================================================================
 
-/// Position with key rate duration data.
+/// One supplied position with explicitly calculated key-rate sensitivities.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyRatePosition {
-    /// Instrument ID
+    /// Exact caller instrument identity.
     pub instrument_id: String,
-    /// Notional/par amount
+    /// Positive supplied par amount, in the request's common base currency.
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub notional: Decimal,
-    /// Market price
+    /// Full dirty price per100 on the same declared basis as supplied duration.
+    #[serde(default, with = "convex_core::contracts::decimal_serde::optional")]
     pub market_price: Option<Decimal>,
-    /// Key rate durations: array of [tenor, duration] pairs
+    /// Exact tenor/duration pairs. Missing factors remain unavailable.
     pub key_rate_durations: Option<Vec<(f64, f64)>>,
 }
 
-/// Request for key rate duration profile.
+/// Checked supplied key-rate aggregation request; no pricing inputs are inferred.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyRateDurationRequest {
-    /// Portfolio ID
+    /// Caller portfolio identity, echoed in the result.
     pub portfolio_id: String,
-    /// Portfolio name
+    /// Caller portfolio name, echoed in the result.
     pub name: String,
-    /// Positions with KRD data
+    /// Supplied same-base positions with optional calculated factor profiles.
     pub positions: Vec<KeyRatePosition>,
-    /// Custom tenor points (optional, defaults to standard tenors)
+    /// Exact requested tenor points; absent uses native standard tenors.
     pub tenors: Option<Vec<f64>>,
+    /// Duration presentation weighting; absent uses market value.
+    pub weighting: Option<convex_portfolio::WeightingMethod>,
 }
 
-/// Key rate point output.
+/// Exact requested factor with separate known currency risk and coverage.
 #[derive(Debug, Serialize)]
 pub struct KeyRatePointOutput {
-    /// Tenor in years
+    /// Supplied tenor in years.
     pub tenor: f64,
-    /// Portfolio duration at this tenor
-    pub duration: f64,
-    /// Contribution to total duration (%)
-    pub contribution_pct: f64,
+    /// Known weighted duration; null when no covered weight exists.
+    pub duration: Option<f64>,
+    /// Signed percentage of the known duration sum; null for undefined ratio.
+    pub contribution_pct: Option<f64>,
+    /// Currency DV01 of actually covered holdings only, independent of weights.
+    pub known_partial_dv01: Option<f64>,
+    /// Full supplied-book factor DV01, available only with complete coverage.
+    pub partial_dv01: Option<f64>,
+    /// Holdings explicitly declaring this factor, including supplied zeros.
+    pub covered_holdings: usize,
+    /// All supplied holdings.
+    pub total_holdings: usize,
+    /// Whether every supplied holding explicitly declares this factor.
+    pub complete: bool,
 }
 
-/// Response for key rate duration profile.
+/// Aggregation of supplied factors with unavailable metrics represented as null.
 #[derive(Debug, Serialize)]
 pub struct KeyRateDurationResponse {
-    /// Portfolio ID
+    /// Caller portfolio identity.
     pub portfolio_id: String,
-    /// Key rate duration profile
+    /// Caller portfolio name.
+    pub name: String,
+    /// Every requested factor in original order, including unavailable points.
     pub profile: Vec<KeyRatePointOutput>,
-    /// Total duration (sum of key rate durations)
-    pub total_duration: f64,
-    /// Short-end duration (< 2 years)
-    pub short_duration: f64,
-    /// Intermediate duration (2-10 years)
-    pub intermediate_duration: f64,
-    /// Long-end duration (> 10 years)
-    pub long_duration: f64,
-    /// Number of holdings with KRD data
+    /// Sum of known weighted factors; partial coverage is explicit below.
+    pub total_duration: Option<f64>,
+    /// Known short-end (<2years) duration; null if no defined profile exists.
+    pub short_duration: Option<f64>,
+    /// Known intermediate (2..10years) duration; null without a profile.
+    pub intermediate_duration: Option<f64>,
+    /// Known long-end (>10years) duration; null without a profile.
+    pub long_duration: Option<f64>,
+    /// Holdings declaring every requested factor.
     pub coverage: usize,
-    /// Total holdings
+    /// All supplied holdings.
     pub total_holdings: usize,
-    /// Coverage percentage
+    /// Percentage of holdings declaring every requested factor.
     pub coverage_pct: f64,
-    /// Calculation timestamp
+    /// Complete factor coverage across every supplied holding.
+    pub coverage_complete: bool,
+    /// Whether any weighted-duration presentation is defined.
+    pub duration_available: bool,
+    /// Server calculation timestamp; not a market-data or risk revision.
     pub timestamp: i64,
 }
 
-/// Calculate key rate duration profile.
+/// Aggregate supplied key-rate profiles without inventing missing factor risk.
 pub async fn calculate_key_rate_duration_handler(
-    State(_state): State<Arc<AppState>>,
-    Json(request): Json<KeyRateDurationRequest>,
+    State(state): State<Arc<AppState>>,
+    incoming: axum::extract::Request,
 ) -> impl IntoResponse {
+    let (parts, body) = incoming.into_parts();
+    let bytes =
+        match axum::body::to_bytes(body, convex_core::contracts::json::MAX_INPUT_BYTES).await {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                return (
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    Json(serde_json::json!({"error":error.to_string()})),
+                )
+                    .into_response()
+            }
+        };
+    let text = match std::str::from_utf8(&bytes) {
+        Ok(text) => text,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error":error.to_string()})),
+            )
+                .into_response()
+        }
+    };
+    if let Err(error) = convex_core::contracts::json::parse(text) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error":error})),
+        )
+            .into_response();
+    }
+    // The framework retains its content-type and typed-extractor diagnostics.
+    // Admission above preserves raw numeric intent before typed deserialization.
+    let incoming = axum::http::Request::from_parts(parts, axum::body::Body::from(bytes));
+    let Json(request) = match <Json<KeyRateDurationRequest> as axum::extract::FromRequest<
+        Arc<AppState>,
+    >>::from_request(incoming, &state)
+    .await
+    {
+        Ok(request) => request,
+        Err(error) => return error.into_response(),
+    };
     let holdings = match convert_key_rate_positions(&request.positions) {
         Ok(holdings) => holdings,
         Err(error) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": error })),
+                Json(serde_json::json!({"error":error})),
             )
                 .into_response()
         }
     };
-    let config = AnalyticsConfig::default();
-
-    let tenors: Option<&[f64]> = request.tenors.as_deref();
-
-    match aggregate_key_rate_profile(&holdings, &config, tenors) {
-        Some(profile) => {
-            let total_duration = profile.total_duration;
-
-            let key_rate_points: Vec<KeyRatePointOutput> = profile
-                .durations
-                .iter()
-                .map(|krd| {
-                    let krd_duration = krd.duration.as_f64();
-                    let contribution_pct = if total_duration > 0.0 {
-                        krd_duration / total_duration * 100.0
-                    } else {
-                        0.0
-                    };
-                    KeyRatePointOutput {
-                        tenor: krd.tenor,
-                        duration: krd_duration,
-                        contribution_pct,
-                    }
-                })
-                .collect();
-
-            let response = KeyRateDurationResponse {
-                portfolio_id: request.portfolio_id,
-                profile: key_rate_points,
-                total_duration,
-                short_duration: profile.short_duration(),
-                intermediate_duration: profile.intermediate_duration(),
-                long_duration: profile.long_duration(),
-                coverage: profile.coverage,
-                total_holdings: profile.total_holdings,
-                coverage_pct: profile.coverage_pct(),
-                timestamp: chrono::Utc::now().timestamp(),
-            };
-
-            (StatusCode::OK, Json(response)).into_response()
+    let config = AnalyticsConfig {
+        weighting: request.weighting.unwrap_or_default(),
+        ..AnalyticsConfig::default()
+    };
+    let exposure = match aggregate_key_rate_exposure(&holdings, &config, request.tenors.as_deref())
+    {
+        Ok(exposure) => exposure,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error":error.to_string()})),
+            )
+                .into_response()
         }
-        None => {
-            // No KRD data available
-            let response = KeyRateDurationResponse {
-                portfolio_id: request.portfolio_id,
-                profile: vec![],
-                total_duration: 0.0,
-                short_duration: 0.0,
-                intermediate_duration: 0.0,
-                long_duration: 0.0,
-                coverage: 0,
-                total_holdings: request.positions.len(),
-                coverage_pct: 0.0,
-                timestamp: chrono::Utc::now().timestamp(),
-            };
-
-            (StatusCode::OK, Json(response)).into_response()
+    };
+    let total = exposure
+        .profile
+        .as_ref()
+        .map(|profile| profile.total_duration);
+    let profile = exposure
+        .factors
+        .iter()
+        .map(|point| {
+            let duration = point.duration.map(|duration| duration.as_f64());
+            let known = point.known_partial_dv01.map(|risk| risk.as_f64());
+            let contribution_pct = total
+                .filter(|value| *value != 0.0)
+                .and_then(|total| duration.map(|duration| duration / total * 100.0));
+            KeyRatePointOutput {
+                tenor: point.tenor,
+                duration,
+                contribution_pct,
+                known_partial_dv01: known,
+                partial_dv01: known.filter(|_| point.is_complete()),
+                covered_holdings: point.covered_holdings,
+                total_holdings: point.total_holdings,
+                complete: point.is_complete(),
+            }
+        })
+        .collect();
+    let coverage = exposure.complete_holdings;
+    let bucket = |predicate: fn(f64) -> bool| {
+        let points: Vec<_> = exposure
+            .factors
+            .iter()
+            .filter(|point| predicate(point.tenor))
+            .collect();
+        if points.is_empty() {
+            return None;
         }
-    }
+        points.iter().try_fold(0.0, |sum, point| {
+            point.duration.map(|duration| sum + duration.as_f64())
+        })
+    };
+    let response = KeyRateDurationResponse {
+        portfolio_id: request.portfolio_id,
+        name: request.name,
+        profile,
+        total_duration: total,
+        short_duration: bucket(|tenor| tenor < 2.0),
+        intermediate_duration: bucket(|tenor| (2.0..=10.0).contains(&tenor)),
+        long_duration: bucket(|tenor| tenor > 10.0),
+        coverage,
+        total_holdings: holdings.len(),
+        coverage_pct: if holdings.is_empty() {
+            0.0
+        } else {
+            coverage as f64 / holdings.len() as f64 * 100.0
+        },
+        coverage_complete: !holdings.is_empty()
+            && exposure.factors.iter().all(|point| point.is_complete()),
+        duration_available: exposure.profile.is_some(),
+        timestamp: chrono::Utc::now().timestamp(),
+    };
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 /// Convert key rate positions to holdings with KRD data.
