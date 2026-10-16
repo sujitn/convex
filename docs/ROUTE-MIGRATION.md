@@ -586,3 +586,31 @@ zero time, a valid yield prices the exact redemption and inverse methods return
 a structural root error. Public raw time-only zero-coupon helpers still require
 positive years. This API does not choose a market convention or supply a model
 or production certificate.
+
+## Checked native calendars and floating fixing dates
+
+`FloatingCouponBond::fixing_date(reset_date)` now returns `BondResult<Date>`.
+Propagate its error with `?`. It resolves the actual configured calendar and
+uses the existing bounded business-day offset. UK, Japan and joint calendars
+retain their actual rules; unsupported identifiers fail through the checked
+resolver. The reset date and signed original reset lag remain explicit.
+
+Use `Calendar::try_is_business_day` at input admission. Built-in bitmap-backed
+calendars validate their actual stored 1970–2100 range; checked searches,
+offsets, adjustment and direct native calibration/futures/CDS/lifecycle queries
+propagate coverage failures. Custom calendar implementations can declare their
+own coverage with `Calendar::validate_date`. Their callbacks must terminate.
+Zero offsets and Unadjusted dates retain their date-only contracts.
+
+`DynamicCalendar` retains the exact supplied holiday set across construction,
+updates, merge and chronological export, including supplied dates outside the
+built-in bitmap range. Its JSON shape and supplied weekend rule stay unchanged.
+The existing shared 4096-holiday admission bound stays. Data completeness and
+reference provenance remain the caller's responsibility; this supplies no market
+calendar or model approval.
+
+The old first-settlement shortcut and fallback resolver remain pending their
+separate retirement and protected-test owner review. Existing raw Calendar
+helpers, loader/static-merge/generator ranges and date-only ARRC calculations
+retain their separate required migration/qualification. These changes do not
+waive any mandatory convention, model, operation, host or certificate gate.

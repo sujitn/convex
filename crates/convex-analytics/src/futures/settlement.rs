@@ -280,7 +280,10 @@ pub fn futures_settlement_effect(
         || current.kind == FuturesMarkKind::Trade
         || previous.date > current.date
         || (previous.date == current.date && previous.kind != FuturesMarkKind::Trade)
-        || !calendar.calendar.is_business_day(current.date.date())
+        || !calendar
+            .calendar
+            .try_is_business_day(current.date.date())
+            .map_err(convex_core::cashflows::CashflowError::from)?
     {
         return Err(invalid(
             "settlement",

@@ -246,9 +246,15 @@ fn schedule(
         RateAccrual::Term {
             fixing, start, end, ..
         } => {
-            if !calendar.is_business_day(fixing.date())
-                || !calendar.is_business_day(start.date())
-                || !calendar.is_business_day(end.date())
+            if !calendar
+                .try_is_business_day(fixing.date())
+                .map_err(convex_core::cashflows::CashflowError::from)?
+                || !calendar
+                    .try_is_business_day(start.date())
+                    .map_err(convex_core::cashflows::CashflowError::from)?
+                || !calendar
+                    .try_is_business_day(end.date())
+                    .map_err(convex_core::cashflows::CashflowError::from)?
             {
                 return Err(invalid(
                     "term_dates",

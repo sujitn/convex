@@ -814,7 +814,10 @@ fn validate_future(
     }
     let calendar = resources.calendar(&terms.observation_calendar)?;
     let settlement_calendar = resources.calendar(&terms.settlement_calendar)?;
-    if !settlement_calendar.is_business_day(terms.final_settlement_date) {
+    if !settlement_calendar
+        .try_is_business_day(terms.final_settlement_date)
+        .map_err(convex_core::cashflows::CashflowError::from)?
+    {
         return Err(invalid(
             "future.settlement",
             "must be a supplied-calendar business day",

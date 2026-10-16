@@ -249,8 +249,14 @@ pub(super) fn admit<'a>(input: &CashCurveBuildInput<'a>) -> CashCalibrationResul
                 if h.collateral_id != *collateral_id
                     || calendar.pin != &h.calendar
                     || h.start_date < c.reference_date
-                    || !calendar.calendar.is_business_day(h.start_date)
-                    || !calendar.calendar.is_business_day(h.end_date)
+                    || !calendar
+                        .calendar
+                        .try_is_business_day(h.start_date)
+                        .map_err(convex_core::cashflows::CashflowError::from)?
+                    || !calendar
+                        .calendar
+                        .try_is_business_day(h.end_date)
+                        .map_err(convex_core::cashflows::CashflowError::from)?
                     || 1.0 + h.quote.decimal_rate()? * tau <= 0.0
                 {
                     return Err(invalid("repo loan", "exact collateral/calendar, business value/cash dates and positive original repayment required"));

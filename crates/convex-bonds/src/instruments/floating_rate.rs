@@ -498,9 +498,13 @@ impl FloatingCouponBond for FloatingRateNote {
         self.next_coupon_date(after)
     }
 
-    fn fixing_date(&self, reset_date: Date) -> Date {
-        let calendar = self.calendar.to_calendar();
-        calendar.add_business_days(reset_date, self.reset_lag)
+    fn fixing_date(&self, reset_date: Date) -> BondResult<Date> {
+        let calendar = self.calendar.try_to_calendar()?;
+        Ok(convex_core::calendars::checked::add_business_days(
+            reset_date,
+            self.reset_lag,
+            calendar.as_ref(),
+        )?)
     }
 }
 

@@ -4797,6 +4797,48 @@
         "Existing64library42assurance4private controls; harness, API, outstanding classification, exact same-base impact review and original scope/physical conservation.",
         "Fresh source-frozen native and C ABI8522complete requests; capabilities may differ only by the declared27record dispatch_status/qualification fields. All8521other envelopes and every original complete request/reference stay exact. No Rust math or dependency change; full workspace lint and other-host/financial results retain prior owner scope."
       ]
+    },
+    {
+      "base_commit": "a5af45d83eb90ff982068a81f8f567182d56f279",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-15",
+      "rationale": "Retain actual original native1pass4failures and complete original public/probe freezes. FRN fixing dates become BondResult and use actual checked calendar resolution plus bounded signed business-day offsets. Add explicit Calendar coverage validation and checked business-day query; builtin finite holiday bitmaps reject outside1970..2100, joint calendars validate every1..16component, checked search/offset/adjustment propagate data failure. Zero offsets and Unadjusted dates keep their date-only semantics. Propagate16direct checked calendar admissions through overnight schedules, calibration, futures, CDS settlement and lifecycle. DynamicCalendar retains the exact explicit holiday set with expectedO(1)queries, full-date updates/merge and sorted lossless export, preserving the original weekend rule and JSON shape. Existing shared4096holiday admission and all date/work/numerical bounds stay. Every1868old pin, protected test section, financial input/reference/default/bound and8522shared request stays; three additive native-control/fixture pins give1871. Original UK references and exact supplied holiday-set/count/roundtrip invariants precede native execution and implementation. Additional native coverage/joint/resource/date-only/ISOedge/callback controls precede first candidate execution; all dates/booleans have exact zero bounds. The first offline external-probe setup selected an uncached dependency; retain actual failure and original freeze, seed the probe from the repository-locked graph and refreeze before actual native1pass4failures. RootCargo.lock is unchanged. The exact five protected mock deletions and first-settlement/fallback retirement are pending human owner review and are not applied. Raw Calendar helpers, loader/static-merge/generator ranges, date-only ARRC and all original broader native fixed/sinking/custom/signed-root/model/calibration/optional/claim/physical/causal mixed-book/exact-operation scope remain mandatory. Preserve CTD switches and actual cash/physical ownership. Only unavailable platform execution defers. No provider/runtime/DB/MQ/dependency/C export/route/count/authority change, native waiver, acceptance or certificate. Retain literal30areas174combinations2154Planned80shared12native228mapped1926unmapped.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "64129ed1bd02d0d3f7f8ad899054e9fcf76a1148b6e5a7350b813943dceb768d",
+        "crates/convex-analytics/src/cash_calibration/build.rs": "2f2561fd97b579eedb6154c3fbf106b7886455561c5c85a0246f58dc60b45d56",
+        "crates/convex-analytics/src/cash_calibration/repo.rs": "1e34a123bcde6859bffff688cc0863d8eb09d84f1b5f325978723e0816fbee57",
+        "crates/convex-analytics/src/curve_inputs.rs": "e2299b10860d0c0de574672dc50660bf2c52c2a197db535b679939097997d20e",
+        "crates/convex-analytics/src/futures/bond.rs": "f7bf24cc709225e9b5fd851be914aa1225c56d8a7d5530e4def9fca41697dbbc",
+        "crates/convex-analytics/src/futures/rates.rs": "06f37e0b6a610b45b82af009e6ea00ca444dadd77d71b94154a908b4524661bf",
+        "crates/convex-analytics/src/futures/settlement.rs": "bde035019b632787968db9975a7f6ec535917651c36355496af5e527740c9686",
+        "crates/convex-analytics/src/lifecycle/futures.rs": "3d43e12a30063b5f21a4a26a7c073de4a81b7e8e0c4787ed52126fe764e106c1",
+        "crates/convex-analytics/src/rate_calibration/helpers.rs": "f0b817f3b6f1ac634b148acfcb22952472a4f34d3c4d16fdd22c0f9b22f6af90",
+        "crates/convex-bonds/src/instruments/floating_rate.rs": "e2e42054ff5cfbe597b7bc60378d48966ef084055162efd750be1aae3fcea751",
+        "crates/convex-bonds/src/traits/extensions.rs": "b309b5b4f82e3a45d3cb03fb5d20b940dbe65425ef448c7070c884100faa51e3",
+        "crates/convex-bonds/tests/calendar_dates.rs": "5f934ffd17a56c546e76d2197c4ed4bb543d751c00db2b1232cdbd33aae71b16",
+        "crates/convex-bonds/tests/fixtures/floating-calendar-time.json": "a43bcd3fedcc33fc9f8fb551de80406a928af60b0bc0468dd3cc32a5a9073493",
+        "crates/convex-bonds/tests/fixtures/supplied-wide-holidays.json": "a860b9a54ed3f29a378654a2a9498c4d89c7ba920848b93b87c9645058f4b2fa",
+        "crates/convex-core/src/calendars/bitmap.rs": "4121e7a113cf5fc929b37302bcdfc94ac600c61a6f230ad9df7d665a66c14f61",
+        "crates/convex-core/src/calendars/checked.rs": "f800b1fa78cf5c39fcccd5b0f3a82413c92ab74bc4410c59ecf0e6d8f9f880b8",
+        "crates/convex-core/src/calendars/conventions.rs": "a32470e2aeb6c15fedcda365a3d4d693c915eaf1f9a10f490f97a4118c876995",
+        "crates/convex-core/src/calendars/dynamic.rs": "ef791b546f98275ef779d82d030429ffb81874810a7264d5faf622642a2e74a8",
+        "crates/convex-core/src/calendars/japan.rs": "68a7b85ee0e199ba685dfcaedfc3ed6bda7dd4da473a184d2a0c327d589300b6",
+        "crates/convex-core/src/calendars/mod.rs": "75cbd5c5fc7a4c428e8246f44b66a68034aa382994488b78c7717c77947c6cb1",
+        "crates/convex-core/src/calendars/sifma.rs": "65ea9a5fa82c11fddb1530a7033414a6299e4e248398ef2f3d96c5afc072587f",
+        "crates/convex-core/src/calendars/target2.rs": "7be6aae53f5a0d4b6a762c7727e70feb555df155ff98147e3b2cce9e4ecdbc11",
+        "crates/convex-core/src/calendars/uk.rs": "6ff81dc5c5700d8250c681d5b0bc4dfdac27ca8454fc754b2ced1f8260373f64",
+        "crates/convex-core/src/cashflows/overnight.rs": "c68aa085e60adf56b8fafe2a935566d24de5a23449fc233543ddaa920bbc20ee",
+        "crates/convex-credit/src/contract.rs": "ac15ad712d742f27c9fb33581fffe007f2092739c1763b902895874935d73b0e",
+        "docs/ROUTE-MIGRATION.md": "fe7f106432fa4396aa7ed1ea92e489bedb140a5a061f5d108e59f6b6e6d0556d",
+        "tools/assurance/inventory.json": "d14658512228c13dc443fd9e32799c015cbe4180764cbbdfa84937bd12dab90c",
+        "tools/assurance/numeric-evidence.json": "d462fad6c3bb6b8ad615b17c2bcd652922600d5cdd79c1093dfd9df72d2915a0",
+        "tools/library/library-inventory.json": "72ac6dfb45db2fb31fa7976dc226658f41ea65d79a8b52e709f262f655bed29d"
+      },
+      "tests": [
+        "Retain original source and actual native1pass4failures. No old numerical reference, protected test section, solver default or bound changes; preserve failed offline probe setup and locked-graph repair.",
+        "Eight native calendar controls in default/no-default/schema profiles, original complete core/doctests,365bond330analytics, native dated instruments and full no-defaultWASM; exact UK fixing references and actual QuantLib1.40 independent date comparison.",
+        "Fmt/fullworkspace/alltargets/allfeatures warnings-deniedClippy;64library42assurance4private/harness/API/same-base/scope/source/physical conservation. After all builders/readers stop, bind15original computational paths and three actual current native-control executables once. Fresh original37943financial comparisons,8522unchanged native/C/JDK26FFM/Node/browser envelopes and400JavaTreasury controls. Full original remaining native scope is not waived."
+      ]
     }
   ]
 }

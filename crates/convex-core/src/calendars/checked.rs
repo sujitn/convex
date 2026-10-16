@@ -33,7 +33,7 @@ fn search<C: Calendar + ?Sized>(
     calendar: &C,
 ) -> ConvexResult<Date> {
     for _ in 0..MAX_CALENDAR_SEARCH_DAYS {
-        if calendar.is_business_day(date) {
+        if calendar.try_is_business_day(date)? {
             return Ok(date);
         }
         date = date.checked_add_days(direction)?;
@@ -62,7 +62,7 @@ pub fn add_business_days<C: Calendar + ?Sized>(
     let direction = if days > 0 { 1 } else { -1 };
     for _ in 0..MAX_CALENDAR_SEARCH_DAYS {
         date = date.checked_add_days(direction)?;
-        if calendar.is_business_day(date) {
+        if calendar.try_is_business_day(date)? {
             remaining -= 1;
             if remaining == 0 {
                 return Ok(date);

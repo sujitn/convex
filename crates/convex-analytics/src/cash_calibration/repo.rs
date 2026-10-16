@@ -187,7 +187,11 @@ pub fn price_repo_bond_forward(
     let repo_curve = input.curves.get(&t.repo.curve)?;
     let p = pricing::prepare(&t.spot, input.resources, repo_curve.recipe().reference_date)?;
     if input.delivery_calendar.pin != &t.delivery_calendar
-        || !input.delivery_calendar.calendar.is_business_day(t.delivery)
+        || !input
+            .delivery_calendar
+            .calendar
+            .try_is_business_day(t.delivery)
+            .map_err(convex_core::cashflows::CashflowError::from)?
         || t.delivery <= t.spot.settlement
         || t.delivery >= t.spot.terms.schedule.end_date
         || t.spot.on_payment != PaymentDateEntitlement::Exclude

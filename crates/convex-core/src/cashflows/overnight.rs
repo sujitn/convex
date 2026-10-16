@@ -224,7 +224,13 @@ impl OvernightSchedule {
         }
         let lookback = convention.lookback_business_days as i32;
         let (weight_start, weight_end) = if convention.observation_shift {
-            if !calendar.is_business_day(start) || !calendar.is_business_day(end) {
+            if !calendar
+                .try_is_business_day(start)
+                .map_err(crate::cashflows::CashflowError::from)?
+                || !calendar
+                    .try_is_business_day(end)
+                    .map_err(crate::cashflows::CashflowError::from)?
+            {
                 return Err(CashflowError::terms(
                     "observation_shift",
                     "requires business-day endpoints",

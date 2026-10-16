@@ -129,8 +129,14 @@ where
                     || start >= end
                     || end <= context.cashflows.fixings.valuation_date
                     || end > helper.pillar
-                    || !calendar.calendar.is_business_day(start)
-                    || !calendar.calendar.is_business_day(end)
+                    || !calendar
+                        .calendar
+                        .try_is_business_day(start)
+                        .map_err(convex_core::cashflows::CashflowError::from)?
+                    || !calendar
+                        .calendar
+                        .try_is_business_day(end)
+                        .map_err(convex_core::cashflows::CashflowError::from)?
                 {
                     return Err(invalid("money market dates", "actual business value/end dates, positive future life and sufficient pillar required"));
                 }
@@ -162,7 +168,10 @@ where
                     };
                     if *fixing_date > start
                         || *settlement_date != expected
-                        || !calendar.calendar.is_business_day(*fixing_date)
+                        || !calendar
+                            .calendar
+                            .try_is_business_day(*fixing_date)
+                            .map_err(convex_core::cashflows::CashflowError::from)?
                     {
                         return Err(invalid("FRA dates", "actual fixing before value date and settlement on its declared boundary required"));
                     }

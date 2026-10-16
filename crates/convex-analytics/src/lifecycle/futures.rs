@@ -122,7 +122,11 @@ impl LifecycleState {
             || input.security.bond.terms().currency != contract.currency
             || input.calendar.stamp.id != delivery.calendar.id
             || input.calendar.stamp.version != delivery.calendar.version
-            || !input.calendar.calendar.is_business_day(e.effective_date)
+            || !input
+                .calendar
+                .calendar
+                .try_is_business_day(e.effective_date)
+                .map_err(convex_core::cashflows::CashflowError::from)?
             || input.context.known_at != e.known_at
             || input.context.as_of.datetime().date_naive() != e.effective_date.as_naive_date()
             || e.effective_date < delivery.first_delivery.date()

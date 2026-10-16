@@ -58,7 +58,10 @@ pub fn adjust<C: Calendar + ?Sized>(
     convention: BusinessDayConvention,
     calendar: &C,
 ) -> ConvexResult<Date> {
-    if calendar.is_business_day(date) && convention != BusinessDayConvention::EndOfMonth {
+    if convention == BusinessDayConvention::Unadjusted {
+        return Ok(date);
+    }
+    if calendar.try_is_business_day(date)? && convention != BusinessDayConvention::EndOfMonth {
         return Ok(date);
     }
 
@@ -105,7 +108,7 @@ pub fn adjust<C: Calendar + ?Sized>(
 
         BusinessDayConvention::EndOfMonth => {
             let eom = date.end_of_month();
-            if calendar.is_business_day(eom) {
+            if calendar.try_is_business_day(eom)? {
                 Ok(eom)
             } else {
                 preceding(eom, calendar)

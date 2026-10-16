@@ -265,7 +265,8 @@ fn price_bond_future_scenario(
         || !inputs
             .delivery_calendar
             .calendar
-            .is_business_day(inputs.delivery.date())
+            .try_is_business_day(inputs.delivery.date())
+            .map_err(convex_core::cashflows::CashflowError::from)?
         || inputs.deliverables.len() != inputs.basket.bonds.len()
     {
         return Err(invalid(

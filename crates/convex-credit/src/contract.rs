@@ -90,7 +90,11 @@ impl CdsTerms {
         .map_err(convex_core::cashflows::CashflowError::from)?;
         if self.settlement_lag_business_days < 0
             || self.cash_settlement_date != expected
-            || !calendars.settlement.calendar.is_business_day(expected)
+            || !calendars
+                .settlement
+                .calendar
+                .try_is_business_day(expected)
+                .map_err(convex_core::cashflows::CashflowError::from)?
         {
             return Err(invalid(
                 "cash_settlement_date",
