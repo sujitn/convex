@@ -355,29 +355,48 @@ pub struct PortfolioAnalyticsOutput {
     pub currency: Currency,
 
     /// Total market value
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub market_value: Decimal,
     /// Number of positions
     pub num_positions: u32,
 
     /// Portfolio duration
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub duration: Decimal,
     /// Portfolio convexity
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub convexity: Decimal,
     /// Portfolio yield
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub yield_value: Decimal,
     /// Portfolio spread
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub spread: Decimal,
 
     /// Total DV01
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub dv01: Decimal,
-    /// Key rate durations
-    pub key_rate_durations: Vec<(String, Decimal)>,
+    /// Complete exact-label key rate durations; missing coverage remains null.
+    pub key_rate_durations: Vec<(String, Option<convex_core::contracts::ExactDecimal>)>,
+
+    /// Supplied position count for each exact factor; incomplete factors have no duration.
+    pub key_rate_coverage: Vec<(String, u32)>,
 
     /// Sector breakdown
-    pub sector_breakdown: Vec<(String, Decimal)>,
-    /// Rating breakdown
-    pub rating_breakdown: Vec<(String, Decimal)>,
+    pub sector_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
 
+    /// Positions carrying an actual sector classification.
+    pub sector_coverage: u32,
+    /// Rating breakdown
+    pub rating_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
+
+    /// Positions carrying an actual rating classification.
+    pub rating_coverage: u32,
+
+    /// Common actual settlement date of all consumed quotes.
+    pub settlement_date: convex_core::Date,
+
+    /// Latest actual consumed quote timestamp; no calculation clock is invented.
     /// Calculation timestamp
     pub timestamp: i64,
 }

@@ -37,7 +37,7 @@ impl TenorShift {
             ));
         }
         let shift = super::impact::scalar(self.shift_bps, "shift_bps")?;
-        crate::analytics::exact_risk::ExactRisk::decimal(shift)
+        convex_math::decimal::BoundedDecimal::decimal(shift)
             .divide_power_of_ten(4)
             .and_then(|value| value.finish())
             .map_err(super::impact::arithmetic)

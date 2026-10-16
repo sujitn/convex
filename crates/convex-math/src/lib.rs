@@ -26,6 +26,8 @@
 )]
 
 pub mod bounds;
+/// Bounded exact Decimal accumulation and final rounding.
+pub mod decimal;
 pub mod error;
 pub mod extrapolation;
 pub mod interpolation;

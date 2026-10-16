@@ -200,3 +200,43 @@ existing exact-string core owner. This avoids the workspace's default
 `serde-float` precision loss on these outputs. Tenors and the explicitly declared
 profile-total presentation retain their binary64 types. Global Duration
 serialization and existing shared request/envelope contracts are unchanged.
+
+
+## Checked supplied Holding amounts and aggregates
+
+Holding and cash amounts, portfolio NAV and per-share values return checked
+Results. Exact Decimal products and signed sums are retained through the final
+reported value; overflow and nonzero erasure fail. Negative positions remain
+signed. Currency identity compares actual codes against an explicit reporting
+currency, independently of the numerical FX rate.
+
+Weighted risk, yield and spread presentations return Result<Option<f64>>.
+A missing required measure leaves the complete average unavailable; the owner
+does not renormalize to a covered subset. Invalid supplied numbers fail. Zero
+total weight has no normalized average. Currency DV01/CS01 return checked optional
+Decimals and serialize as exact strings; a nonempty incomplete book is not zero.
+These supplied binary64 sensitivity summaries are distinct from complete-key
+quote risk, model revaluation and calibrated hedge factors. The existing full
+quote-risk/lifecycle/causal P&L routes retain their original contracts and CTD
+switches. The removed include_incomplete setting is rejected by strict config
+input; it cannot silently change coverage policy.
+
+The supplied engine quote-book summary requires every original position and
+requested scalar measure, unique consumed quotes, common settlement date and
+actual quote lineage. Its timestamp is the latest consumed quote timestamp.
+Missing prices/accrued/risk cannot drop a position or become a successful zero.
+Foreign quotes require an explicitly FX-bound route and fail on this convenience
+route. Factor and classification coverage are explicit; incomplete exact factor
+labels retain null durations. Weighted summaries and contributions remain
+separate from normal-graph model/market certification.
+
+
+Contribution reports require an explicit duration or spread family. Their common
+exact allocation owner rejects missing requested sensitivities and keeps signed
+numerators and denominators until final output. Currency totals stay exact;
+normalized weights and contribution percentages are optional at zero denominators.
+Per-member scalar displays remain explicitly binary64 presentations, separate from
+the authoritative exact currency totals. The HTTP contribution request supplies
+`duration_measure` (modified/effective) and `spread_measure` (z_spread/oas/g_spread/
+i_spread/asw) for each requested normalized analysis. It cannot select a member's
+other measure implicitly.

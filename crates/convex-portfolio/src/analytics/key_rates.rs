@@ -6,12 +6,12 @@
 //! Supplied key-rate durations use exact factor identity and explicit coverage.
 //! Currency risk adds actual position exposures independently of presentation weights.
 
-use super::exact_risk::ExactRisk;
 use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
 use crate::{PortfolioError, PortfolioResult};
 use convex_analytics::risk::{
     Duration, KeyRateDuration, KeyRateDurations, STANDARD_KEY_RATE_TENORS,
 };
+use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -252,8 +252,8 @@ pub fn aggregate_key_rate_exposure(
                 "bounded unique identity, positive par/FX and nonnegative actual price required",
             ));
         }
-        let mut dirty_price = ExactRisk::decimal(holding.market_price);
-        dirty_price.add(&ExactRisk::decimal(holding.accrued_interest))?;
+        let mut dirty_price = BoundedDecimal::decimal(holding.market_price);
+        dirty_price.add(&BoundedDecimal::decimal(holding.accrued_interest))?;
         if dirty_price.is_negative() {
             return Err(PortfolioError::invalid_holding(
                 &holding.id,
@@ -276,9 +276,9 @@ pub fn aggregate_key_rate_exposure(
         let weight = match config.weighting {
             WeightingMethod::MarketValue => market_value.clone(),
             WeightingMethod::ParValue => {
-                ExactRisk::decimal(holding.par_amount).multiply(holding.fx_rate)?
+                BoundedDecimal::decimal(holding.par_amount).multiply(holding.fx_rate)?
             }
-            WeightingMethod::EqualWeight => ExactRisk::decimal(Decimal::ONE),
+            WeightingMethod::EqualWeight => BoundedDecimal::decimal(Decimal::ONE),
         };
         let mut factors = HashMap::new();
         if let Some(risk) = &holding.analytics.key_rate_durations {
@@ -317,10 +317,10 @@ pub fn aggregate_key_rate_exposure(
     let mut points = Vec::with_capacity(requested.len());
     let mut durations = Vec::with_capacity(requested.len());
     for &tenor in requested {
-        let mut weighted = ExactRisk::zero();
-        let mut weight_sum = ExactRisk::zero();
-        let mut market_sum = ExactRisk::zero();
-        let mut currency_risk = ExactRisk::zero();
+        let mut weighted = BoundedDecimal::zero();
+        let mut weight_sum = BoundedDecimal::zero();
+        let mut market_sum = BoundedDecimal::zero();
+        let mut currency_risk = BoundedDecimal::zero();
         let mut covered = 0usize;
         for (weight, market_value, factors) in &admitted {
             if let Some(&duration) = factors.get(&tenor.to_bits()) {
@@ -355,9 +355,9 @@ pub fn aggregate_key_rate_exposure(
     let profile = if durations.is_empty() {
         None
     } else {
-        let mut total = ExactRisk::zero();
+        let mut total = BoundedDecimal::zero();
         for row in &durations {
-            total.add(&ExactRisk::decimal(row.duration.years()))?;
+            total.add(&BoundedDecimal::decimal(row.duration.years()))?;
         }
         let total = total.finish()?;
         Some(KeyRateProfile {

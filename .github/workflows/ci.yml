@@ -523,6 +523,24 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify checked holding aggregates default
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates
+
+      - name: Qualify checked holding aggregates no-default
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates --no-default-features
+
+      - name: Qualify checked holding aggregates schema
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates --features schemars
+
+      - name: Qualify exact binary64 final ratios
+        run: cargo test --locked -p convex-math --test bounded_decimal
+
+      - name: Qualify checked portfolio HTTP conversion
+        run: cargo test --locked -p convex-server --test portfolio_aggregation
+
+      - name: Qualify checked supplied engine portfolio
+        run: cargo test --locked -p convex-engine --test portfolio_aggregation
+
       - name: Qualify holding-stress-default
         run: cargo test --locked -p convex-portfolio --test holding_stress
 

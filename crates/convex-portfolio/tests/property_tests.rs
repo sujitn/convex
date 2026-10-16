@@ -112,7 +112,7 @@ fn property_sector_weights_sum_to_100() {
     for seed in 0..10 {
         for size in [5, 10, 25, 50, 100] {
             let portfolio = generate_portfolio(size, seed);
-            let dist = bucket_by_sector(&portfolio.holdings, &config);
+            let dist = bucket_by_sector(&portfolio.holdings, &config).unwrap();
 
             let total: f64 = dist.by_sector.values().map(|m| m.weight_pct).sum();
 
@@ -134,7 +134,7 @@ fn property_rating_weights_sum_to_100() {
     for seed in 0..10 {
         for size in [5, 10, 25, 50] {
             let portfolio = generate_portfolio(size, seed);
-            let dist = bucket_by_rating(&portfolio.holdings, &config);
+            let dist = bucket_by_rating(&portfolio.holdings, &config).unwrap();
 
             let total: f64 = dist.by_bucket.values().map(|m| m.weight_pct).sum();
 
@@ -159,9 +159,15 @@ fn property_duration_contributions_sum_to_100() {
             let contrib = convex_portfolio::contribution::duration_contributions(
                 &portfolio.holdings,
                 &config,
-            );
+                convex_portfolio::contribution::DurationMeasure::Modified,
+            )
+            .unwrap();
 
-            let total: f64 = contrib.by_holding.iter().map(|c| c.contribution_pct).sum();
+            let total: f64 = contrib
+                .by_holding
+                .iter()
+                .map(|c| c.contribution_pct.unwrap())
+                .sum();
 
             assert!(
                 (total - 100.0).abs() < 0.5,
@@ -182,9 +188,14 @@ fn property_dv01_contributions_sum_to_100() {
         for size in [5, 10, 25] {
             let portfolio = generate_portfolio(size, seed);
             let contrib =
-                convex_portfolio::contribution::dv01_contributions(&portfolio.holdings, &config);
+                convex_portfolio::contribution::dv01_contributions(&portfolio.holdings, &config)
+                    .unwrap();
 
-            let total: f64 = contrib.by_holding.iter().map(|c| c.contribution_pct).sum();
+            let total: f64 = contrib
+                .by_holding
+                .iter()
+                .map(|c| c.contribution_pct.unwrap())
+                .sum();
 
             assert!(
                 (total - 100.0).abs() < 0.5,
@@ -207,10 +218,10 @@ fn property_nav_equals_components() {
         for size in [1, 5, 10, 25, 50] {
             let portfolio = generate_portfolio(size, seed);
 
-            let nav = portfolio.nav();
-            let securities = portfolio.securities_market_value();
-            let accrued = portfolio.total_accrued_interest();
-            let cash = portfolio.total_cash();
+            let nav = portfolio.nav().unwrap();
+            let securities = portfolio.securities_market_value().unwrap();
+            let accrued = portfolio.total_accrued_interest().unwrap();
+            let cash = portfolio.total_cash().unwrap();
             let liabilities = portfolio.total_liabilities();
 
             let computed = securities + accrued + cash - liabilities;
@@ -243,7 +254,7 @@ fn property_dv01_is_sum() {
             let sum_dv01: Decimal = portfolio
                 .holdings
                 .iter()
-                .filter_map(|h| h.total_dv01())
+                .map(|h| h.total_dv01().unwrap().unwrap())
                 .sum();
             let sum_dv01 = sum_dv01.to_f64().unwrap_or(0.0);
 
@@ -252,12 +263,13 @@ fn property_dv01_is_sum() {
                 &portfolio.holdings,
                 None,
                 &config,
-            );
+            )
+            .unwrap();
 
             assert!(
-                (risk.total_dv01 - sum_dv01).abs() < 1.0,
+                (risk.total_dv01.unwrap().to_f64().unwrap() - sum_dv01).abs() < 1.0,
                 "Total DV01 should equal sum of holdings: {} vs {} for size={}, seed={}",
-                risk.total_dv01,
+                risk.total_dv01.unwrap().to_f64().unwrap(),
                 sum_dv01,
                 size,
                 seed
@@ -292,7 +304,7 @@ fn property_weighted_ytm_within_bounds() {
             let min_ytm = ytms.iter().cloned().fold(f64::INFINITY, f64::min);
             let max_ytm = ytms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
-            let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config);
+            let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config).unwrap();
 
             if let Some(wtd_ytm) = yield_metrics.ytm {
                 assert!(
@@ -331,7 +343,8 @@ fn property_weighted_duration_within_bounds() {
                 &portfolio.holdings,
                 None,
                 &config,
-            );
+            )
+            .unwrap();
 
             if let Some(wtd_dur) = risk_metrics.best_duration {
                 assert!(
@@ -355,7 +368,7 @@ fn property_sector_bucketing_covers_all() {
     for seed in 0..10 {
         for size in [5, 10, 25, 50] {
             let portfolio = generate_portfolio(size, seed);
-            let dist = bucket_by_sector(&portfolio.holdings, &config);
+            let dist = bucket_by_sector(&portfolio.holdings, &config).unwrap();
 
             // Count total holdings in all buckets
             let bucket_count: usize = dist.by_sector.values().map(|m| m.count).sum();
@@ -380,7 +393,7 @@ fn property_rating_bucketing_covers_all() {
     for seed in 0..10 {
         for size in [5, 10, 25] {
             let portfolio = generate_portfolio(size, seed);
-            let dist = bucket_by_rating(&portfolio.holdings, &config);
+            let dist = bucket_by_rating(&portfolio.holdings, &config).unwrap();
 
             // Count total holdings in all buckets
             let bucket_count: usize = dist.by_bucket.values().map(|m| m.count).sum();
@@ -472,8 +485,8 @@ fn property_nav_per_share_consistency() {
             let portfolio = generate_portfolio(size, seed);
 
             if let Some(shares) = portfolio.shares_outstanding {
-                let nav = portfolio.nav();
-                let nav_per_share = portfolio.nav_per_share();
+                let nav = portfolio.nav().unwrap();
+                let nav_per_share = portfolio.nav_per_share().unwrap();
 
                 assert!(nav_per_share.is_some());
                 let nps = nav_per_share.unwrap();
@@ -508,14 +521,16 @@ fn property_active_weights_are_antisymmetric() {
             &portfolio_a.holdings,
             &portfolio_b.holdings,
             &config,
-        );
+        )
+        .unwrap();
 
         // Compare B to A
         let comparison_ba = convex_portfolio::benchmark::benchmark_comparison(
             &portfolio_b.holdings,
             &portfolio_a.holdings,
             &config,
-        );
+        )
+        .unwrap();
 
         // Duration difference should be opposite
         if let (Some(diff_ab), Some(diff_ba)) = (
@@ -562,7 +577,8 @@ fn property_identical_portfolios_zero_diff() {
             &portfolio.holdings,
             &portfolio.holdings,
             &config,
-        );
+        )
+        .unwrap();
 
         // Duration difference should be zero
         if let Some(diff) = comparison.duration.difference {

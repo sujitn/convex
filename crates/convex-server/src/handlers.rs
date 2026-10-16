@@ -54,6 +54,7 @@ use convex_portfolio::{
     CreditRating,
     Cs01Contributions,
     DurationContributions,
+    DurationMeasure,
     Dv01Contributions,
     Holding,
     HoldingAnalytics,
@@ -64,6 +65,7 @@ use convex_portfolio::{
     SecYieldInput,
     Sector,
     SpreadContributions,
+    SpreadMeasure,
 };
 
 use crate::websocket::WebSocketState;
@@ -81,6 +83,18 @@ pub struct AppState {
     pub ws_state: WebSocketState,
     /// Portfolio store (for CRUD operations)
     pub portfolio_store: Arc<InMemoryPortfolioStore>,
+}
+
+type PortfolioHandlerError = (StatusCode, Json<serde_json::Value>);
+fn portfolio_result<T, E: std::fmt::Display>(
+    result: Result<T, E>,
+) -> Result<T, PortfolioHandlerError> {
+    result.map_err(|error| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"code":"INVALID_PORTFOLIO_INPUT","error":error.to_string()})),
+        )
+    })
 }
 
 /// Health check response.
@@ -1442,6 +1456,7 @@ pub struct PortfolioAnalyticsRequest {
 
 /// Portfolio input (simplified for API).
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PortfolioInput {
     /// Portfolio identifier
     pub portfolio_id: String,
@@ -1456,6 +1471,7 @@ pub struct PortfolioInput {
 
 /// Position input.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PositionInput {
     /// Instrument ID
     pub instrument_id: String,
@@ -1477,23 +1493,12 @@ pub struct PositionInput {
 pub async fn calculate_portfolio_analytics(
     State(state): State<Arc<AppState>>,
     Json(request): Json<PortfolioAnalyticsRequest>,
-) -> impl IntoResponse {
-    // Convert to internal types
-    let portfolio = convert_portfolio_input(&request.portfolio);
-
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    let portfolio = portfolio_result(convert_portfolio_input(&request.portfolio))?;
     let analyzer = state.engine.portfolio_analyzer();
-
-    match analyzer.calculate(&portfolio, &request.bond_prices) {
-        Ok(output) => {
-            // Publish to WebSocket subscribers
-            state.ws_state.publish_portfolio_analytics(output.clone());
-            (StatusCode::OK, Json(serde_json::to_value(output).unwrap()))
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
+    let output = portfolio_result(analyzer.calculate(&portfolio, &request.bond_prices))?;
+    state.ws_state.publish_portfolio_analytics(output.clone());
+    Ok((StatusCode::OK, Json(output)))
 }
 
 /// Request for batch portfolio analytics.
@@ -1508,19 +1513,32 @@ pub struct BatchPortfolioAnalyticsRequest {
 /// Response for batch portfolio analytics.
 #[derive(Debug, Serialize)]
 pub struct BatchPortfolioAnalyticsResponse {
-    /// Successful calculations
-    pub results: Vec<PortfolioAnalyticsOutput>,
-    /// Errors
-    pub errors: Vec<PortfolioAnalyticsError>,
+    /// Exactly one outcome per input, in the original request order.
+    pub outcomes: Vec<PortfolioAnalyticsOutcome>,
 }
 
-/// Portfolio analytics error.
+/// An ordered portfolio result or its original diagnostic.
 #[derive(Debug, Serialize)]
-pub struct PortfolioAnalyticsError {
-    /// Portfolio ID
-    pub portfolio_id: String,
-    /// Error message
-    pub error: String,
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum PortfolioAnalyticsOutcome {
+    /// A complete checked calculation for this input.
+    Success {
+        /// Zero-based request position, including repeated portfolio IDs.
+        input_index: usize,
+        /// Original supplied portfolio identity.
+        portfolio_id: String,
+        /// Complete native result with exact currency fields.
+        result: Box<PortfolioAnalyticsOutput>,
+    },
+    /// A failed calculation retained at its original request position.
+    Error {
+        /// Zero-based request position, including repeated portfolio IDs.
+        input_index: usize,
+        /// Original supplied portfolio identity.
+        portfolio_id: String,
+        /// Actual admission or native calculation diagnostic.
+        error: String,
+    },
 }
 
 /// Batch calculate analytics for multiple portfolios.
@@ -1528,45 +1546,32 @@ pub async fn batch_calculate_portfolio_analytics(
     State(state): State<Arc<AppState>>,
     Json(request): Json<BatchPortfolioAnalyticsRequest>,
 ) -> impl IntoResponse {
-    // Convert all portfolios
-    let portfolios: Vec<Portfolio> = request
-        .portfolios
-        .iter()
-        .map(convert_portfolio_input)
-        .collect();
-
     let analyzer = state.engine.portfolio_analyzer();
-    let results = analyzer.calculate_batch(&portfolios, &request.bond_prices);
-
-    let mut outputs = Vec::new();
-    let mut errors = Vec::new();
-
-    for (i, result) in results.into_iter().enumerate() {
+    let mut outcomes = Vec::with_capacity(request.portfolios.len());
+    for (input_index, input) in request.portfolios.iter().enumerate() {
+        let result = convert_portfolio_input(input).and_then(|portfolio| {
+            analyzer
+                .calculate(&portfolio, &request.bond_prices)
+                .map_err(|e| e.to_string())
+        });
         match result {
             Ok(output) => {
-                // Publish to WebSocket subscribers
                 state.ws_state.publish_portfolio_analytics(output.clone());
-                outputs.push(output);
+                outcomes.push(PortfolioAnalyticsOutcome::Success {
+                    input_index,
+                    portfolio_id: input.portfolio_id.clone(),
+                    result: Box::new(output),
+                });
             }
-            Err(e) => errors.push(PortfolioAnalyticsError {
-                portfolio_id: portfolios
-                    .get(i)
-                    .map(|p| p.portfolio_id.as_str().to_string())
-                    .unwrap_or_else(|| format!("index_{}", i)),
-                error: e.to_string(),
+            Err(error) => outcomes.push(PortfolioAnalyticsOutcome::Error {
+                input_index,
+                portfolio_id: input.portfolio_id.clone(),
+                error,
             }),
         }
     }
-
-    let response = BatchPortfolioAnalyticsResponse {
-        results: outputs,
-        errors,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+    let response = BatchPortfolioAnalyticsResponse { outcomes };
+    (StatusCode::OK, Json(response))
 }
 
 /// Request for duration contribution analysis.
@@ -1602,34 +1607,40 @@ pub struct DurationContributionResponse {
 pub async fn calculate_duration_contribution(
     State(state): State<Arc<AppState>>,
     Json(request): Json<DurationContributionRequest>,
-) -> impl IntoResponse {
-    let portfolio = convert_portfolio_input(&request.portfolio);
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let portfolio = portfolio_result(convert_portfolio_input(&request.portfolio))?;
 
-    let analyzer = state.engine.portfolio_analyzer();
-    let contributions = analyzer.duration_contribution(&portfolio, &request.bond_prices);
+        let analyzer = state.engine.portfolio_analyzer();
+        let contributions =
+            portfolio_result(analyzer.duration_contribution(&portfolio, &request.bond_prices))?;
 
-    let mut total_duration = Decimal::ZERO;
-    let entries: Vec<DurationContributionEntry> = contributions
-        .into_iter()
-        .map(|(id, weight, contrib)| {
-            total_duration += contrib;
-            DurationContributionEntry {
+        let mut exact_total = convex_math::decimal::BoundedDecimal::zero();
+        for (_, _, value) in &contributions {
+            portfolio_result(
+                exact_total.add(&convex_math::decimal::BoundedDecimal::decimal(*value)),
+            )?;
+        }
+        let total_duration = portfolio_result(exact_total.finish())?;
+        let entries: Vec<DurationContributionEntry> = contributions
+            .into_iter()
+            .map(|(id, weight, contrib)| DurationContributionEntry {
                 instrument_id: id.as_str().to_string(),
                 weight,
                 contribution: contrib,
-            }
-        })
-        .collect();
+            })
+            .collect();
 
-    let response = DurationContributionResponse {
-        contributions: entries,
-        total_duration,
-    };
+        let response = DurationContributionResponse {
+            contributions: entries,
+            total_duration,
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 // =============================================================================
@@ -1646,6 +1657,10 @@ pub struct RiskContributionsRequest {
     /// Contribution types to calculate (default: all)
     #[serde(default = "default_contribution_types")]
     pub contribution_types: Vec<String>,
+    /// Required for requested duration allocation; no implicit family fallback.
+    pub duration_measure: Option<DurationMeasure>,
+    /// Required for requested spread allocation; no implicit spread substitution.
+    pub spread_measure: Option<SpreadMeasure>,
 }
 
 fn default_contribution_types() -> Vec<String> {
@@ -1663,11 +1678,11 @@ pub struct ApiHoldingContribution {
     /// Holding identifier
     pub id: String,
     /// Market value weight (0-1)
-    pub weight: f64,
+    pub weight: Option<f64>,
     /// Absolute contribution value
     pub contribution: f64,
     /// Contribution as percentage of total (0-100)
-    pub contribution_pct: f64,
+    pub contribution_pct: Option<f64>,
 }
 
 /// Serializable bucket contribution for API response.
@@ -1678,16 +1693,18 @@ pub struct ApiBucketContribution {
     /// Number of holdings in bucket
     pub count: usize,
     /// Total weight of holdings (0-1)
-    pub weight: f64,
+    pub weight: Option<f64>,
     /// Absolute contribution
     pub contribution: f64,
     /// Contribution percentage (0-100)
-    pub contribution_pct: f64,
+    pub contribution_pct: Option<f64>,
 }
 
 /// Duration contributions response.
 #[derive(Debug, Serialize)]
 pub struct ApiDurationContributions {
+    /// Explicit supplied measure used for every member.
+    pub measure: DurationMeasure,
     /// Contributions by holding
     pub by_holding: Vec<ApiHoldingContribution>,
     /// Contributions by sector
@@ -1718,6 +1735,8 @@ pub struct ApiDv01Contributions {
 /// Spread contributions response.
 #[derive(Debug, Serialize)]
 pub struct ApiSpreadContributions {
+    /// Explicit supplied measure used for every member.
+    pub measure: SpreadMeasure,
     /// Contributions by holding
     pub by_holding: Vec<ApiHoldingContribution>,
     /// Contributions by sector
@@ -1775,217 +1794,280 @@ pub struct RiskContributionsResponse {
 pub async fn calculate_risk_contributions(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<RiskContributionsRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
+
+        if holdings.is_empty() {
+            return Err((
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
+                Json(
+                    serde_json::json!({ "error": "No valid holdings found (positions must have matching bond prices)" }),
+                ),
+            ));
         }
-    };
 
-    if holdings.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({ "error": "No valid holdings found (positions must have matching bond prices)" }),
-            ),
-        );
-    }
+        let config = AnalyticsConfig::default();
+        let types: std::collections::HashSet<_> = request
+            .contribution_types
+            .iter()
+            .map(|s| s.to_lowercase())
+            .collect();
+        portfolio_result(
+            (request.contribution_types.len() <= 4
+                && types.len() == request.contribution_types.len()
+                && types
+                    .iter()
+                    .all(|s| matches!(s.as_str(), "duration" | "dv01" | "spread" | "cs01")))
+            .then_some(())
+            .ok_or("bounded unique supported contribution types required"),
+        )?;
 
-    let config = AnalyticsConfig::default();
-    let types: std::collections::HashSet<_> = request
-        .contribution_types
-        .iter()
-        .map(|s| s.to_lowercase())
-        .collect();
+        // Calculate requested contribution types
+        let duration = if types.contains("duration") || types.is_empty() {
+            Some(convert_duration_contributions(&portfolio_result(
+                duration_contributions(
+                    &holdings,
+                    &config,
+                    portfolio_result(
+                        request
+                            .duration_measure
+                            .ok_or("duration_measure is required"),
+                    )?,
+                ),
+            )?))
+        } else {
+            None
+        };
 
-    // Calculate requested contribution types
-    let duration = if types.contains("duration") || types.is_empty() {
-        Some(convert_duration_contributions(&duration_contributions(
-            &holdings, &config,
-        )))
-    } else {
-        None
-    };
+        let dv01 = if types.contains("dv01") || types.is_empty() {
+            Some(convert_dv01_contributions(&portfolio_result(
+                dv01_contributions(&holdings, &config),
+            )?))
+        } else {
+            None
+        };
 
-    let dv01 = if types.contains("dv01") || types.is_empty() {
-        Some(convert_dv01_contributions(&dv01_contributions(
-            &holdings, &config,
-        )))
-    } else {
-        None
-    };
+        let spread = if types.contains("spread") || types.is_empty() {
+            Some(convert_spread_contributions(&portfolio_result(
+                spread_contributions(
+                    &holdings,
+                    &config,
+                    portfolio_result(request.spread_measure.ok_or("spread_measure is required"))?,
+                ),
+            )?))
+        } else {
+            None
+        };
 
-    let spread = if types.contains("spread") || types.is_empty() {
-        Some(convert_spread_contributions(&spread_contributions(
-            &holdings, &config,
-        )))
-    } else {
-        None
-    };
+        let cs01 = if types.contains("cs01") || types.is_empty() {
+            Some(convert_cs01_contributions(&portfolio_result(
+                cs01_contributions(&holdings, &config),
+            )?))
+        } else {
+            None
+        };
 
-    let cs01 = if types.contains("cs01") || types.is_empty() {
-        Some(convert_cs01_contributions(&cs01_contributions(
-            &holdings, &config,
-        )))
-    } else {
-        None
-    };
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+        let response = RiskContributionsResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            duration,
+            dv01,
+            spread,
+            cs01,
+            num_holdings: holdings.len(),
+            timestamp: now,
+        };
 
-    let response = RiskContributionsResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        duration,
-        dv01,
-        spread,
-        cs01,
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
-/// Convert portfolio positions and bond prices to convex-portfolio Holdings.
+/// Convert the complete supplied quote cohort without price/identifier/FX fallbacks.
 fn convert_to_holdings(
     portfolio: &PortfolioInput,
     bond_prices: &[BondQuoteOutput],
 ) -> Result<Vec<Holding>, String> {
-    use std::collections::HashMap;
-
-    // Build price lookup by instrument_id
-    let price_map: HashMap<_, _> = bond_prices
+    use convex_math::decimal::BoundedDecimal;
+    use std::collections::{HashMap, HashSet};
+    let checked = convert_portfolio_input(portfolio)?;
+    if bond_prices.len() > 65_536 {
+        return Err("supplied quote bound exceeded".into());
+    }
+    let wanted = portfolio
+        .positions
         .iter()
-        .map(|q| (q.instrument_id.as_str(), q))
-        .collect();
-
-    let mut holdings = Vec::new();
-
-    for position in &portfolio.positions {
-        if let Some(quote) = price_map.get(position.instrument_id.as_str()) {
-            // Need dirty price for market value calculation (use mid)
-            let market_price = quote
-                .dirty_price_mid()
-                .or(quote.clean_price_mid)
-                .unwrap_or(Decimal::from(100));
-
-            // Build analytics from quote
-            let mut analytics = HoldingAnalytics::new();
-
-            if let Some(dur) = quote.modified_duration {
-                analytics.modified_duration = Some(dur.to_f64().unwrap_or(0.0));
-            }
-            if let Some(dur) = quote.effective_duration {
-                analytics.effective_duration = Some(dur.to_f64().unwrap_or(0.0));
-            }
-            if let Some(dur) = quote.macaulay_duration {
-                analytics.macaulay_duration = Some(dur.to_f64().unwrap_or(0.0));
-            }
-            if let Some(dur) = quote.spread_duration {
-                analytics.spread_duration = Some(dur.to_f64().unwrap_or(0.0));
-            }
-            if let Some(conv) = quote.convexity {
-                analytics.convexity = Some(conv.to_f64().unwrap_or(0.0));
-            }
-            if let Some(conv) = quote.effective_convexity {
-                analytics.effective_convexity = Some(conv.to_f64().unwrap_or(0.0));
-            }
-            if let Some(dv01) = quote.dv01 {
-                analytics.dv01 = Some(dv01.to_f64().unwrap_or(0.0));
-            }
-            if let Some(ytm) = quote.ytm_mid {
-                analytics.ytm = Some(ytm.to_f64().unwrap_or(0.0));
-            }
-            if let Some(ytw) = quote.ytw {
-                analytics.ytw = Some(ytw.to_f64().unwrap_or(0.0));
-            }
-            if let Some(z) = quote.z_spread_mid {
-                analytics.z_spread = Some(z.to_f64().unwrap_or(0.0));
-            }
-            if let Some(o) = quote.oas_mid {
-                analytics.oas = Some(o.to_f64().unwrap_or(0.0));
-            }
-            if let Some(g) = quote.g_spread_mid {
-                analytics.g_spread = Some(g.to_f64().unwrap_or(0.0));
-            }
-            if let Some(i) = quote.i_spread_mid {
-                analytics.i_spread = Some(i.to_f64().unwrap_or(0.0));
-            }
-            if let Some(cs01) = quote.cs01 {
-                analytics.cs01 = Some(cs01.to_f64().unwrap_or(0.0));
-            }
-
-            // Build classification from position metadata
-            let mut classification = convex_portfolio::Classification::new();
-            if let Some(ref sector_str) = position.sector {
-                if let Some(sector) = parse_sector(sector_str) {
-                    classification = classification
-                        .with_sector(convex_portfolio::SectorInfo::from_composite(sector));
-                }
-            }
-            if let Some(ref rating_str) = position.rating {
-                if let Some(rating) = parse_rating(rating_str) {
-                    classification = classification
-                        .with_rating(convex_portfolio::RatingInfo::from_composite(rating));
-                }
-            }
-            if let Some(ref country) = position.country {
-                classification = classification.with_country(country);
-            }
-            if let Some(ref issuer) = position.issuer {
-                classification = classification.with_issuer(issuer);
-            }
-
-            // Create identifiers - use ISIN if available, otherwise create from instrument_id
-            let identifiers = quote
-                .isin
-                .as_ref()
-                .and_then(|isin| BondIdentifiers::from_isin_str(isin).ok())
-                .unwrap_or_else(|| {
-                    BondIdentifiers::from_isin_str(&format!(
-                        "XX{:010}",
-                        position.instrument_id.len()
-                    ))
-                    .unwrap_or_default()
-                });
-
-            // Build holding
-            let holding = HoldingBuilder::new()
-                .id(&position.instrument_id)
-                .identifiers(identifiers)
-                .par_amount(position.notional)
-                .market_price(market_price)
-                .accrued_interest(quote.accrued_interest.unwrap_or(Decimal::ZERO))
-                .currency(quote.currency)
-                .analytics(analytics)
-                .classification(classification)
-                .build();
-
-            match holding {
-                Ok(h) => holdings.push(h),
-                Err(e) => {
-                    // Log but continue with other holdings
-                    tracing::warn!(
-                        "Failed to build holding for {}: {}",
-                        position.instrument_id,
-                        e
-                    );
-                }
-            }
+        .map(|p| p.instrument_id.as_str())
+        .collect::<HashSet<_>>();
+    let mut prices = HashMap::new();
+    for quote in bond_prices {
+        if wanted.contains(quote.instrument_id.as_str())
+            && prices.insert(quote.instrument_id.as_str(), quote).is_some()
+        {
+            return Err(format!("duplicate quote for {}", quote.instrument_id));
         }
     }
-
+    let mut date = None;
+    let mut holdings = Vec::with_capacity(portfolio.positions.len());
+    for position in &portfolio.positions {
+        let id = &position.instrument_id;
+        let quote = *prices
+            .get(id.as_str())
+            .ok_or_else(|| format!("missing quote for {id}"))?;
+        if quote.currency != checked.currency {
+            return Err(format!("{id}: foreign quote requires explicit dated FX"));
+        }
+        if date.is_some_and(|d| d != quote.settlement_date) {
+            return Err(format!("{id}: mixed quote settlement dates"));
+        }
+        date = Some(quote.settlement_date);
+        if quote.is_stale
+            || quote.timestamp < 0
+            || quote.quality > 100
+            || quote.source.trim().is_empty()
+            || quote.source.len() > 8192
+            || quote.pricing_spec.trim().is_empty()
+            || quote.pricing_spec.len() > 8192
+        {
+            return Err(format!(
+                "{id}: valid non-stale supplied quote lineage required"
+            ));
+        }
+        let clean = quote
+            .clean_price_mid
+            .ok_or_else(|| format!("{id}: actual clean mid price required"))?;
+        let accrued = quote
+            .accrued_interest
+            .ok_or_else(|| format!("{id}: actual accrued per100 required"))?;
+        if clean < Decimal::ZERO {
+            return Err(format!("{id}: negative clean price"));
+        }
+        let mut dirty = BoundedDecimal::decimal(clean);
+        dirty
+            .add(&BoundedDecimal::decimal(accrued))
+            .map_err(|e| e.to_string())?;
+        if dirty.is_negative() {
+            return Err(format!("{id}: negative dirty price"));
+        }
+        let convert = |value: Option<Decimal>| -> Result<Option<f64>, String> {
+            value
+                .map(|v| {
+                    v.to_f64()
+                        .filter(|f| f.is_finite() && (v.is_zero() || *f != 0.0))
+                        .ok_or_else(|| {
+                            format!("{id}: finite non-erased binary64 diagnostic required")
+                        })
+                })
+                .transpose()
+        };
+        let mut analytics = HoldingAnalytics::new();
+        for (slot, value) in [
+            (&mut analytics.modified_duration, quote.modified_duration),
+            (&mut analytics.effective_duration, quote.effective_duration),
+            (&mut analytics.macaulay_duration, quote.macaulay_duration),
+            (&mut analytics.spread_duration, quote.spread_duration),
+            (&mut analytics.convexity, quote.convexity),
+            (
+                &mut analytics.effective_convexity,
+                quote.effective_convexity,
+            ),
+            (&mut analytics.dv01, quote.dv01),
+            (&mut analytics.cs01, quote.cs01),
+            (&mut analytics.ytm, quote.ytm_mid),
+            (&mut analytics.ytw, quote.ytw),
+            (&mut analytics.ytc, quote.ytc),
+            (&mut analytics.z_spread, quote.z_spread_mid),
+            (&mut analytics.oas, quote.oas_mid),
+            (&mut analytics.g_spread, quote.g_spread_mid),
+            (&mut analytics.i_spread, quote.i_spread_mid),
+            (&mut analytics.asw, quote.asw_mid),
+        ] {
+            *slot = convert(value)?;
+        }
+        if let Some(points) = &quote.key_rate_durations {
+            if points.len() > 1024 {
+                return Err(format!("{id}: key-rate factor bound exceeded"));
+            }
+            let mut rows = Vec::with_capacity(points.len());
+            let mut seen = HashSet::new();
+            for (label, value) in points {
+                let factor = convex_core::contracts::FactorTenor::new(label.clone())
+                    .map_err(|e| format!("{id}: {e}"))?;
+                let text = factor.as_str();
+                let split = text.len() - 1;
+                let number = text[..split]
+                    .parse::<u32>()
+                    .map_err(|_| format!("{id}: explicit positive M/Y factors required"))?;
+                let years=match text.as_bytes()[split] {b'Y'=>f64::from(number),b'M'=>f64::from(number)/12.0,_=>return Err(format!("{id}: dated day/week factor mapping is unavailable on this diagnostic route"))};
+                if !seen.insert(years.to_bits()) {
+                    return Err(format!("{id}: duplicate or aliased factor mapping"));
+                }
+                rows.push(convex_analytics::risk::KeyRateDuration {
+                    tenor: years,
+                    duration: convex_analytics::risk::Duration::new(*value),
+                });
+            }
+            analytics.key_rate_durations =
+                Some(convex_analytics::risk::KeyRateDurations::new(rows));
+        }
+        let mut classification = convex_portfolio::Classification::new();
+        if let Some(value) = &position.sector {
+            classification =
+                classification.with_sector(convex_portfolio::SectorInfo::from_composite(
+                    parse_sector(value)
+                        .ok_or_else(|| format!("{id}: unknown supplied sector {value}"))?,
+                ));
+        }
+        if let Some(value) = &position.rating {
+            classification =
+                classification.with_rating(convex_portfolio::RatingInfo::from_composite(
+                    parse_rating(value)
+                        .ok_or_else(|| format!("{id}: unknown supplied rating {value}"))?,
+                ));
+        }
+        if let Some(value) = &position.country {
+            classification = classification.with_country(value);
+        }
+        if let Some(value) = &position.issuer {
+            classification = classification.with_issuer(value);
+        }
+        let identifiers = match &quote.isin {
+            Some(value) => BondIdentifiers::from_isin_str(value)
+                .map_err(|e| format!("{id}: invalid supplied ISIN: {e}"))?,
+            None => BondIdentifiers::new(),
+        };
+        let holding = HoldingBuilder::new()
+            .id(id)
+            .identifiers(identifiers)
+            .par_amount(position.notional)
+            .market_price(clean)
+            .accrued_interest(accrued)
+            .currency(quote.currency)
+            .analytics(analytics)
+            .classification(classification)
+            .build()
+            .map_err(|e| e.to_string())?;
+        holdings.push(holding);
+    }
+    if holdings.len() != portfolio.positions.len() {
+        return Err("quote/position cardinality mismatch".into());
+    }
     Ok(holdings)
 }
 
@@ -2002,7 +2084,8 @@ fn parse_sector(s: &str) -> Option<Sector> {
         "abs" | "asset-backed" | "assetbacked" => Some(Sector::AssetBacked),
         "mbs" | "mortgage-backed" | "mortgagebacked" | "rmbs" => Some(Sector::MortgageBacked),
         "covered" | "covered-bond" | "coveredbond" => Some(Sector::CoveredBond),
-        _ => Some(Sector::Other),
+        "other" => Some(Sector::Other),
+        _ => None,
     }
 }
 
@@ -2082,6 +2165,7 @@ fn convert_rating_buckets(
 /// Convert DurationContributions to API response type.
 fn convert_duration_contributions(c: &DurationContributions) -> ApiDurationContributions {
     ApiDurationContributions {
+        measure: c.measure,
         by_holding: c
             .by_holding
             .iter()
@@ -2112,6 +2196,7 @@ fn convert_dv01_contributions(c: &Dv01Contributions) -> ApiDv01Contributions {
 /// Convert SpreadContributions to API response type.
 fn convert_spread_contributions(c: &SpreadContributions) -> ApiSpreadContributions {
     ApiSpreadContributions {
+        measure: c.measure,
         by_holding: c
             .by_holding
             .iter()
@@ -2217,53 +2302,55 @@ pub struct SectorSummary {
 pub async fn calculate_sector_bucketing(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<BucketingRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
 
-    let config = AnalyticsConfig::default();
-    let dist = bucket_by_sector(&holdings, &config);
+        let config = AnalyticsConfig::default();
+        let dist = portfolio_result(bucket_by_sector(&holdings, &config))?;
 
-    let by_sector: Vec<SectorBucketEntry> = dist
-        .by_sector
-        .iter()
-        .map(|(sector, metrics)| SectorBucketEntry {
-            sector: format!("{:?}", sector),
-            metrics: convert_bucket_metrics(metrics),
-        })
-        .collect();
+        let by_sector: Vec<SectorBucketEntry> = dist
+            .by_sector
+            .iter()
+            .map(|(sector, metrics)| SectorBucketEntry {
+                sector: format!("{:?}", sector),
+                metrics: convert_bucket_metrics(metrics),
+            })
+            .collect();
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
 
-    let response = SectorBucketingResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        by_sector,
-        unclassified: convert_bucket_metrics(&dist.unclassified),
-        total_market_value: dist.total_market_value.to_string(),
-        summary: SectorSummary {
-            government_weight: dist.government_weight(),
-            credit_weight: dist.credit_weight(),
-            securitized_weight: dist.securitized_weight(),
-        },
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
+        let response = SectorBucketingResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            by_sector,
+            unclassified: convert_bucket_metrics(&dist.unclassified),
+            total_market_value: dist.total_market_value.to_string(),
+            summary: SectorSummary {
+                government_weight: dist.government_weight(),
+                credit_weight: dist.credit_weight(),
+                securitized_weight: dist.securitized_weight(),
+            },
+            num_holdings: holdings.len(),
+            timestamp: now,
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Rating bucketing response.
@@ -2318,66 +2405,68 @@ pub struct RatingSummary {
 pub async fn calculate_rating_bucketing(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<BucketingRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
 
-    let config = AnalyticsConfig::default();
-    let dist = bucket_by_rating(&holdings, &config);
+        let config = AnalyticsConfig::default();
+        let dist = portfolio_result(bucket_by_rating(&holdings, &config))?;
 
-    let by_rating: Vec<RatingBucketEntry> = dist
-        .by_rating
-        .iter()
-        .map(|(rating, metrics)| RatingBucketEntry {
-            rating: format!("{:?}", rating),
-            metrics: convert_bucket_metrics(metrics),
-        })
-        .collect();
+        let by_rating: Vec<RatingBucketEntry> = dist
+            .by_rating
+            .iter()
+            .map(|(rating, metrics)| RatingBucketEntry {
+                rating: format!("{:?}", rating),
+                metrics: convert_bucket_metrics(metrics),
+            })
+            .collect();
 
-    let by_bucket: Vec<RatingBucketEntry> = dist
-        .by_bucket
-        .iter()
-        .map(|(bucket, metrics)| RatingBucketEntry {
-            rating: format!("{:?}", bucket),
-            metrics: convert_bucket_metrics(metrics),
-        })
-        .collect();
+        let by_bucket: Vec<RatingBucketEntry> = dist
+            .by_bucket
+            .iter()
+            .map(|(bucket, metrics)| RatingBucketEntry {
+                rating: format!("{:?}", bucket),
+                metrics: convert_bucket_metrics(metrics),
+            })
+            .collect();
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
 
-    let response = RatingBucketingResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        by_rating,
-        by_bucket,
-        unrated: convert_bucket_metrics(&dist.unrated),
-        total_market_value: dist.total_market_value.to_string(),
-        summary: RatingSummary {
-            investment_grade_weight: dist.investment_grade_weight(),
-            high_yield_weight: dist.high_yield_weight(),
-            default_weight: dist.default_weight(),
-            unrated_weight: dist.unrated_weight(),
-            average_rating_score: dist.average_rating_score(),
-            average_rating: dist.average_rating().map(|r| format!("{:?}", r)),
-        },
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
+        let response = RatingBucketingResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            by_rating,
+            by_bucket,
+            unrated: convert_bucket_metrics(&dist.unrated),
+            total_market_value: dist.total_market_value.to_string(),
+            summary: RatingSummary {
+                investment_grade_weight: dist.investment_grade_weight(),
+                high_yield_weight: dist.high_yield_weight(),
+                default_weight: dist.default_weight(),
+                unrated_weight: dist.unrated_weight(),
+                average_rating_score: dist.average_rating_score(),
+                average_rating: dist.average_rating().map(|r| format!("{:?}", r)),
+            },
+            num_holdings: holdings.len(),
+            timestamp: now,
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Maturity bucketing response.
@@ -2426,54 +2515,56 @@ pub struct MaturitySummary {
 pub async fn calculate_maturity_bucketing(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<BucketingRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
 
-    let config = AnalyticsConfig::default();
-    let dist = bucket_by_maturity(&holdings, &config);
+        let config = AnalyticsConfig::default();
+        let dist = portfolio_result(bucket_by_maturity(&holdings, &config))?;
 
-    let by_bucket: Vec<MaturityBucketEntry> = dist
-        .by_bucket
-        .iter()
-        .map(|(bucket, metrics)| MaturityBucketEntry {
-            bucket: format!("{:?}", bucket),
-            metrics: convert_bucket_metrics(metrics),
-        })
-        .collect();
+        let by_bucket: Vec<MaturityBucketEntry> = dist
+            .by_bucket
+            .iter()
+            .map(|(bucket, metrics)| MaturityBucketEntry {
+                bucket: format!("{:?}", bucket),
+                metrics: convert_bucket_metrics(metrics),
+            })
+            .collect();
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
 
-    let response = MaturityBucketingResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        by_bucket,
-        unknown: convert_bucket_metrics(&dist.unknown),
-        total_market_value: dist.total_market_value.to_string(),
-        summary: MaturitySummary {
-            short_term_weight: dist.short_term_weight(),
-            intermediate_weight: dist.intermediate_weight(),
-            long_term_weight: dist.long_term_weight(),
-            weighted_avg_maturity: dist.weighted_avg_maturity,
-        },
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
+        let response = MaturityBucketingResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            by_bucket,
+            unknown: convert_bucket_metrics(&dist.unknown),
+            total_market_value: dist.total_market_value.to_string(),
+            summary: MaturitySummary {
+                short_term_weight: dist.short_term_weight(),
+                intermediate_weight: dist.intermediate_weight(),
+                long_term_weight: dist.long_term_weight(),
+                weighted_avg_maturity: dist.weighted_avg_maturity,
+            },
+            num_holdings: holdings.len(),
+            timestamp: now,
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Custom bucketing response.
@@ -2522,63 +2613,65 @@ pub struct CustomBucketingRequest {
 pub async fn calculate_custom_bucketing(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CustomBucketingRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
 
-    let config = AnalyticsConfig::default();
+        let config = AnalyticsConfig::default();
 
-    let dist = match request.bucket_type.to_lowercase().as_str() {
-        "country" => bucket_by_country(&holdings, &config),
-        "issuer" => bucket_by_issuer(&holdings, &config),
-        "currency" => bucket_by_currency(&holdings, &config),
-        _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "error": format!("Invalid bucket_type: {}. Valid options: country, issuer, currency", request.bucket_type)
-                })),
-            );
-        }
-    };
+        let dist = match request.bucket_type.to_lowercase().as_str() {
+            "country" => portfolio_result(bucket_by_country(&holdings, &config))?,
+            "issuer" => portfolio_result(bucket_by_issuer(&holdings, &config))?,
+            "currency" => portfolio_result(bucket_by_currency(&holdings, &config))?,
+            _ => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": format!("Invalid bucket_type: {}. Valid options: country, issuer, currency", request.bucket_type)
+                    })),
+                ));
+            }
+        };
 
-    let by_bucket: Vec<CustomBucketEntry> = dist
-        .by_bucket
-        .iter()
-        .map(|(key, metrics)| CustomBucketEntry {
-            key: key.clone(),
-            metrics: convert_bucket_metrics(metrics),
-        })
-        .collect();
+        let by_bucket: Vec<CustomBucketEntry> = dist
+            .by_bucket
+            .iter()
+            .map(|(key, metrics)| CustomBucketEntry {
+                key: key.clone(),
+                metrics: convert_bucket_metrics(metrics),
+            })
+            .collect();
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
 
-    let response = CustomBucketingResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        bucket_type: request.bucket_type.clone(),
-        by_bucket,
-        unclassified: convert_bucket_metrics(&dist.unclassified),
-        total_market_value: dist.total_market_value.to_string(),
-        bucket_count: dist.bucket_count(),
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
+        let response = CustomBucketingResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            bucket_type: request.bucket_type.clone(),
+            by_bucket,
+            unclassified: convert_bucket_metrics(&dist.unclassified),
+            total_market_value: dist.total_market_value.to_string(),
+            bucket_count: dist.bucket_count(),
+            num_holdings: holdings.len(),
+            timestamp: now,
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Combined bucketing response.
@@ -2625,143 +2718,145 @@ fn default_bucket_types() -> Vec<String> {
 pub async fn calculate_all_bucketing(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CombinedBucketingRequest>,
-) -> impl IntoResponse {
-    // Convert to holdings
-    let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert to holdings
+        let holdings = match convert_to_holdings(&request.portfolio, &request.bond_prices) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": e })),
+                ));
+            }
+        };
 
-    let config = AnalyticsConfig::default();
-    let types: std::collections::HashSet<_> = request
-        .bucket_types
-        .iter()
-        .map(|s| s.to_lowercase())
-        .collect();
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-
-    // Calculate sector distribution
-    let sector = if types.contains("sector") || types.is_empty() {
-        let dist = bucket_by_sector(&holdings, &config);
-        let by_sector: Vec<SectorBucketEntry> = dist
-            .by_sector
+        let config = AnalyticsConfig::default();
+        let types: std::collections::HashSet<_> = request
+            .bucket_types
             .iter()
-            .map(|(sector, metrics)| SectorBucketEntry {
-                sector: format!("{:?}", sector),
-                metrics: convert_bucket_metrics(metrics),
-            })
+            .map(|s| s.to_lowercase())
             .collect();
 
-        Some(SectorBucketingResponse {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        // Calculate sector distribution
+        let sector = if types.contains("sector") || types.is_empty() {
+            let dist = portfolio_result(bucket_by_sector(&holdings, &config))?;
+            let by_sector: Vec<SectorBucketEntry> = dist
+                .by_sector
+                .iter()
+                .map(|(sector, metrics)| SectorBucketEntry {
+                    sector: format!("{:?}", sector),
+                    metrics: convert_bucket_metrics(metrics),
+                })
+                .collect();
+
+            Some(SectorBucketingResponse {
+                portfolio_id: request.portfolio.portfolio_id.clone(),
+                by_sector,
+                unclassified: convert_bucket_metrics(&dist.unclassified),
+                total_market_value: dist.total_market_value.to_string(),
+                summary: SectorSummary {
+                    government_weight: dist.government_weight(),
+                    credit_weight: dist.credit_weight(),
+                    securitized_weight: dist.securitized_weight(),
+                },
+                num_holdings: holdings.len(),
+                timestamp: now,
+            })
+        } else {
+            None
+        };
+
+        // Calculate rating distribution
+        let rating = if types.contains("rating") || types.is_empty() {
+            let dist = portfolio_result(bucket_by_rating(&holdings, &config))?;
+            let by_rating: Vec<RatingBucketEntry> = dist
+                .by_rating
+                .iter()
+                .map(|(rating, metrics)| RatingBucketEntry {
+                    rating: format!("{:?}", rating),
+                    metrics: convert_bucket_metrics(metrics),
+                })
+                .collect();
+            let by_bucket: Vec<RatingBucketEntry> = dist
+                .by_bucket
+                .iter()
+                .map(|(bucket, metrics)| RatingBucketEntry {
+                    rating: format!("{:?}", bucket),
+                    metrics: convert_bucket_metrics(metrics),
+                })
+                .collect();
+
+            Some(RatingBucketingResponse {
+                portfolio_id: request.portfolio.portfolio_id.clone(),
+                by_rating,
+                by_bucket,
+                unrated: convert_bucket_metrics(&dist.unrated),
+                total_market_value: dist.total_market_value.to_string(),
+                summary: RatingSummary {
+                    investment_grade_weight: dist.investment_grade_weight(),
+                    high_yield_weight: dist.high_yield_weight(),
+                    default_weight: dist.default_weight(),
+                    unrated_weight: dist.unrated_weight(),
+                    average_rating_score: dist.average_rating_score(),
+                    average_rating: dist.average_rating().map(|r| format!("{:?}", r)),
+                },
+                num_holdings: holdings.len(),
+                timestamp: now,
+            })
+        } else {
+            None
+        };
+
+        // Calculate maturity distribution
+        let maturity = if types.contains("maturity") || types.is_empty() {
+            let dist = portfolio_result(bucket_by_maturity(&holdings, &config))?;
+            let by_bucket: Vec<MaturityBucketEntry> = dist
+                .by_bucket
+                .iter()
+                .map(|(bucket, metrics)| MaturityBucketEntry {
+                    bucket: format!("{:?}", bucket),
+                    metrics: convert_bucket_metrics(metrics),
+                })
+                .collect();
+
+            Some(MaturityBucketingResponse {
+                portfolio_id: request.portfolio.portfolio_id.clone(),
+                by_bucket,
+                unknown: convert_bucket_metrics(&dist.unknown),
+                total_market_value: dist.total_market_value.to_string(),
+                summary: MaturitySummary {
+                    short_term_weight: dist.short_term_weight(),
+                    intermediate_weight: dist.intermediate_weight(),
+                    long_term_weight: dist.long_term_weight(),
+                    weighted_avg_maturity: dist.weighted_avg_maturity,
+                },
+                num_holdings: holdings.len(),
+                timestamp: now,
+            })
+        } else {
+            None
+        };
+
+        let response = CombinedBucketingResponse {
             portfolio_id: request.portfolio.portfolio_id.clone(),
-            by_sector,
-            unclassified: convert_bucket_metrics(&dist.unclassified),
-            total_market_value: dist.total_market_value.to_string(),
-            summary: SectorSummary {
-                government_weight: dist.government_weight(),
-                credit_weight: dist.credit_weight(),
-                securitized_weight: dist.securitized_weight(),
-            },
+            sector,
+            rating,
+            maturity,
             num_holdings: holdings.len(),
             timestamp: now,
-        })
-    } else {
-        None
-    };
+        };
 
-    // Calculate rating distribution
-    let rating = if types.contains("rating") || types.is_empty() {
-        let dist = bucket_by_rating(&holdings, &config);
-        let by_rating: Vec<RatingBucketEntry> = dist
-            .by_rating
-            .iter()
-            .map(|(rating, metrics)| RatingBucketEntry {
-                rating: format!("{:?}", rating),
-                metrics: convert_bucket_metrics(metrics),
-            })
-            .collect();
-        let by_bucket: Vec<RatingBucketEntry> = dist
-            .by_bucket
-            .iter()
-            .map(|(bucket, metrics)| RatingBucketEntry {
-                rating: format!("{:?}", bucket),
-                metrics: convert_bucket_metrics(metrics),
-            })
-            .collect();
-
-        Some(RatingBucketingResponse {
-            portfolio_id: request.portfolio.portfolio_id.clone(),
-            by_rating,
-            by_bucket,
-            unrated: convert_bucket_metrics(&dist.unrated),
-            total_market_value: dist.total_market_value.to_string(),
-            summary: RatingSummary {
-                investment_grade_weight: dist.investment_grade_weight(),
-                high_yield_weight: dist.high_yield_weight(),
-                default_weight: dist.default_weight(),
-                unrated_weight: dist.unrated_weight(),
-                average_rating_score: dist.average_rating_score(),
-                average_rating: dist.average_rating().map(|r| format!("{:?}", r)),
-            },
-            num_holdings: holdings.len(),
-            timestamp: now,
-        })
-    } else {
-        None
-    };
-
-    // Calculate maturity distribution
-    let maturity = if types.contains("maturity") || types.is_empty() {
-        let dist = bucket_by_maturity(&holdings, &config);
-        let by_bucket: Vec<MaturityBucketEntry> = dist
-            .by_bucket
-            .iter()
-            .map(|(bucket, metrics)| MaturityBucketEntry {
-                bucket: format!("{:?}", bucket),
-                metrics: convert_bucket_metrics(metrics),
-            })
-            .collect();
-
-        Some(MaturityBucketingResponse {
-            portfolio_id: request.portfolio.portfolio_id.clone(),
-            by_bucket,
-            unknown: convert_bucket_metrics(&dist.unknown),
-            total_market_value: dist.total_market_value.to_string(),
-            summary: MaturitySummary {
-                short_term_weight: dist.short_term_weight(),
-                intermediate_weight: dist.intermediate_weight(),
-                long_term_weight: dist.long_term_weight(),
-                weighted_avg_maturity: dist.weighted_avg_maturity,
-            },
-            num_holdings: holdings.len(),
-            timestamp: now,
-        })
-    } else {
-        None
-    };
-
-    let response = CombinedBucketingResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        sector,
-        rating,
-        maturity,
-        num_holdings: holdings.len(),
-        timestamp: now,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Convert BucketMetrics to API type.
@@ -2779,18 +2874,47 @@ fn convert_bucket_metrics(m: &BucketMetrics) -> ApiBucketMetrics {
 }
 
 /// Convert API portfolio input to internal Portfolio type.
-fn convert_portfolio_input(input: &PortfolioInput) -> Portfolio {
-    let currency = match input.currency.to_uppercase().as_str() {
-        "EUR" => Currency::EUR,
-        "GBP" => Currency::GBP,
-        "JPY" => Currency::JPY,
-        "CHF" => Currency::CHF,
-        "CAD" => Currency::CAD,
-        "AUD" => Currency::AUD,
-        _ => Currency::USD,
-    };
-
-    Portfolio {
+fn convert_portfolio_input(input: &PortfolioInput) -> Result<Portfolio, String> {
+    use std::collections::HashSet;
+    let currency = Currency::from_code(&input.currency)
+        .ok_or_else(|| format!("unknown reporting currency {}", input.currency))?;
+    if input.portfolio_id.trim().is_empty()
+        || input.portfolio_id.len() > 8192
+        || input.positions.len() > 65_536
+    {
+        return Err("bounded nonempty portfolio identity and position manifest required".into());
+    }
+    let mut ids = HashSet::new();
+    for p in &input.positions {
+        if p.instrument_id.trim().is_empty()
+            || p.instrument_id.len() > 8192
+            || !ids.insert(p.instrument_id.as_str())
+        {
+            return Err("unique nonempty bounded instrument positions required".into());
+        }
+        if let Some(value) = &p.currency {
+            let position_currency = Currency::from_code(value)
+                .ok_or_else(|| format!("{}: invalid position currency", p.instrument_id))?;
+            if position_currency != currency {
+                return Err(format!(
+                    "{}: foreign position requires explicit dated FX",
+                    p.instrument_id
+                ));
+            }
+        }
+        for text in [&p.sector, &p.rating, &p.country, &p.issuer]
+            .into_iter()
+            .flatten()
+        {
+            if text.trim().is_empty() || text.len() > 8192 {
+                return Err(format!(
+                    "{}: bounded nonempty supplied classifications required",
+                    p.instrument_id
+                ));
+            }
+        }
+    }
+    Ok(Portfolio {
         portfolio_id: PortfolioId::new(&input.portfolio_id),
         name: input.name.clone(),
         currency,
@@ -2804,7 +2928,7 @@ fn convert_portfolio_input(input: &PortfolioInput) -> Portfolio {
                 rating: p.rating.clone(),
             })
             .collect(),
-    }
+    })
 }
 
 fn default_limit() -> usize {
@@ -3229,11 +3353,11 @@ pub struct YieldComparisonOutput {
 #[derive(Debug, Serialize)]
 pub struct RiskComparisonOutput {
     /// Portfolio DV01
-    pub portfolio_dv01: f64,
+    pub portfolio_dv01: Option<String>,
     /// Benchmark DV01
-    pub benchmark_dv01: f64,
+    pub benchmark_dv01: Option<String>,
     /// DV01 difference
-    pub dv01_difference: f64,
+    pub dv01_difference: Option<String>,
     /// DV01 ratio
     pub dv01_ratio: Option<f64>,
     /// Portfolio convexity
@@ -3319,160 +3443,168 @@ pub struct RatingComparisonOutput {
 pub async fn compare_to_benchmark(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<BenchmarkComparisonRequest>,
-) -> impl IntoResponse {
-    // Convert portfolio holdings
-    let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert portfolio holdings
+        let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices)
+        {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
+                ));
+            }
+        };
 
-    // Convert benchmark holdings
-    let bench_holdings = match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
-            );
-        }
-    };
+        // Convert benchmark holdings
+        let bench_holdings =
+            match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
+                Ok(h) => h,
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
+                    ));
+                }
+            };
 
-    let config = AnalyticsConfig::default();
+        let config = AnalyticsConfig::default();
 
-    // Perform comparison
-    let comparison = benchmark_comparison(&port_holdings, &bench_holdings, &config);
-    let weights = &comparison.active_weights;
+        // Perform comparison
+        let comparison = portfolio_result(benchmark_comparison(
+            &port_holdings,
+            &bench_holdings,
+            &config,
+        ))?;
+        let weights = &comparison.active_weights;
 
-    // Convert duration comparison
-    let duration = DurationComparisonOutput {
-        portfolio: comparison.duration.portfolio_duration,
-        benchmark: comparison.duration.benchmark_duration,
-        difference: comparison.duration.difference,
-        ratio: comparison.duration.ratio,
-        is_longer: comparison.duration.is_longer(),
-    };
+        // Convert duration comparison
+        let duration = DurationComparisonOutput {
+            portfolio: comparison.duration.portfolio_duration,
+            benchmark: comparison.duration.benchmark_duration,
+            difference: comparison.duration.difference,
+            ratio: comparison.duration.ratio,
+            is_longer: comparison.duration.is_longer(),
+        };
 
-    // Convert spread comparison
-    let spread = SpreadComparisonOutput {
-        portfolio: comparison.spread.portfolio_spread,
-        benchmark: comparison.spread.benchmark_spread,
-        difference: comparison.spread.difference,
-        ratio: comparison.spread.ratio,
-        is_wider: comparison.spread.is_wider(),
-    };
+        // Convert spread comparison
+        let spread = SpreadComparisonOutput {
+            portfolio: comparison.spread.portfolio_spread,
+            benchmark: comparison.spread.benchmark_spread,
+            difference: comparison.spread.difference,
+            ratio: comparison.spread.ratio,
+            is_wider: comparison.spread.is_wider(),
+        };
 
-    // Convert yield comparison
-    let yield_comparison = YieldComparisonOutput {
-        portfolio_ytm: comparison.yield_comparison.portfolio_ytm.map(|y| y * 100.0),
-        benchmark_ytm: comparison.yield_comparison.benchmark_ytm.map(|y| y * 100.0),
-        ytm_difference: comparison
-            .yield_comparison
-            .ytm_difference
-            .map(|y| y * 100.0),
-        is_higher_yield: comparison.yield_comparison.is_higher_yield(),
-    };
+        // Convert yield comparison
+        let yield_comparison = YieldComparisonOutput {
+            portfolio_ytm: comparison.yield_comparison.portfolio_ytm.map(|y| y * 100.0),
+            benchmark_ytm: comparison.yield_comparison.benchmark_ytm.map(|y| y * 100.0),
+            ytm_difference: comparison
+                .yield_comparison
+                .ytm_difference
+                .map(|y| y * 100.0),
+            is_higher_yield: comparison.yield_comparison.is_higher_yield(),
+        };
 
-    // Convert risk comparison
-    let risk = RiskComparisonOutput {
-        portfolio_dv01: comparison.risk.portfolio_dv01,
-        benchmark_dv01: comparison.risk.benchmark_dv01,
-        dv01_difference: comparison.risk.dv01_difference,
-        dv01_ratio: comparison.risk.dv01_ratio,
-        portfolio_convexity: comparison.risk.portfolio_convexity,
-        benchmark_convexity: comparison.risk.benchmark_convexity,
-    };
+        // Convert risk comparison
+        let risk = RiskComparisonOutput {
+            portfolio_dv01: comparison.risk.portfolio_dv01.map(|v| v.to_string()),
+            benchmark_dv01: comparison.risk.benchmark_dv01.map(|v| v.to_string()),
+            dv01_difference: comparison.risk.dv01_difference.map(|v| v.to_string()),
+            dv01_ratio: comparison.risk.dv01_ratio,
+            portfolio_convexity: comparison.risk.portfolio_convexity,
+            benchmark_convexity: comparison.risk.benchmark_convexity,
+        };
 
-    // Convert active weights
-    let overweight_sectors: Vec<SectorActiveWeight> = weights
-        .overweight_sectors()
-        .into_iter()
-        .map(|(s, w)| SectorActiveWeight {
-            sector: format!("{:?}", s),
-            active_weight: w,
-        })
-        .collect();
+        // Convert active weights
+        let overweight_sectors: Vec<SectorActiveWeight> = weights
+            .overweight_sectors()
+            .into_iter()
+            .map(|(s, w)| SectorActiveWeight {
+                sector: format!("{:?}", s),
+                active_weight: w,
+            })
+            .collect();
 
-    let underweight_sectors: Vec<SectorActiveWeight> = weights
-        .underweight_sectors()
-        .into_iter()
-        .map(|(s, w)| SectorActiveWeight {
-            sector: format!("{:?}", s),
-            active_weight: w,
-        })
-        .collect();
+        let underweight_sectors: Vec<SectorActiveWeight> = weights
+            .underweight_sectors()
+            .into_iter()
+            .map(|(s, w)| SectorActiveWeight {
+                sector: format!("{:?}", s),
+                active_weight: w,
+            })
+            .collect();
 
-    let largest_positions: Vec<PositionActiveWeight> = weights
-        .largest_active_positions(10)
-        .into_iter()
-        .map(|(id, w)| PositionActiveWeight {
-            id: id.to_string(),
-            active_weight: w,
-        })
-        .collect();
+        let largest_positions: Vec<PositionActiveWeight> = weights
+            .largest_active_positions(10)
+            .into_iter()
+            .map(|(id, w)| PositionActiveWeight {
+                id: id.to_string(),
+                active_weight: w,
+            })
+            .collect();
 
-    let active_weights_output = ActiveWeightsOutput {
-        total_active_weight: weights.total_active_weight,
-        overweight_count: weights.overweight_count,
-        underweight_count: weights.underweight_count,
-        overweight_sectors,
-        underweight_sectors,
-        largest_positions,
-    };
+        let active_weights_output = ActiveWeightsOutput {
+            total_active_weight: weights.total_active_weight,
+            overweight_count: weights.overweight_count,
+            underweight_count: weights.underweight_count,
+            overweight_sectors,
+            underweight_sectors,
+            largest_positions,
+        };
 
-    // Convert sector comparisons
-    let by_sector: Vec<SectorComparisonOutput> = comparison
-        .by_sector
-        .into_iter()
-        .map(|(sector, comp)| SectorComparisonOutput {
-            sector: format!("{:?}", sector),
-            portfolio_weight: comp.portfolio_weight,
-            benchmark_weight: comp.benchmark_weight,
-            active_weight: comp.active_weight,
-            portfolio_duration: comp.portfolio_duration,
-            benchmark_duration: comp.benchmark_duration,
-            portfolio_spread: comp.portfolio_spread,
-            benchmark_spread: comp.benchmark_spread,
-        })
-        .collect();
+        // Convert sector comparisons
+        let by_sector: Vec<SectorComparisonOutput> = comparison
+            .by_sector
+            .into_iter()
+            .map(|(sector, comp)| SectorComparisonOutput {
+                sector: format!("{:?}", sector),
+                portfolio_weight: comp.portfolio_weight,
+                benchmark_weight: comp.benchmark_weight,
+                active_weight: comp.active_weight,
+                portfolio_duration: comp.portfolio_duration,
+                benchmark_duration: comp.benchmark_duration,
+                portfolio_spread: comp.portfolio_spread,
+                benchmark_spread: comp.benchmark_spread,
+            })
+            .collect();
 
-    // Convert rating comparisons
-    let by_rating: Vec<RatingComparisonOutput> = comparison
-        .by_rating
-        .into_iter()
-        .map(|(rating, comp)| RatingComparisonOutput {
-            rating: format!("{:?}", rating),
-            portfolio_weight: comp.portfolio_weight,
-            benchmark_weight: comp.benchmark_weight,
-            active_weight: comp.active_weight,
-            portfolio_duration: comp.portfolio_duration,
-            benchmark_duration: comp.benchmark_duration,
-        })
-        .collect();
+        // Convert rating comparisons
+        let by_rating: Vec<RatingComparisonOutput> = comparison
+            .by_rating
+            .into_iter()
+            .map(|(rating, comp)| RatingComparisonOutput {
+                rating: format!("{:?}", rating),
+                portfolio_weight: comp.portfolio_weight,
+                benchmark_weight: comp.benchmark_weight,
+                active_weight: comp.active_weight,
+                portfolio_duration: comp.portfolio_duration,
+                benchmark_duration: comp.benchmark_duration,
+            })
+            .collect();
 
-    let response = BenchmarkComparisonResponse {
-        portfolio_id: request.portfolio.portfolio_id.clone(),
-        benchmark_id: request.benchmark.portfolio_id.clone(),
-        portfolio_holdings: port_holdings.len(),
-        benchmark_holdings: bench_holdings.len(),
-        duration,
-        spread,
-        yield_comparison,
-        risk,
-        active_weights: active_weights_output,
-        by_sector,
-        by_rating,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = BenchmarkComparisonResponse {
+            portfolio_id: request.portfolio.portfolio_id.clone(),
+            benchmark_id: request.benchmark.portfolio_id.clone(),
+            portfolio_holdings: port_holdings.len(),
+            benchmark_holdings: bench_holdings.len(),
+            duration,
+            spread,
+            yield_comparison,
+            risk,
+            active_weights: active_weights_output,
+            by_sector,
+            by_rating,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+    })
 }
 
 /// Request for active weights calculation.
@@ -3492,102 +3624,106 @@ pub struct ActiveWeightsRequest {
 pub async fn calculate_active_weights(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ActiveWeightsRequest>,
-) -> impl IntoResponse {
-    // Convert portfolio holdings
-    let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert portfolio holdings
+        let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices)
+        {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
+                ));
+            }
+        };
 
-    // Convert benchmark holdings
-    let bench_holdings = match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
-            );
-        }
-    };
+        // Convert benchmark holdings
+        let bench_holdings =
+            match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
+                Ok(h) => h,
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
+                    ));
+                }
+            };
 
-    let config = AnalyticsConfig::default();
-    let weights = active_weights(&port_holdings, &bench_holdings, &config);
+        let config = AnalyticsConfig::default();
+        let weights = portfolio_result(active_weights(&port_holdings, &bench_holdings, &config))?;
 
-    // Convert by_sector
-    let by_sector: Vec<serde_json::Value> = weights
-        .by_sector
-        .iter()
-        .map(|(sector, w)| {
-            serde_json::json!({
-                "sector": format!("{:?}", sector),
-                "portfolio_weight": w.portfolio_weight,
-                "benchmark_weight": w.benchmark_weight,
-                "active_weight": w.active_weight,
-                "relative_weight": w.relative_weight,
-                "is_overweight": w.is_overweight()
+        // Convert by_sector
+        let by_sector: Vec<serde_json::Value> = weights
+            .by_sector
+            .iter()
+            .map(|(sector, w)| {
+                serde_json::json!({
+                    "sector": format!("{:?}", sector),
+                    "portfolio_weight": w.portfolio_weight,
+                    "benchmark_weight": w.benchmark_weight,
+                    "active_weight": w.active_weight,
+                    "relative_weight": w.relative_weight,
+                    "is_overweight": w.is_overweight()
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    // Convert by_rating
-    let by_rating: Vec<serde_json::Value> = weights
-        .by_rating
-        .iter()
-        .map(|(rating, w)| {
-            serde_json::json!({
-                "rating": format!("{:?}", rating),
-                "portfolio_weight": w.portfolio_weight,
-                "benchmark_weight": w.benchmark_weight,
-                "active_weight": w.active_weight,
-                "relative_weight": w.relative_weight,
-                "is_overweight": w.is_overweight()
+        // Convert by_rating
+        let by_rating: Vec<serde_json::Value> = weights
+            .by_rating
+            .iter()
+            .map(|(rating, w)| {
+                serde_json::json!({
+                    "rating": format!("{:?}", rating),
+                    "portfolio_weight": w.portfolio_weight,
+                    "benchmark_weight": w.benchmark_weight,
+                    "active_weight": w.active_weight,
+                    "relative_weight": w.relative_weight,
+                    "is_overweight": w.is_overweight()
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    // Convert by_holding
-    let by_holding: Vec<serde_json::Value> = weights
-        .by_holding
-        .iter()
-        .map(|(id, w)| {
-            serde_json::json!({
-                "id": id,
-                "portfolio_weight": w.portfolio_weight,
-                "benchmark_weight": w.benchmark_weight,
-                "active_weight": w.active_weight,
-                "relative_weight": w.relative_weight,
-                "is_overweight": w.is_overweight()
+        // Convert by_holding
+        let by_holding: Vec<serde_json::Value> = weights
+            .by_holding
+            .iter()
+            .map(|(id, w)| {
+                serde_json::json!({
+                    "id": id,
+                    "portfolio_weight": w.portfolio_weight,
+                    "benchmark_weight": w.benchmark_weight,
+                    "active_weight": w.active_weight,
+                    "relative_weight": w.relative_weight,
+                    "is_overweight": w.is_overweight()
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    let response = serde_json::json!({
-        "portfolio_id": request.portfolio.portfolio_id,
-        "benchmark_id": request.benchmark.portfolio_id,
-        "total_active_weight": weights.total_active_weight,
-        "overweight_count": weights.overweight_count,
-        "underweight_count": weights.underweight_count,
-        "by_sector": by_sector,
-        "by_rating": by_rating,
-        "by_holding": by_holding,
-        "overweight_sectors": weights.overweight_sectors().into_iter()
-            .map(|(s, w)| serde_json::json!({"sector": format!("{:?}", s), "weight": w}))
-            .collect::<Vec<_>>(),
-        "underweight_sectors": weights.underweight_sectors().into_iter()
-            .map(|(s, w)| serde_json::json!({"sector": format!("{:?}", s), "weight": w}))
-            .collect::<Vec<_>>(),
-        "largest_positions": weights.largest_active_positions(20).into_iter()
-            .map(|(id, w)| serde_json::json!({"id": id, "weight": w}))
-            .collect::<Vec<_>>(),
-        "timestamp": chrono::Utc::now().timestamp()
-    });
+        let response = serde_json::json!({
+            "portfolio_id": request.portfolio.portfolio_id,
+            "benchmark_id": request.benchmark.portfolio_id,
+            "total_active_weight": weights.total_active_weight,
+            "overweight_count": weights.overweight_count,
+            "underweight_count": weights.underweight_count,
+            "by_sector": by_sector,
+            "by_rating": by_rating,
+            "by_holding": by_holding,
+            "overweight_sectors": weights.overweight_sectors().into_iter()
+                .map(|(s, w)| serde_json::json!({"sector": format!("{:?}", s), "weight": w}))
+                .collect::<Vec<_>>(),
+            "underweight_sectors": weights.underweight_sectors().into_iter()
+                .map(|(s, w)| serde_json::json!({"sector": format!("{:?}", s), "weight": w}))
+                .collect::<Vec<_>>(),
+            "largest_positions": weights.largest_active_positions(20).into_iter()
+                .map(|(id, w)| serde_json::json!({"id": id, "weight": w}))
+                .collect::<Vec<_>>(),
+            "timestamp": chrono::Utc::now().timestamp()
+        });
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Request for tracking error estimation.
@@ -3611,66 +3747,70 @@ pub struct TrackingErrorRequest {
 pub async fn calculate_tracking_error(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<TrackingErrorRequest>,
-) -> impl IntoResponse {
-    // Convert portfolio holdings
-    let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert portfolio holdings
+        let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices)
+        {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
+                ));
+            }
+        };
 
-    // Convert benchmark holdings
-    let bench_holdings = match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
-            );
-        }
-    };
+        // Convert benchmark holdings
+        let bench_holdings =
+            match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
+                Ok(h) => h,
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
+                    ));
+                }
+            };
 
-    let config = AnalyticsConfig::default();
+        let config = AnalyticsConfig::default();
 
-    // Default volatility assumptions
-    let rate_vol = request.rate_vol.unwrap_or(0.01); // 100bp
-    let spread_vol = request.spread_vol.unwrap_or(0.002); // 20bp
+        // Default volatility assumptions
+        let rate_vol = request.rate_vol.unwrap_or(0.01); // 100bp
+        let spread_vol = request.spread_vol.unwrap_or(0.002); // 20bp
 
-    let te = estimate_tracking_error(
-        &port_holdings,
-        &bench_holdings,
-        &config,
-        rate_vol,
-        spread_vol,
-    );
+        let te = portfolio_result(estimate_tracking_error(
+            &port_holdings,
+            &bench_holdings,
+            &config,
+            rate_vol,
+            spread_vol,
+        ))?;
 
-    let response = serde_json::json!({
-        "portfolio_id": request.portfolio.portfolio_id,
-        "benchmark_id": request.benchmark.portfolio_id,
-        "tracking_error": te.tracking_error,
-        "tracking_error_bps": te.tracking_error * 100.0,
-        "contributions": {
-            "duration": te.duration_contribution,
-            "spread": te.spread_contribution,
-            "sector": te.sector_contribution,
-            "selection": te.selection_contribution
-        },
-        "active_exposures": {
-            "duration": te.active_duration,
-            "spread_bps": te.active_spread
-        },
-        "assumptions": {
-            "rate_vol": rate_vol,
-            "spread_vol": spread_vol
-        },
-        "timestamp": chrono::Utc::now().timestamp()
-    });
+        let response = serde_json::json!({
+            "portfolio_id": request.portfolio.portfolio_id,
+            "benchmark_id": request.benchmark.portfolio_id,
+            "tracking_error": te.tracking_error,
+            "tracking_error_bps": te.tracking_error * 100.0,
+            "contributions": {
+                "duration": te.duration_contribution,
+                "spread": te.spread_contribution,
+                "sector": te.sector_contribution,
+                "selection": te.selection_contribution
+            },
+            "active_exposures": {
+                "duration": te.active_duration,
+                "spread_bps": te.active_spread
+            },
+            "assumptions": {
+                "rate_vol": rate_vol,
+                "spread_vol": spread_vol
+            },
+            "timestamp": chrono::Utc::now().timestamp()
+        });
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Request for duration/spread attribution.
@@ -3690,67 +3830,79 @@ pub struct AttributionRequest {
 pub async fn calculate_attribution(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<AttributionRequest>,
-) -> impl IntoResponse {
-    // Convert portfolio holdings
-    let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        // Convert portfolio holdings
+        let port_holdings = match convert_to_holdings(&request.portfolio, &request.portfolio_prices)
+        {
+            Ok(h) => h,
+            Err(e) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({ "error": format!("Portfolio error: {}", e) })),
+                ));
+            }
+        };
 
-    // Convert benchmark holdings
-    let bench_holdings = match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
-        Ok(h) => h,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
-            );
-        }
-    };
+        // Convert benchmark holdings
+        let bench_holdings =
+            match convert_to_holdings(&request.benchmark, &request.benchmark_prices) {
+                Ok(h) => h,
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({ "error": format!("Benchmark error: {}", e) })),
+                    ));
+                }
+            };
 
-    let config = AnalyticsConfig::default();
+        let config = AnalyticsConfig::default();
 
-    // Calculate duration difference by sector
-    let dur_diff = duration_difference_by_sector(&port_holdings, &bench_holdings, &config);
+        // Calculate duration difference by sector
+        let dur_diff = portfolio_result(duration_difference_by_sector(
+            &port_holdings,
+            &bench_holdings,
+            &config,
+        ))?;
 
-    // Calculate spread difference by sector
-    let spread_diff = spread_difference_by_sector(&port_holdings, &bench_holdings, &config);
+        // Calculate spread difference by sector
+        let spread_diff = portfolio_result(spread_difference_by_sector(
+            &port_holdings,
+            &bench_holdings,
+            &config,
+        ))?;
 
-    // Convert to output
-    let duration_by_sector: Vec<serde_json::Value> = dur_diff
-        .into_iter()
-        .map(|(sector, diff)| {
-            serde_json::json!({
-                "sector": format!("{:?}", sector),
-                "contribution": diff
+        // Convert to output
+        let duration_by_sector: Vec<serde_json::Value> = dur_diff
+            .into_iter()
+            .map(|(sector, diff)| {
+                serde_json::json!({
+                    "sector": format!("{:?}", sector),
+                    "contribution": diff
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    let spread_by_sector: Vec<serde_json::Value> = spread_diff
-        .into_iter()
-        .map(|(sector, diff)| {
-            serde_json::json!({
-                "sector": format!("{:?}", sector),
-                "contribution": diff
+        let spread_by_sector: Vec<serde_json::Value> = spread_diff
+            .into_iter()
+            .map(|(sector, diff)| {
+                serde_json::json!({
+                    "sector": format!("{:?}", sector),
+                    "contribution": diff
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    let response = serde_json::json!({
-        "portfolio_id": request.portfolio.portfolio_id,
-        "benchmark_id": request.benchmark.portfolio_id,
-        "duration_attribution": duration_by_sector,
-        "spread_attribution": spread_by_sector,
-        "timestamp": chrono::Utc::now().timestamp()
-    });
+        let response = serde_json::json!({
+            "portfolio_id": request.portfolio.portfolio_id,
+            "benchmark_id": request.benchmark.portfolio_id,
+            "duration_attribution": duration_by_sector,
+            "spread_attribution": spread_by_sector,
+            "timestamp": chrono::Utc::now().timestamp()
+        });
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 // =============================================================================
@@ -3820,29 +3972,31 @@ pub struct LiquidityMetricsResponse {
 pub async fn calculate_liquidity_metrics_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<LiquidityMetricsRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_liquidity_positions(&request.positions);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
 
-    let metrics = calculate_liquidity_metrics(&holdings, &config);
+        let metrics = portfolio_result(calculate_liquidity_metrics(&holdings, &config))?;
 
-    let response = LiquidityMetricsResponse {
-        portfolio_id: request.portfolio_id,
-        avg_bid_ask_spread: metrics.avg_bid_ask_spread,
-        avg_liquidity_score: metrics.avg_liquidity_score,
-        highly_liquid_pct: metrics.highly_liquid_pct,
-        moderately_liquid_pct: metrics.moderately_liquid_pct,
-        illiquid_pct: metrics.illiquid_pct,
-        bid_ask_coverage: metrics.bid_ask_coverage,
-        score_coverage: metrics.score_coverage,
-        total_holdings: metrics.total_holdings,
-        bid_ask_coverage_pct: metrics.bid_ask_coverage_pct(),
-        score_coverage_pct: metrics.score_coverage_pct(),
-        has_liquidity_concerns: metrics.has_liquidity_concerns(),
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = LiquidityMetricsResponse {
+            portfolio_id: request.portfolio_id,
+            avg_bid_ask_spread: metrics.avg_bid_ask_spread,
+            avg_liquidity_score: metrics.avg_liquidity_score,
+            highly_liquid_pct: metrics.highly_liquid_pct,
+            moderately_liquid_pct: metrics.moderately_liquid_pct,
+            illiquid_pct: metrics.illiquid_pct,
+            bid_ask_coverage: metrics.bid_ask_coverage,
+            score_coverage: metrics.score_coverage,
+            total_holdings: metrics.total_holdings,
+            bid_ask_coverage_pct: metrics.bid_ask_coverage_pct(),
+            score_coverage_pct: metrics.score_coverage_pct(),
+            has_liquidity_concerns: metrics.has_liquidity_concerns(),
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Liquidity bucket output.
@@ -3881,34 +4035,36 @@ pub struct LiquidityDistributionResponse {
 pub async fn calculate_liquidity_distribution(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<LiquidityMetricsRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_liquidity_positions(&request.positions);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
 
-    let dist = liquidity_distribution(&holdings, &config);
+        let dist = portfolio_result(liquidity_distribution(&holdings, &config))?;
 
-    let buckets: Vec<LiquidityBucketOutput> = dist
-        .by_bucket
-        .into_iter()
-        .map(|(bucket, info)| LiquidityBucketOutput {
-            bucket: format!("{:?}", bucket),
-            market_value: info.market_value.to_string(),
-            weight_pct: info.weight_pct,
-            count: info.count,
-            avg_score: info.avg_score,
-            avg_spread: info.avg_spread,
-        })
-        .collect();
+        let buckets: Vec<LiquidityBucketOutput> = dist
+            .by_bucket
+            .into_iter()
+            .map(|(bucket, info)| LiquidityBucketOutput {
+                bucket: format!("{:?}", bucket),
+                market_value: info.market_value.to_string(),
+                weight_pct: info.weight_pct,
+                count: info.count,
+                avg_score: info.avg_score,
+                avg_spread: info.avg_spread,
+            })
+            .collect();
 
-    let response = LiquidityDistributionResponse {
-        portfolio_id: request.portfolio_id,
-        buckets,
-        total_market_value: dist.total_market_value.to_string(),
-        unknown_count: dist.unknown_count,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = LiquidityDistributionResponse {
+            portfolio_id: request.portfolio_id,
+            buckets,
+            total_market_value: dist.total_market_value.to_string(),
+            unknown_count: dist.unknown_count,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Request for days to liquidate estimation.
@@ -3954,24 +4110,30 @@ pub struct DaysToLiquidateResponse {
 pub async fn calculate_days_to_liquidate(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<DaysToLiquidateRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_liquidity_positions(&request.positions);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
 
-    let dtl = estimate_days_to_liquidate(&holdings, request.max_participation_rate, &config);
+        let dtl = portfolio_result(estimate_days_to_liquidate(
+            &holdings,
+            request.max_participation_rate,
+            &config,
+        ))?;
 
-    let response = DaysToLiquidateResponse {
-        portfolio_id: request.portfolio_id,
-        total_days: dtl.total_days,
-        highly_liquid_days: dtl.highly_liquid_days,
-        illiquid_days: dtl.illiquid_days,
-        holdings_without_adv: dtl.holdings_without_adv,
-        illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
-        max_participation_rate: request.max_participation_rate,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = DaysToLiquidateResponse {
+            portfolio_id: request.portfolio_id,
+            total_days: dtl.total_days,
+            highly_liquid_days: dtl.highly_liquid_days,
+            illiquid_days: dtl.illiquid_days,
+            holdings_without_adv: dtl.holdings_without_adv,
+            illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
+            max_participation_rate: request.max_participation_rate,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Request for comprehensive liquidity analysis.
@@ -4007,91 +4169,105 @@ pub struct LiquidityAnalysisResponse {
 pub async fn calculate_liquidity_analysis(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<LiquidityAnalysisRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_liquidity_positions(&request.positions);
-    let config = AnalyticsConfig::default();
-    let timestamp = chrono::Utc::now().timestamp();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
+        let timestamp = chrono::Utc::now().timestamp();
 
-    // Calculate metrics
-    let metrics_result = calculate_liquidity_metrics(&holdings, &config);
-    let metrics = LiquidityMetricsResponse {
-        portfolio_id: request.portfolio_id.clone(),
-        avg_bid_ask_spread: metrics_result.avg_bid_ask_spread,
-        avg_liquidity_score: metrics_result.avg_liquidity_score,
-        highly_liquid_pct: metrics_result.highly_liquid_pct,
-        moderately_liquid_pct: metrics_result.moderately_liquid_pct,
-        illiquid_pct: metrics_result.illiquid_pct,
-        bid_ask_coverage: metrics_result.bid_ask_coverage,
-        score_coverage: metrics_result.score_coverage,
-        total_holdings: metrics_result.total_holdings,
-        bid_ask_coverage_pct: metrics_result.bid_ask_coverage_pct(),
-        score_coverage_pct: metrics_result.score_coverage_pct(),
-        has_liquidity_concerns: metrics_result.has_liquidity_concerns(),
-        timestamp,
-    };
+        // Calculate metrics
+        let metrics_result = portfolio_result(calculate_liquidity_metrics(&holdings, &config))?;
+        let metrics = LiquidityMetricsResponse {
+            portfolio_id: request.portfolio_id.clone(),
+            avg_bid_ask_spread: metrics_result.avg_bid_ask_spread,
+            avg_liquidity_score: metrics_result.avg_liquidity_score,
+            highly_liquid_pct: metrics_result.highly_liquid_pct,
+            moderately_liquid_pct: metrics_result.moderately_liquid_pct,
+            illiquid_pct: metrics_result.illiquid_pct,
+            bid_ask_coverage: metrics_result.bid_ask_coverage,
+            score_coverage: metrics_result.score_coverage,
+            total_holdings: metrics_result.total_holdings,
+            bid_ask_coverage_pct: metrics_result.bid_ask_coverage_pct(),
+            score_coverage_pct: metrics_result.score_coverage_pct(),
+            has_liquidity_concerns: metrics_result.has_liquidity_concerns(),
+            timestamp,
+        };
 
-    // Calculate distribution
-    let dist = liquidity_distribution(&holdings, &config);
-    let distribution: Vec<LiquidityBucketOutput> = dist
-        .by_bucket
-        .into_iter()
-        .map(|(bucket, info)| LiquidityBucketOutput {
-            bucket: format!("{:?}", bucket),
-            market_value: info.market_value.to_string(),
-            weight_pct: info.weight_pct,
-            count: info.count,
-            avg_score: info.avg_score,
-            avg_spread: info.avg_spread,
-        })
-        .collect();
+        // Calculate distribution
+        let dist = portfolio_result(liquidity_distribution(&holdings, &config))?;
+        let distribution: Vec<LiquidityBucketOutput> = dist
+            .by_bucket
+            .into_iter()
+            .map(|(bucket, info)| LiquidityBucketOutput {
+                bucket: format!("{:?}", bucket),
+                market_value: info.market_value.to_string(),
+                weight_pct: info.weight_pct,
+                count: info.count,
+                avg_score: info.avg_score,
+                avg_spread: info.avg_spread,
+            })
+            .collect();
 
-    // Calculate days to liquidate
-    let dtl = estimate_days_to_liquidate(&holdings, request.max_participation_rate, &config);
-    let days_to_liquidate = DaysToLiquidateResponse {
-        portfolio_id: request.portfolio_id.clone(),
-        total_days: dtl.total_days,
-        highly_liquid_days: dtl.highly_liquid_days,
-        illiquid_days: dtl.illiquid_days,
-        holdings_without_adv: dtl.holdings_without_adv,
-        illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
-        max_participation_rate: request.max_participation_rate,
-        timestamp,
-    };
+        // Calculate days to liquidate
+        let dtl = portfolio_result(estimate_days_to_liquidate(
+            &holdings,
+            request.max_participation_rate,
+            &config,
+        ))?;
+        let days_to_liquidate = DaysToLiquidateResponse {
+            portfolio_id: request.portfolio_id.clone(),
+            total_days: dtl.total_days,
+            highly_liquid_days: dtl.highly_liquid_days,
+            illiquid_days: dtl.illiquid_days,
+            holdings_without_adv: dtl.holdings_without_adv,
+            illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
+            max_participation_rate: request.max_participation_rate,
+            timestamp,
+        };
 
-    let response = LiquidityAnalysisResponse {
-        portfolio_id: request.portfolio_id,
-        metrics,
-        distribution,
-        days_to_liquidate,
-        timestamp,
-    };
+        let response = LiquidityAnalysisResponse {
+            portfolio_id: request.portfolio_id,
+            metrics,
+            distribution,
+            days_to_liquidate,
+            timestamp,
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Convert liquidity positions to holdings.
-fn convert_liquidity_positions(positions: &[LiquidityPosition]) -> Vec<Holding> {
-    // Use a valid placeholder ISIN for liquidity analytics
-    let placeholder_identifiers =
-        BondIdentifiers::from_isin_str("US912828Z229").expect("Valid placeholder ISIN");
-
+fn convert_liquidity_positions(positions: &[LiquidityPosition]) -> Result<Vec<Holding>, String> {
+    if positions.len() > 65_536 {
+        return Err("position manifest bound exceeded".into());
+    }
+    let mut ids = std::collections::HashSet::new();
     positions
         .iter()
-        .filter_map(|pos| {
-            let market_price = pos.market_price.unwrap_or(Decimal::from(100));
-
+        .map(|pos| {
+            if pos.instrument_id.trim().is_empty()
+                || pos.instrument_id.len() > 8192
+                || !ids.insert(pos.instrument_id.as_str())
+            {
+                return Err("unique nonempty position identities required".into());
+            }
+            let market_price = pos
+                .market_price
+                .ok_or_else(|| format!("{}: actual market price is required", pos.instrument_id))?;
             let mut analytics = HoldingAnalytics::new();
+            let classification = Classification::new();
             analytics.liquidity_score = pos.liquidity_score;
             analytics.bid_ask_spread = pos.bid_ask_spread;
-
             HoldingBuilder::new()
                 .id(&pos.instrument_id)
-                .identifiers(placeholder_identifiers.clone())
+                .identifiers(BondIdentifiers::new())
                 .par_amount(pos.notional)
                 .market_price(market_price)
+                .classification(classification)
                 .analytics(analytics)
                 .build()
-                .ok()
+                .map_err(|e| e.to_string())
         })
         .collect()
 }
@@ -4184,46 +4360,48 @@ pub struct CreditQualityResponse {
 pub async fn calculate_credit_quality_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CreditQualityRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_credit_positions(&request.positions);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_credit_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
 
-    let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = portfolio_result(calculate_credit_quality(&holdings, &config))?;
 
-    let rated_holdings = request
-        .positions
-        .iter()
-        .filter(|p| p.rating.is_some())
-        .count();
+        let rated_holdings = request
+            .positions
+            .iter()
+            .filter(|p| p.rating.is_some())
+            .count();
 
-    let response = CreditQualityResponse {
-        portfolio_id: request.portfolio_id,
-        average_rating_score: metrics.average_rating_score,
-        average_rating: metrics.average_rating.map(|r| format!("{:?}", r)),
-        ig_weight: metrics.ig_weight,
-        hy_weight: metrics.hy_weight,
-        default_weight: metrics.default_weight,
-        unrated_weight: metrics.unrated_weight,
-        bbb_weight: metrics.bbb_weight,
-        bb_weight: metrics.bb_weight,
-        crossover_risk: metrics.crossover_risk(),
-        is_investment_grade: metrics.is_investment_grade(),
-        has_significant_hy: metrics.has_significant_hy(),
-        quality_tiers: QualityTiersOutput {
-            high_quality: metrics.quality_tiers.high_quality,
-            upper_medium: metrics.quality_tiers.upper_medium,
-            lower_medium: metrics.quality_tiers.lower_medium,
-            speculative: metrics.quality_tiers.speculative,
-            highly_speculative: metrics.quality_tiers.highly_speculative,
-            default: metrics.quality_tiers.default,
-            not_rated: metrics.quality_tiers.not_rated,
-        },
-        total_holdings: request.positions.len(),
-        rated_holdings,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = CreditQualityResponse {
+            portfolio_id: request.portfolio_id,
+            average_rating_score: metrics.average_rating_score,
+            average_rating: metrics.average_rating.map(|r| format!("{:?}", r)),
+            ig_weight: metrics.ig_weight,
+            hy_weight: metrics.hy_weight,
+            default_weight: metrics.default_weight,
+            unrated_weight: metrics.unrated_weight,
+            bbb_weight: metrics.bbb_weight,
+            bb_weight: metrics.bb_weight,
+            crossover_risk: metrics.crossover_risk(),
+            is_investment_grade: metrics.is_investment_grade(),
+            has_significant_hy: metrics.has_significant_hy(),
+            quality_tiers: QualityTiersOutput {
+                high_quality: metrics.quality_tiers.high_quality,
+                upper_medium: metrics.quality_tiers.upper_medium,
+                lower_medium: metrics.quality_tiers.lower_medium,
+                speculative: metrics.quality_tiers.speculative,
+                highly_speculative: metrics.quality_tiers.highly_speculative,
+                default: metrics.quality_tiers.default,
+                not_rated: metrics.quality_tiers.not_rated,
+            },
+            total_holdings: request.positions.len(),
+            rated_holdings,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Fallen angel risk output.
@@ -4271,32 +4449,34 @@ pub struct MigrationRiskResponse {
 pub async fn calculate_migration_risk_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CreditQualityRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_credit_positions(&request.positions);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_credit_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
 
-    let risk = calculate_migration_risk(&holdings, &config);
+        let risk = portfolio_result(calculate_migration_risk(&holdings, &config))?;
 
-    let response = MigrationRiskResponse {
-        portfolio_id: request.portfolio_id,
-        fallen_angel_risk: FallenAngelRiskOutput {
-            bbb_weight: risk.fallen_angel_risk.bbb_weight,
-            bbb_minus_weight: risk.fallen_angel_risk.bbb_minus_weight,
-            market_value_at_risk: risk.fallen_angel_risk.market_value_at_risk.to_string(),
-            holdings_count: risk.fallen_angel_risk.holdings_count,
-        },
-        rising_star_risk: RisingStarRiskOutput {
-            bb_weight: risk.rising_star_risk.bb_weight,
-            bb_plus_weight: risk.rising_star_risk.bb_plus_weight,
-            market_value_potential: risk.rising_star_risk.market_value_potential.to_string(),
-            holdings_count: risk.rising_star_risk.holdings_count,
-        },
-        total_crossover_exposure: risk.fallen_angel_risk.bbb_weight
-            + risk.rising_star_risk.bb_weight,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = MigrationRiskResponse {
+            portfolio_id: request.portfolio_id,
+            fallen_angel_risk: FallenAngelRiskOutput {
+                bbb_weight: risk.fallen_angel_risk.bbb_weight,
+                bbb_minus_weight: risk.fallen_angel_risk.bbb_minus_weight,
+                market_value_at_risk: risk.fallen_angel_risk.market_value_at_risk.to_string(),
+                holdings_count: risk.fallen_angel_risk.holdings_count,
+            },
+            rising_star_risk: RisingStarRiskOutput {
+                bb_weight: risk.rising_star_risk.bb_weight,
+                bb_plus_weight: risk.rising_star_risk.bb_plus_weight,
+                market_value_potential: risk.rising_star_risk.market_value_potential.to_string(),
+                holdings_count: risk.rising_star_risk.holdings_count,
+            },
+            total_crossover_exposure: risk.fallen_angel_risk.bbb_weight
+                + risk.rising_star_risk.bb_weight,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Response for comprehensive credit analysis.
@@ -4316,107 +4496,114 @@ pub struct CreditAnalysisResponse {
 pub async fn calculate_credit_analysis(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CreditQualityRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_credit_positions(&request.positions);
-    let config = AnalyticsConfig::default();
-    let timestamp = chrono::Utc::now().timestamp();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_credit_positions(&request.positions))?;
+        let config = AnalyticsConfig::default();
+        let timestamp = chrono::Utc::now().timestamp();
 
-    // Calculate quality metrics
-    let metrics = calculate_credit_quality(&holdings, &config);
-    let rated_holdings = request
-        .positions
-        .iter()
-        .filter(|p| p.rating.is_some())
-        .count();
+        // Calculate quality metrics
+        let metrics = portfolio_result(calculate_credit_quality(&holdings, &config))?;
+        let rated_holdings = request
+            .positions
+            .iter()
+            .filter(|p| p.rating.is_some())
+            .count();
 
-    let quality = CreditQualityResponse {
-        portfolio_id: request.portfolio_id.clone(),
-        average_rating_score: metrics.average_rating_score,
-        average_rating: metrics.average_rating.map(|r| format!("{:?}", r)),
-        ig_weight: metrics.ig_weight,
-        hy_weight: metrics.hy_weight,
-        default_weight: metrics.default_weight,
-        unrated_weight: metrics.unrated_weight,
-        bbb_weight: metrics.bbb_weight,
-        bb_weight: metrics.bb_weight,
-        crossover_risk: metrics.crossover_risk(),
-        is_investment_grade: metrics.is_investment_grade(),
-        has_significant_hy: metrics.has_significant_hy(),
-        quality_tiers: QualityTiersOutput {
-            high_quality: metrics.quality_tiers.high_quality,
-            upper_medium: metrics.quality_tiers.upper_medium,
-            lower_medium: metrics.quality_tiers.lower_medium,
-            speculative: metrics.quality_tiers.speculative,
-            highly_speculative: metrics.quality_tiers.highly_speculative,
-            default: metrics.quality_tiers.default,
-            not_rated: metrics.quality_tiers.not_rated,
-        },
-        total_holdings: request.positions.len(),
-        rated_holdings,
-        timestamp,
-    };
+        let quality = CreditQualityResponse {
+            portfolio_id: request.portfolio_id.clone(),
+            average_rating_score: metrics.average_rating_score,
+            average_rating: metrics.average_rating.map(|r| format!("{:?}", r)),
+            ig_weight: metrics.ig_weight,
+            hy_weight: metrics.hy_weight,
+            default_weight: metrics.default_weight,
+            unrated_weight: metrics.unrated_weight,
+            bbb_weight: metrics.bbb_weight,
+            bb_weight: metrics.bb_weight,
+            crossover_risk: metrics.crossover_risk(),
+            is_investment_grade: metrics.is_investment_grade(),
+            has_significant_hy: metrics.has_significant_hy(),
+            quality_tiers: QualityTiersOutput {
+                high_quality: metrics.quality_tiers.high_quality,
+                upper_medium: metrics.quality_tiers.upper_medium,
+                lower_medium: metrics.quality_tiers.lower_medium,
+                speculative: metrics.quality_tiers.speculative,
+                highly_speculative: metrics.quality_tiers.highly_speculative,
+                default: metrics.quality_tiers.default,
+                not_rated: metrics.quality_tiers.not_rated,
+            },
+            total_holdings: request.positions.len(),
+            rated_holdings,
+            timestamp,
+        };
 
-    // Calculate migration risk
-    let risk = calculate_migration_risk(&holdings, &config);
-    let migration_risk = MigrationRiskResponse {
-        portfolio_id: request.portfolio_id.clone(),
-        fallen_angel_risk: FallenAngelRiskOutput {
-            bbb_weight: risk.fallen_angel_risk.bbb_weight,
-            bbb_minus_weight: risk.fallen_angel_risk.bbb_minus_weight,
-            market_value_at_risk: risk.fallen_angel_risk.market_value_at_risk.to_string(),
-            holdings_count: risk.fallen_angel_risk.holdings_count,
-        },
-        rising_star_risk: RisingStarRiskOutput {
-            bb_weight: risk.rising_star_risk.bb_weight,
-            bb_plus_weight: risk.rising_star_risk.bb_plus_weight,
-            market_value_potential: risk.rising_star_risk.market_value_potential.to_string(),
-            holdings_count: risk.rising_star_risk.holdings_count,
-        },
-        total_crossover_exposure: risk.fallen_angel_risk.bbb_weight
-            + risk.rising_star_risk.bb_weight,
-        timestamp,
-    };
+        // Calculate migration risk
+        let risk = portfolio_result(calculate_migration_risk(&holdings, &config))?;
+        let migration_risk = MigrationRiskResponse {
+            portfolio_id: request.portfolio_id.clone(),
+            fallen_angel_risk: FallenAngelRiskOutput {
+                bbb_weight: risk.fallen_angel_risk.bbb_weight,
+                bbb_minus_weight: risk.fallen_angel_risk.bbb_minus_weight,
+                market_value_at_risk: risk.fallen_angel_risk.market_value_at_risk.to_string(),
+                holdings_count: risk.fallen_angel_risk.holdings_count,
+            },
+            rising_star_risk: RisingStarRiskOutput {
+                bb_weight: risk.rising_star_risk.bb_weight,
+                bb_plus_weight: risk.rising_star_risk.bb_plus_weight,
+                market_value_potential: risk.rising_star_risk.market_value_potential.to_string(),
+                holdings_count: risk.rising_star_risk.holdings_count,
+            },
+            total_crossover_exposure: risk.fallen_angel_risk.bbb_weight
+                + risk.rising_star_risk.bb_weight,
+            timestamp,
+        };
 
-    let response = CreditAnalysisResponse {
-        portfolio_id: request.portfolio_id,
-        quality,
-        migration_risk,
-        timestamp,
-    };
+        let response = CreditAnalysisResponse {
+            portfolio_id: request.portfolio_id,
+            quality,
+            migration_risk,
+            timestamp,
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Convert credit positions to holdings.
-fn convert_credit_positions(positions: &[CreditPosition]) -> Vec<Holding> {
-    let placeholder_identifiers =
-        BondIdentifiers::from_isin_str("US912828Z229").expect("Valid placeholder ISIN");
-
+fn convert_credit_positions(positions: &[CreditPosition]) -> Result<Vec<Holding>, String> {
+    if positions.len() > 65_536 {
+        return Err("position manifest bound exceeded".into());
+    }
+    let mut ids = std::collections::HashSet::new();
     positions
         .iter()
-        .filter_map(|pos| {
-            let market_price = pos.market_price.unwrap_or(Decimal::from(100));
-
-            // Parse rating string to CreditRating
-            let classification = if let Some(ref rating_str) = pos.rating {
-                let credit_rating = CreditRating::parse(rating_str);
-                if let Some(rating) = credit_rating {
-                    Classification::new().with_rating(RatingInfo::from_composite(rating))
-                } else {
-                    Classification::new()
-                }
-            } else {
-                Classification::new()
-            };
-
+        .map(|pos| {
+            if pos.instrument_id.trim().is_empty()
+                || pos.instrument_id.len() > 8192
+                || !ids.insert(pos.instrument_id.as_str())
+            {
+                return Err("unique nonempty position identities required".into());
+            }
+            let market_price = pos
+                .market_price
+                .ok_or_else(|| format!("{}: actual market price is required", pos.instrument_id))?;
+            let analytics = HoldingAnalytics::new();
+            let mut classification = Classification::new();
+            if let Some(value) = &pos.rating {
+                let rating = CreditRating::parse(value)
+                    .ok_or_else(|| format!("{}: invalid rating {value}", pos.instrument_id))?;
+                classification =
+                    Classification::new().with_rating(RatingInfo::from_composite(rating));
+            }
             HoldingBuilder::new()
                 .id(&pos.instrument_id)
-                .identifiers(placeholder_identifiers.clone())
+                .identifiers(BondIdentifiers::new())
                 .par_amount(pos.notional)
                 .market_price(market_price)
                 .classification(classification)
+                .analytics(analytics)
                 .build()
-                .ok()
+                .map_err(|e| e.to_string())
         })
         .collect()
 }
@@ -4596,44 +4783,46 @@ pub struct CreationBasketResponse {
 pub async fn build_creation_basket_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<CreationBasketRequest>,
-) -> impl IntoResponse {
-    let holdings = convert_basket_positions(&request.holdings);
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let holdings = portfolio_result(convert_basket_positions(&request.holdings))?;
 
-    let basket = build_creation_basket(
-        &holdings,
-        request.creation_unit_size,
-        request.total_shares,
-        request.cash_balance,
-    );
+        let basket = portfolio_result(build_creation_basket(
+            &holdings,
+            request.creation_unit_size,
+            request.total_shares,
+            request.cash_balance,
+        ))?;
 
-    let components: Vec<BasketComponentOutput> = basket
-        .components
-        .iter()
-        .map(|c| BasketComponentOutput {
-            holding_id: c.holding_id.clone(),
-            security_id: c.security_id.clone(),
-            quantity: c.quantity.to_string(),
-            price: c.price.to_string(),
-            market_value: c.market_value.to_string(),
-            weight_pct: c.weight_pct,
-        })
-        .collect();
+        let components: Vec<BasketComponentOutput> = basket
+            .components
+            .iter()
+            .map(|c| BasketComponentOutput {
+                holding_id: c.holding_id.clone(),
+                security_id: c.security_id.clone(),
+                quantity: c.quantity.to_string(),
+                price: c.price.to_string(),
+                market_value: c.market_value.to_string(),
+                weight_pct: c.weight_pct,
+            })
+            .collect();
 
-    let response = CreationBasketResponse {
-        etf_id: request.etf_id,
-        creation_unit_size: basket.creation_unit_size.to_string(),
-        components,
-        security_count: basket.security_count,
-        securities_value: basket.securities_value.to_string(),
-        cash_component: basket.cash_component.to_string(),
-        total_value: basket.total_value.to_string(),
-        nav_per_cu: basket.nav_per_cu,
-        nav_per_share: basket.nav_per_share(),
-        cash_pct: basket.cash_pct(),
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = CreationBasketResponse {
+            etf_id: request.etf_id,
+            creation_unit_size: basket.creation_unit_size.to_string(),
+            components,
+            security_count: basket.security_count,
+            securities_value: basket.securities_value.to_string(),
+            cash_component: basket.cash_component.to_string(),
+            total_value: basket.total_value.to_string(),
+            nav_per_cu: basket.nav_per_cu,
+            nav_per_share: basket.nav_per_share(),
+            cash_pct: basket.cash_pct(),
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Request for basket analysis.
@@ -4688,60 +4877,75 @@ pub struct BasketAnalysisResponse {
 pub async fn analyze_basket_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<BasketAnalysisRequest>,
-) -> impl IntoResponse {
-    let basket_holdings = convert_basket_positions(&request.basket_holdings);
-    let target_holdings = convert_basket_positions(&request.target_holdings);
-    let config = AnalyticsConfig::default();
+) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    Ok({
+        let basket_holdings = portfolio_result(convert_basket_positions(&request.basket_holdings))?;
+        let target_holdings = portfolio_result(convert_basket_positions(&request.target_holdings))?;
+        let config = AnalyticsConfig::default();
 
-    // Build the basket first
-    let basket = build_creation_basket(
-        &basket_holdings,
-        request.creation_unit_size,
-        request.total_shares,
-        request.cash_balance,
-    );
+        // Build the basket first
+        let basket = portfolio_result(build_creation_basket(
+            &basket_holdings,
+            request.creation_unit_size,
+            request.total_shares,
+            request.cash_balance,
+        ))?;
 
-    // Analyze against target
-    let analysis = analyze_basket(&basket, &target_holdings, &config);
+        // Analyze against target
+        let analysis = portfolio_result(analyze_basket(&basket, &target_holdings, &config))?;
 
-    let weight_differences: Vec<WeightDifferenceOutput> = analysis
-        .weight_differences
-        .iter()
-        .map(|(id, diff)| WeightDifferenceOutput {
-            holding_id: id.clone(),
-            diff_pct: *diff,
-        })
-        .collect();
+        let weight_differences: Vec<WeightDifferenceOutput> = analysis
+            .weight_differences
+            .iter()
+            .map(|(id, diff)| WeightDifferenceOutput {
+                holding_id: id.clone(),
+                diff_pct: *diff,
+            })
+            .collect();
 
-    let response = BasketAnalysisResponse {
-        etf_id: request.etf_id,
-        excluded_holdings: analysis.excluded_holdings,
-        added_holdings: analysis.added_holdings,
-        weight_differences,
-        duration_diff: analysis.duration_diff,
-        yield_diff: analysis.yield_diff,
-        tracking_error_bps: analysis.tracking_error_bps,
-        timestamp: chrono::Utc::now().timestamp(),
-    };
+        let response = BasketAnalysisResponse {
+            etf_id: request.etf_id,
+            excluded_holdings: analysis.excluded_holdings,
+            added_holdings: analysis.added_holdings,
+            weight_differences,
+            duration_diff: analysis.duration_diff,
+            yield_diff: analysis.yield_diff,
+            tracking_error_bps: analysis.tracking_error_bps,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
 
-    (StatusCode::OK, Json(response))
+        (StatusCode::OK, Json(response))
+    })
 }
 
 /// Convert basket positions to holdings.
-fn convert_basket_positions(positions: &[BasketPosition]) -> Vec<Holding> {
-    let placeholder_identifiers =
-        BondIdentifiers::from_isin_str("US912828Z229").expect("Valid placeholder ISIN");
-
+fn convert_basket_positions(positions: &[BasketPosition]) -> Result<Vec<Holding>, String> {
+    if positions.len() > 65_536 {
+        return Err("position manifest bound exceeded".into());
+    }
+    let mut ids = std::collections::HashSet::new();
     positions
         .iter()
-        .filter_map(|pos| {
+        .map(|pos| {
+            if pos.instrument_id.trim().is_empty()
+                || pos.instrument_id.len() > 8192
+                || !ids.insert(pos.instrument_id.as_str())
+            {
+                return Err("unique nonempty position identities required".into());
+            }
+            let market_price = pos.market_price;
+            let analytics = HoldingAnalytics::new();
+            let classification = Classification::new();
+
             HoldingBuilder::new()
                 .id(&pos.instrument_id)
-                .identifiers(placeholder_identifiers.clone())
+                .identifiers(BondIdentifiers::new())
                 .par_amount(pos.notional)
-                .market_price(pos.market_price)
+                .market_price(market_price)
+                .classification(classification)
+                .analytics(analytics)
                 .build()
-                .ok()
+                .map_err(|e| e.to_string())
         })
         .collect()
 }

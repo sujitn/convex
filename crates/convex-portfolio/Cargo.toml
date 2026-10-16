@@ -27,6 +27,7 @@ description = "Portfolio and ETF analytics for fixed income securities"
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
 convex-curves = { workspace = true }
@@ -38,8 +39,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
-# Bounded exact supplied-risk accumulation; already locked pure arithmetic.
-num-bigint = "=0.4.6"
 
 # Optional parallel processing
 rayon = { workspace = true, optional = true }

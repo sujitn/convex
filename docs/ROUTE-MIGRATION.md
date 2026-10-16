@@ -807,3 +807,29 @@ face-based allocations. It does not invent market value, risk or scenario P&L.
 The unrelated incomplete portfolio aggregate/quote conversion and remaining
 provider integrations still require their own production-readiness work; removing
 these stress paths does not qualify them.
+
+
+## Supplied portfolio conversion and checked results
+
+Portfolio, contribution, bucket and related supplied-input handlers propagate
+checked calculation failures. The quote-to-Holding conversion uses the actual
+clean mid price plus separate actual accrued per100; it requires one quote for
+every requested position. Duplicate consumed quotes, missing prices/accrued,
+invalid supplied identifiers/classifications and inconsistent dates/currencies
+are errors. No par-price default, counterfeit ISIN or discarded builder failure
+is admitted. Liquidity/credit/basket position converters also require supplied
+prices and retain complete cardinality. Existing score-based ADV/liquidation
+heuristics and other unqualified legacy approximations still require retirement
+or complete explicit data/model contracts; this increment does not certify them.
+
+The removed native incomplete-subset switch and engine minimum-coverage setter
+have no supported replacement that labels a partial portfolio complete. Native
+amount and aggregation callers must handle checked Results and explicit missing
+values. Currency totals use exact strings; normalized output at a zero denominator
+is unavailable or a typed failure where a legacy view requires a numeric ratio.
+
+Batch portfolio analytics now returns one ordered `outcomes` array. Each entry
+contains its zero-based `input_index`, original `portfolio_id`, and a `status`
+of `success` with a native `result` or `error` with the actual diagnostic.
+The former split success/error arrays and their error-only DTO retire; repeated
+portfolio IDs and interleaved failures retain their original request positions.

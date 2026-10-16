@@ -15,6 +15,7 @@ categories = ["finance"]
 # Existing pure library
 convex = { workspace = true }
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-bonds = { workspace = true }
 convex-curves = { workspace = true }
 convex-analytics = { workspace = true }

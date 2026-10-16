@@ -18,6 +18,7 @@ convex-engine = { workspace = true }
 convex-portfolio = { path = "../convex-portfolio" }
 convex-bonds = { workspace = true }
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-analytics = { workspace = true }
 

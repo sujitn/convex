@@ -242,12 +242,14 @@ pub use contribution::{
     BucketContribution,
     Cs01Contributions,
     DurationContributions,
+    DurationMeasure,
     Dv01Contributions,
     HoldingAttribution,
     HoldingContribution,
     PortfolioAttribution,
     SectorAttribution,
     SpreadContributions,
+    SpreadMeasure,
 };
 
 // Re-export benchmark comparison types and functions
@@ -353,7 +355,8 @@ pub mod prelude {
     // Contribution analysis
     pub use crate::contribution::{
         duration_contributions, dv01_contributions, spread_contributions, DurationContributions,
-        Dv01Contributions, HoldingContribution, SpreadContributions,
+        DurationMeasure, Dv01Contributions, HoldingContribution, SpreadContributions,
+        SpreadMeasure,
     };
 
     // Benchmark comparison

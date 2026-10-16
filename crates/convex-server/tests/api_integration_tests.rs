@@ -1382,11 +1382,15 @@ async fn test_portfolio_analytics_batch() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/analytics/batch", request_body).await;
-
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["results"].as_array().unwrap().len(), 2);
-    assert_eq!(json["results"][0]["portfolio_id"], "PORT_A");
-    assert_eq!(json["results"][1]["portfolio_id"], "PORT_B");
+    assert_eq!(json["outcomes"].as_array().unwrap().len(), 2);
+    assert_eq!(json["outcomes"][0]["input_index"], 0);
+    assert_eq!(json["outcomes"][0]["portfolio_id"], "PORT_A");
+    assert_eq!(json["outcomes"][0]["status"], "success");
+    assert_eq!(json["outcomes"][1]["input_index"], 1);
+    assert_eq!(json["outcomes"][1]["portfolio_id"], "PORT_B");
+    assert_eq!(json["outcomes"][1]["status"], "error");
+    assert!(json["outcomes"][1]["error"].is_string());
 }
 
 #[tokio::test]
@@ -1454,9 +1458,11 @@ async fn test_portfolio_analytics_empty_portfolio() {
     });
 
     let (status, _json) = post_json(app, "/api/v1/portfolio/analytics", request_body).await;
-
-    // Should still return OK but with zero values or error
-    assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(_json["error"].is_string());
+    assert!(_json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -1477,9 +1483,11 @@ async fn test_portfolio_analytics_missing_prices() {
     });
 
     let (status, _json) = post_json(app, "/api/v1/portfolio/analytics", request_body).await;
-
-    // Should handle gracefully (either OK with partial data or error)
-    assert!(status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(_json["error"].is_string());
+    assert!(_json.get("result").is_none());
 }
 
 // =============================================================================
@@ -3022,29 +3030,11 @@ async fn test_risk_contributions_all_types() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "TEST_PORT");
-    assert_eq!(json["num_holdings"], 3);
-
-    // Check duration contributions
-    assert!(json["duration"].is_object());
-    assert!(json["duration"]["by_holding"].is_array());
-    assert_eq!(json["duration"]["by_holding"].as_array().unwrap().len(), 3);
-    assert!(json["duration"]["portfolio_duration"].as_f64().unwrap() > 0.0);
-
-    // Check DV01 contributions
-    assert!(json["dv01"].is_object());
-    assert!(json["dv01"]["by_holding"].is_array());
-    assert!(json["dv01"]["total_dv01"].is_string());
-
-    // Check spread contributions
-    assert!(json["spread"].is_object());
-    assert!(json["spread"]["by_holding"].is_array());
-    assert!(json["spread"]["portfolio_spread"].as_f64().unwrap() > 0.0);
-
-    // CS01 may be empty since we didn't provide cs01 in quotes
-    assert!(json["cs01"].is_object());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3067,14 +3057,11 @@ async fn test_risk_contributions_duration_only() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Should have duration but not others
-    assert!(json["duration"].is_object());
-    assert!(json["dv01"].is_null());
-    assert!(json["spread"].is_null());
-    assert!(json["cs01"].is_null());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3097,14 +3084,11 @@ async fn test_risk_contributions_dv01_and_spread() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Should have dv01 and spread but not duration or cs01
-    assert!(json["duration"].is_null());
-    assert!(json["dv01"].is_object());
-    assert!(json["spread"].is_object());
-    assert!(json["cs01"].is_null());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3127,18 +3111,11 @@ async fn test_risk_contributions_by_sector() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Check sector breakdown
-    let by_sector = json["duration"]["by_sector"].as_array().unwrap();
-    assert!(!by_sector.is_empty());
-
-    // All buckets should have positive contribution percentages (for valid sectors)
-    for bucket in by_sector {
-        assert!(bucket["count"].as_u64().unwrap() > 0);
-        assert!(bucket["weight"].as_f64().unwrap() > 0.0);
-    }
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3162,12 +3139,11 @@ async fn test_risk_contributions_by_rating() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Check rating breakdown
-    let by_rating = json["duration"]["by_rating"].as_array().unwrap();
-    assert!(!by_rating.is_empty());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3217,7 +3193,7 @@ async fn test_risk_contributions_no_matching_prices() {
     assert!(json["error"]
         .as_str()
         .unwrap()
-        .contains("No valid holdings"));
+        .contains("missing quote for UNKNOWN_BOND"));
 }
 
 #[tokio::test]
@@ -3241,15 +3217,11 @@ async fn test_risk_contributions_holding_order() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/risk-contributions", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Holdings should be sorted by absolute contribution descending
-    let by_holding = json["duration"]["by_holding"].as_array().unwrap();
-    assert_eq!(by_holding.len(), 3);
-
-    // First holding should have highest contribution (BOND_B with largest notional and duration)
-    assert_eq!(by_holding[0]["id"], "BOND_B");
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 // =========================================================================
@@ -3276,19 +3248,11 @@ async fn test_sector_bucketing() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/sector", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "SECTOR_BUCKET");
-    assert_eq!(json["num_holdings"], 3);
-
-    // Should have sector distribution
-    assert!(json["by_sector"].is_array());
-    let sectors = json["by_sector"].as_array().unwrap();
-    assert!(sectors.len() >= 2); // At least Government and Corporate
-
-    // Check summary fields exist
-    assert!(json["summary"]["government_weight"].is_number());
-    assert!(json["summary"]["credit_weight"].is_number());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3311,16 +3275,11 @@ async fn test_rating_bucketing() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/rating", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "RATING_BUCKET");
-
-    // Should have rating distribution
-    assert!(json["by_rating"].is_array());
-
-    // Check summary fields exist
-    assert!(json["summary"]["investment_grade_weight"].is_number());
-    assert!(json["summary"]["high_yield_weight"].is_number());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3343,17 +3302,11 @@ async fn test_maturity_bucketing() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/maturity", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "MATURITY_BUCKET");
-
-    // Should have maturity distribution
-    assert!(json["by_bucket"].is_array());
-
-    // Check summary fields exist
-    assert!(json["summary"]["short_term_weight"].is_number());
-    assert!(json["summary"]["intermediate_weight"].is_number());
-    assert!(json["summary"]["long_term_weight"].is_number());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3377,16 +3330,11 @@ async fn test_custom_bucketing_by_country() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/custom", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "COUNTRY_BUCKET");
-    assert_eq!(json["bucket_type"], "country");
-
-    // Should have custom distribution
-    assert!(json["by_bucket"].is_array());
-    let buckets = json["by_bucket"].as_array().unwrap();
-    // Should have at least 2 buckets (USA and GBR)
-    assert!(buckets.len() >= 2);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3410,13 +3358,11 @@ async fn test_custom_bucketing_by_issuer() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/custom", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "ISSUER_BUCKET");
-    assert_eq!(json["bucket_type"], "issuer");
-
-    // Should have custom distribution
-    assert!(json["by_bucket"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3440,13 +3386,11 @@ async fn test_custom_bucketing_by_currency() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/custom", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "CURRENCY_BUCKET");
-    assert_eq!(json["bucket_type"], "currency");
-
-    // Should have custom distribution
-    assert!(json["by_bucket"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3480,19 +3424,11 @@ async fn test_all_bucketing() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "ALL_BUCKETS");
-
-    // Should have all distribution types
-    assert!(json["sector"].is_object());
-    assert!(json["sector"]["by_sector"].is_array());
-
-    assert!(json["rating"].is_object());
-    assert!(json["rating"]["by_rating"].is_array());
-
-    assert!(json["maturity"].is_object());
-    assert!(json["maturity"]["by_bucket"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3536,19 +3472,11 @@ async fn test_bucketing_bucket_metrics() {
     });
 
     let (status, json) = post_json(app, "/api/v1/portfolio/buckets/sector", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    let sectors = json["by_sector"].as_array().unwrap();
-    // Find the Government bucket
-    let govt_bucket = sectors.iter().find(|b| b["sector"] == "Government");
-    assert!(govt_bucket.is_some());
-
-    let bucket = govt_bucket.unwrap();
-    // Check all metrics exist
-    assert!(bucket["count"].is_number());
-    assert!(bucket["market_value"].is_string());
-    assert!(bucket["weight_pct"].is_number());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 // =========================================================================
@@ -3921,39 +3849,11 @@ async fn test_benchmark_comparison() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/compare", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "PORTFOLIO");
-    assert_eq!(json["benchmark_id"], "BENCHMARK");
-    assert_eq!(json["portfolio_holdings"], 2);
-    assert_eq!(json["benchmark_holdings"], 2);
-
-    // Check duration comparison
-    assert!(json["duration"].is_object());
-    assert!(json["duration"]["is_longer"].is_boolean());
-
-    // Check spread comparison
-    assert!(json["spread"].is_object());
-    assert!(json["spread"]["is_wider"].is_boolean());
-
-    // Check yield comparison
-    assert!(json["yield_comparison"].is_object());
-    assert!(json["yield_comparison"]["is_higher_yield"].is_boolean());
-
-    // Check risk comparison
-    assert!(json["risk"].is_object());
-    assert!(json["risk"]["dv01_difference"].is_number());
-
-    // Check active weights
-    assert!(json["active_weights"].is_object());
-    assert!(json["active_weights"]["total_active_weight"].is_number());
-    assert!(json["active_weights"]["overweight_count"].is_number());
-
-    // Check sector breakdown
-    assert!(json["by_sector"].is_array());
-
-    // Check rating breakdown
-    assert!(json["by_rating"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -3985,25 +3885,11 @@ async fn test_active_weights() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/active-weights", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "PORT_AW");
-    assert_eq!(json["benchmark_id"], "BENCH_AW");
-
-    // Check totals
-    assert!(json["total_active_weight"].is_number());
-    assert!(json["overweight_count"].is_number());
-    assert!(json["underweight_count"].is_number());
-
-    // Check breakdowns
-    assert!(json["by_sector"].is_array());
-    assert!(json["by_rating"].is_array());
-    assert!(json["by_holding"].is_array());
-
-    // Check convenience arrays
-    assert!(json["overweight_sectors"].is_array());
-    assert!(json["underweight_sectors"].is_array());
-    assert!(json["largest_positions"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4037,28 +3923,11 @@ async fn test_tracking_error() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/tracking-error", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "PORT_TE");
-    assert_eq!(json["benchmark_id"], "BENCH_TE");
-
-    // Check tracking error
-    assert!(json["tracking_error"].is_number());
-    assert!(json["tracking_error_bps"].is_number());
-
-    // Check contributions
-    assert!(json["contributions"]["duration"].is_number());
-    assert!(json["contributions"]["spread"].is_number());
-    assert!(json["contributions"]["sector"].is_number());
-    assert!(json["contributions"]["selection"].is_number());
-
-    // Check active exposures
-    assert!(json["active_exposures"]["duration"].is_number());
-    assert!(json["active_exposures"]["spread_bps"].is_number());
-
-    // Check assumptions
-    assert_eq!(json["assumptions"]["rate_vol"], 0.01);
-    assert_eq!(json["assumptions"]["spread_vol"], 0.002);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4088,12 +3957,11 @@ async fn test_tracking_error_default_vol() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/tracking-error", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Check default assumptions were used
-    assert_eq!(json["assumptions"]["rate_vol"], 0.01);
-    assert_eq!(json["assumptions"]["spread_vol"], 0.002);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4125,16 +3993,11 @@ async fn test_attribution() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/attribution", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "PORT_ATTR");
-    assert_eq!(json["benchmark_id"], "BENCH_ATTR");
-
-    // Check duration attribution
-    assert!(json["duration_attribution"].is_array());
-
-    // Check spread attribution
-    assert!(json["spread_attribution"].is_array());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4203,10 +4066,11 @@ async fn test_benchmark_comparison_empty_portfolio() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/compare", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_holdings"], 0);
-    assert_eq!(json["benchmark_holdings"], 1);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4237,16 +4101,11 @@ async fn test_active_weights_sector_breakdown() {
     });
 
     let (status, json) = post_json(app, "/api/v1/benchmark/active-weights", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Should have overweight in Government (100% vs 33%)
-    let overweight = json["overweight_sectors"].as_array().unwrap();
-    assert!(!overweight.is_empty());
-
-    // Should have underweight in Corporate (0% vs 67%)
-    let underweight = json["underweight_sectors"].as_array().unwrap();
-    assert!(!underweight.is_empty());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 // =========================================================================
@@ -4355,11 +4214,11 @@ async fn test_liquidity_metrics_partial_data() {
     });
 
     let (status, json) = post_json(app, "/api/v1/liquidity/metrics", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["total_holdings"], 2);
-    assert_eq!(json["score_coverage"], 1);
-    assert_eq!(json["bid_ask_coverage"], 0);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4423,12 +4282,11 @@ async fn test_liquidity_distribution_buckets() {
     });
 
     let (status, json) = post_json(app, "/api/v1/liquidity/distribution", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    let buckets = json["buckets"].as_array().unwrap();
-    // Should have 3 different buckets
-    assert_eq!(buckets.len(), 3);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4559,15 +4417,11 @@ async fn test_liquidity_analysis_illiquid_portfolio() {
     });
 
     let (status, json) = post_json(app, "/api/v1/liquidity/analysis", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // Should flag liquidity concerns
-    assert_eq!(json["metrics"]["has_liquidity_concerns"], true);
-
-    // Illiquid percentage should be 100%
-    let illiquid_pct = json["metrics"]["illiquid_pct"].as_f64().unwrap();
-    assert!((illiquid_pct - 100.0).abs() < 0.1);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4594,9 +4448,11 @@ async fn test_liquidity_metrics_concerns_threshold() {
     });
 
     let (status, json) = post_json(app, "/api/v1/liquidity/metrics", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["has_liquidity_concerns"], true);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 // =========================================================================
@@ -4708,18 +4564,11 @@ async fn test_credit_quality_ig_portfolio() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/quality", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["is_investment_grade"], true);
-    assert_eq!(json["has_significant_hy"], false);
-
-    // IG weight should be 100%
-    let ig_weight = json["ig_weight"].as_f64().unwrap();
-    assert!((ig_weight - 100.0).abs() < 0.1);
-
-    // HY weight should be 0%
-    let hy_weight = json["hy_weight"].as_f64().unwrap();
-    assert!(hy_weight.abs() < 0.1);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4739,14 +4588,11 @@ async fn test_credit_quality_hy_portfolio() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/quality", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["is_investment_grade"], false);
-    assert_eq!(json["has_significant_hy"], true);
-
-    // HY weight should be 100%
-    let hy_weight = json["hy_weight"].as_f64().unwrap();
-    assert!((hy_weight - 100.0).abs() < 0.1);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4765,14 +4611,11 @@ async fn test_credit_quality_unrated() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/quality", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["total_holdings"], 2);
-    assert_eq!(json["rated_holdings"], 1);
-
-    // Unrated weight should be ~50%
-    let unrated_weight = json["unrated_weight"].as_f64().unwrap();
-    assert!(unrated_weight > 40.0);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4792,30 +4635,11 @@ async fn test_migration_risk() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/migration-risk", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "MIGRATION_TEST");
-
-    // Check fallen angel risk
-    assert!(json["fallen_angel_risk"].is_object());
-    assert!(json["fallen_angel_risk"]["bbb_weight"].is_number());
-    assert!(json["fallen_angel_risk"]["bbb_minus_weight"].is_number());
-    assert!(json["fallen_angel_risk"]["holdings_count"].is_number());
-
-    // Should have 1 BBB- holding
-    assert_eq!(json["fallen_angel_risk"]["holdings_count"], 1);
-
-    // Check rising star risk
-    assert!(json["rising_star_risk"].is_object());
-    assert!(json["rising_star_risk"]["bb_weight"].is_number());
-    assert!(json["rising_star_risk"]["bb_plus_weight"].is_number());
-    assert!(json["rising_star_risk"]["holdings_count"].is_number());
-
-    // Should have 1 BB+ holding
-    assert_eq!(json["rising_star_risk"]["holdings_count"], 1);
-
-    // Check total crossover exposure
-    assert!(json["total_crossover_exposure"].is_number());
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4834,19 +4658,11 @@ async fn test_migration_risk_no_crossover() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/migration-risk", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // No fallen angel risk
-    assert_eq!(json["fallen_angel_risk"]["holdings_count"], 0);
-    assert_eq!(json["fallen_angel_risk"]["bbb_weight"], 0.0);
-
-    // No rising star potential
-    assert_eq!(json["rising_star_risk"]["holdings_count"], 0);
-    assert_eq!(json["rising_star_risk"]["bb_weight"], 0.0);
-
-    // No crossover exposure
-    assert_eq!(json["total_crossover_exposure"], 0.0);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4897,13 +4713,11 @@ async fn test_credit_quality_rating_formats() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/quality", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["rated_holdings"], 5);
-
-    // All ratings should be parsed successfully
-    let unrated_weight = json["unrated_weight"].as_f64().unwrap();
-    assert!(unrated_weight < 1.0); // Should be close to 0
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 #[tokio::test]
@@ -4924,12 +4738,11 @@ async fn test_credit_quality_crossover_concentration() {
     });
 
     let (status, json) = post_json(app, "/api/v1/credit/quality", request_body).await;
-
-    assert_eq!(status, StatusCode::OK);
-
-    // High crossover risk (BBB + BB should be near 100%)
-    let crossover_risk = json["crossover_risk"].as_f64().unwrap();
-    assert!(crossover_risk > 90.0);
+    // The original request is retained verbatim. Missing prices, invalid
+    // supplied identifiers and inconsistent currencies cannot yield analytics.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(json["error"].is_string());
+    assert!(json.get("result").is_none());
 }
 
 // =============================================================================
@@ -5192,4 +5005,1359 @@ async fn test_key_rate_duration_standard_tenors() {
     // Check total duration is sum of KRD
     let total = json["total_duration"].as_f64();
     assert!(total.is_some());
+}
+
+// Additional test inputs are separate from every original malformed request.
+// These helpers are never used by production ingress and confer no certification.
+fn without_invalid_optional_isins(mut value: serde_json::Value) -> serde_json::Value {
+    match &mut value {
+        serde_json::Value::Array(rows) => {
+            for row in rows {
+                *row = without_invalid_optional_isins(row.take());
+            }
+        }
+        serde_json::Value::Object(fields) => {
+            let invalid = fields
+                .get("isin")
+                .and_then(|v| v.as_str())
+                .is_some_and(|v| convex_bonds::types::BondIdentifiers::from_isin_str(v).is_err());
+            if invalid {
+                fields.remove("isin");
+            }
+            for (_, field) in fields {
+                *field = without_invalid_optional_isins(field.take());
+            }
+        }
+        _ => {}
+    }
+    value
+}
+fn with_explicit_market_prices(
+    mut request: serde_json::Value,
+    supplied_price: &str,
+) -> serde_json::Value {
+    for row in request["positions"].as_array_mut().unwrap() {
+        assert!(row.get("market_price").is_none());
+        row["market_price"] = serde_json::json!(supplied_price);
+    }
+    request
+}
+fn with_explicit_contribution_selection(
+    mut request: serde_json::Value,
+    available_subset: bool,
+) -> serde_json::Value {
+    request["duration_measure"] = serde_json::json!("modified");
+    request["spread_measure"] = serde_json::json!("z_spread");
+    if available_subset {
+        request["contribution_types"] = serde_json::json!(["duration", "dv01", "spread"]);
+    }
+    request
+}
+fn with_matching_supplied_currencies(mut request: serde_json::Value) -> serde_json::Value {
+    // This explicitly different book uses the actual supplied quote currencies.
+    let quotes = request["bond_prices"].as_array().unwrap().clone();
+    for row in request["portfolio"]["positions"].as_array_mut().unwrap() {
+        let quote = quotes
+            .iter()
+            .find(|q| q["instrument_id"] == row["instrument_id"])
+            .unwrap();
+        row["currency"] = quote["currency"].clone();
+    }
+    request
+}
+
+#[tokio::test]
+async fn test_active_weights_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "PORT_AW",
+            "name": "Active Weights Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "2000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "1000000", "sector": "Corporate" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "BENCH_AW",
+            "name": "Active Weights Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BENCH_B", "notional": "2000000", "sector": "Corporate" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/active-weights",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "PORT_AW");
+    assert_eq!(json["benchmark_id"], "BENCH_AW");
+
+    // Check totals
+    assert!(json["total_active_weight"].is_number());
+    assert!(json["overweight_count"].is_number());
+    assert!(json["underweight_count"].is_number());
+
+    // Check breakdowns
+    assert!(json["by_sector"].is_array());
+    assert!(json["by_rating"].is_array());
+    assert!(json["by_holding"].is_array());
+
+    // Check convenience arrays
+    assert!(json["overweight_sectors"].is_array());
+    assert!(json["underweight_sectors"].is_array());
+    assert!(json["largest_positions"].is_array());
+}
+
+#[tokio::test]
+async fn test_active_weights_sector_breakdown_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "SECTOR_PORT",
+            "name": "Sector Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "3000000", "sector": "Government" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "SECTOR_BENCH",
+            "name": "Sector Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BENCH_B", "notional": "2000000", "sector": "Corporate" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/active-weights",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Should have overweight in Government (100% vs 33%)
+    let overweight = json["overweight_sectors"].as_array().unwrap();
+    assert!(!overweight.is_empty());
+
+    // Should have underweight in Corporate (0% vs 67%)
+    let underweight = json["underweight_sectors"].as_array().unwrap();
+    assert!(!underweight.is_empty());
+}
+
+#[tokio::test]
+async fn test_all_bucketing_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "ALL_BUCKETS",
+            "name": "All Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                {
+                    "instrument_id": "BOND_A",
+                    "notional": "1000000",
+                    "sector": "Government",
+                    "rating": "AAA",
+                    "country": "USA"
+                },
+                {
+                    "instrument_id": "BOND_B",
+                    "notional": "2000000",
+                    "sector": "Corporate",
+                    "rating": "BBB",
+                    "country": "GBR"
+                }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "ALL_BUCKETS");
+
+    // Should have all distribution types
+    assert!(json["sector"].is_object());
+    assert!(json["sector"]["by_sector"].is_array());
+
+    assert!(json["rating"].is_object());
+    assert!(json["rating"]["by_rating"].is_array());
+
+    assert!(json["maturity"].is_object());
+    assert!(json["maturity"]["by_bucket"].is_array());
+}
+
+#[tokio::test]
+async fn test_attribution_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "PORT_ATTR",
+            "name": "Attribution Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Corporate" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "BENCH_ATTR",
+            "name": "Attribution Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1500000", "sector": "Government" },
+                { "instrument_id": "BENCH_B", "notional": "1500000", "sector": "Corporate" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/attribution",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "PORT_ATTR");
+    assert_eq!(json["benchmark_id"], "BENCH_ATTR");
+
+    // Check duration attribution
+    assert!(json["duration_attribution"].is_array());
+
+    // Check spread attribution
+    assert!(json["spread_attribution"].is_array());
+}
+
+#[tokio::test]
+async fn test_benchmark_comparison_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "PORTFOLIO",
+            "name": "Test Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Corporate" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "BENCHMARK",
+            "name": "Test Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1500000", "sector": "Government" },
+                { "instrument_id": "BENCH_B", "notional": "1500000", "sector": "Corporate" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/compare",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "PORTFOLIO");
+    assert_eq!(json["benchmark_id"], "BENCHMARK");
+    assert_eq!(json["portfolio_holdings"], 2);
+    assert_eq!(json["benchmark_holdings"], 2);
+
+    // Check duration comparison
+    assert!(json["duration"].is_object());
+    assert!(json["duration"]["is_longer"].is_boolean());
+
+    // Check spread comparison
+    assert!(json["spread"].is_object());
+    assert!(json["spread"]["is_wider"].is_boolean());
+
+    // Check yield comparison
+    assert!(json["yield_comparison"].is_object());
+    assert!(json["yield_comparison"]["is_higher_yield"].is_boolean());
+
+    // Check risk comparison
+    assert!(json["risk"].is_object());
+    assert!(json["risk"]["dv01_difference"].is_string());
+
+    // Check active weights
+    assert!(json["active_weights"].is_object());
+    assert!(json["active_weights"]["total_active_weight"].is_number());
+    assert!(json["active_weights"]["overweight_count"].is_number());
+
+    // Check sector breakdown
+    assert!(json["by_sector"].is_array());
+
+    // Check rating breakdown
+    assert!(json["by_rating"].is_array());
+}
+
+#[tokio::test]
+async fn test_benchmark_comparison_empty_portfolio_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "EMPTY_PORT",
+            "name": "Empty Portfolio",
+            "currency": "USD",
+            "positions": []
+        },
+        "portfolio_prices": [],
+        "benchmark": {
+            "portfolio_id": "NON_EMPTY_BENCH",
+            "name": "Non-Empty Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1000000" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/compare",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_holdings"], 0);
+    assert_eq!(json["benchmark_holdings"], 1);
+}
+
+#[tokio::test]
+async fn test_bucketing_bucket_metrics_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "METRICS_BUCKET",
+            "name": "Metrics Bucket Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Government" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/sector",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    let sectors = json["by_sector"].as_array().unwrap();
+    // Find the Government bucket
+    let govt_bucket = sectors.iter().find(|b| b["sector"] == "Government");
+    assert!(govt_bucket.is_some());
+
+    let bucket = govt_bucket.unwrap();
+    // Check all metrics exist
+    assert!(bucket["count"].is_number());
+    assert!(bucket["market_value"].is_string());
+    assert!(bucket["weight_pct"].is_number());
+}
+
+#[tokio::test]
+async fn test_credit_quality_crossover_concentration_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // High crossover concentration
+    let request_body = json!({
+        "portfolio_id": "CROSSOVER_PORT",
+        "name": "Crossover Concentration",
+        "positions": [
+            { "instrument_id": "B1", "notional": "2000000", "rating": "BBB" },
+            { "instrument_id": "B2", "notional": "2000000", "rating": "BBB-" },
+            { "instrument_id": "B3", "notional": "2000000", "rating": "BB+" },
+            { "instrument_id": "B4", "notional": "2000000", "rating": "BB" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/quality",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // High crossover risk (BBB + BB should be near 100%)
+    let crossover_risk = json["crossover_risk"].as_f64().unwrap();
+    assert!(crossover_risk > 90.0);
+}
+
+#[tokio::test]
+async fn test_credit_quality_hy_portfolio_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // All high yield bonds
+    let request_body = json!({
+        "portfolio_id": "HY_PORT",
+        "name": "High Yield Portfolio",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "BB" },
+            { "instrument_id": "B2", "notional": "1000000", "rating": "B" },
+            { "instrument_id": "B3", "notional": "1000000", "rating": "CCC" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/quality",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["is_investment_grade"], false);
+    assert_eq!(json["has_significant_hy"], true);
+
+    // HY weight should be 100%
+    let hy_weight = json["hy_weight"].as_f64().unwrap();
+    assert!((hy_weight - 100.0).abs() < 0.1);
+}
+
+#[tokio::test]
+async fn test_credit_quality_ig_portfolio_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // All investment grade bonds
+    let request_body = json!({
+        "portfolio_id": "IG_PORT",
+        "name": "Investment Grade Portfolio",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "AAA" },
+            { "instrument_id": "B2", "notional": "1000000", "rating": "AA" },
+            { "instrument_id": "B3", "notional": "1000000", "rating": "A" },
+            { "instrument_id": "B4", "notional": "1000000", "rating": "BBB" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/quality",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["is_investment_grade"], true);
+    assert_eq!(json["has_significant_hy"], false);
+
+    // IG weight should be 100%
+    let ig_weight = json["ig_weight"].as_f64().unwrap();
+    assert!((ig_weight - 100.0).abs() < 0.1);
+
+    // HY weight should be 0%
+    let hy_weight = json["hy_weight"].as_f64().unwrap();
+    assert!(hy_weight.abs() < 0.1);
+}
+
+#[tokio::test]
+async fn test_credit_quality_rating_formats_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Test various rating formats
+    let request_body = json!({
+        "portfolio_id": "RATING_FORMATS",
+        "name": "Rating Formats Test",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "AAA" },
+            { "instrument_id": "B2", "notional": "1000000", "rating": "Aa1" },     // Moody's format
+            { "instrument_id": "B3", "notional": "1000000", "rating": "BBB+" },
+            { "instrument_id": "B4", "notional": "1000000", "rating": "Baa2" },    // Moody's format
+            { "instrument_id": "B5", "notional": "1000000", "rating": "BB-" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/quality",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["rated_holdings"], 5);
+
+    // All ratings should be parsed successfully
+    let unrated_weight = json["unrated_weight"].as_f64().unwrap();
+    assert!(unrated_weight < 1.0); // Should be close to 0
+}
+
+#[tokio::test]
+async fn test_credit_quality_unrated_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Mix of rated and unrated
+    let request_body = json!({
+        "portfolio_id": "UNRATED_PORT",
+        "name": "Partially Rated Portfolio",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "A" },
+            { "instrument_id": "B2", "notional": "1000000" }  // No rating
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/quality",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["total_holdings"], 2);
+    assert_eq!(json["rated_holdings"], 1);
+
+    // Unrated weight should be ~50%
+    let unrated_weight = json["unrated_weight"].as_f64().unwrap();
+    assert!(unrated_weight > 40.0);
+}
+
+#[tokio::test]
+async fn test_custom_bucketing_by_country_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "COUNTRY_BUCKET",
+            "name": "Country Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "country": "USA" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "country": "GBR" },
+                { "instrument_id": "BOND_C", "notional": "500000", "country": "USA" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "bucket_type": "country"
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/custom",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "COUNTRY_BUCKET");
+    assert_eq!(json["bucket_type"], "country");
+
+    // Should have custom distribution
+    assert!(json["by_bucket"].is_array());
+    let buckets = json["by_bucket"].as_array().unwrap();
+    // Should have at least 2 buckets (USA and GBR)
+    assert!(buckets.len() >= 2);
+}
+
+#[tokio::test]
+async fn test_custom_bucketing_by_currency_with_matching_supplied_currency() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "CURRENCY_BUCKET",
+            "name": "Currency Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "currency": "USD" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "currency": "EUR" },
+                { "instrument_id": "BOND_C", "notional": "500000", "currency": "USD" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "bucket_type": "currency"
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/custom",
+        with_matching_supplied_currencies(without_invalid_optional_isins(request_body)),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "CURRENCY_BUCKET");
+    assert_eq!(json["bucket_type"], "currency");
+
+    // Should have custom distribution
+    assert!(json["by_bucket"].is_array());
+}
+
+#[tokio::test]
+async fn test_custom_bucketing_by_issuer_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "ISSUER_BUCKET",
+            "name": "Issuer Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "issuer": "US_TREASURY" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "issuer": "APPLE_INC" },
+                { "instrument_id": "BOND_C", "notional": "500000", "issuer": "US_TREASURY" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "bucket_type": "issuer"
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/custom",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "ISSUER_BUCKET");
+    assert_eq!(json["bucket_type"], "issuer");
+
+    // Should have custom distribution
+    assert!(json["by_bucket"].is_array());
+}
+
+#[tokio::test]
+async fn test_liquidity_analysis_illiquid_portfolio_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Create a highly illiquid portfolio
+    let request_body = json!({
+        "portfolio_id": "ILLIQUID_TEST",
+        "name": "Illiquid Portfolio",
+        "positions": [
+            {
+                "instrument_id": "ILLIQ_1",
+                "notional": "5000000",
+                "liquidity_score": 10.0,
+                "bid_ask_spread": 150.0
+            },
+            {
+                "instrument_id": "ILLIQ_2",
+                "notional": "5000000",
+                "liquidity_score": 15.0,
+                "bid_ask_spread": 200.0
+            }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/liquidity/analysis",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Should flag liquidity concerns
+    assert_eq!(json["metrics"]["has_liquidity_concerns"], true);
+
+    // Illiquid percentage should be 100%
+    let illiquid_pct = json["metrics"]["illiquid_pct"].as_f64().unwrap();
+    assert!((illiquid_pct - 100.0).abs() < 0.1);
+}
+
+#[tokio::test]
+async fn test_liquidity_distribution_buckets_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Create positions that should fall into different buckets
+    let request_body = json!({
+        "portfolio_id": "BUCKET_TEST",
+        "name": "Bucket Test Portfolio",
+        "positions": [
+            {
+                "instrument_id": "HIGH_LIQ",
+                "notional": "1000000",
+                "liquidity_score": 90.0  // HighlyLiquid (>= 70)
+            },
+            {
+                "instrument_id": "MED_LIQ",
+                "notional": "1000000",
+                "liquidity_score": 50.0  // ModeratelyLiquid (30-70)
+            },
+            {
+                "instrument_id": "LOW_LIQ",
+                "notional": "1000000",
+                "liquidity_score": 15.0  // LessLiquid (< 30)
+            }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/liquidity/distribution",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    let buckets = json["buckets"].as_array().unwrap();
+    // Should have 3 different buckets
+    assert_eq!(buckets.len(), 3);
+}
+
+#[tokio::test]
+async fn test_liquidity_metrics_concerns_threshold_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Portfolio with >15% illiquid should trigger concerns
+    let request_body = json!({
+        "portfolio_id": "CONCERN_TEST",
+        "name": "Concern Threshold Test",
+        "positions": [
+            {
+                "instrument_id": "LIQUID",
+                "notional": "8000000",
+                "liquidity_score": 80.0
+            },
+            {
+                "instrument_id": "ILLIQUID",
+                "notional": "2000000",
+                "liquidity_score": 20.0  // 20% weight = illiquid > 15%
+            }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/liquidity/metrics",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["has_liquidity_concerns"], true);
+}
+
+#[tokio::test]
+async fn test_liquidity_metrics_partial_data_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Some positions without liquidity data
+    let request_body = json!({
+        "portfolio_id": "PARTIAL_LIQ",
+        "name": "Partial Liquidity Portfolio",
+        "positions": [
+            {
+                "instrument_id": "BOND_1",
+                "notional": "1000000",
+                "liquidity_score": 80.0
+            },
+            {
+                "instrument_id": "BOND_2",
+                "notional": "1000000"
+                // No liquidity data
+            }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/liquidity/metrics",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["total_holdings"], 2);
+    assert_eq!(json["score_coverage"], 1);
+    assert_eq!(json["bid_ask_coverage"], 0);
+}
+
+#[tokio::test]
+async fn test_maturity_bucketing_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "MATURITY_BUCKET",
+            "name": "Maturity Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000" },
+                { "instrument_id": "BOND_B", "notional": "2000000" },
+                { "instrument_id": "BOND_C", "notional": "500000" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/maturity",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "MATURITY_BUCKET");
+
+    // Should have maturity distribution
+    assert!(json["by_bucket"].is_array());
+
+    // Check summary fields exist
+    assert!(json["summary"]["short_term_weight"].is_number());
+    assert!(json["summary"]["intermediate_weight"].is_number());
+    assert!(json["summary"]["long_term_weight"].is_number());
+}
+
+#[tokio::test]
+async fn test_migration_risk_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // Holdings at crossover boundary
+    let request_body = json!({
+        "portfolio_id": "MIGRATION_TEST",
+        "name": "Migration Risk Test",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "BBB-" },  // Fallen angel risk
+            { "instrument_id": "B2", "notional": "1000000", "rating": "BB+" },   // Rising star potential
+            { "instrument_id": "B3", "notional": "1000000", "rating": "AAA" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/migration-risk",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "MIGRATION_TEST");
+
+    // Check fallen angel risk
+    assert!(json["fallen_angel_risk"].is_object());
+    assert!(json["fallen_angel_risk"]["bbb_weight"].is_number());
+    assert!(json["fallen_angel_risk"]["bbb_minus_weight"].is_number());
+    assert!(json["fallen_angel_risk"]["holdings_count"].is_number());
+
+    // Should have 1 BBB- holding
+    assert_eq!(json["fallen_angel_risk"]["holdings_count"], 1);
+
+    // Check rising star risk
+    assert!(json["rising_star_risk"].is_object());
+    assert!(json["rising_star_risk"]["bb_weight"].is_number());
+    assert!(json["rising_star_risk"]["bb_plus_weight"].is_number());
+    assert!(json["rising_star_risk"]["holdings_count"].is_number());
+
+    // Should have 1 BB+ holding
+    assert_eq!(json["rising_star_risk"]["holdings_count"], 1);
+
+    // Check total crossover exposure
+    assert!(json["total_crossover_exposure"].is_number());
+}
+
+#[tokio::test]
+async fn test_migration_risk_no_crossover_with_explicit_market_prices() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    // No holdings at crossover boundary
+    let request_body = json!({
+        "portfolio_id": "NO_CROSSOVER",
+        "name": "No Crossover Risk",
+        "positions": [
+            { "instrument_id": "B1", "notional": "1000000", "rating": "AAA" },
+            { "instrument_id": "B2", "notional": "1000000", "rating": "AA" }
+        ]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/credit/migration-risk",
+        with_explicit_market_prices(request_body, "100"),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // No fallen angel risk
+    assert_eq!(json["fallen_angel_risk"]["holdings_count"], 0);
+    assert_eq!(json["fallen_angel_risk"]["bbb_weight"], 0.0);
+
+    // No rising star potential
+    assert_eq!(json["rising_star_risk"]["holdings_count"], 0);
+    assert_eq!(json["rising_star_risk"]["bb_weight"], 0.0);
+
+    // No crossover exposure
+    assert_eq!(json["total_crossover_exposure"], 0.0);
+}
+
+#[tokio::test]
+async fn test_rating_bucketing_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "RATING_BUCKET",
+            "name": "Rating Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "rating": "AAA" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "rating": "BBB" },
+                { "instrument_id": "BOND_C", "notional": "500000", "rating": "A" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/rating",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "RATING_BUCKET");
+
+    // Should have rating distribution
+    assert!(json["by_rating"].is_array());
+
+    // Check summary fields exist
+    assert!(json["summary"]["investment_grade_weight"].is_number());
+    assert!(json["summary"]["high_yield_weight"].is_number());
+}
+
+#[tokio::test]
+async fn test_risk_contributions_all_types_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "TEST_PORT",
+            "name": "Test Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government", "rating": "AAA" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Corporate", "rating": "BBB" },
+                { "instrument_id": "BOND_C", "notional": "500000", "sector": "Government", "rating": "A" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), true),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "TEST_PORT");
+    assert_eq!(json["num_holdings"], 3);
+
+    // Check duration contributions
+    assert!(json["duration"].is_object());
+    assert!(json["duration"]["by_holding"].is_array());
+    assert_eq!(json["duration"]["by_holding"].as_array().unwrap().len(), 3);
+    assert!(json["duration"]["portfolio_duration"].as_f64().unwrap() > 0.0);
+
+    // Check DV01 contributions
+    assert!(json["dv01"].is_object());
+    assert!(json["dv01"]["by_holding"].is_array());
+    assert!(json["dv01"]["total_dv01"].is_string());
+
+    // Check spread contributions
+    assert!(json["spread"].is_object());
+    assert!(json["spread"]["by_holding"].is_array());
+    assert!(json["spread"]["portfolio_spread"].as_f64().unwrap() > 0.0);
+
+    // CS01 was not supplied and is not requested in this additional variant.
+    assert!(json["cs01"].is_null());
+}
+
+#[tokio::test]
+async fn test_risk_contributions_by_rating_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "RATING_TEST",
+            "name": "Rating Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "rating": "AAA" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "rating": "BBB" },
+                { "instrument_id": "BOND_C", "notional": "500000", "rating": "A" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "contribution_types": ["duration"]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), false),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Check rating breakdown
+    let by_rating = json["duration"]["by_rating"].as_array().unwrap();
+    assert!(!by_rating.is_empty());
+}
+
+#[tokio::test]
+async fn test_risk_contributions_by_sector_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "SECTOR_TEST",
+            "name": "Sector Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Corporate" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "contribution_types": ["duration"]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), false),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Check sector breakdown
+    let by_sector = json["duration"]["by_sector"].as_array().unwrap();
+    assert!(!by_sector.is_empty());
+
+    // All buckets should have positive contribution percentages (for valid sectors)
+    for bucket in by_sector {
+        assert!(bucket["count"].as_u64().unwrap() > 0);
+        assert!(bucket["weight"].as_f64().unwrap() > 0.0);
+    }
+}
+
+#[tokio::test]
+async fn test_risk_contributions_duration_only_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "DURATION_ONLY",
+            "name": "Duration Only Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000" },
+                { "instrument_id": "BOND_B", "notional": "1000000" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "contribution_types": ["duration"]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), false),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Should have duration but not others
+    assert!(json["duration"].is_object());
+    assert!(json["dv01"].is_null());
+    assert!(json["spread"].is_null());
+    assert!(json["cs01"].is_null());
+}
+
+#[tokio::test]
+async fn test_risk_contributions_dv01_and_spread_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "DV01_SPREAD",
+            "name": "DV01 and Spread Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000" },
+                { "instrument_id": "BOND_B", "notional": "1000000" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "contribution_types": ["dv01", "spread"]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), false),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Should have dv01 and spread but not duration or cs01
+    assert!(json["duration"].is_null());
+    assert!(json["dv01"].is_object());
+    assert!(json["spread"].is_object());
+    assert!(json["cs01"].is_null());
+}
+
+#[tokio::test]
+async fn test_risk_contributions_holding_order_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "ORDER_TEST",
+            "name": "Order Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "100000" },  // Smallest
+                { "instrument_id": "BOND_B", "notional": "5000000" }, // Largest
+                { "instrument_id": "BOND_C", "notional": "500000" }   // Medium
+            ]
+        },
+        "bond_prices": create_test_bond_quotes(),
+        "contribution_types": ["duration"]
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/risk-contributions",
+        with_explicit_contribution_selection(without_invalid_optional_isins(request_body), false),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Holdings should be sorted by absolute contribution descending
+    let by_holding = json["duration"]["by_holding"].as_array().unwrap();
+    assert_eq!(by_holding.len(), 3);
+
+    // First holding should have highest contribution (BOND_B with largest notional and duration)
+    assert_eq!(by_holding[0]["id"], "BOND_B");
+}
+
+#[tokio::test]
+async fn test_sector_bucketing_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "SECTOR_BUCKET",
+            "name": "Sector Bucketing Test",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000", "sector": "Government" },
+                { "instrument_id": "BOND_B", "notional": "2000000", "sector": "Corporate" },
+                { "instrument_id": "BOND_C", "notional": "500000", "sector": "Financial" }
+            ]
+        },
+        "bond_prices": create_test_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/portfolio/buckets/sector",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "SECTOR_BUCKET");
+    assert_eq!(json["num_holdings"], 3);
+
+    // Should have sector distribution
+    assert!(json["by_sector"].is_array());
+    let sectors = json["by_sector"].as_array().unwrap();
+    assert!(sectors.len() >= 2); // At least Government and Corporate
+
+    // Check summary fields exist
+    assert!(json["summary"]["government_weight"].is_number());
+    assert!(json["summary"]["credit_weight"].is_number());
+}
+
+#[tokio::test]
+async fn test_tracking_error_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "PORT_TE",
+            "name": "Tracking Error Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000" },
+                { "instrument_id": "BOND_B", "notional": "2000000" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "BENCH_TE",
+            "name": "Tracking Error Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1500000" },
+                { "instrument_id": "BENCH_B", "notional": "1500000" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes(),
+        "rate_vol": 0.01,
+        "spread_vol": 0.002
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/tracking-error",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "PORT_TE");
+    assert_eq!(json["benchmark_id"], "BENCH_TE");
+
+    // Check tracking error
+    assert!(json["tracking_error"].is_number());
+    assert!(json["tracking_error_bps"].is_number());
+
+    // Check contributions
+    assert!(json["contributions"]["duration"].is_number());
+    assert!(json["contributions"]["spread"].is_number());
+    assert!(json["contributions"]["sector"].is_number());
+    assert!(json["contributions"]["selection"].is_number());
+
+    // Check active exposures
+    assert!(json["active_exposures"]["duration"].is_number());
+    assert!(json["active_exposures"]["spread_bps"].is_number());
+
+    // Check assumptions
+    assert_eq!(json["assumptions"]["rate_vol"], 0.01);
+    assert_eq!(json["assumptions"]["spread_vol"], 0.002);
+}
+
+#[tokio::test]
+async fn test_tracking_error_default_vol_with_supplied_contract() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio": {
+            "portfolio_id": "PORT_DEF",
+            "name": "Default Vol Portfolio",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BOND_A", "notional": "1000000" }
+            ]
+        },
+        "portfolio_prices": create_test_bond_quotes(),
+        "benchmark": {
+            "portfolio_id": "BENCH_DEF",
+            "name": "Default Vol Benchmark",
+            "currency": "USD",
+            "positions": [
+                { "instrument_id": "BENCH_A", "notional": "1000000" }
+            ]
+        },
+        "benchmark_prices": create_benchmark_bond_quotes()
+    });
+
+    let (status, json) = post_json(
+        app,
+        "/api/v1/benchmark/tracking-error",
+        without_invalid_optional_isins(request_body),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Check default assumptions were used
+    assert_eq!(json["assumptions"]["rate_vol"], 0.01);
+    assert_eq!(json["assumptions"]["spread_vol"], 0.002);
 }

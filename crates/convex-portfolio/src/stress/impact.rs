@@ -1,9 +1,9 @@
 //! Checked instantaneous supplied-sensitivity approximations, separate from model revaluation.
 
 use super::scenarios::{RateScenario, SpreadScenario, StressScenario};
-use crate::analytics::exact_risk::ExactRisk;
 use crate::Portfolio;
 use convex_core::{Currency, Date};
+use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -106,7 +106,8 @@ pub(super) fn failure(code: StressErrorCode, field: &str, message: &str) -> Stre
 fn invalid(field: &str, message: &str) -> StressError {
     failure(StressErrorCode::Invalid, field, message)
 }
-pub(super) fn arithmetic(error: crate::PortfolioError) -> StressError {
+pub(super) fn arithmetic(error: impl Into<crate::PortfolioError>) -> StressError {
+    let error = error.into();
     failure(
         StressErrorCode::Arithmetic,
         "arithmetic",
@@ -129,12 +130,20 @@ fn required(value: Option<f64>, id: &str, field: &str) -> StressCalculation<Deci
             error.holding_id = Some(id.into());
             error
         })
-        .and_then(|v| scalar(v, field))
+        .and_then(|v| {
+            scalar(v, field).map_err(|mut error| {
+                error.holding_id = Some(id.into());
+                error
+            })
+        })
 }
-fn finish(value: &ExactRisk) -> StressCalculation<Decimal> {
+fn finish(value: &BoundedDecimal) -> StressCalculation<Decimal> {
     value.finish().map_err(arithmetic)
 }
-fn ratio_percent(amount: &ExactRisk, nav: &ExactRisk) -> StressCalculation<Option<Decimal>> {
+fn ratio_percent(
+    amount: &BoundedDecimal,
+    nav: &BoundedDecimal,
+) -> StressCalculation<Option<Decimal>> {
     if nav.is_zero() {
         return Ok(None);
     }
@@ -275,16 +284,21 @@ fn validate_book(
                 "bounded unique identities and nonnegative supplied clean prices required",
             ));
         }
-        check_fx(holding.currency, holding.fx_rate)?;
-        let mut dirty = ExactRisk::decimal(holding.market_price);
+        check_fx(holding.currency, holding.fx_rate).map_err(|mut error| {
+            error.holding_id = Some(holding.id.clone());
+            error
+        })?;
+        let mut dirty = BoundedDecimal::decimal(holding.market_price);
         dirty
-            .add(&ExactRisk::decimal(holding.accrued_interest))
+            .add(&BoundedDecimal::decimal(holding.accrued_interest))
             .map_err(arithmetic)?;
         if dirty.is_negative() {
-            return Err(invalid(
+            let mut error = invalid(
                 "dirty_price",
                 "supplied clean plus accrued cannot be negative",
-            ));
+            );
+            error.holding_id = Some(holding.id.clone());
+            return Err(error);
         }
         for value in [
             holding.analytics.modified_duration,
@@ -296,7 +310,10 @@ fn validate_book(
         .into_iter()
         .flatten()
         {
-            scalar(value, "supplied_risk")?;
+            scalar(value, "supplied_risk").map_err(|mut error| {
+                error.holding_id = Some(holding.id.clone());
+                error
+            })?;
         }
         if let Some(risk) = &holding.analytics.key_rate_durations {
             let mut keys = HashSet::new();
@@ -474,36 +491,42 @@ fn validate_spread(scenario: &SpreadScenario) -> StressCalculation<()> {
     Ok(())
 }
 fn spread_at(scenario: &SpreadScenario, holding: &crate::Holding) -> StressCalculation<Decimal> {
-    let value = match scenario {
-        SpreadScenario::Uniform(value) => *value,
-        SpreadScenario::ByRating(rows) => holding
-            .classification
-            .rating
-            .composite
-            .and_then(|r| rows.get(&r.to_string()))
-            .copied()
-            .ok_or_else(|| {
-                failure(
-                    StressErrorCode::Missing,
-                    "rating_shift",
-                    "required actual rating and explicit shift are absent",
-                )
-            })?,
-        SpreadScenario::BySector(rows) => holding
-            .classification
-            .sector
-            .composite
-            .and_then(|s| rows.get(&s.to_string()))
-            .copied()
-            .ok_or_else(|| {
-                failure(
-                    StressErrorCode::Missing,
-                    "sector_shift",
-                    "required actual sector and explicit shift are absent",
-                )
-            })?,
+    let compute = || {
+        let value = match scenario {
+            SpreadScenario::Uniform(value) => *value,
+            SpreadScenario::ByRating(rows) => holding
+                .classification
+                .rating
+                .composite
+                .and_then(|r| rows.get(&r.to_string()))
+                .copied()
+                .ok_or_else(|| {
+                    failure(
+                        StressErrorCode::Missing,
+                        "rating_shift",
+                        "required actual rating and explicit shift are absent",
+                    )
+                })?,
+            SpreadScenario::BySector(rows) => holding
+                .classification
+                .sector
+                .composite
+                .and_then(|s| rows.get(&s.to_string()))
+                .copied()
+                .ok_or_else(|| {
+                    failure(
+                        StressErrorCode::Missing,
+                        "sector_shift",
+                        "required actual sector and explicit shift are absent",
+                    )
+                })?,
+        };
+        scalar(value, "spread_bps")
     };
-    scalar(value, "spread_bps")
+    compute().map_err(|mut error: StressError| {
+        error.holding_id = Some(holding.id.clone());
+        error
+    })
 }
 fn rate_shifts(
     scenario: &RateScenario,
@@ -528,13 +551,13 @@ fn rate_shifts(
         ));
     }
     if let RateScenario::KeyRateShifts(rows) = scenario {
+        let declared = policy
+            .key_rate_tenors
+            .iter()
+            .map(|t| t.to_bits())
+            .collect::<HashSet<_>>();
         if rows.len() != policy.key_rate_tenors.len()
-            || rows.iter().any(|r| {
-                !policy
-                    .key_rate_tenors
-                    .iter()
-                    .any(|t| t.to_bits() == r.tenor.to_bits())
-            })
+            || rows.iter().any(|r| !declared.contains(&r.tenor.to_bits()))
         {
             return Err(invalid(
                 "rate_factors",
@@ -595,13 +618,13 @@ fn calculate(
     if let Some(s) = &scenario.spread_scenario {
         validate_spread(s)?;
     }
-    let mut nav = ExactRisk::zero();
-    let mut rate = ExactRisk::zero();
-    let mut spread = ExactRisk::zero();
+    let mut nav = BoundedDecimal::zero();
+    let mut rate = BoundedDecimal::zero();
+    let mut spread = BoundedDecimal::zero();
     for holding in &portfolio.holdings {
-        let mut dirty = ExactRisk::decimal(holding.market_price);
+        let mut dirty = BoundedDecimal::decimal(holding.market_price);
         dirty
-            .add(&ExactRisk::decimal(holding.accrued_interest))
+            .add(&BoundedDecimal::decimal(holding.accrued_interest))
             .map_err(arithmetic)?;
         let value = dirty
             .multiply(holding.par_amount)
@@ -694,14 +717,14 @@ fn calculate(
     }
     for cash in &portfolio.cash {
         nav.add(
-            &ExactRisk::decimal(cash.amount)
+            &BoundedDecimal::decimal(cash.amount)
                 .multiply(cash.fx_rate)
                 .map_err(arithmetic)?,
         )
         .map_err(arithmetic)?;
     }
     if let Some(liability) = portfolio.liabilities {
-        nav.add(&ExactRisk::decimal(-liability))
+        nav.add(&BoundedDecimal::decimal(-liability))
             .map_err(arithmetic)?;
     }
     let mut pnl = rate.clone();
@@ -873,25 +896,25 @@ pub fn summarize_results(results: &[StressOutcome]) -> StressCalculation<StressS
             ));
         }
     }
-    let mut amounts = ExactRisk::zero();
-    let mut percentages = ExactRisk::zero();
+    let mut amounts = BoundedDecimal::zero();
+    let mut percentages = BoundedDecimal::zero();
     let mut percentage_count = 0usize;
     for result in &available {
         amounts
-            .add(&ExactRisk::decimal(result.pnl))
+            .add(&BoundedDecimal::decimal(result.pnl))
             .map_err(arithmetic)?;
         if let Some(value) = result.pnl_pct {
             percentages
-                .add(&ExactRisk::decimal(value))
+                .add(&BoundedDecimal::decimal(value))
                 .map_err(arithmetic)?;
             percentage_count += 1;
         }
     }
-    let mean = |sum: &ExactRisk, count: usize| -> StressCalculation<Option<Decimal>> {
+    let mean = |sum: &BoundedDecimal, count: usize| -> StressCalculation<Option<Decimal>> {
         if count == 0 {
             return Ok(None);
         }
-        sum.ratio(&ExactRisk::decimal(Decimal::from(count as u64)))
+        sum.ratio(&BoundedDecimal::decimal(Decimal::from(count as u64)))
             .map(Some)
             .map_err(arithmetic)
     };

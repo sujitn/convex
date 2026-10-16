@@ -284,16 +284,16 @@ fn test_portfolio_construction() {
 
     assert_eq!(portfolio.holding_count(), 8);
     assert!(!portfolio.is_empty());
-    assert!(portfolio.nav() > Decimal::ZERO);
+    assert!(portfolio.nav().unwrap() > Decimal::ZERO);
 }
 
 #[test]
 fn test_portfolio_nav_components() {
     let portfolio = create_corporate_portfolio();
 
-    let securities_mv = portfolio.securities_market_value();
-    let cash = portfolio.total_cash();
-    let nav = portfolio.nav();
+    let securities_mv = portfolio.securities_market_value().unwrap();
+    let cash = portfolio.total_cash().unwrap();
+    let nav = portfolio.nav().unwrap();
 
     // NAV = Securities + Cash (no liabilities in this portfolio)
     assert!((nav - securities_mv - cash).abs() < dec!(0.01));
@@ -309,7 +309,7 @@ fn test_portfolio_analytics_complete() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let analytics = calculate_portfolio_analytics(&portfolio, &config);
+    let analytics = calculate_portfolio_analytics(&portfolio, &config).unwrap();
 
     // Verify all metrics are populated
     assert!(analytics.yields.ytm.is_some());
@@ -337,7 +337,7 @@ fn test_yield_metrics() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config);
+    let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config).unwrap();
 
     // All holdings have YTM, so coverage should be 100%
     assert_eq!(yield_metrics.ytm_coverage, portfolio.holding_count());
@@ -353,7 +353,7 @@ fn test_risk_metrics() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let risk_metrics = calculate_risk_metrics(&portfolio.holdings, None, &config);
+    let risk_metrics = calculate_risk_metrics(&portfolio.holdings, None, &config).unwrap();
 
     // Verify duration is reasonable
     assert!(risk_metrics.best_duration.is_some());
@@ -362,7 +362,7 @@ fn test_risk_metrics() {
 
     // Verify DV01 is calculated
     assert!(
-        risk_metrics.total_dv01 > 0.0,
+        risk_metrics.total_dv01.unwrap().to_f64().unwrap() > 0.0,
         "Total DV01 should be positive"
     );
 }
@@ -372,7 +372,7 @@ fn test_spread_metrics() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let spread_metrics = calculate_spread_metrics(&portfolio.holdings, None, &config);
+    let spread_metrics = calculate_spread_metrics(&portfolio.holdings, None, &config).unwrap();
 
     // Most holdings have spread data
     assert!(spread_metrics.z_spread.is_some());
@@ -391,7 +391,7 @@ fn test_sector_bucketing() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let sector_dist = bucket_by_sector(&portfolio.holdings, &config);
+    let sector_dist = bucket_by_sector(&portfolio.holdings, &config).unwrap();
 
     // Should have multiple sectors
     assert!(sector_dist.by_sector.len() >= 3);
@@ -414,7 +414,7 @@ fn test_rating_bucketing() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let rating_dist = bucket_by_rating(&portfolio.holdings, &config);
+    let rating_dist = bucket_by_rating(&portfolio.holdings, &config).unwrap();
 
     // Should have multiple rating buckets
     assert!(rating_dist.by_bucket.len() >= 2);
@@ -429,7 +429,7 @@ fn test_maturity_bucketing() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let maturity_dist = bucket_by_maturity(&portfolio.holdings, &config);
+    let maturity_dist = bucket_by_maturity(&portfolio.holdings, &config).unwrap();
 
     // Should have holdings in intermediate maturity range (3-10y)
     let intermediate_weight = maturity_dist.intermediate_weight();
@@ -448,8 +448,12 @@ fn test_duration_contribution() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let contributions =
-        convex_portfolio::contribution::duration_contributions(&portfolio.holdings, &config);
+    let contributions = convex_portfolio::contribution::duration_contributions(
+        &portfolio.holdings,
+        &config,
+        convex_portfolio::contribution::DurationMeasure::Modified,
+    )
+    .unwrap();
 
     // Contributions should exist for each holding
     assert_eq!(contributions.by_holding.len(), portfolio.holding_count());
@@ -458,7 +462,7 @@ fn test_duration_contribution() {
     let total_contrib: f64 = contributions
         .by_holding
         .iter()
-        .map(|c| c.contribution_pct)
+        .map(|c| c.contribution_pct.unwrap())
         .sum();
     assert!(
         (total_contrib - 100.0).abs() < 0.1,
@@ -471,8 +475,12 @@ fn test_contribution_by_sector() {
     let portfolio = create_corporate_portfolio();
     let config = AnalyticsConfig::default();
 
-    let contributions =
-        convex_portfolio::contribution::duration_contributions(&portfolio.holdings, &config);
+    let contributions = convex_portfolio::contribution::duration_contributions(
+        &portfolio.holdings,
+        &config,
+        convex_portfolio::contribution::DurationMeasure::Modified,
+    )
+    .unwrap();
 
     // Should have contributions by sector
     assert!(contributions.by_sector.len() >= 3);
@@ -481,7 +489,7 @@ fn test_contribution_by_sector() {
     let sector_total: f64 = contributions
         .by_sector
         .values()
-        .map(|c| c.contribution_pct)
+        .map(|c| c.contribution_pct.unwrap())
         .sum();
     assert!((sector_total - 100.0).abs() < 0.1);
 }
@@ -500,7 +508,8 @@ fn test_benchmark_comparison() {
         &portfolio.holdings,
         &benchmark.holdings,
         &config,
-    );
+    )
+    .unwrap();
 
     // Should have duration comparison
     assert!(comparison.duration.portfolio_duration.is_some());
@@ -525,7 +534,8 @@ fn test_active_weights() {
         &portfolio.holdings,
         &benchmark.holdings,
         &config,
-    );
+    )
+    .unwrap();
 
     // Should have active weights by sector
     assert!(!active_wts.by_sector.is_empty());
@@ -596,7 +606,7 @@ fn test_stress_scenarios() {
 fn test_etf_nav_calculation() {
     let portfolio = create_etf_portfolio();
 
-    let nav_metrics = convex_portfolio::etf::calculate_etf_nav(&portfolio, None);
+    let nav_metrics = convex_portfolio::etf::calculate_etf_nav(&portfolio, None).unwrap();
 
     // NAV per share should be reasonable
     assert!(nav_metrics.nav_per_share > 0.0);
@@ -610,12 +620,13 @@ fn test_etf_premium_discount() {
     let portfolio = create_etf_portfolio();
 
     // Calculate NAV
-    let nav_per_share = portfolio.nav_per_share().unwrap();
+    let nav_per_share = portfolio.nav_per_share().unwrap().unwrap();
 
     // Trading at 1% premium
     let market_price = nav_per_share * dec!(1.01);
     let market_price_f64 = market_price.to_f64().unwrap();
-    let nav_metrics = convex_portfolio::etf::calculate_etf_nav(&portfolio, Some(market_price_f64));
+    let nav_metrics =
+        convex_portfolio::etf::calculate_etf_nav(&portfolio, Some(market_price_f64)).unwrap();
 
     assert!(nav_metrics.is_premium());
     assert!((nav_metrics.premium_discount_pct.unwrap() - 1.0).abs() < 0.1);
@@ -629,15 +640,17 @@ fn test_creation_basket() {
         &portfolio.holdings,
         dec!(50_000), // creation unit size
         portfolio.shares_outstanding.unwrap(),
-        portfolio.total_cash(),
-    );
+        portfolio.total_cash().unwrap(),
+    )
+    .unwrap();
 
     // Basket should have same number of components as holdings
     assert_eq!(basket.security_count, portfolio.holding_count());
 
     // Basket value should scale correctly
     // 50K / 1M shares = 5% of portfolio
-    let expected_value = portfolio.nav() * dec!(50_000) / portfolio.shares_outstanding.unwrap();
+    let expected_value =
+        portfolio.nav().unwrap() * dec!(50_000) / portfolio.shares_outstanding.unwrap();
     let actual_value = basket.total_value;
     assert!((actual_value - expected_value).abs() < dec!(100.0));
 }
@@ -652,7 +665,8 @@ fn test_credit_quality_metrics() {
     let config = AnalyticsConfig::default();
 
     let credit =
-        convex_portfolio::analytics::calculate_credit_quality(&portfolio.holdings, &config);
+        convex_portfolio::analytics::calculate_credit_quality(&portfolio.holdings, &config)
+            .unwrap();
 
     // Should have investment grade weight
     assert!(credit.ig_weight > 0.0);
@@ -669,7 +683,8 @@ fn test_migration_risk() {
     let config = AnalyticsConfig::default();
 
     let migration =
-        convex_portfolio::analytics::calculate_migration_risk(&portfolio.holdings, &config);
+        convex_portfolio::analytics::calculate_migration_risk(&portfolio.holdings, &config)
+            .unwrap();
 
     // Should identify fallen angel risk (IG holdings close to BBB-)
     // DELL is BBB-, so at risk
@@ -689,7 +704,7 @@ fn test_weight_invariants() {
     let config = AnalyticsConfig::default();
 
     // Sector weights should sum to 100%
-    let sector_dist = bucket_by_sector(&portfolio.holdings, &config);
+    let sector_dist = bucket_by_sector(&portfolio.holdings, &config).unwrap();
     let sector_sum: f64 = sector_dist.by_sector.values().map(|m| m.weight_pct).sum();
     assert!(
         (sector_sum - 100.0).abs() < 0.01,
@@ -698,7 +713,7 @@ fn test_weight_invariants() {
     );
 
     // Rating weights should sum to 100%
-    let rating_dist = bucket_by_rating(&portfolio.holdings, &config);
+    let rating_dist = bucket_by_rating(&portfolio.holdings, &config).unwrap();
     let rating_sum: f64 = rating_dist.by_bucket.values().map(|m| m.weight_pct).sum();
     assert!(
         (rating_sum - 100.0).abs() < 0.01,
@@ -707,12 +722,16 @@ fn test_weight_invariants() {
     );
 
     // Duration contributions should sum to 100%
-    let dur_contrib =
-        convex_portfolio::contribution::duration_contributions(&portfolio.holdings, &config);
+    let dur_contrib = convex_portfolio::contribution::duration_contributions(
+        &portfolio.holdings,
+        &config,
+        convex_portfolio::contribution::DurationMeasure::Modified,
+    )
+    .unwrap();
     let dur_sum: f64 = dur_contrib
         .by_holding
         .iter()
-        .map(|c| c.contribution_pct)
+        .map(|c| c.contribution_pct.unwrap())
         .sum();
     assert!(
         (dur_sum - 100.0).abs() < 0.1,
@@ -725,10 +744,10 @@ fn test_weight_invariants() {
 fn test_nav_equals_sum_of_parts() {
     let portfolio = create_corporate_portfolio();
 
-    let nav = portfolio.nav();
-    let securities = portfolio.securities_market_value();
-    let accrued = portfolio.total_accrued_interest();
-    let cash = portfolio.total_cash();
+    let nav = portfolio.nav().unwrap();
+    let securities = portfolio.securities_market_value().unwrap();
+    let accrued = portfolio.total_accrued_interest().unwrap();
+    let cash = portfolio.total_cash().unwrap();
     let liabilities = portfolio.total_liabilities();
 
     let computed_nav = securities + accrued + cash - liabilities;
@@ -743,19 +762,19 @@ fn test_dv01_is_sum_of_holdings() {
     let sum_dv01: Decimal = portfolio
         .holdings
         .iter()
-        .filter_map(|h| h.total_dv01())
+        .map(|h| h.total_dv01().unwrap().unwrap())
         .sum();
 
     // Portfolio DV01
     let config = AnalyticsConfig::default();
-    let risk = calculate_risk_metrics(&portfolio.holdings, None, &config);
+    let risk = calculate_risk_metrics(&portfolio.holdings, None, &config).unwrap();
 
     // Should be approximately equal
     let sum_dv01_f64 = sum_dv01.to_f64().unwrap_or(0.0);
     assert!(
-        (risk.total_dv01 - sum_dv01_f64).abs() < 1.0,
+        (risk.total_dv01.unwrap().to_f64().unwrap() - sum_dv01_f64).abs() < 1.0,
         "DV01 mismatch: {} vs {}",
-        risk.total_dv01,
+        risk.total_dv01.unwrap().to_f64().unwrap(),
         sum_dv01_f64
     );
 }
@@ -774,10 +793,10 @@ fn test_empty_portfolio() {
         .unwrap();
 
     assert!(portfolio.is_empty());
-    assert_eq!(portfolio.nav(), Decimal::ZERO);
+    assert_eq!(portfolio.nav().unwrap(), Decimal::ZERO);
 
     let config = AnalyticsConfig::default();
-    let analytics = calculate_portfolio_analytics(&portfolio, &config);
+    let analytics = calculate_portfolio_analytics(&portfolio, &config).unwrap();
     assert!(analytics.yields.ytm.is_none());
 }
 
@@ -806,14 +825,14 @@ fn test_single_holding_portfolio() {
     let config = AnalyticsConfig::default();
 
     // Analytics should match the single holding
-    let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config);
+    let yield_metrics = calculate_yield_metrics(&portfolio.holdings, &config).unwrap();
     assert!((yield_metrics.ytm.unwrap() - 0.05).abs() < 0.001);
 
-    let risk_metrics = calculate_risk_metrics(&portfolio.holdings, None, &config);
+    let risk_metrics = calculate_risk_metrics(&portfolio.holdings, None, &config).unwrap();
     assert!((risk_metrics.best_duration.unwrap() - 5.0).abs() < 0.01);
 
     // Sector should be 100% corporate
-    let sector_dist = bucket_by_sector(&portfolio.holdings, &config);
+    let sector_dist = bucket_by_sector(&portfolio.holdings, &config).unwrap();
     assert!((sector_dist.get(Sector::Corporate).unwrap().weight_pct - 100.0).abs() < 0.01);
 }
 
@@ -828,6 +847,6 @@ fn test_cash_only_portfolio() {
         .unwrap();
 
     assert!(portfolio.is_empty()); // No bond holdings
-    assert_eq!(portfolio.nav(), dec!(1_000_000));
-    assert_eq!(portfolio.total_cash(), dec!(1_000_000));
+    assert_eq!(portfolio.nav().unwrap(), dec!(1_000_000));
+    assert_eq!(portfolio.total_cash().unwrap(), dec!(1_000_000));
 }
