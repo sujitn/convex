@@ -6,6 +6,7 @@
 //! Supplied key-rate durations use exact factor identity and explicit coverage.
 //! Currency risk adds actual position exposures independently of presentation weights.
 
+use super::exact_risk::ExactRisk;
 use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
 use crate::{PortfolioError, PortfolioResult};
 use convex_analytics::risk::{
@@ -155,32 +156,15 @@ pub struct KeyRateExposure {
     pub total_holdings: usize,
 }
 
-fn arithmetic_error() -> PortfolioError {
-    PortfolioError::invalid_portfolio("key-rate arithmetic exceeds the admitted Decimal range")
-}
-
-fn product(a: Decimal, b: Decimal) -> PortfolioResult<Decimal> {
-    let value = a.checked_mul(b).ok_or_else(arithmetic_error)?;
-    if a != Decimal::ZERO && b != Decimal::ZERO && value == Decimal::ZERO {
-        return Err(arithmetic_error());
-    }
-    Ok(value)
-}
-
-fn quotient(a: Decimal, b: Decimal) -> PortfolioResult<Decimal> {
-    let value = a.checked_div(b).ok_or_else(arithmetic_error)?;
-    if a != Decimal::ZERO && value == Decimal::ZERO {
-        return Err(arithmetic_error());
-    }
-    Ok(value)
-}
-
 /// Aggregate supplied holdings through one bounded checked native owner.
 ///
 /// Duration presentation uses the configured weight of only holdings declaring
 /// each exact factor. Currency DV01 always sums each covered holding's actual
 /// par * (clean price + supplied accrued) * explicit FX / 100 * duration / 10,000. Presentation weighting
-/// cannot alter it. Supplied prices and durations must use one declared price
+/// cannot alter it. Signed sums and their products remain exact through cancellation.
+/// Final Decimal results use nearest/even at the greatest representable scale up
+/// to 28; a nonzero result that rounds to zero or exceeds Decimal's range fails.
+/// Supplied prices and durations must use one declared price
 /// basis and caller-declared common base currency; this function does no pricing
 /// or FX inference. Missing factors remain unavailable with explicit coverage.
 /// `tenors` overrides configured tenors; otherwise the configured or standard
@@ -234,17 +218,15 @@ pub fn aggregate_key_rate_exposure(
                 "bounded unique identity, positive par/FX and nonnegative actual price required",
             ));
         }
-        let dirty_price = holding
-            .market_price
-            .checked_add(holding.accrued_interest)
-            .ok_or_else(arithmetic_error)?;
-        if dirty_price < Decimal::ZERO {
+        let mut dirty_price = ExactRisk::decimal(holding.market_price);
+        dirty_price.add(&ExactRisk::decimal(holding.accrued_interest))?;
+        if dirty_price.is_negative() {
             return Err(PortfolioError::invalid_holding(
                 &holding.id,
                 "supplied dirty price cannot be negative",
             ));
         }
-        if dirty_price == Decimal::ZERO
+        if dirty_price.is_zero()
             && holding
                 .analytics
                 .key_rate_durations
@@ -253,21 +235,24 @@ pub fn aggregate_key_rate_exposure(
         {
             return Err(PortfolioError::invalid_holding(&holding.id,"relative key-rate durations require a positive dirty valuation basis; supply absolute sensitivities for zero-value instruments"));
         }
-        let local_value = quotient(
-            product(holding.par_amount, dirty_price)?,
-            Decimal::ONE_HUNDRED,
-        )?;
-        let market_value = product(local_value, holding.fx_rate)?;
+        let market_value = dirty_price
+            .multiply(holding.par_amount)?
+            .multiply(holding.fx_rate)?
+            .divide_power_of_ten(2)?;
         let weight = match config.weighting {
-            WeightingMethod::MarketValue => market_value,
-            WeightingMethod::ParValue => product(holding.par_amount, holding.fx_rate)?,
-            WeightingMethod::EqualWeight => Decimal::ONE,
+            WeightingMethod::MarketValue => market_value.clone(),
+            WeightingMethod::ParValue => {
+                ExactRisk::decimal(holding.par_amount).multiply(holding.fx_rate)?
+            }
+            WeightingMethod::EqualWeight => ExactRisk::decimal(Decimal::ONE),
         };
         let mut factors = HashMap::new();
         if let Some(risk) = &holding.analytics.key_rate_durations {
             supplied_work = supplied_work
                 .checked_add(risk.durations.len())
-                .ok_or_else(arithmetic_error)?;
+                .ok_or_else(|| {
+                    PortfolioError::invalid_portfolio("supplied key-rate row bound exceeded")
+                })?;
             if risk.durations.len() > MAX_KEY_RATE_FACTORS || supplied_work > MAX_KEY_RATE_WORK {
                 return Err(PortfolioError::invalid_portfolio(
                     "supplied key-rate row bound exceeded",
@@ -298,33 +283,22 @@ pub fn aggregate_key_rate_exposure(
     let mut points = Vec::with_capacity(requested.len());
     let mut durations = Vec::with_capacity(requested.len());
     for &tenor in requested {
-        let mut weighted = Decimal::ZERO;
-        let mut weight_sum = Decimal::ZERO;
-        let mut market_sum = Decimal::ZERO;
-        let mut currency_risk = Decimal::ZERO;
+        let mut weighted = ExactRisk::zero();
+        let mut weight_sum = ExactRisk::zero();
+        let mut market_sum = ExactRisk::zero();
+        let mut currency_risk = ExactRisk::zero();
         let mut covered = 0usize;
         for (weight, market_value, factors) in &admitted {
             if let Some(&duration) = factors.get(&tenor.to_bits()) {
                 covered += 1;
-                weighted = weighted
-                    .checked_add(product(*weight, duration)?)
-                    .ok_or_else(arithmetic_error)?;
-                weight_sum = weight_sum
-                    .checked_add(*weight)
-                    .ok_or_else(arithmetic_error)?;
-                market_sum = market_sum
-                    .checked_add(*market_value)
-                    .ok_or_else(arithmetic_error)?;
-                currency_risk = currency_risk
-                    .checked_add(quotient(
-                        product(*market_value, duration)?,
-                        Decimal::from(10_000),
-                    )?)
-                    .ok_or_else(arithmetic_error)?;
+                weighted.add(&weight.multiply(duration)?)?;
+                weight_sum.add(weight)?;
+                market_sum.add(market_value)?;
+                currency_risk.add(&market_value.multiply(duration)?.divide_power_of_ten(4)?)?;
             }
         }
-        let duration = if weight_sum != Decimal::ZERO {
-            Some(Duration::new(quotient(weighted, weight_sum)?))
+        let duration = if !weight_sum.is_zero() {
+            Some(Duration::new(weighted.ratio(&weight_sum)?))
         } else {
             None
         };
@@ -334,8 +308,12 @@ pub fn aggregate_key_rate_exposure(
         points.push(KeyRateExposurePoint {
             tenor,
             duration,
-            known_partial_dv01: (covered > 0).then_some(currency_risk),
-            covered_market_value: market_sum,
+            known_partial_dv01: if covered > 0 {
+                Some(currency_risk.finish()?)
+            } else {
+                None
+            },
+            covered_market_value: market_sum.finish()?,
             covered_holdings: covered,
             total_holdings: holdings.len(),
         });
@@ -343,10 +321,11 @@ pub fn aggregate_key_rate_exposure(
     let profile = if durations.is_empty() {
         None
     } else {
-        let total = durations.iter().try_fold(Decimal::ZERO, |sum, row| {
-            sum.checked_add(row.duration.years())
-                .ok_or_else(arithmetic_error)
-        })?;
+        let mut total = ExactRisk::zero();
+        for row in &durations {
+            total.add(&ExactRisk::decimal(row.duration.years()))?;
+        }
+        let total = total.finish()?;
         Some(KeyRateProfile {
             durations,
             total_duration: total.as_f64(),

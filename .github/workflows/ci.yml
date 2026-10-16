@@ -523,6 +523,15 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify stable-risk-sums-default
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums
+
+      - name: Qualify stable-risk-sums-no-default
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums --no-default-features
+
+      - name: Qualify stable-risk-sums-schema
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums --features schemars
+
       - name: Qualify typed-risk-decode-default
         run: cargo test --locked -p convex-analytics --test risk_decode
 

@@ -118,3 +118,25 @@ the supplied parsed value and cannot recover a discarded original token. Keep
 raw admission and typed Decimal admission separate. The supplied library and
 key-rate REST paths already share that bounded raw owner. V1 and other
 remaining decode/valuation/risk routes keep their explicit owning work.
+
+
+## Cancellation-safe supplied Holding factor risk
+
+`aggregate_key_rate_exposure` retains exact supplied Decimal contributions through
+dirty price, par and explicit FX, weighted factor numerators and weights, covered
+market value, currency DV01 and profile totals. Large signed risks can cancel
+without erasing a small residual or overflowing an intermediate Decimal. The
+private fixed-scale integer helper uses the already locked `num-bigint` package;
+existing holding, factor and total-work bounds remain. No provider, I/O or runtime
+dependency enters the analytics crate.
+
+Only reported Decimal values round, using nearest/even at the greatest scale up
+to 28 whose coefficient fits 96 bits. An exact magnitude above Decimal's maximum
+or a nonzero value that rounds to zero returns an error. An actual exact zero is
+valid. Missing factors remain unavailable with explicit coverage. Presentation
+weights never change actual common-base currency risk. The declared inputs must
+still identify a common base currency and consistent price/risk convention.
+
+This repairs supplied Holding factor accumulation. Broader stress, scenario,
+interpolation, portfolio measures and production/latency qualification require
+their own complete contracts and executed checks.

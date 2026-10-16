@@ -38,6 +38,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+# Bounded exact supplied-risk accumulation; already locked pure arithmetic.
+num-bigint = "=0.4.6"
 
 # Optional parallel processing
 rayon = { workspace = true, optional = true }

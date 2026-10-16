@@ -5107,6 +5107,32 @@
         "50predeclared cases/150exact observations; four new native controls and seven unchanged original probe functions.",
         "All retained source-frozen feature/native/library/assurance/financial/actual-host gates and final builder-free qualification."
       ]
+    },
+    {
+      "base_commit": "b6d6c6751fabd6c055b817a2cea942f70341b855",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Repair the actual current source/lock/binary-frozen Holding sum1pass2fail probe, replayed before public mutation. One small private pure fixed-scale120 signed integer owner retains all supplied Decimal digits through dirty basis, par/FX/price products, weighted numerator/denominator, covered market value, currency DV01 and profile sums. Preserve existing holding/factor/work bounds; maximum1024bit coefficients exceed the proven <=804bit input bound. Round only final reported Decimal values, nearest/even at greatest96bit scale<=28; reject exact magnitude above Decimal maximum and nonzero output rounded to zero. Actual zero stays zero; missing factor/weight stays unavailable. Presentation weights never alter actual currency risk. No position, factor, accrued amount, supplied FX or signed contribution is dropped. Use the already locked pure num-bigint0.4.6 directly, preserving every registry version/checksum; no runtime/provider/I/O dependency. Independent exact Python Fraction105predeclared books give72successes33rejections, including original cases, permutations, large signed products that cancel, mixed scales/accrual/FX, explicit and missing zeros, final rounding/overflow/underflow. Two new native functions plus the unchanged three original probe functions and every retained native/feature/server/host/financial check must pass. Preserve all1896old numerical rows/defaults, all8549original requests, all15raw-number actual-host cases, every original protected test/answer/bound and all physical history. Only two additive numerical rows. Bind once after all actual Rust builders/readers exit; no Rust build until sealed/committed/closed. Literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and original assessments remain unchanged. Broader stress/scenario/weighted risks, demo claims/fallbacks, raw/v1 admission, calendar/ARRC/YAS/model/calibration/claim/physical/causal/remote MCP remain required, including all CTD alternatives/switches and earned/residual/outstanding/paid/partial physical ownership. Only unavailable actual platform execution defers. No native waiver, model/market/library/production/latency certificate or task acceptance is inferred.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "50dd7ac41660c218bc2acda1145957e2f2454644888c31d8d298c6be4a20ff6d",
+        "Cargo.lock": "92780b41dc169642ae45fb06f5215be5b3b146e14bd7f784101f2a16137dd2cd",
+        "crates/convex-portfolio/Cargo.toml": "c6318f18c616a8eb766cd2a3ca0c9cb3369ea46e824e15c0bea2894d9cb56ed4",
+        "crates/convex-portfolio/src/analytics/exact_risk.rs": "4e26f29d99d822b11f3184b23b105d29c3b7f6e816c086de912c274c5f1b47c7",
+        "crates/convex-portfolio/src/analytics/key_rates.rs": "cf6ec46865670b38403a25202968e25daf6796c62c0163d89d333c292e727766",
+        "crates/convex-portfolio/src/analytics/mod.rs": "a80928436c9d201976f84b0a133ebd89d1988fbc1f85c40bf71b227d876441f1",
+        "crates/convex-portfolio/tests/fixtures/stable-risk-sums.json": "e4b0bcbf71250da9b29c5e61c19fb951db287a99662b22d6060116f19de0cf8e",
+        "crates/convex-portfolio/tests/stable_risk_sums.rs": "531e6f818d35fb6c6fcc79586dc24c23f615d08c46af54e411724a58729d65c8",
+        "docs/RISK-CONTRACTS.md": "69a0cf06c5a19b7bacd05e204ae4a6e62a9e0e4d05f174d0e869d42e6b0bf452",
+        "tools/assurance/check.py": "333d51a0ef79d2444f4aec5210e13a4bf0f54c8daa5e3d02f7e4669b4ef08419",
+        "tools/assurance/inventory.json": "7e6ab3f5058a0e9457c2fe00056d541795b8d6b975cd2e444e05ce16b9c52251",
+        "tools/assurance/numeric-evidence.json": "4815fbb6a7c014cc04cadb7f27fea140fa1862c0566aa3e3ae55c83609e7c25d",
+        "tools/library/library-inventory.json": "8afa3273b1190d6138a1916efc6a56f5cac1f5fc9c19edd1c65cafd4a57fe05b"
+      },
+      "tests": [
+        "Replay the exact current1pass2fail executable before public edits.",
+        "105independent Fraction books/72success33reject, two new native functions and three unchanged original functions.",
+        "Preserve all registry package versions/checksums and all original tests/financial bounds; full retained qualification."
+      ]
     }
   ]
 }

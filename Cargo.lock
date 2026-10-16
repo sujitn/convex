@@ -818,6 +818,7 @@ dependencies = [
  "convex-core",
  "convex-curves",
  "criterion 0.8.1",
+ "num-bigint",
  "proptest",
  "rayon",
  "rust_decimal",
