@@ -523,6 +523,21 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify checked numeric Decimal default
+        run: cargo test --locked -p convex-core --test numeric_decimal
+
+      - name: Qualify checked numeric Decimal no-default
+        run: cargo test --locked -p convex-core --test numeric_decimal --no-default-features
+
+      - name: Qualify checked numeric Decimal schema
+        run: cargo test --locked -p convex-core --test numeric_decimal --features schemars
+
+      - name: Qualify checked C constructor inputs
+        run: cargo test --locked -p convex-ffi --test constructor_inputs
+
+      - name: Qualify retired inferred liquidation route
+        run: cargo test --locked -p convex-server --test retired_liquidity_route
+
       - name: Qualify checked holding aggregates default
         run: cargo test --locked -p convex-portfolio --test holding_aggregates
 

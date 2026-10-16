@@ -1,17 +1,20 @@
-//! Hand-curated JSON schemas for the wire-format DTOs.
+//! Generated library/constructor schemas and remaining convenience RPC descriptors.
 //!
-//! Foreign types like `Date`, `Decimal`, `BusinessDayConvention` don't derive
-//! `JsonSchema`, so we serve a stable curated description here instead of
-//! a `schema_for!` derive. Adding a new DTO is one match arm.
+//! Bond and curve construction use their actual native DTO schemas. Remaining
+//! curated RPC descriptors retain separate CVX-063 migration requirements.
 
 pub fn lookup(name: &str) -> Result<String, String> {
     if name == "LibraryRequest" {
         return Ok(convex::library::request_schema().to_string());
     }
+    if name == "BondSpec" {
+        return Ok(convex_analytics::dto::bond_spec_schema().to_string());
+    }
+    if name == "CurveSpec" {
+        return Ok(convex_analytics::dto::curve_spec_schema().to_string());
+    }
     let body = match name {
         "Mark" => MARK,
-        "BondSpec" => BOND_SPEC,
-        "CurveSpec" => CURVE_SPEC,
         "PricingRequest" => PRICING_REQUEST,
         "PricingResponse" => PRICING_RESPONSE,
         "RiskRequest" => RISK_REQUEST,
@@ -62,30 +65,6 @@ const MARK: &str = r##"{
   "examples": ["99.5C","99.5D","4.65%","4.65%@SA","+125bps@USD.SOFR","125 OAS@USD.TSY","99-16+"]
 }"##;
 
-const BOND_SPEC: &str = r##"{
-  "title": "BondSpec",
-  "type": "object",
-  "discriminator": "type",
-  "oneOf": [
-    {"description": "fixed_rate: { id?, coupon_rate, frequency, maturity, issue, day_count?, currency?, face_value?, business_day_convention?, terms?:{dated_date,first_coupon_date?,penultimate_coupon_date?,calendar,end_of_month,settlement_days,redemption_value,ex_coupon?} }"},
-    {"description": "callable: fixed_rate fields + call_schedule:[{date,price,end_date?}], call_style?, put_schedule?"},
-    {"description": "floating_rate: id?, spread_bps, rate_index?, maturity, issue, frequency?, day_count?, currency?, face_value?, cap?, floor?"},
-    {"description": "zero_coupon: id?, maturity, issue, compounding?, day_count?, currency?, face_value?"},
-    {"description": "sinking_fund: fixed_rate fields + schedule:[{date,amount,price?}]"}
-  ],
-  "example": { "type":"fixed_rate","cusip":"037833100","coupon_rate":0.05,"frequency":"SemiAnnual","maturity":"2035-01-15","issue":"2025-01-15","day_count":"Thirty360US","currency":"USD","face_value":100 }
-}"##;
-
-const CURVE_SPEC: &str = r##"{
-  "title": "CurveSpec",
-  "type": "object",
-  "discriminator": "type",
-  "oneOf": [
-    {"description": "discrete: { name?, ref_date, tenors:[f64], values:[f64], value_kind?:'zero_rate'|'discount_factor', interpolation?, day_count?, compounding? }"},
-    {"description": "bootstrap: { name?, ref_date, method?:'global_fit'|'piecewise', instruments:[{kind:'deposit'|'fra'|'swap'|'ois', tenor, rate}], interpolation?, day_count? }"}
-  ]
-}"##;
-
 const PRICING_REQUEST: &str = r##"{
   "title": "PricingRequest",
   "type": "object",
@@ -96,7 +75,7 @@ const PRICING_REQUEST: &str = r##"{
     "mark": {"$ref": "#/definitions/Mark"},
     "curve": {"type": ["integer","null"]},
     "quote_frequency": {"$ref": "#/definitions/Frequency"},
-    "forward_curve": {"type": ["integer","null"], "description": "FRN projection curve (default: discount curve)"}
+    "forward_curve": {"type": ["integer","null"], "description": "Explicit projection handle; fixing-aware FRN history requires the full library route"}
   }
 }"##;
 

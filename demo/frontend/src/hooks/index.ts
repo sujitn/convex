@@ -8,7 +8,7 @@ export {
   type WebSocketMessage,
   type BondQuoteMessage,
   type EtfQuoteMessage,
-  type PortfolioMessage,
+  type PortfolioAnalyticsMessage,
   type ConnectionState,
 } from './useWebSocket';
 

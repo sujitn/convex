@@ -524,7 +524,11 @@ unsafe fn read_input<'a>(ptr: *const c_char) -> Result<&'a str, String> {
 
 unsafe fn with_str(ptr: *const c_char, f: fn(&str) -> Handle) -> Handle {
     // SAFETY: borrowed input contract is forwarded from the export.
-    match unsafe { read_input(ptr) }.and_then(|s| ingress::parse(s).map(|_| s)) {
+    match unsafe { read_input(ptr) }.and_then(|s| {
+        let value = ingress::parse(s)?;
+        ingress::validate_constructor_fields(&value)?;
+        Ok(s)
+    }) {
         Ok(s) => f(s),
         Err(error) => {
             error::set_last_error(error);

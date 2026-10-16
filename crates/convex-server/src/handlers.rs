@@ -42,7 +42,6 @@ use convex_portfolio::{
     duration_contributions,
     duration_difference_by_sector,
     dv01_contributions,
-    estimate_days_to_liquidate,
     estimate_tracking_error,
     liquidity_distribution,
     spread_contributions,
@@ -4067,77 +4066,9 @@ pub async fn calculate_liquidity_distribution(
     })
 }
 
-/// Request for days to liquidate estimation.
-#[derive(Debug, Deserialize)]
-pub struct DaysToLiquidateRequest {
-    /// Portfolio ID
-    pub portfolio_id: String,
-    /// Portfolio name
-    pub name: String,
-    /// Positions with liquidity data
-    pub positions: Vec<LiquidityPosition>,
-    /// Maximum participation rate (percentage of ADV, e.g., 20.0 for 20%)
-    #[serde(default = "default_participation_rate")]
-    pub max_participation_rate: f64,
-}
-
-fn default_participation_rate() -> f64 {
-    20.0
-}
-
-/// Response for days to liquidate.
-#[derive(Debug, Serialize)]
-pub struct DaysToLiquidateResponse {
-    /// Portfolio ID
-    pub portfolio_id: String,
-    /// Total estimated days to liquidate entire portfolio
-    pub total_days: f64,
-    /// Days attributed to highly liquid holdings
-    pub highly_liquid_days: f64,
-    /// Days attributed to illiquid holdings
-    pub illiquid_days: f64,
-    /// Number of holdings without ADV data
-    pub holdings_without_adv: usize,
-    /// Percentage of time spent on illiquid holdings
-    pub illiquid_pct_of_time: f64,
-    /// Maximum participation rate used
-    pub max_participation_rate: f64,
-    /// Calculation timestamp
-    pub timestamp: i64,
-}
-
-/// Estimate days to liquidate a portfolio.
-pub async fn calculate_days_to_liquidate(
-    State(_state): State<Arc<AppState>>,
-    Json(request): Json<DaysToLiquidateRequest>,
-) -> Result<impl IntoResponse, PortfolioHandlerError> {
-    Ok({
-        let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
-        let config = AnalyticsConfig::default();
-
-        let dtl = portfolio_result(estimate_days_to_liquidate(
-            &holdings,
-            request.max_participation_rate,
-            &config,
-        ))?;
-
-        let response = DaysToLiquidateResponse {
-            portfolio_id: request.portfolio_id,
-            total_days: dtl.total_days,
-            highly_liquid_days: dtl.highly_liquid_days,
-            illiquid_days: dtl.illiquid_days,
-            holdings_without_adv: dtl.holdings_without_adv,
-            illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
-            max_participation_rate: request.max_participation_rate,
-            timestamp: chrono::Utc::now().timestamp(),
-        };
-
-        (StatusCode::OK, Json(response))
-    })
-}
-
 /// Request for comprehensive liquidity analysis.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LiquidityAnalysisRequest {
     /// Portfolio ID
     pub portfolio_id: String,
@@ -4145,9 +4076,6 @@ pub struct LiquidityAnalysisRequest {
     pub name: String,
     /// Positions with liquidity data
     pub positions: Vec<LiquidityPosition>,
-    /// Maximum participation rate for liquidation estimate
-    #[serde(default = "default_participation_rate")]
-    pub max_participation_rate: f64,
 }
 
 /// Response for comprehensive liquidity analysis.
@@ -4159,8 +4087,6 @@ pub struct LiquidityAnalysisResponse {
     pub metrics: LiquidityMetricsResponse,
     /// Distribution by bucket
     pub distribution: Vec<LiquidityBucketOutput>,
-    /// Days to liquidate estimate
-    pub days_to_liquidate: DaysToLiquidateResponse,
     /// Calculation timestamp
     pub timestamp: i64,
 }
@@ -4168,8 +4094,9 @@ pub struct LiquidityAnalysisResponse {
 /// Calculate comprehensive liquidity analysis.
 pub async fn calculate_liquidity_analysis(
     State(_state): State<Arc<AppState>>,
-    Json(request): Json<LiquidityAnalysisRequest>,
+    request: Result<Json<LiquidityAnalysisRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Result<impl IntoResponse, PortfolioHandlerError> {
+    let Json(request) = portfolio_result(request.map_err(|error| error.body_text()))?;
     Ok({
         let holdings = portfolio_result(convert_liquidity_positions(&request.positions))?;
         let config = AnalyticsConfig::default();
@@ -4208,28 +4135,10 @@ pub async fn calculate_liquidity_analysis(
             })
             .collect();
 
-        // Calculate days to liquidate
-        let dtl = portfolio_result(estimate_days_to_liquidate(
-            &holdings,
-            request.max_participation_rate,
-            &config,
-        ))?;
-        let days_to_liquidate = DaysToLiquidateResponse {
-            portfolio_id: request.portfolio_id.clone(),
-            total_days: dtl.total_days,
-            highly_liquid_days: dtl.highly_liquid_days,
-            illiquid_days: dtl.illiquid_days,
-            holdings_without_adv: dtl.holdings_without_adv,
-            illiquid_pct_of_time: dtl.illiquid_pct_of_time(),
-            max_participation_rate: request.max_participation_rate,
-            timestamp,
-        };
-
         let response = LiquidityAnalysisResponse {
             portfolio_id: request.portfolio_id,
             metrics,
             distribution,
-            days_to_liquidate,
             timestamp,
         };
 

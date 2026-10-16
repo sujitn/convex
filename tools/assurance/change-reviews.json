@@ -5243,6 +5243,48 @@
         "45independent weighted books/56amount outcomes and original12engine bodies, exact currency/string outputs and explicit missing diagnostics.",
         "Required warnings-denied native/library/financial/actual-host checks, unchanged mandatory scope and physical history; no qualification inferred before execution."
       ]
+    },
+    {
+      "base_commit": "37972e45912ecc5b72713b067b7c427bf87bd84f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Checked constructor/Decimal admission and inferred-liquidity retirement. Original bound C ABI has 20 incorrect acceptances across 39 predeclared requests; the separate source/lock/binary-frozen liquidity probe has two healthy and four failing functions. Reuse pure bounded JSON admission; one bounded number-or-exact-string Decimal decoder preserves the established numeric wire interpretation and old risk diagnostics, rejecting rounding, overflow and nonzero erasure. All 12 Decimal DTO fields, including nullable fields, delegate it. Reject ignored constructor fields; generate BondSpec/CurveSpec schemas from their native DTOs. Retire the invented score-to-volume estimate, result/HTTP types and route; descriptive liquidity remains and retired execution parameters fail explicitly. Archive the two unpinned removed native heuristic tests and retain four original HTTP requests with explicit retirement checks, plus a distinct descriptive positive request. Remove unused duplicate frontend types and use the actual portfolio wire fields, exact strings and integer stream timestamps. 59 independent Decimal cases, 39 unchanged constructor requests, generated-schema and actual router controls are declared before candidate execution; no successful qualification is inferred. All 1908 original numerical rows/defaults, 8549 old shared requests and 15 separate boundaries remain. Preserve all mandatory native/model/calendar/calibration/exact-operation/schema/host and full claim/physical/causal work, every CTD alternative/switch and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or execution authority.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "49e97b3a659c3967c49765f86f51c587a7f18f76902cd5bed632e7230d5f8450",
+        "crates/convex-analytics/src/dto.rs": "d4119123c8375668ae0c83d498069481f1f95bfdac8942c772bc81d8e481f5d6",
+        "crates/convex-analytics/src/risk/cash.rs": "bf92c31ec20f48788184539a3fd3e9bdec2094d52a73c46e48a58a397190a565",
+        "crates/convex-core/src/contracts/mod.rs": "ee481896e56bd5590400dab2315d47b5f80eb67d8651da6436b01fcaf8ef1aae",
+        "crates/convex-core/src/contracts/numeric_decimal.rs": "c5812416de73315470f1fd3b52e219f5f2ba7165225de8dff0550fbe87e9534f",
+        "crates/convex-core/tests/fixtures/numeric-decimal.json": "5209d5d913e042ff2aa7e6ef6858be2c2aa796609ee56b37e391175930d98ed8",
+        "crates/convex-core/tests/numeric_decimal.rs": "37a933a9adebb99772bcc372220ed2beb0e8021d657be157083845b679f5fefb",
+        "crates/convex-ffi/src/ingress.rs": "c0a4d97ab813c3817f71a80a012e707901db547e5110509f53cd8c0e369b5f35",
+        "crates/convex-ffi/src/lib.rs": "940d8eecde19f41b1b29b36b541a2e41b8fce1a848d0535c9c0cb3e70badd695",
+        "crates/convex-ffi/src/schemas.rs": "68dda85c8e1904f35c1736b8504bf633cedb574554cdebafbcba9aa681e41565",
+        "crates/convex-ffi/tests/constructor_inputs.rs": "f94b20cd9824b907db17baab0c7920e59eb5a768db9665988bcbf55103c3f9d1",
+        "crates/convex-ffi/tests/fixtures/constructor-admission.json": "812542035a8c82991938cf7c95d8f9c9ec06a73e7c31292561722d6d3e650528",
+        "crates/convex-portfolio/src/analytics/liquidity.rs": "0e9f907eb241e0dcb693a7a7aaa7bad28d52528b0ef80532520348377f22ef9f",
+        "crates/convex-portfolio/src/lib.rs": "0dd974be06b1e5ddd6a2ec45ddaa1237aa2ec2aacf540bab2b33cfbb65c30e54",
+        "crates/convex-server/src/access/http.rs": "42ee0f76c7dc26860761b8890c73324f24b97e508ff010b4fddddb7b800d7eaf",
+        "crates/convex-server/src/handlers.rs": "346a7ac3df7a01195bc9da3c857238a3627feadb1750a4f24425d57d6cb7bce5",
+        "crates/convex-server/src/routes.rs": "a315af3b3e5635dea1fbcbe1d6920e05fc0c954d95853f44a65f9d4e6e0b71c6",
+        "crates/convex-server/tests/api_integration_tests.rs": "a6eb29de40f8097adc6a6b66113063f875475d7d034a31828cc392f4cc66dfc0",
+        "crates/convex-server/tests/retired_liquidity_route.rs": "1253c03434b4c1c5834b953b5fcfd1662328bc32c5d9d706d6602572ffa9fee1",
+        "demo/frontend/src/hooks/index.ts": "4f09c20fae72cb4d7e08aef8eed284191417ee4bd16d23d0fbd550129ef949f4",
+        "demo/frontend/src/hooks/useBondQuoteStream.ts": "e544bee2edb97c5e7994232afc4ca26e61a3b6a09675fdc9b1becf6fc477ea8a",
+        "demo/frontend/src/hooks/useEtfStream.ts": "fad972fe5d04f1eaab6efba20718b4d63af9fbe5ce071d56bf8cce92dffa9fd4",
+        "demo/frontend/src/hooks/useWebSocket.ts": "0313de54143bce9fdb8ce64a84bf542e65a82013de299987214e47bc5a2bfaf8",
+        "docs/ROUTE-MIGRATION.md": "2ece8fa0100f284ca05f852f0bd102676f21ff8b06e3ce29fa3d996ed41b99a8",
+        "tools/assurance/check.py": "66cca43bebd07ea2b1492f426ded7182b4e2295f2c65c551225ef10bf701b0f1",
+        "tools/assurance/inventory.json": "a19dcf82a0ef4ac3de1c96171a95d52c5e293679129422684682f3e3106ea187",
+        "tools/assurance/numeric-evidence.json": "24a123e495f1bc206a6ec192d3df5b685588d092cf5271927b299d3456799db2",
+        "tools/library/library-inventory.json": "b86e3651f95ead1ada87d7a7647a5a7e40326c349d70cdb7a66cfe798f034443",
+        "demo/frontend/src/types/api.ts": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tests": [
+        "Original source/lock/binary-bound failures execute before production edits.",
+        "59 independent Decimal references, 39 constructor cases and actual generated-schema/router controls.",
+        "Required native/library/assurance/financial/available-host/conservation checks; no approval or certificate inferred."
+      ]
     }
   ]
 }

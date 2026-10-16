@@ -4303,21 +4303,10 @@ async fn test_days_to_liquidate() {
 
     let (status, json) = post_json(app, "/api/v1/liquidity/days-to-liquidate", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "DTL_TEST");
-    assert_eq!(json["max_participation_rate"], 20.0);
-
-    // Check days estimates
-    assert!(json["total_days"].is_number());
-    assert!(json["highly_liquid_days"].is_number());
-    assert!(json["illiquid_days"].is_number());
-
-    // Total days should be positive for non-empty portfolio
-    let total_days = json["total_days"].as_f64().unwrap();
-    assert!(total_days > 0.0);
-
-    // Check illiquid percentage of time
-    assert!(json["illiquid_pct_of_time"].is_number());
+    // Preserve the original request; the inferred-volume endpoint has retired.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("total_days").is_none());
 }
 
 #[tokio::test]
@@ -4325,7 +4314,7 @@ async fn test_days_to_liquidate_default_participation() {
     let engine = create_test_engine();
     let app = create_router(engine);
 
-    // Don't specify max_participation_rate - should default to 20%
+    // Preserve the original request without the retired participation parameter.
     let request_body = json!({
         "portfolio_id": "DTL_DEFAULT",
         "name": "Days to Liquidate Default",
@@ -4334,8 +4323,10 @@ async fn test_days_to_liquidate_default_participation() {
 
     let (status, json) = post_json(app, "/api/v1/liquidity/days-to-liquidate", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["max_participation_rate"], 20.0);
+    // Preserve the original request; the inferred-volume endpoint has retired.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("total_days").is_none());
 }
 
 #[tokio::test]
@@ -4343,7 +4334,7 @@ async fn test_days_to_liquidate_high_participation() {
     let engine = create_test_engine();
     let app = create_router(engine);
 
-    // Higher participation rate = fewer days
+    // Preserve the original higher-participation request to the retired route.
     let request_body = json!({
         "portfolio_id": "DTL_HIGH",
         "name": "High Participation Test",
@@ -4353,8 +4344,10 @@ async fn test_days_to_liquidate_high_participation() {
 
     let (status, json) = post_json(app, "/api/v1/liquidity/days-to-liquidate", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["max_participation_rate"], 50.0);
+    // Preserve the original request; the inferred-volume endpoint has retired.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("total_days").is_none());
 }
 
 #[tokio::test]
@@ -4371,24 +4364,14 @@ async fn test_liquidity_analysis() {
 
     let (status, json) = post_json(app, "/api/v1/liquidity/analysis", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "FULL_ANALYSIS");
-
-    // Check metrics section
-    assert!(json["metrics"].is_object());
-    assert!(json["metrics"]["avg_liquidity_score"].is_number());
-    assert!(json["metrics"]["avg_bid_ask_spread"].is_number());
-    assert!(json["metrics"]["total_holdings"].is_number());
-
-    // Check distribution section
-    assert!(json["distribution"].is_array());
-    let distribution = json["distribution"].as_array().unwrap();
-    assert!(!distribution.is_empty());
-
-    // Check days_to_liquidate section
-    assert!(json["days_to_liquidate"].is_object());
-    assert!(json["days_to_liquidate"]["total_days"].is_number());
-    assert_eq!(json["days_to_liquidate"]["max_participation_rate"], 25.0);
+    // Preserve the original request: its retired execution parameter is explicit failure.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(json["code"], "INVALID_PORTFOLIO_INPUT");
+    assert!(json["error"]
+        .as_str()
+        .unwrap()
+        .contains("max_participation_rate"));
+    assert!(json.get("days_to_liquidate").is_none());
 }
 
 #[tokio::test]
@@ -6360,4 +6343,34 @@ async fn test_tracking_error_default_vol_with_supplied_contract() {
     // Check default assumptions were used
     assert_eq!(json["assumptions"]["rate_vol"], 0.01);
     assert_eq!(json["assumptions"]["spread_vol"], 0.002);
+}
+
+#[tokio::test]
+async fn test_liquidity_analysis_without_retired_execution_fields() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+
+    let request_body = json!({
+        "portfolio_id": "FULL_ANALYSIS",
+        "name": "Full Liquidity Analysis",
+        "positions": create_liquidity_positions(),
+    });
+
+    let (status, json) = post_json(app, "/api/v1/liquidity/analysis", request_body).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["portfolio_id"], "FULL_ANALYSIS");
+
+    // Check metrics section
+    assert!(json["metrics"].is_object());
+    assert!(json["metrics"]["avg_liquidity_score"].is_number());
+    assert!(json["metrics"]["avg_bid_ask_spread"].is_number());
+    assert!(json["metrics"]["total_holdings"].is_number());
+
+    // Check distribution section
+    assert!(json["distribution"].is_array());
+    let distribution = json["distribution"].as_array().unwrap();
+    assert!(!distribution.is_empty());
+
+    assert!(json.get("days_to_liquidate").is_none());
 }

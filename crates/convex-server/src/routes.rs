@@ -243,10 +243,6 @@ pub fn create_router_with_access_and_portfolios(
             post(handlers::calculate_liquidity_distribution),
         )
         .route(
-            "/api/v1/liquidity/days-to-liquidate",
-            post(handlers::calculate_days_to_liquidate),
-        )
-        .route(
             "/api/v1/liquidity/analysis",
             post(handlers::calculate_liquidity_analysis),
         )

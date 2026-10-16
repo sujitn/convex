@@ -40,6 +40,9 @@
 /// Bounded JSON parsing and numeric-token admission, shared by application adapters.
 pub mod json;
 
+/// Checked number-or-string Decimal admission for existing native wire inputs.
+pub mod numeric_decimal;
+
 mod identity;
 mod results;
 mod risk;

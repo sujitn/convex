@@ -16,7 +16,7 @@ export interface StreamedEtfQuote {
   holdingsCount: number;
   weightedDuration: number;
   weightedYield: number;
-  timestamp: string;
+  timestamp: number;
   // Change tracking
   inavChange?: number;
   premiumChange?: number;
@@ -33,7 +33,7 @@ interface EtfStreamState {
   sessionId: string | null;
   latency: number | null;
   tickCount: number;
-  lastUpdate: string | null;
+  lastUpdate: number | null;
 }
 
 // Hook options
@@ -70,7 +70,7 @@ export function useEtfStream(options: UseEtfStreamOptions = {}): UseEtfStreamRet
   const [etfs, setEtfs] = useState<Map<string, StreamedEtfQuote>>(new Map());
   const [isStreaming, setIsStreaming] = useState(false);
   const [tickCount, setTickCount] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   // Handle incoming ETF quote messages
   const handleMessage = useCallback((msg: WebSocketMessage) => {

@@ -36,6 +36,7 @@ pub use convex_bonds::contracts::{
 /// | "zero_coupon" | "sinking_fund", ... }`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BondSpec {
     FixedRate(FixedRateSpec),
     Callable(CallableSpec),
@@ -50,6 +51,7 @@ pub enum BondSpec {
 /// reference the same CUSIP don't evict each other. Falls back to
 /// cusip → isin → name when absent.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BondIdentifier {
     pub cusip: Option<String>,
     pub isin: Option<String>,
@@ -60,8 +62,14 @@ pub struct BondIdentifier {
 
 /// Fields shared across coupon-bearing bond shapes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CouponSpec {
     /// Annual coupon as decimal (0.05 = 5%).
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub coupon_rate: Decimal,
     #[serde(default)]
     pub frequency: Frequency,
@@ -73,6 +81,11 @@ pub struct CouponSpec {
     pub currency: Currency,
     /// Quoted unit, default 100.
     #[serde(default = "default_face")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub face_value: Decimal,
     #[serde(default = "default_bdc")]
     pub business_day_convention: BusinessDayConvention,
@@ -89,6 +102,8 @@ fn default_bdc() -> BusinessDayConvention {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(deny_unknown_fields))]
 pub struct FixedRateSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
@@ -102,6 +117,7 @@ pub struct FixedRateSpec {
 /// Exact R0 fixed-bond construction inputs. Every supplied field is consumed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct FixedRateTerms {
     pub dated_date: Date,
     pub first_coupon_date: Option<Date>,
@@ -109,12 +125,19 @@ pub struct FixedRateTerms {
     pub calendar: String,
     pub end_of_month: bool,
     pub settlement_days: u32,
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub redemption_value: Decimal,
     pub ex_coupon: Option<convex_core::cashflows::ExCouponRule>,
 }
 
 /// Price is % of par (102.0 = 102%).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CallEntrySpec {
     pub date: Date,
     pub price: f64,
@@ -124,6 +147,7 @@ pub struct CallEntrySpec {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CallStyle {
     #[default]
     American,
@@ -133,6 +157,8 @@ pub enum CallStyle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(deny_unknown_fields))]
 pub struct CallableSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
@@ -152,6 +178,7 @@ pub struct CallableSpec {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum RateIndexCode {
     #[default]
     Sofr,
@@ -166,10 +193,16 @@ pub enum RateIndexCode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct FloatingRateSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
     /// Spread over the index, in basis points.
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub spread_bps: Decimal,
     #[serde(default)]
     pub rate_index: RateIndexCode,
@@ -182,10 +215,25 @@ pub struct FloatingRateSpec {
     #[serde(default)]
     pub currency: Currency,
     #[serde(default = "default_face")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub face_value: Decimal,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
+    )]
     pub cap: Option<Decimal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
+    )]
     pub floor: Option<Decimal>,
 }
 
@@ -197,6 +245,7 @@ fn default_act_360() -> DayCountConvention {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ZeroCouponSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
@@ -209,9 +258,19 @@ pub struct ZeroCouponSpec {
     #[serde(default)]
     pub currency: Currency,
     #[serde(default = "default_face")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub face_value: Decimal,
     /// Actual final cash redemption; omission retains the v1 face-value default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
+    )]
     pub redemption_value: Option<Decimal>,
 }
 
@@ -220,12 +279,24 @@ fn default_act_act_icma() -> DayCountConvention {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SinkingFundPaymentSpec {
     pub date: Date,
     /// Notional retired on this date, % of original face.
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub amount: Decimal,
     /// Sink price as % of par, default 100.
     #[serde(default = "default_par_price")]
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub price: Decimal,
 }
 
@@ -234,6 +305,8 @@ fn default_par_price() -> Decimal {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(deny_unknown_fields))]
 pub struct SinkingFundSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
@@ -246,6 +319,7 @@ pub struct SinkingFundSpec {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum InterpolationMethodCode {
     #[default]
     Linear,
@@ -258,6 +332,7 @@ pub enum InterpolationMethodCode {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveValueKind {
     /// Continuously-compounded zero rates by default.
     #[default]
@@ -269,6 +344,7 @@ pub enum CurveValueKind {
 /// Tagged JSON: `{ "type": "discrete" | "bootstrap", ... }`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveSpec {
     Discrete(DiscreteCurveSpec),
     Bootstrap(BootstrapSpec),
@@ -277,6 +353,8 @@ pub enum CurveSpec {
 /// `tenors` and `values` are parallel arrays. `values` is interpreted per
 /// `value_kind` (zero rates as decimal, or discount factors).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct DiscreteCurveSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -306,6 +384,7 @@ fn default_continuous() -> Compounding {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BootstrapMethod {
     /// Levenberg-Marquardt across all instruments at once.
     #[default]
@@ -316,6 +395,8 @@ pub enum BootstrapMethod {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveInstrument {
     /// Tenor in years; rate as decimal (0.05 = 5%).
     Deposit {
@@ -337,6 +418,8 @@ pub enum CurveInstrument {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BootstrapSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -351,6 +434,18 @@ pub struct BootstrapSpec {
     pub interpolation: InterpolationMethodCode,
     #[serde(default = "default_act_360")]
     pub day_count: DayCountConvention,
+}
+
+/// Generate the structural bond-constructor schema from the actual input DTOs.
+#[cfg(feature = "schemars")]
+pub fn bond_spec_schema() -> serde_json::Value {
+    schemars::schema_for!(BondSpec).to_value()
+}
+
+/// Generate the structural curve-constructor schema from the actual input DTOs.
+#[cfg(feature = "schemars")]
+pub fn curve_spec_schema() -> serde_json::Value {
+    schemars::schema_for!(CurveSpec).to_value()
 }
 
 // ---- Pricing --------------------------------------------------------------
@@ -718,6 +813,7 @@ pub struct RiskProfileRequest {
     pub mark: MarkInput,
     /// Position face amount (e.g. 10000000 for $10mm). Per-100 metrics are
     /// scaled to market value by the analytics layer.
+    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
     pub notional_face: Decimal,
     /// Discount curve handle (required).
     pub curve: Handle,

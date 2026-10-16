@@ -282,7 +282,6 @@ fn requirement(
         | "/api/v1/benchmark/attribution"
         | "/api/v1/liquidity/metrics"
         | "/api/v1/liquidity/distribution"
-        | "/api/v1/liquidity/days-to-liquidate"
         | "/api/v1/liquidity/analysis"
         | "/api/v1/credit/quality"
         | "/api/v1/credit/migration-risk"

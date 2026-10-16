@@ -1,5 +1,43 @@
 # Removed government spread conveniences
 
+## Checked constructors and removed inferred liquidation estimates
+
+C bond/curve constructors use the shared bounded JSON parser. Raw nonzero
+numbers cannot underflow silently to zero. Decimal fields use one checked
+number-or-string decoder, including optional cap, floor and redemption inputs;
+rounding, overflow and nonzero Decimal erasure fail. Numeric inputs keep their
+binary64 wire interpretation. Use exact decimal strings when every original
+decimal digit matters. Existing serialization and admitted defaults remain.
+
+Unsupported fields fail for the selected constructor, including fields supplied
+as `null`. Fixed, callable, floating, zero and sinking bonds cannot silently
+consume another shape's payoff or reset terms. Curves cannot silently discard
+supplied provider or projection context. `BondSpec` and `CurveSpec` schemas now
+come from their native DTOs. The schemas describe structure; checked ingress and
+construction still enforce work, representation and economic invariants. Other
+curated RPC schema descriptors retain their separate migration requirements.
+
+The native `estimate_days_to_liquidate` function, `DaysToLiquidate` type and
+`POST /api/v1/liquidity/days-to-liquidate` route are removed. A liquidity score
+does not supply daily trading volume. The old calculation also returned negative
+days for shorts and zero gross execution work for offsetting positions. No
+replacement estimate is implied. Execution-capacity work needs actual supplied
+volume, units, dates, source lineage and explicit execution assumptions.
+
+`POST /api/v1/liquidity/analysis` returns supplied descriptive metrics and bucket
+distribution. It has no `days_to_liquidate` field. Its retired
+`max_participation_rate` input produces a structured 422 `INVALID_PORTFOLIO_INPUT`
+response. Remove that parameter when requesting descriptive analysis; callers
+needing execution estimates must treat that capability as unavailable.
+The removed route remains absent from routing and authorization registration.
+
+The unused demo `types/api.ts` file is removed. `PortfolioAnalyticsMessage`
+matches the actual flattened portfolio WebSocket payload: monetary and Decimal
+risk values are strings; factor availability remains nullable; settlement,
+coverage and the source timestamp are retained. Native integer timestamps stay
+numeric through stream state. These changes do not certify the remaining bond,
+ETF, transport or execution client contracts.
+
 Complete contextual fixed workout paths use strict shared `icma_workout`; see
 [the contract](ICMA-WORKOUTS.md). Explicit single-path `icma_quotation` and
 context-free dated `workout` remain valid distinct owners. Missing ICMA reference

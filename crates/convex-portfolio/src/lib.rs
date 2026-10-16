@@ -130,7 +130,6 @@ pub use analytics::{
     calculate_yield_metrics,
     cs01_per_share,
     dv01_per_share,
-    estimate_days_to_liquidate,
     liquidity_distribution,
     // Parallel utilities
     maybe_parallel_filter_map,
@@ -160,7 +159,6 @@ pub use analytics::{
     weighted_ytw,
     weighted_z_spread,
     CreditQualityMetrics,
-    DaysToLiquidate,
     FallenAngelRisk,
     KeyRateExposure,
     KeyRateExposurePoint,

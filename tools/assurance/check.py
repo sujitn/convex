@@ -31,6 +31,11 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-core --test numeric_decimal',
+        'cargo test --locked -p convex-core --test numeric_decimal --no-default-features',
+        'cargo test --locked -p convex-core --test numeric_decimal --features schemars',
+        'cargo test --locked -p convex-ffi --test constructor_inputs',
+        'cargo test --locked -p convex-server --test retired_liquidity_route',
         'cargo test --locked -p convex-analytics --test coupon_parameter_hedges',
         'cargo test --locked -p convex --test coupon_parameter_hedges',
         'cargo run --locked -p convex --example coupon_parameter_hedges',
@@ -991,6 +996,15 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-math/src/decimal.rs')
     paths.add('crates/convex-portfolio/src/analytics/metrics.rs')
     paths.add('crates/convex-portfolio/src/types/config.rs')
+    paths.add('crates/convex-analytics/src/dto.rs')
+    paths.add('crates/convex-core/src/contracts/numeric_decimal.rs')
+    paths.add('crates/convex-ffi/src/ingress.rs')
+    paths.add('crates/convex-ffi/src/schemas.rs')
+    paths.add('crates/convex-portfolio/src/lib.rs')
+    paths.add('demo/frontend/src/hooks/index.ts')
+    paths.add('demo/frontend/src/hooks/useBondQuoteStream.ts')
+    paths.add('demo/frontend/src/hooks/useEtfStream.ts')
+    paths.add('demo/frontend/src/hooks/useWebSocket.ts')
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

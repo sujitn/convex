@@ -18,7 +18,7 @@ export interface StreamedQuote {
   zSpread?: number;
   iSpread?: number;
   dv01?: number;
-  timestamp: string;
+  timestamp: number;
   // Change tracking
   priceChange?: number;
   yieldChange?: number;
@@ -35,7 +35,7 @@ interface QuoteStreamState {
   sessionId: string | null;
   latency: number | null;
   tickCount: number;
-  lastUpdate: string | null;
+  lastUpdate: number | null;
 }
 
 // Hook options
@@ -75,7 +75,7 @@ export function useBondQuoteStream(
   const [quotes, setQuotes] = useState<Map<string, StreamedQuote>>(new Map());
   const [isStreaming, setIsStreaming] = useState(false);
   const [tickCount, setTickCount] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
   // Handle incoming quote messages
   const handleMessage = useCallback((msg: WebSocketMessage) => {
