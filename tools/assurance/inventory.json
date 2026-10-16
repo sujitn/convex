@@ -4525,14 +4525,16 @@
     },
     {
       "path": "crates/convex-analytics/src/yas/calculator.rs",
-      "sha256": "826ab1598b8ceaf65455d3e4042d082ac862fe3080a67d49756279d929861e79",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics.",
+      "sha256": "06455f55d4173aa786c163e61fea33b714ecd6f076b440b22df1129458de75c0",
+      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Canonical YAS quotation continuation: Repair the actually reproduced native/C YAS yield mismatch by delegating yield, Macaulay/modified duration, convexity and per100DV01 to existing canonical BondAnalytics/functions owners on the same original dated cash and configured quote frequency. Admit only periodic Frequency values1/2/4/12, reject other raw counts before callbacks; default2 and original solver settings stay. Checked cash/accrued/dirty and finite representable measures replace panics/default scalars. Position DV01 reuses checked invoice per100 arithmetic. Independent Decimal90full20cash coupons/principal, three dated laws, four quote frequencies, three prices and two face values give72predeclared references. Yield1e-11/price1e-10 bounds stay; new risk1e-8/DV011e-10 bounds are scoped engineering controls. All1878original numeric pins/bytes/defaults/expectations/bounds and protected tests remain exact; two additive pins give1880. All8549complete shared inputs/envelopes stay. Other YAS current/simple yields, government/benchmark proxy fields, local Z/ASW algorithms and batch cardinality retain required following native owners; no certification of those measures. Preserve30areas174combinations2154Planned80shared12native228mapped1926unmapped, all original native/model/claim/physical/causal/CTD/cash requirements and every sealed packet. Exact pending five spread-mock and12Date-test approvals stay unapplied. Only unavailable actual platform execution defers; user has no Windows/Excel or independently approved packs. No dependency/provider/DB/MQ/Cexport/authority, native waiver, acceptance or certificate.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
-      "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
+      "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute. Checked native cash/accrual/yield/risk and representable Decimal errors propagate; unsupported raw quote frequencies fail before callbacks.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
-        "tests/scripts/portable_math_reference.py"
+        "tests/scripts/portable_math_reference.py",
+        "crates/convex-analytics/tests/yas_quote_owner.rs",
+        "crates/convex-analytics/tests/fixtures/yas-quote-owner.json"
       ],
       "exceptions": []
     },

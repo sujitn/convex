@@ -16,10 +16,11 @@
 //! | Mod Duration    | 4.209     | +/-0.001         |
 //! | Convexity       | 0.219     | +/-0.001         |
 
-use super::invoice::SettlementInvoice;
+use super::invoice::{calculate_proceeds, SettlementInvoice};
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::risk::{BondRiskCalculator, BondRiskMetrics};
-use crate::yields::{current_yield_from_amount, simple_yield, street_convention_yield};
+use crate::functions;
+use crate::risk::{convexity::Convexity, duration::Duration, BondRiskMetrics, DV01};
+use crate::yields::{current_yield_from_amount, simple_yield};
 use convex_math::portable;
 
 use convex_math::solvers::{brent, SolverConfig};
@@ -28,7 +29,7 @@ use rust_decimal::prelude::ToPrimitive;
 use chrono::NaiveDate;
 use convex_bonds::prelude::Bond;
 use convex_bonds::traits::BondCashFlow;
-use convex_core::types::{Date, Spread, SpreadType};
+use convex_core::types::{Date, Frequency, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -68,7 +69,7 @@ pub struct YASResult {
     pub oas: Option<Spread>,
 
     // ===== Risk Metrics =====
-    /// Complete risk metrics from BondRiskCalculator
+    /// Quoted-yield risk from the same dated bond owner and quote frequency as YTM.
     pub risk: BondRiskMetrics,
 
     // ===== Settlement Invoice =====
@@ -518,35 +519,58 @@ impl<'a> YASCalculator<'a> {
     ) -> AnalyticsResult<YASResult> {
         let settlement_date: Date = settlement.into();
         let bond_frequency = bond.frequency().periods_per_year();
+        let quote_frequency = match self.frequency {
+            1 => Frequency::Annual,
+            2 => Frequency::SemiAnnual,
+            4 => Frequency::Quarterly,
+            12 => Frequency::Monthly,
+            _ => {
+                return Err(AnalyticsError::InvalidInput(
+                    "YAS quote frequency must be 1, 2, 4 or 12".into(),
+                ));
+            }
+        };
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity".into()))?;
+        if settlement_date < bond.issue_date() || settlement_date >= maturity {
+            return Err(AnalyticsError::InvalidSettlement {
+                settlement: settlement_date.to_string(),
+                maturity: maturity.to_string(),
+            });
+        }
 
-        let cash_flows = bond.cash_flows(settlement_date);
+        let cash_flows = bond.try_cash_flows(settlement_date)?;
         if cash_flows.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "bond has no cash flows".to_string(),
             ));
         }
 
-        let accrued_decimal = bond.accrued_interest(settlement_date);
-        let dirty_price = clean_price + accrued_decimal;
+        let accrued_decimal = bond.try_accrued_interest(settlement_date)?;
+        let dirty_price = clean_price
+            .checked_add(accrued_decimal)
+            .ok_or_else(|| AnalyticsError::InvalidInput("dirty price overflow".into()))?;
         let dirty_price_f64 = dirty_price
             .to_string()
             .parse::<f64>()
             .map_err(|_| AnalyticsError::InvalidInput("invalid dirty price".to_string()))?;
 
         let mut times: Vec<f64> = Vec::new();
-        let mut cf_values: Vec<f64> = Vec::new();
 
         for cf in &cash_flows {
             let t = settlement_date.days_between(&cf.date) as f64 / 365.25;
             if t > 0.0 {
                 times.push(t);
-                cf_values.push(cf.amount.to_string().parse::<f64>().unwrap_or(0.0));
             }
         }
 
-        let ytm_decimal =
-            street_convention_yield(dirty_price_f64, &cf_values, &times, bond_frequency, 0.05)?;
-        let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
+        let ytm_f64 =
+            functions::yield_to_maturity(bond, settlement_date, clean_price, quote_frequency)?
+                .yield_value;
+        let ytm = checked_decimal(ytm_f64)?
+            .checked_mul(Decimal::ONE_HUNDRED)
+            .ok_or_else(|| AnalyticsError::InvalidInput("YTM percent overflow".into()))?;
 
         use convex_bonds::traits::CashFlowType;
 
@@ -612,22 +636,40 @@ impl<'a> YASCalculator<'a> {
             .calculate_asw_spread(dirty_price, settlement_date, maturity_date)
             .ok();
 
-        let ytm_f64 = ytm
-            .to_string()
-            .parse::<f64>()
-            .map_err(|_| AnalyticsError::InvalidInput("invalid ytm".to_string()))?
-            / 100.0;
-
-        let risk = BondRiskCalculator::from_bond(
+        let macaulay = checked_decimal(functions::macaulay_duration(
             bond,
             settlement_date,
-            dirty_price_f64,
             ytm_f64,
-            convex_core::types::Compounding::from_periods_per_year(bond_frequency),
-        )
-        .map_err(|e| AnalyticsError::InvalidInput(format!("risk calculator: {e}")))?
-        .all_metrics()
-        .map_err(|e| AnalyticsError::InvalidInput(format!("risk metrics: {e}")))?;
+            quote_frequency,
+        )?)?;
+        let modified = checked_decimal(functions::modified_duration(
+            bond,
+            settlement_date,
+            ytm_f64,
+            quote_frequency,
+        )?)?;
+        let convexity = checked_decimal(functions::convexity(
+            bond,
+            settlement_date,
+            ytm_f64,
+            quote_frequency,
+        )?)?;
+        let dv01_per_100 = checked_decimal(functions::dv01(
+            bond,
+            settlement_date,
+            ytm_f64,
+            dirty_price_f64,
+            quote_frequency,
+        )?)?;
+        let dv01 = calculate_proceeds(bond.face_value(), dv01_per_100, Decimal::ZERO)
+            .map_err(|error| AnalyticsError::CalculationFailed(error.to_string()))?;
+        let risk = BondRiskMetrics {
+            macaulay_duration: Duration::new(macaulay),
+            modified_duration: Duration::new(modified),
+            convexity: Convexity::new(convexity),
+            dv01_per_100: DV01::new(dv01_per_100),
+            dv01: DV01::new(dv01),
+        };
 
         let face_value = bond.face_value();
         let accrued_days = self.calculate_accrued_days(&cash_flows, settlement_date);
@@ -791,6 +833,18 @@ impl<'a> YASCalculator<'a> {
 
         0
     }
+}
+
+fn checked_decimal(value: f64) -> AnalyticsResult<Decimal> {
+    let decimal = Decimal::from_f64_retain(value).ok_or_else(|| {
+        AnalyticsError::CalculationFailed("unrepresentable YAS yield/risk measure".into())
+    })?;
+    if value != 0.0 && decimal.is_zero() {
+        return Err(AnalyticsError::CalculationFailed(
+            "YAS yield/risk measure underflow".into(),
+        ));
+    }
+    Ok(decimal)
 }
 
 /// Batch YAS Calculator for parallel processing of multiple bonds.

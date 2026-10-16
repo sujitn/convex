@@ -648,3 +648,18 @@ and the existing checked discount-time owner with an explicit convention/context
 no ACT/365 proxy is inferred. `ZeroCouponBond` retains its separate checked
 instrument timing method. Full dated security quotation/invoice, lifecycle,
 ownership, actual receipts and cash posting remain their existing owners.
+
+## Native YAS quoted yield and risk
+
+`YASCalculator::analyze` uses the existing canonical bond yield and risk owners,
+including the original dated day count, coupon/principal normalization and the
+configured periodic quote frequency. Supported counts are 1, 2, 4 and 12; other
+counts return an error. The default remains semiannual. Yield is reported in
+percent, duration in years, convexity in years squared and DV01 per 100 or actual
+face. Checked native cash/accrual failures and unrepresentable measures propagate.
+
+This correction is scoped to quoted yield and its risk. Remaining current/simple
+yield, government/benchmark proxies, Z/ASW and batch cardinality work retains its
+native owner. Those diagnostics require separate qualification. Full supplied
+security/curve/model routes remain documented above; no vendor equivalence or
+market/model/production certificate is implied.
