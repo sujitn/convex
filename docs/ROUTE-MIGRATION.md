@@ -785,3 +785,25 @@ the supplied parsed value and cannot recover a discarded original token. Keep
 raw admission and typed Decimal admission separate. The supplied library and
 key-rate REST paths already share that bounded raw owner. V1 and other
 remaining decode/valuation/risk routes keep their explicit owning work.
+
+## Incomplete REST stress routes removed
+
+The `/api/v1/stress/test`, `/api/v1/stress/standard`, `/api/v1/stress/single` and
+`/api/v1/stress/scenarios` routes are removed. Their request contracts could not
+supply the required valuation context, compatible risk family, exact factor
+coverage or foreign FX observations. Their converter used a hardcoded date and
+could substitute prices, double count accrued interest or drop positions.
+There is no calculation alias or fallback behind these paths.
+
+Use the complete supplied-input library mixed-book scenario operations for full
+model revaluation and attribution, including delivery baskets and CTD switches.
+Direct Rust consumers can use the checked supplied-Holding Taylor estimate in
+`convex_portfolio::stress` with an explicit `StressPolicy`. It is not a full model
+scenario or realized P&L. A future transport must carry that complete declaration
+and delegate to the same native owner.
+
+The portfolio demo now displays its supplied sample positions and explicitly
+face-based allocations. It does not invent market value, risk or scenario P&L.
+The unrelated incomplete portfolio aggregate/quote conversion and remaining
+provider integrations still require their own production-readiness work; removing
+these stress paths does not qualify them.

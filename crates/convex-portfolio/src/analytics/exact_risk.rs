@@ -1,19 +1,21 @@
 //! Bounded exact arithmetic for supplied Holding factor risk.
 //!
-//! Four Decimal factors and the price/basis-point divisions need at most
-//! 118 decimal places. A fixed scale of 120 retains every supplied digit.
-//! At the public one-million-row work bound, coefficients stay below 1024 bits.
+//! Six Decimal factors plus price/basis-point divisions and one half need at most
+//! 179 decimal places. A fixed scale of 184 retains every supplied digit.
+//! At the one-million-row work bound, the coefficients stay below 1230 bits;
+//! an explicit 1536-bit ceiling bounds all exact states. Existing key-rate
+//! output rounding and all 105 reference books remain unchanged.
 //! Only final reported Decimal outputs use nearest/even rounding.
 
 use crate::{PortfolioError, PortfolioResult};
 use num_bigint::{BigInt, Sign};
 use rust_decimal::Decimal;
 
-const SCALE: u32 = 120;
-const MAX_BITS: u64 = 1024;
+const SCALE: u32 = 184;
+const MAX_BITS: u64 = 1536;
 
 fn error() -> PortfolioError {
-    PortfolioError::invalid_portfolio("key-rate arithmetic exceeds the admitted Decimal range")
+    PortfolioError::invalid_portfolio("supplied risk arithmetic exceeds the admitted Decimal range")
 }
 
 fn power(exponent: u32) -> BigInt {
@@ -22,14 +24,14 @@ fn power(exponent: u32) -> BigInt {
 
 /// Private bounded exact value; callers enforce holding/factor/work limits.
 #[derive(Clone)]
-pub(super) struct ExactRisk(BigInt);
+pub(crate) struct ExactRisk(BigInt);
 
 impl ExactRisk {
-    pub(super) fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self(BigInt::from(0))
     }
 
-    pub(super) fn decimal(value: Decimal) -> Self {
+    pub(crate) fn decimal(value: Decimal) -> Self {
         Self(BigInt::from(value.mantissa()) * power(SCALE - value.scale()))
     }
 
@@ -40,20 +42,20 @@ impl ExactRisk {
         Ok(Self(coefficient))
     }
 
-    pub(super) fn is_zero(&self) -> bool {
+    pub(crate) fn is_zero(&self) -> bool {
         self.0.sign() == Sign::NoSign
     }
 
-    pub(super) fn is_negative(&self) -> bool {
+    pub(crate) fn is_negative(&self) -> bool {
         self.0.sign() == Sign::Minus
     }
 
-    pub(super) fn add(&mut self, value: &Self) -> PortfolioResult<()> {
+    pub(crate) fn add(&mut self, value: &Self) -> PortfolioResult<()> {
         *self = Self::checked(&self.0 + &value.0)?;
         Ok(())
     }
 
-    pub(super) fn multiply(&self, value: Decimal) -> PortfolioResult<Self> {
+    pub(crate) fn multiply(&self, value: Decimal) -> PortfolioResult<Self> {
         let coefficient = &self.0 * BigInt::from(value.mantissa());
         let divisor = power(value.scale());
         if &coefficient % &divisor != BigInt::from(0) {
@@ -62,8 +64,8 @@ impl ExactRisk {
         Self::checked(coefficient / divisor)
     }
 
-    pub(super) fn divide_power_of_ten(&self, exponent: u32) -> PortfolioResult<Self> {
-        if exponent > 6 {
+    pub(crate) fn divide_power_of_ten(&self, exponent: u32) -> PortfolioResult<Self> {
+        if exponent > 8 {
             return Err(error());
         }
         let divisor = power(exponent);
@@ -73,11 +75,11 @@ impl ExactRisk {
         Self::checked(&self.0 / divisor)
     }
 
-    pub(super) fn finish(&self) -> PortfolioResult<Decimal> {
+    pub(crate) fn finish(&self) -> PortfolioResult<Decimal> {
         Self::finish_ratio(&self.0, &power(SCALE))
     }
 
-    pub(super) fn ratio(&self, denominator: &Self) -> PortfolioResult<Decimal> {
+    pub(crate) fn ratio(&self, denominator: &Self) -> PortfolioResult<Decimal> {
         Self::finish_ratio(&self.0, &denominator.0)
     }
 

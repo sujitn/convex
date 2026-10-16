@@ -523,6 +523,18 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify holding-stress-default
+        run: cargo test --locked -p convex-portfolio --test holding_stress
+
+      - name: Qualify holding-stress-no-default
+        run: cargo test --locked -p convex-portfolio --test holding_stress --no-default-features
+
+      - name: Qualify holding-stress-schema
+        run: cargo test --locked -p convex-portfolio --test holding_stress --features schemars
+
+      - name: Reject retired incomplete stress routes
+        run: cargo test --locked -p convex-server --test retired_stress_routes
+
       - name: Qualify stable-risk-sums-default
         run: cargo test --locked -p convex-portfolio --test stable_risk_sums
 

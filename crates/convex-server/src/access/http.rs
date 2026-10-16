@@ -261,10 +261,6 @@ fn requirement(
             req.data = vec![D::Books];
             req.body_required = !read && method != Method::DELETE;
         }
-        "/api/v1/stress/scenarios" => {
-            req.action = ResultRead;
-            req.data = vec![D::Results];
-        }
         "/api/v1/etf/inav"
         | "/api/v1/etf/inav/batch"
         | "/api/v1/etf/sec-yield"
@@ -280,9 +276,6 @@ fn requirement(
         | "/api/v1/portfolio/buckets/maturity"
         | "/api/v1/portfolio/buckets/custom"
         | "/api/v1/portfolio/buckets"
-        | "/api/v1/stress/test"
-        | "/api/v1/stress/standard"
-        | "/api/v1/stress/single"
         | "/api/v1/benchmark/compare"
         | "/api/v1/benchmark/active-weights"
         | "/api/v1/benchmark/tracking-error"

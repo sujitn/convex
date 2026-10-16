@@ -9,6 +9,10 @@ use convex_portfolio::types::{Classification, RatingInfo, SectorInfo};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 
+#[path = "test_support/stress.rs"]
+mod stress_adapter;
+use stress_adapter::parallel_shift_impact;
+
 // =============================================================================
 // TEST FIXTURES
 // =============================================================================
@@ -548,32 +552,40 @@ fn test_parallel_rate_shift() {
 #[test]
 fn test_spread_shock() {
     let portfolio = create_corporate_portfolio();
-    let config = AnalyticsConfig::default();
-
-    // +50bp spread widening
-    let impact = convex_portfolio::stress::spread_shock_impact(&portfolio.holdings, 50.0, &config);
-
-    // Impact should be negative (spreads widen = prices down)
-    assert!(impact.is_some());
-    let pnl_pct = impact.unwrap();
-    assert!(pnl_pct < 0.0, "Spread widening should hurt: {}", pnl_pct);
+    // Preserve the original positions and +50bp shock. No actual spread
+    // duration is supplied, so rate duration cannot produce a spread result.
+    let scenario = convex_portfolio::StressScenario::new("original spread shock")
+        .with_spread_scenario(convex_portfolio::SpreadScenario::uniform(50.0));
+    let error =
+        convex_portfolio::run_stress_scenario(&portfolio, &scenario, &stress_adapter::policy())
+            .unwrap_err();
+    assert_eq!(error.code, convex_portfolio::StressErrorCode::Missing);
 }
 
 #[test]
 fn test_stress_scenarios() {
     let portfolio = create_corporate_portfolio();
-    let config = AnalyticsConfig::default();
 
     let scenarios = convex_portfolio::stress_scenarios::all();
-    let results = convex_portfolio::stress::run_stress_scenarios(&portfolio, &scenarios, &config);
+    let results = convex_portfolio::stress::run_stress_scenarios(
+        &portfolio,
+        &scenarios,
+        &stress_adapter::policy(),
+    )
+    .unwrap();
 
     // Should have results for each scenario
     assert_eq!(results.len(), scenarios.len());
 
     // Find worst case
-    let worst = convex_portfolio::stress::worst_case(&results);
+    let worst = convex_portfolio::stress::summarize_results(&results)
+        .unwrap()
+        .worst;
     assert!(worst.is_some());
-    assert!(worst.unwrap().pnl < 0.0, "Worst case should be negative");
+    assert!(
+        worst.unwrap().pnl < Decimal::ZERO,
+        "Worst case should be negative"
+    );
 }
 
 // =============================================================================

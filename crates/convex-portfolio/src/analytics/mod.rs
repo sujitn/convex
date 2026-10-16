@@ -12,7 +12,7 @@
 //! and return computed results. No caching, no I/O, no side effects.
 
 mod credit;
-mod exact_risk;
+pub(crate) mod exact_risk;
 mod key_rates;
 mod liquidity;
 mod nav;

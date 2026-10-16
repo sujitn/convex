@@ -13,6 +13,10 @@ use convex_portfolio::types::{Classification, RatingInfo, SectorInfo};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 
+#[path = "test_support/stress.rs"]
+mod stress_adapter;
+use stress_adapter::parallel_shift_impact;
+
 // =============================================================================
 // TEST DATA GENERATORS
 // =============================================================================
@@ -406,8 +410,7 @@ fn property_rate_increase_hurts() {
         let portfolio = generate_portfolio(20, seed);
 
         // +100bp parallel shift
-        let impact =
-            convex_portfolio::stress::parallel_shift_impact(&portfolio.holdings, 100.0, &config);
+        let impact = parallel_shift_impact(&portfolio.holdings, 100.0, &config);
 
         // Duration > 0, so rising rates should hurt
         if let Some(total_pnl) = impact {
@@ -429,8 +432,7 @@ fn property_rate_decrease_helps() {
         let portfolio = generate_portfolio(20, seed);
 
         // -100bp parallel shift
-        let impact =
-            convex_portfolio::stress::parallel_shift_impact(&portfolio.holdings, -100.0, &config);
+        let impact = parallel_shift_impact(&portfolio.holdings, -100.0, &config);
 
         // Duration > 0, so falling rates should help
         if let Some(total_pnl) = impact {
@@ -446,24 +448,16 @@ fn property_rate_decrease_helps() {
 
 #[test]
 fn property_spread_widening_hurts_credit() {
-    let config = AnalyticsConfig::default();
-
     for seed in 0..10 {
         let portfolio = generate_portfolio(20, seed);
-
-        // +50bp spread widening
-        let impact =
-            convex_portfolio::stress::spread_shock_impact(&portfolio.holdings, 50.0, &config);
-
-        // Spread widening should hurt (assuming spread duration > 0)
-        if let Some(total_pnl) = impact {
-            assert!(
-                total_pnl <= 0.0,
-                "Spread widening should cause negative P&L: {} for seed={}",
-                total_pnl,
-                seed
-            );
-        }
+        // All original generated positions and +50bp moves remain. These
+        // fixtures do not supply spread risk, which must remain unavailable.
+        let scenario = convex_portfolio::StressScenario::new("original spread shock")
+            .with_spread_scenario(convex_portfolio::SpreadScenario::uniform(50.0));
+        let error =
+            convex_portfolio::run_stress_scenario(&portfolio, &scenario, &stress_adapter::policy())
+                .unwrap_err();
+        assert_eq!(error.code, convex_portfolio::StressErrorCode::Missing);
     }
 }
 

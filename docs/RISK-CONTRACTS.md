@@ -140,3 +140,63 @@ still identify a common base currency and consistent price/risk convention.
 This repairs supplied Holding factor accumulation. Broader stress, scenario,
 interpolation, portfolio measures and production/latency qualification require
 their own complete contracts and executed checks.
+
+## Supplied Holding stress estimates
+
+`convex_portfolio::stress::run_stress_scenario` returns a checked, instantaneous
+Taylor estimate for supplied bond holdings. It is separate from the full model
+mixed-book scenario and causal P&L APIs. The caller supplies the actual valuation
+date, reporting currency, positions, compatible sensitivities and explicit FX.
+No market data, clock, database or provider is accessed by this calculation.
+
+`StressPolicy` declares modified-yield, matched effective-curve or key-rate risk,
+and first or second order. A modified-yield move applies to each holding's own
+supplied yield sensitivity; it is not an inferred common curve move. Effective
+risk requires its matching effective duration and convexity. Second-order scalar
+rate estimates require an explicitly supplied convexity, including an actual
+zero. Spread estimates require spread duration. No family or missing-convexity
+fallback is made. Rate and spread components are additive; cross terms are not
+included. Use the full supplied model scenario when a complete revaluation,
+quote recalibration, optionality, CTD switch or cross-factor interaction is needed.
+
+Currency contributions use signed par times `(clean + accrued) / 100` times the
+actual direct FX conversion. Presentation weights do not enter this API. Cash
+and base-currency liabilities remain unchanged by these instantaneous bond
+shocks. A foreign position or cash row requires one matching positive, direct,
+same-date reporting FX pin. Base-currency rows require unit FX. Missing quotes,
+classification shifts, risk or exact requested factors cannot become successful
+zero amounts. A zero scalar shock can have an exact zero effect without a
+sensitivity; all requested key-rate factors still require explicit coverage.
+
+Discrete shifts use exact tenor identity. Linear interpolation has a separate
+explicit API and rejects extrapolation. Pivot shapes declare their 0/30-year
+endpoints and zero pivot; they reject out-of-range queries. The 2s10s constructors
+now place the supplied shifts at 2 and 10 years, with a zero at 5 years. Key-rate
+estimates are first order; second-order requests require a full cross-gamma model
+and return `Unsupported` here. Invalid, missing, unsupported and arithmetic
+failures remain distinct.
+
+The private exact accumulator retains six Decimal factors, the half coefficient
+and price/basis-point scaling before final reporting. Fixed scale 184 covers the
+179 required places, and a 1,536-bit ceiling exceeds the admitted coefficient
+bound of 1,230 bits. Existing key-rate rounding is unchanged: nearest/even at the
+greatest representable scale up to 28, with errors on nonzero underflow or range
+excess. Admission bounds positions, factors, scenarios and complete requested and
+supplied factor work before calculation. No dependency or solver default changes.
+
+`StressResult` reports exact-string Decimal currency components and an optional
+percentage. Percentage is undefined at zero initial NAV. Batch outcomes retain
+unavailable scenarios and their original errors. Summaries count attempted,
+available, unavailable and percentage-defined outcomes, and average only the
+appropriate available values in the same book, date, currency and policy.
+Native outcomes retain one shared exact economic context per batch, including
+signed positions, clean/accrued/FX amounts, risk, classifications, cash, liabilities
+and the complete policy. Summaries reject mismatched original contexts, including
+unavailable outcomes. Equal book IDs or NAVs alone cannot establish identity.
+Results serialize the actual factor and FX policy without serializing the book.
+
+Holding exposure/profile Duration and monetary fields also serialize through the
+existing exact-string core owner. This avoids the workspace's default
+`serde-float` precision loss on these outputs. Tenors and the explicitly declared
+profile-total presentation retain their binary64 types. Global Duration
+serialization and existing shared request/envelope contracts are unchanged.

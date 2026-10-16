@@ -203,19 +203,22 @@ pub use bucketing::{
 // Re-export stress testing types and functions
 pub use stress::{
     // Impact calculations
-    best_case,
-    key_rate_shift_impact,
-    parallel_shift_impact,
     run_stress_scenario,
     run_stress_scenarios,
-    spread_shock_impact,
     // Standard scenarios
     standard as stress_scenarios,
     summarize_results,
-    worst_case,
     // Scenarios
     RateScenario,
     SpreadScenario,
+    StressCalculation,
+    StressError,
+    StressErrorCode,
+    StressFxPin,
+    StressOrder,
+    StressOutcome,
+    StressPolicy,
+    StressRateBasis,
     StressResult,
     StressScenario,
     StressSummary,
@@ -342,8 +345,9 @@ pub mod prelude {
 
     // Stress testing
     pub use crate::stress::{
-        parallel_shift_impact, run_stress_scenario, run_stress_scenarios, spread_shock_impact,
-        RateScenario, SpreadScenario, StressResult, StressScenario, StressSummary,
+        run_stress_scenario, run_stress_scenarios, RateScenario, SpreadScenario, StressCalculation,
+        StressError, StressErrorCode, StressFxPin, StressOrder, StressOutcome, StressPolicy,
+        StressRateBasis, StressResult, StressScenario, StressSummary,
     };
 
     // Contribution analysis

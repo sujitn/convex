@@ -16,10 +16,41 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+fn serialize_optional_duration<S: serde::Serializer>(
+    value: &Option<Duration>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use convex_core::contracts::ExactDecimal;
+    value
+        .map(|d| ExactDecimal::new(d.years()))
+        .serialize(serializer)
+}
+fn serialize_key_rate_durations<S: serde::Serializer>(
+    rows: &[KeyRateDuration],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use convex_core::contracts::ExactDecimal;
+    use serde::ser::SerializeSeq;
+    #[derive(Serialize)]
+    struct Point {
+        tenor: f64,
+        duration: ExactDecimal,
+    }
+    let mut sequence = serializer.serialize_seq(Some(rows.len()))?;
+    for row in rows {
+        sequence.serialize_element(&Point {
+            tenor: row.tenor,
+            duration: ExactDecimal::new(row.duration.years()),
+        })?;
+    }
+    sequence.end()
+}
+
 /// Aggregated key rate duration profile for a portfolio.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyRateProfile {
     /// Key rate durations at each tenor point.
+    #[serde(serialize_with = "serialize_key_rate_durations")]
     pub durations: Vec<KeyRateDuration>,
 
     /// Sum of known weighted factors; missing requested factors are not inferred.
@@ -123,11 +154,14 @@ pub struct KeyRateExposurePoint {
     /// Exact supplied tenor, in years.
     pub tenor: f64,
     /// Known holding-weighted ratio; unavailable if no covered weight exists.
+    #[serde(serialize_with = "serialize_optional_duration")]
     pub duration: Option<Duration>,
     /// Known common-base currency loss for an upward one-basis-point move.
     /// Missing holdings are excluded, and never assumed to have zero risk.
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
     pub known_partial_dv01: Option<Decimal>,
     /// Actual market value of only holdings that declare this factor.
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub covered_market_value: Decimal,
     /// Number of holdings that explicitly declare this factor, including zeros.
     pub covered_holdings: usize,

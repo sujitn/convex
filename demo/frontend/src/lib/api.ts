@@ -1,8 +1,8 @@
 // Convex API Client
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
-const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || 'https://convex-demo-data.sujitnair.workers.dev';
-const QUOTE_PROVIDER_BASE = import.meta.env.VITE_QUOTE_PROVIDER_URL || 'https://convex-quote-provider.sujitnair.workers.dev';
+const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || API_BASE;
+const QUOTE_PROVIDER_BASE = import.meta.env.VITE_QUOTE_PROVIDER_URL || API_BASE;
 
 class ConvexApiError extends Error {
   constructor(
@@ -425,55 +425,6 @@ export interface PortfolioInput {
   positions: PositionInput[];
 }
 
-// Portfolio analytics request
-export interface PortfolioAnalyticsRequest {
-  portfolio: PortfolioInput;
-  bond_prices: BondQuoteResponse[];
-}
-
-// Portfolio analytics output
-export interface PortfolioAnalyticsOutput {
-  portfolio_id: string;
-  name: string;
-  currency: string;
-  as_of_date: string;
-  // Summary metrics
-  total_market_value: number;
-  total_par_value: number;
-  holdings_count: number;
-  // Duration metrics
-  modified_duration: number;
-  effective_duration?: number;
-  macaulay_duration?: number;
-  spread_duration?: number;
-  // Yield and spread
-  weighted_yield: number;
-  weighted_spread?: number;
-  weighted_oas?: number;
-  // Risk metrics
-  dv01: number;
-  convexity: number;
-  cs01?: number;
-  // Credit quality
-  weighted_rating?: string;
-  investment_grade_pct?: number;
-  // Sector breakdown
-  sector_weights?: Record<string, number>;
-  rating_weights?: Record<string, number>;
-  // Timestamp
-  timestamp: number;
-}
-
-// Calculate portfolio analytics
-export async function calculatePortfolioAnalytics(
-  request: PortfolioAnalyticsRequest
-): Promise<PortfolioAnalyticsOutput> {
-  return fetchJson<PortfolioAnalyticsOutput>('/api/v1/portfolio/analytics', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
 // =============================================================================
 // KEY RATE DURATION
 // =============================================================================
@@ -528,57 +479,6 @@ export async function calculateKeyRateDuration(
   request: KeyRateDurationRequest
 ): Promise<KeyRateDurationResponse> {
   return fetchJson<KeyRateDurationResponse>('/api/v1/portfolio/key-rate-duration', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
-// =============================================================================
-// STRESS TESTING
-// =============================================================================
-
-// Stress scenario
-export interface StressScenario {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-}
-
-// List available stress scenarios
-export async function listStressScenarios(): Promise<{ scenarios: StressScenario[] }> {
-  return fetchJson<{ scenarios: StressScenario[] }>('/api/v1/stress/scenarios');
-}
-
-// Standard stress test request
-export interface StandardStressRequest {
-  portfolio: PortfolioInput;
-  bond_prices: BondQuoteResponse[];
-}
-
-// Stress result output
-export interface StressResultOutput {
-  scenario_name: string;
-  initial_value: string;
-  stressed_value: string;
-  pnl: string;
-  pnl_pct: string;
-  duration_impact?: string;
-  spread_impact?: string;
-}
-
-// Standard stress test response
-export interface StandardStressResponse {
-  portfolio_id: string;
-  results: StressResultOutput[];
-  timestamp: number;
-}
-
-// Run standard stress tests
-export async function runStandardStressTest(
-  request: StandardStressRequest
-): Promise<StandardStressResponse> {
-  return fetchJson<StandardStressResponse>('/api/v1/stress/standard', {
     method: 'POST',
     body: JSON.stringify(request),
   });

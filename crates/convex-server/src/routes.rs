@@ -216,20 +216,6 @@ pub fn create_router_with_access_and_portfolios(
             "/api/v1/portfolio/buckets",
             post(handlers::calculate_all_bucketing),
         )
-        // Stress Testing
-        .route("/api/v1/stress/test", post(handlers::run_stress_test))
-        .route(
-            "/api/v1/stress/standard",
-            post(handlers::run_standard_stress_test),
-        )
-        .route(
-            "/api/v1/stress/single",
-            post(handlers::run_single_stress_test),
-        )
-        .route(
-            "/api/v1/stress/scenarios",
-            get(handlers::list_standard_scenarios),
-        )
         // Benchmark Comparison
         .route(
             "/api/v1/benchmark/compare",

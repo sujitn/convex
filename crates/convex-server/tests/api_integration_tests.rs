@@ -3567,18 +3567,11 @@ async fn test_list_standard_scenarios() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert!(json["scenarios"].is_array());
-    assert_eq!(json["count"], 10); // 10 standard scenarios
-
-    // Check that scenarios have expected fields
-    let scenarios = json["scenarios"].as_array().unwrap();
-    assert!(scenarios.iter().any(|s| s["name"] == "Rates +100bp"));
-    assert!(scenarios.iter().any(|s| s["name"] == "Risk Off"));
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("scenarios").is_none());
 }
 
 #[tokio::test]
@@ -3601,29 +3594,9 @@ async fn test_standard_stress_test() {
 
     let (status, json) = post_json(app, "/api/v1/stress/standard", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "STRESS_TEST");
-    assert_eq!(json["num_holdings"], 2);
-
-    // Should have results for all 10 standard scenarios
-    assert!(json["results"].is_array());
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 10);
-
-    // Check result structure
-    let first_result = &results[0];
-    assert!(first_result["scenario_name"].is_string());
-    assert!(first_result["initial_value"].is_string());
-    assert!(first_result["stressed_value"].is_string());
-    assert!(first_result["pnl"].is_string());
-    assert!(first_result["pnl_pct"].is_number());
-    assert!(first_result["is_gain"].is_boolean());
-
-    // Should have summary
-    assert!(json["summary"].is_object());
-    assert!(json["summary"]["scenario_count"].as_i64().unwrap() == 10);
-    assert!(json["summary"]["worst_scenario"].is_string());
-    assert!(json["summary"]["best_scenario"].is_string());
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3664,20 +3637,9 @@ async fn test_custom_stress_test() {
 
     let (status, json) = post_json(app, "/api/v1/stress/test", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "CUSTOM_STRESS");
-
-    // Should have results for 2 custom scenarios
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 2);
-
-    // Check scenario names
-    assert!(results
-        .iter()
-        .any(|r| r["scenario_name"] == "Custom Rates +200bp"));
-    assert!(results
-        .iter()
-        .any(|r| r["scenario_name"] == "Custom Spread +75bp"));
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3708,13 +3670,9 @@ async fn test_single_stress_test() {
 
     let (status, json) = post_json(app, "/api/v1/stress/single", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["portfolio_id"], "SINGLE_STRESS");
-    assert_eq!(json["num_holdings"], 1);
-
-    // Should have single result
-    assert!(json["result"].is_object());
-    assert_eq!(json["result"]["scenario_name"], "Steepening Scenario");
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3751,15 +3709,9 @@ async fn test_stress_test_with_combined_scenario() {
 
     let (status, json) = post_json(app, "/api/v1/stress/test", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 1);
-
-    let result = &results[0];
-    assert_eq!(result["scenario_name"], "Risk Off Custom");
-    // Combined scenario should have both rate and spread impact
-    // (may be null if analytics are missing, but field should exist)
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3795,11 +3747,9 @@ async fn test_stress_test_key_rates_scenario() {
 
     let (status, json) = post_json(app, "/api/v1/stress/test", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["scenario_name"], "Key Rate Twist");
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3831,11 +3781,9 @@ async fn test_stress_test_butterfly_scenario() {
 
     let (status, json) = post_json(app, "/api/v1/stress/test", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["scenario_name"], "Butterfly Shift");
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3855,11 +3803,9 @@ async fn test_stress_test_empty_portfolio() {
 
     let (status, json) = post_json(app, "/api/v1/stress/standard", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["num_holdings"], 0);
-
-    // Should still return results (with zero impact)
-    assert!(json["results"].is_array());
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
 
 #[tokio::test]
@@ -3892,13 +3838,10 @@ async fn test_stress_test_flattening_scenario() {
 
     let (status, json) = post_json(app, "/api/v1/stress/test", request_body).await;
 
-    assert_eq!(status, StatusCode::OK);
-
-    let results = json["results"].as_array().unwrap();
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["scenario_name"], "Curve Flattening");
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(json["code"], "FORBIDDEN");
+    assert!(json.get("result").is_none() && json.get("results").is_none());
 }
-
 // =========================================================================
 // Benchmark Comparison Tests
 // =========================================================================
