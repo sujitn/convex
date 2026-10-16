@@ -33,8 +33,7 @@ impl DV01 {
 
     /// Get the DV01 as f64
     pub fn as_f64(&self) -> f64 {
-        use rust_decimal::prelude::ToPrimitive;
-        self.0.to_f64().unwrap_or(0.0)
+        self.0.as_f64()
     }
 }
 
@@ -50,9 +49,11 @@ impl From<Decimal> for DV01 {
     }
 }
 
-impl From<f64> for DV01 {
-    fn from(f: f64) -> Self {
-        Self(Decimal::from_f64_retain(f).unwrap_or(Decimal::ZERO))
+impl TryFrom<f64> for DV01 {
+    type Error = crate::error::AnalyticsError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        crate::risk::cash::decimal(value).map(Self)
     }
 }
 
@@ -132,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_dv01_from_duration() {
-        let mod_dur = Duration::from(5.0);
+        let mod_dur = Duration::try_from(5.0).unwrap();
         let dirty_price = 105.0; // 105% of par
         let face_value = 1_000_000.0;
 
@@ -144,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_dv01_per_100_face() {
-        let mod_dur = Duration::from(5.0);
+        let mod_dur = Duration::try_from(5.0).unwrap();
         let dirty_price = 100.0;
 
         let dv01 = dv01_per_100_face(mod_dur, dirty_price).unwrap();
@@ -166,8 +167,8 @@ mod tests {
 
     #[test]
     fn test_notional_from_dv01() {
-        let target = DV01::from(1000.0);
-        let mod_dur = Duration::from(5.0);
+        let target = DV01::try_from(1000.0).unwrap();
+        let mod_dur = Duration::try_from(5.0).unwrap();
         let dirty_price = 100.0;
 
         let notional = notional_from_dv01(target, mod_dur, dirty_price).unwrap();

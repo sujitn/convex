@@ -523,6 +523,33 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify risk-contract-default
+        run: cargo test --locked -p convex-analytics --test risk_contracts
+
+      - name: Qualify risk-contract-no-default
+        run: cargo test --locked -p convex-analytics --test risk_contracts --no-default-features
+
+      - name: Qualify risk-contract-schema
+        run: cargo test --locked -p convex-analytics --test risk_contracts --features schemars
+
+      - name: Qualify weekday-operation-default
+        run: cargo test --locked -p convex-core --test weekday_operations
+
+      - name: Qualify weekday-operation-no-default
+        run: cargo test --locked -p convex-core --test weekday_operations --no-default-features
+
+      - name: Qualify weekday-operation-schema
+        run: cargo test --locked -p convex-core --test weekday_operations --features schemars
+
+      - name: Qualify checked-risk-http-mcp-suite
+        run: cargo test --locked -p convex-mcp --all-features
+
+      - name: Qualify checked-risk-portfolio-suite
+        run: cargo test --locked -p convex-portfolio --lib
+
+      - name: Qualify checked-risk-server-integration
+        run: cargo test --locked -p convex-server --test api_integration_tests
+
       - name: Qualify risk-stencil-default
         run: cargo test --locked -p convex-analytics --test risk_stencils
 

@@ -4984,6 +4984,70 @@
         "Seven native controls in default/no-default/schema profiles; original core/bond/analytics/WASM and existing controls; full required lint/assurance/library/harness/source conservation.",
         "Bind once after builders; actual native/C/JDK26/Node/browser8549envelopes,400Treasury368futurecash37943financial and retained independent references. Actual C YAS must satisfy the unchanged independent yield bound."
       ]
+    },
+    {
+      "base_commit": "29fdb2ee1f6496033fe2bf7f3af6769472a091f1",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Migrate the actual source-frozen two-pass/eight-fail raw-risk and one-pass/one-fail Date probes, and the actual final-bound HTTP untrusted-Origin200failure. Retire Duration/Convexity/DV01 Fromf64 zero fallbacks for checked TryFrom, using the locked Decimal total as_f64 accessor. Check scalar hedges; return Result and optional undefined weighted duration for common-unit raw portfolios, retaining signed value/DV01 and original binary64 absolute1e-10guard. Exact key-rate lookup does not substitute nearby factors. Actual normal inverse replaces interpolation between unchanged coarse constants; zero-mean Gaussian scalar P&L, absolute exposure scale, finite nonnegative daily volatility, positive days and signed loss quantiles are explicit. Historical inverse empirical CDF uses exact supplied binary64 ceil(probability*N) ranks and actual long/short loss ordering, retaining explicit IID sqrt-time scaling; 1..1000000finite returns and checked arithmetic reject invalid/overflow/underflow cases. Weekend-only Date Results use complete weeks plus at most6daily steps, retain original signed counts and valid full Gregorian range, and reject exhausted offsets including i32MINwithout panic/unbounded search. Remove unused Bond.first_settlement_date and CalendarId.to_calendar fallback with actual benchmark callers migrated to the same SIFMA selection. The user explicitly approves only the exact five mock deletions,12Date unwraps and five native-yield-risk TryFrom adapters; no operand/answer/bound or financial test is removed. Seven reviewed sections include two individual numerical artifact rows; five mock sections retain exact task-preservation review even though not individual numeric-evidence rows. Retain the installer receipt KeyError after all patches applied, original helper and full first state; completion only verifies hashes. MCP HTTP and CORS share a bounded explicit Origin list, defaulting to the actual listener origin; repeat allow-origin replaces that list, invalid config fails and unknown Origin403is required. Remove unused HTTP server instance and explicit CtrlCpanic; actual loopback protocol/full8549envelopes remain required, without claiming remote auth/TLS or frame/session/convenience certification. Server key-rate conversion requires actual prices, rejects complete invalid sets, removes invented ISIN and silent filter-map drops. Broader Holding grouping/missing coverage/weighting/presentation remain required; no whole-module qualification is claimed. Independent NormalDist/Fraction/Decimal90references precede candidate execution:25normal100parametric180historical12hedge cases and original165Date offsets, 154counts11weekday cases. New normal2e-12, VaRmax(1e-8,3e-14relative), hedge max(1e-8,1e-14relative) bounds do not change old bounds. Keep all1885original artifact paths and defaults, refresh only2exact human-approved hashes and add4controls for1889. All8549original requests/envelopes and literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. No dependency/provider/DB/MQ/Cexport or authority change, native waiver, acceptance or certificate. All original native/date/calendar/YAS/model/calibration/claim/physical/causal/exact-operation work and CTD alternatives/switches/actual cash ownership remain required. Only unavailable actual platform execution defers; user has no Windows/Excel host or approved convention/model packs. Retain the complete first freeze/250file snapshot and actual compiler/lint101captures, all8metadata gates0and original reader-free process proof. No financial assertion ran before the new test import failure. Correct only the new test public var-module constant import and replace mathematically identical quotient/remainder rank arithmetic with integer div_ceil for the required warnings-denied lint. No operand/reference/expected value/bound/default or original test changes. All actual readers/builders exit before this same-base amendment and full metadata/source refreeze; no required command is dropped. Retain the complete second candidate and actual31MCP-library-pass/new-main1pass1fail capture for rejected port99999. All risk/Date controls pass three profiles; focusedClippy,8metadata and64library checks pass. Preserve the reader-free process proof before changing public source. Fix only explicit Origin port extraction: http::Authority.port returnsNonefor invalid out-of-range ports, so parse the raw authority suffix as u16 and reject malformed/empty ports. Keep the exact original rejection input/expectation and every other test, financial reference, bound/default and numerical pin unchanged. Amend the one same-base review and refreeze full source/metadata; all required commands remain. Preserve the complete third608file failed candidate, 64passed library controls and actual zero-reader/builder proof. All original MCP, core/doctest and365bond tests pass. The original analytics library compile fails before assertions because its unchanged historical-VaR unit test relied on the removed production Decimal import. Add only a cfg(test) Decimal import outside the protected test section; every test byte, operand, expectation, numerical pin and bound stays unchanged. Stop only the seven owned waiting controllers; retain original sandbox loopback denial and exact 139pass authorized retry. Amend the one same-base review, refresh source metadata and fully refreeze; all required native/host/financial/physical gates remain required. No acceptance, native waiver or certificate.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "41197581f63d5eb828d1fac2cfa6cab4e8cbcfe19cdf22e4ad75f1fb9f19ef0c",
+        "crates/convex-analytics/src/risk/convexity/mod.rs": "b4e4074c18713d91595f00d4b59a45f5bee219047a29412cdb3a80229179cda6",
+        "crates/convex-analytics/src/risk/duration/key_rate.rs": "61477367707478dd81a67210c5267b5511da54db8078d37588c9309344486e2d",
+        "crates/convex-analytics/src/risk/duration/mod.rs": "f0469a88ccc49849afe71719fc6852fc3400cf70a56ae17e2a31798497376f2d",
+        "crates/convex-analytics/src/risk/duration/modified.rs": "c579593616cc0e3ef8159333fa4eafc9b7e8414e33b3988d1007458045864f48",
+        "crates/convex-analytics/src/risk/dv01.rs": "4533081bb99340dfed20b396ddc207c319068bc69ec993ba672aa75a8c603142",
+        "crates/convex-analytics/src/risk/hedging/hedge_ratio.rs": "330f41cd07fa91c51b6897a1ec1f2cc74f7f1f633029f204f8d9e96e46d2d649",
+        "crates/convex-analytics/src/risk/hedging/portfolio.rs": "8c6209a25c77b8485bddb0b87ab4a038bb094a9929321200fbacfe940187f7e6",
+        "crates/convex-analytics/src/risk/var/historical.rs": "269eeba4d15e8876a754032780e1189973937da511f808b2e90080b3859342f5",
+        "crates/convex-analytics/src/risk/var/mod.rs": "78c861409eefd33dc524a3bd63a1f6055daf4e4b55f3f32fc2f257b4695ebe8e",
+        "crates/convex-analytics/src/risk/var/parametric.rs": "5e5a488a9219d02761c32f9929d9024e0110abe91cc99b7f2caaada36d398fea",
+        "crates/convex-analytics/src/spreads/asw/par_par.rs": "5f14b7026502d9b55fd231ce8abec7f6af978726cbe620021b83ffb3574e28bb",
+        "crates/convex-analytics/src/spreads/asw/proceeds.rs": "ea55331874e39218912e63b91cffd42c1215e8f30900c3a1637b6a166721f20e",
+        "crates/convex-analytics/src/spreads/gspread.rs": "4503b405c33cea7a4c66443a518f06a27c6fef4a0ee32746f46c8d1e95b1601d",
+        "crates/convex-analytics/src/spreads/ispread.rs": "5a5d66ea45eb0b7b4870d0368a822337e5273d590be8fb0c6746b2c7d06ff560",
+        "crates/convex-analytics/src/spreads/zspread.rs": "b3dd2b1b5101285eebd185a5376a568cc66e4ad33bef491fa72f5279c549b773",
+        "crates/convex-analytics/tests/fixtures/risk-contracts.json": "ed3d6e9e3ddda5233c8f04fb709fa5c709d63c11f6ec9ac3c605e65375486047",
+        "crates/convex-analytics/tests/native_yield_risk.rs": "ff6cf33bfbbad6a8df6075eb87e035f0041c8b428f6af8d92fd2ac70d98a5b31",
+        "crates/convex-analytics/tests/risk_contracts.rs": "be09369bed1d9010215fefca6c8fbddd83d731709c8341dc03f6fcfb06b14ee8",
+        "crates/convex-bonds/src/cashflows/schedule.rs": "26d7a129e635874213ece7c53123455fbf462e1d3cb8d73d01659c9f9b0b0d68",
+        "crates/convex-bonds/src/instruments/callable.rs": "52ec2de85f3950014ec5af51253726968ba76a517ba83a8035d06cce0fe46815",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "3a7ad0a4223a9750d82d1c169943f95563ed9a5ab120293b80df35f9193e63c1",
+        "crates/convex-bonds/src/instruments/floating_rate.rs": "6bd1f3b292d4307058d05161841e3c9ef8f6b26fccfdbebda81d627ec21cc668",
+        "crates/convex-bonds/src/instruments/sinking_fund.rs": "b393b59bd7e6a18f9d2dbe1f5bec0c28c25f46696d442e5811d14380a1fde262",
+        "crates/convex-bonds/src/instruments/zero_coupon.rs": "186e40bad2f461ad26c7ec6d465ed3b44ae03c529f121d8f7a5bee31ec04508c",
+        "crates/convex-bonds/src/traits/bond.rs": "197578fd61bbef26e555b2fb803e6606516d83d2d0801528c7bd5c6e6719e022",
+        "crates/convex-core/src/types/date.rs": "de209eba3db4c5721bd235e123768c4a599910bfbf83e7298b1412f0cbeed08b",
+        "crates/convex-core/tests/fixtures/weekday-operations.json": "fac7353b375c42d2996c726884e843bf1fd52c57e5d2d711b9b77deb6cc261e6",
+        "crates/convex-core/tests/weekday_operations.rs": "4ab8aa8f1a79b382ea29158d2f32e00da3fa6ff54713247cd957f168f7f62bd3",
+        "crates/convex-math/src/stats/mod.rs": "05556d454687cbcc5d55057adf35c0a50fe20899fa964a799f170cd3decaad3f",
+        "crates/convex-math/src/stats/normal.rs": "92f99abb6d668af596e191d58fc07006281eb0dd3a76d38fe7a83ba9bfbddbce",
+        "crates/convex-mcp/README.md": "ad8a40f8e7e5d7d780a8a67dc37c949d99ba123992780b030fa6174e1dcd9cfb",
+        "crates/convex-mcp/src/main.rs": "0226f6c7e1390b6c5deeda7e33bd05af57293901020f9d52577ed5182535a76a",
+        "crates/convex-portfolio/src/analytics/key_rates.rs": "0a1581ffd310865cec9822a9fba8417e3f0f2a624d79c3a65a00122c46c9ccae",
+        "crates/convex-portfolio/src/stress/impact.rs": "87fb342f0fbc8442b6665a6b13f7ea5a78242f459585d541d501a50a5c650c28",
+        "crates/convex-server/src/handlers.rs": "d6117e6301fdd223f2315213bbea64b1ef5e7db65d7ddc126977067f200c7787",
+        "docs/RISK-CONTRACTS.md": "0f75177cbc94af9b080c6d9b79f31500d51b9315733b1aa5b3369e409af2ae0f",
+        "docs/ROUTE-MIGRATION.md": "56ea5edb0f12ae3f04f8fe5d4c6d63bd8c6c1a493e8e61ab881fc47f4e6e367f",
+        "tools/assurance/check.py": "eac57b2f168a35ea5dde55be6eeb2b26f3e92030ebd9b59e6e62c9a4c56e5bf8",
+        "tools/assurance/inventory.json": "0cb59b3b722874b1a645392672eff20e47fd72fa24cdbb70b4550a1f76630f8b",
+        "tools/assurance/numeric-evidence.json": "caba794d9feac44749dcf3588163a49875edd01fd77ae5b0b7345f4c92a616f9",
+        "tools/library/library-inventory.json": "548ad82eab41e69ed7e437217e1cec39e3aa2d0e13c996265020a049e6bf0659",
+        "tools/reconcile_bench/src/main.rs": "356464a85222aa0ccb31086a9d4aad24bbbb0d820107868308cf891a9be811fd"
+      },
+      "quantitative_review": {
+        "reviewer": "Repository owner, explicit separate user approvals",
+        "rationale": "Only the exact approved five unused mock deletions, twelve Date Result adapters and five native-yield-risk TryFrom adapters. Inputs, answers, tolerances, all other assertions and defaults stay. These are mechanical test migrations, not model or production certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/evidence/CVX-063-Checked-Risk-Date/following-approved-test-adapters.json",
+          ".ai/production-readiness/evidence/CVX-063-Checked-Risk-Date/applied-human-protected-adapters.json"
+        ]
+      },
+      "tests": [
+        "Frozen original risk2pass8fail/Date1pass1fail and actual HTTP untrusted-Origin200capture before code changes.",
+        "Independent25normal100parametric180historical12hedge and165Date/154count/11weekday references; three feature profiles plus original suites, complete lint/assurance/library/harness/source conservation.",
+        "Bind once after builders; actual8549native/C/Java/Node/browser/MCPstdio/HTTPfullenvelopes plus retained37943financial/400Treasury/368futurecash and unchanged independent packs; only unavailable actual platform execution defers."
+      ]
     }
   ]
 }

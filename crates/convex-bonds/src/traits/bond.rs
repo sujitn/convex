@@ -178,9 +178,6 @@ pub trait Bond {
     /// Returns the issue date.
     fn issue_date(&self) -> Date;
 
-    /// Returns the first settlement date.
-    fn first_settlement_date(&self) -> Date;
-
     /// Returns the dated date (when interest starts accruing).
     ///
     /// This is typically the issue date but can differ.

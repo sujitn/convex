@@ -436,11 +436,6 @@ impl Bond for FixedRateBond {
         self.issue_date
     }
 
-    fn first_settlement_date(&self) -> Date {
-        // Typically the issue date adjusted for settlement days
-        self.issue_date
-    }
-
     fn dated_date(&self) -> Date {
         self.dated_date
     }

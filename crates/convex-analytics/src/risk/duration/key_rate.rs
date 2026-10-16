@@ -85,11 +85,21 @@ impl KeyRateDurations {
         Ok(())
     }
 
-    /// Get duration at a specific tenor
+    /// Get one exact finite positive tenor. Invalid or ambiguous collections
+    /// have no admitted match; nearby supplied factors are never substituted.
     pub fn at_tenor(&self, tenor: f64) -> Option<&KeyRateDuration> {
+        if !tenor.is_finite() || tenor <= 0.0 || self.durations.len() > 4096 {
+            return None;
+        }
+        let mut seen = HashSet::with_capacity(self.durations.len());
+        if self.durations.iter().any(|row| {
+            !row.tenor.is_finite() || row.tenor <= 0.0 || !seen.insert(row.tenor.to_bits())
+        }) {
+            return None;
+        }
         self.durations
             .iter()
-            .find(|krd| (krd.tenor - tenor).abs() < 0.001)
+            .find(|row| row.tenor.to_bits() == tenor.to_bits())
     }
 }
 
@@ -143,15 +153,15 @@ mod tests {
         let krds = KeyRateDurations::new(vec![
             KeyRateDuration {
                 tenor: 2.0,
-                duration: Duration::from(1.5),
+                duration: Duration::try_from(1.5).unwrap(),
             },
             KeyRateDuration {
                 tenor: 5.0,
-                duration: Duration::from(2.0),
+                duration: Duration::try_from(2.0).unwrap(),
             },
             KeyRateDuration {
                 tenor: 10.0,
-                duration: Duration::from(1.5),
+                duration: Duration::try_from(1.5).unwrap(),
             },
         ]);
 
@@ -164,11 +174,11 @@ mod tests {
         let krds = KeyRateDurations::new(vec![
             KeyRateDuration {
                 tenor: 2.0,
-                duration: Duration::from(1.5),
+                duration: Duration::try_from(1.5).unwrap(),
             },
             KeyRateDuration {
                 tenor: 5.0,
-                duration: Duration::from(2.0),
+                duration: Duration::try_from(2.0).unwrap(),
             },
         ]);
 

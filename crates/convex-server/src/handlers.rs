@@ -5318,7 +5318,16 @@ pub async fn calculate_key_rate_duration_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<KeyRateDurationRequest>,
 ) -> impl IntoResponse {
-    let holdings = convert_key_rate_positions(&request.positions);
+    let holdings = match convert_key_rate_positions(&request.positions) {
+        Ok(holdings) => holdings,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": error })),
+            )
+                .into_response()
+        }
+    };
     let config = AnalyticsConfig::default();
 
     let tenors: Option<&[f64]> = request.tenors.as_deref();
@@ -5381,37 +5390,51 @@ pub async fn calculate_key_rate_duration_handler(
 }
 
 /// Convert key rate positions to holdings with KRD data.
-fn convert_key_rate_positions(positions: &[KeyRatePosition]) -> Vec<Holding> {
-    let placeholder_identifiers =
-        BondIdentifiers::from_isin_str("US912828Z229").expect("Valid placeholder ISIN");
-
+fn convert_key_rate_positions(positions: &[KeyRatePosition]) -> Result<Vec<Holding>, String> {
+    if positions.len() > 65_536 {
+        return Err("at most65536key-rate positions required".into());
+    }
+    let mut ids = std::collections::HashSet::new();
     positions
         .iter()
-        .filter_map(|pos| {
-            let market_price = pos.market_price.unwrap_or(Decimal::from(100));
-
-            let mut analytics = HoldingAnalytics::new();
-            if let Some(ref krd_data) = pos.key_rate_durations {
-                let krd = KeyRateDurations::new(
-                    krd_data
-                        .iter()
-                        .map(|(tenor, dur)| KeyRateDuration {
-                            tenor: *tenor,
-                            duration: AnalyticsDuration::from(*dur),
-                        })
-                        .collect(),
-                );
-                analytics.key_rate_durations = Some(krd);
+        .map(|pos| {
+            if pos.instrument_id.trim().is_empty()
+                || pos.instrument_id.len() > 8192
+                || !ids.insert(pos.instrument_id.as_str())
+            {
+                return Err("unique nonempty instrument IDs required".into());
             }
-
+            let market_price = pos
+                .market_price
+                .ok_or_else(|| "market_price is required for key-rate weighting".to_owned())?;
+            let mut analytics = HoldingAnalytics::new();
+            if let Some(krd_data) = &pos.key_rate_durations {
+                if krd_data.len() > 4096 {
+                    return Err("at most4096key-rate rows required".into());
+                }
+                let rows = krd_data
+                    .iter()
+                    .map(|(tenor, value)| {
+                        AnalyticsDuration::try_from(*value)
+                            .map(|duration| KeyRateDuration {
+                                tenor: *tenor,
+                                duration,
+                            })
+                            .map_err(|error| error.to_string())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let rates = KeyRateDurations::new(rows);
+                rates.total_duration().map_err(|error| error.to_string())?;
+                analytics.key_rate_durations = Some(rates);
+            }
             HoldingBuilder::new()
                 .id(&pos.instrument_id)
-                .identifiers(placeholder_identifiers.clone())
+                .identifiers(BondIdentifiers::new())
                 .par_amount(pos.notional)
                 .market_price(market_price)
                 .analytics(analytics)
                 .build()
-                .ok()
+                .map_err(|error| error.to_string())
         })
         .collect()
 }

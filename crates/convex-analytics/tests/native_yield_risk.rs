@@ -240,22 +240,36 @@ fn signed_cash_and_actual_signed_position_scaling_are_retained() {
 
 #[test]
 fn aggregate_macaulay_conversion_cannot_invent_simple_cash_derivatives() {
-    assert!(modified_from_macaulay(Duration::from(1.5), 0.1, Compounding::Simple).is_err());
+    assert!(
+        modified_from_macaulay(Duration::try_from(1.5).unwrap(), 0.1, Compounding::Simple).is_err()
+    );
     for rate in [f64::NAN, f64::INFINITY, -2.0] {
-        assert!(
-            modified_from_macaulay(Duration::from(1.5), rate, Compounding::SemiAnnual).is_err()
-        );
+        assert!(modified_from_macaulay(
+            Duration::try_from(1.5).unwrap(),
+            rate,
+            Compounding::SemiAnnual
+        )
+        .is_err());
     }
     close(
-        modified_from_macaulay(Duration::from(5.0), 0.06, Compounding::SemiAnnual)
-            .unwrap()
-            .as_f64(),
+        modified_from_macaulay(
+            Duration::try_from(5.0).unwrap(),
+            0.06,
+            Compounding::SemiAnnual,
+        )
+        .unwrap()
+        .as_f64(),
         5.0 / 1.03,
         1e-11,
     );
     assert_eq!(
-        modified_from_macaulay(Duration::from(5.0), -0.01, Compounding::Continuous).unwrap(),
-        Duration::from(5.0)
+        modified_from_macaulay(
+            Duration::try_from(5.0).unwrap(),
+            -0.01,
+            Compounding::Continuous
+        )
+        .unwrap(),
+        Duration::try_from(5.0).unwrap()
     );
 }
 

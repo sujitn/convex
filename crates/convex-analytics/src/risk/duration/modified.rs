@@ -75,8 +75,12 @@ mod tests {
 
     #[test]
     fn test_modified_from_macaulay() {
-        let mod_dur =
-            modified_from_macaulay(Duration::from(5.0), 0.06, Compounding::SemiAnnual).unwrap();
+        let mod_dur = modified_from_macaulay(
+            Duration::try_from(5.0).unwrap(),
+            0.06,
+            Compounding::SemiAnnual,
+        )
+        .unwrap();
         assert_relative_eq!(mod_dur.as_f64(), 4.854, epsilon = 0.001);
     }
 
@@ -91,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_price_change_approximation() {
-        let mod_dur = Duration::from(5.0);
+        let mod_dur = Duration::try_from(5.0).unwrap();
         let price = 100.0;
         let yield_change = 0.01; // 100 bps
 

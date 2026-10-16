@@ -200,79 +200,82 @@ impl Date {
         !self.is_weekend()
     }
 
-    /// Returns the next weekday (skipping weekends).
-    ///
-    /// If the date is already a weekday, returns itself.
-    #[must_use]
-    pub fn next_weekday(&self) -> Self {
-        let mut date = *self;
-        while date.is_weekend() {
-            date = date.add_days(1);
-        }
-        date
+    /// Returns this date if already a weekday, otherwise the next Monday.
+    /// Calendar exhaustion returns an error.
+    pub fn next_weekday(&self) -> ConvexResult<Self> {
+        self.checked_add_days(match self.weekday() {
+            Weekday::Sat => 2,
+            Weekday::Sun => 1,
+            _ => 0,
+        })
     }
 
-    /// Returns the previous weekday (skipping weekends).
-    ///
-    /// If the date is already a weekday, returns itself.
-    #[must_use]
-    pub fn prev_weekday(&self) -> Self {
-        let mut date = *self;
-        while date.is_weekend() {
-            date = date.add_days(-1);
-        }
-        date
+    /// Returns this date if already a weekday, otherwise the previous Friday.
+    /// Calendar exhaustion returns an error.
+    pub fn prev_weekday(&self) -> ConvexResult<Self> {
+        self.checked_add_days(match self.weekday() {
+            Weekday::Sat => -1,
+            Weekday::Sun => -2,
+            _ => 0,
+        })
     }
 
-    /// Adds business days (weekdays only) to the date.
-    ///
-    /// Positive values move forward, negative values move backward.
-    #[must_use]
-    pub fn add_business_days(&self, days: i32) -> Self {
+    /// Adds weekdays, excluding the start date and counting the destination.
+    /// Complete weeks take one checked shift; at most six daily steps remain.
+    /// Every i32 offset is admitted; calendar-range exhaustion is an error.
+    pub fn add_business_days(&self, days: i32) -> ConvexResult<Self> {
         if days == 0 {
-            return *self;
+            return Ok(*self);
         }
-
-        let direction = if days > 0 { 1i64 } else { -1i64 };
-        let mut remaining = days.abs();
+        let direction = if days > 0 { 1_i64 } else { -1_i64 };
+        let mut remaining = i64::from(days).abs();
         let mut current = *self;
-
-        while remaining > 0 {
-            current = current.add_days(direction);
+        if current.is_weekend() {
+            current = if days > 0 {
+                current.next_weekday()?
+            } else {
+                current.prev_weekday()?
+            };
+            remaining -= 1;
+        }
+        current = current.checked_add_days(direction * (remaining / 5) * 7)?;
+        remaining %= 5;
+        for _ in 0..6 {
+            if remaining == 0 {
+                return Ok(current);
+            }
+            current = current.checked_add_days(direction)?;
             if current.is_weekday() {
                 remaining -= 1;
             }
         }
-
-        current
+        if remaining == 0 {
+            Ok(current)
+        } else {
+            Err(ConvexError::invalid_date(
+                "weekday remainder did not resolve",
+            ))
+        }
     }
 
-    /// Calculates the number of business days between two dates.
-    ///
-    /// Returns positive if `other` is after `self`, negative otherwise.
-    #[must_use]
-    pub fn business_days_between(&self, other: &Date) -> i64 {
-        if self == other {
-            return 0;
-        }
-
-        let (start, end, sign) = if self < other {
-            (*self, *other, 1i64)
+    /// Counts weekdays in (earlier, later], with the sign of other-self.
+    /// Complete weeks take constant work and at most six days remain.
+    pub fn business_days_between(&self, other: &Date) -> ConvexResult<i64> {
+        let (start, end, sign) = if self <= other {
+            (*self, *other, 1_i64)
         } else {
-            (*other, *self, -1i64)
+            (*other, *self, -1_i64)
         };
-
-        let mut count = 0i64;
-        let mut current = start.add_days(1);
-
-        while current <= end {
-            if current.is_weekday() {
+        let days = start.days_between(&end);
+        let weeks = days / 7;
+        let mut count = weeks * 5;
+        let current = start.checked_add_days(weeks * 7)?;
+        for offset in 1..=days % 7 {
+            if current.checked_add_days(offset)?.is_weekday() {
                 count += 1;
             }
-            current = current.add_days(1);
         }
-
-        count * sign
+        Ok(count * sign)
     }
 
     /// Returns the first day of the month.
@@ -463,32 +466,32 @@ mod tests {
     fn test_next_weekday() {
         // Friday -> Friday (no change)
         let friday = Date::from_ymd(2025, 1, 3).unwrap();
-        assert_eq!(friday.next_weekday(), friday);
+        assert_eq!(friday.next_weekday().unwrap(), friday);
 
         // Saturday -> Monday
         let saturday = Date::from_ymd(2025, 1, 4).unwrap();
         let monday = Date::from_ymd(2025, 1, 6).unwrap();
-        assert_eq!(saturday.next_weekday(), monday);
+        assert_eq!(saturday.next_weekday().unwrap(), monday);
 
         // Sunday -> Monday
         let sunday = Date::from_ymd(2025, 1, 5).unwrap();
-        assert_eq!(sunday.next_weekday(), monday);
+        assert_eq!(sunday.next_weekday().unwrap(), monday);
     }
 
     #[test]
     fn test_prev_weekday() {
         // Monday -> Monday (no change)
         let monday = Date::from_ymd(2025, 1, 6).unwrap();
-        assert_eq!(monday.prev_weekday(), monday);
+        assert_eq!(monday.prev_weekday().unwrap(), monday);
 
         // Saturday -> Friday
         let saturday = Date::from_ymd(2025, 1, 4).unwrap();
         let friday = Date::from_ymd(2025, 1, 3).unwrap();
-        assert_eq!(saturday.prev_weekday(), friday);
+        assert_eq!(saturday.prev_weekday().unwrap(), friday);
 
         // Sunday -> Friday
         let sunday = Date::from_ymd(2025, 1, 5).unwrap();
-        assert_eq!(sunday.prev_weekday(), friday);
+        assert_eq!(sunday.prev_weekday().unwrap(), friday);
     }
 
     #[test]
@@ -498,15 +501,15 @@ mod tests {
 
         // Add 5 business days -> next Monday
         let next_monday = Date::from_ymd(2025, 1, 13).unwrap();
-        assert_eq!(monday.add_business_days(5), next_monday);
+        assert_eq!(monday.add_business_days(5).unwrap(), next_monday);
 
         // Add 1 business day -> Tuesday
         let tuesday = Date::from_ymd(2025, 1, 7).unwrap();
-        assert_eq!(monday.add_business_days(1), tuesday);
+        assert_eq!(monday.add_business_days(1).unwrap(), tuesday);
 
         // Subtract 1 business day -> Friday
         let prev_friday = Date::from_ymd(2025, 1, 3).unwrap();
-        assert_eq!(monday.add_business_days(-1), prev_friday);
+        assert_eq!(monday.add_business_days(-1).unwrap(), prev_friday);
     }
 
     #[test]
@@ -514,13 +517,13 @@ mod tests {
         // Monday to Friday = 4 business days
         let monday = Date::from_ymd(2025, 1, 6).unwrap();
         let friday = Date::from_ymd(2025, 1, 10).unwrap();
-        assert_eq!(monday.business_days_between(&friday), 4);
+        assert_eq!(monday.business_days_between(&friday).unwrap(), 4);
 
         // Friday to Monday = 1 business day
-        assert_eq!(friday.business_days_between(&monday), -4);
+        assert_eq!(friday.business_days_between(&monday).unwrap(), -4);
 
         // Same day = 0
-        assert_eq!(monday.business_days_between(&monday), 0);
+        assert_eq!(monday.business_days_between(&monday).unwrap(), 0);
     }
 
     #[test]

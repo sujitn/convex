@@ -377,11 +377,6 @@ impl Bond for FloatingRateNote {
         self.issue_date
     }
 
-    fn first_settlement_date(&self) -> Date {
-        let calendar = self.calendar.to_calendar();
-        calendar.add_business_days(self.issue_date, self.settlement_days as i32)
-    }
-
     fn dated_date(&self) -> Date {
         self.issue_date
     }

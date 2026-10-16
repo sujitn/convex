@@ -613,15 +613,15 @@ mod tests {
         let krd = KeyRateDurations::new(vec![
             KeyRateDuration {
                 tenor: 2.0,
-                duration: Duration::from(0.5),
+                duration: Duration::try_from(0.5).unwrap(),
             },
             KeyRateDuration {
                 tenor: 5.0,
-                duration: Duration::from(2.0),
+                duration: Duration::try_from(2.0).unwrap(),
             },
             KeyRateDuration {
                 tenor: 10.0,
-                duration: Duration::from(2.5),
+                duration: Duration::try_from(2.5).unwrap(),
             },
         ]);
 

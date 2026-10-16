@@ -329,17 +329,6 @@ impl CalendarId {
             Ok(Box::new(JointCalendar::new(calendars)))
         }
     }
-
-    /// Compatible identifier convenience. Prefer try_to_calendar or a supplied
-    /// calendar at checked ingress; this older infallible API retains its fallback.
-    #[must_use]
-    pub fn to_calendar(&self) -> Box<dyn Calendar> {
-        match self.as_str() {
-            "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
-            "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
-            _ => Box::new(WeekendCalendar),
-        }
-    }
 }
 
 #[cfg(test)]

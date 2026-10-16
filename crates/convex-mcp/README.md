@@ -20,6 +20,9 @@ convex-mcp-server
 
 # HTTP
 convex-mcp-server --http --port 8080
+
+# Explicit browser origin; repeat --allow-origin for multiple clients.
+convex-mcp-server --http --port 8080 --allow-origin https://pricing.example
 ```
 
 ## Claude Desktop / Claude Code
@@ -59,6 +62,7 @@ Options:
       --http           Use HTTP transport instead of stdio
   -p, --port <PORT>    HTTP port [default: 8080]
       --host <HOST>    HTTP host [default: 127.0.0.1]
+      --allow-origin <ORIGIN>  Exact HTTP browser origin; repeat for more
   -v, --verbose        Enable verbose logging
   -h, --help           Print help
   -V, --version        Print version

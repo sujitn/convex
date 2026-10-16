@@ -20,6 +20,59 @@ pub fn standard_normal_cdf(x: f64) -> f64 {
     }
 }
 
+/// Inverse standard-normal CDF for a finite probability strictly between 0 and 1.
+/// Uses a bounded log-survival solve on [0,40], including subnormal tails.
+/// The existing approximate CDF and its original financial bounds are unchanged.
+pub fn standard_normal_inverse(probability: f64) -> crate::MathResult<f64> {
+    if !probability.is_finite() || probability <= 0.0 || probability >= 1.0 {
+        return Err(crate::MathError::invalid_input(
+            "normal probability must be finite and strictly between 0 and 1",
+        ));
+    }
+    if probability == 0.5 {
+        return Ok(0.0);
+    }
+    let tail = if probability < 0.5 {
+        probability
+    } else {
+        1.0 - probability
+    };
+    let log_tail = portable::log(tail);
+    let (mut low, mut high) = (0.0_f64, 40.0_f64);
+    for _ in 0..80 {
+        let mid = low + (high - low) * 0.5;
+        if high - low <= 4.0 * f64::EPSILON * (1.0 + mid) {
+            return Ok(if probability < 0.5 { -mid } else { mid });
+        }
+        if normal_log_survival(mid) > log_tail {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    Err(crate::MathError::convergence_failed(80, high - low))
+}
+
+// erfc avoids cancellation in ordinary tails. Beyond26, a decreasing Mills
+// series avoids all underflow: every factor is <127/26^2 and work is bounded.
+fn normal_log_survival(z: f64) -> f64 {
+    if z <= 26.0 {
+        return portable::log(0.5 * portable::erfc(z * std::f64::consts::FRAC_1_SQRT_2));
+    }
+    let inverse_square = 1.0 / (z * z);
+    let (mut sum, mut term) = (1.0, 1.0);
+    for n in 1..=64 {
+        term *= -f64::from(2 * n - 1) * inverse_square;
+        let next = sum + term;
+        if next == sum {
+            break;
+        }
+        sum = next;
+    }
+    -0.5 * z * z - portable::log(z) - 0.5 * portable::log(2.0 * std::f64::consts::PI)
+        + portable::log(sum)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

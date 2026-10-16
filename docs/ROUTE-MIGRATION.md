@@ -715,5 +715,45 @@ The MCP `library` wrapper keeps its exact opaque `request_json` string and now
 rejects extra wrapper fields, matching its generated schema. The native inner
 request/diagnostic contract and library operations stay with their existing owner.
 Legacy convenience-tool DTOs, registries and their qualifications remain separate.
-The legacy risk-type `From<f64>` conversions require their separately reviewed
-protected-test migration; this change does not qualify that remaining surface.
+`Duration`, `Convexity` and `DV01` now implement `TryFrom<f64>`; propagate the
+result. Nonfinite values, Decimal overflow and nonzero underflow fail. Decimal
+construction and serialization remain available. The infallible accessor uses
+the locked Decimal implementation's total `as_f64` conversion, without a zero
+fallback. The five protected test adapters have explicit separate owner approval.
+
+The numeric `aggregate_portfolio_risk` helper returns `AnalyticsResult` and its
+`weighted_duration` is optional. Signed value and DV01 survive a zero net value;
+the undefined duration ratio is `None`. All supplied positions share the caller's
+currency/unit; the helper does not price instruments or infer FX. The existing
+absolute net-value guard stays `1e-10`. Key-rate lookup requires exact finite
+positive tenor identity; nearby tenors are separate factors.
+
+Scalar parametric VaR uses an actual inverse normal CDF under the explicit
+zero-mean Gaussian and IID square-root-of-time assumptions. Historical VaR uses
+the nearest-rank inverse empirical CDF of signed losses. Neither method clamps a
+negative loss quantile to zero. See [the scalar contracts](RISK-CONTRACTS.md) for
+units, exact confidence/rank semantics, bounds and remaining portfolio scope.
+
+The four weekend-only Date methods `next_weekday`, `prev_weekday`,
+`add_business_days` and `business_days_between` now return `ConvexResult`.
+Propagate `?`; the twelve existing test adapters have separate owner approval.
+They retain ordinary date/count semantics and use complete weeks plus at most
+six daily steps. Calendar exhaustion returns an error, including signed-minimum
+offsets. This does not replace a supplied holiday calendar.
+
+The unused `Bond::first_settlement_date` method and `CalendarId::to_calendar`
+fallback are removed, including their implementations and five approved mock
+methods. Actual settlement uses `convex_core::cashflows::settlement_date` with
+explicit trade date, lag, convention and calendar. Identifier resolution uses
+`CalendarId::try_to_calendar`; unknown identifiers cannot become weekend calendars.
+
+The MCP HTTP transport and CORS now share one explicit Origin list. By default it
+contains the actual listener's own HTTP origin. Repeat `--allow-origin` to supply
+an exact replacement list. Invalid, duplicate or excessive configuration fails
+at startup; an untrusted Origin receives 403. Remote authentication/TLS, session
+and frame limits and legacy convenience tools retain their separate requirements.
+
+The older portfolio key-rate HTTP adapter now requires each actual market price,
+rejects an invalid position as a whole and no longer invents an ISIN or drops a
+failed conversion. Its broader Holding aggregation, factor coverage, weighting
+and missing-result presentation still require their own migration.

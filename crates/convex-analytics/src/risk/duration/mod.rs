@@ -42,8 +42,7 @@ impl Duration {
 
     /// Get the duration as f64
     pub fn as_f64(&self) -> f64 {
-        use rust_decimal::prelude::ToPrimitive;
-        self.0.to_f64().unwrap_or(0.0)
+        self.0.as_f64()
     }
 }
 
@@ -59,8 +58,10 @@ impl From<Decimal> for Duration {
     }
 }
 
-impl From<f64> for Duration {
-    fn from(f: f64) -> Self {
-        Self(Decimal::from_f64_retain(f).unwrap_or(Decimal::ZERO))
+impl TryFrom<f64> for Duration {
+    type Error = crate::error::AnalyticsError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        crate::risk::cash::decimal(value).map(Self)
     }
 }

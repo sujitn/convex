@@ -541,10 +541,6 @@ impl Bond for CallableBond {
         self.base.issue_date()
     }
 
-    fn first_settlement_date(&self) -> Date {
-        self.base.first_settlement_date()
-    }
-
     fn dated_date(&self) -> Date {
         self.base.dated_date()
     }

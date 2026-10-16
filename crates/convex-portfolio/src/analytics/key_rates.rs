@@ -50,7 +50,7 @@ impl KeyRateProfile {
     pub fn at_tenor(&self, tenor: f64) -> Option<f64> {
         self.durations
             .iter()
-            .find(|krd| (krd.tenor - tenor).abs() < 0.001)
+            .find(|krd| tenor.is_finite() && tenor > 0.0 && krd.tenor.to_bits() == tenor.to_bits())
             .map(|krd| krd.duration.as_f64())
     }
 
@@ -187,12 +187,12 @@ pub fn aggregate_key_rate_profile(
             let key = (tenor * 1000.0) as i64;
             let (sum, wt) = tenor_sums.get(&key).copied().unwrap_or((0.0, 0.0));
             let avg_duration = if wt > 0.0 { sum / wt } else { 0.0 };
-            KeyRateDuration {
+            Some(KeyRateDuration {
                 tenor,
-                duration: Duration::from(avg_duration),
-            }
+                duration: Duration::try_from(avg_duration).ok()?,
+            })
         })
-        .collect();
+        .collect::<Option<Vec<_>>>()?;
 
     let total_duration: f64 = durations.iter().map(|krd| krd.duration.as_f64()).sum();
 
@@ -255,7 +255,7 @@ mod tests {
             .iter()
             .map(|(tenor, dur)| KeyRateDuration {
                 tenor: *tenor,
-                duration: Duration::from(*dur),
+                duration: Duration::try_from(*dur).unwrap(),
             })
             .collect();
         KeyRateDurations::new(durations)

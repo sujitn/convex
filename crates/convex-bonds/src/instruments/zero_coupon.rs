@@ -500,10 +500,6 @@ impl Bond for ZeroCouponBond {
         self.issue_date
     }
 
-    fn first_settlement_date(&self) -> Date {
-        self.issue_date
-    }
-
     fn dated_date(&self) -> Date {
         self.issue_date
     }
