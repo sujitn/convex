@@ -614,3 +614,37 @@ separate retirement and protected-test owner review. Existing raw Calendar
 helpers, loader/static-merge/generator ranges and date-only ARRC calculations
 retain their separate required migration/qualification. These changes do not
 waive any mandatory convention, model, operation, host or certificate gate.
+# Checked native settlement invoice helpers
+
+`SettlementInvoiceBuilder::build` now returns `SettlementInvoiceResult` and
+requires `settlement_date`, `accrued_days`, `clean_price`, `accrued_interest`
+and `face_value`. Supply actual metadata; omitted dates and days are errors.
+The existing YAS calculator already supplies those fields. All nine serialized
+invoice fields and ordinary amount calculations retain their existing units.
+
+`calculate_proceeds` and `calculate_accrued_amount` return checked results.
+Builder and proceeds share the same principal/accrued/net component calculation.
+Dirty price and all reported amounts must be representable as native Decimals;
+overflow and nonzero underflow fail without a partial accepted invoice. Signed
+positions, negative accrued interest and explicitly supplied accrued-day counts
+remain valid. Currency and ledger rounding belong to the caller; the scalar
+invoice display no longer supplies a dollar symbol. Ordinary product order is
+retained. Failed per100 products can use an exact two-place operand scale shift;
+failed accrued products can try the other two bounded multiplication groupings.
+These operations do not resolve a bond convention or authorize cash posting.
+
+`calculate_settlement_date(trade_date, settlement_days, &calendar)` now requires
+the actual supplied `Calendar` and returns a checked result. It delegates the
+existing 366-business-day offset and 3660-calendar-day search limits, propagates
+unavailable holiday coverage, and requires financial dates in years 1–9999.
+Zero offset preserves the valid date without querying holiday data. Custom
+calendar callbacks must terminate. The old unbounded Boolean-callback loop is
+removed.
+
+The unused `SettlementInvoice::calculate_settlement` recomputation and
+`Bond::years_to_maturity` default are removed. Read the checked invoice's stored
+`settlement_amount`. For maturity calculations, use actual contractual maturity
+and the existing checked discount-time owner with an explicit convention/context;
+no ACT/365 proxy is inferred. `ZeroCouponBond` retains its separate checked
+instrument timing method. Full dated security quotation/invoice, lifecycle,
+ownership, actual receipts and cash posting remain their existing owners.

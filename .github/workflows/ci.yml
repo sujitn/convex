@@ -523,6 +523,15 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify invoice-default
+        run: cargo test --locked -p convex-analytics --test settlement_invoice
+
+      - name: Qualify invoice-no-default
+        run: cargo test --locked -p convex-analytics --test settlement_invoice --no-default-features
+
+      - name: Qualify invoice-schema
+        run: cargo test --locked -p convex-analytics --test settlement_invoice --features schemars
+
       - name: Qualify selected-yield-default
         run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection
 

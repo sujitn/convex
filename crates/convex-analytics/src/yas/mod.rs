@@ -14,7 +14,7 @@ pub use calculator::{
 };
 pub use invoice::{
     calculate_accrued_amount, calculate_proceeds, calculate_settlement_date, SettlementInvoice,
-    SettlementInvoiceBuilder,
+    SettlementInvoiceBuilder, SettlementInvoiceError, SettlementInvoiceResult,
 };
 
 #[cfg(test)]

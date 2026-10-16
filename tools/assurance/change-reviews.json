@@ -4870,6 +4870,31 @@
         "Twelve native adverse/positive branch controls and26complete shared requests in default/no-default/schema profiles; bound actual current test executables and independent Decimal verification after every builder exits.",
         "Original financial37943checks,368futurecash,8522original/26new native/C/JDK26/Node/browser envelopes and400Treasury controls; full Clippy/fmt/library/assurance/scope/harness/base/physical conservation. Only one supplemental-corpus append may change the original capabilities envelope. No native waiver or certificate."
       ]
+    },
+    {
+      "base_commit": "7a2e02687dd09a644206d1bffeb00223ebbf2e2c",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Require actual supplied settlement date/accrued days and all original scalar invoice inputs; no2000-01-01or0days fallback. Original frozen native1pass3fail captures synthetic metadata, unchecked Decimal panic, negative future maturity and exhausted-date stagnation. Builder/proceeds share one checked original per100component owner. Preserve normal product/division order; only failed product uses an exact two-place scale shift before multiplication. Signed face/accrued values and all nine serialized result fields stay. Dirty, principal, accrued and net must each be representable; nonzero underflow fails. Accrued scalar retains normal product order; only failed intermediate arithmetic tries the other two bounded groupings, and an explicit zero factor is exact zero. Return typed missing/date/arithmetic/calendar errors without accepted partial invoices, saturation or inferred currency/rounding/posting. Remove hardcoded dollar display and unused calculate_settlement recomputation. Settlement-date helper requires an actual supplied Calendar and delegates existing bounded checked offsets; valid zero offset is date-only. Retire unused Bond.years_to_maturity reversed ambiguous ACT365proxy, preserving the distinct checked ZeroCouponBond timing owner. Independent Decimal90references40invoices7accruals precede implementation, exact absolute bound0; nine native controls cover metadata, signed/zero/extreme values, scalar grouping recovery, overflow/underflow, all-closed search, offset/date/calendar coverage/zero-offset boundaries. Invoice module has no old numerical pin. Retain every old financial assertion/input/bound; preserve both incomplete old builder inputs as negative cases and add explicit date/days only to their positive variants. Other protected test sections stay exact. All1876old numerical pins/defaults/references/bounds and8549complete requests/envelopes remain. Two additive pins give1878; no shared route, capability change or mandatory mapping/assessment upgrade. Preserve literal30areas174combinations2154Planned80shared12native228mapped1926unmapped and every sealed packet. Pending exact five protected mock deletions remain unapplied. Full native calendar/daycount/loader/generator/ARRC/fixed/sinking/custom/model/calibration/optional/claim/physical/causal mixed-book/exact-operation scope remains, preserving CTD switches and actual paid/outstanding/partial physical ownership. Only unavailable platform execution defers; user has no Windows/Excel or independently approved packs. No dependency/provider/runtime/DB/MQ/C export/execution authority, native waiver, acceptance or certificate. The authored style gate reports a single added blank line at the migration document EOF. Stop actual own plans/readers/builders, retain the complete failed source/metadata freeze and all interrupted outputs, and remove exactly one trailingLF. No Rust source, numerical pin/input/reference/bound, request or expected envelope changes. Refresh only the current same-base source review and document inventory/fingerprint, refreeze and repeat required checks.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "7c8a5a434034c514d02642df57b6882ab9dceec466a7d2f6e7463a5e3c117a90",
+        "crates/convex-analytics/src/lib.rs": "1d3ddb773c8a060a2efd18c1166073ecf1290c892e5ab74193fbefe3a59df259",
+        "crates/convex-analytics/src/yas/invoice.rs": "dc82467ad916fd6433e5b964ebb68272c4787899b5d1e1e4fa092e8c61bf644a",
+        "crates/convex-analytics/src/yas/mod.rs": "d10b9aeb58e4b63267d1cb9efb17e8108687c17adae5e6dd2c493ae502af649b",
+        "crates/convex-analytics/tests/fixtures/settlement-invoice.json": "0a9adfa7726f9fda481ed126a5b54299dd3e111a67b31de8dd60b400d63257a3",
+        "crates/convex-analytics/tests/settlement_invoice.rs": "85974a6588ef7313caa3354518782a164e743258373df19c54bb7fada95a7fe3",
+        "crates/convex-bonds/src/traits/bond.rs": "aee3211559bde3bd51c8f3a4ec05dfc916f86e49d881de13be0e26bec1e59ce8",
+        "docs/ROUTE-MIGRATION.md": "4970134884c052e3e59ec8b607f44ce8dc5676e2e70b37d6ae7b247a6dcd0852",
+        "tools/assurance/check.py": "a8daaf7e7bb1ceb3a1633b80383daf8f35d604493d29b4f6a82b3880ca002148",
+        "tools/assurance/inventory.json": "c30985215d380a1e20cfa4c57fe353867723f516850451e8c2568544f8d273f4",
+        "tools/assurance/numeric-evidence.json": "7d4d6087a222ae63330139feecf8e2483efe1abbe005066bf0c674a61fdcf37e",
+        "tools/library/library-inventory.json": "f3f5ccd79edb1016de3624abfc0b59b04419bb887bc2fafa7c0f814b59446081"
+      },
+      "tests": [
+        "Frozen original native1pass3fail, independent40invoice7accrual Decimal90references before implementation; all1876old numerical pins/defaults/bounds and old financial assertions stay.",
+        "Nine actual native controls in default/no-default/schema profiles; complete original core/bond/analytics/WASM suites; no inferred global quotation/model support.",
+        "Full fmt/Clippy/library/assurance/harness/API/scope/same-base/source/physical conservation and actual bound native/C/JDK26/Node/browser8549envelopes,400Treasury,368futurecash and37943retained financial comparisons. No old envelope or capability change."
+      ]
     }
   ]
 }

@@ -870,6 +870,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-bonds/src/pricing/yield_scalars.rs')
     paths.add('crates/convex-bonds/src/pricing/yield_cash.rs')
     paths.add('crates/convex-bonds/src/pricing/yield_selection.rs')
+    paths.add('crates/convex-analytics/src/yas/invoice.rs')
     paths.add('crates/convex-bonds/src/cashflows/accrued.rs')
     paths.add('crates/convex-bonds/src/pricing/reinvestment.rs')
     paths.add('crates/convex-bonds/src/types/identifiers.rs')

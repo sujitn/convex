@@ -291,14 +291,6 @@ pub trait Bond {
         }
     }
 
-    /// Returns the years to maturity from the given date.
-    fn years_to_maturity(&self, from: Date) -> Option<f64> {
-        self.maturity().map(|mat| {
-            let days = mat.days_between(&from);
-            days as f64 / 365.0
-        })
-    }
-
     /// Returns true if this bond type requires a pricing model.
     fn requires_model(&self) -> bool {
         self.bond_type().requires_model()

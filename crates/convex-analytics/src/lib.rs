@@ -185,7 +185,8 @@ pub mod prelude {
     pub use crate::yas::{
         calculate_accrued_amount, calculate_proceeds, calculate_settlement_date,
         BatchYASCalculator, BloombergReference, SettlementInvoice, SettlementInvoiceBuilder,
-        ValidationFailure, YASCalculator, YASResult,
+        SettlementInvoiceError, SettlementInvoiceResult, ValidationFailure, YASCalculator,
+        YASResult,
     };
 
     // Options (callable/puttable bonds)
