@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 /// Convexity value
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
-pub struct Convexity(Decimal);
+pub struct Convexity(#[serde(deserialize_with = "super::cash::deserialize_decimal")] Decimal);
 
 impl Convexity {
     /// Create a new Convexity value

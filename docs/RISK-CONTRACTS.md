@@ -101,3 +101,20 @@ and the sign of the supplied direction. Complete weeks take constant work, with
 at most six daily steps. The representable calendar range is the bound; no
 150 year financial cap is invented for weekend arithmetic. Use a supplied checked
 holiday Calendar for instrument economics.
+
+
+## Typed risk-decimal decoding
+
+Duration, Convexity and DV01 share one checked Decimal decoder. Healthy native
+Decimal values and serialized representation stay unchanged. Finite numeric
+inputs keep their established shortest-decimal interpretation; strings admit
+only exactly representable Decimal mantissas and supported exponents, without
+rounding nonzero digits or overflow. Decimal text is bounded to8,192bytes.
+This differs from native TryFromf64, which explicitly converts binary model bits.
+
+Raw JSON input must first use convex_core::contracts::json::parse to reject
+numeric tokens erased by an upstream binary64 parser. Generic Deserialize sees
+the supplied parsed value and cannot recover a discarded original token. Keep
+raw admission and typed Decimal admission separate. The supplied library and
+key-rate REST paths already share that bounded raw owner. V1 and other
+remaining decode/valuation/risk routes keep their explicit owning work.

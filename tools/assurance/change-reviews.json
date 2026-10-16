@@ -5082,6 +5082,31 @@
         "Independent48case declarations (45valid,69factor rows,3zero-normalization rejections) and15exact raw-number boundaries precede candidate execution;6holding,3actualHTTProuter and3JSON-admission functions, feature profiles, full retained native/library/assurance/lint/financial/host checks.",
         "Bind final artifacts once after all actual builders/readers exit; no original financial answer or bound changes; only unavailable actual platform execution defers."
       ]
+    },
+    {
+      "base_commit": "b21e0eb988de3ac70b1ac8ade6cb4d35ffc02b6e",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Repair the actual source/lock/binary-frozen typed-risk1pass6fail probe, replayed before public mutation. One bounded exact Decimal deserialization owner serves Duration/Convexity/DV01 without changing native representation, healthy signed/zero values or serialization. Finite JSON numbers retain their established shortest-decimal interpretation; strings require exact mantissas and supported exponents, with text<=8192bytes. No nonzero rounding-to-zero or overflow is admitted. Native TryFromf64 retains its separate explicit binary-model conversion. Raw token representability stays with the pure bounded core JSON owner; a generic typed deserializer cannot recover a numeric token already erased upstream. V1/other remaining raw boundaries remain required. Independent predeclared50case Decimal120 references give72exact healthy and78rejection observations across three types. Four new functions plus all seven byte-unchanged original probe functions must pass, including nested/parsed and nonfinite native input. Preserve all1894original numerical rows/defaults, all8549original requests, the separate15raw-number actual-host controls, every physical packet and all original tests/answers/bounds. Add two numerical controls only. Retain every required native/feature/library/assurance/financial/actual-host/physical command; bind only after all actual builders/readers exit. No dependency/Cexport/API mapping or mandatory definition change: literal30areas174combinations2154Planned80shared12native228mapped1926unmapped remain. All other original native/calendar/ARRC/YAS/model/calibration/claim/physical/causal/exact-operation and remote MCP requirements remain. Keep CTD alternatives/switches and actual earned/residual/outstanding/paid/partial physical ownership. Only unavailable actual platform execution defers; no approved convention/model packs or Windows/Excel exist, and no native waiver or independent certificate is inferred.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "e794563b32b41883e1661e4bfe3548dabf701d02395ef5661c32c8b31f8403ea",
+        "crates/convex-analytics/src/risk/cash.rs": "7224398834a6efe4530107644c7a8ef725e84bbef45f2c7fabed6fce991627e8",
+        "crates/convex-analytics/src/risk/convexity/mod.rs": "8b04f2edcd4208da63609c659871e082475c071b2bb261f12bf4ed1f32d8471d",
+        "crates/convex-analytics/src/risk/duration/mod.rs": "be04fc0613bc9031126cc70c78d8c4cecedfbbe93fd043f4ef483c96e2107c9b",
+        "crates/convex-analytics/src/risk/dv01.rs": "a591ca4571885d47136c01e8e3c92c239bc5ff36a28dda038067b2d45c82c8f9",
+        "crates/convex-analytics/tests/fixtures/risk-decode.json": "54ed18549c73e1d8e5a32409074747999bc0659032da4f9112af5bf9d471eb61",
+        "crates/convex-analytics/tests/risk_decode.rs": "76714844589d05fc23b16bbcdf7900cc5a5afe1260458e18e8c1eec8a01b81f5",
+        "docs/RISK-CONTRACTS.md": "8ec1fcf94b4b361501fe97ce9e194dad7111c70f2516534b3908400820862c4d",
+        "docs/ROUTE-MIGRATION.md": "d81c88399bb73346774dd286de4c942aeda3a0ddc64c5a41e1ba81a878c1b599",
+        "tools/assurance/inventory.json": "eef4a3df332bf2965ac8b6cb26eef3a840e78ec810d42b5a033b81cda0ade474",
+        "tools/assurance/numeric-evidence.json": "c3e53a9b68cab1918da3cbefe95aa976bf7e6e29d2600ddbfd32f3fd3472e8cc",
+        "tools/library/library-inventory.json": "0a15a851bd06be5ae3274b7eb1fca983df623398880f6abc967c21da67173eb0"
+      },
+      "tests": [
+        "Replay exact old1pass6fail executable before public edits.",
+        "50predeclared cases/150exact observations; four new native controls and seven unchanged original probe functions.",
+        "All retained source-frozen feature/native/library/assurance/financial/actual-host gates and final builder-free qualification."
+      ]
     }
   ]
 }

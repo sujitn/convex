@@ -34,3 +34,58 @@ pub(super) fn decimal(value: f64) -> AnalyticsResult<Decimal> {
     }
     Ok(result)
 }
+
+fn exact_risk_text(text: &str) -> Result<rust_decimal::Decimal, &'static str> {
+    if text.len() > 8192 {
+        return Err("risk decimal text exceeds the admitted byte bound");
+    }
+    if let Some((base, _)) = text.split_once(['e', 'E']) {
+        // The dependency's scientific parser first parses the mantissa with
+        // rounding. Admit that mantissa exactly before delegating its exponent.
+        rust_decimal::Decimal::from_str_exact(base)
+            .map_err(|_| "risk decimal mantissa requires rounding or exceeds representation")?;
+        rust_decimal::Decimal::from_scientific(text)
+            .map_err(|_| "risk decimal exponent exceeds exact representation")
+    } else {
+        rust_decimal::Decimal::from_str_exact(text)
+            .map_err(|_| "risk decimal requires rounding or exceeds exact representation")
+    }
+}
+
+pub(super) fn deserialize_decimal<'de, D>(
+    deserializer: D,
+) -> Result<rust_decimal::Decimal, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct RiskDecimalVisitor;
+    impl<'de> serde::de::Visitor<'de> for RiskDecimalVisitor {
+        type Value = rust_decimal::Decimal;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a finite risk number or exact bounded decimal string")
+        }
+
+        fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Self::Value, E> {
+            Ok(rust_decimal::Decimal::from(value))
+        }
+
+        fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Self::Value, E> {
+            Ok(rust_decimal::Decimal::from(value))
+        }
+
+        fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
+            if !value.is_finite() {
+                return Err(E::custom("finite risk number required"));
+            }
+            // Preserve the established numeric wire interpretation; the new
+            // exact parser cannot silently round a nonzero measure to zero.
+            exact_risk_text(&value.to_string()).map_err(E::custom)
+        }
+
+        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+            exact_risk_text(value).map_err(E::custom)
+        }
+    }
+    deserializer.deserialize_any(RiskDecimalVisitor)
+}

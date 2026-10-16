@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// DV01 value (dollar change per basis point)
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
-pub struct DV01(Decimal);
+pub struct DV01(#[serde(deserialize_with = "super::cash::deserialize_decimal")] Decimal);
 
 impl DV01 {
     /// Create a new DV01 value

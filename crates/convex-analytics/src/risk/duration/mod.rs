@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 /// Duration value (in years)
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
-pub struct Duration(Decimal);
+pub struct Duration(#[serde(deserialize_with = "super::cash::deserialize_decimal")] Decimal);
 
 impl Duration {
     /// Create a new Duration value

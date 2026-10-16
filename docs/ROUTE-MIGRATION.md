@@ -768,3 +768,20 @@ and inspect per-factor coverage; never send a clean quote as a full dirty price.
 The native optional views delegate the checked aggregate_key_rate_exposure owner.
 Synthetic demo factor allocations, fallback risk and NAV-multiple VaR are removed.
 See [the contract](PORTFOLIO-KEY-RATE-RISK.md) for units, bounds and remaining scope.
+
+
+## Typed risk-decimal decoding
+
+Duration, Convexity and DV01 share one checked Decimal decoder. Healthy native
+Decimal values and serialized representation stay unchanged. Finite numeric
+inputs keep their established shortest-decimal interpretation; strings admit
+only exactly representable Decimal mantissas and supported exponents, without
+rounding nonzero digits or overflow. Decimal text is bounded to8,192bytes.
+This differs from native TryFromf64, which explicitly converts binary model bits.
+
+Raw JSON input must first use convex_core::contracts::json::parse to reject
+numeric tokens erased by an upstream binary64 parser. Generic Deserialize sees
+the supplied parsed value and cannot recover a discarded original token. Keep
+raw admission and typed Decimal admission separate. The supplied library and
+key-rate REST paths already share that bounded raw owner. V1 and other
+remaining decode/valuation/risk routes keep their explicit owning work.
