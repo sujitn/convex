@@ -22,16 +22,26 @@ pub fn parse(input: &str) -> Result<Value, String> {
         return Err("input byte limit exceeded".into());
     }
     reject_erased_numbers(input)?;
-    let mut remaining = MAX_NODES;
     let mut deserializer = serde_json::Deserializer::from_str(input);
-    let value = Seed {
+    let value = deserialize_value(&mut deserializer).map_err(|e| e.to_string())?;
+    deserializer.end().map_err(|e| e.to_string())?;
+    Ok(value)
+}
+
+/// Deserialize a value with the shared duplicate, depth, node and text bounds.
+/// Raw JSON callers still use [`parse`] for its byte and lexical-number guards.
+///
+/// # Errors
+/// Rejects duplicate fields, malformed values and exhausted structural bounds.
+pub fn deserialize_value<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Value, D::Error> {
+    let mut remaining = MAX_NODES;
+    Seed {
         remaining: &mut remaining,
         depth: 0,
     }
-    .deserialize(&mut deserializer)
-    .map_err(|e| e.to_string())?;
-    deserializer.end().map_err(|e| e.to_string())?;
-    Ok(value)
+    .deserialize(deserializer)
 }
 
 // Keep numeric intent until the formal JSON parser can consume it. Strings and

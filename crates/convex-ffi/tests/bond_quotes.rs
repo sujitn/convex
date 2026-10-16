@@ -37,7 +37,20 @@ fn c_abi_prices_and_risk_match_all_supplied_contract_goldens() {
     .unwrap();
     for case in pack["cases"].as_array().unwrap() {
         unsafe {
-            let bond = build(convex_ffi::convex_bond_from_json, case.clone());
+            let mut spec = case.clone();
+            for metadata in [
+                "id",
+                "settlement",
+                "yield",
+                "quote_frequency",
+                "quote_frequency_count",
+                "accrued_fraction",
+                "discount_cashflows",
+                "expected",
+            ] {
+                spec.as_object_mut().unwrap().remove(metadata);
+            }
+            let bond = build(convex_ffi::convex_bond_from_json, spec);
             let frequency: Frequency =
                 serde_json::from_value(case["quote_frequency"].clone()).unwrap();
             let mark = Mark::Yield {
@@ -70,7 +83,7 @@ fn c_abi_prices_and_risk_match_all_supplied_contract_goldens() {
             }
             let inverse = rpc(
                 convex_ffi::convex_price,
-                json!({"bond":bond,"settlement":case["settlement"],"mark":format!("{}C",case["expected"]["clean_price"].as_str().unwrap()),"quote_frequency":frequency}),
+                json!({"bond":bond,"settlement":case["settlement"],"mark":format!("{}C",case["expected"]["clean_price"].as_str().unwrap().parse::<Decimal>().unwrap()),"quote_frequency":frequency}),
             );
             assert_eq!(inverse["ok"], "true", "{inverse}");
             close(
@@ -152,15 +165,19 @@ fn c_abi_frn_never_uses_coupon_spread_as_an_unobserved_fixing() {
             json!({"type":"floating_rate","name":"FRN-ABSENT-FIXINGS","spread_bps":"75","maturity":"2029-01-15","issue":"2024-01-15","rate_index":"sofr","frequency":"Quarterly","day_count":"Act360"}),
         );
         let handle = build(convex_ffi::convex_curve_from_json, curve(0.035, "frn"));
-        for f in [
-            convex_ffi::convex_price,
-            convex_ffi::convex_risk,
-            convex_ffi::convex_cashflows,
+        let pricing_request = json!({"bond":bond,"curve":handle,"forward_curve":handle,"settlement":"2025-01-15","mark":"100C"});
+        for (f, request) in [
+            (
+                convex_ffi::convex_price as unsafe extern "C" fn(*const i8) -> *mut i8,
+                pricing_request.clone(),
+            ),
+            (convex_ffi::convex_risk, pricing_request),
+            (
+                convex_ffi::convex_cashflows,
+                json!({"bond":bond,"settlement":"2025-01-15"}),
+            ),
         ] {
-            let result = rpc(
-                f,
-                json!({"bond":bond,"curve":handle,"forward_curve":handle,"settlement":"2025-01-15","mark":"100C"}),
-            );
+            let result = rpc(f, request);
             assert_eq!(result["ok"], "false", "{result}");
             assert_eq!(result["error"]["field"], "fixings");
         }

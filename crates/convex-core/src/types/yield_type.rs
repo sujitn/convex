@@ -23,8 +23,15 @@ use crate::error::{ConvexError, ConvexResult};
 /// assert_eq!(ytm.as_bps(), 500);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Yield {
     /// Yield as a decimal (0.05 = 5%)
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value: Decimal,
     /// Compounding frequency convention
     compounding: Compounding,

@@ -278,7 +278,7 @@ fn build_floating_rate(spec: FloatingRateSpec, hash: u64) -> Handle {
     }
     b = b
         .index(index)
-        .spread_decimal(spec.spread_bps / Decimal::from(10_000))
+        .spread_bps(spec.spread_bps)
         .maturity(spec.maturity)
         .issue_date(spec.issue)
         .frequency(spec.frequency)

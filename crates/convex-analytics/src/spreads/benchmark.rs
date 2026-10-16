@@ -14,13 +14,14 @@ use std::fmt;
 ///
 /// Supports CUSIP (US), ISIN (international), and FIGI (Bloomberg).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SecurityId {
     /// CUSIP identifier (9 characters, primarily US)
-    Cusip(Cusip),
+    Cusip(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Cusip),
     /// ISIN identifier (12 characters, international)
-    Isin(Isin),
+    Isin(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Isin),
     /// FIGI/Bloomberg Global Identifier (12 characters)
-    Figi(Figi),
+    Figi(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Figi),
 }
 
 impl SecurityId {

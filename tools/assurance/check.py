@@ -31,6 +31,16 @@ TREASURY_RUNS = (
 
 REQUIRED_RUNS = {
     'assurance': TREASURY_RUNS + (
+        'cargo test --locked -p convex-core --test quote_marks',
+        'cargo test --locked -p convex-core --test quote_marks --no-default-features',
+        'cargo test --locked -p convex-core --test quote_marks --features schemars',
+        'cargo test --locked -p convex-curves --test native_discount',
+        'cargo test --locked -p convex-curves --test native_discount --no-default-features',
+        'cargo test --locked -p convex-curves --test native_discount --features schemars',
+        'cargo test --locked -p convex-analytics --test quote_wire',
+        'cargo test --locked -p convex-analytics --test quote_wire --no-default-features',
+        'cargo test --locked -p convex-analytics --test quote_wire --features schemars',
+        'cargo test --locked -p convex-ffi --test quote_rpc',
         'cargo test --locked -p convex-core --test numeric_decimal',
         'cargo test --locked -p convex-core --test numeric_decimal --no-default-features',
         'cargo test --locked -p convex-core --test numeric_decimal --features schemars',
@@ -1005,6 +1015,19 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('demo/frontend/src/hooks/useBondQuoteStream.ts')
     paths.add('demo/frontend/src/hooks/useEtfStream.ts')
     paths.add('demo/frontend/src/hooks/useWebSocket.ts')
+    paths.add('crates/convex-analytics/src/risk/hedging/ctd.rs')
+    paths.add('crates/convex-analytics/src/risk/hedging/types.rs')
+    paths.add('crates/convex-analytics/src/spreads/benchmark.rs')
+    paths.add('crates/convex-analytics/src/spreads/sovereign.rs')
+    paths.add('crates/convex-core/src/types/mark.rs')
+    paths.add('crates/convex-core/src/types/price.rs')
+    paths.add('crates/convex-core/src/types/spread.rs')
+    paths.add('crates/convex-curves/src/multicurve/index.rs')
+    paths.add('crates/convex-curves/src/term_structure.rs')
+    paths.add('crates/convex-ffi/src/dispatch.rs')
+    paths.add('crates/convex-ffi/src/lib.rs')
+    paths.add('crates/convex-ffi/src/build.rs')
+    paths.add('crates/convex-curves/src/bumping/mod.rs')
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

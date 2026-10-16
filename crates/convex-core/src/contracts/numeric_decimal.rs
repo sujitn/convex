@@ -6,8 +6,9 @@
 //! [`super::json::parse`] to retain lexical nonzero intent before binary64 parsing.
 //! Exact-string contracts continue to use [`super::decimal_serde`].
 
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use serde::{de::Visitor, Deserializer};
+use serde::{de::Visitor, Deserializer, Serializer};
 
 fn parse(text: &str, context: &str) -> Result<Decimal, String> {
     if text.len() > 8192 {
@@ -29,7 +30,29 @@ fn parse(text: &str, context: &str) -> Result<Decimal, String> {
     }
 }
 
-/// Decode an exactly representable financial Decimal without changing serialization.
+/// Parse exact bounded text without rounding or erasing a nonzero value.
+///
+/// # Errors
+/// Rejects malformed, oversized or unrepresentable decimal values.
+pub fn from_text(text: &str) -> Result<Decimal, String> {
+    parse(text, "financial")
+}
+
+/// Serialize exact digits, retaining numeric output when it round-trips exactly.
+///
+/// # Errors
+/// Propagates an output serializer failure.
+pub fn serialize<S: Serializer>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error> {
+    if let Some(number) = value.to_f64().filter(|number| {
+        number.is_finite() && from_text(&number.to_string()).is_ok_and(|decoded| decoded == *value)
+    }) {
+        serializer.serialize_f64(number)
+    } else {
+        serializer.serialize_str(&value.to_string())
+    }
+}
+
+/// Decode an exactly representable financial Decimal using the shared admission policy.
 ///
 /// # Errors
 /// Rejects nonfinite, oversized, rounded or out-of-range values.
@@ -101,6 +124,20 @@ pub mod optional {
     #[derive(Deserialize)]
     #[serde(transparent)]
     struct Present(#[serde(deserialize_with = "super::deserialize")] Decimal);
+
+    /// Serialize a missing value or exact present Decimal with the scalar policy.
+    ///
+    /// # Errors
+    /// Propagates an output serializer failure.
+    pub fn serialize<S: Serializer>(
+        value: &Option<Decimal>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match value {
+            Some(value) => super::serialize(value, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
 
     /// Decode null or a present exactly representable Decimal.
     ///

@@ -73,30 +73,35 @@ impl<T: TermStructure> RateCurve<T> {
 
     /// Returns the discount factor at a tenor (years).
     pub fn discount_factor_at_tenor(&self, t: f64) -> CurveResult<f64> {
-        if t <= 0.0 {
+        if !t.is_finite() || t < 0.0 {
+            return Err(CurveError::invalid_value(
+                "discount tenor must be finite and nonnegative",
+            ));
+        }
+        if t == 0.0 {
             return Ok(1.0);
         }
-
-        let value = self.inner.value_at(t);
+        let value = self.inner.try_value_at(t)?;
         let value_type = self.inner.value_type();
-
-        match value_type {
-            ValueType::DiscountFactor => Ok(value),
+        let discount = match value_type {
+            ValueType::DiscountFactor | ValueType::SurvivalProbability => value,
             ValueType::ZeroRate { compounding, .. } => {
-                Ok(ValueConverter::zero_to_df(value, t, compounding))
+                crate::contracts::discount_from_rate(value, t, compounding)
+                    .map_err(|error| CurveError::invalid_value(error.to_string()))?
             }
-            ValueType::SurvivalProbability => Ok(value), // Same as DF for survival
-            ValueType::ForwardRate { .. } | ValueType::InstantaneousForward => {
-                Err(CurveError::incompatible_value_type(
+            _ => {
+                return Err(CurveError::incompatible_value_type(
                     "DiscountFactor or ZeroRate",
-                    format!("{:?}", value_type),
+                    format!("{value_type:?}"),
                 ))
             }
-            _ => Err(CurveError::incompatible_value_type(
-                "DiscountFactor or ZeroRate",
-                format!("{:?}", value_type),
-            )),
+        };
+        if !discount.is_finite() || discount <= 0.0 {
+            return Err(CurveError::invalid_value(
+                "discount factor must be positive and finite without nonzero underflow",
+            ));
         }
+        Ok(discount)
     }
 
     /// Returns the continuously compounded zero rate at the given date.
@@ -343,6 +348,10 @@ impl<T: TermStructure> TermStructure for RateCurve<T> {
         self.inner.value_at(t)
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        self.inner.try_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         self.inner.tenor_bounds()
     }
@@ -377,21 +386,39 @@ impl<T: TermStructure> YieldCurve for RateCurve<T> {
         let df = self
             .discount_factor(date)
             .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
-        Ok(Decimal::from_f64_retain(df).unwrap_or(Decimal::ZERO))
+        Decimal::from_f64_retain(df)
+            .filter(|value| df == 0.0 || !value.is_zero())
+            .ok_or_else(|| {
+                convex_core::error::ConvexError::curve_error(
+                    "curve result is outside nonzero Decimal representation",
+                )
+            })
     }
 
     fn zero_rate(&self, date: Date) -> ConvexResult<Decimal> {
         let rate = self
             .zero_rate_continuous(date)
             .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
-        Ok(Decimal::from_f64_retain(rate).unwrap_or(Decimal::ZERO))
+        Decimal::from_f64_retain(rate)
+            .filter(|value| rate == 0.0 || !value.is_zero())
+            .ok_or_else(|| {
+                convex_core::error::ConvexError::curve_error(
+                    "curve result is outside nonzero Decimal representation",
+                )
+            })
     }
 
     fn forward_rate(&self, start: Date, end: Date) -> ConvexResult<Decimal> {
         let fwd = self
             .forward_rate(start, end, Compounding::Continuous)
             .map_err(|e| convex_core::error::ConvexError::curve_error(e.to_string()))?;
-        Ok(Decimal::from_f64_retain(fwd).unwrap_or(Decimal::ZERO))
+        Decimal::from_f64_retain(fwd)
+            .filter(|value| fwd == 0.0 || !value.is_zero())
+            .ok_or_else(|| {
+                convex_core::error::ConvexError::curve_error(
+                    "curve result is outside nonzero Decimal representation",
+                )
+            })
     }
 
     fn max_date(&self) -> Date {

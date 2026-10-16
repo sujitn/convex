@@ -523,6 +523,36 @@ jobs:
       - name: Qualify checked explicit dated discount time 9
         run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
 
+      - name: Qualify quote marks default
+        run: cargo test --locked -p convex-core --test quote_marks
+
+      - name: Qualify quote marks no-default
+        run: cargo test --locked -p convex-core --test quote_marks --no-default-features
+
+      - name: Qualify quote marks schema
+        run: cargo test --locked -p convex-core --test quote_marks --features schemars
+
+      - name: Qualify native discount default
+        run: cargo test --locked -p convex-curves --test native_discount
+
+      - name: Qualify native discount no-default
+        run: cargo test --locked -p convex-curves --test native_discount --no-default-features
+
+      - name: Qualify native discount schema
+        run: cargo test --locked -p convex-curves --test native_discount --features schemars
+
+      - name: Qualify quote wire default
+        run: cargo test --locked -p convex-analytics --test quote_wire
+
+      - name: Qualify quote wire no-default
+        run: cargo test --locked -p convex-analytics --test quote_wire --no-default-features
+
+      - name: Qualify quote wire schema
+        run: cargo test --locked -p convex-analytics --test quote_wire --features schemars
+
+      - name: Qualify actual quote RPC and schema contracts
+        run: cargo test --locked -p convex-ffi --test quote_rpc
+
       - name: Qualify checked numeric Decimal default
         run: cargo test --locked -p convex-core --test numeric_decimal
 

@@ -15,7 +15,6 @@
 //! let bumped = scenario.apply(&curve);
 //! ```
 
-use convex_math::portable;
 use std::sync::Arc;
 
 use convex_core::types::Date;
@@ -544,22 +543,22 @@ impl<T: TermStructure> TermStructure for ScenarioCurve<'_, T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
-        let total_shift = self.scenario.total_shift_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.scenario.total_shift_at(t),
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. }
-            | ValueType::CreditSpread { .. } => base_value + total_shift,
-
-            ValueType::DiscountFactor => base_value * portable::exp(-total_shift * t),
-            ValueType::SurvivalProbability => base_value * portable::exp(-total_shift * t),
-
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(
+            &self.base.value_type(),
+            value,
+            self.scenario.total_shift_at(t),
+            t,
+        )
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {
@@ -609,22 +608,22 @@ impl<T: TermStructure> TermStructure for ArcScenarioCurve<T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
-        let total_shift = self.scenario.total_shift_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.scenario.total_shift_at(t),
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. }
-            | ValueType::CreditSpread { .. } => base_value + total_shift,
-
-            ValueType::DiscountFactor => base_value * portable::exp(-total_shift * t),
-            ValueType::SurvivalProbability => base_value * portable::exp(-total_shift * t),
-
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + total_shift,
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(
+            &self.base.value_type(),
+            value,
+            self.scenario.total_shift_at(t),
+            t,
+        )
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {

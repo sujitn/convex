@@ -61,9 +61,14 @@ impl fmt::Display for SpreadType {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Spread {
     /// Spread value in basis points
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value_bps: Decimal,
     /// Type of spread
     spread_type: SpreadType,

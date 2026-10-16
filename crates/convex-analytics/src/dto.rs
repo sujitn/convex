@@ -34,7 +34,7 @@ pub use convex_bonds::contracts::{
 
 /// Tagged JSON: `{ "type": "fixed_rate" | "callable" | "floating_rate"
 /// | "zero_coupon" | "sinking_fund", ... }`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum BondSpec {
@@ -65,7 +65,7 @@ pub struct BondIdentifier {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CouponSpec {
     /// Annual coupon as decimal (0.05 = 5%).
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -81,7 +81,7 @@ pub struct CouponSpec {
     pub currency: Currency,
     /// Quoted unit, default 100.
     #[serde(default = "default_face")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -125,7 +125,7 @@ pub struct FixedRateTerms {
     pub calendar: String,
     pub end_of_month: bool,
     pub settlement_days: u32,
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -194,11 +194,12 @@ pub enum RateIndexCode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(deny_unknown_fields))]
 pub struct FloatingRateSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
     /// Spread over the index, in basis points.
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -215,21 +216,21 @@ pub struct FloatingRateSpec {
     #[serde(default)]
     pub currency: Currency,
     #[serde(default = "default_face")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
     )]
     pub face_value: Decimal,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal::optional")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
     )]
     pub cap: Option<Decimal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal::optional")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
@@ -246,6 +247,7 @@ fn default_act_360() -> DayCountConvention {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(deny_unknown_fields))]
 pub struct ZeroCouponSpec {
     #[serde(default, flatten)]
     pub id: BondIdentifier,
@@ -258,7 +260,7 @@ pub struct ZeroCouponSpec {
     #[serde(default)]
     pub currency: Currency,
     #[serde(default = "default_face")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -266,7 +268,7 @@ pub struct ZeroCouponSpec {
     pub face_value: Decimal,
     /// Actual final cash redemption; omission retains the v1 face-value default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::optional::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal::optional")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
@@ -284,7 +286,7 @@ fn default_act_act_icma() -> DayCountConvention {
 pub struct SinkingFundPaymentSpec {
     pub date: Date,
     /// Notional retired on this date, % of original face.
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -292,7 +294,7 @@ pub struct SinkingFundPaymentSpec {
     pub amount: Decimal,
     /// Sink price as % of par, default 100.
     #[serde(default = "default_par_price")]
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
     #[cfg_attr(
         feature = "schemars",
         schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
@@ -342,7 +344,7 @@ pub enum CurveValueKind {
 
 /// Specification for a yield/discount curve.
 /// Tagged JSON: `{ "type": "discrete" | "bootstrap", ... }`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveSpec {
@@ -459,12 +461,15 @@ pub use convex_curves::contracts::{CurveQuery, CurveRecipe};
 /// `convex_schema("Mark")`) or an already-parsed JSON `Mark`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum MarkInput {
     Text(String),
     Parsed(Mark),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PricingRequest {
     pub bond: Handle,
     pub settlement: Date,
@@ -482,6 +487,7 @@ pub struct PricingRequest {
 
 /// Prices and accrued are per 100 face. YTM is decimal (0.05 = 5%).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PricingResponse {
     pub clean_price: f64,
     pub dirty_price: f64,
@@ -495,6 +501,8 @@ pub struct PricingResponse {
 // ---- Risk -----------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct RiskRequest {
     pub bond: Handle,
     pub settlement: Date,
@@ -511,12 +519,14 @@ pub struct RiskRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct KeyRate {
     pub tenor: f64,
     pub duration: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct RiskResponse {
     pub modified_duration: f64,
     pub macaulay_duration: f64,
@@ -534,6 +544,7 @@ pub struct RiskResponse {
 /// reads it; values are ignored for unrelated families.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SpreadParams {
     /// Quoted-yield compounding for fixed-coupon spreads; preserves the v1 default.
     #[serde(default)]
@@ -555,6 +566,7 @@ pub struct SpreadParams {
 /// Caller-supplied government benchmarks, separate from discount and swap curves.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct GovernmentCurveSpec {
     /// Curve origin on the supplied benchmark record.
     pub reference_date: Date,
@@ -565,6 +577,8 @@ pub struct GovernmentCurveSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct SpreadRequest {
     pub bond: Handle,
     pub curve: Handle,
@@ -577,6 +591,7 @@ pub struct SpreadRequest {
 
 /// Spread response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SpreadResponse {
     /// Spread in basis points.
     pub spread_bps: f64,
@@ -603,6 +618,8 @@ pub struct SpreadResponse {
 /// reference treasury rate. The make-whole spread is read from the bond's
 /// own call schedule. Discount uses the bond's day count and frequency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct MakeWholeRequest {
     pub bond: Handle,
     /// Date of the hypothetical call exercise.
@@ -612,6 +629,7 @@ pub struct MakeWholeRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MakeWholeResponse {
     /// Make-whole price per 100 face, floored at the first call entry's price
     /// (typically par).
@@ -625,6 +643,8 @@ pub struct MakeWholeResponse {
 // ---- Cashflows ------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CashflowRequest {
     pub bond: Handle,
     /// Only flows on or after this date are returned.
@@ -632,6 +652,7 @@ pub struct CashflowRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CashflowEntry {
     pub date: Date,
     /// Amount per 100 face.
@@ -641,6 +662,7 @@ pub struct CashflowEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CashflowResponse {
     pub flows: Vec<CashflowEntry>,
 }
@@ -649,6 +671,7 @@ pub struct CashflowResponse {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CurveQueryKind {
     Zero,
     Df,
@@ -656,6 +679,8 @@ pub enum CurveQueryKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CurveQueryRequest {
     pub curve: Handle,
     pub query: CurveQueryKind,
@@ -667,8 +692,9 @@ pub struct CurveQueryRequest {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CurveQueryResponse {
-    /// Rate as decimal, or DF in [0, 1].
+    /// Finite decimal rate, or a strictly positive DF; negative rates can give DF above one.
     pub value: f64,
 }
 
@@ -679,6 +705,7 @@ pub struct CurveQueryResponse {
 /// Backed by `crate::yas::YASCalculator`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct YasRequest {
     pub bond: Handle,
     pub settlement: Date,
@@ -694,6 +721,7 @@ pub struct YasRequest {
 
 /// Yields in percent, spreads in basis points, prices/amounts per 100 face.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct YasResponse {
     pub clean_price: f64,
     pub dirty_price: f64,
@@ -718,6 +746,8 @@ pub struct YasResponse {
 /// "flattener" | "key_rate" | "credit_spread", ... }`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub enum ScenarioBumpSpec {
     Parallel {
         shift_bps: f64,
@@ -749,6 +779,8 @@ fn default_pivot_tenor() -> f64 {
 
 /// One named scenario = a list of bumps applied together.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ScenarioSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -759,6 +791,8 @@ pub struct ScenarioSpec {
 /// the mark implies a Z-spread over the base curve; each scenario bumps the
 /// curve and reprices holding that Z-spread fixed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ScenarioRequest {
     pub bond: Handle,
     pub curve: Handle,
@@ -770,6 +804,7 @@ pub struct ScenarioRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ScenarioRow {
     pub name: String,
     pub clean_price: f64,
@@ -781,6 +816,7 @@ pub struct ScenarioRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ScenarioResponse {
     pub base_clean: f64,
     pub base_ytm_decimal: f64,
@@ -807,13 +843,19 @@ fn default_curve_id() -> String {
 /// callable) use the YTM-driven path; a callable additionally requires
 /// `volatility` and is routed through the OAS-aware risk path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct RiskProfileRequest {
     pub bond: Handle,
     pub settlement: Date,
     pub mark: MarkInput,
     /// Position face amount (e.g. 10000000 for $10mm). Per-100 metrics are
     /// scaled to market value by the analytics layer.
-    #[serde(deserialize_with = "convex_core::contracts::numeric_decimal::deserialize")]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub notional_face: Decimal,
     /// Discount curve handle (required).
     pub curve: Handle,
@@ -837,6 +879,7 @@ pub struct RiskProfileRequest {
 /// Which hedge construction to run. Each maps to a `crate::risk` strategy fn.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum HedgeStrategyKind {
     /// Single liquid future sized to neutralise position DV01.
     DurationFutures,
@@ -852,6 +895,8 @@ pub enum HedgeStrategyKind {
 
 /// Propose a hedge for a previously-computed `RiskProfile`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct HedgeRequest {
     pub strategy: HedgeStrategyKind,
     /// The position to hedge — round-tripped from `convex_risk_profile`.
@@ -872,6 +917,8 @@ pub struct HedgeRequest {
 
 /// Compare proposals against a position, optionally with a text narrative.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CompareRequest {
     pub position: RiskProfile,
     pub proposals: Vec<HedgeProposal>,
@@ -884,6 +931,7 @@ pub struct CompareRequest {
 
 /// Comparison report plus an optional human-readable narrative.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CompareResponse {
     pub report: ComparisonReport,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -896,6 +944,7 @@ pub struct CompareResponse {
 /// success and `{ "ok": "false", "error": … }` on failure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "ok")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Envelope<T> {
     #[serde(rename = "true")]
     Ok { result: T },
@@ -905,6 +954,7 @@ pub enum Envelope<T> {
 
 /// Structured error body.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ErrorBody {
     /// Stable error code (`invalid_input`, `invalid_handle`, `analytics`, ...).
     pub code: String,
@@ -913,6 +963,183 @@ pub struct ErrorBody {
     /// Optional pointer to the offending field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+}
+
+/// Generate a complete structural convenience RPC schema from its actual DTO.
+/// Semantic validation and registry-name resolution remain at their owning boundaries.
+#[cfg(feature = "schemars")]
+pub fn rpc_schema(name: &str) -> Option<serde_json::Value> {
+    fn input<T: schemars::JsonSchema>() -> serde_json::Value {
+        schemars::schema_for!(T).to_value()
+    }
+    fn output<T: schemars::JsonSchema>() -> serde_json::Value {
+        schemars::generate::SchemaSettings::default()
+            .for_serialize()
+            .into_generator()
+            .into_root_schema_for::<T>()
+            .to_value()
+    }
+    Some(match name {
+        "Mark" => input::<Mark>(),
+        "PricingRequest" => input::<PricingRequest>(),
+        "RiskRequest" => input::<RiskRequest>(),
+        "SpreadRequest" => input::<SpreadRequest>(),
+        "CashflowRequest" => input::<CashflowRequest>(),
+        "CurveQueryRequest" => input::<CurveQueryRequest>(),
+        "MakeWholeRequest" => input::<MakeWholeRequest>(),
+        "YasRequest" => input::<YasRequest>(),
+        "ScenarioRequest" => input::<ScenarioRequest>(),
+        "RiskProfileRequest" => input::<RiskProfileRequest>(),
+        "HedgeRequest" => input::<HedgeRequest>(),
+        "CompareRequest" => input::<CompareRequest>(),
+        "PricingResponse" => output::<PricingResponse>(),
+        "RiskResponse" => output::<RiskResponse>(),
+        "SpreadResponse" => output::<SpreadResponse>(),
+        "CashflowResponse" => output::<CashflowResponse>(),
+        "CurveQueryResponse" => output::<CurveQueryResponse>(),
+        "MakeWholeResponse" => output::<MakeWholeResponse>(),
+        "YasResponse" => output::<YasResponse>(),
+        "ScenarioResponse" => output::<ScenarioResponse>(),
+        "RiskProfile" => output::<RiskProfile>(),
+        "HedgeProposal" => output::<HedgeProposal>(),
+        "CompareResponse" => output::<CompareResponse>(),
+        _ => return None,
+    })
+}
+
+impl<'de> Deserialize<'de> for BondSpec {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut value = convex_core::contracts::json::deserialize_value(deserializer)?;
+        let kind = value
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| serde::de::Error::custom("constructor requires a type string"))?;
+        validate_constructor_fields(&value).map_err(serde::de::Error::custom)?;
+        if let Some(fields) = value.as_object_mut() {
+            fields.remove("type");
+        }
+        match kind.as_str() {
+            "fixed_rate" => serde_json::from_value(value)
+                .map(Self::FixedRate)
+                .map_err(serde::de::Error::custom),
+            "callable" => serde_json::from_value(value)
+                .map(Self::Callable)
+                .map_err(serde::de::Error::custom),
+            "floating_rate" => serde_json::from_value(value)
+                .map(Self::FloatingRate)
+                .map_err(serde::de::Error::custom),
+            "zero_coupon" => serde_json::from_value(value)
+                .map(Self::ZeroCoupon)
+                .map_err(serde::de::Error::custom),
+            "sinking_fund" => serde_json::from_value(value)
+                .map(Self::SinkingFund)
+                .map_err(serde::de::Error::custom),
+            _ => Err(serde::de::Error::custom("unsupported constructor type")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CurveSpec {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut value = convex_core::contracts::json::deserialize_value(deserializer)?;
+        let kind = value
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| serde::de::Error::custom("constructor requires a type string"))?;
+        validate_constructor_fields(&value).map_err(serde::de::Error::custom)?;
+        if let Some(fields) = value.as_object_mut() {
+            fields.remove("type");
+        }
+        match kind.as_str() {
+            "discrete" => serde_json::from_value(value)
+                .map(Self::Discrete)
+                .map_err(serde::de::Error::custom),
+            "bootstrap" => serde_json::from_value(value)
+                .map(Self::Bootstrap)
+                .map_err(serde::de::Error::custom),
+            _ => Err(serde::de::Error::custom("unsupported constructor type")),
+        }
+    }
+}
+
+fn validate_constructor_fields(value: &serde_json::Value) -> Result<(), String> {
+    let Some(fields) = value.as_object() else {
+        return Ok(());
+    };
+    let Some(kind) = fields.get("type").and_then(serde_json::Value::as_str) else {
+        return Ok(());
+    };
+    const ID: &[&str] = &["type", "cusip", "isin", "name", "registry_key"];
+    const COUPON: &[&str] = &[
+        "coupon_rate",
+        "frequency",
+        "maturity",
+        "issue",
+        "day_count",
+        "currency",
+        "face_value",
+        "business_day_convention",
+    ];
+    const CURVE: &[&str] = &[
+        "type",
+        "name",
+        "registry_key",
+        "ref_date",
+        "interpolation",
+        "day_count",
+    ];
+    let groups: &[&[&str]] = match kind {
+        "fixed_rate" => &[ID, COUPON, &["terms"]],
+        "callable" => &[
+            ID,
+            COUPON,
+            &[
+                "call_schedule",
+                "call_style",
+                "make_whole_spread_bps",
+                "put_schedule",
+            ],
+        ],
+        "sinking_fund" => &[ID, COUPON, &["schedule"]],
+        "floating_rate" => &[
+            ID,
+            &[
+                "spread_bps",
+                "rate_index",
+                "maturity",
+                "issue",
+                "frequency",
+                "day_count",
+                "currency",
+                "face_value",
+                "cap",
+                "floor",
+            ],
+        ],
+        "zero_coupon" => &[
+            ID,
+            &[
+                "maturity",
+                "issue",
+                "compounding",
+                "day_count",
+                "currency",
+                "face_value",
+                "redemption_value",
+            ],
+        ],
+        "discrete" => &[CURVE, &["tenors", "values", "value_kind", "compounding"]],
+        "bootstrap" => &[CURVE, &["method", "instruments"]],
+        _ => return Ok(()),
+    };
+    for key in fields.keys() {
+        if !groups.iter().any(|group| group.contains(&key.as_str())) {
+            return Err(format!("unsupported {kind} constructor field {key}"));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

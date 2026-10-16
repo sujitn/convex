@@ -120,6 +120,23 @@ const HEDGE_REFS: &[&[&str]] = &[&["curve"]];
 const YAS_REFS: &[&[&str]] = &[&["bond"], &["curve"], &["swap_curve"]];
 const SCENARIO_REFS: &[&[&str]] = &[&["bond"], &["curve"]];
 
+/// Use the exact same registered-name fields for generated host schemas and dispatch.
+pub(crate) fn schema_reference_paths(name: &str) -> &'static [&'static [&'static str]] {
+    match name {
+        "PricingRequest" => PRICE_REFS,
+        "RiskRequest" => RISK_REFS,
+        "SpreadRequest" => SPREAD_REFS,
+        "CashflowRequest" => CASHFLOWS_REFS,
+        "CurveQueryRequest" => CURVE_QUERY_REFS,
+        "MakeWholeRequest" => MAKE_WHOLE_REFS,
+        "RiskProfileRequest" => RISK_PROFILE_REFS,
+        "HedgeRequest" => HEDGE_REFS,
+        "YasRequest" => YAS_REFS,
+        "ScenarioRequest" => SCENARIO_REFS,
+        _ => &[],
+    }
+}
+
 fn field_mut<'a>(
     value: &'a mut serde_json::Value,
     path: &[&str],
@@ -195,7 +212,7 @@ pub fn describe(handle: Handle) -> String {
         }
         ObjectKind::Bond(BondKind::FloatingRate) => {
             registry::with_object::<FloatingRateNote, _, _>(handle, |f| {
-                payload["spread_bps"] = serde_json::json!(dec_to_f64(f.spread_bps()));
+                payload["spread_bps"] = decimal_json(f.spread_bps());
                 payload["maturity"] = serde_json::json!(f.maturity_date().to_string());
                 payload["issue"] = serde_json::json!(f.get_issue_date().to_string());
                 payload["frequency"] = serde_json::json!(format!("{:?}", f.frequency()));
@@ -212,7 +229,7 @@ pub fn describe(handle: Handle) -> String {
         ObjectKind::Bond(BondKind::SinkingFund) => {
             registry::with_object::<SinkingFundBond, _, _>(handle, |s| {
                 extend_fixed(&mut payload, s.base_bond());
-                payload["original_face"] = serde_json::json!(dec_to_f64(s.original_face()));
+                payload["original_face"] = decimal_json(s.original_face());
             });
         }
         ObjectKind::Curve => {
@@ -229,15 +246,22 @@ pub fn describe(handle: Handle) -> String {
     serde_json::json!({"ok": "true", "result": payload}).to_string()
 }
 
+fn decimal_json(value: Decimal) -> serde_json::Value {
+    #[derive(serde::Serialize)]
+    #[serde(transparent)]
+    struct Exact(#[serde(with = "convex_core::contracts::numeric_decimal")] Decimal);
+    serde_json::json!(Exact(value))
+}
+
 fn extend_fixed(payload: &mut serde_json::Value, b: &FixedRateBond) {
-    payload["coupon_rate"] = serde_json::json!(dec_to_f64(b.coupon_rate_decimal()));
+    payload["coupon_rate"] = decimal_json(b.coupon_rate_decimal());
     if let Some(m) = b.maturity() {
         payload["maturity"] = serde_json::json!(m.to_string());
     }
     payload["frequency"] = serde_json::json!(format!("{:?}", b.frequency()));
     payload["day_count"] = serde_json::json!(format!("{:?}", b.day_count()));
     payload["currency"] = serde_json::json!(format!("{:?}", b.currency()));
-    payload["face_value"] = serde_json::json!(dec_to_f64(b.face_value()));
+    payload["face_value"] = decimal_json(b.face_value());
 }
 
 // ---- price ---------------------------------------------------------------
@@ -1031,7 +1055,14 @@ fn curve_query_inner(request: serde_json::Value) -> Result<CurveQueryResponse, D
     });
 
     match result {
-        Some(Ok(v)) => Ok(CurveQueryResponse { value: v }),
+        Some(Ok(value))
+            if value.is_finite() && (!matches!(req.query, CurveQueryKind::Df) || value > 0.0) =>
+        {
+            Ok(CurveQueryResponse { value })
+        }
+        Some(Ok(_)) => Err(DispatchError::analytics(
+            "curve query result is nonfinite or its positive discount factor is unrepresentable",
+        )),
         Some(Err(e)) => Err(e),
         None => Err(DispatchError::handle(format!(
             "curve handle {} not found",

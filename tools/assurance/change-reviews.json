@@ -5285,6 +5285,71 @@
         "59 independent Decimal references, 39 constructor cases and actual generated-schema/router controls.",
         "Required native/library/assurance/financial/available-host/conservation checks; no approval or certificate inferred."
       ]
+    },
+    {
+      "base_commit": "af41319e1a44dfb9741e54d9e8e30ae835f00aaf",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-16",
+      "rationale": "Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, four discount, two risk amount and five actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. Of 1913 prior numerical rows, 1912 remain byte-identical; the sole exact owner-approved request-shape adapter preserves all five tests, thirteen golden rows, financial inputs, answers, assertions and tolerances. All solver defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Four independently declared description requests expose three original C digit losses. The object-description boundary now delegates the same exact serializer for coupon, face, original face and FRN spread. Preserve the first three-pass/one-fail new C control candidate and every raw/source/binary byte; correct only the new spread type and actual callable reference setup. Thirteen new native/C functions remain declared before fresh execution. Preserve the second three-pass/two-fail C candidate, with the real exact FRN basis-point round-trip failure and poisoned subsequent test mutex. Accept supplied Decimal basis points directly in the existing native setter and FFI constructor, retaining original integer callers, inputs, exact reference digits and all build validation. Both interrupted tooling readers and the harmless process-discovery guard failure remain explicit. Preserve the full third candidate and actual schema-rejected null key-rate values. Six borrowed/Arc bump views now share one unchanged raw shift formula and delegate checked base access, retaining declared tail policy and errors; checked finite/nonzero transformations and profile Z-spread pricing propagate failure. One new native control declares all six tail/error paths before fresh execution. No nullable-financial schema workaround or original financial change. Preserve the fourth full candidate and its original FFI request-shape failures. Explicit human approval covers only patch da20aa42db04e6c52870f6a9f999a8fe6a7a0501ba7b9f2b8fc61b6ff88846fb; independent comparison packs and all financial expectations remain unchanged. Preserve the full fifth candidate: the first approved adapters pass both original request-shape failure points, then the inverse test exposes its former implicit Decimal::from_str rounding of a higher-precision independent fixture. A second exact human-approved one-line test adapter makes that same admitted Decimal conversion explicit, preserving all thirteen fixture rows, five tests, answers, assertions and tolerances. Full warnings-denied lint requires the shared bump helper and all twelve callers to borrow the value-type enum; all arithmetic and old test bodies remain byte-identical. Refresh every coupled inspected source fingerprint, including the changed numerical manifest. Because production signatures change, rerun all required current checks against the fresh freeze; the earlier test-only applicability proof remains historical and grants no retained final gate.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "9bdd2c431af5906c2e38b4a7d7857d8315f1ef4cfe8c177636685b2fe4492863",
+        "crates/convex-analytics/src/dto.rs": "2ca3ac8c2afc12d20a777523f4d301b7ff587c06bfd69bb72d487a2644995ed6",
+        "crates/convex-analytics/src/risk/hedging/ctd.rs": "24ad384711561da70f3614faf983d11165f8b432a64dab7695b2fb73b2574e9e",
+        "crates/convex-analytics/src/risk/hedging/types.rs": "03f10838d19615fb03060a97cb32272b79beeae160aa22cec84d312d0b923256",
+        "crates/convex-analytics/src/risk/profile.rs": "c05f378ba45d456af9ede4758bcba1d2d58a572ee19d7d85caf61774d7cf1739",
+        "crates/convex-analytics/src/spreads/benchmark.rs": "52f193169ca476af054e9447386fae2e26cd27661e8bb7ac34dba5fc5cdb218d",
+        "crates/convex-analytics/src/spreads/government_curve.rs": "dd851b115ac5d271d46c8db5230a63d4cec6edcf44ea6280df0eed5b19ece55f",
+        "crates/convex-analytics/src/spreads/sovereign.rs": "58e012db9f44fad6be1adc43e18cee862c6b0b314bedc4c2be092c8a8926ecc4",
+        "crates/convex-analytics/tests/quote_wire.rs": "f59b010a5763494bd0430e007b32b989c527dfc0a5d63c82d87d2bcac260d25d",
+        "crates/convex-bonds/src/instruments/floating_rate.rs": "a9b209e62540cc83574a666bfeee6d3244f0604345af72731c44a1a78504a23e",
+        "crates/convex-core/src/contracts/json.rs": "18cd618ebac758d8ff9d1d823402dedec9933f235c5b7ebcbc8e21dee4303f72",
+        "crates/convex-core/src/contracts/numeric_decimal.rs": "8ccfe708afda1a5e9ec1008e9a83797d6355cd5d512c9c135d324c4102392532",
+        "crates/convex-core/src/types/mark.rs": "f35c78379f0d70b7f176a5096691dcf3fda8646b509f3e1ea90cd7dfdc6dd318",
+        "crates/convex-core/src/types/price.rs": "fced4695e7876f7b0255887601c98c85fe200dd410ee000f9368bbd891ba7fa4",
+        "crates/convex-core/src/types/spread.rs": "9ae60426bc8e36fcfec6c85adf332b4ae7878afd46782aad2d3873a766764097",
+        "crates/convex-core/src/types/yield_type.rs": "55fa7cdecea0f4fac419cf12272d01452d7ee9e3fe4c52ed7e2a3fa78de182d9",
+        "crates/convex-core/tests/quote_marks.rs": "c55d9cdbd181447ae526fc2db9dbc79af0b74b12aa9de040387145a279c1064e",
+        "crates/convex-curves/src/bumping/key_rate.rs": "142b9c4182fa64e3860982d71a35217ed9400b46a96a3f57f77c53bbcb0ba0af",
+        "crates/convex-curves/src/bumping/mod.rs": "eefac3d486a962283c0eb94368e4d92dd5749e766580105886de1e57c0370b60",
+        "crates/convex-curves/src/bumping/parallel.rs": "e30aeddbdc5ecca5acb9cf847d0981ec0d5f705b72968c243964f1e30d4f32c9",
+        "crates/convex-curves/src/bumping/scenario.rs": "d1169553ee113ac8a25d8eee97206cb0d85da4f80885dced07243177abe29102",
+        "crates/convex-curves/src/curves/discrete.rs": "a2e61c2935cb54bce198302b5d28d4945a5cecbb0ba3f26616a1deb6ef4bfc5d",
+        "crates/convex-curves/src/multicurve/index.rs": "1b95af5627dce175c23b126905f5c4343c7f1013e53a5c8575d5f8cb2ca83e13",
+        "crates/convex-curves/src/term_structure.rs": "666070416e945567a30a28aadfa8b4dc0f4a2323b506a42540ac7b69a5bc81c8",
+        "crates/convex-curves/src/wrappers/rate_curve.rs": "f7e18c3550a21560a4c7575f0c2ce093e626f320eb56e69185ccb99240d895ae",
+        "crates/convex-curves/tests/native_discount.rs": "5081327c9e4309b852c09f0c457b75896621dff49adffca37edbe8db9f0a4ab8",
+        "crates/convex-ffi/src/build.rs": "d63ba08b8e524d20b0bf6dd2a505c3d106dfa18ed7389fa3eb9c040a2be48ec7",
+        "crates/convex-ffi/src/dispatch.rs": "0c1d874a0aaa4379f68bbcabc4edc3f7d2f272996b601f7ff6963f2c63d9264d",
+        "crates/convex-ffi/src/ingress.rs": "d8b4c79ddfc88a45111ebad5f837f68695843684271d58c21cfbc36b68664321",
+        "crates/convex-ffi/src/lib.rs": "9138d8f9d4c2365e1da6abb8e95af9b832b79924a75edd51acd95069b4e9f072",
+        "crates/convex-ffi/src/schemas.rs": "bae604dfc51e221d2998fc51600919d2eec6d42fe54762ffaf203f358b22744d",
+        "crates/convex-ffi/tests/bond_quotes.rs": "4d3f1507d241e0b4467512d72b91323a11f88b981371663d21136ad7627949f2",
+        "crates/convex-ffi/tests/quote_rpc.rs": "791824d970d1b55b1fd666bc35e136b2d4f32e3899b84e7c865d5a98e075d1d2",
+        "docs/ROUTE-MIGRATION.md": "258115780c701ee9c80f37f1e945c9e777ccab320b5ae453f6b10a697d2f9041",
+        "tests/fixtures/quote-admission.json": "6fdda651d430e313b657853a5325b4e58987be9a5f1de2d0e20f71cbfbe529df",
+        "tests/fixtures/quote-description.json": "5fe08ba09f59f2488ba68a27246e599cd71eed84d028c73fedc99f769044946f",
+        "tools/assurance/check.py": "882369f12d6790b362269d751badac5ec3704734e97b00e50d5510e63e562024",
+        "tools/assurance/inventory.json": "3108644a69c15ce9973d8c1a3cf94bbdf5ded3290dbce504d0735ce33929ca30",
+        "tools/assurance/numeric-evidence.json": "85f807abd9810886e03c8bcfde18492f03af3f0e837be2e227ff5ccc7d691e44",
+        "tools/library/library-inventory.json": "44060cd8f6435f84af1f4f6076397a037f4f654c8c3aa91e0bd9276107d58267"
+      },
+      "tests": [
+        "Original source/lock/physical-C-bound eighteen requests and twenty-five schema observations precede public mutation.",
+        "Eleven declared native/C controls, exact quote references, eight risk amounts, seven constructor shapes and twenty registry paths.",
+        "Required affected native/library/assurance/financial/available host and physical conservation checks; no approval or certificate inferred."
+      ],
+      "quantitative_review": {
+        "reviewer": "Repository owner, explicit human user reply",
+        "rationale": "Exact protected test request adapters approved by the repository owner. Remove only eight reference metadata keys from constructor requests and provide the FRN cashflow DTO with its original bond/settlement fields. Preserve all five tests, thirteen golden cases, financial terms, answers, assertions, tolerances and defaults. No model or production certification. A second separately approved exact one-line adapter formats the inverse-price mark through the same Decimal::from_str conversion used by the original parser. The original admitted Decimal mark, independent high-precision fixture and all thirteen cases, five tests, answers, assertions, bounds and defaults remain. Both exact patches are approved; no numerical tolerance change or certificate.",
+        "reference_evidence": [
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/protected-bond-quote-adapters-01/actual-owner-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/protected-bond-quote-adapters-01/protected-test-adapters.patch",
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/failed-candidate-04/complete-freeze.json",
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/protected-bond-quote-adapters-02/actual-owner-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/protected-bond-quote-adapters-02/protected-inverse-mark-adapter.patch",
+          ".ai/production-readiness/evidence/CVX-063-Quote-Wire/failed-candidate-05/complete-freeze.json"
+        ]
+      }
     }
   ]
 }

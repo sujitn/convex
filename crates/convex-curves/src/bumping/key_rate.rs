@@ -6,7 +6,6 @@
 //! The bump profile is typically triangular, centered at the key tenor,
 //! with weights linearly decreasing to zero at adjacent key tenors.
 
-use convex_math::portable;
 use std::sync::Arc;
 
 use convex_core::types::Date;
@@ -245,27 +244,22 @@ impl<T: TermStructure> TermStructure for KeyRateBumpedCurve<'_, T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
-        let shift = self.effective_shift_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.effective_shift_at(t),
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            // For rates: add weighted shift
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. }
-            | ValueType::CreditSpread { .. } => base_value + shift,
-
-            // For discount factors: df' = df * exp(-shift * t)
-            ValueType::DiscountFactor => base_value * portable::exp(-shift * t),
-
-            // For survival probability: same as DF
-            ValueType::SurvivalProbability => base_value * portable::exp(-shift * t),
-
-            // Default additive for others
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(
+            &self.base.value_type(),
+            value,
+            self.effective_shift_at(t),
+            t,
+        )
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {
@@ -322,22 +316,22 @@ impl<T: TermStructure> TermStructure for ArcKeyRateBumpedCurve<T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
-        let shift = self.effective_shift_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.effective_shift_at(t),
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. }
-            | ValueType::CreditSpread { .. } => base_value + shift,
-
-            ValueType::DiscountFactor => base_value * portable::exp(-shift * t),
-            ValueType::SurvivalProbability => base_value * portable::exp(-shift * t),
-
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => base_value + shift,
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(
+            &self.base.value_type(),
+            value,
+            self.effective_shift_at(t),
+            t,
+        )
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {

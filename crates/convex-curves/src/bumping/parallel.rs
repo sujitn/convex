@@ -162,34 +162,17 @@ impl<T: TermStructure> TermStructure for BumpedCurve<'_, T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.shift_decimal,
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            // For rates: add shift directly
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. } => base_value + self.shift_decimal,
-
-            // For discount factors: df_bumped = df * exp(-shift * t)
-            // Derivation: if zero rate increases by shift, then
-            // df = exp(-r*t) becomes df' = exp(-(r+shift)*t) = df * exp(-shift*t)
-            ValueType::DiscountFactor => base_value * portable::exp(-self.shift_decimal * t),
-
-            // For survival probability: similar to discount factor
-            // S(t) = exp(-h*t) becomes S'(t) = exp(-(h+shift)*t) = S * exp(-shift*t)
-            ValueType::SurvivalProbability => base_value * portable::exp(-self.shift_decimal * t),
-
-            // For credit spreads: add shift to spread
-            ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
-
-            // For inflation and FX, shifts don't apply in the same way
-            // but we provide additive shift as a reasonable default
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + self.shift_decimal
-            }
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(&self.base.value_type(), value, self.shift_decimal, t)
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {
@@ -261,25 +244,17 @@ impl<T: TermStructure> TermStructure for ArcBumpedCurve<T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.shift_decimal,
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. } => base_value + self.shift_decimal,
-
-            ValueType::DiscountFactor => base_value * portable::exp(-self.shift_decimal * t),
-
-            ValueType::SurvivalProbability => base_value * portable::exp(-self.shift_decimal * t),
-
-            ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
-
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + self.shift_decimal
-            }
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(&self.base.value_type(), value, self.shift_decimal, t)
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {

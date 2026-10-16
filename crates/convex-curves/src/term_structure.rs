@@ -183,6 +183,10 @@ impl<T: TermStructure + ?Sized> TermStructure for Arc<T> {
         (**self).value_at(t)
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        (**self).try_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         (**self).tenor_bounds()
     }
@@ -210,6 +214,10 @@ impl<T: TermStructure + ?Sized> TermStructure for Box<T> {
         (**self).value_at(t)
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        (**self).try_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         (**self).tenor_bounds()
     }
@@ -235,6 +243,10 @@ impl<T: TermStructure + ?Sized> TermStructure for &T {
 
     fn value_at(&self, t: f64) -> f64 {
         (**self).value_at(t)
+    }
+
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        (**self).try_value_at(t)
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {

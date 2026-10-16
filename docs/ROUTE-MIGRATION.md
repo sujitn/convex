@@ -1,5 +1,33 @@
 # Removed government spread conveniences
 
+## Exact quote wire values and generated RPC schemas
+
+Textual marks and tagged price/yield/spread inputs preserve admitted Decimal
+values exactly. Unrepresentable digits, rounded percentage conversion and
+nonzero erasure are errors. Decimal constructor and risk/hedge-report fields
+accept bounded exact strings as well as established numeric inputs. Outputs
+remain numbers when the shortest binary64 wire number decodes to the same
+Decimal; otherwise they are exact strings. Consumers must support both forms.
+Use exact strings when supplying every original decimal digit.
+Object descriptions use this same policy for supplied coupon, face and spread
+values; the browser-facing description no longer discards admitted digits.
+
+All convenience request/response schemas now derive from the actual native
+DTOs. Response schemas describe serialized fields, including omission rules.
+The FFI adds registered-name alternatives at the same fields its dispatcher
+resolves; native DTO handles remain integers. Returned schemas are self-contained.
+Structural schema validation does not replace checked financial construction,
+Decimal representation, history, domain or workload validation.
+
+Tagged native bond/curve construction rejects ignored and duplicate fields.
+The C boundary delegates that policy and retains its bounded raw JSON admission.
+Convenience RPC input objects reject unknown economic fields, including `null`.
+Native discount queries propagate checked underlying curve errors and reject
+nonfinite, nonpositive and underflowed factors. Negative rates may give a valid
+factor above one. Conversion to the core Decimal curve interface rejects a
+nonzero factor that Decimal cannot represent. Broader curve/hedge/model and
+client qualification remains part of CVX-063.
+
 ## Checked constructors and removed inferred liquidation estimates
 
 C bond/curve constructors use the shared bounded JSON parser. Raw nonzero
@@ -7,15 +35,15 @@ numbers cannot underflow silently to zero. Decimal fields use one checked
 number-or-string decoder, including optional cap, floor and redemption inputs;
 rounding, overflow and nonzero Decimal erasure fail. Numeric inputs keep their
 binary64 wire interpretation. Use exact decimal strings when every original
-decimal digit matters. Existing serialization and admitted defaults remain.
+decimal digit matters. Admitted defaults remain; the exact wire policy below applies to Decimal fields.
 
 Unsupported fields fail for the selected constructor, including fields supplied
 as `null`. Fixed, callable, floating, zero and sinking bonds cannot silently
 consume another shape's payoff or reset terms. Curves cannot silently discard
 supplied provider or projection context. `BondSpec` and `CurveSpec` schemas now
 come from their native DTOs. The schemas describe structure; checked ingress and
-construction still enforce work, representation and economic invariants. Other
-curated RPC schema descriptors retain their separate migration requirements.
+construction still enforce work, representation and economic invariants. The
+convenience RPC descriptors are generated from actual DTOs as described below.
 
 The native `estimate_days_to_liquidate` function, `DaysToLiquidate` type and
 `POST /api/v1/liquidity/days-to-liquidate` route are removed. A liquidity score

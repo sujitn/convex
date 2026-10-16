@@ -24,8 +24,15 @@ use crate::error::{ConvexError, ConvexResult};
 /// assert_eq!(price.as_decimal(), dec!(0.9850));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Price {
     /// Price as a percentage of par (e.g., 98.50 for 98.50%)
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value: Decimal,
     /// Currency of the price
     currency: Currency,

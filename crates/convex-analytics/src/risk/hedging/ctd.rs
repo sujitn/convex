@@ -25,6 +25,7 @@ use crate::spreads::ZSpreadCalculator;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[allow(missing_docs)]
+#[serde(deny_unknown_fields)]
 pub struct Deliverable {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

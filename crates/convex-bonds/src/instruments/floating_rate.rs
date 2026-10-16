@@ -562,8 +562,8 @@ impl FloatingRateNoteBuilder {
     }
 
     #[must_use]
-    pub fn spread_bps(mut self, bps: i32) -> Self {
-        self.spread_bps = Some(Decimal::from(bps));
+    pub fn spread_bps(mut self, bps: impl Into<Decimal>) -> Self {
+        self.spread_bps = Some(bps.into());
         self
     }
 

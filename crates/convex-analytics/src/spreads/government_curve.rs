@@ -20,6 +20,8 @@ use super::sovereign::Sovereign;
 /// Represents a specific government security used as a benchmark for
 /// spread calculations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct GovernmentBenchmark {
     /// The sovereign issuer
     pub sovereign: Sovereign,
@@ -30,10 +32,21 @@ pub struct GovernmentBenchmark {
     /// Maturity date
     pub maturity: Date,
     /// Coupon rate (decimal)
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub coupon: Decimal,
     /// Yield to maturity (decimal)
     pub yield_rate: Yield,
     /// Clean price (optional)
+    #[serde(default)]
+    #[serde(with = "convex_core::contracts::numeric_decimal::optional")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::optional::schema")
+    )]
     pub price: Option<Decimal>,
     /// Whether this is the current on-the-run benchmark
     pub is_on_the_run: bool,

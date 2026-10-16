@@ -385,6 +385,10 @@ impl TermStructure for DiscreteCurve {
             .unwrap_or_else(|_| self.extrapolate(t))
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        self.checked_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         (self.tenors[0], self.max_tenor)
     }
