@@ -110,3 +110,8 @@ data frames. Resource ceilings are not measured capacity or latency targets.
 The example uses synthetic data and the existing local Unix/redb composition.
 Live vendor admission, distributed ownership, production release and measured
 product-specific latency retain their existing qualification requirements.
+
+To trigger native pricing/risk, hedge proposals and causal P&L after confirmed
+frames, use the [automatic core worker](STREAMING-ANALYTICS.md).
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py` checks automatic
+updates, stale-data gating and interrupted-work/server restart recovery.

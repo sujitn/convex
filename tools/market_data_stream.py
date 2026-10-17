@@ -104,7 +104,7 @@ def decode(raw, stream_id, universe):
 
 
 def consume(feed_url, server_url, stream_id, universe, *, feed_token=None, server_token=None,
-            timeout=10, reconnects=10, retry_delay=0.25, max_frames=None, emit=None):
+            timeout=10, reconnects=10, retry_delay=0.25, max_frames=None, emit=None, on_frame=None):
     """One ordered pull loop; only a confirmed full image restores continuity."""
     feed_url = adapter.endpoint(feed_url, required_path=None)
     server_url = adapter.endpoint(server_url)
@@ -164,6 +164,7 @@ def consume(feed_url, server_url, stream_id, universe, *, feed_token=None, serve
                             continue
                         elif current < sequence or (kind != 'image' and current != sequence + 1):
                             raise Recover('sequence_gap')
+                        emit(dict(state='publishing', image_confirmed=False, accepted_frames=accepted))
                         try:
                             adapter.publish_messages(messages, server_url, token=server_token, timeout=timeout)
                         except adapter.IngestionError as error:
@@ -172,6 +173,8 @@ def consume(feed_url, server_url, stream_id, universe, *, feed_token=None, serve
                             raise
                         session, sequence, last_digest = frame['session'], current, digest
                         accepted += 1
+                        if on_frame is not None:
+                            on_frame(frame)
                         emit(dict(state='streaming', image_confirmed=True, accepted_frames=accepted,
                                   sequence=sequence, kind=kind, acknowledged_records=len(messages)))
                         if max_frames is not None and accepted >= max_frames:

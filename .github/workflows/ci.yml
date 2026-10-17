@@ -2980,6 +2980,12 @@ jobs:
       - name: Run streaming core analytics and restart recovery
         run: python3 tools/core_streaming_workflow.py
 
+      - name: Check automatic core analytics and stale-data gates
+        run: python3 -m unittest discover -s tools/tests -p test_streaming_analytics.py
+
+      - name: Run automatic streaming analytics and interrupted-work recovery
+        run: python3 tools/core_live_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

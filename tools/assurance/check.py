@@ -659,6 +659,8 @@ REQUIRED_RUNS = {
         'python3 tools/core_ingestion_workflow.py',
         'python3 -m unittest discover -s tools/tests -p test_market_data_stream.py',
         'python3 tools/core_streaming_workflow.py',
+        'python3 -m unittest discover -s tools/tests -p test_streaming_analytics.py',
+        'python3 tools/core_live_workflow.py',
     ),
     'production-regressions': ('cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1',),
     'fmt': ('cargo fmt --all -- --check',),
@@ -1053,6 +1055,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-curves/src/bumping/mod.rs')
     paths.add('tools/market_data_adapter.py')
     paths.add('tools/market_data_stream.py')
+    paths.add('tools/streaming_analytics.py')
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

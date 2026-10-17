@@ -7251,14 +7251,29 @@
     },
     {
       "path": "tools/market_data_stream.py",
-      "sha256": "437a434fd0dd15bded8a79bfbb2206d557e66d9fd21a1f1c17aa303c595c3b90",
-      "invariants": "One provider-neutral NDJSON pull loop publishes complete native curve/fixing records through existing HTTP storage ports. Exact source-separated subscription coverage and full-frame validation precede writes. Advance only after every record acknowledges. Gaps/session changes/truncation/EOF/timeouts/unconfirmed writes discard the suffix and require a full image on a new connection. Restart always reimages; no durable cursor, broker, queue, schema or financial default. Duplicate/heartbeat controls never refresh market fields. Continuity status is not analytics/execution readiness.",
+      "sha256": "abf9f675c55beed511217355b97a48f1d7aeed75be5a320fe1c45540bf4b4de6",
+      "invariants": "One provider-neutral NDJSON pull loop publishes complete native curve/fixing records through existing HTTP storage ports. Exact source-separated subscription coverage and full-frame validation precede writes. Advance only after every record acknowledges. Gaps/session changes/truncation/EOF/timeouts/unconfirmed writes discard the suffix and require a full image on a new connection. Restart always reimages; no durable cursor, broker, queue, schema or financial default. Duplicate/heartbeat controls never refresh market fields. Continuity status is not analytics/execution readiness. An optional ordered analytics callback receives only fully acknowledged data frames; publishing status clears readiness before any port mutation. The transport owns sequencing and never implements financial calculations.",
       "bounds": "Subscription256KiB/256curve-sourcepairs/1024fixingkeys; frames16MiB/10000records; nativepayload2MiB/65536nodes/depth64; wireframes/run<=1000000; timeout0.1..120seconds/reconnects0..1000/delay0.01..60seconds. Separate source/sink credentials, HTTPS or loopbackHTTP, no redirects/inherited proxies.",
       "failure_contract": "Missing image, skipped/older data sequence or session change prevents publication of that update and reconnects. Malformed/incomplete/unsubscribed/conflicting data or permanent HTTP rejection stops explicitly. Partial/unconfirmed commits replay immutably through a fresh image; stopped/recovering states clear confirmation. Current backend/native admission and financial bounds remain authoritative.",
       "tests": [
         "tools/tests/test_market_data_stream.py",
         "tools/tests/test_market_data_adapter.py",
-        "tools/core_streaming_workflow.py"
+        "tools/core_streaming_workflow.py",
+        "tools/tests/test_streaming_analytics.py",
+        "tools/core_live_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "tools/streaming_analytics.py",
+      "sha256": "3568cea333c5e117d07d6aee7e2d5f77f1838971bb61168b1d872c34cc7f821e",
+      "invariants": "One ordered provider-neutral worker invokes existing native snapshot/result/reference HTTP ports after confirmed stream frames. Explicit source-separated bindings preserve native curve keys, exact full reference definitions and historical causal P&L markets. All current risk curves require wall-clock source/receipt freshness. Only actual full native risk vectors enter supplied hedge policies. No financial formulas, zero fallbacks, dependency, server route, schema, queue or execution authority. Atomic local selection receipt never restores readiness without an image; native build-bound durable outputs and content-addressed reference writes supply idempotent recovery.",
+      "bounds": "Workflow/state<=2MiB,65536JSONnodes/depth64; curve slots<=256; risks1..30; candidates1..256; freshness1..86400000ms; HTTPresponses<=32MiB. Stream consumer bounds request/retry/frame sizes. One Unix advisory lock per receipt, atomic replace plus file/directory fsync, one synchronous calculation chain per confirmed frame.",
+      "failure_contract": "Gaps, disconnects, invalid quality, stale/future inputs, clock/source rollback, missing/mismatched native inputs, failed native envelopes, mixed builds or unconfirmed writes prevent ready completion. Recheck age around calculations and final persistence. Prior immutable results remain audit/replay data; consumers enforce valid_until and output-stream liveness. Restart requires a full image and rejects saved-selection rollback/config mismatch/corruption. Partial work reuses committed results; no order instruction or production/latency certificate.",
+      "tests": [
+        "tools/tests/test_streaming_analytics.py",
+        "tools/core_live_workflow.py",
+        "tools/tests/test_market_data_stream.py"
       ],
       "exceptions": []
     }

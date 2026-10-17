@@ -5588,6 +5588,33 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_ingestion_workflow.py",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base de793686eba4e29f3c80fc9249b7412a90da3584"
       ]
+    },
+    {
+      "base_commit": "7d42d93f26959d32011611d4b2499d14edba04f3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested automatic core pricing/risk/hedge proposals/causal P&L from confirmed stream updates with stale-data protection and restart recovery, retaining simplicity/provider neutrality. Reuse the existing stream consumer and all native HTTP/reference/curve/fixing/snapshot/result owners. Add one ordered local worker and one atomic selection/completion recovery receipt; no financial math, Rust change, backend schema, dependency, queue, broker or execution. Original20 transport tests, native financial examples,1937 numerical policy rows/defaults/bytes, literal2154 Planned requirements and full CTD/causal ownership remain exact. New tests are engineering orchestration/fault evidence; synthetic replay is explicit and does not grant independent model/market/library/production/live/latency approval.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "4e659c519e281245d5e81158f23ea6db303a67dcfeb7d91ea5e5a6ae485c856b",
+        "crates/convex-server/README.md": "fd99cd91feedb5d4d61e86044cd73ec8b17f1a574c0ea4c2d2d615fbb47d2b4b",
+        "tools/MARKET-DATA-STREAM.md": "2e471c64e115bcb0c3ab1a3e273c05a185caae8848342dbb6da6e42dd45168d9",
+        "tools/STREAMING-ANALYTICS.md": "99bfd28667f99f890abb22b1be58114d4f2f6a341d2beb7cd669cfc56c5bc13b",
+        "tools/market_data_stream.py": "abf9f675c55beed511217355b97a48f1d7aeed75be5a320fe1c45540bf4b4de6",
+        "tools/streaming_analytics.py": "3568cea333c5e117d07d6aee7e2d5f77f1838971bb61168b1d872c34cc7f821e",
+        "tools/core_live_workflow.py": "e82a9f40d9d2debdc2f9d987461e455f676304ecc9900b7a09ba04e9f73c7584",
+        "tools/tests/test_streaming_analytics.py": "a24069207c72a53604f536afd129a6655798103c0b6499417ad999f5f843e133",
+        "tools/assurance/check.py": "ef15abf783416c5783ed5c262968f081e8fd2c0b6ca1d5f5add08671cfd180f0",
+        "tools/assurance/inventory.json": "f7475c47ff36e7b22697d3415f927ef0812aa7b4404d4a174d8ab4c063167484",
+        "tools/library/library-inventory.json": "76dfb8c3409d68d4fc0e57c53c80f414d454e07519250a4f403083ce5c5bc728"
+      },
+      "tests": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_market_data_adapter.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_market_data_stream.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_streaming_analytics.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_streaming_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 7d42d93f26959d32011611d4b2499d14edba04f3"
+      ]
     }
   ]
 }

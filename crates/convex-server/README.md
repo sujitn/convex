@@ -156,6 +156,13 @@ requires a complete subscribed image before confirmation resumes. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_streaming_workflow.py` to verify
 the core book with gaps, reconnects and adapter/server restart recovery.
 
+The [automatic core worker](../../tools/STREAMING-ANALYTICS.md) triggers stored
+native pricing/risk, constrained hedge proposals and causal P&L on confirmed
+stream frames. It uses exact configured input bindings and the existing ports,
+with freshness gating and restart recovery. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py` for the complete
+synthetic example, including stale input and interrupted native-result recovery.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.
