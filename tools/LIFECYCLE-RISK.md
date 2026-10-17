@@ -84,7 +84,7 @@ risk on the same snapshot. The worker repeats the checks on its selected input.
 Positions, manifests, dates, quantities, full state, claim ownership and local
 amounts must match exactly. Missing proof or mismatched history blocks the hedge.
 An ordinary product-risk operation cannot admit a terminated or partial holding.
-An [unresolved CDS default](CDS-EVENTS.md) instead selects a native unpriced audit;
+An unresolved [CDS](CDS-EVENTS.md) or [bond](BOND-EVENTS.md) default instead selects a native unpriced audit;
 the worker withdraws readiness until actual recovery completes its valuation.
 
 ## Supported scope and recovery
@@ -93,7 +93,8 @@ This composition supports standard bond, IRS/OIS and CDS states admitted by the
 original native owners. Partial termination currently requires an IRS/OIS joint
 fixed/floating accrual boundary. [Single-name CDS default and recovery](CDS-EVENTS.md)
 retain unknown recovery as explicitly unpriced and value actual known claims.
-Partial bonds/CDS, bond default, exercise, physical delivery and multi-cohort
+The [bond default workflow](BOND-EVENTS.md) adds actual principal recovery and retained earned cash.
+Partial bonds/CDS, exercise, physical delivery and multi-cohort
 ownership remain rejected here. Ordinary rate futures
 retain their existing risk and settlement owners. The separate delivery-futures
 and CTD workflows are unchanged; this example does not qualify their lifecycle

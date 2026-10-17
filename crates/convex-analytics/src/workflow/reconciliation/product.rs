@@ -393,7 +393,7 @@ pub fn mark_causal_pnl_position<'p>(
     )
 }
 
-/// Validate an actual unresolved CDS default without inventing its cash value.
+/// Validate an actual unresolved bond/CDS default without inventing its cash value.
 /// The immutable state is auditable; complete priced P&L remains unavailable.
 pub fn validate_causal_pnl_default_position(
     path: &PreparedCausalPnl,
@@ -417,9 +417,14 @@ pub fn validate_causal_pnl_default_position(
         .get(index)
         .ok_or_else(|| bad("holding", "opening owner absent"))?;
     let view = state.view();
-    let CausalPnlProduct::Standard(p @ ValuationInputs::Cds { .. }) = product else {
+    let CausalPnlProduct::Standard(
+        p @ (ValuationInputs::Cds { .. }
+        | ValuationInputs::Bond { .. }
+        | ValuationInputs::FloatingBond { .. }),
+    ) = product
+    else {
         return Err(WorkflowError::Unsupported(
-            "unpriced default requires the original single CDS owner",
+            "unpriced default requires the original admitted bond/CDS owner",
         )
         .into());
     };
@@ -440,7 +445,7 @@ pub fn validate_causal_pnl_default_position(
         || cash_discount.recipe().currency != pos.current.currency
         || !matches!(cash_discount.recipe().role,CurveRole::Discount{collateral_currency} if collateral_currency==pos.current.currency)
     {
-        return Err(bad("unpriced default", "exact native opening/current CDS quantity, ended pending orders, date/cutoff and collateral owner required"));
+        return Err(bad("unpriced default", "exact native opening/current quantity, ended pending orders, date/cutoff and collateral owner required"));
     }
     Ok(())
 }

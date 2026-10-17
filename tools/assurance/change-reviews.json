@@ -5777,6 +5777,41 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/library -p test_coverage.py",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 8df3c0d8a6c21f2e8d81b226e897d1268b0caaea"
       ]
+    },
+    {
+      "base_commit": "0ec90b73521ea75174d9d2935b7c2bcdfa920165",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Core bond default/recovery integration through existing native owners and ports: principal-only mapping, separately earned coupon/principal, explicit unpriced pending state, original risk/P&L owners, cash receipts and restart recovery. Worker and native hedge admission exclude defaulted security identities across reference-data revisions and declared same-entity credit scope; no issuer inference for other unmapped bonds. Original quantitative artifacts, defaults, native kernels, source-bound routes, storage schemas and provider-neutral ports are preserved. Five new independent engineering controls are appended; no independent human approval, production acceptance or execution authority is claimed.",
+      "tests": [
+        "Five new native bond controls and eight original CDS/lifecycle controls in default/no-default/schema; original40analytics/3library/10core regressions",
+        "87Python adapter/state/worker controls including82old;42assurance policy/16library coverage; normal and exact-base assurance; strict all-feature libs/server bins Clippy and format",
+        "First-declared independent Decimal80 signed original/amortizing 0/35/100percent principal recovery, earned claims and seven full/half1bp price-risk values at unchanged1e-7USD bound; only native request tag adapters repaired",
+        "Six-trade/five-factor default build/run:32priced outputs+1unpriced audit; unknown blocks across restart, actual partial/completing receipts, native parity, changed hedges and causal P&L; committed-hedge/pre-ACK kill, server restart, stored bytes/cache/recomputation; unchanged CDS example; native and worker regressions reject same-security reference revision bypass"
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "dd50cd777929b9bceffcedae5f46e7ca2e00ee48b3a70d5848f5eb3454f856f7",
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "c3d7363a1affd353b87485e184ac41a81f90dee6759d75f869d5671941c19556",
+        "crates/convex-analytics/src/workflow/reconciliation/product.rs": "d6b8143412179bfdddeb60eeb2cbaab863e0f4c7851340bf935e25bff501c25d",
+        "crates/convex-engine/CORE-WORKFLOW.md": "e69a2bedea70357e0ab84de459112d91854e4b5a47ae0e195918ccc2f548b480",
+        "crates/convex-server/README.md": "870164c0d29ac458565d578862fc969068e5e688035b06fdfe7855b4337006d4",
+        "crates/convex/src/library/lifecycle_risk.rs": "58baaeffe5a47d26cd8ee2ff8cd7f777c870dbd2d807c55b95810ba08886be76",
+        "crates/convex/tests/bond_events.rs": "f0fbc2e435c1c84c01d0d6d58e42956cf47f7095f3550b6d4241cbb0f8aab389",
+        "tests/fixtures/library/bond-events-contract.json": "48ad7d929fa1988832ed150ead81f196ed77ee6f7cfa1fca756a9015b5c1fea1",
+        "tests/scripts/bond_events_reference.py": "85e40f7a9c9ba188b5926fe05b51838431a14216433641cb4f5a2c5721bf5be1",
+        "tools/BOND-EVENTS.md": "ca03f66daf4f3614f53d79e7eab75ba075e22be992bd06f309cfa672e2d0ee44",
+        "tools/CDS-EVENTS.md": "f4d6e9f8e8d9f9d4cbd18cc8778b0c30cbc88bad919b55d5291f13200337588c",
+        "tools/LIFECYCLE-RISK.md": "fdbb92fca3d2711d04a9ac28f50df9a08aa65fce8afe7b306c3e311517271bcf",
+        "tools/assurance/check.py": "d9e9fd5e524d17a3c5575dd12d7fd12c9ddb6dc3b325d31875f5ded7684ce4aa",
+        "tools/assurance/inventory.json": "b6964263c8fd6baf5c08918f873eaf999ebba2fa41685f36807e2e9a4e3eb014",
+        "tools/assurance/numeric-evidence.json": "82ea1cb798ecca8f6ed1032b827df4f8653246a77b70621a1362c98082004031",
+        "tools/book_events.py": "00ff46a2b65a6646b0ae8f330fa6d3b83d92db35f9ab25fbd2941307a6fde8e1",
+        "tools/core_bond_workflow.py": "0c2a2e22b7a10a5c1d44fc670ec5b4d409f22c29a9355f235eef5306bbc3ce64",
+        "tools/library/library-inventory.json": "619c8ab58c186c8f28504c27e0d24abfd5f94801c66b02fd4b0437f70705bc9b",
+        "tools/lifecycle_risk.py": "973816a1dceccde9b123ef9c80399709acbe198150c50d575424352d47c0168a",
+        "tools/streaming_analytics.py": "bedf4873f568186761a4f9b9c789ef2219c5b56f51f9cae9395279f4b3bdcf10",
+        "tools/tests/test_bond_events.py": "b2014801d01e18e26e644953d2fc4f79ab6086579b7d5582e4bba6b16fb055a3"
+      }
     }
   ]
 }

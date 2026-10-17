@@ -60,10 +60,17 @@ pub(super) fn calculate(
     reconciliation::validate_risk_point(point, product, lifecycle, resources.input(), index)?;
     let replay = events::replay_native(lifecycle, resources)?;
     let state = replay.state.view();
-    let default_entity = match product {
-        RiskProductInput::Cds { terms, .. } if state.default_event.is_some() => {
+    let default_entity = match (product, replay.state.instrument()) {
+        (RiskProductInput::Cds { terms, .. }, _) if state.default_event.is_some() => {
             Some(terms.reference.entity_id.clone())
         }
+        (
+            RiskProductInput::Bond { .. },
+            l::LifecycleInstrument::Bond {
+                credit: Some(credit),
+                ..
+            },
+        ) if state.default_event.is_some() => Some(credit.entity.clone()),
         _ => None,
     };
     if !matches!(
@@ -77,7 +84,7 @@ pub(super) fn calculate(
         || state.delivery_pending.is_some()
         || state.default_event.is_some() && default_entity.is_none()
     {
-        return Err(LibraryError::invalid("lifecycle state", "original cash or single-name CDS default owner required; exercise/physical risk remains separate"));
+        return Err(LibraryError::invalid("lifecycle state", "original cash or admitted bond/CDS default owner required; exercise/physical risk remains separate"));
     }
     curves::with_graph(graph_input, resources, |graph| {
         let original = resources.with_curves(graph.baseline().curves.clone());
@@ -99,7 +106,9 @@ pub(super) fn calculate(
                 result["lifecycle_unpriced"] = serde_json::json!({
                     "position":position,"manifest":point.manifest,"settlement":point.valuation_date,
                     "snapshot_id":input.snapshot_id,"state":state,"default_entity":default_entity,
-                    "reason":"actual_cds_recovery_unknown"});
+                    "reason":if matches!(product, w::ValuationInputs::Cds { .. }) {
+                        "actual_cds_recovery_unknown"
+                    } else { "actual_bond_recovery_unknown" }});
                 return Ok(result);
             }
             let mark = w::mark_causal_pnl_position(

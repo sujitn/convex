@@ -200,8 +200,12 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
                 .iter()
                 .find(|h| h.risk.id == state.position.identity.id)
                 .ok_or_else(|| invalid("default risk", "original holding absent"))?;
-            if holding.risk.product != HedgeProduct::Cds
-                || !holding
+            if !matches!(
+                holding.risk.product,
+                HedgeProduct::Cds | HedgeProduct::CashBond
+            ) || (holding.risk.product == HedgeProduct::Cds
+                || !holding.risk.credit_scope.is_empty())
+                && !holding
                     .risk
                     .credit_scope
                     .iter()
@@ -211,11 +215,13 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
                     .pending
                     .iter()
                     .any(|s| s.base_pv != 0.0 || s.value != 0.0)
-                || p.candidates
-                    .iter()
-                    .any(|c| c.risk.credit_scope.iter().any(|r| &r.entity_id == entity))
+                || p.candidates.iter().any(|c| {
+                    c.risk.instrument.id == holding.risk.instrument.id
+                        || c.risk.credit_scope.iter().any(|r| &r.entity_id == entity)
+                })
                 || p.holdings.iter().any(|h| {
-                    h.risk.credit_scope.iter().any(|r| &r.entity_id == entity)
+                    (h.risk.instrument.id == holding.risk.instrument.id
+                        || h.risk.credit_scope.iter().any(|r| &r.entity_id == entity))
                         && !states.iter().any(|s| {
                             s.position.identity.id == h.risk.id
                                 && s.default_entity.as_ref() == Some(entity)

@@ -123,3 +123,6 @@ Bond default, physical settlement, multi-cohort ownership and default estimation
 remain with their existing owners. One local worker is supported; live providers,
 multi-server/colocation performance, platform and independent production/model
 qualification remain open.
+
+The separate [bond default workflow](BOND-EVENTS.md) now reuses this resolution
+envelope for actual outstanding-principal recovery and retained earned bond cash.

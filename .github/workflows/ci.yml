@@ -3034,6 +3034,24 @@ jobs:
       - name: Run core CDS default recovery cash and restart workflow
         run: python3 tools/core_cds_workflow.py
 
+      - name: Check independently declared bond recovery and earned cash
+        run: python3 tests/scripts/bond_events_reference.py check
+
+      - name: Exercise bond default and recovery workflow controls
+        run: cargo test --locked -p convex --test bond_events
+
+      - name: Exercise bond events without default features
+        run: cargo test --locked -p convex --test bond_events --no-default-features
+
+      - name: Exercise bond events with schema features
+        run: cargo test --locked -p convex --test bond_events --features schemars
+
+      - name: Reject unbound bond default state and unsafe hedge admission
+        run: python3 -m unittest discover -s tools/tests -p test_bond_events.py
+
+      - name: Run core bond default and recovery workflow
+        run: python3 tools/core_bond_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

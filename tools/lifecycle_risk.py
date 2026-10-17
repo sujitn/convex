@@ -37,7 +37,18 @@ def check_binding(operation, holding, data):
         raise ValueError('lifecycle_risk_history_mismatch')
 
 
-def checked_state(result, report):
+def default_scope(operation):
+    """Actual legal mapping, never inferred from a ticker or a curve name."""
+    product = operation['product']
+    if product['kind'] == 'cds':
+        return product['terms']['reference']['entity_id'], 'actual_cds_recovery_unknown'
+    instrument = operation['lifecycle']['instrument']
+    if product['kind'] == 'bond' and instrument['kind'] == 'bond' and instrument.get('credit'):
+        return instrument['credit']['entity'], 'actual_bond_recovery_unknown'
+    raise ValueError('unpriced_default_mapping_missing')
+
+
+def checked_state(result, report, operation=None):
     """Require exact native state/claims/amounts, not an approximate scalar match."""
     state = result['lifecycle']
     identity = result['vector']['id']
@@ -45,8 +56,14 @@ def checked_state(result, report):
     point = report['input']['points'][closing]
     position = next(p for p in point['positions'] if p['identity']['id'] == identity)
     mark = next(t for t in report['trades'] if t['id'] == identity)['marks'][closing]
-    expected_default = (result['vector']['credit_scope'][0]['entity_id']
-                        if mark['state'].get('default_event') is not None else None)
+    expected_default = None
+    if mark['state'].get('default_event') is not None:
+        if operation is not None:
+            expected_default = default_scope(operation)[0]
+        elif result['vector']['product'] == 'cds':
+            expected_default = result['vector']['credit_scope'][0]['entity_id']
+        else:
+            raise ValueError('lifecycle_default_mapping_missing')
     if state.get('default_entity') != expected_default:
         raise ValueError('lifecycle_default_scope_mismatch')
     if (state['position'] != position or state['manifest'] != point['manifest']
@@ -69,15 +86,16 @@ def checked_pending(result, operation, data):
     point = data['steps'][-1]['after']['point']
     position = next(p for p in point['positions'] if p['identity']['id'] == identity)
     state = pending['state']
+    entity, reason = default_scope(operation)
     defaults = [s['event'] for s in operation['lifecycle']['events'] if s['event']['action']['kind'] == 'credit_default']
-    if (operation['product']['kind'] != 'cds' or len(defaults) != 1 or 'lifecycle' in result
+    if (len(defaults) != 1 or 'lifecycle' in result or 'lifecycle_mark' in result
             or pending['position'] != position or pending['manifest'] != point['manifest']
             or pending['settlement'] != point['valuation_date']
             or pending['snapshot_id'] != result['input']['snapshot_id']
             or result['vector']['id'] != identity or state['trade_id'] != identity
-            or pending['reason'] != 'actual_cds_recovery_unknown' or state['status'] != 'default_pending'
+            or pending['reason'] != reason or state['status'] != 'default_pending'
             or state['default_event'] != defaults[0]['event_id'] or state['recovery'] is not None
             or state['remaining_fraction'] != '0'
-            or pending['default_entity'] != operation['product']['terms']['reference']['entity_id']):
+            or pending['default_entity'] != entity):
         raise ValueError('unpriced_default_binding_mismatch')
     return copy.deepcopy(pending)

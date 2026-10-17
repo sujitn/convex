@@ -291,3 +291,11 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. Embedded hosts can apply hot policies through the same engine use cases; the server adds only read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. There is no network configuration mutation route. These network inspection routes share [current access control and quotas](ACCESS.md). The offline CLI still relies on trusted local filesystem/operator access; authenticated shared administration remains subsequent work.
 
 On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price and exact optional discount/swap/government inputs; no demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
+
+
+The [bond default/recovery example](../../tools/BOND-EVENTS.md) reuses these ports
+for principal-only recovery, separately earned cash, lifecycle risk, hedge
+proposals, complete causal P&L and restart recovery. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_bond_workflow.py`.
+Unknown actual recovery withdraws readiness; actual recovery and receipts retain
+the original native claim owners. No additional route or persistence schema is used.

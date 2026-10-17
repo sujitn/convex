@@ -112,3 +112,11 @@ Provider composition, licensed-data admission, distributed ownership, production
 qualification and measured product-specific latency remain required. The default
 production executable remains closed. The default durable filesystem adapter is
 available on local Unix; unavailable Windows/Excel execution remains a separate gate.
+
+
+The [bond default/recovery example](../../tools/BOND-EVENTS.md) reuses these ports
+for principal-only recovery, separately earned cash, lifecycle risk, hedge
+proposals, complete causal P&L and restart recovery. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_bond_workflow.py`.
+Unknown actual recovery withdraws readiness; actual recovery and receipts retain
+the original native claim owners. No additional route or persistence schema is used.

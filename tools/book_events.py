@@ -230,7 +230,8 @@ def ingest(client, batch):
         return dict(schema_version=1, kind='book', payload=release)
     _, result = client.run(snapshot, release['workflow']['pnl'])
     for risk in risks:
-        lifecycle_risk.checked_state(risk, result['report'])
+        operation = batch['definition']['calculations'][release['workflow']['risks'][risk['vector']['id']]]['request']['operation']
+        lifecycle_risk.checked_state(risk, result['report'], operation)
     risk_scope(result['report'], data['steps'][-1]['after']['point'], batch['base']['position_step'], covered)
     return dict(schema_version=1, kind='book', payload=release)
 

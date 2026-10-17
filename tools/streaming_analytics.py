@@ -440,7 +440,7 @@ class Workflow:
                 if expected_lifecycle and 'lifecycle_unpriced' in result:
                     data = definition['calculations'][self.config['pnl']]['request']['operation']['input']
                     lifecycle_risk.checked_pending(result, operation, data)
-                    raise Blocked('cds_recovery_pending')
+                    raise Blocked('bond_recovery_pending' if operation['product']['kind'] == 'bond' else 'cds_recovery_pending')
                 if expected_lifecycle != ('lifecycle' in result):
                     raise Blocked('lifecycle_risk_result_missing')
                 if expected_lifecycle:
@@ -449,7 +449,8 @@ class Workflow:
                                    reference_measure=vector['sensitivities'][0]['base_pv']))
                 self.freshness()
             receipts[self.config['pnl']], pnl = self.client.run(snapshot, self.config['pnl'])
-            checked = [lifecycle_risk.checked_state(states[k], pnl['report']) for k in sorted(states)]
+            checked = [lifecycle_risk.checked_state(states[k], pnl['report'],
+                definition['calculations'][self.config['risks'][k]]['request']['operation']) for k in sorted(states)]
             self.freshness()
             request = self.hedge(snapshot, risks, checked)
             key = digest(dict(config=self.config_digest, request=request))
@@ -520,8 +521,11 @@ class Workflow:
             request['operation']['action'] = dict(kind='solve_lifecycle', states=copy.deepcopy(states))
             defaulted = {s['default_entity'] for s in states if s.get('default_entity') is not None}
             if defaulted:
+                instruments = [s['position']['identity']['instrument']['id'] for s in states
+                    if s.get('default_entity') is not None and 'position' in s]
                 problem['candidates'] = [c for c in problem['candidates']
-                    if not any(r['entity_id'] in defaulted for r in c['risk']['credit_scope'])]
+                    if not any(r['entity_id'] in defaulted for r in c['risk']['credit_scope'])
+                    and c['risk'].get('instrument', {}).get('id') not in instruments]
         return request
 
 
