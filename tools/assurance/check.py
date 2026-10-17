@@ -690,6 +690,14 @@ REQUIRED_RUNS = {
         'cargo test --locked -p convex-engine --test issuer_workflow',
         'python3 -m unittest discover -s tools/tests -p test_issuer_events.py',
         'python3 tools/core_issuer_workflow.py',
+        'python3 tests/scripts/date_rolls_reference.py check',
+        'python3 tests/scripts/date_rolls_fixture.py check',
+        'cargo test --locked -p convex --test date_rolls',
+        'cargo test --locked -p convex --test date_rolls --no-default-features',
+        'cargo test --locked -p convex --test date_rolls --features schemars',
+        'cargo test --locked -p convex-engine --test date_rolls',
+        'python3 -m unittest discover -s tools/tests -p test_book_rolls.py',
+        'python3 tools/core_roll_workflow.py',
     ),
     'production-regressions': ('cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1',),
     'fmt': ('cargo fmt --all -- --check',),
@@ -1090,6 +1098,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('tools/streaming_analytics.py')
     paths.add('tools/book_updates.py')
     paths.add('tools/book_events.py')
+    paths.add('tools/book_rolls.py')
     paths.add('tools/lifecycle_risk.py')
     return paths
 

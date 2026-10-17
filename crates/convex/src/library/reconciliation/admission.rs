@@ -547,6 +547,22 @@ pub(super) fn validate(
     }
     let mut pins = BTreeMap::new();
     let mut curve_policy: BTreeMap<String, Value> = BTreeMap::new();
+    let rolled_dates: Vec<_> = input
+        .steps
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            let previous = if i == 0 {
+                &input.before
+            } else {
+                &input.steps[i - 1].after
+            };
+            (s.cause == w::PnlCause::Time
+                && s.after.point.valuation_date > previous.point.valuation_date)
+                .then_some(s.after.point.valuation_date)
+        })
+        .collect();
+    let mut curve_roots = BTreeMap::new();
     for set in sets {
         point_context(set)?;
         for c in &set.inputs.curves {
@@ -556,7 +572,17 @@ pub(super) fn validate(
                 value(c)?,
             )?;
             let mut policy = value(c)?;
-            for field in ["key", "source"] {
+            let root = c.reference_date;
+            if let Some(original) = curve_roots.get(&c.key.id) {
+                if *original != root
+                    && (!rolled_dates.contains(&root) || root > set.point.valuation_date)
+                {
+                    return Err(unsupported("a changed curve reference date requires an explicit valuation-date roll to that date"));
+                }
+            } else {
+                curve_roots.insert(c.key.id.clone(), root);
+            }
+            for field in ["key", "source", "reference_date"] {
                 policy
                     .as_object_mut()
                     .ok_or_else(|| bad("complete curve object required"))?

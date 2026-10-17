@@ -280,6 +280,17 @@ fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
         return Err(invalid("incomplete core curve sets"));
     }
     for (name, pins) in &plan.curve_sets {
+        // Historical P&L markets remain immutable. Check them at their own
+        // information cutoffs below; current calculations still require fresh
+        // inputs at the rolled plan cutoffs.
+        let current = definition.calculations.values().any(|calculation| {
+            calculation
+                .request
+                .pointer("/operation/kind")
+                .and_then(serde_json::Value::as_str)
+                != Some("book_pnl")
+                && calculation.curve_sets.contains(name)
+        });
         let records = &content.curves[name];
         if records.len() != pins.len() {
             return Err(invalid("incomplete core curve set"));
@@ -293,10 +304,12 @@ fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
                 || record.version != pin.version
                 || record.source_time > plan.as_of
                 || record.recorded_at > plan.known_at
-                || (plan.as_of.datetime() - record.source_time.datetime()).num_milliseconds()
-                    > record.max_age_ms
-                || (plan.known_at.datetime() - record.recorded_at.datetime()).num_milliseconds()
-                    > record.max_age_ms
+                || current
+                    && (plan.as_of.datetime() - record.source_time.datetime()).num_milliseconds()
+                        > record.max_age_ms
+                || current
+                    && (plan.known_at.datetime() - record.recorded_at.datetime()).num_milliseconds()
+                        > record.max_age_ms
             {
                 return Err(invalid(
                     "core curve identity/version/cutoff/freshness mismatch",
@@ -437,15 +450,25 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
             {
                 return Err(invalid("invalid core P&L resource bindings"));
             }
-            let bindings = std::iter::once(&input.before)
+            let bindings: Vec<_> = std::iter::once(&input.before)
                 .chain(input.steps.iter().map(|s| &s.after))
                 .chain(input.standalone.iter().filter_map(|s| match s {
                     convex::library::CausalPnlCounterfactual::Available { information } => {
                         Some(information.as_ref())
                     }
                     _ => None,
-                }));
-            for binding in bindings {
+                }))
+                .collect();
+            for binding in &bindings {
+                // A frozen market can also be used for a later carry/fixing
+                // counterfactual. Freshness belongs to its first selection;
+                // availability still belongs to every actual point.
+                let selected_at = bindings
+                    .iter()
+                    .filter(|b| b.market == binding.market)
+                    .map(|b| b.point.known_at)
+                    .min()
+                    .ok_or_else(|| invalid("missing original market selection"))?;
                 if !binding.additional_fixings.is_empty() {
                     return Err(invalid(
                         "core P&L fixing values must come from the fixing port",
@@ -468,15 +491,49 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
                     .ok_or_else(|| invalid("missing core P&L market set"))?;
                 if records.iter().any(|r| {
                     r.recorded_at > binding.point.known_at
+                        || r.source_time > binding.point.known_at
                         || r.source_time.datetime().date_naive()
                             > binding.point.valuation_date.as_naive_date()
+                        || (selected_at.datetime() - r.source_time.datetime()).num_milliseconds()
+                            > r.max_age_ms
+                        || (selected_at.datetime() - r.recorded_at.datetime()).num_milliseconds()
+                            > r.max_age_ms
                 }) {
                     return Err(invalid(
                         "core P&L market was not available to its original point",
                     ));
                 }
             }
-            input.resources.fixings = fixings(snapshot);
+            let opening_cutoff = bindings
+                .iter()
+                .map(|b| b.point.known_at)
+                .min()
+                .ok_or_else(|| invalid("missing original fixing cutoff"))?;
+            let captured = fixings(snapshot);
+            let eligible =
+                |f: &FixingObservation, cutoff| f.known_at <= cutoff && f.published_at <= cutoff;
+            input.resources.fixings = captured
+                .iter()
+                .filter(|f| eligible(f, opening_cutoff))
+                .cloned()
+                .collect();
+            // The fixing port owns every value. Historical points see only
+            // revisions actually published and received at their own cutoff.
+            for binding in std::iter::once(&mut input.before)
+                .chain(input.steps.iter_mut().map(|s| &mut s.after))
+                .chain(input.standalone.iter_mut().filter_map(|s| match s {
+                    convex::library::CausalPnlCounterfactual::Available { information } => {
+                        Some(information.as_mut())
+                    }
+                    _ => None,
+                }))
+            {
+                binding.additional_fixings = captured
+                    .iter()
+                    .filter(|f| !eligible(f, opening_cutoff) && eligible(f, binding.point.known_at))
+                    .cloned()
+                    .collect();
+            }
             for (market, set) in input.markets.iter_mut().zip(&calc.curve_sets) {
                 if !market.curves.is_empty() {
                     return Err(invalid("core P&L curves must come from the curve port"));

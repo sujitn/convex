@@ -94,6 +94,8 @@ pub enum ValuationInputs<'a> {
 /// Full product results; no flattening away leg/model/source/cash diagnostics.
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Valuation {
+    /// Replayed contractual maturity; owned cash is valued by the lifecycle owner.
+    Matured,
     /// Full fixed or floating model cash price.
     Bond(Box<BondValue>),
     /// Full IRS/OIS cash, par quotes, PVs and known/projection provenance.
@@ -402,6 +404,12 @@ impl ValuationInputs<'_> {
     }
     pub(super) fn amount(&self, value: &Valuation) -> WorkflowResult<ModelMoney> {
         let pv = match value {
+            Valuation::Matured => {
+                return Err(invalid(
+                    "valuation",
+                    "matured reference is not a tradable product price",
+                ))
+            }
             Valuation::Bond(v) => return Ok(v.present_value),
             Valuation::Swap(v) => return Ok(v.present_value),
             Valuation::Cds(v) => v.net_pv,

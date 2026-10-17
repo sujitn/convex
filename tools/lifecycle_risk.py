@@ -66,6 +66,13 @@ def checked_state(result, report, operation=None):
             raise ValueError('lifecycle_default_mapping_missing')
     if state.get('default_entity') != expected_default:
         raise ValueError('lifecycle_default_scope_mismatch')
+    matured = result.get('valuation') == 'Matured'
+    if state.get('matured_instrument') != (position['identity']['instrument'] if matured else None):
+        raise ValueError('lifecycle_maturity_scope_mismatch')
+    # Native P&L has already checked the exact Decimal pending quantity. Its
+    # legal zero spellings (for example 0.00) must not be reinterpreted here.
+    if matured and any(s['base_pv'] != 0 or s['value'] != 0 for s in result['vector']['sensitivities']):
+        raise ValueError('lifecycle_maturity_reference_mismatch')
     if (state['position'] != position or state['manifest'] != point['manifest']
             or state['settlement'] != point['valuation_date'] or state['snapshot_id'] != result['input']['snapshot_id']
             or result['lifecycle_mark']['state'] != mark['state'] or result['lifecycle_mark']['claims'] != mark['claims']

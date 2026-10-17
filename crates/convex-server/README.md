@@ -303,3 +303,13 @@ proposals, complete causal P&L and restart recovery. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_bond_workflow.py`.
 Unknown actual recovery withdraws readiness; actual recovery and receipts retain
 the original native claim owners. No additional route or persistence schema is used.
+
+
+The [valuation-date roll example](../../tools/DATE-ROLLS.md) reuses the existing
+reference, curve, fixing, snapshot and result ports for scheduled coupons,
+amortization, maturity, outstanding claim risk, hedge proposals and causal P&L.
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_roll_workflow.py`. Captured
+fixings respect each historical point's knowledge cutoff; matured securities
+leave fresh hedge candidates while actual payments remain separate events.
+The example checks missing-input admission, source refresh, exact retry and
+restart after a committed hedge loses its acknowledgement.

@@ -5856,6 +5856,49 @@
         "tools/streaming_analytics.py": "abfda82f31c7a29cf11ff701f3706711a87424fea40bc9e7fdd97912e262e411",
         "tools/tests/test_issuer_events.py": "6c6bea0f144d3e5151a74af1851c0df1c689eacebb7f11069641e6a73110ec95"
       }
+    },
+    {
+      "base_commit": "1b897c4ab02b68ffe46807f366e66e21e3313566",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Dated core workflow using existing native scheduled cash/lifecycle, curve/fixing/reference/snapshot/result owners. Preserve exact causal prefixes, eligible historical fixing cutoffs and first-selection historical freshness, while current risk stays fresh. Expired securities are nontradable, including default claim states; actual cash and unknown recovery remain distinct. No new provider/backend/MQ/scheduler/ledger or execution owner. Final boundary review rejects scalar subscriptions and incomplete active fixing images, and defers exact Decimal zero admission to the native owner. Four additional non-financial controls cover these cases and restrict curve revision normalization to actual factor coordinates, preserving same-named eligibility/policy pins; Rust sources and financial fixtures remain byte-exact across the two completed qualification freezes. Nine new numerical artifacts; every prior1956pin/default/byte remains. Original solver,JSON and4MiBresult bounds remain; failed calendar/futures-stamp/global-history/condition-policy/size-limit trials are retained. Reuse unchanged bundles and explicit short supplied OIS. Local engineering only; no independent quantitative approval or production acceptance claimed.",
+      "tests": [
+        "Six new native controls and original issuer/bond/CDS/lifecycle controls in default/no-default/schema; two new engine controls and existing core/ports/backends/analytics/library/server regressions.",
+        "105Python controls,42assurance policy/16coverage controls, normal/exact-base assurance and API conservation; strict all-feature affected lint and format.",
+        "Independent Decimal80 ACT360 coupons/principal, native IRS/CDS final cash and seven actual collateral-risk fields at original1e-7USD/risk bound. Exact native same-security candidate exclusion and expired CDS actual/unknown recovery.",
+        "Six-trade/five-factor CLI replay:48priced outputs, three rolls, coupons/amortization/maturity, separate partial/completing receipts, missing-fixing and unrefreshed-curve blocking, unchanged conditioning diagnostics then feasible proposals. Native parity/causal P&L arithmetic residuals, actual post-commit/pre-ACK worker death, server/worker restart and exact bytes/cache/recompute. Previous issuer example unchanged."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "cf4fd18c36eb9f72649042c67c93d492a441f05f8e769cb139e2cdf7a2262e44",
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "24fea649f63f167ae3c558091e0f64fe296c1c89ace9f1986b8a61aad608a153",
+        "crates/convex-analytics/src/risk/hedging/constrained/types.rs": "2551e48e7f67880ebf2185cc8145320c7f9090bf045d56d545a3d68d446ab6ef",
+        "crates/convex-analytics/src/workflow/hedge.rs": "363424e120441b3a722ca56cc3b5eca13fec83be83838e9d12a4894309cbaea7",
+        "crates/convex-analytics/src/workflow/valuation.rs": "48e169c88b7309fef6b7aafb8788e3af1975eb8e9ef4d3c63ef941a70595e0ea",
+        "crates/convex-engine/CORE-WORKFLOW.md": "2f10b9c112190083dc205f45532df70916ee3acc8da480656325106251e282e0",
+        "crates/convex-engine/src/core_workflow.rs": "bf80216180dc7da82aa82314431a32ad0c8c1cb278963be4de8e7fcfeafef7e4",
+        "crates/convex-engine/tests/date_rolls.rs": "b28d0bb9120000438f192495aa5febe08436c48879710c5c40125f57efa59e6b",
+        "crates/convex-server/README.md": "aae2883eeadafc86df6a8fb91b53198f8b7d5ba2bbfb38d604a6cbe56a34a620",
+        "crates/convex/src/library/lifecycle_risk.rs": "cd0cf27af6fbc30aade5a30290b1b448aac04f14fe717ab3f76dddcb1739ed0c",
+        "crates/convex/src/library/reconciliation/admission.rs": "94b45e5fb8dd630c14bf90df6661f6d9c7e85e9adb97e57ad5150c0afef53b38",
+        "crates/convex/tests/date_rolls.rs": "a7882d177e0fd82c26e21b8efcd8725683413acfc16312a62e99fac5103d2446",
+        "tests/fixtures/library/date-rolls-core.json": "45a17f090f7986371a76befa5d2e374ccfefa5170a47b5cac08110c78114c7af",
+        "tests/fixtures/library/date-rolls-reference.json": "298f99211656f37b169a6b3e1f33a4b3ae50633e41c27722c60985549f47a944",
+        "tests/fixtures/library/date-rolls-requests.json": "d90a2e5aacc296e88a3e4513eb2bf9f08455ce3e502da16ed9a41295aea8e18c",
+        "tests/scripts/date_rolls_fixture.py": "908f7ae9963f97f165fffeb10f1f19171cbe81e6da8ef7be83e980b54dc58d1d",
+        "tests/scripts/date_rolls_reference.py": "70ccfbdec7e80e3ad0781eff43c9216f1e3ed46d8476f7843734707d2952a727",
+        "tools/DATE-ROLLS.md": "daf2a76cf0dc1ddf47d48026c0112aa83ece93df99a21c4f4b101af2845c4a3e",
+        "tools/assurance/check.py": "363da96a0264bc44d0293f19f6afd2768f6f2bb1d38f6208b8d7ab486f3b8858",
+        "tools/assurance/inventory.json": "337fc728553eab40f9b9cf9ee73583b46e37124ebdaa16aced26c1357d570397",
+        "tools/assurance/numeric-evidence.json": "8fd3b9bdbc6b739503ba7244eeebec6e8aaaf799928661323827b4f5ff1f5fa2",
+        "tools/book_events.py": "3a3aa257f06ab87317cc2d0a9199482b7a8ba1e1b89d2d2053a3cdee280abd34",
+        "tools/book_rolls.py": "63fd611a57de7a636e00ff87697a56d74816318d3d965f6cad36175cde4d8ce2",
+        "tools/core_roll_workflow.py": "9d455b25baecabb41f814cd10af977da746ae35e465f8fab0fbfdcb9dab0fe73",
+        "tools/library/library-inventory.json": "f784f1317891319531cce35935b04d88c75e37488475aa2fa11a805c4826c315",
+        "tools/lifecycle_risk.py": "4d3d903fc3623ea4d2cf663e65cf8b693fd82b144ed9b374df35b6513730058a",
+        "tools/market_data_stream.py": "ff98bbabed6271a7cfaaa4601f3d910bfcb4a339297c57cc1d93f1ac7e8cab57",
+        "tools/streaming_analytics.py": "d83496d89d81960059d5d9cba70380a761b403277d7c9219f29602629197fc8a",
+        "tools/tests/test_book_rolls.py": "f8268c758ba83f4fb594b03c3445c38d72e4bf35f34561e114e0f21c2d29f68e"
+      }
     }
   ]
 }

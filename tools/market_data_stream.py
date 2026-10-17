@@ -47,6 +47,11 @@ def subscription(path):
         if len(raw) > 256 * 1024:
             raise ValueError('subscription size')
         value = json.loads(raw, object_pairs_hook=adapter.unique_object, parse_constant=adapter.reject_constant)
+        if not isinstance(value, dict):
+            raise ValueError('subscription object required')
+        follow = value.pop('follow_fixing_dates', False)
+        if type(follow) is not bool or follow and 'book' not in value:
+            raise ValueError('dated fixing subscription requires a book')
         if (set(value) not in ({'schema_version', 'curves', 'fixings'}, {'schema_version', 'curves', 'fixings', 'book'}) or type(value['schema_version']) is not int
                 or value['schema_version'] != 1 or not isinstance(value['curves'], list)
                 or not isinstance(value['fixings'], list) or len(value['curves']) > 256
@@ -62,10 +67,18 @@ def subscription(path):
                 or not (curves or fixings)):
             raise ValueError('empty/duplicate subscription')
         if 'book' in value:
+            if follow:
+                return curves, fixings, text_id(value['book']), {(k[0], k[2]) for k in fixings}
             return curves, fixings, text_id(value['book'])
         return curves, fixings
     except (OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
         raise adapter.IngestionError('Invalid bounded stream subscription') from None
+
+
+def subscribed_fixings(keys, universe):
+    """An opt-in roll may add dates only for explicitly subscribed index/sources."""
+    return keys <= universe[1] or (len(universe) == 4
+        and all((key[0], key[2]) in universe[3] for key in keys))
 
 
 def book_record(record, identity):
@@ -101,7 +114,7 @@ def decode(raw, stream_id, universe):
         messages, curves, fixings, books = [], set(), set(), []
         for record in frame['records']:
             if isinstance(record, dict) and record.get('kind') == 'book':
-                if len(universe) != 3:
+                if len(universe) < 3:
                     raise ValueError('unsubscribed book')
                 books.append(book_record(record, universe[2]))
                 if len(books) > 1:
@@ -115,13 +128,13 @@ def decode(raw, stream_id, universe):
                 for p in record['payload']:
                     fixings.add(fixing_key(p['key']))
         expected_curves, expected_fixings = universe[:2]
-        if not curves <= expected_curves or not fixings <= expected_fixings:
+        if not curves <= expected_curves or not subscribed_fixings(fixings, universe):
             raise ValueError('unsubscribed input')
         if frame['kind'] == 'heartbeat':
             if frame['records']:
                 raise ValueError('heartbeat carries data')
         elif (not frame['records'] or (frame['kind'] == 'image' and
-                ((curves, fixings) != universe[:2] or (len(universe) == 3 and not books)))):
+                (curves != expected_curves or not expected_fixings <= fixings or (len(universe) >= 3 and not books)))):
             raise ValueError('incomplete image/update')
         digest = hashlib.sha256(json.dumps(frame, sort_keys=True, separators=(',', ':'),
                                          allow_nan=False).encode()).hexdigest()

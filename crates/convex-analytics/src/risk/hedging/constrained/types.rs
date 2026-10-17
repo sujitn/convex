@@ -105,6 +105,10 @@ pub struct LifecycleHoldingRisk {
     /// Absent for non-default states, preserving their exact wire shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_entity: Option<EntityId>,
+    /// Replayed contractual maturity: the security cannot be a fresh candidate.
+    /// Outstanding owned claims remain in current risk after maturity and closure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub matured_instrument: Option<ReferencePin>,
     /// Exact same original native position and application identity.
     pub position: crate::workflow::PnlPositionInput,
     /// Full closing position/state manifest.

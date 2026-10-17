@@ -109,7 +109,8 @@ def validate(config, universe):
         fresh += binding['follow']
         if set(binding['recipe_key']) != {'id', 'version'}:
             raise ValueError('native recipe key')
-    if not fresh or {stream.fixing_key(k) for k in plan['fixings']} != universe[1]:
+    fixing_keys = {stream.fixing_key(k) for k in plan['fixings']}
+    if not fresh or not universe[1] <= fixing_keys or not stream.subscribed_fixings(fixing_keys, universe):
         raise ValueError('fresh current curves and exact fixing subscription required')
     risks = config['risks']
     if not isinstance(risks, dict) or not 1 <= len(risks) <= 30 or len(set(risks.values())) != len(risks):
@@ -222,20 +223,23 @@ class Workflow:
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.mode = mode
         self.emit = emit or (lambda event: print(json.dumps(event), flush=True))
-        self.config_digest = digest(dict(config=config, mode=mode))
+        # An opt-in dated replay advances its clock across restarts. Immutable
+        # plans and the observed book high-water mark still forbid rollback.
+        digest_mode = 'replay:date-rolls' if len(universe) == 4 and mode.startswith('replay:') else mode
+        self.config_digest = digest(dict(config=config, mode=digest_mode))
         self.boot_config, self.universe = copy.deepcopy(config), universe
         self.book, self.pending_book, self.reference_record = None, None, None
         self.book_head = None
         self.hedge_template = self.config['hedge']
-        if len(universe) == 3:
-            self.config_digest = digest(dict(config=config, mode=mode, book=universe[2]))
+        if len(universe) >= 3:
+            self.config_digest = digest(dict(config=config, mode=digest_mode, book=universe[2]))
         self.plan = copy.deepcopy(config['plan'])
         self.bundle, self.current, self.records = None, False, {}
         self.last_clock = self.clock()
         if self.path.exists():
             prior = load(self.path)
             required = {'schema_version', 'config_digest', 'plan', 'bundle'}
-            if prior.get('schema_version') == 2 and len(universe) == 3:
+            if prior.get('schema_version') == 2 and len(universe) >= 3:
                 required.update(['book', 'book_head'])
             if (set(prior) != required or type(prior['schema_version']) is not int or prior['schema_version'] not in (1, 2)
                     or prior['config_digest'] != self.config_digest):
@@ -296,7 +300,7 @@ class Workflow:
 
     def observe_book(self, frame):
         """Latch a new release before checking its market or native inputs."""
-        if len(self.universe) != 3:
+        if len(self.universe) < 3:
             return
         incoming = [r['payload'] for r in frame['records'] if r['kind'] == 'book']
         if incoming:
@@ -319,7 +323,7 @@ class Workflow:
 
     def select_book(self):
         """A release barrier binds complete positions/terms/policy to one commit."""
-        if len(self.universe) != 3:
+        if len(self.universe) < 3:
             return
         release = self.pending_book
         self.validate_book_config(release)
@@ -406,6 +410,11 @@ class Workflow:
                             raise Blocked('future_fixing')
                         self.fixing_cutoff = max(self.fixing_cutoff, timestamp(fixing['recorded_at']), timestamp(fixing['published_at']))
             self.select_book()
+            if frame['kind'] == 'image' and len(self.universe) == 4:
+                present = {stream.fixing_key(row['key']) for item in frame['records']
+                           if item['kind'] == 'fixings' for row in item['payload']}
+                if not {stream.fixing_key(key) for key in self.plan['fixings']} <= present:
+                    raise Blocked('incomplete_current_fixing_image')
             plan = copy.deepcopy(self.plan)
             plan['known_at'] = iso(max(timestamp(plan['known_at']), self.fixing_cutoff))
             for binding in self.config['bindings']:
@@ -525,6 +534,10 @@ class Workflow:
             item['risk'] = vector
         if states:
             request['operation']['action'] = dict(kind='solve_lifecycle', states=copy.deepcopy(states))
+            matured = {s['matured_instrument']['id'] for s in states if s.get('matured_instrument') is not None}
+            if matured:
+                problem['candidates'] = [c for c in problem['candidates']
+                    if c['risk']['instrument']['id'] not in matured]
             defaulted = {s['default_entity'] for s in states if s.get('default_entity') is not None}
             if defaulted:
                 instruments = [s['position']['identity']['instrument']['id'] for s in states

@@ -113,50 +113,7 @@ pub fn curve_hedge_risk(
     let reserved = 5 * input.factors.len();
     let position = &input.reference_position;
     let identity = &input.identity;
-    let mut native_position = position.clone();
-    let (family, settlement, instrument, credit_scope) = match product {
-        ValuationInputs::Bond { cash, .. } => (
-            h::HedgeProduct::CashBond, cash.settlement(), None, Vec::new(),
-        ),
-        ValuationInputs::FloatingBond { context, .. } => (
-            h::HedgeProduct::CashBond, context.settlement, None, Vec::new(),
-        ),
-        ValuationInputs::Swap { contract, context, .. } => {
-            let terms = contract.terms();
-            let reference = terms.fixed.leg.notionals.first()
-                .ok_or_else(|| invalid("reference_position", "missing original fixed-leg notional"))?.value;
-            if position.quantity_unit != q::RiskQuantityUnit::Notional
-                || position.reference_quantity.decimal() != reference
-            {
-                return Err(invalid("reference_position", "exact first original fixed-leg notional required"));
-            }
-            native_position.quantity = ExactDecimal::new(Decimal::ONE);
-            native_position.reference_quantity = ExactDecimal::new(Decimal::ONE);
-            native_position.quantity_unit = q::RiskQuantityUnit::TradeCopies;
-            (h::HedgeProduct::Irs, context.fixings.valuation_date,
-                Some((terms.trade_id.as_str(), terms.version)), Vec::new())
-        }
-        ValuationInputs::Cds { contract, context, .. } => {
-            let terms = contract.terms();
-            (h::HedgeProduct::Cds, context.valuation_date,
-                Some((terms.trade_id.as_str(), terms.version)), vec![terms.reference.clone()])
-        }
-        ValuationInputs::RateFuture { inputs, .. } => (
-            h::HedgeProduct::Futures,
-            Date::from(inputs.context.as_of.datetime().date_naive()),
-            Some((inputs.contract.instrument_id.as_str(), inputs.contract.stamp.version)), Vec::new(),
-        ),
-        _ => return Err(WorkflowError::Unsupported("optional bonds and delivery futures require their complete original model/all-member risk owners")),
-    };
-    if instrument.is_some_and(|(id, version)| {
-        identity.instrument.id.as_str() != id || identity.instrument.version != version
-    }) {
-        return Err(invalid(
-            "instrument",
-            "actual full product identity/revision mismatch",
-        ));
-    }
-    product.validate_position(&native_position)?;
+    let (native_position, family, settlement, credit_scope) = product_binding(product, input)?;
     let mut sensitivities = Vec::with_capacity(input.factors.len());
     for factor in &input.factors {
         let native = curve_quote_risk(
@@ -230,6 +187,160 @@ pub fn curve_hedge_risk(
             settlement,
             credit_scope,
             reference_position: position.clone(),
+            sensitivities,
+            fx: None,
+        },
+    })
+}
+
+fn product_binding(
+    product: &ValuationInputs<'_>,
+    input: &GraphHedgeRiskInput,
+) -> WorkflowResult<(
+    q::RiskPosition,
+    h::HedgeProduct,
+    Date,
+    Vec<convex_credit::CreditReference>,
+)> {
+    let position = &input.reference_position;
+    let identity = &input.identity;
+    let mut native_position = position.clone();
+    let (family, settlement, instrument, credit_scope) = match product {
+        ValuationInputs::Bond { cash, .. } => (
+            h::HedgeProduct::CashBond, cash.settlement(), None, Vec::new(),
+        ),
+        ValuationInputs::FloatingBond { context, .. } => (
+            h::HedgeProduct::CashBond, context.settlement, None, Vec::new(),
+        ),
+        ValuationInputs::Swap { contract, context, .. } => {
+            let terms = contract.terms();
+            let reference = terms.fixed.leg.notionals.first()
+                .ok_or_else(|| invalid("reference_position", "missing original fixed-leg notional"))?.value;
+            if position.quantity_unit != q::RiskQuantityUnit::Notional
+                || position.reference_quantity.decimal() != reference
+            {
+                return Err(invalid("reference_position", "exact first original fixed-leg notional required"));
+            }
+            native_position.quantity = ExactDecimal::new(Decimal::ONE);
+            native_position.reference_quantity = ExactDecimal::new(Decimal::ONE);
+            native_position.quantity_unit = q::RiskQuantityUnit::TradeCopies;
+            (h::HedgeProduct::Irs, context.fixings.valuation_date,
+                Some((terms.trade_id.as_str(), terms.version)), Vec::new())
+        }
+        ValuationInputs::Cds { contract, context, .. } => {
+            let terms = contract.terms();
+            (h::HedgeProduct::Cds, context.valuation_date,
+                Some((terms.trade_id.as_str(), terms.version)), vec![terms.reference.clone()])
+        }
+        ValuationInputs::RateFuture { inputs, .. } => (
+            h::HedgeProduct::Futures,
+            Date::from(inputs.context.as_of.datetime().date_naive()),
+            Some((inputs.contract.instrument_id.as_str(), inputs.contract.stamp.version)), Vec::new(),
+        ),
+        _ => return Err(WorkflowError::Unsupported("optional bonds and delivery futures require their complete original model/all-member risk owners")),
+    };
+    if instrument.is_some_and(|(id, version)| {
+        identity.instrument.id.as_str() != id || identity.instrument.version != version
+    }) {
+        return Err(invalid(
+            "instrument",
+            "actual full product identity/revision mismatch",
+        ));
+    }
+    product.validate_position(&native_position)?;
+    Ok((native_position, family, settlement, credit_scope))
+}
+
+/// Nontradable reference for a fully replayed contractual maturity. The exact
+/// original product/state binding and all factor scenarios are still admitted.
+/// Owned cash belongs exclusively to lifecycle risk, never to a fresh candidate.
+pub fn matured_hedge_risk(
+    product: &ValuationInputs<'_>,
+    graph: &q::PreparedQuoteRiskGraph<'_>,
+    input: &GraphHedgeRiskInput,
+    state: &crate::lifecycle::LifecycleState,
+) -> WorkflowResult<GraphHedgeRisk> {
+    use crate::lifecycle::{EconomicStatus, LifecycleInstrument};
+    validate_graph_hedge_input(input)?;
+    let (native_position, family, settlement, credit_scope) = product_binding(product, input)?;
+    let view = state.view();
+    let maturity = match (product, state.instrument()) {
+        (ValuationInputs::Bond { cash, .. }, LifecycleInstrument::Bond { contract, .. })
+            if cash.contract().terms() == contract.terms() =>
+        {
+            contract.terms().schedule.end_date
+        }
+        (
+            ValuationInputs::FloatingBond { contract, .. },
+            LifecycleInstrument::Bond {
+                contract: actual, ..
+            },
+        ) if contract.terms() == actual.terms() => contract.terms().schedule.end_date,
+        (ValuationInputs::Swap { contract, .. }, LifecycleInstrument::Swap(actual))
+            if contract.terms() == actual.terms() =>
+        {
+            contract.terms().maturity_date
+        }
+        (ValuationInputs::Cds { contract, .. }, LifecycleInstrument::Cds(actual))
+            if contract.terms() == actual.terms() =>
+        {
+            contract.terms().premium_schedule.end_date
+        }
+        _ => {
+            return Err(invalid(
+                "maturity",
+                "same complete original bond/swap/CDS required",
+            ))
+        }
+    };
+    if !matches!(
+        view.status,
+        EconomicStatus::Matured
+            | EconomicStatus::Closed
+            | EconomicStatus::Terminated
+            | EconomicStatus::DefaultPending
+            | EconomicStatus::DefaultCashPending
+    ) || !view.remaining_fraction.decimal().is_zero()
+        || !view.exercise_notices.is_empty()
+        || view.delivery_pending.is_some()
+        || maturity > settlement
+        || view.trade_id != input.identity.id
+    {
+        return Err(invalid(
+            "maturity",
+            "actual replayed contractual maturity required",
+        ));
+    }
+    let mut sensitivities = Vec::new();
+    for factor in &input.factors {
+        sensitivities.push(q::reference_quote_sensitivity(
+            factor.key.clone(),
+            input.reference_position.clone(),
+            input.snapshot_id.clone(),
+            factor.settings.clone(),
+            |delta| {
+                q::evaluate_quote_graph(graph, &factor.key, delta)?;
+                q::risk_reference_pv(0.0, input.reference_position.currency)
+            },
+        )?);
+    }
+    let identity = &input.identity;
+    Ok(GraphHedgeRisk {
+        input: input.clone(),
+        native_position,
+        basis: product.basis(),
+        valuation: Valuation::Matured,
+        reserved_factor_evaluations: 5 * input.factors.len(),
+        vector: h::HedgeRiskVector {
+            id: identity.id.clone(),
+            product: family,
+            instrument: identity.instrument.clone(),
+            economics: identity.economics.clone(),
+            calculation: identity.calculation.clone(),
+            entity: identity.entity.clone(),
+            settlement,
+            credit_scope,
+            reference_position: input.reference_position.clone(),
             sensitivities,
             fx: None,
         },

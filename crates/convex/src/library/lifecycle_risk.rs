@@ -78,6 +78,7 @@ pub(super) fn calculate(
         l::EconomicStatus::Active
             | l::EconomicStatus::Terminated
             | l::EconomicStatus::Closed
+            | l::EconomicStatus::Matured
             | l::EconomicStatus::DefaultPending
             | l::EconomicStatus::DefaultCashPending
     ) || !state.exercise_notices.is_empty()
@@ -89,9 +90,32 @@ pub(super) fn calculate(
     curves::with_graph(graph_input, resources, |graph| {
         let original = resources.with_curves(graph.baseline().curves.clone());
         risk::with_product(product, &original, |product| {
-            let fresh = w::curve_hedge_risk(product, graph, input)?;
             let discount = graph.baseline().curves.get(&position.cash_discount)?;
             let native = w::CausalPnlProduct::Standard(product);
+            let maturity = match replay.state.instrument() {
+                l::LifecycleInstrument::Bond { contract, .. } => contract.terms().schedule.end_date,
+                l::LifecycleInstrument::Swap(contract) => contract.terms().maturity_date,
+                l::LifecycleInstrument::Cds(contract) => contract.terms().premium_schedule.end_date,
+                _ => {
+                    return Err(LibraryError::invalid(
+                        "maturity",
+                        "standard instrument required",
+                    ))
+                }
+            };
+            let matured = matches!(
+                state.status,
+                l::EconomicStatus::Matured
+                    | l::EconomicStatus::Closed
+                    | l::EconomicStatus::Terminated
+                    | l::EconomicStatus::DefaultPending
+                    | l::EconomicStatus::DefaultCashPending
+            ) && maturity <= point.valuation_date;
+            let fresh = if matured {
+                w::matured_hedge_risk(product, graph, input, &replay.state)?
+            } else {
+                w::curve_hedge_risk(product, graph, input)?
+            };
             if state.status == l::EconomicStatus::DefaultPending {
                 w::validate_causal_pnl_default_position(
                     &path,
@@ -176,6 +200,7 @@ pub(super) fn calculate(
             }
             let actual = h::LifecycleHoldingRisk {
                 default_entity: default_entity.clone(),
+                matured_instrument: matured.then(|| input.identity.instrument.clone()),
                 position: position.clone(),
                 manifest: point.manifest.clone(),
                 settlement: point.valuation_date,

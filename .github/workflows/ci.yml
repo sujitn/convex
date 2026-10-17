@@ -3073,6 +3073,30 @@ jobs:
       - name: Run issuer-wide bond CDS recovery and restart workflow
         run: python3 tools/core_issuer_workflow.py
 
+      - name: Check independent date-roll cash controls
+        run: python3 tests/scripts/date_rolls_reference.py check
+
+      - name: Check full date-roll input construction
+        run: python3 tests/scripts/date_rolls_fixture.py check
+
+      - name: Exercise scheduled cash and maturity risk
+        run: cargo test --locked -p convex --test date_rolls
+
+      - name: Exercise maturity risk without default features
+        run: cargo test --locked -p convex --test date_rolls --no-default-features
+
+      - name: Exercise maturity risk with schema features
+        run: cargo test --locked -p convex --test date_rolls --features schemars
+
+      - name: Check dated snapshots and restart recovery
+        run: cargo test --locked -p convex-engine --test date_rolls
+
+      - name: Check date-roll source and worker admission
+        run: python3 -m unittest discover -s tools/tests -p test_book_rolls.py
+
+      - name: Run core valuation-date rolls and scheduled cash workflow
+        run: python3 tools/core_roll_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

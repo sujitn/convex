@@ -49,7 +49,7 @@ def facts(data):
     return found
 
 
-def prepare(client, batch):
+def prepare(client, batch, *, date_roll=False, base_plan=None):
     """Check immutable prefix, exact base pin and full current-risk bindings."""
     adapter.payload_bytes(batch)
     fields = {'schema_version', 'id', 'base', 'definition', 'workflow'}
@@ -71,7 +71,12 @@ def prepare(client, batch):
         raise ValueError('event_batch_base_pin')
     normalized = copy.deepcopy(config)
     normalized['plan']['definition'] = copy.deepcopy(expected)
-    if normalized != previous:
+    if date_roll:
+        selected = copy.deepcopy(previous)
+        if base_plan is not None:
+            selected['plan'] = copy.deepcopy(base_plan)
+        check_date_roll(selected, config)
+    elif normalized != previous:
         raise ValueError('event_batch_workflow_changed')
     if (config['plan']['definition'] != dict(id=expected['id'], version=expected['version'] + 1)
             or expected['version'] >= 2**64 - 1 or base['version'] >= 2**64 - 1):
@@ -95,9 +100,14 @@ def prepare(client, batch):
     common = count - 1 if resolving else count
     if (not 1 <= count <= len(new['steps']) <= 16 or not resolving and count == len(new['steps'])
             or len(new['standalone']) != len(new['steps'])
-            or {k: v for k, v in old.items() if k not in ('before', 'steps', 'standalone', 'holdings')}
-            != {k: v for k, v in new.items() if k not in ('before', 'steps', 'standalone', 'holdings')}):
+            or {k: v for k, v in old.items() if k not in ('before', 'steps', 'standalone', 'holdings') + (('markets',) if date_roll else ())}
+            != {k: v for k, v in new.items() if k not in ('before', 'steps', 'standalone', 'holdings') + (('markets',) if date_roll else ())}):
         raise ValueError('event_batch_path_extension')
+    if date_roll and (resolving or new['markets'][:len(old['markets'])] != old['markets']
+            or proposed['calculations'][config['pnl']]['curve_sets'][:len(old['markets'])]
+                != original['calculations'][previous['pnl']]['curve_sets']
+            or new['steps'][-1]['after']['point']['valuation_date'] <= old['steps'][-1]['after']['point']['valuation_date']):
+        raise ValueError('date_roll_market_or_date_changed')
     if full_point(old, old['before']) != full_point(new, new['before']):
         raise ValueError('event_batch_opening_changed')
     for i in range(common):
@@ -109,12 +119,16 @@ def prepare(client, batch):
             sb['information'] = full_point(new, sb['information'])
         if (a['cause'] != b['cause'] or full_point(old, a['after']) != full_point(new, b['after']) or sa != sb):
             raise ValueError('event_batch_history_changed')
-    allowed = ('market', 'fx', 'position', 'event', 'time') if resolving else ('position', 'event', 'time')
+    allowed = ('market', 'fixing', 'position', 'time') if date_roll else (('market', 'fx', 'position', 'event', 'time') if resolving else ('position', 'event', 'time'))
     if any(s['cause'] not in allowed for s in new['steps'][common:]):
         raise ValueError('event_batch_cause')
     before, after = facts(old), facts(new)
-    if any(after.get(k) != v for k, v in before.items()) or not set(after) - set(before):
+    if any(after.get(k) != v for k, v in before.items()) or not date_roll and not set(after) - set(before):
         raise ValueError('event_batch_requires_new_immutable_facts')
+    if date_roll and (not any(s['cause'] == 'time' for s in new['steps'][count:])
+            or any(k[0] != 'lifecycle' or after[k]['event']['action']['kind'] not in ('contract_step', 'contractual_cash', 'fixing')
+                for k in set(after) - set(before))):
+        raise ValueError('date_roll_requires_scheduled_facts_only')
     if resolving:
         recoveries = [v['event']['action']['terms']['default_event'] for k, v in after.items()
                       if k[0] == 'lifecycle' and k not in before and v['event']['action']['kind'] == 'recovery']
@@ -132,7 +146,7 @@ def prepare(client, batch):
     fingerprint = analytics.digest(batch)
     provenance = proposed['provenance']
     provenance['evidence_reference'] += '; core event batch sha256=' + fingerprint
-    key = 'core.events.' + analytics.digest(dict(book=base['id'], batch=batch['id']))
+    key = ('core.rolls.' if date_roll else 'core.events.') + analytics.digest(dict(book=base['id'], batch=batch['id']))
     command = dict(idempotency_key=key, changes=[], master_changes=[dict(expected_version=expected['version'],
         definition=dict(kind='calculation', definition=proposed))])
     release = dict(id=base['id'], version=base['version'] + 1, reference_commit=key,
@@ -140,6 +154,42 @@ def prepare(client, batch):
     stream.book_record(dict(schema_version=1, kind='book', payload=release), base['id'])
     adapter.payload_bytes(command)
     return command, release
+
+
+def check_date_roll(previous, config):
+    """Retain policy and source ownership; append explicit dated input selections."""
+    a, b = copy.deepcopy(previous), copy.deepcopy(config)
+    old, new = a.pop('plan'), b.pop('plan')
+    old_bindings, new_bindings = a.pop('bindings'), b.pop('bindings')
+    if (analytics.timestamp(new['as_of']).date() <= analytics.timestamp(old['as_of']).date()
+            or analytics.timestamp(new['known_at']) < analytics.timestamp(old['known_at'])
+            or not {stream.fixing_key(k) for k in old['fixings']} <= {stream.fixing_key(k) for k in new['fixings']}
+            or any(new['curve_sets'].get(k) != v for k, v in old['curve_sets'].items())):
+        raise ValueError('date_roll_input_history_or_cutoff')
+    curve_ids = {r['recipe_key']['id'] for r in new_bindings}
+    def versions(value):
+        if isinstance(value, dict):
+            if set(value) == {'id', 'version'} and value['id'] in curve_ids:
+                value['version'] = 'selected-native-recipe'
+            else:
+                for child in value.values():
+                    versions(child)
+        elif isinstance(value, list):
+            for child in value:
+                versions(child)
+    for workflow in (a, b):
+        for factor in workflow['hedge']['operation']['problem'].get('factors', []):
+            versions(factor['key']['coordinate'])
+    if a != b:
+        raise ValueError('date_roll_policy_changed')
+    slots = {(r['set'], r['curve_id']): r for r in new_bindings}
+    sources = {(r['curve_id'], r['source'], r['max_age_ms']) for r in old_bindings}
+    for binding in old_bindings:
+        updated = copy.deepcopy(slots.get((binding['set'], binding['curve_id'])))
+        if updated is None or updated.pop('follow') is not False or {k: v for k, v in binding.items() if k != 'follow'} != updated:
+            raise ValueError('date_roll_historical_binding_changed')
+    if any((r['curve_id'], r['source'], r['max_age_ms']) not in sources for r in new_bindings):
+        raise ValueError('date_roll_source_or_freshness_changed')
 
 
 def risk_scope(report, close, previous_step=None, covered=()):

@@ -194,6 +194,27 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
         ));
     }
     for state in states {
+        if let Some(instrument) = &state.matured_instrument {
+            if instrument != &state.position.identity.instrument
+                || !state.position.pending_quantity.decimal().is_zero()
+                || state
+                    .pending
+                    .iter()
+                    .any(|s| s.base_pv != 0.0 || s.value != 0.0)
+                || p.candidates
+                    .iter()
+                    .any(|c| c.risk.instrument.id == instrument.id)
+                || p.holdings.iter().any(|h| {
+                    h.risk.instrument.id == instrument.id
+                        && !states.iter().any(|s| {
+                            s.position.identity.id == h.risk.id
+                                && s.matured_instrument.as_ref() == Some(&h.risk.instrument)
+                        })
+                })
+            {
+                return Err(invalid("maturity risk", "exact matured security, complete holding states, zero pending exposure and no fresh same-security candidate required"));
+            }
+        }
         if let Some(entity) = &state.default_entity {
             let holding = p
                 .holdings
