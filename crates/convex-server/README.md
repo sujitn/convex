@@ -93,6 +93,55 @@ delivery-basket/CTD operations remain available through the native library
 contract and this same endpoint. Live provider admission, distributed ownership,
 measured latency and production release qualification remain separate work.
 
+## Core snapshots, input updates and restart recovery
+
+Run the persisted version of the same six-trade workflow:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/core_snapshot_workflow.py
+```
+
+It imports captured synthetic reference revisions, whole curve recipes and fixing
+history through the existing ports, then uses the server to assemble immutable
+snapshots and persist 20 native results. It verifies exact parity with the original
+supplied-input endpoint, selects updated reference/curve revisions, and publishes
+a SOFR correction. OIS consumes the eligible correction; the overnight future
+retains its actual FirstPublished revision. After stopping and restarting the
+server, it reads every original result and recomputes pricing, P&L and the hedge
+from saved inputs with identical outputs. Both processes stop automatically.
+
+The [core persistence contract](../convex-engine/CORE-WORKFLOW.md) describes the
+input definitions, endpoint shapes, backend responsibilities and recovery rules.
+The original `core_workflow.py` remains the smaller supplied-input example.
+
+| Endpoint | Behavior |
+|---|---|
+| POST /api/v1/analytics/curves | Store one immutable complete `SnapshotCurveRecipe` |
+| POST /api/v1/analytics/fixings | Atomically store a batch of immutable `PublishedFixing` revisions |
+| POST /api/v1/analytics/snapshots | Resolve a `CoreSnapshotPlan` through reference/curve/fixing ports and publish the complete captured record |
+| GET /api/v1/analytics/snapshots/{snapshot_id} | Read the saved native definition, full recipes, history and lineage |
+| POST /api/v1/analytics/snapshots/{snapshot_id}/run/{calculation} | Run a saved named calculation; `{}` permits reuse, `{"recompute":true}` uses saved inputs again |
+| GET /api/v1/analytics/results/{result_id} | Return the exact stored native envelope without recalculation |
+
+Reference definitions use the existing reference transaction/history contract's
+`calculation` master resource. Input publishers need `ReferenceWriter`, market
+scope and explicit curve/source wildcard grants. Calculation definitions and
+their reference receipts also require the core book/data grants. Core calculations
+retain the earlier Analyst/full-grant requirement; saved reads require Reader or
+Analyst with all those data/resource grants. Source publication and calculation
+are separate permissions. Current grants are rechecked before returning results.
+
+The executable composes local redb with the existing durable Unix filesystem
+snapshot adapter in `<storage_path>.core-snapshots`. Back up both together with the
+server stopped. Other hosts can supply implementations of the same existing
+ports. Unsupported adapter methods fail explicitly. The offline
+`convex-core-inputs DATABASE CAPTURED_INPUTS.json` importer also requires a stopped
+server; interrupted imports recover by retrying the identical captured records.
+
+This is a synthetic, persisted core workflow. Production startup, managed live
+provider composition, distributed ownership and measured latency retain their
+existing release requirements.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

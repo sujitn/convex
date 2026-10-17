@@ -51,6 +51,7 @@ mod reference_terms;
 pub mod builder;
 pub mod calc_graph;
 pub mod calibration_replay;
+pub mod core_workflow;
 pub mod curve_builder;
 pub mod curve_replay;
 pub mod error;

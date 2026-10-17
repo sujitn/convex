@@ -230,7 +230,14 @@ fn requirement(
         "/api/v1/runtime/valuation" => {
             req.data.push(D::Reference);
         }
-        "/api/v1/analytics" => {
+        "/api/v1/analytics"
+        | "/api/v1/analytics/snapshots"
+        | "/api/v1/analytics/snapshots/:snapshot_id/run/:calculation"
+        | "/api/v1/analytics/snapshots/:snapshot_id"
+        | "/api/v1/analytics/results/:result_id" => {
+            if read {
+                req.action = ResultRead;
+            }
             // Complete supplied library contracts can contain every resource shape.
             // Until semantic per-operation scoping exists, require explicit broad
             // grants rather than relying on partial JSON-key scope discovery.
@@ -245,6 +252,12 @@ fn requirement(
                 Resource::new(R::Source, "*"),
                 Resource::new(R::Book, "*"),
             ]);
+        }
+        "/api/v1/analytics/curves" | "/api/v1/analytics/fixings" => {
+            req.action = CurveWrite;
+            req.data = vec![D::Market];
+            req.resources
+                .extend([Resource::new(R::Curve, "*"), Resource::new(R::Source, "*")]);
         }
         "/api/v1/configuration/schema" => {
             req.action = Operate;
@@ -324,6 +337,24 @@ pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, Acce
         }
         match value {
             serde_json::Value::Object(map) => {
+                // A retained calculation definition may contain whole private
+                // books. This also protects reads through reference receipts.
+                if map.get("kind").and_then(|v| v.as_str()) == Some("calculation")
+                    && map
+                        .get("definition")
+                        .and_then(|v| v.get("calculations"))
+                        .is_some_and(|v| v.is_object())
+                {
+                    if result.len() > 1020 {
+                        return Err(AccessError::InvalidRequest);
+                    }
+                    result.extend([
+                        Resource::new(ResourceKind::Instrument, "*"),
+                        Resource::new(ResourceKind::Curve, "*"),
+                        Resource::new(ResourceKind::Source, "*"),
+                        Resource::new(ResourceKind::Book, "*"),
+                    ]);
+                }
                 // Canonical InputVersion uses kind/id for calibration dependencies.
                 if let (Some(kind), Some(id)) = (
                     map.get("kind").and_then(|v| v.as_str()),
@@ -436,9 +467,25 @@ pub(crate) async fn enforce(
                         Ok(scopes) => scopes,
                         Err(_) => return response(AccessError::Unavailable),
                     };
+                    let mut data = req.data.clone();
+                    if scopes
+                        .iter()
+                        .any(|r| r.kind == ResourceKind::Book && r.id == "*")
+                    {
+                        for scope in [
+                            DataScope::Reference,
+                            DataScope::Market,
+                            DataScope::Books,
+                            DataScope::Results,
+                        ] {
+                            if !data.contains(&scope) {
+                                data.push(scope);
+                            }
+                        }
+                    }
                     let mut required = req.resources.clone();
                     required.extend(scopes);
-                    if let Err(error) = access.authorize(&ctx, req.action, &req.data, &required) {
+                    if let Err(error) = access.authorize(&ctx, req.action, &data, &required) {
                         return response(error);
                     }
                     *result.body_mut() = Body::from(bytes);
@@ -546,6 +593,24 @@ async fn enforce_inner(
         {
             req.resources
                 .push(Resource::new(ResourceKind::Instrument, "*"));
+            if value
+                .get("master_changes")
+                .and_then(|v| v.as_array())
+                .is_some_and(|items| {
+                    items.iter().any(|i| {
+                        i.pointer("/definition/kind").and_then(|v| v.as_str())
+                            == Some("calculation")
+                    })
+                })
+            {
+                req.data
+                    .extend([DataScope::Market, DataScope::Books, DataScope::Results]);
+                req.resources.extend([
+                    Resource::new(ResourceKind::Book, "*"),
+                    Resource::new(ResourceKind::Curve, "*"),
+                    Resource::new(ResourceKind::Source, "*"),
+                ]);
+            }
         }
         if scopes.iter().any(|s| s.kind == ResourceKind::Book)
             && !req.data.contains(&DataScope::Books)

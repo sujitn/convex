@@ -487,6 +487,20 @@ impl From<MarketSnapshot> for SnapshotWire {
 /// Atomic immutable publication. Exact retries return the original content; never overwrite.
 #[async_trait]
 pub trait SnapshotRepository: Send + Sync {
+    /// Publish a complete immutable core snapshot using its separate schema/content domain.
+    async fn publish_core(
+        &self,
+        _snapshot: &crate::core_workflow::CoreSnapshot,
+    ) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported("core snapshot persistence"))
+    }
+    /// Retrieve the complete original core inputs; corruption is never absence.
+    async fn get_core(
+        &self,
+        _id: &SnapshotId,
+    ) -> Result<Option<crate::core_workflow::CoreSnapshot>, TraitError> {
+        Err(TraitError::Unsupported("core snapshot persistence"))
+    }
     /// Verify identity, publish all resolved content, acknowledge only at the declared durability boundary.
     /// UnknownOutcome requires get(id) and reconciliation before retrying.
     async fn publish(&self, snapshot: &MarketSnapshot) -> Result<(), TraitError>;

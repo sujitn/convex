@@ -2965,6 +2965,9 @@ jobs:
       - name: Run core HTTP pricing risk hedge and PnL example
         run: python3 tools/core_workflow.py
 
+      - name: Run persisted core input updates and restart recovery
+        run: python3 tools/core_snapshot_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

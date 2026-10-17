@@ -88,6 +88,18 @@ pub fn select_fixing_at(
 /// Immutable historical fixing lookup; a current-only source cannot implement this by guessing.
 #[async_trait]
 pub trait FixingRepository: Send + Sync {
+    /// Atomically publish a bounded batch of immutable revisions; no overwrite.
+    async fn publish(&self, _fixings: &[PublishedFixing]) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported("published fixing persistence"))
+    }
+    /// Retain all eligible revisions for exact native LatestKnown/FirstPublished policies.
+    async fn history_at(
+        &self,
+        _keys: &[FixingKey],
+        _known_at: UtcTimestamp,
+    ) -> Result<Vec<PublishedFixing>, TraitError> {
+        Err(TraitError::Unsupported("complete fixing revision history"))
+    }
     /// Resolve exactly this key using both publication/recording cutoffs.
     async fn get_at(
         &self,

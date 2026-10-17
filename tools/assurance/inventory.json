@@ -3698,8 +3698,8 @@
     },
     {
       "path": "crates/convex-ports/src/reference_master.rs",
-      "sha256": "c72177783fe2ba30ed093e92902d27c3956009437755077cbb20bacbad497659",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime.",
+      "sha256": "42f95628f6b00417454ad9a4776fff56a121e86ae7f745e2471c151dd0422bc8",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed CVX-022 impact: CVX-022: actual disjoint bond/overnight/term exchange contract facts; exact reciprocal contract/basket/security/calendar revisions and native decimal quote/money/face units. Contiguous dated ticks, historical/source-quality and information-cutoff blocks, complete retained cash quote/size/lot/funding/borrow/cost prerequisites. Atomic full updates and known-at replay reuse existing reference history/receipts; the old approximate advisor always labels proposals indicative only. Pure inputs contain no vendor/clock/DB/runtime. Core persistence increment: exact versioned native definitions, complete curve recipes, all eligible fixing revisions, immutable captured snapshots and exact build-bound durable results. Current core book/data grants also protect reference receipt reads. No financial owner, old numerical expectation/bound/default, CTD alternative or causal ownership rule changes.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
       "tests": [
@@ -3711,21 +3711,29 @@
         "crates/convex-ports/tests/support/futures_conformance.rs",
         "crates/convex-ext-file/tests/futures_reference.rs",
         "crates/convex-ext-redb/tests/futures_reference.rs",
-        "crates/convex/examples/futures_reference.rs"
+        "crates/convex/examples/futures_reference.rs",
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-ports/src/snapshot.rs",
-      "sha256": "551ad6618304242034c57524e3f3d13503d2a30c1598966a7224ea69902f178f",
-      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "sha256": "ef361e3d70163dc2b45de78861ae5ebc2aebd3d87e47aea4850e53015641196b",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Core persistence increment: exact versioned native definitions, complete curve recipes, all eligible fixing revisions, immutable captured snapshots and exact build-bound durable results. Current core book/data grants also protect reference receipt reads. No financial owner, old numerical expectation/bound/default, CTD alternative or causal ownership rule changes.",
       "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
       "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
       "tests": [
         "crates/convex-engine/tests/curve_recipe_replay.rs",
         "crates/convex-engine/tests/curve_recipe_runtime.rs",
         "crates/convex-ports/tests/curve_recipe_snapshots.rs",
-        "crates/convex-server/tests/curve_recipe_context_tests.rs"
+        "crates/convex-server/tests/curve_recipe_context_tests.rs",
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
       ],
       "exceptions": []
     },
@@ -6307,8 +6315,8 @@
     },
     {
       "path": "crates/convex-server/src/routes.rs",
-      "sha256": "04c6e226af4b0825b3d358765f6dfe24dca85b10bf673fad61d289259c3d0d70",
-      "invariants": "Repair the actual source/lock/binary-frozen Holding stress two-pass/five-fail probe, replayed before public mutation. One checked pure supplied-sensitivity owner declares compatible modified-yield/effective-curve/key-rate risk, approximation order, exact factors and actual same-date direct FX. Sum actual signed dirty par/FX contributions; presentation weights have no monetary role, cash and liabilities remain unshocked, zero NAV has no percentage. No missing risk, convexity, spread-family, factor, classification or quote fallback. Invalid/missing/unsupported/arithmetic outcomes remain explicit; bounded batches and summaries retain all unavailable counts. Reuse existing private exact arithmetic, expanding scale120 to184 and bit ceiling1024 to1536 for six factors plus price/bps/half (<=179places/<1230bits), without a new dependency or changed output rounding. Serialize native Holding exposure/profile Duration and monetary fields as exact strings through the existing core owner, preserving global Duration serialization and every original shared envelope. Retire four incomplete REST stress paths, DTOs/converters/hardcoded date; retain full native mixed-book model revaluation and causal P&L unchanged, including all CTD alternatives/switches and actual ownership. Remove fabricated demo portfolio/stress financial results, obsolete client contracts and unsupported production/latency claims; sample positions/face allocations remain explicit, risk/stress unavailable without full inputs. Use configured/same-origin provider integration; do not assume an external default provider. Independent64 Fraction books declare36available and28 typed failures before implementation; preserve original seven test bodies/inputs/answers/bounds with test-only adapters. Unpinned old missing-spread cases now reject rather than substitute rate risk; all legitimate financial cases/bounds remain, and the explicit supplied-spread sector case retains -5.625 percent at zero bound. All1898 original numerical rows/defaults remain byte exact; four additive rows give1902. All105 sum books/252 exact native fields and their actual exact-string JSON outputs retain zero bounds. Preserve8549 old requests,15 raw-number cases and all original physical/source/raw evidence; no registry/solver/default changes. Freeze complete source and metadata before inspectors/builders, bind once after every actual builder/reader exits, and do not rebuild Rust until sealed committed closure. Mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped and original assessments remain unchanged. All other weighted/Holding/engine aggregate/quote conversion/cardinality/raw-v1/calendar/ARRC/YAS/model/calibration/exact-operation/schema/host/claim/physical/causal/remote-MCP work remains required. Only unavailable actual platform execution defers; no native waiver, independent approval, certificate, task acceptance, push/deployment or live order is inferred. Checked constructor/Decimal admission and inferred-liquidity retirement. Original bound C ABI has 20 incorrect acceptances across 39 predeclared requests; the separate source/lock/binary-frozen liquidity probe has two healthy and four failing functions. Reuse pure bounded JSON admission; one bounded number-or-exact-string Decimal decoder preserves the established numeric wire interpretation and old risk diagnostics, rejecting rounding, overflow and nonzero erasure. All 12 Decimal DTO fields, including nullable fields, delegate it. Reject ignored constructor fields; generate BondSpec/CurveSpec schemas from their native DTOs. Retire the invented score-to-volume estimate, result/HTTP types and route; descriptive liquidity remains and retired execution parameters fail explicitly. Archive the two unpinned removed native heuristic tests and retain four original HTTP requests with explicit retirement checks, plus a distinct descriptive positive request. Remove unused duplicate frontend types and use the actual portfolio wire fields, exact strings and integer stream timestamps. 59 independent Decimal cases, 39 unchanged constructor requests, generated-schema and actual router controls are declared before candidate execution; no successful qualification is inferred. All 1908 original numerical rows/defaults, 8549 old shared requests and 15 separate boundaries remain. Preserve all mandatory native/model/calendar/calibration/exact-operation/schema/host and full claim/physical/causal work, every CTD alternative/switch and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or execution authority. Core HTTP workflow: delegate supplied LibraryRequest unchanged to the pure library; require Analyst calculate, Reference/Market/Books/Results and explicit instrument/curve/source/book wildcards before dispatch and on return. The new route needs no partial output key discovery because its full resource grants are mandatory. Blocking calculations retain both calculation and access admissions through cancellation. Existing managed routes and closed production startup remain unchanged.",
+      "sha256": "6ff2c1a159a7b2998da7e396cfd11796009a696a22470264529f46b3574b2009",
+      "invariants": "Repair the actual source/lock/binary-frozen Holding stress two-pass/five-fail probe, replayed before public mutation. One checked pure supplied-sensitivity owner declares compatible modified-yield/effective-curve/key-rate risk, approximation order, exact factors and actual same-date direct FX. Sum actual signed dirty par/FX contributions; presentation weights have no monetary role, cash and liabilities remain unshocked, zero NAV has no percentage. No missing risk, convexity, spread-family, factor, classification or quote fallback. Invalid/missing/unsupported/arithmetic outcomes remain explicit; bounded batches and summaries retain all unavailable counts. Reuse existing private exact arithmetic, expanding scale120 to184 and bit ceiling1024 to1536 for six factors plus price/bps/half (<=179places/<1230bits), without a new dependency or changed output rounding. Serialize native Holding exposure/profile Duration and monetary fields as exact strings through the existing core owner, preserving global Duration serialization and every original shared envelope. Retire four incomplete REST stress paths, DTOs/converters/hardcoded date; retain full native mixed-book model revaluation and causal P&L unchanged, including all CTD alternatives/switches and actual ownership. Remove fabricated demo portfolio/stress financial results, obsolete client contracts and unsupported production/latency claims; sample positions/face allocations remain explicit, risk/stress unavailable without full inputs. Use configured/same-origin provider integration; do not assume an external default provider. Independent64 Fraction books declare36available and28 typed failures before implementation; preserve original seven test bodies/inputs/answers/bounds with test-only adapters. Unpinned old missing-spread cases now reject rather than substitute rate risk; all legitimate financial cases/bounds remain, and the explicit supplied-spread sector case retains -5.625 percent at zero bound. All1898 original numerical rows/defaults remain byte exact; four additive rows give1902. All105 sum books/252 exact native fields and their actual exact-string JSON outputs retain zero bounds. Preserve8549 old requests,15 raw-number cases and all original physical/source/raw evidence; no registry/solver/default changes. Freeze complete source and metadata before inspectors/builders, bind once after every actual builder/reader exits, and do not rebuild Rust until sealed committed closure. Mandatory30areas174combinations2154Planned80shared12native228mapped1926unmapped and original assessments remain unchanged. All other weighted/Holding/engine aggregate/quote conversion/cardinality/raw-v1/calendar/ARRC/YAS/model/calibration/exact-operation/schema/host/claim/physical/causal/remote-MCP work remains required. Only unavailable actual platform execution defers; no native waiver, independent approval, certificate, task acceptance, push/deployment or live order is inferred. Checked constructor/Decimal admission and inferred-liquidity retirement. Original bound C ABI has 20 incorrect acceptances across 39 predeclared requests; the separate source/lock/binary-frozen liquidity probe has two healthy and four failing functions. Reuse pure bounded JSON admission; one bounded number-or-exact-string Decimal decoder preserves the established numeric wire interpretation and old risk diagnostics, rejecting rounding, overflow and nonzero erasure. All 12 Decimal DTO fields, including nullable fields, delegate it. Reject ignored constructor fields; generate BondSpec/CurveSpec schemas from their native DTOs. Retire the invented score-to-volume estimate, result/HTTP types and route; descriptive liquidity remains and retired execution parameters fail explicitly. Archive the two unpinned removed native heuristic tests and retain four original HTTP requests with explicit retirement checks, plus a distinct descriptive positive request. Remove unused duplicate frontend types and use the actual portfolio wire fields, exact strings and integer stream timestamps. 59 independent Decimal cases, 39 unchanged constructor requests, generated-schema and actual router controls are declared before candidate execution; no successful qualification is inferred. All 1908 original numerical rows/defaults, 8549 old shared requests and 15 separate boundaries remain. Preserve all mandatory native/model/calendar/calibration/exact-operation/schema/host and full claim/physical/causal work, every CTD alternative/switch and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or execution authority. Core HTTP workflow: delegate supplied LibraryRequest unchanged to the pure library; require Analyst calculate, Reference/Market/Books/Results and explicit instrument/curve/source/book wildcards before dispatch and on return. The new route needs no partial output key discovery because its full resource grants are mandatory. Blocking calculations retain both calculation and access admissions through cancellation. Existing managed routes and closed production startup remain unchanged. Core persistence increment: exact versioned native definitions, complete curve recipes, all eligible fixing revisions, immutable captured snapshots and exact build-bound durable results. Current core book/data grants also protect reference receipt reads. No financial owner, old numerical expectation/bound/default, CTD alternative or causal ownership rule changes.",
       "bounds": "65536position/cash rows,4096factors,256scenarios,1048576complete work; bounded strings and explicit same-date direct FX. Supplied route: existing 2 MiB HTTP request and 4 MiB response limits; immediate blocking admission bounded to engine max_concurrent_calcs, at most64 per router.",
       "failure_contract": "Typed invalid/missing/unsupported/arithmetic result; no incomplete accepted P&L or fabricated UI result.",
       "tests": [
@@ -6324,7 +6332,11 @@
         "crates/convex-server/tests/retired_liquidity_route.rs",
         "crates/convex-server/tests/supplied_analytics.rs",
         "crates/convex-server/src/analytics_tests.rs",
-        "tools/core_workflow.py"
+        "tools/core_workflow.py",
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
       ],
       "exceptions": []
     },
@@ -6375,8 +6387,8 @@
     },
     {
       "path": "crates/convex-server/src/access/http.rs",
-      "sha256": "0fe3e9e4e593f90f9e61fdb26de0be7823485992b89cf29d7a9cca134ad6b02a",
-      "invariants": "Retired stress paths have no route or access classification; unmatched paths keep the existing403fail-closed policy. No auth/origin/quota/scope weakening. Checked constructor/Decimal admission and inferred-liquidity retirement. Original bound C ABI has 20 incorrect acceptances across 39 predeclared requests; the separate source/lock/binary-frozen liquidity probe has two healthy and four failing functions. Reuse pure bounded JSON admission; one bounded number-or-exact-string Decimal decoder preserves the established numeric wire interpretation and old risk diagnostics, rejecting rounding, overflow and nonzero erasure. All 12 Decimal DTO fields, including nullable fields, delegate it. Reject ignored constructor fields; generate BondSpec/CurveSpec schemas from their native DTOs. Retire the invented score-to-volume estimate, result/HTTP types and route; descriptive liquidity remains and retired execution parameters fail explicitly. Archive the two unpinned removed native heuristic tests and retain four original HTTP requests with explicit retirement checks, plus a distinct descriptive positive request. Remove unused duplicate frontend types and use the actual portfolio wire fields, exact strings and integer stream timestamps. 59 independent Decimal cases, 39 unchanged constructor requests, generated-schema and actual router controls are declared before candidate execution; no successful qualification is inferred. All 1908 original numerical rows/defaults, 8549 old shared requests and 15 separate boundaries remain. Preserve all mandatory native/model/calendar/calibration/exact-operation/schema/host and full claim/physical/causal work, every CTD alternative/switch and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or execution authority. Core HTTP workflow: delegate supplied LibraryRequest unchanged to the pure library; require Analyst calculate, Reference/Market/Books/Results and explicit instrument/curve/source/book wildcards before dispatch and on return. The new route needs no partial output key discovery because its full resource grants are mandatory. Blocking calculations retain both calculation and access admissions through cancellation. Existing managed routes and closed production startup remain unchanged.",
+      "sha256": "5e4af2cd76e8f093050b54a214836dd046a4f567b97453b0ea937bd3e37ffd53",
+      "invariants": "Retired stress paths have no route or access classification; unmatched paths keep the existing403fail-closed policy. No auth/origin/quota/scope weakening. Checked constructor/Decimal admission and inferred-liquidity retirement. Original bound C ABI has 20 incorrect acceptances across 39 predeclared requests; the separate source/lock/binary-frozen liquidity probe has two healthy and four failing functions. Reuse pure bounded JSON admission; one bounded number-or-exact-string Decimal decoder preserves the established numeric wire interpretation and old risk diagnostics, rejecting rounding, overflow and nonzero erasure. All 12 Decimal DTO fields, including nullable fields, delegate it. Reject ignored constructor fields; generate BondSpec/CurveSpec schemas from their native DTOs. Retire the invented score-to-volume estimate, result/HTTP types and route; descriptive liquidity remains and retired execution parameters fail explicitly. Archive the two unpinned removed native heuristic tests and retain four original HTTP requests with explicit retirement checks, plus a distinct descriptive positive request. Remove unused duplicate frontend types and use the actual portfolio wire fields, exact strings and integer stream timestamps. 59 independent Decimal cases, 39 unchanged constructor requests, generated-schema and actual router controls are declared before candidate execution; no successful qualification is inferred. All 1908 original numerical rows/defaults, 8549 old shared requests and 15 separate boundaries remain. Preserve all mandatory native/model/calendar/calibration/exact-operation/schema/host and full claim/physical/causal work, every CTD alternative/switch and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or execution authority. Core HTTP workflow: delegate supplied LibraryRequest unchanged to the pure library; require Analyst calculate, Reference/Market/Books/Results and explicit instrument/curve/source/book wildcards before dispatch and on return. The new route needs no partial output key discovery because its full resource grants are mandatory. Blocking calculations retain both calculation and access admissions through cancellation. Existing managed routes and closed production startup remain unchanged. Core persistence increment: exact versioned native definitions, complete curve recipes, all eligible fixing revisions, immutable captured snapshots and exact build-bound durable results. Current core book/data grants also protect reference receipt reads. No financial owner, old numerical expectation/bound/default, CTD alternative or causal ownership rule changes.",
       "bounds": "Existing request/body/origin/auth/resource bounds unchanged. Supplied route: existing 2 MiB HTTP request and 4 MiB response limits; immediate blocking admission bounded to engine max_concurrent_calcs, at most64 per router.",
       "failure_contract": "Unmatched route rejected before handler dispatch, without accepted P&L.",
       "tests": [
@@ -6388,7 +6400,11 @@
         "crates/convex-server/tests/retired_liquidity_route.rs",
         "crates/convex-server/tests/supplied_analytics.rs",
         "crates/convex-server/src/analytics_tests.rs",
-        "tools/core_workflow.py"
+        "tools/core_workflow.py",
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
       ],
       "exceptions": []
     },
@@ -7020,6 +7036,202 @@
         "crates/convex-server/tests/supplied_analytics.rs",
         "crates/convex-server/src/analytics_tests.rs",
         "tools/core_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/core_workflow.rs",
+      "sha256": "3b82513827f0518f7eb7e1f69d6be7030a6a2d5ddf21a0ae645295cf870ab123",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-file/src/fixing_repository.rs",
+      "sha256": "b5ec2d552def9b8041eafcf6b67eda39c31f4f7bc0826a33bcc2e9c61320f55b",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-file/src/snapshot_repository.rs",
+      "sha256": "65ef80ec211667c86d23be452bc68db1adcef61be5e541c195534140105763cf",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-redb/src/curve_store.rs",
+      "sha256": "beff8a8ed84cc069e9eb662405622a36a7d015fd88ef2fab4f08b1123d6d0d91",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-redb/src/fixing_repository.rs",
+      "sha256": "df4eebe7bb007c32199c33d4799f78a6d56d15af63eadb7d2fc5b58417fac5e3",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ext-redb/src/runtime_store.rs",
+      "sha256": "1fffea8ca3761ca2ee5939f4425908f965fc1410c4818496883176b49040a88b",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/core_workflow.rs",
+      "sha256": "38c940732e50977665ed2fe4aee861c895b5a4e566081144bd5b849c50405c2b",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/fixing.rs",
+      "sha256": "a9456f8367c3f976733efcb52bfc9f3b29b931e9f9d6c4f5a5f124f7e074bb0f",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/runtime.rs",
+      "sha256": "daf30ad5a93c1a9c5be9fee4956962b89effdddce172ca9aebc2bcef479a18c3",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/storage.rs",
+      "sha256": "538a244126ca813d6684549a0c64896a2a35b2e861ac97bbbf8b967f2ed07cbf",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-server/src/bin/convex-core-inputs.rs",
+      "sha256": "aaa57df594798ea83afeff57e9bbe59788651f2bd8177bfd28e46fc0ddd136e0",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-server/src/core_workflow.rs",
+      "sha256": "60ec7f6d96efdb38161de671690d8cd060c5a6db81a5c09aaad1162a83a1d0f4",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-server/src/lib.rs",
+      "sha256": "eac4f0d89487638fea71ead51fba03767e81906672b7a002f2ae977481045174",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-server/src/main.rs",
+      "sha256": "d0e0068ea28685b5fbc540ecb17698bb2f6aafcdf740ac893ae2b47f660a1a78",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
+      "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
+      "tests": [
+        "crates/convex-engine/tests/core_workflow.rs",
+        "crates/convex-engine/tests/support/core_fixture.rs",
+        "crates/convex-server/tests/core_workflow.rs",
+        "tools/core_snapshot_workflow.py"
       ],
       "exceptions": []
     }

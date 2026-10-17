@@ -906,6 +906,22 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-server/src/routes.rs')
     paths.add('crates/convex-server/src/access/http.rs')
     paths.add('crates/convex-server/src/analytics.rs')
+    paths.update([
+        'crates/convex-ports/src/core_workflow.rs',
+        'crates/convex-ports/src/fixing.rs',
+        'crates/convex-ports/src/storage.rs',
+        'crates/convex-ports/src/runtime.rs',
+        'crates/convex-engine/src/core_workflow.rs',
+        'crates/convex-ext-file/src/snapshot_repository.rs',
+        'crates/convex-ext-file/src/fixing_repository.rs',
+        'crates/convex-ext-redb/src/fixing_repository.rs',
+        'crates/convex-ext-redb/src/curve_store.rs',
+        'crates/convex-ext-redb/src/runtime_store.rs',
+        'crates/convex-server/src/core_workflow.rs',
+        'crates/convex-server/src/main.rs',
+        'crates/convex-server/src/lib.rs',
+        'crates/convex-server/src/bin/convex-core-inputs.rs',
+    ])
     paths.add('demo/frontend/src/App.tsx')
     paths.add('demo/frontend/src/lib/api.ts')
     paths.add('demo/frontend/src/components/PortfolioDemo.tsx')

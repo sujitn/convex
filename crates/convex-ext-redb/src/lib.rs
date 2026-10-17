@@ -16,6 +16,7 @@ mod config_store;
 mod configuration_repository;
 mod curve_store;
 mod database;
+mod fixing_repository;
 mod recovery;
 mod reference_repository;
 mod runtime_store;
@@ -25,6 +26,7 @@ pub use config_store::RedbConfigStore;
 pub use configuration_repository::RedbConfigurationRepository;
 pub use curve_store::RedbCurveStore;
 pub use database::{migrate_database, APPLICATION_SCHEMA_VERSION};
+pub use fixing_repository::RedbFixingRepository;
 pub use recovery::{backup_database, restore_database, BackupManifest};
 pub use reference_repository::RedbReferenceRepository;
 pub use runtime_store::RedbRuntimeStore;
@@ -38,10 +40,25 @@ pub fn create_redb_storage(path: impl AsRef<Path>) -> Result<StorageAdapter, Tra
 pub fn create_redb_storage_with_runtime(
     path: impl AsRef<Path>,
 ) -> Result<(StorageAdapter, Arc<RedbRuntimeStore>), TraitError> {
+    create_redb_storage_with_core(path).map(|(storage, runtime, _)| (storage, runtime))
+}
+
+/// Compose existing storage/runtime ports with durable published fixing history.
+pub fn create_redb_storage_with_core(
+    path: impl AsRef<Path>,
+) -> Result<
+    (
+        StorageAdapter,
+        Arc<RedbRuntimeStore>,
+        Arc<RedbFixingRepository>,
+    ),
+    TraitError,
+> {
     let db =
         Arc::new(Database::create(path).map_err(|e| TraitError::DatabaseError(e.to_string()))?);
     let configs = Arc::new(RedbConfigStore::new(db.clone())?);
     let runtime = Arc::new(RedbRuntimeStore::new(db.clone())?);
+    let fixings = Arc::new(RedbFixingRepository::new(db.clone()));
     let storage = StorageAdapter {
         bonds: Arc::new(
             RedbReferenceRepository::new(db.clone())
@@ -52,7 +69,7 @@ pub fn create_redb_storage_with_runtime(
         configuration: Arc::new(RedbConfigurationRepository::new(db.clone())?),
         audit: Arc::new(RedbAuditStore::new(db)),
     };
-    Ok((storage, runtime))
+    Ok((storage, runtime, fixings))
 }
 
 /// Create a file-backed storage adapter for testing.

@@ -164,6 +164,20 @@ impl RuntimeCheckpoint {
 /// Atomic single-runtime recovery image and outbox. Managed leases are a separate contract.
 #[async_trait]
 pub trait RuntimeStore: Send + Sync {
+    /// Save an immutable complete-context native result. Identical retries succeed.
+    async fn save_core_result(
+        &self,
+        _result: &crate::core_workflow::CoreResult,
+    ) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported("core result persistence"))
+    }
+    /// Read exact persisted output without recalculation or source lookup.
+    async fn get_core_result(
+        &self,
+        _id: &str,
+    ) -> Result<Option<crate::core_workflow::CoreResult>, TraitError> {
+        Err(TraitError::Unsupported("core result persistence"))
+    }
     /// Exact durable image or absent; corrupt/unsupported images fail rather than resetting.
     async fn load(&self, id: &SourceId) -> Result<Option<RuntimeCheckpoint>, TraitError>;
     /// Commit next revision iff expected matches. Identical already-committed retries succeed.

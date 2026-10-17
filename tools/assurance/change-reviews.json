@@ -5491,6 +5491,55 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 4b437dfe5edb1c595cc204adc91524a6ad9870a8",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/library/check.py --base 4b437dfe5edb1c595cc204adc91524a6ad9870a8"
       ]
+    },
+    {
+      "base_commit": "dfc7f0c785fefc1bb135f467c8020d2f120a4cc9",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested the next simple core increment: resolve existing reference/curve/fixing ports, persist complete snapshots/exact native results, verify updates and restart. Extend existing traits with explicit Unsupported defaults; local adapters implement immutable records and unknown-ack recovery. Shared reference inputs avoid duplicated native definitions; no template language, scheduler or new financial formula. Preserve all1933 previous quantitative rows/defaults, all2154 literal Planned mandatory records and every original native financial source. New native source revisions/fixing correction are explicit synthetic input updates with original controls/tolerances. Result keys include actual executable identity. Reference receipt output checks retain full book/data entitlements. No independent approval, acceptance, execution or certification is claimed.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5b00329bae76f4134c24e5add5e3a8a38722b6f4708730e8609ee093201eb45f",
+        "Cargo.lock": "e4de6cb75c0c0ce07eba2a4a1ca669c512c4fcfdb19d121bb99a8144e80bd314",
+        "crates/convex-engine/CORE-WORKFLOW.md": "446fe738908b15e9dd6175450bbe16b93f1ccaeaedc0d13383718964ff60e1c0",
+        "crates/convex-engine/src/core_workflow.rs": "3b82513827f0518f7eb7e1f69d6be7030a6a2d5ddf21a0ae645295cf870ab123",
+        "crates/convex-engine/src/lib.rs": "af7fff63f39867de5ce9c01305bfed807ff0a23f79da664e5a51fce1431666a7",
+        "crates/convex-engine/tests/core_workflow.rs": "b53089b2e3b14401145c3455c965c8cc636cc902a1eb8bb1a0c6ef6c2216ab81",
+        "crates/convex-engine/tests/support/core_fixture.rs": "cedbff5027e2af4a29f0470160df2f46c80fce0e5007f9c821b853cd1be678f1",
+        "crates/convex-ext-file/src/fixing_repository.rs": "b5ec2d552def9b8041eafcf6b67eda39c31f4f7bc0826a33bcc2e9c61320f55b",
+        "crates/convex-ext-file/src/snapshot_repository.rs": "65ef80ec211667c86d23be452bc68db1adcef61be5e541c195534140105763cf",
+        "crates/convex-ext-redb/src/curve_store.rs": "beff8a8ed84cc069e9eb662405622a36a7d015fd88ef2fab4f08b1123d6d0d91",
+        "crates/convex-ext-redb/src/fixing_repository.rs": "df4eebe7bb007c32199c33d4799f78a6d56d15af63eadb7d2fc5b58417fac5e3",
+        "crates/convex-ext-redb/src/lib.rs": "00ebe48244e1feaafc20e462b9191e8f016635820fe9d86311569040004ab449",
+        "crates/convex-ext-redb/src/runtime_store.rs": "1fffea8ca3761ca2ee5939f4425908f965fc1410c4818496883176b49040a88b",
+        "crates/convex-ports/src/core_workflow.rs": "38c940732e50977665ed2fe4aee861c895b5a4e566081144bd5b849c50405c2b",
+        "crates/convex-ports/src/fixing.rs": "a9456f8367c3f976733efcb52bfc9f3b29b931e9f9d6c4f5a5f124f7e074bb0f",
+        "crates/convex-ports/src/lib.rs": "e45948d65bea37a55d9339e408db75e026ad06cb223ade7404609757b47cf4cd",
+        "crates/convex-ports/src/reference_master.rs": "42f95628f6b00417454ad9a4776fff56a121e86ae7f745e2471c151dd0422bc8",
+        "crates/convex-ports/src/runtime.rs": "daf30ad5a93c1a9c5be9fee4956962b89effdddce172ca9aebc2bcef479a18c3",
+        "crates/convex-ports/src/snapshot.rs": "ef361e3d70163dc2b45de78861ae5ebc2aebd3d87e47aea4850e53015641196b",
+        "crates/convex-ports/src/storage.rs": "538a244126ca813d6684549a0c64896a2a35b2e861ac97bbbf8b967f2ed07cbf",
+        "crates/convex-server/Cargo.toml": "c65d5cd5f400854244a7f6d51ee062a589b38a35f0c1a5c7a612084c3404adb6",
+        "crates/convex-server/README.md": "d6f46fbefca621813b8ea51db7b1bb36c536efe7bcde1eea5828af16652f37c0",
+        "crates/convex-server/src/access/http.rs": "5e4af2cd76e8f093050b54a214836dd046a4f567b97453b0ea937bd3e37ffd53",
+        "crates/convex-server/src/bin/convex-core-inputs.rs": "aaa57df594798ea83afeff57e9bbe59788651f2bd8177bfd28e46fc0ddd136e0",
+        "crates/convex-server/src/core_workflow.rs": "60ec7f6d96efdb38161de671690d8cd060c5a6db81a5c09aaad1162a83a1d0f4",
+        "crates/convex-server/src/lib.rs": "eac4f0d89487638fea71ead51fba03767e81906672b7a002f2ae977481045174",
+        "crates/convex-server/src/main.rs": "d0e0068ea28685b5fbc540ecb17698bb2f6aafcdf740ac893ae2b47f660a1a78",
+        "crates/convex-server/src/routes.rs": "6ff2c1a159a7b2998da7e396cfd11796009a696a22470264529f46b3574b2009",
+        "crates/convex-server/tests/core_workflow.rs": "36109c826a3d77597af4852e61fdd5ceb654d968a694ecb8fc471eace7b290d9",
+        "tools/assurance/check.py": "6b9ea347c8eb4772fa3d24010ed31a2ae33ba1a0a4007613e81aa527c6fd0696",
+        "tools/assurance/inventory.json": "01a8dcec10bab4676c8068cc67e4f4c44d46014c3397d06e64432b9a0e6af3d7",
+        "tools/assurance/numeric-evidence.json": "efe88c8b85c53bae53e31722b1d5e097e9f5dbf5e9b3f97d0adc8b09a9486564",
+        "tools/core_snapshot_workflow.py": "6d4b0a479fc2bade0a95ce9dc6720ffa1685d4128bccfc6167d1986f4ff5d460",
+        "tools/library/library-inventory.json": "bdaf119d8b533ae68ea6f37263f9bbe2e2c56c11ab4a06646e94e327ae5723ee"
+      },
+      "tests": [
+        "cargo test --locked -p convex-ports -p convex-ext-file -p convex-ext-redb -p convex-engine -p convex-server --all-features",
+        "cargo clippy --locked -p convex-ports -p convex-ext-file -p convex-ext-redb -p convex-engine -p convex-server --all-targets --all-features -- -D warnings",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_snapshot_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base dfc7f0c785fefc1bb135f467c8020d2f120a4cc9"
+      ]
     }
   ]
 }

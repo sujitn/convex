@@ -636,6 +636,21 @@ pub struct CurveSnapshot {
 /// Curve storage (configs and snapshots).
 #[async_trait]
 pub trait CurveStore: Send + Sync {
+    /// Save one immutable complete native curve recipe. Same revision/different content conflicts.
+    async fn save_recipe(
+        &self,
+        _recipe: &crate::snapshot::SnapshotCurveRecipe,
+    ) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
+    /// Retrieve this exact recipe revision, without a latest-version substitute.
+    async fn get_recipe(
+        &self,
+        _id: &CurveId,
+        _version: convex_core::contracts::Version,
+    ) -> Result<Option<crate::snapshot::SnapshotCurveRecipe>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
     // Config methods
 
     /// Get curve config by ID.

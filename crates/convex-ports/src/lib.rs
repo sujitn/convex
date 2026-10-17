@@ -29,6 +29,7 @@ pub mod calibration;
 pub mod config;
 pub mod configuration;
 pub mod configuration_schema;
+pub mod core_workflow;
 pub mod error;
 pub mod fixing;
 pub mod futures_reference;

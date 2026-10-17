@@ -65,6 +65,31 @@ impl JsonFixingRepository {
 }
 #[async_trait]
 impl FixingRepository for JsonFixingRepository {
+    async fn history_at(
+        &self,
+        keys: &[FixingKey],
+        known_at: UtcTimestamp,
+    ) -> Result<Vec<PublishedFixing>, TraitError> {
+        if keys.len() > 1024 {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let selected: std::collections::BTreeSet<_> = keys.iter().collect();
+        if selected.len() != keys.len() {
+            return Err(TraitError::InvalidInput("duplicate fixing history key"));
+        }
+        let mut values = Vec::new();
+        for key in keys {
+            if let Some(history) = self.histories.get(key) {
+                values.extend(
+                    history
+                        .iter()
+                        .filter(|f| f.published_at <= known_at && f.recorded_at <= known_at)
+                        .cloned(),
+                );
+            }
+        }
+        Ok(values)
+    }
     async fn get_at(
         &self,
         key: &FixingKey,

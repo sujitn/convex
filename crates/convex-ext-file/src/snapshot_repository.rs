@@ -18,6 +18,31 @@ pub struct FileSnapshotRepository {
     directory: PathBuf,
 }
 impl FileSnapshotRepository {
+    fn read_core(
+        &self,
+        id: &SnapshotId,
+    ) -> Result<Option<convex_ports::core_workflow::CoreSnapshot>, TraitError> {
+        let path = self.path(id)?.with_extension("core.json");
+        match std::fs::symlink_metadata(&path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(io_error(e)),
+            Ok(_) => {}
+        }
+        let bytes = read_regular_bounded(&path, MAX_SNAPSHOT_BYTES)?;
+        let snapshot: convex_ports::core_workflow::CoreSnapshot = serde_json::from_slice(&bytes)
+            .map_err(|_| TraitError::InvalidInput("corrupt core snapshot"))?;
+        snapshot.verify()?;
+        if snapshot.id != *id
+            || serde_json::to_vec(&snapshot)
+                .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?
+                != bytes
+        {
+            return Err(TraitError::Conflict(
+                "core snapshot identity/canonical content mismatch",
+            ));
+        }
+        Ok(Some(snapshot))
+    }
     /// Create/open an explicit directory. Reject a symlink/non-directory root.
     pub fn new(directory: impl AsRef<Path>) -> Result<Self, TraitError> {
         if !cfg!(unix) {
@@ -108,6 +133,40 @@ impl FileSnapshotRepository {
 }
 #[async_trait]
 impl SnapshotRepository for FileSnapshotRepository {
+    async fn publish_core(
+        &self,
+        snapshot: &convex_ports::core_workflow::CoreSnapshot,
+    ) -> Result<(), TraitError> {
+        snapshot.verify()?;
+        let bytes = serde_json::to_vec(snapshot)
+            .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?;
+        if bytes.len() > MAX_SNAPSHOT_BYTES {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let path = self.path(&snapshot.id)?.with_extension("core.json");
+        let mut staging = tempfile::NamedTempFile::new_in(&self.directory).map_err(io_error)?;
+        staging.write_all(&bytes).map_err(io_error)?;
+        staging.as_file().sync_all().map_err(io_error)?;
+        match std::fs::hard_link(staging.path(), &path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                if self.read_core(&snapshot.id)?.as_ref() != Some(snapshot) {
+                    return Err(TraitError::Conflict("immutable core snapshot changed"));
+                }
+            }
+            Err(e) => return Err(io_error(e)),
+        }
+        std::fs::File::open(&self.directory)
+            .and_then(|d| d.sync_all())
+            .map_err(|_| TraitError::UnknownOutcome)?;
+        Ok(())
+    }
+    async fn get_core(
+        &self,
+        id: &SnapshotId,
+    ) -> Result<Option<convex_ports::core_workflow::CoreSnapshot>, TraitError> {
+        self.read_core(id)
+    }
     async fn publish(&self, snapshot: &MarketSnapshot) -> Result<(), TraitError> {
         self.write(snapshot)
     }

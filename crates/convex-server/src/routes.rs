@@ -87,6 +87,30 @@ pub fn create_router_with_access_and_portfolios(
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
         .route("/api/v1/analytics", post(crate::analytics::calculate))
         .route(
+            "/api/v1/analytics/curves",
+            post(crate::core_workflow::save_curve),
+        )
+        .route(
+            "/api/v1/analytics/fixings",
+            post(crate::core_workflow::save_fixings),
+        )
+        .route(
+            "/api/v1/analytics/snapshots",
+            post(crate::core_workflow::assemble),
+        )
+        .route(
+            "/api/v1/analytics/snapshots/:snapshot_id",
+            get(crate::core_workflow::snapshot),
+        )
+        .route(
+            "/api/v1/analytics/snapshots/:snapshot_id/run/:calculation",
+            post(crate::core_workflow::run),
+        )
+        .route(
+            "/api/v1/analytics/results/:result_id",
+            get(crate::core_workflow::result),
+        )
+        .route(
             "/api/v1/configuration/schema",
             get(crate::configuration_admin::schema),
         )

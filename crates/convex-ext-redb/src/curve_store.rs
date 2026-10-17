@@ -9,6 +9,7 @@ use std::sync::Arc;
 const CURVE_CONFIGS: TableDefinition<&str, &[u8]> = TableDefinition::new("curve_configs");
 const CURVE_SNAPSHOTS: TableDefinition<(&str, i64), &[u8]> =
     TableDefinition::new("curve_snapshots");
+const RECIPES: TableDefinition<(&str, u64), &[u8]> = TableDefinition::new("curve_recipes_v1");
 
 /// Local curve config projection and immutable snapshots; no model calibration is performed here.
 pub struct RedbCurveStore {
@@ -23,6 +24,65 @@ impl RedbCurveStore {
 
 #[async_trait]
 impl CurveStore for RedbCurveStore {
+    async fn save_recipe(
+        &self,
+        recipe: &convex_ports::snapshot::SnapshotCurveRecipe,
+    ) -> Result<(), TraitError> {
+        recipe.validate()?;
+        let bytes = serde_json::to_vec(recipe)
+            .map_err(|_| TraitError::InvalidInput("curve recipe JSON"))?;
+        if bytes.len() > convex_ports::snapshot::MAX_SNAPSHOT_BYTES {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let write = begin_write(&self.db)?;
+        {
+            let mut table = write.open_table(RECIPES).map_err(database_error)?;
+            let key = (recipe.curve_id.as_str(), recipe.version.get());
+            if let Some(prior) = table.get(key).map_err(database_error)? {
+                return if prior.value() == bytes.as_slice() {
+                    Ok(())
+                } else {
+                    Err(TraitError::Conflict("immutable curve recipe changed"))
+                };
+            }
+            if table.len().map_err(database_error)? >= MAX_HISTORY {
+                return Err(TraitError::CapacityExceeded);
+            }
+            table
+                .insert(key, bytes.as_slice())
+                .map_err(database_error)?;
+        }
+        commit(write)
+    }
+    async fn get_recipe(
+        &self,
+        id: &CurveId,
+        version: convex_core::contracts::Version,
+    ) -> Result<Option<convex_ports::snapshot::SnapshotCurveRecipe>, TraitError> {
+        let read = self.db.begin_read().map_err(database_error)?;
+        let table = match read.open_table(RECIPES) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(e) => return Err(database_error(e)),
+        };
+        table
+            .get((id.as_str(), version.get()))
+            .map_err(database_error)?
+            .map(|v| {
+                if v.value().len() > convex_ports::snapshot::MAX_SNAPSHOT_BYTES {
+                    return Err(TraitError::CapacityExceeded);
+                }
+                let record: convex_ports::snapshot::SnapshotCurveRecipe =
+                    serde_json::from_slice(v.value())
+                        .map_err(|_| TraitError::InvalidInput("corrupt stored curve recipe"))?;
+                record.validate()?;
+                if record.curve_id.as_str() != id.as_str() || record.version != version {
+                    return Err(TraitError::Conflict("curve recipe key mismatch"));
+                }
+                Ok(record)
+            })
+            .transpose()
+    }
     async fn get_config(&self, id: &CurveId) -> Result<Option<CurveConfig>, TraitError> {
         validate_id(id.as_str())?;
         let read = self.db.begin_read().map_err(database_error)?;

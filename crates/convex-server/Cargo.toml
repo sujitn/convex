@@ -48,6 +48,7 @@ rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+sha2 = "0.10.9"
 chrono = "0.4"
 async-trait = "0.1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "form"] }

@@ -313,6 +313,8 @@ pub struct IdentifierMapping {
     deny_unknown_fields
 )]
 pub enum MasterKey {
+    /// Full versioned native core calculation definitions.
+    Calculation(ReferenceDataId),
     /// Entity key.
     Entity(EntityId),
     /// Calendar key.
@@ -333,6 +335,7 @@ impl MasterKey {
     /// Stable storage key; not a query language or vendor ID.
     pub fn storage_key(&self) -> String {
         match self {
+            Self::Calculation(id) => format!("calculation/{}", id.as_str()),
             Self::Entity(id) => format!("entity/{}", id.as_str()),
             Self::Calendar(id) => format!("calendar/{}", id.as_str()),
             Self::Convention(id) => format!("convention/{}", id.as_str()),
@@ -353,6 +356,8 @@ impl MasterKey {
     deny_unknown_fields
 )]
 pub enum MasterDefinition {
+    /// Full native core contracts/settings, with market values resolved separately.
+    Calculation(Box<crate::core_workflow::CoreDefinition>),
     /// Entity attributes.
     Entity(Box<EntityDefinition>),
     /// Calendar rules dispatch.
@@ -373,6 +378,7 @@ impl MasterDefinition {
     /// Typed internal identity.
     pub fn key(&self) -> MasterKey {
         match self {
+            Self::Calculation(v) => MasterKey::Calculation(v.id.clone()),
             Self::Entity(v) => MasterKey::Entity(v.entity_id.clone()),
             Self::Calendar(v) => MasterKey::Calendar(v.calendar_id.clone()),
             Self::Convention(v) => MasterKey::Convention(v.convention_id.clone()),
@@ -385,6 +391,7 @@ impl MasterDefinition {
     /// Economic validity.
     pub fn effective(&self) -> EffectiveInterval {
         match self {
+            Self::Calculation(v) => v.effective,
             Self::Entity(v) => v.effective,
             Self::Calendar(v) => v.effective,
             Self::Convention(v) => v.effective,
@@ -398,6 +405,10 @@ impl MasterDefinition {
     pub fn validate(&self) -> Result<(), ReferenceError> {
         self.effective().validate()?;
         let provenance = match self {
+            Self::Calculation(v) => {
+                v.validate()?;
+                &v.provenance
+            }
             Self::Entity(v) => {
                 bounded_text(&v.legal_name, 1024)?;
                 bounded_text(&v.country, 128)?;

@@ -26,6 +26,7 @@ pub mod access;
 mod analytics;
 pub mod config;
 pub mod configuration_admin;
+mod core_workflow;
 pub mod handlers;
 pub mod health;
 mod reference;
@@ -79,6 +80,7 @@ pub struct Server {
     config: ServerConfig,
     engine: Arc<PricingEngine>,
     access: Arc<access::AccessControl>,
+    core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
 }
 
 impl Server {
@@ -93,6 +95,7 @@ impl Server {
             config,
             engine,
             access,
+            core: None,
         }
     }
 
@@ -106,7 +109,17 @@ impl Server {
             config,
             engine,
             access,
+            core: None,
         }
+    }
+
+    /// Add core input assembly and durable results through existing backend ports.
+    pub fn with_core_workflow(
+        mut self,
+        core: Arc<convex_engine::core_workflow::CoreWorkflow>,
+    ) -> Self {
+        self.core = Some(core);
+        self
     }
 
     /// Build the router.
@@ -141,31 +154,35 @@ impl Server {
             ]);
 
         let profile = self.config.profile;
-        routes::create_router_with_access(
+        let mut router = routes::create_router_with_access(
             self.engine.clone(),
             self.config.websocket_enabled,
             self.access.clone(),
-        )
-        .layer(Extension(profile))
-        .layer(Extension(access::http::AllowedOrigins(origins.clone())))
-        .layer(cors)
-        .layer(middleware::from_fn_with_state(
-            (self.access.clone(), access::http::AllowedOrigins(origins)),
-            access::http::guard_origin,
-        ))
-        .layer(middleware::map_response(
-            move |mut response: Response| async move {
-                if profile == ServerProfile::Demo {
+        );
+        if let Some(core) = &self.core {
+            router = router.layer(Extension(core.clone()));
+        }
+        router
+            .layer(Extension(profile))
+            .layer(Extension(access::http::AllowedOrigins(origins.clone())))
+            .layer(cors)
+            .layer(middleware::from_fn_with_state(
+                (self.access.clone(), access::http::AllowedOrigins(origins)),
+                access::http::guard_origin,
+            ))
+            .layer(middleware::map_response(
+                move |mut response: Response| async move {
+                    if profile == ServerProfile::Demo {
+                        response
+                            .headers_mut()
+                            .insert("x-convex-profile", HeaderValue::from_static("demo"));
+                        response
+                            .headers_mut()
+                            .insert("x-convex-data-quality", HeaderValue::from_static("demo"));
+                    }
                     response
-                        .headers_mut()
-                        .insert("x-convex-profile", HeaderValue::from_static("demo"));
-                    response
-                        .headers_mut()
-                        .insert("x-convex-data-quality", HeaderValue::from_static("demo"));
-                }
-                response
-            },
-        ))
+                },
+            ))
     }
 
     /// Bind only after validated composition; SIGINT/SIGTERM drains the engine and transport sessions.

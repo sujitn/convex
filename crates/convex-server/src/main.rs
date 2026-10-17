@@ -68,9 +68,24 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create storage
-    let (storage, runtime_store) =
-        convex_ext_redb::create_redb_storage_with_runtime(&server_config.storage_path)?;
+    let (storage, runtime_store, core_fixings) =
+        convex_ext_redb::create_redb_storage_with_core(&server_config.storage_path)?;
     let storage = Arc::new(storage);
+    let core = if cfg!(unix) {
+        Some(Arc::new(convex_engine::core_workflow::CoreWorkflow::new(
+            storage.bonds.clone(),
+            storage.curves.clone(),
+            core_fixings,
+            Arc::new(convex_ext_file::FileSnapshotRepository::new(format!(
+                "{}.core-snapshots",
+                server_config.storage_path
+            ))?),
+            runtime_store.clone(),
+            core_build_id()?,
+        )))
+    } else {
+        None
+    };
 
     // Unused auxiliary product ports are explicit; replay reads the selected canonical event source.
     let market_data = MarketDataProvider {
@@ -181,8 +196,33 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.start().await?;
 
     // Start server
-    let server = Server::with_access_control(server_config, engine, access);
+    let mut server = Server::with_access_control(server_config, engine, access);
+    if let Some(core) = core {
+        server = server.with_core_workflow(core);
+    }
     server.start().await?;
 
     Ok(())
+}
+
+// Cache identities change with the actual executable, including local builds.
+fn core_build_id() -> Result<convex_core::contracts::ModelId, Box<dyn std::error::Error>> {
+    use sha2::{Digest, Sha256};
+    let mut file = std::fs::File::open(std::env::current_exe()?)?;
+    if file.metadata()?.len() > 1024 * 1024 * 1024 {
+        return Err("executable exceeds core build identity bound".into());
+    }
+    let mut hash = Sha256::new();
+    let mut chunk = [0u8; 65536];
+    loop {
+        let count = file.read(&mut chunk)?;
+        if count == 0 {
+            break;
+        }
+        hash.update(&chunk[..count]);
+    }
+    Ok(convex_core::contracts::ModelId::new(format!(
+        "sha256:{:x}",
+        hash.finalize()
+    ))?)
 }
