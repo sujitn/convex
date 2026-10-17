@@ -3,6 +3,7 @@ import copy
 import urllib.parse
 
 import market_data_adapter as adapter
+import lifecycle_risk
 
 
 class BookInputError(ValueError):
@@ -58,13 +59,21 @@ def bind(config, definition, position_step):
         reference = copy.deepcopy(position['current'])
         reference['quantity'] = reference['reference_quantity']
         if (holding['id'] != identity or holding['product']['kind'] != 'product'
-                or operation['kind'] != 'graph_hedge_risk'
+                or operation['kind'] not in ('graph_hedge_risk', 'lifecycle_hedge_risk')
                 or operation['product'] != holding['product']['product']
                 or operation['input']['identity'] != position['identity']
                 or operation['input']['reference_position'] != reference
                 or spec['curve_sets'] != [pnl_spec['curve_sets'][close['market']]]
                 or position['identity']['entity'] != problem['entity']):
             raise BookInputError('book_risk_position_mismatch')
+        if operation['kind'] == 'lifecycle_hedge_risk':
+            try:
+                lifecycle_risk.check_binding(operation, holding, data)
+            except (ValueError, KeyError, TypeError):
+                raise BookInputError('lifecycle_risk_history_mismatch') from None
+        elif any(s['event']['action']['kind'] in ('terminate', 'exercise_notice', 'exercise', 'credit_default', 'recovery', 'bond_delivery', 'security_receipt')
+                 for s in holding.get('lifecycle', {}).get('events', [])):
+            raise BookInputError('lifecycle_risk_required')
     for row in problem['holdings']:
         position, _ = positions[row['risk']]
         row['current_quantity'] = position['current']['quantity']

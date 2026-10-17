@@ -382,6 +382,51 @@ pub fn mark_causal_pnl_position<'p>(
     product: &CausalPnlProduct<'_>,
     cash_discount: &BuiltCurve,
 ) -> ReconciliationResult<CausalPositionMark<'p>> {
+    mark_position(
+        path,
+        point_index,
+        index,
+        state,
+        product,
+        cash_discount,
+        None,
+    )
+}
+
+/// Revalue the same replayed state on a complete native graph scenario. Actual
+/// events/receipts stay frozen; original product and claim owners do all pricing.
+pub fn mark_causal_pnl_scenario_position<'p>(
+    path: &'p PreparedCausalPnl,
+    point_index: usize,
+    index: usize,
+    state: &l::LifecycleState,
+    product: &CausalPnlProduct<'_>,
+    cash_discount: &BuiltCurve,
+    curves: &CurveSet,
+) -> ReconciliationResult<CausalPositionMark<'p>> {
+    if !matches!(product, CausalPnlProduct::Standard(_)) || path.cohorts.is_some() {
+        return Err(WorkflowError::Unsupported("lifecycle graph risk requires the original standard product and single legal holding owner").into());
+    }
+    mark_position(
+        path,
+        point_index,
+        index,
+        state,
+        product,
+        cash_discount,
+        Some(curves),
+    )
+}
+
+fn mark_position<'p>(
+    path: &'p PreparedCausalPnl,
+    point_index: usize,
+    index: usize,
+    state: &l::LifecycleState,
+    product: &CausalPnlProduct<'_>,
+    cash_discount: &BuiltCurve,
+    scenario: Option<&CurveSet>,
+) -> ReconciliationResult<CausalPositionMark<'p>> {
     let point = path
         .input
         .points
@@ -512,15 +557,17 @@ pub fn mark_causal_pnl_position<'p>(
     let (valuation, reference, basis, ctd, curves) = match product {
         CausalPnlProduct::Standard(p) => {
             standard(p, state, point, pos)?;
-            let curves = match p {
+            let curves = scenario.or(match p {
                 ValuationInputs::Bond { market, .. }
                 | ValuationInputs::FloatingBond { market, .. }
                 | ValuationInputs::Swap { market, .. } => Some(market.curves),
                 ValuationInputs::Cds { curves, .. } => Some(*curves),
                 _ => None,
-            };
+            });
             if active {
-                let v = if cohort.is_some() {
+                let v = if let Some(curves) = scenario {
+                    super::super::valuation::price_with_curves(p, Some(curves))?
+                } else if cohort.is_some() {
                     if let ValuationInputs::Cds {
                         contract,
                         context,

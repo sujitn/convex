@@ -820,6 +820,22 @@ pub(super) fn execute(
             security,
             input,
         } => super::cash_hedges::cash_basis_hedge_risk(graph, security, input, r),
+        LibraryOperation::LifecycleHedgeRisk {
+            graph,
+            product,
+            lifecycle,
+            history,
+            input,
+            max_state_evaluations,
+        } => super::lifecycle_risk::calculate(
+            graph,
+            product,
+            lifecycle,
+            history,
+            input,
+            *max_state_evaluations,
+            r,
+        ),
         LibraryOperation::BookPnl { input } => {
             super::reconciliation::reconcile(input, r.original())
         }

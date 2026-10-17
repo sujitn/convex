@@ -7,7 +7,7 @@ mod solver;
 mod types;
 pub use solver::{
     aggregate_directional_hedge_risk, aggregate_hedge_risk, solve_directional_hedge_proposal,
-    solve_hedge_proposal,
+    solve_hedge_proposal, solve_lifecycle_hedge_proposal,
 };
 pub use types::*;
 

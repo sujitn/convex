@@ -588,6 +588,17 @@ fn lattice<S: AdmittedSensitivity>(
 pub fn solve_hedge_proposal(problem: &HedgeProblem) -> Result<HedgeSolveReport, HedgeError> {
     solve(problem)
 }
+/// Use actual replayed current/pending state risk with unchanged fresh candidate
+/// columns, native quantity constraints, numerical policy and bounded optimizer.
+pub fn solve_lifecycle_hedge_proposal(
+    problem: &HedgeProblem,
+    states: &[LifecycleHoldingRisk],
+) -> Result<HedgeSolveReport, HedgeError> {
+    solve_prepared(
+        problem,
+        super::admission::prepare_with_lifecycle(problem, states)?,
+    )
+}
 /// Solve explicit central/directional supplied evidence with the original optimizer.
 pub fn solve_directional_hedge_proposal(
     problem: &Problem<HedgeSensitivityEvidence>,
@@ -602,6 +613,12 @@ pub fn aggregate_directional_hedge_risk(
 }
 fn solve<S: AdmittedSensitivity>(problem: &Problem<S>) -> Result<SolveReport<S>, HedgeError> {
     let p = prepare(problem)?;
+    solve_prepared(problem, p)
+}
+fn solve_prepared<S: AdmittedSensitivity>(
+    problem: &Problem<S>,
+    p: Prepared<S>,
+) -> Result<SolveReport<S>, HedgeError> {
     if problem.candidates.is_empty() {
         return Err(invalid(
             "candidates",

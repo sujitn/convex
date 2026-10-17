@@ -26,6 +26,7 @@ import urllib.request
 import market_data_adapter as adapter
 import market_data_stream as stream
 import book_updates
+import lifecycle_risk
 
 MAX_JSON = 2 * 1024 * 1024
 EMPTY = dict(calendars=[], helper_calendars=[], curves=[], calibration=None, fixings=[], publications=[])
@@ -423,7 +424,7 @@ class Workflow:
             snapshot = self.client.assemble(self.plan)
             saved = self.client.call('GET', '/analytics/snapshots/' + urllib.parse.quote(snapshot, safe=''))
             self.check_current_sets(saved)
-            receipts, risks, prices = {}, {}, []
+            receipts, risks, prices, states = {}, {}, [], {}
             for identity, calc in sorted(self.config['risks'].items()):
                 self.freshness()
                 receipt, result = self.client.run(snapshot, calc)
@@ -433,12 +434,18 @@ class Workflow:
                         or any(s['snapshot_id'] != snapshot for s in vector['sensitivities'])):
                     raise Blocked('risk_identity_mismatch')
                 risks[identity], receipts[calc] = vector, receipt
+                expected_lifecycle = saved['content']['definition']['definition']['definition']['calculations'][calc]['request']['operation']['kind'] == 'lifecycle_hedge_risk'
+                if expected_lifecycle != ('lifecycle' in result):
+                    raise Blocked('lifecycle_risk_result_missing')
+                if expected_lifecycle:
+                    states[identity] = result
                 prices.append(dict(trade=identity, basis=result['basis'], reference_position=vector['reference_position'],
                                    reference_measure=vector['sensitivities'][0]['base_pv']))
                 self.freshness()
-            receipts[self.config['pnl']], _ = self.client.run(snapshot, self.config['pnl'])
+            receipts[self.config['pnl']], pnl = self.client.run(snapshot, self.config['pnl'])
+            checked = [lifecycle_risk.checked_state(states[k], pnl['report']) for k in sorted(states)]
             self.freshness()
-            request = self.hedge(snapshot, risks)
+            request = self.hedge(snapshot, risks, checked)
             key = digest(dict(config=self.config_digest, request=request))
             definition = dict(id='stream.hedge.' + key, reference_inputs=EMPTY,
                 calculations=dict(hedge=dict(request=request, curve_sets=[])),
@@ -486,7 +493,7 @@ class Workflow:
         fresh = {(b['set'], b['curve_id']) for b in self.config['bindings'] if b['follow']}
         for calc in self.config['risks'].values():
             spec = definition['calculations'][calc]
-            if spec['request']['operation']['kind'] != 'graph_hedge_risk' or len(spec['curve_sets']) != 1:
+            if spec['request']['operation']['kind'] not in ('graph_hedge_risk', 'lifecycle_hedge_risk') or len(spec['curve_sets']) != 1:
                 raise ValueError('native risk owner required')
             for record in content['curves'][spec['curve_sets'][0]]:
                 if (spec['curve_sets'][0], record['curve_id']) not in fresh:
@@ -494,7 +501,7 @@ class Workflow:
         if definition['calculations'][self.config['pnl']]['request']['operation']['kind'] != 'book_pnl':
             raise ValueError('native P&L owner required')
 
-    def hedge(self, snapshot, risks):
+    def hedge(self, snapshot, risks, states=()):
         request = copy.deepcopy(self.hedge_template)
         problem = request['operation']['problem']
         problem['snapshot_id'] = snapshot
@@ -503,6 +510,8 @@ class Workflow:
             vector['fx'] = item.pop('fx')
             vector['fx']['snapshot_id'] = snapshot
             item['risk'] = vector
+        if states:
+            request['operation']['action'] = dict(kind='solve_lifecycle', states=copy.deepcopy(states))
         return request
 
 

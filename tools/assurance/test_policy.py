@@ -140,7 +140,8 @@ class AssuranceMutations(unittest.TestCase):
             with self.subTest(command=command):
                 self.rejects(check.check_workflow, source.replace(command, 'true'))
         modules = {p.relative_to(ROOT).as_posix() for p in (ROOT/'crates/convex/src/library').glob('*.rs')}
-        self.assertEqual(len(modules), 28)
+        self.assertEqual(len(modules), 29)
+        self.assertIn('crates/convex/src/library/lifecycle_risk.rs', modules)
         self.assertIn('crates/convex/src/library/accrued.rs', modules)
         self.assertIn('crates/convex/src/library/reinvestment.rs', modules)
         self.assertIn('crates/convex/src/library/yield_scalars.rs', modules)

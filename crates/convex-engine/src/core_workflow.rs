@@ -377,8 +377,20 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
     if request.schema_version != convex::library::LIBRARY_SCHEMA_VERSION {
         return Err(invalid("unsupported native core schema"));
     }
+    if let LibraryOperation::LifecycleHedgeRisk { history, .. } = &request.operation {
+        if history.points.iter().any(|point| {
+            point.known_at > snapshot.content.plan.known_at
+                || point.valuation_date.as_naive_date()
+                    > snapshot.content.plan.as_of.datetime().date_naive()
+        }) {
+            return Err(invalid(
+                "lifecycle risk history is beyond the captured cutoffs",
+            ));
+        }
+    }
     match &mut request.operation {
-        LibraryOperation::GraphHedgeRisk { input, .. } => {
+        LibraryOperation::GraphHedgeRisk { input, .. }
+        | LibraryOperation::LifecycleHedgeRisk { input, .. } => {
             if !empty(&request.inputs) {
                 return Err(invalid("core request must use shared reference inputs"));
             }

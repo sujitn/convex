@@ -99,15 +99,16 @@ overpayments, missing predecessors, future-known events, changed causal history,
 ineligible fixings and unsupported native economics cannot produce a release.
 All numerical tolerances and native financial decisions remain with their owners.
 
-The current product-risk route covers ordinary active exposures. For holdings
-changed by this batch, the adapter additionally withholds release for ended or
-partial exposure, exercise notices, physical delivery, or newly affected future
-cash claims needing lifecycle-specific risk. Unchanged holdings retain their
-existing native risk owners. Due cash under the explicit nominal carrying policy
-and normal daily futures variation/receipts are supported. This is a conservative
-integration boundary; standalone lifecycle support does not by itself imply that
-its full risk can enter the automatic hedge workflow. Full cohort/physical-delivery,
-default, exercise and lifecycle-risk integration remains required work.
+The ordinary product-risk route covers active exposures. For partial termination
+and outstanding cash claims, use the [lifecycle risk binding](LIFECYCLE-RISK.md).
+The adapter runs native lifecycle risk and requires its exact state, claims and
+amounts to match the native P&L closing mark before release. The worker checks
+again before using actual current/pending risk alongside fresh hedge candidates.
+Without that proof, affected ended/partial/notified/physical states and future
+claims remain blocked. Due cash under the explicit nominal carrying policy and
+normal daily futures variation/receipts remain supported. Partial IRS/OIS requires
+the original joint accrual boundary; default, exercise, physical and cohort risk
+still need their complete owners.
 
 On success, stdout contains **one existing normalized `book` record**. Publish it
 on the existing ordered feed; retain it in subsequent complete images. The

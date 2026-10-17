@@ -640,6 +640,14 @@ values and all-member CTD switches. Read [CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md
 for full inputs, distinct quote/cash bases, actual fills/receipts, attribution,
 work bounds and explicit remaining limits. CVX-063 remains partial.
 
+The supplied `lifecycle_hedge_risk` operation composes original graph scenarios
+with the same replayed native state and causal quantity/fill history. Actual
+current risk includes outstanding owned cash; pending exposure and fresh hedge
+candidates retain separate amounts. The existing `hedge` operation accepts
+`solve_lifecycle` with complete validated state sensitivities. See
+[the core lifecycle risk contract](../tools/LIFECYCLE-RISK.md) for full inputs,
+admission limits and the runnable partial-termination/receipt/recovery example.
+
 The additive `cohort_book_pnl` route retains exact original signed cohort cash
 ownership and complete actual physical asset/invoice handoff, including all-member
 CTD changes and actual-versus-model delivery choices. See

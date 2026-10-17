@@ -54,6 +54,11 @@ For actual fills, lifecycle transitions and cash receipts, the
 the same reference port, validates native P&L and emits this existing book record.
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py` for that path.
 
+For partial IRS/OIS termination and outstanding owned cash claims, use the
+[lifecycle risk binding](LIFECYCLE-RISK.md) on that same complete-book/event path.
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py` to check
+current/pending exposure, fresh hedge candidates, full causal P&L and recovery.
+
 ## Subscription and record
 
 Opt in by adding one book identity to the existing subscription:

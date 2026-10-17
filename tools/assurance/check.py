@@ -665,6 +665,12 @@ REQUIRED_RUNS = {
         'python3 tools/core_book_workflow.py',
         'python3 -m unittest discover -s tools/tests -p test_book_events.py',
         'python3 tools/core_event_workflow.py',
+        'python3 tests/scripts/lifecycle_risk_reference.py check',
+        'cargo test --locked -p convex --test lifecycle_risk',
+        'cargo test --locked -p convex --test lifecycle_risk --no-default-features',
+        'cargo test --locked -p convex --test lifecycle_risk --features schemars',
+        'python3 -m unittest discover -s tools/tests -p test_lifecycle_risk.py',
+        'python3 tools/core_lifecycle_workflow.py',
     ),
     'production-regressions': ('cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1',),
     'fmt': ('cargo fmt --all -- --check',),
@@ -1062,6 +1068,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('tools/streaming_analytics.py')
     paths.add('tools/book_updates.py')
     paths.add('tools/book_events.py')
+    paths.add('tools/lifecycle_risk.py')
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

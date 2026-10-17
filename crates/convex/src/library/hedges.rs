@@ -14,6 +14,11 @@ pub enum HedgeOperation {
     Aggregate {},
     /// Bounded continuous/lot solve with full original constraint diagnostics.
     Solve {},
+    /// Actual owned current/pending risk; fresh candidate risks remain separate.
+    SolveLifecycle {
+        /// Complete native replayed risk for every affected holding.
+        states: Vec<convex_analytics::risk::hedging::constrained::LifecycleHoldingRisk>,
+    },
 }
 pub(super) fn hedge(
     problem: &convex_analytics::risk::hedging::constrained::HedgeProblem,
@@ -23,6 +28,14 @@ pub(super) fn hedge(
     match action {
         HedgeOperation::Aggregate {} => value(h::aggregate_hedge_risk(problem)?),
         HedgeOperation::Solve {} => value(h::solve_hedge_proposal(problem)?),
+        HedgeOperation::SolveLifecycle { states } => {
+            let mut result = value(h::solve_lifecycle_hedge_proposal(problem, states)?)?;
+            let object = result
+                .as_object_mut()
+                .ok_or_else(|| LibraryError::invalid("hedge report", "native object required"))?;
+            object.insert("lifecycle_risk".into(), value(states)?);
+            Ok(result)
+        }
     }
 }
 
@@ -36,6 +49,10 @@ pub(super) fn directional_hedge(
     match action {
         HedgeOperation::Aggregate {} => value(h::aggregate_directional_hedge_risk(problem)?),
         HedgeOperation::Solve {} => value(h::solve_directional_hedge_proposal(problem)?),
+        HedgeOperation::SolveLifecycle { .. } => Err(LibraryError::invalid(
+            "lifecycle risk",
+            "central full-state risk requires the ordinary hedge operation",
+        )),
     }
 }
 

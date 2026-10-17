@@ -18,6 +18,7 @@ mod icma;
 mod icma_government;
 mod ingress;
 mod inputs;
+mod lifecycle_risk;
 mod products;
 mod reconciliation;
 mod reinvestment;

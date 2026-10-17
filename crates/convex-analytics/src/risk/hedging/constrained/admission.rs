@@ -161,6 +161,13 @@ fn validate_vector<S: AdmittedSensitivity>(
     Ok(values)
 }
 pub(super) fn prepare<S: AdmittedSensitivity>(p: &Problem<S>) -> Result<Prepared<S>, HedgeError> {
+    prepare_with_lifecycle(p, &[])
+}
+
+pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
+    p: &Problem<S>,
+    states: &[LifecycleHoldingRisk],
+) -> Result<Prepared<S>, HedgeError> {
     if p.factors.is_empty()
         || p.factors.len() > 16
         || p.candidates.len() > 4
@@ -169,6 +176,21 @@ pub(super) fn prepare<S: AdmittedSensitivity>(p: &Problem<S>) -> Result<Prepared
     {
         return Err(HedgeError::Bound(
             "1..16 factors, at most4 candidates and256 complete holdings",
+        ));
+    }
+    if states.len() > p.holdings.len()
+        || states.iter().enumerate().any(|(i, s)| {
+            !p.holdings
+                .iter()
+                .any(|h| h.risk.id == s.position.identity.id)
+                || states[..i]
+                    .iter()
+                    .any(|old| old.position.identity.id == s.position.identity.id)
+        })
+    {
+        return Err(invalid(
+            "lifecycle risk",
+            "unique requested current holding states required",
         ));
     }
     BusinessDate::try_from(p.settlement).map_err(|e| invalid("settlement", e.to_string()))?;
@@ -262,6 +284,14 @@ pub(super) fn prepare<S: AdmittedSensitivity>(p: &Problem<S>) -> Result<Prepared
         quantity(h.pending_quantity.decimal(), unit)?;
         let a = scaled(&h.risk, h.current_quantity.decimal())?;
         let b = scaled(&h.risk, h.pending_quantity.decimal())?;
+        if let Some(state) = states.iter().find(|s| s.position.identity.id == h.risk.id) {
+            let (actual, orders) = lifecycle_values(p, h, state)?;
+            for i in 0..values.len() {
+                current[i] = finite(current[i] + actual[i], "lifecycle current exposure")?;
+                pending[i] = finite(pending[i] + orders[i], "lifecycle pending exposure")?;
+            }
+            continue;
+        }
         for (i, value) in values.into_iter().enumerate() {
             current[i] = finite(current[i] + value * a, "current exposure")?;
             pending[i] = finite(pending[i] + value * b, "pending exposure")?;
@@ -435,4 +465,70 @@ pub(super) fn prepare<S: AdmittedSensitivity>(p: &Problem<S>) -> Result<Prepared
         buy,
         sell,
     })
+}
+
+fn lifecycle_values<S: AdmittedSensitivity>(
+    p: &Problem<S>,
+    h: &Holding<S>,
+    state: &LifecycleHoldingRisk,
+) -> Result<(Vec<f64>, Vec<f64>), HedgeError> {
+    let pos = &state.position;
+    let identity = &pos.identity;
+    let v = &h.risk;
+    if identity.instrument != v.instrument
+        || identity.economics != v.economics
+        || identity.calculation != v.calculation
+        || identity.entity != v.entity
+        || pos.current.quantity != h.current_quantity
+        || pos.pending_quantity != h.pending_quantity
+        || pos.current.reference_quantity != v.reference_position.reference_quantity
+        || pos.current.quantity_unit != v.reference_position.quantity_unit
+        || pos.current.currency != v.reference_position.currency
+        || state.snapshot_id != p.snapshot_id
+        || state.manifest != p.position_state
+        || state.settlement != p.settlement
+        || state.current.len() != p.factors.len()
+        || state.pending.len() != p.factors.len()
+    {
+        return Err(invalid(
+            "lifecycle risk",
+            "exact native position, identity, manifest, snapshot and factor coverage required",
+        ));
+    }
+    let unit = RiskPosition {
+        quantity: ExactDecimal::new(Decimal::ONE),
+        reference_quantity: ExactDecimal::new(Decimal::ONE),
+        quantity_unit: RiskQuantityUnit::TradeCopies,
+        currency: pos.current.currency,
+    };
+    let fx =
+        v.fx.as_ref()
+            .map_or(Ok(1.0), |f| number(f.rate.decimal()))?;
+    let mut result = Vec::new();
+    for row in [&state.current, &state.pending] {
+        let mut values = Vec::new();
+        let mut base = None;
+        for (i, s) in row.iter().enumerate() {
+            s.validate()
+                .map_err(|e| invalid("lifecycle sensitivity", e.to_string()))?;
+            if s.key != p.factors[i].key
+                || s.settings != p.factors[i].risk_settings
+                || s.snapshot_id != p.snapshot_id
+                || s.position != unit
+                || base.is_some_and(|b| b != s.base_pv)
+                || h.risk.sensitivities[i].method_binding() != MethodBinding::Central
+                || s.value != 0.0
+                    && p.factors[i]
+                        .credit
+                        .as_ref()
+                        .is_some_and(|c| !v.credit_scope.contains(c))
+            {
+                return Err(invalid("lifecycle sensitivity", "complete original key/settings/currency/state-copy/credit/central method required"));
+            }
+            base = Some(s.base_pv);
+            values.push(finite(s.value * fx, "lifecycle FX risk")?);
+        }
+        result.push(values);
+    }
+    Ok((result.remove(0), result.remove(0)))
 }

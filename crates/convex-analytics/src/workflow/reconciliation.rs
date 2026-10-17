@@ -96,7 +96,7 @@ pub struct PnlFill {
     pub source: SourceId,
 }
 /// Native quantities and explicit unsettled-claim discount policy.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PnlPositionInput {

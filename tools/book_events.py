@@ -12,6 +12,7 @@ import sys
 import urllib.parse
 
 import book_updates
+import lifecycle_risk
 import market_data_adapter as adapter
 import market_data_stream as stream
 import streaming_analytics as analytics
@@ -117,7 +118,7 @@ def prepare(client, batch):
     return command, release
 
 
-def risk_scope(report, close, previous_step=None):
+def risk_scope(report, close, previous_step=None, covered=()):
     """Fail closed where standalone product risk cannot represent lifecycle risk.
 
     Check holdings affected since the exact previously released closing point.
@@ -130,6 +131,8 @@ def risk_scope(report, close, previous_step=None):
     if {t['id'] for t in trades} != {p['identity']['id'] for p in close['positions']}:
         raise ValueError('event_risk_coverage')
     for trade in trades:
+        if trade['id'] in covered:
+            continue  # Complete native lifecycle risk has matched this exact P&L state.
         state = trade['marks'][len(report['input']['causes'])]['state']
         position = next(p for p in close['positions'] if p['identity']['id'] == trade['id'])
         if previous_step is not None:
@@ -168,7 +171,16 @@ def ingest(client, batch):
     snapshot = client.assemble(plan)
     _, result = client.run(snapshot, release['workflow']['pnl'])
     data = batch['definition']['calculations'][release['workflow']['pnl']]['request']['operation']['input']
-    risk_scope(result['report'], data['steps'][-1]['after']['point'], batch['base']['position_step'])
+    covered = set()
+    for identity, calc in release['workflow']['risks'].items():
+        operation = batch['definition']['calculations'][calc]['request']['operation']
+        if operation['kind'] == 'lifecycle_hedge_risk':
+            _, risk = client.run(snapshot, calc)
+            if risk['vector']['id'] != identity or risk['input']['snapshot_id'] != snapshot:
+                raise ValueError('lifecycle_risk_identity_mismatch')
+            lifecycle_risk.checked_state(risk, result['report'])
+            covered.add(identity)
+    risk_scope(result['report'], data['steps'][-1]['after']['point'], batch['base']['position_step'], covered)
     return dict(schema_version=1, kind='book', payload=release)
 
 

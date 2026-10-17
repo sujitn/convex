@@ -175,6 +175,13 @@ native P&L validation. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py` for an IRS fill,
 official futures settlement, partial/completing cash receipts and restart recovery.
 
+The [lifecycle risk binding](../../tools/LIFECYCLE-RISK.md) adds remaining
+exposure and outstanding owned cash claims to those same native snapshots.
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py` for a
+50% OIS termination, partial/completing receipts, five-factor hedges, causal P&L
+and recovery after an interrupted hedge result. New hedge trades retain fresh
+instrument risk; actual current claims stay with their original owner.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

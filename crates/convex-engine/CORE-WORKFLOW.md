@@ -19,8 +19,11 @@ and idempotency receipts. `CoreDefinition` contains named full native requests a
 one shared native reference-input bundle: calendars, publication rules and other
 explicit reference/calculation settings. It stores that shared data once.
 Curve and fixing values must be absent from the definition's resource slots.
-The initial managed operations are `GraphHedgeRisk`, `BookPnl` and `Hedge`; the
-complete supplied-input API continues to expose the other native operations.
+The managed operations are `GraphHedgeRisk`, `LifecycleHedgeRisk`, `BookPnl` and
+`Hedge`; the complete supplied-input API continues to expose the other native
+operations. [Lifecycle risk](../../tools/LIFECYCLE-RISK.md) binds the exact native
+closing state and quantity/fill history to the same shared resources. Current
+owned claims and pending exposure remain separate from fresh hedge candidates.
 
 `CoreSnapshotPlan` chooses the exact definition revision, economic and knowledge
 cutoffs, named sets of exact curve-record revisions, and explicit index/date/source

@@ -88,6 +88,33 @@ fn materialize(
         holdings,
     })
 }
+
+pub(super) fn validate_risk_point(
+    point: &w::PnlPointInput,
+    product: &RiskProductInput,
+    lifecycle: &LifecycleInput,
+    inputs: &LibraryInputs,
+    index: usize,
+) -> LibraryResult<()> {
+    let mut point = point.clone();
+    let position = point
+        .positions
+        .get(index)
+        .cloned()
+        .ok_or_else(|| LibraryError::invalid("holding", "exact closing position absent"))?;
+    point.positions = vec![position];
+    admission::point_context(&CausalPnlInformationSet {
+        point,
+        inputs: inputs.clone(),
+        holdings: vec![CausalPnlHoldingInput {
+            id: lifecycle.trade_id.clone(),
+            product: BookScenarioProductInput::Product {
+                product: Box::new(product.clone()),
+            },
+            lifecycle: lifecycle.clone(),
+        }],
+    })
+}
 /// Full after-information set for one independently classified causal step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -139,7 +166,7 @@ pub struct MixedBookPnlInput {
     /// Explicit complete original product-call bound,1..4224.
     pub max_product_evaluations: usize,
 }
-fn native_error(e: w::ReconciliationError) -> LibraryError {
+pub(super) fn native_error(e: w::ReconciliationError) -> LibraryError {
     match e {
         w::ReconciliationError::Workflow(e) => e.into(),
         w::ReconciliationError::Lifecycle(e) => events::native_error(e),

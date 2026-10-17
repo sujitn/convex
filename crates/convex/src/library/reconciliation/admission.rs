@@ -33,7 +33,7 @@ fn differences(a: &Value, b: &Value, path: &str, out: &mut Vec<String>) {
         _ => out.push(path.into()),
     }
 }
-fn point_context(set: &CausalPnlInformationSet) -> LibraryResult<()> {
+pub(super) fn point_context(set: &CausalPnlInformationSet) -> LibraryResult<()> {
     if set.holdings.len() != set.point.positions.len() {
         return Err(bad("complete exact holding coverage required"));
     }

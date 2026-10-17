@@ -578,6 +578,21 @@ pub enum LibraryOperation {
         /// Explicit identity, native reference and every required factor.
         input: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
     },
+    /// Replayed current/pending state risk, with separate fresh hedge columns.
+    LifecycleHedgeRisk {
+        /// Complete original same-snapshot graph and native numerical policies.
+        graph: Box<super::curves::CalibrationInput>,
+        /// Full standard bond, IRS/OIS or CDS economics.
+        product: Box<super::risk::RiskProductInput>,
+        /// Original opening state and full actual ordered event/receipt prefix.
+        lifecycle: Box<super::events::LifecycleInput>,
+        /// Exact native quantity/fill/FX history from the causal P&L path.
+        history: Box<convex_analytics::workflow::CausalPnlInput>,
+        /// Original fresh reference columns and factor-specific risk policies.
+        input: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
+        /// Explicit five-price current/pending state reservation,1..80.
+        max_state_evaluations: usize,
+    },
     /// Complete original issuer-basis/survival cash into common-factor hedges.
     CashBasisHedgeRisk {
         /// Original full graph with complete native helpers and policies.

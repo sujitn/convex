@@ -94,6 +94,26 @@ pub struct Holding<S = QuoteSensitivity> {
     /// Signed pending exposure supplied by the application; explicit zero is allowed.
     pub pending_quantity: ExactDecimal,
 }
+/// Actual replayed current and pending risk for one immutable holding state.
+/// Each sensitivity prices one complete state copy, not one tradable notional.
+/// Actual owned claims occur only in current risk; candidates retain fresh risk.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct LifecycleHoldingRisk {
+    /// Exact same original native position and application identity.
+    pub position: crate::workflow::PnlPositionInput,
+    /// Full closing position/state manifest.
+    pub manifest: ReferencePin,
+    /// Closing economic date, also used for the fresh hedge candidates.
+    pub settlement: Date,
+    /// Original replayed information set shared with every hedge vector.
+    pub snapshot_id: SnapshotId,
+    /// Complete signed actual current risk, including remaining owned cash.
+    pub current: Vec<QuoteSensitivity>,
+    /// Complete signed hypothetical pending risk, excluding existing claims.
+    pub pending: Vec<QuoteSensitivity>,
+}
 /// Target and limits in the full key's monetary normalization and reporting currency.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

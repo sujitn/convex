@@ -2998,6 +2998,24 @@ jobs:
       - name: Run core fills lifecycle and cash events with recovery
         run: python3 tools/core_event_workflow.py
 
+      - name: Check independent outstanding cash claim references
+        run: python3 tests/scripts/lifecycle_risk_reference.py check
+
+      - name: Check native lifecycle risk and hedge admission
+        run: cargo test --locked -p convex --test lifecycle_risk
+
+      - name: Check native lifecycle risk without default features
+        run: cargo test --locked -p convex --test lifecycle_risk --no-default-features
+
+      - name: Check native lifecycle risk schema
+        run: cargo test --locked -p convex --test lifecycle_risk --features schemars
+
+      - name: Check lifecycle state and claim binding controls
+        run: python3 -m unittest discover -s tools/tests -p test_lifecycle_risk.py
+
+      - name: Run lifecycle risk hedge PnL and restart recovery
+        run: python3 tools/core_lifecycle_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest
