@@ -137,10 +137,7 @@ where
         AnalyticsError::InvalidInput("dirty price not representable as Decimal".into())
     })?;
     let z = ZSpreadCalculator::new(discount_curve).calculate(bond, dirty_dec, settlement)?;
-    let z_decimal = z
-        .as_decimal()
-        .to_f64()
-        .ok_or_else(|| AnalyticsError::InvalidInput("z-spread not finite".into()))?;
+    let z_decimal = z.as_decimal_f64()?;
 
     let tenors = key_rate_tenors.unwrap_or(STANDARD_KEY_RATE_TENORS);
     let base_inner = discount_curve.inner().clone();

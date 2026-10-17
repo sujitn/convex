@@ -311,10 +311,7 @@ impl<'a> ZSpreadCalculator<'a> {
         z_spread: Spread,
         settlement: Date,
     ) -> AnalyticsResult<Decimal> {
-        let z = z_spread
-            .as_decimal()
-            .to_f64()
-            .ok_or_else(|| AnalyticsError::InvalidInput("spread conversion".into()))?;
+        let z = z_spread.as_decimal_f64()?;
         let base = self.try_price_with_spread(bond, z, settlement)?;
         let bumped = self.try_price_with_spread(bond, z + 0.0001, settlement)?;
         Decimal::from_f64_retain(base - bumped)

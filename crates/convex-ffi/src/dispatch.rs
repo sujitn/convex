@@ -434,11 +434,9 @@ fn compute_krd<B: Bond + FixedCouponBond>(
     )?;
     let dirty = Decimal::from_f64_retain(priced.dirty_price_per_100)
         .ok_or_else(|| DispatchError::analytics("nonfinite price"))?;
-    let z = dec_to_f64(
-        ZSpreadCalculator::new(&*curve)
-            .calculate(bond, dirty, req.settlement)?
-            .as_decimal(),
-    );
+    let z = ZSpreadCalculator::new(&*curve)
+        .calculate(bond, dirty, req.settlement)?
+        .as_decimal_f64()?;
     let r = convex_analytics::bond_quote::curve_risk(
         bond,
         req.settlement,
@@ -547,7 +545,7 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
         SpreadType::AssetSwapPar => {
             let s = ParParAssetSwap::new(curve).calculate(
                 bond,
-                Price::from_decimal(clean, bond.currency()),
+                Price::from_decimal(clean, bond.currency())?,
                 req.settlement,
             )?;
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
@@ -556,7 +554,7 @@ fn spread_fixed<B: Bond + FixedCouponBond>(
             let zero_curve = clone_typed_curve(req.curve)?;
             let s = ProceedsAssetSwap::new(&zero_curve).calculate(
                 bond,
-                Price::from_decimal(clean, bond.currency()),
+                Price::from_decimal(clean, bond.currency())?,
                 req.settlement,
             )?;
             Ok(bps_only(dec_to_f64(s.as_bps()), None))
@@ -592,7 +590,7 @@ fn spread_oas(req: &SpreadRequest, mark: &Mark) -> Result<SpreadResponse, Dispat
         let dirty_dec = Decimal::from_f64_retain(dirty)
             .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
         let oas = calc.calculate(cb, dirty_dec, &typed_curve, req.settlement)?;
-        let oas_decimal = dec_to_f64(oas.as_decimal());
+        let oas_decimal = oas.as_decimal_f64()?;
 
         let inner = typed_curve.inner();
         let curve_up = RateCurve::new(ParallelBump::new(1.0).apply(inner));
@@ -953,7 +951,7 @@ fn scenario_inner(request: serde_json::Value) -> Result<ScenarioResponse, Dispat
         let dirty = Decimal::from_f64_retain(priced.dirty_price_per_100)
             .ok_or_else(|| DispatchError::analytics("non-finite dirty price"))?;
         let z = ZSpreadCalculator::new(&base_wrapper).calculate(bond, dirty, req.settlement)?;
-        let z_decimal = dec_to_f64(z.as_decimal());
+        let z_decimal = z.as_decimal_f64()?;
         let accrued = priced.dirty_price_per_100 - priced.clean_price_per_100;
 
         // Anchor the ladder at the mark: absorb the sub-cent Z-solve residual

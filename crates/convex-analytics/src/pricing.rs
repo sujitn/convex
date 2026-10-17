@@ -94,7 +94,7 @@ where
             })?;
             match value.spread_type() {
                 SpreadType::ZSpread => {
-                    let z_decimal = dec_to_f64(value.as_decimal(), "z-spread")?;
+                    let z_decimal = value.as_decimal_f64()?;
                     let dirty = ZSpreadCalculator::new(curve)
                         .try_price_with_spread(bond, z_decimal, settlement)?;
                     let z_bps = dec_to_f64(value.as_bps(), "z-spread bps")?;
@@ -110,7 +110,7 @@ where
                     let curve_rate = curve
                         .par_swap_rate(t_maturity, quote_frequency.periods_per_year())
                         .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-                    let spread_decimal = dec_to_f64(value.as_decimal(), "spread")?;
+                    let spread_decimal = value.as_decimal_f64()?;
                     let target_yield = curve_rate + spread_decimal;
                     (
                         dirty_price_from_yield(bond, settlement, target_yield, quote_frequency)?,

@@ -921,3 +921,36 @@ an explicitly supplied terminal recovery payoff, without a CDS or default-time
 recovery assumption. Full dated IRS/OIS, CDS and issuer-credit pricing continue
 through their complete supplied-term analytics owners. Broader native date,
 par-grid and credit-wrapper semantics still require their own qualification.
+
+## Checked quote scalar arithmetic
+
+`Yield::from_percentage`, `Yield::as_percentage`, `Yield::as_bps`,
+`Price::from_decimal`, `Price::as_decimal`, `Price::discount_or_premium`,
+`Price::to_dirty`, `Price::to_clean`, `Price::dollar_value` and the corresponding
+spread unit conversions return `ConvexResult`. Price and Spread addition and
+subtraction also return `ConvexResult`; propagate `(left + right)?` or handle
+its error. Currency, spread type and supplied yield compounding are retained.
+Different spread types cannot be added or subtracted.
+
+Decimal outputs require exact representation within the native coefficient and
+scale limits. No implicit rounding or zero replacement is selected. Absolute
+price-times-face amounts retain the full product before dividing by 100, so a
+small quoted price against a large face amount is not lost prematurely. The
+shared pure math owner provides this exact finishing alongside its existing
+explicitly rounded risk/currency finishing; their policies remain distinct.
+
+`Spread::as_decimal_f64` converts basis points directly to a nearest/even
+binary64 decimal rate through the shared bounded ratio owner. Binary64 analytics
+use this explicit representation without an unnecessary Decimal-rate intermediate.
+Integer yield basis points retain truncation toward zero, including valid zero;
+out-of-range integers fail explicitly. Price and Yield display remain total
+for admitted Decimal data and preserve the original four-place truncation.
+
+The unused `DiscountMarginCalculator::spread_dv01`, `spread_duration` and
+`effective_duration` diagnostics are removed. They divided decimal spreads a
+second time and substituted zero results without full floating-product context.
+Genuine floating-risk pricing still requires supplied bond terms, eligible
+fixing history, projection/discount roles and the actual quote-risk workflow;
+its complete CVX-063 qualification remains required. Existing mandatory native,
+model, calendar, operation, host, causal cash/security ownership and CTD-switch
+requirements remain unchanged. This migration grants no certification.

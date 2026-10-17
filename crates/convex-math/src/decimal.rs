@@ -87,6 +87,35 @@ impl BoundedDecimal {
         Self::finish_ratio(&self.0, &power(SCALE))
     }
 
+    /// Finish an exact scalar without choosing a rounding policy.
+    ///
+    /// Rejects overflow or any digits that a native Decimal cannot retain.
+    /// Existing rounded currency/risk finishing remains in [`Self::finish`].
+    pub fn finish_exact(&self) -> MathResult<Decimal> {
+        let failure =
+            || MathError::invalid_input("exact result exceeds Decimal range or precision");
+        let divisor = power(SCALE - 28);
+        if &self.0 % &divisor != BigInt::from(0) {
+            return Err(failure());
+        }
+        let mut coefficient = &self.0 / divisor;
+        let mut scale = 28;
+        while coefficient.bits() > 96 && scale > 0 {
+            if &coefficient % 10u8 != BigInt::from(0) {
+                return Err(failure());
+            }
+            coefficient /= 10u8;
+            scale -= 1;
+        }
+        if coefficient.bits() > 96 {
+            return Err(failure());
+        }
+        let coefficient = i128::try_from(coefficient).map_err(|_| failure())?;
+        Decimal::try_from_i128_with_scale(coefficient, scale)
+            .map(|value| value.normalize())
+            .map_err(|_| failure())
+    }
+
     /// Round the exact ratio at the final output; denominator must be positive.
     pub fn ratio(&self, denominator: &Self) -> MathResult<Decimal> {
         Self::finish_ratio(&self.0, &denominator.0)

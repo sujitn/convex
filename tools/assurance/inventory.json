@@ -20,15 +20,20 @@
     },
     {
       "path": "crates/convex-analytics/src/bond_quote.rs",
-      "sha256": "dcbb8c19e0416f68f1fe5437f32245133b9f1b8be7eff1abdc9114890911b22f",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Portable locked primitive selection preserves all original financial operators, arguments, terms and admission; no result rounding/filtering.",
-      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
-      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "sha256": "ca8a6b0956446821135b79b7f12821a0b7de68b6a65bc0747bf24b2cd4ddf11a",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
         "crates/convex-server/tests/support/bond_quotes.rs",
-        "crates/convex/tests/portable_math.rs"
+        "crates/convex/tests/portable_math.rs",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -699,14 +704,19 @@
     },
     {
       "path": "crates/convex-analytics/src/pricing.rs",
-      "sha256": "baf9f2295b3a65e65190d04547a8e18f930dfb88bc2eed0cbfab4844d2274023",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values.",
-      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
-      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "sha256": "40dd1343c4c8fb5955fbd344155f45aed808e1bdb8f051a9cf40ccf4ca3c0948",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
-        "crates/convex-server/tests/support/bond_quotes.rs"
+        "crates/convex-server/tests/support/bond_quotes.rs",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -1147,10 +1157,10 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/zspread.rs",
-      "sha256": "b3dd2b1b5101285eebd185a5376a568cc66e4ad33bef491fa72f5279c549b773",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Portable locked primitive selection preserves all original financial operators, arguments, terms and admission; no result rounding/filtering. Checked scalar-risk/Date/HTTP continuation: Migrate the actual source-frozen two-pass/eight-fail raw-risk and one-pass/one-fail Date probes, and the actual final-bound HTTP untrusted-Origin200failure. Retire Duration/Convexity/DV01 Fromf64 zero fallbacks for checked TryFrom, using the locked Decimal total as_f64 accessor. Check scalar hedges; return Result and optional undefined weighted duration for common-unit raw portfolios, retaining signed value/DV01 and original binary64 absolute1e-10guard. Exact key-rate lookup does not substitute nearby factors. Actual normal inverse replaces interpolation between unchanged coarse constants; zero-mean Gaussian scalar P&L, absolute exposure scale, finite nonnegative daily volatility, positive days and signed loss quantiles are explicit. Historical inverse empirical CDF uses exact supplied binary64 ceil(probability*N) ranks and actual long/short loss ordering, retaining explicit IID sqrt-time scaling; 1..1000000finite returns and checked arithmetic reject invalid/overflow/underflow cases. Weekend-only Date Results use complete weeks plus at most6daily steps, retain original signed counts and valid full Gregorian range, and reject exhausted offsets including i32MINwithout panic/unbounded search. Remove unused Bond.first_settlement_date and CalendarId.to_calendar fallback with actual benchmark callers migrated to the same SIFMA selection. The user explicitly approves only the exact five mock deletions,12Date unwraps and five native-yield-risk TryFrom adapters; no operand/answer/bound or financial test is removed. Seven reviewed sections include two individual numerical artifact rows; five mock sections retain exact task-preservation review even though not individual numeric-evidence rows. Retain the installer receipt KeyError after all patches applied, original helper and full first state; completion only verifies hashes. MCP HTTP and CORS share a bounded explicit Origin list, defaulting to the actual listener origin; repeat allow-origin replaces that list, invalid config fails and unknown Origin403is required. Remove unused HTTP server instance and explicit CtrlCpanic; actual loopback protocol/full8549envelopes remain required, without claiming remote auth/TLS or frame/session/convenience certification. Server key-rate conversion requires actual prices, rejects complete invalid sets, removes invented ISIN and silent filter-map drops. Broader Holding grouping/missing coverage/weighting/presentation remain required; no whole-module qualification is claimed. Independent NormalDist/Fraction/Decimal90references precede candidate execution:25normal100parametric180historical12hedge cases and original165Date offsets, 154counts11weekday cases. New normal2e-12, VaRmax(1e-8,3e-14relative), hedge max(1e-8,1e-14relative) bounds do not change old bounds. Keep all1885original artifact paths and defaults, refresh only2exact human-approved hashes and add4controls for1889. All8549original requests/envelopes and literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. No dependency/provider/DB/MQ/Cexport or authority change, native waiver, acceptance or certificate. All original native/date/calendar/YAS/model/calibration/claim/physical/causal/exact-operation work and CTD alternatives/switches/actual cash ownership remain required. Only unavailable actual platform execution defers; user has no Windows/Excel host or approved convention/model packs.",
-      "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
-      "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
+      "sha256": "bbe512b8d21ab55f4f558ca871e3692dcd62b10743c1cd39e8f6bdd230da65cd",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/bond_quotes.rs",
@@ -1159,7 +1169,12 @@
         "crates/convex-analytics/tests/risk_contracts.rs",
         "crates/convex-analytics/tests/fixtures/risk-contracts.json",
         "crates/convex-core/tests/weekday_operations.rs",
-        "crates/convex-core/tests/fixtures/weekday-operations.json"
+        "crates/convex-core/tests/fixtures/weekday-operations.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -3072,10 +3087,10 @@
     },
     {
       "path": "crates/convex-ffi/src/dispatch.rs",
-      "sha256": "0c1d874a0aaa4379f68bbcabc4edc3f7d2f272996b601f7ff6963f2c63d9264d",
-      "invariants": "Validated bounded ingress, correct owned/borrowed pointer distinction, one free for owned outputs, explicit unsafe contracts. Registry mutations atomic and callbacks run outside the lock. CVX-017 reviewed impact: explicit supplied nominal fixed/zero contracts and shared checked analytics; no synthetic production curves, volatility or FRN fixing fallback. Reviewed route removal: CVX-063 government route cleanup authorized by the user: remove unavailable MCP G selection, C/Java/YAS government zero-curve fields and government-mark pricing, YAS/WASM government/benchmark outputs, two incorrect WASM inverse exports and their unused parser, Excel arguments/rows and browser editor/synthetic benchmark/styles. Browser engine failure is an admission error, not fake prices; absent OAS is not a Z-spread proxy. Removed JSON fields, including nulls and irrelevant spread-family combinations, fail closed before financial dispatch. Correct full supplied-security quotation/spread operations and 18 exact shared routes/284 supplied requests remain. C exports/ownership, Cargo manifests/lock, all223 numerical rows/bytes/defaults, all5089 historical evidence files and original30areas/174combinations/2154Planned requirements remain unchanged. Breaking Java/WASM/Excel/JSON migrations are explicit; no government-spread price inverse is implied. Other convenience/model/convention and actual Windows/Excel/wasm32/browser qualification remains CVX-063 owning work. No provider/DB/MQ/clock/authority, fabricated independent approval, certificate, push/merge/deployment or live orders. Incorrect unbound convenience ASW and unused YAS OAS outputs retire with wire/schema/grid/UI callers; genuine supplied-term/model routes remain. Browser hedge estimates/default zeros/inert selector are removed; supplied native DV01 loss scales to explicit invoice face. Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "2MiB input, depth64/nodes32768/items4096/text8192; product arrays128/64/32; 32 active RPC/constructors; 16384 objects; per-algorithm budgets inherited.",
-      "failure_contract": "Normal envelope/invalid-handle diagnostic for invalid input; resource-limit rejection; unexpected unwind sanitized. Poisoned registry fails closed; invalid caller pointers remain unsafe.",
+      "sha256": "93a065a2d27a679c94427b18eb5786f06e8d1e3f3283d7114528e6effd1fbc7d",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/bond_quotes.rs",
         "crates/convex-ffi/tests/assurance.rs",
@@ -3091,7 +3106,12 @@
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": [
         "ASR-004"
@@ -4677,14 +4697,19 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/discount_margin.rs",
-      "sha256": "69c4e914bed01ed26f885750fbe30809fb6fd21dd3f14fccf60bc43793fd1b02",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics.",
-      "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
-      "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
+      "sha256": "faa227fce7b5598b846630f00bd29dba6e78219f34af8884f56e5ce8a213f3ef",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
-        "tests/scripts/portable_math_reference.py"
+        "tests/scripts/portable_math_reference.py",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -4783,10 +4808,10 @@
     },
     {
       "path": "crates/convex-core/src/types/yield_type.rs",
-      "sha256": "55fa7cdecea0f4fac419cf12272d01452d7ee9e3fe4c52ed7e2a3fa78de182d9",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
-      "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
+      "sha256": "31c713bda65b8e787d24e19023d872ed4d795001b95d6636c50d32f3712bca38",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
@@ -4796,7 +4821,12 @@
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -5758,10 +5788,10 @@
     },
     {
       "path": "crates/convex-analytics/src/risk/profile.rs",
-      "sha256": "c05f378ba45d456af9ede4758bcba1d2d58a572ee19d7d85caf61774d7cf1739",
-      "invariants": "Repair the source-frozen actual original native risk1pass2fail: full Simple cash modified duration1.2878787878787878versus independent1.2714097496706192, and NaNyield accepted as successful risk. Reuse the existing native dated-cash derivative kernel for explicit raw times and immutable PreparedDatedCash. Preserve the old dated API nonnegative domain and all original arithmetic order/inputs; explicit raw risk retains signed cash with positive net PV, no inferred dates or inverse root selection. Shared checked products reject nonzero underflow; all rates/cash/work/domain/result scalars are checked. Remove duplicate analytics exponent/derivative formulas and fabricated conversion zeros. BondRiskCalculator caches one complete-cash evaluation and uses actual native normalized bond time/context with an explicit Frequency quotation basis; callers retain original complete terms. from_prepared_cash admits explicitly supplied context under any original Compounding enum. Raw signed/zero face scales actual position DV01; dirty price is the supplied per100DV01 price basis. All five methods/all_metrics agree. modified_from_macaulay returns Result and rejects Simple, which requires the complete cash denominators. One unprotected existing test adds only the required Result unwrap/import, preserving every old operand/answer/bound; all protected test sections and1880old numeric pins/defaults/physical bytes stay. Independent Decimal90fullcash63cases/7laws/negative-zero-positive yields and three original Simple references precede implementation; unchanged price1e-10/risk1e-11/DV011e-10bounds. Seven new controls plus72retained independent YAS dated-context references cover normal/signed/invalid/bounded/underflow/actualfuture-zero-time inputs. Two additive pins give1882. Keep all8549original shared inputs/references/envelopes, literal30areas174combinations2154Planned80shared12native228mapped1926unmapped, original assessments and all native model/calendar/claim/physical/causal/CTD requirements. Other raw risk estimation/effective/KRD and legacy scalar conversions remain required owners; do not certify an entire module from this scope. Pending exact five spread-mock and12Date-test approvals stay unapplied. Only unavailable actual platform execution defers. User has no Windows/Excel or approved packs. No dependency/provider/DB/MQ/Cexport/authority, native waiver, acceptance or certificate. Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "1..4096explicit cash entries; original dated time/schedule/domain/solver bounds stay. Finite annual yields, supported original Compounding enum; native context separates raw-positive-time and actual future-zero-time admissions. Decimal96bit/scale0..28 failures are explicit.",
-      "failure_contract": "Propagate actual cash/time/domain/arithmetic and unrepresentable scalar failures without accepted invented zero risk. Scoped constructors/metrics only; other estimation/effective/KRD helper migration retains its owner.",
+      "sha256": "9d30e78e53d59ac1ab01262ce75777542b6994507883a48b3a27ed4801c5403c",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/native_yield_risk.rs",
         "crates/convex-analytics/tests/fixtures/native-yield-risk.json",
@@ -5770,7 +5800,12 @@
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -6076,15 +6111,20 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/ispread.rs",
-      "sha256": "5a5d66ea45eb0b7b4870d0368a822337e5273d590be8fb0c6746b2c7d06ff560",
-      "invariants": "Migrate the actual source-frozen two-pass/eight-fail raw-risk and one-pass/one-fail Date probes, and the actual final-bound HTTP untrusted-Origin200failure. Retire Duration/Convexity/DV01 Fromf64 zero fallbacks for checked TryFrom, using the locked Decimal total as_f64 accessor. Check scalar hedges; return Result and optional undefined weighted duration for common-unit raw portfolios, retaining signed value/DV01 and original binary64 absolute1e-10guard. Exact key-rate lookup does not substitute nearby factors. Actual normal inverse replaces interpolation between unchanged coarse constants; zero-mean Gaussian scalar P&L, absolute exposure scale, finite nonnegative daily volatility, positive days and signed loss quantiles are explicit. Historical inverse empirical CDF uses exact supplied binary64 ceil(probability*N) ranks and actual long/short loss ordering, retaining explicit IID sqrt-time scaling; 1..1000000finite returns and checked arithmetic reject invalid/overflow/underflow cases. Weekend-only Date Results use complete weeks plus at most6daily steps, retain original signed counts and valid full Gregorian range, and reject exhausted offsets including i32MINwithout panic/unbounded search. Remove unused Bond.first_settlement_date and CalendarId.to_calendar fallback with actual benchmark callers migrated to the same SIFMA selection. The user explicitly approves only the exact five mock deletions,12Date unwraps and five native-yield-risk TryFrom adapters; no operand/answer/bound or financial test is removed. Seven reviewed sections include two individual numerical artifact rows; five mock sections retain exact task-preservation review even though not individual numeric-evidence rows. Retain the installer receipt KeyError after all patches applied, original helper and full first state; completion only verifies hashes. MCP HTTP and CORS share a bounded explicit Origin list, defaulting to the actual listener origin; repeat allow-origin replaces that list, invalid config fails and unknown Origin403is required. Remove unused HTTP server instance and explicit CtrlCpanic; actual loopback protocol/full8549envelopes remain required, without claiming remote auth/TLS or frame/session/convenience certification. Server key-rate conversion requires actual prices, rejects complete invalid sets, removes invented ISIN and silent filter-map drops. Broader Holding grouping/missing coverage/weighting/presentation remain required; no whole-module qualification is claimed. Independent NormalDist/Fraction/Decimal90references precede candidate execution:25normal100parametric180historical12hedge cases and original165Date offsets, 154counts11weekday cases. New normal2e-12, VaRmax(1e-8,3e-14relative), hedge max(1e-8,1e-14relative) bounds do not change old bounds. Keep all1885original artifact paths and defaults, refresh only2exact human-approved hashes and add4controls for1889. All8549original requests/envelopes and literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. No dependency/provider/DB/MQ/Cexport or authority change, native waiver, acceptance or certificate. All original native/date/calendar/YAS/model/calibration/claim/physical/causal/exact-operation work and CTD alternatives/switches/actual cash ownership remain required. Only unavailable actual platform execution defers; user has no Windows/Excel host or approved convention/model packs.",
-      "bounds": "Raw common-unit positions<=65536, IDs<=8192bytes; historical rows1..1000000; key-rate rows<=4096; normal80iterations/64tail terms; Date<=6daily steps after whole weeks; HTTP<=64unique explicit origins/8192bytes each. Original guards/solver defaults stay.",
-      "failure_contract": "Checked native arithmetic/domain/range/allocation failures propagate; zero is genuine, undefined duration is None, exact missing/invalid tenor is unavailable, unknown HTTP Origin403; no invented price/identity or silently dropped position. Broader legacy Holding/remote/security/native contracts remain required.",
+      "sha256": "08e3273a8572b1fbe80aea98c7c57736c31fed9551661104a0702248fa4b1878",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-analytics/tests/risk_contracts.rs",
         "crates/convex-analytics/tests/fixtures/risk-contracts.json",
         "crates/convex-core/tests/weekday_operations.rs",
-        "crates/convex-core/tests/fixtures/weekday-operations.json"
+        "crates/convex-core/tests/fixtures/weekday-operations.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -6627,16 +6667,21 @@
     },
     {
       "path": "crates/convex-math/src/decimal.rs",
-      "sha256": "55f6d748bfc31470c03f90316a9229362a34897132d6df6aa0aeb678286c4e1f",
-      "invariants": "Checked supplied Holding amount/weighted aggregate and engine quote-book continuation after actual original probes:6healthy16failures. Move the existing bounded pure integer owner from portfolio to convex-math, preserving184scale/1536bit/final nearest-even/no-erasure policy and every registry version/checksum. Checked Results replace unchecked amount products and fallible caller boundaries. One signed exact metric owner replaces duplicated risk/yield/spread/summary/weighted liquidity and benchmark folds, with complete required metric coverage and optional exact currency risk. Portfolio NAV/cash/par/accrued/share operations retain exact products and signed cancellation to final outputs. Currency identity is explicit, never inferred from unit FX. Engine requires complete consumed quotes, unique positions/quotes, common settlement date, same currency unless FX-bound through another route, supplied actual quote lineage and requested measures; no missing metric zero, dropped position, negative-NAV clamp or calculation clock. Exact wire amounts and explicit factor/classification coverage retain unavailable factors. Stress factor membership is a set lookup and supplied holding identity remains on classification/scalar failures. Predeclared45Fraction books/56amount outcomes, original12engine bodies and14engine controls are additive engineering controls, unqualified until executed. All1902prior numerical rows/defaults/financial references and8549oldrequests/15separateboundary cases remain. Other native quote conversion/contribution/approximation/raw-v1/calendar/ARRC/YAS/model/calibration/exact-operation/schema/host/remoteMCP and original full claim/physical/causal mixed-book work remain required, retaining allCTD alternatives/switches and actual ownership. Only unavailable actual platform execution defers; no native waiver, acceptance, independent certificate, provider/DB/MQ/runtime dependency or trading authority. Final scalar ratios round exact integers directly to IEEE binary64, nearest/even, rejecting nonfinite and nonzero erasure. Decimal finalization is unchanged.",
-      "bounds": "Fixed184decimal scale/1536bit exact states. Binary64 ratio finalization uses at most53additional temporary bits; input and row/work limits remain with callers.",
-      "failure_contract": "Checked native Result; absent risk remains optional, requested required engine metrics fail. No accepted fabricated zero or partial complete book.",
+      "sha256": "454ee76c3a7f9e20c3f22ab11909bd5f1b5da1027a33bc92f88a968b8c39ceb7",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-portfolio/tests/holding_aggregates.rs",
         "crates/convex-portfolio/tests/fixtures/holding-aggregates.json",
         "crates/convex-engine/tests/portfolio_aggregation.rs",
         "crates/convex-math/tests/bounded_decimal.rs",
-        "crates/convex-math/tests/fixtures/bounded-decimal-ratios.json"
+        "crates/convex-math/tests/fixtures/bounded-decimal-ratios.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -6787,17 +6832,22 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/benchmark.rs",
-      "sha256": "52f193169ca476af054e9447386fae2e26cd27661e8bb7ac34dba5fc5cdb218d",
-      "invariants": "Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "Existing 2 MiB/64-depth/32768-node/4096-item/8192-text JSON bounds and checked Decimal representation; existing financial/date/work bounds.",
-      "failure_contract": "Checked rejection without ignored economic fields, rounded quote digits, nonfinite or nonpositive discount results or erased nonzero Decimal output.",
+      "sha256": "17b7216492f65a365693f26e7066092f3bf173e8b5491ed38fb1872542cfe101",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-core/tests/quote_marks.rs",
         "crates/convex-curves/tests/native_discount.rs",
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
@@ -6835,33 +6885,43 @@
     },
     {
       "path": "crates/convex-core/src/types/price.rs",
-      "sha256": "fced4695e7876f7b0255887601c98c85fe200dd410ee000f9368bbd891ba7fa4",
-      "invariants": "Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "Existing 2 MiB/64-depth/32768-node/4096-item/8192-text JSON bounds and checked Decimal representation; existing financial/date/work bounds.",
-      "failure_contract": "Checked rejection without ignored economic fields, rounded quote digits, nonfinite or nonpositive discount results or erased nonzero Decimal output.",
+      "sha256": "49ef9a668220ecce6927e0eb993f490128f86e94815ef336dee85344ef92c111",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-core/tests/quote_marks.rs",
         "crates/convex-curves/tests/native_discount.rs",
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-core/src/types/spread.rs",
-      "sha256": "9ae60426bc8e36fcfec6c85adf332b4ae7878afd46782aad2d3873a766764097",
-      "invariants": "Exact quote admission, complete generated convenience RPC schemas and checked native discount results. Before public edits, the physical original C library matched five and failed thirteen of eighteen independent original mark/RPC/curve requests; six of twenty-five schema documents held eleven unresolved references. Reuse the existing pure bounded Decimal and structural JSON owners. Textual marks preserve exact digits and percentage conversion rejects rounding. Price/Yield/Spread, constructor fields and eight risk/hedge report amounts serialize as established numbers when the shortest numeric wire value is exact, otherwise as exact strings. Generate every convenience schema from actual native DTOs, using serialization settings for responses and the actual FFI dispatch reference paths for registered-name alternatives. Native BondSpec/CurveSpec reject ignored and duplicate fields, with strict nested economics; the C boundary retains pointer, lexical JSON and workload admission. Native discount queries propagate checked underlying access through RateCurve/DiscreteCurve/Arc/Box/reference wrappers, reject invalid tenors/nonfinite/nonpositive or underflowed results and reject Decimal-boundary nonzero erasure. Reuse existing checked rate conversion; no second pricing kernel. Declare two mark, three discount, two risk amount and four actual C/schema/native-constructor/reference-path functions, with all twenty registered-reference paths, before execution. The complete eighteen original requests, answers and zero Decimal bounds remain exact. All 1913 prior numerical rows/defaults, 8549 original shared requests, fifteen raw-number boundaries and literal mandatory library assessments remain unchanged. Broader native zero/forward/instantaneous/par conversion, signed risk/hedging/model/calendar/ARRC/YAS/calibration/exact-operation/client/remote MCP and full causal mixed-book/claim/physical requirements remain mandatory, with all CTD alternatives/ties/switches and actual cash/security ownership. Only actual unavailable platform execution defers. No native waiver, independent approval, acceptance, certification, provider/DB/MQ/runtime dependency or execution authority. Object descriptions share exact quote serialization.",
-      "bounds": "Existing 2 MiB/64-depth/32768-node/4096-item/8192-text JSON bounds and checked Decimal representation; existing financial/date/work bounds.",
-      "failure_contract": "Checked rejection without ignored economic fields, rounded quote digits, nonfinite or nonpositive discount results or erased nonzero Decimal output.",
+      "sha256": "cd22ee0b59a511584876984e3b422b5ff97bce87e2933016a00a779b8d593f83",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
+      "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
         "crates/convex-core/tests/quote_marks.rs",
         "crates/convex-curves/tests/native_discount.rs",
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
         "tests/fixtures/quote-admission.json",
-        "tests/fixtures/quote-description.json"
+        "tests/fixtures/quote-description.json",
+        "crates/convex-core/tests/quote_scalars.rs",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs",
+        "tests/fixtures/native-quote-scalars.json",
+        "tests/fixtures/native-price-display.json",
+        "tests/fixtures/native-spread-float.json"
       ],
       "exceptions": []
     },

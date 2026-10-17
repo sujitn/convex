@@ -638,6 +638,7 @@ dependencies = [
  "approx",
  "chrono",
  "convex-curves",
+ "convex-math",
  "libm",
  "log",
  "proptest",

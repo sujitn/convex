@@ -11,6 +11,9 @@ keywords = ["finance", "fixed-income", "bonds", "types"]
 categories = ["finance", "data-structures"]
 
 [dependencies]
+# Shared bounded arithmetic stays below the pure domain types.
+convex-math = { path = "../convex-math" }
+
 # Date/time handling
 chrono = { workspace = true }
 
@@ -42,4 +45,3 @@ convex-curves = { path = "../convex-curves" }
 [features]
 default = []
 schemars = ["dep:schemars"]
-

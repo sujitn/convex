@@ -240,7 +240,7 @@ pub fn quote_fixed<B: Bond + FixedCouponBond>(
             )?;
             let value = benchmark
                 .value()
-                .checked_add(value.as_decimal())
+                .checked_add(value.as_decimal()?)
                 .ok_or_else(|| missing("bounded G-spread yield"))?;
             government_mark = Mark::Yield {
                 value,

@@ -250,7 +250,10 @@ impl BenchmarkSpec {
             Self::OnTheRunTenor(t) => format!("{t} On-the-Run"),
             Self::NearestOnTheRun => "Nearest On-the-Run".to_string(),
             Self::SpecificSecurity(id) => format!("Security {id}"),
-            Self::ExplicitYield(y) => format!("Explicit {:.2}%", y.as_percentage()),
+            Self::ExplicitYield(y) => match y.as_percentage() {
+                Ok(percentage) => format!("Explicit {percentage:.2}%"),
+                Err(_) => format!("Explicit {y}"),
+            },
         }
     }
 

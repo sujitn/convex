@@ -312,51 +312,6 @@ impl<'a, C: RateCurveDyn + ?Sized> DiscountMarginCalculator<'a, C> {
             SpreadType::DiscountMargin,
         ))
     }
-
-    /// Price drop per 1bp parallel DM bump.
-    pub fn spread_dv01(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
-        let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
-
-        let base_price = self.price_with_dm(frn, base_dm, settlement);
-        let bumped_price = self.price_with_dm(frn, base_dm + 0.0001, settlement);
-
-        Decimal::from_f64_retain(base_price - bumped_price).unwrap_or(Decimal::ZERO)
-    }
-
-    /// Spread duration: spread DV01 normalised by current price.
-    pub fn spread_duration(&self, frn: &FloatingRateNote, dm: Spread, settlement: Date) -> Decimal {
-        let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
-        let base_price = self.price_with_dm(frn, base_dm, settlement);
-
-        if base_price <= 0.0 {
-            return Decimal::ZERO;
-        }
-
-        let dv01 = self.spread_dv01(frn, dm, settlement);
-        dv01 / Decimal::from_f64_retain(base_price).unwrap_or(Decimal::ONE) * Decimal::from(10_000)
-    }
-
-    /// Effective duration via ±`rate_shift` parallel DM bumps.
-    pub fn effective_duration(
-        &self,
-        frn: &FloatingRateNote,
-        dm: Spread,
-        settlement: Date,
-        rate_shift: f64,
-    ) -> Decimal {
-        let base_dm = dm.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
-        let base_price = self.price_with_dm(frn, base_dm, settlement);
-
-        if base_price <= 0.0 {
-            return Decimal::ZERO;
-        }
-
-        let price_up = self.price_with_dm(frn, base_dm + rate_shift, settlement);
-        let price_down = self.price_with_dm(frn, base_dm - rate_shift, settlement);
-
-        let duration = (price_down - price_up) / (2.0 * base_price * rate_shift);
-        Decimal::from_f64_retain(duration).unwrap_or(Decimal::ZERO)
-    }
 }
 
 /// Simple margin calculation (flat forward assumption).

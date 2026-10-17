@@ -129,7 +129,7 @@ impl<'a> ISpreadCalculator<'a> {
     /// Implied bond yield.
     pub fn implied_yield(&self, i_spread: Spread, maturity: Date) -> AnalyticsResult<Yield> {
         let swap_rate = self.swap_rate_at_maturity(maturity)?;
-        let spread_decimal = i_spread.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
+        let spread_decimal = i_spread.as_decimal_f64()? / 10_000.0;
 
         let implied = swap_rate + spread_decimal;
         Ok(Yield::new(

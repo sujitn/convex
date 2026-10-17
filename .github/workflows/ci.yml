@@ -571,6 +571,15 @@ jobs:
       - name: Qualify checked numeric Decimal schema
         run: cargo test --locked -p convex-core --test numeric_decimal --features schemars
 
+      - name: Qualify checked quote scalars default
+        run: cargo test --locked -p convex-core --test quote_scalars
+
+      - name: Qualify checked quote scalars no-default
+        run: cargo test --locked -p convex-core --test quote_scalars --no-default-features
+
+      - name: Qualify checked quote scalars schema
+        run: cargo test --locked -p convex-core --test quote_scalars --features schemars
+
       - name: Qualify checked C constructor inputs
         run: cargo test --locked -p convex-ffi --test constructor_inputs
 

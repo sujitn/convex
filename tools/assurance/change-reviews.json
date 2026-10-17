@@ -5378,6 +5378,46 @@
         "All original 1919 quantitative rows/defaults remain; one independently substantiated unpinned origin assertion changes 0 to 0.04 at the same 1e-10 bound.",
         "Nine native controls/three profiles; original 832 plus 168 independent origin outputs and 18 corrected admission controls; full required fresh qualification without retained successes."
       ]
+    },
+    {
+      "base_commit": "fc24d8269e01e9268cbc834f32e83136af9bb494",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Checked Price, Spread and Yield unit/arithmetic methods return typed errors for overflow, lost digits, integer range and incompatible spread types; all normal constructors and genuine zero remain. Reuse the existing pure bounded Math owner with additive exact finishing; preserve its existing rounded risk/currency finishing. Add a pure Core-to-Math edge without registry changes or provider/runtime coupling. Binary64 spread analytics convert the exact rational directly through the same bounded ratio owner, without an intermediate Decimal rate. Integer yield bps retains truncation. Shared bounded quote text preserves four-place truncation and remains total at admitted extremes. Preserve all 49 original inputs/answers/zero bounds and the source-bound 187-case original replay:112 matches,75 discrepancies,33 native panics. The additional 138 exact Fraction answers precede candidate execution. Add 12 independent price-display and 25 exact-bit binary64 controls. Only inverse-proven Result adapters touch three unpinned unit modules; all original financial assertions, protected tests and 1923 numerical rows/defaults remain. Retire three unused DM risk diagnostics with double unit division and hidden zero failure, while retaining every genuine floating-risk/fixing/product requirement. All original native/market/model/calendar/exact-operation/host/remote-MCP/causal cash and physical ownership requirements and CTD alternatives/ties/switches remain. Only actual unavailable platform execution defers. No human approval, acceptance or certification is inferred.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "ad889ff148f1e604a49ce180c6d9f1d701fe90993d43995572a7ecc0d4dfa5c4",
+        "Cargo.lock": "3841a11064edcb3085227fc50c920cb1990ec902bb1443a82fec9eb2113597f8",
+        "crates/convex-analytics/src/bond_quote.rs": "ca8a6b0956446821135b79b7f12821a0b7de68b6a65bc0747bf24b2cd4ddf11a",
+        "crates/convex-analytics/src/pricing.rs": "40dd1343c4c8fb5955fbd344155f45aed808e1bdb8f051a9cf40ccf4ca3c0948",
+        "crates/convex-analytics/src/risk/profile.rs": "9d30e78e53d59ac1ab01262ce75777542b6994507883a48b3a27ed4801c5403c",
+        "crates/convex-analytics/src/spreads/benchmark.rs": "17b7216492f65a365693f26e7066092f3bf173e8b5491ed38fb1872542cfe101",
+        "crates/convex-analytics/src/spreads/discount_margin.rs": "faa227fce7b5598b846630f00bd29dba6e78219f34af8884f56e5ce8a213f3ef",
+        "crates/convex-analytics/src/spreads/ispread.rs": "08e3273a8572b1fbe80aea98c7c57736c31fed9551661104a0702248fa4b1878",
+        "crates/convex-analytics/src/spreads/zspread.rs": "bbe512b8d21ab55f4f558ca871e3692dcd62b10743c1cd39e8f6bdd230da65cd",
+        "crates/convex-core/Cargo.toml": "e109563d43a1f27ba36f779d7755e4103d37e8ce2f0d03e0be778a4708003ade",
+        "crates/convex-core/src/error.rs": "70b0521ca7f6c320fe26c93c8b9e6b8edda7f0f2b448caf45793f2250e6d6788",
+        "crates/convex-core/src/types/mod.rs": "3b6921c661844921c9d73893a5c2fe92f66a2e87598517e2a9ed4c8da4eb130b",
+        "crates/convex-core/src/types/price.rs": "49ef9a668220ecce6927e0eb993f490128f86e94815ef336dee85344ef92c111",
+        "crates/convex-core/src/types/quote_display.rs": "e1d635abcbe30c534a4933eccec1cc3f5031854e28cee74d10014f98b38bc304",
+        "crates/convex-core/src/types/spread.rs": "cd22ee0b59a511584876984e3b422b5ff97bce87e2933016a00a779b8d593f83",
+        "crates/convex-core/src/types/yield_type.rs": "31c713bda65b8e787d24e19023d872ed4d795001b95d6636c50d32f3712bca38",
+        "crates/convex-core/tests/quote_scalars.rs": "e7351ee667eeb64a2341bef47700ea2dea5865a37a3f72d7e17c28781fe5ba3e",
+        "crates/convex-core/tests/support/quote_scalar_consumer.rs": "e7e301d505edaeb187dff69443adc7f1459507bbf19217cf1ef7ab6160623714",
+        "crates/convex-ffi/src/dispatch.rs": "93a065a2d27a679c94427b18eb5786f06e8d1e3f3283d7114528e6effd1fbc7d",
+        "crates/convex-math/src/decimal.rs": "454ee76c3a7f9e20c3f22ab11909bd5f1b5da1027a33bc92f88a968b8c39ceb7",
+        "docs/ROUTE-MIGRATION.md": "13689c86cc51ebbe65310ad53bec78f4a39c73754f26fb1bc59e81fcda6f9bf6",
+        "tests/fixtures/native-price-display.json": "9215fabfe85f7abc06a734a3a9aab6a6883cc97d42e00c907eeab7be289a0f52",
+        "tests/fixtures/native-quote-scalars.json": "6fcc13eaf0a750d6af49d83acc05bdd0c8d28563a2929febb02f798a56803458",
+        "tests/fixtures/native-spread-float.json": "09522e69e2f83b0d65518f5a1569e9a19a5a3786954eef9ebec8c3c7733433e9",
+        "tools/assurance/inventory.json": "eb786e1c59348bd5968353f29f5eff0069145a0eaf789a5b16809114586ed59c",
+        "tools/assurance/numeric-evidence.json": "6e617fe4564ebf8c500a8ce5924a01ecf7c361ceac1e65fcd222746a9a5839b2",
+        "tools/library/library-inventory.json": "9587b2807950f90ed16097616cdb04a499e1637e6099a36336f9cfec4cade868"
+      },
+      "tests": [
+        "Source-bound original187replay; preserve all49original responses and all1923pins/defaults.",
+        "Four native functions in three profiles:187exact scalar,12price display and25exact-bit binary64 cases.",
+        "Full required native/library/assurance/private/lint/minimum-compiler/financial and actual-host replay with final bound runtimes."
+      ]
     }
   ]
 }
