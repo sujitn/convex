@@ -7293,6 +7293,18 @@
         "tools/core_book_workflow.py"
       ],
       "exceptions": []
+    },
+    {
+      "path": "tools/book_events.py",
+      "sha256": "56985b5eb7608664784eeb832546819656ed96acf778932f2e6ae327cd10b55b",
+      "invariants": "Full native causal extension through existing ReferenceRepository CAS/idempotence, curve/fixing snapshot and result ports. Preserve opening, prior ordered phases/counterfactuals, common resources, native numerical policies and immutable scoped fill/lifecycle/receipt identities. Same closing products/positions/reference units own risk and hedge policy. Bind the entire batch hash to its stable durable commit. Native P&L validates all financial effects before a release is returned; no position/cash/pricing arithmetic, inferred fill or received-cash substitute.",
+      "bounds": "2MiB/65536nodes/depth64 batch; native core1MiB/32calculations,16ordered phases/33points/existing product-work limits;4096 distinct scoped fact identities; positiveu64 source/reference versions, no wrap; HTTP32MiB read and120second CLI timeout. All loops bounded by admitted complete input sets; no local event database or cursor.",
+      "failure_contract": "Changed original history/identity/policy or stale CAS rejects; exact uncertain retries recover original durable reference/result receipts. Native bad quantities/history/events/cash or unsupported affected lifecycle risk returns no publishable book. A failed committed candidate remains auditable/unreleased and needs the existing explicit correction process. New ended/partial/notified/physical exposure and affected future claims cannot use unchanged original product risk. Safe fixed diagnostics/HTTP status only; no execution authority.",
+      "tests": [
+        "tools/tests/test_book_events.py",
+        "tools/core_event_workflow.py"
+      ],
+      "exceptions": []
     }
   ],
   "c_exports": [

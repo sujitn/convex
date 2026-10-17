@@ -2992,6 +2992,12 @@ jobs:
       - name: Run core position and reference updates with recovery
         run: python3 tools/core_book_workflow.py
 
+      - name: Check core event identities and durable admission recovery
+        run: python3 -m unittest discover -s tools/tests -p test_book_events.py
+
+      - name: Run core fills lifecycle and cash events with recovery
+        run: python3 tools/core_event_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

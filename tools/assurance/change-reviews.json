@@ -5645,6 +5645,33 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py --binary-dir /private/tmp/convex-core-book-target/debug",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base a3bbbbca1d81490c27f8284928b57650954c3c7f"
       ]
+    },
+    {
+      "base_commit": "eb5c9b37078cb45bb08dc68962efa324a4d70606",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested simple provider-neutral fill/lifecycle/cash ingestion using existing ports, consistent core risk/hedge/P&L and restart recovery. Add one bounded adapter and runnable synthetic end-to-end example; preserve every existing Rust, native formula, numerical pin/default, old test/example and stream/worker/backend/route. Producer supplies complete actual native facts/after points, adapter conserves the entire prior causal path, stable scoped IDs and policy, existing atomic reference CAS/idempotence owns retries, and native P&L validates economics before returning the existing book release. Conservative risk-scope checks block unsupported changed exposure; no false original-vector hedges. New example batches actual clearing plus first partial receipt in one native Event phase to respect unchanged4MiB report bound while retaining both ordered facts, partial state and full reconciliation; no false counterfactual or bound relaxation. All1937 numerical rows/bytes/defaults,2154 literal Planned requirements and full causal/physical/CTD ownership requirements remain. Local engineering evidence is not independent quantitative/production/live/latency approval.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "20f2463dcf25f6bd15a24e60bf34b119803b1695d780b10050704a46da841d89",
+        "crates/convex-server/README.md": "c1027bf4cba9c5d6b8e5c30367879a251fab8d30c2f076dedb2a2de1554393cf",
+        "tools/BOOK-UPDATES.md": "232534430cb36c85735b02c1c2dbf64c9f1f32673060b1649edece512d68cc65",
+        "tools/BOOK-EVENTS.md": "9debaf5093384e5f35307502528ad5178ac9f243fe77bc45dc82e5057ba837d2",
+        "tools/book_events.py": "56985b5eb7608664784eeb832546819656ed96acf778932f2e6ae327cd10b55b",
+        "tools/core_event_workflow.py": "f28846b539bbdc47663d533765f9f45a1908ddaf2ec2a02fe36492d53f27eada",
+        "tools/tests/test_book_events.py": "414f3ff219e22072bfa20c36e5fb693147a11107fa118aec5b0f211457a561be",
+        "tools/assurance/check.py": "4809f0d193259d5fb73f6b9da7989227a9498aa7928281f60a3f7456083e44d7",
+        "tools/assurance/inventory.json": "22c89f37ee613da07178603c7a330bccc55990559e556a8bc5a05bb09b37c862",
+        "tools/library/library-inventory.json": "2a45cd9ef92a1e38afe708698163a2635d48fa1cf66c4876d0bd2e968bf0d325"
+      },
+      "tests": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_book_events.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_*.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_book_workflow.py --binary-dir /private/tmp/convex-core-events-target/debug",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/assurance -p test_*.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/library -p test_coverage.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base eb5c9b37078cb45bb08dc68962efa324a4d70606"
+      ]
     }
   ]
 }

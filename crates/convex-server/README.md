@@ -169,6 +169,12 @@ current risk and hedge inputs to one complete native P&L closing point. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_book_workflow.py` for fill/reference
 updates, consistency rejection, commit faults and restart recovery.
 
+The [event adapter](../../tools/BOOK-EVENTS.md) admits actual fills, lifecycle and
+cash facts through those same ports and publishes the existing book record after
+native P&L validation. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py` for an IRS fill,
+official futures settlement, partial/completing cash receipts and restart recovery.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

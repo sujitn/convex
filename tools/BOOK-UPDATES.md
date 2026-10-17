@@ -49,6 +49,11 @@ The existing portfolio CRUD fixture interface is separate from this durable core
 book. To update this mixed-instrument workflow, publish the complete core definition
 and release above. No new server route, position database or event ledger is added.
 
+For actual fills, lifecycle transitions and cash receipts, the
+[event adapter](BOOK-EVENTS.md) checks a complete causal extension, commits through
+the same reference port, validates native P&L and emits this existing book record.
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py` for that path.
+
 ## Subscription and record
 
 Opt in by adding one book identity to the existing subscription:
