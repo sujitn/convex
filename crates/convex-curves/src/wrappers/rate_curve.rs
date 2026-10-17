@@ -5,7 +5,6 @@ use convex_core::daycounts::DayCount;
 use convex_core::error::ConvexResult;
 use convex_core::traits::YieldCurve;
 use convex_core::types::{Compounding, Date};
-use convex_math::portable;
 use rust_decimal::Decimal;
 
 use crate::conversion::ValueConverter;
@@ -106,30 +105,7 @@ impl<T: TermStructure> RateCurve<T> {
 
     /// Returns the continuously compounded zero rate at the given date.
     pub fn zero_rate_continuous(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let value = self.inner.value_at(t);
-        let value_type = self.inner.value_type();
-
-        match value_type {
-            ValueType::DiscountFactor => Ok(ValueConverter::df_to_zero(
-                value,
-                t,
-                Compounding::Continuous,
-            )),
-            ValueType::ZeroRate { compounding, .. } => Ok(ValueConverter::convert_compounding(
-                value,
-                compounding,
-                Compounding::Continuous,
-            )),
-            _ => Err(CurveError::incompatible_value_type(
-                "DiscountFactor or ZeroRate",
-                format!("{:?}", value_type),
-            )),
-        }
+        self.zero_rate(date, Compounding::Continuous)
     }
 
     /// Returns the zero rate at the given date with specified compounding.
@@ -143,29 +119,84 @@ impl<T: TermStructure> RateCurve<T> {
         self.zero_rate_at_tenor(t, compounding)
     }
 
-    /// Returns the zero rate at a tenor with specified compounding.
+    /// Returns the zero rate at a tenor with specified compounding. At the
+    /// origin a supplied zero quotation defines its limit. A discount source
+    /// requires its actual normalized origin and analytic derivative.
     pub fn zero_rate_at_tenor(&self, t: f64, compounding: Compounding) -> CurveResult<f64> {
-        if t <= 0.0 {
-            return Ok(0.0);
+        if !t.is_finite() || t < 0.0 {
+            return Err(CurveError::invalid_value(
+                "zero-rate tenor must be finite and nonnegative",
+            ));
         }
-
-        let value = self.inner.value_at(t);
+        let value = self.inner.try_value_at(t)?;
         let value_type = self.inner.value_type();
-
+        if t == 0.0 {
+            return self.origin_zero_rate(value, &value_type, compounding);
+        }
         match value_type {
-            ValueType::DiscountFactor => Ok(ValueConverter::df_to_zero(value, t, compounding)),
+            ValueType::DiscountFactor => ValueConverter::df_to_zero(value, t, compounding),
             ValueType::ZeroRate {
                 compounding: stored,
                 ..
-            } => Ok(ValueConverter::convert_compounding(
-                value,
-                stored,
-                compounding,
-            )),
+            } => ValueConverter::convert_compounding(value, t, stored, compounding),
             _ => Err(CurveError::incompatible_value_type(
                 "DiscountFactor or ZeroRate",
-                format!("{:?}", value_type),
+                format!("{value_type:?}"),
             )),
+        }
+    }
+
+    fn origin_zero_rate(
+        &self,
+        value: f64,
+        kind: &ValueType,
+        target: Compounding,
+    ) -> CurveResult<f64> {
+        if !value.is_finite() {
+            return Err(CurveError::invalid_value("nonfinite origin quotation"));
+        }
+        let (rate, source) = match kind {
+            ValueType::ZeroRate { compounding, .. } => (value, *compounding),
+            ValueType::DiscountFactor => {
+                if value != 1.0 {
+                    return Err(CurveError::invalid_value(
+                        "discount origin must be normalized to one",
+                    ));
+                }
+                let derivative = self
+                    .inner
+                    .derivative_at(0.0)
+                    .ok_or(CurveError::DerivativeNotAvailable { tenor: 0.0 })?;
+                if !derivative.is_finite() {
+                    return Err(CurveError::invalid_value("nonfinite origin derivative"));
+                }
+                (-derivative, Compounding::Continuous)
+            }
+            _ => {
+                return Err(CurveError::incompatible_value_type(
+                    "DiscountFactor or ZeroRate",
+                    format!("{kind:?}"),
+                ))
+            }
+        };
+        // Simple and continuous quotations have the same limit at zero time.
+        // Periodic-to-continuous conversion is horizon independent. No Simple
+        // quotation is converted using an invented one-year period.
+        let continuous = match source {
+            Compounding::Continuous | Compounding::Simple => rate,
+            _ => ValueConverter::convert_compounding(rate, 1.0, source, Compounding::Continuous)?,
+        };
+        if source == target {
+            return Ok(rate);
+        }
+        match target {
+            Compounding::Continuous | Compounding::Simple => Ok(continuous),
+            _ => ValueConverter::convert_compounding(
+                continuous,
+                1.0,
+                Compounding::Continuous,
+                target,
+            ),
         }
     }
 
@@ -194,22 +225,14 @@ impl<T: TermStructure> RateCurve<T> {
         t2: f64,
         compounding: Compounding,
     ) -> CurveResult<f64> {
-        if t2 <= t1 {
+        if !t1.is_finite() || !t2.is_finite() || t1 < 0.0 || t2 <= t1 {
             return Err(CurveError::invalid_value(
-                "End tenor must be after start tenor",
+                "forward tenors must be finite, nonnegative and strictly ordered",
             ));
         }
-
         let df1 = self.discount_factor_at_tenor(t1)?;
         let df2 = self.discount_factor_at_tenor(t2)?;
-
-        Ok(ValueConverter::forward_rate_from_dfs(
-            df1,
-            df2,
-            t1,
-            t2,
-            compounding,
-        ))
+        ValueConverter::forward_rate_from_dfs(df1, df2, t1, t2, compounding)
     }
 
     /// Returns the instantaneous forward rate at the given date.
@@ -224,43 +247,54 @@ impl<T: TermStructure> RateCurve<T> {
 
     /// Returns the instantaneous forward rate at a tenor.
     pub fn instantaneous_forward_at_tenor(&self, t: f64) -> CurveResult<f64> {
-        let value_type = self.inner.value_type();
-
-        match value_type {
-            ValueType::ZeroRate { compounding, .. } if compounding == Compounding::Continuous => {
-                // f(t) = r(t) + t * dr/dt
-                let rate = self.inner.value_at(t);
-                let derivative = self
-                    .inner
-                    .derivative_at(t)
-                    .ok_or_else(|| CurveError::DerivativeNotAvailable { tenor: t })?;
-                Ok(ValueConverter::instantaneous_forward(rate, derivative, t))
-            }
+        if !t.is_finite() || t < 0.0 {
+            return Err(CurveError::invalid_value(
+                "instantaneous-forward tenor must be finite and nonnegative",
+            ));
+        }
+        let kind = self.inner.value_type();
+        if !matches!(kind, ValueType::ZeroRate { .. } | ValueType::DiscountFactor) {
+            return Err(CurveError::incompatible_value_type(
+                "DiscountFactor or ZeroRate",
+                format!("{kind:?}"),
+            ));
+        }
+        let value = self.inner.try_value_at(t)?;
+        let derivative = self
+            .inner
+            .derivative_at(t)
+            .ok_or(CurveError::DerivativeNotAvailable { tenor: t })?;
+        if !value.is_finite() || !derivative.is_finite() {
+            return Err(CurveError::invalid_value(
+                "instantaneous-forward value and derivative must be finite",
+            ));
+        }
+        let (result, nonzero_numerator) = match kind {
+            ValueType::ZeroRate { compounding, .. } => (
+                ValueConverter::instantaneous_forward(value, derivative, t, compounding)?,
+                false,
+            ),
             ValueType::DiscountFactor => {
-                // f(t) = -d/dt ln(P(t)) = -P'(t)/P(t)
-                let df = self.inner.value_at(t);
-                let df_deriv = self
-                    .inner
-                    .derivative_at(t)
-                    .ok_or_else(|| CurveError::DerivativeNotAvailable { tenor: t })?;
-
-                if df <= 0.0 {
+                if value <= 0.0 {
                     return Err(CurveError::invalid_value(
-                        "Discount factor must be positive",
+                        "discount factor must be positive",
                     ));
                 }
-
-                Ok(-df_deriv / df)
+                (-derivative / value, derivative != 0.0)
             }
             _ => {
-                // Fall back to finite difference approximation
-                let dt = 1.0 / 365.0; // 1 day
-                let df1 = self.discount_factor_at_tenor(t)?;
-                let df2 = self.discount_factor_at_tenor(t + dt)?;
-                let fwd = -portable::log(df2 / df1) / dt;
-                Ok(fwd)
+                return Err(CurveError::incompatible_value_type(
+                    "DiscountFactor or ZeroRate",
+                    format!("{kind:?}"),
+                ))
             }
+        };
+        if !result.is_finite() || (nonzero_numerator && result == 0.0) {
+            return Err(CurveError::invalid_value(
+                "unrepresentable instantaneous forward",
+            ));
         }
+        Ok(result)
     }
 
     /// Returns the par swap rate for a given maturity.
@@ -573,7 +607,7 @@ mod tests {
         let rate = curve
             .zero_rate_at_tenor(0.0, Compounding::Continuous)
             .unwrap();
-        assert_relative_eq!(rate, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(rate, 0.04, epsilon = 1e-10);
     }
 
     #[test]

@@ -19,7 +19,7 @@ pub enum RollPolicy {
     StickyZero,
 }
 
-fn fraction(tau: f64) -> Result<()> {
+pub(crate) fn fraction(tau: f64) -> Result<()> {
     let ceiling = convex_core::cashflows::MAX_CONTRACT_DAYS as f64 / 360.0;
     if !tau.is_finite() || !(0.0..=ceiling).contains(&tau) {
         return Err(Error::invalid(
@@ -72,11 +72,16 @@ pub fn rate_from_discount(discount: f64, tau: f64, compounding: Compounding) -> 
     rate_from_log_accumulation(-portable::log(discount), tau, compounding)
 }
 
-fn rate_from_log_accumulation(
+pub(crate) fn rate_from_log_accumulation(
     log_accumulation: f64,
     tau: f64,
     compounding: Compounding,
 ) -> Result<f64> {
+    fraction(tau)?;
+    positive(tau, "rate year fraction")?;
+    if !log_accumulation.is_finite() {
+        return Err(Error::Numerical("nonfinite log accumulation".into()));
+    }
     let rate = match compounding {
         Compounding::Continuous => log_accumulation / tau,
         Compounding::Simple => portable::expm1(log_accumulation) / tau,

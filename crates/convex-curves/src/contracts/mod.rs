@@ -32,6 +32,7 @@ pub use parametric_fit::*;
 pub use query::*;
 pub use structured::*;
 pub use transformations::*;
+pub(crate) use transformations::{fraction, rate_from_log_accumulation};
 pub use ufr::{ProductUfrSettings, UfrCurveDiagnostics, UfrParameters};
 
 /// Maximum recipes in one atomic curve build, including supplied dependencies.

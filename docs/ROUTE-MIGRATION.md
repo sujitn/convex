@@ -899,3 +899,25 @@ contains its zero-based `input_index`, original `portfolio_id`, and a `status`
 of `success` with a native `result` or `error` with the actual diagnostic.
 The former split success/error arrays and their error-only DTO retire; repeated
 portfolio IDs and interleaved failures retain their original request positions.
+
+## Checked native curve conversions
+
+`ValueConverter` methods return `CurveResult`; handle rejected domains and
+unrepresentable arithmetic explicitly. `convert_compounding(rate, time, from,
+to)` uses the actual positive year fraction, including Simple compounding.
+`instantaneous_forward(rate, derivative, time, compounding)` accepts the rate
+and its derivative in the declared quotation and differentiates that same law.
+Discount factors at time zero remain one. A bare discount at zero does not
+define an annualized rate. `RateCurve` retains a supplied zero quotation at the
+origin, or derives its limit from an actually supplied normalized discount and
+analytic derivative. Simple quotations use their zero-time limit; periodic
+quotations use horizon-independent conversion. Missing source information fails.
+
+`RateCurve` zero and forward queries preserve checked source errors and declared
+tails. An instantaneous forward requires a supplied analytic derivative; a
+one-day approximation is no longer selected implicitly. `hazard_to_survival`
+is explicitly constant-intensity arithmetic. `risky_discount_factor` describes
+an explicitly supplied terminal recovery payoff, without a CDS or default-time
+recovery assumption. Full dated IRS/OIS, CDS and issuer-credit pricing continue
+through their complete supplied-term analytics owners. Broader native date,
+par-grid and credit-wrapper semantics still require their own qualification.

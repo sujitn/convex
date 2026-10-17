@@ -5350,6 +5350,34 @@
           ".ai/production-readiness/evidence/CVX-063-Quote-Wire/failed-candidate-05/complete-freeze.json"
         ]
       }
+    },
+    {
+      "base_commit": "85db6feb5c5dcc661bcaadf2e04067e7c0f67181",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Checked supplied-period scalar conversions and analytic forwards preserve the original 1919 numerical rows/defaults and all original reference inputs/bounds. A failed full curve-library run retains 173 passes and the old unpinned zero-origin expectation. Its supplied short-end quotation is 4%, independently confirmed by Decimal limits and actual QuantLib1.40 within the unchanged 1e-10 test bound; correct only that unpinned expectation from zero to 0.04. At the origin retain a supplied zero quotation or derive its limit from the actual normalized discount and analytic derivative, without a guessed interval. Bare factor annualization remains undefined. Add 168 independently predeclared origin conversions and genuine-information admission controls. All 640 original scalar/192 derivative answers and 2e-14 bounds remain unchanged. Correct the new origin-rejection admission to its actual supplied quotation; preserve the original failed capture. No provider, package, storage or runtime dependency changes. Every original native/date/par/credit/model/convention/client/exact-operation/remote-MCP and full causal/claim/physical requirement, CTD alternative/tie/switch and actual ownership remains; only unavailable actual platform execution defers. No acceptance, independent approval or certificate is inferred.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "52644c8e2d62b4e5ee028b53876cf4473fd6b21cfcdbe8062fd5513b27292cff",
+        "crates/convex-curves/src/contracts/mod.rs": "2e89bc8780d256c276ba906bd832e012dd4421f8e563725e3454bb490323acff",
+        "crates/convex-curves/src/contracts/transformations.rs": "12beea4dc632357c19e0e70429a62377756577e0779d5524050ab0bf115de6d7",
+        "crates/convex-curves/src/conversion.rs": "62183d197853f6b290021dad200c2249df53fa26533dd01dc3a7240e67c04ce1",
+        "crates/convex-curves/src/term_structure.rs": "ddfff0b6de9457b354c104961c37c0310225e41051e76a5e40f1218ecc1d530b",
+        "crates/convex-curves/src/wrappers/credit_curve.rs": "b1ec0746dff574648ec0a5d106f8910c78b272ff8c1ee875b3757c1e05ec4ea3",
+        "crates/convex-curves/src/wrappers/rate_curve.rs": "af47877a16c93d7da8a358908ef540a8ac8f1d9aab8345eacc3470181cd86b19",
+        "crates/convex-curves/tests/native_conversions.rs": "9c71da2c91db2f3f42a668950f34b51491ba4835c559010332a5d72921c51e53",
+        "docs/ROUTE-MIGRATION.md": "436d49cd2bf238f5bf693ea11f7c0683c40759f2f148307618f57b4786d172fa",
+        "tests/fixtures/native-curve-conversions.json": "97dea15da9afd9e370565099a4a67f472a944a5da907b3bf4e76a5a8477bd89b",
+        "tests/fixtures/native-curve-derivatives.json": "f42cd95d9fd08d58f5d0e445216e8c1e06cb1736f2c4bf80bc4ed0e6d7840aff",
+        "tests/fixtures/native-curve-origins.json": "a3064e1ae1fe5ef6f20617aa4ee2ab87ed2c7ac71babf96a23ef3bd3ed430c57",
+        "tools/assurance/inventory.json": "ad8c4979185ab5521978b6dd675da4daf7450194678a291e183f470433e855a5",
+        "tools/assurance/numeric-evidence.json": "deb59a1961f30bfc3d6b71ae53e1dfac6e404990080fe24c286e86db9b6fa77e",
+        "tools/library/library-inventory.json": "3a82c4d8ba6d77c0c51d5d1a79c788f5b927990ceb5c62cc957da95ec142c86e"
+      },
+      "tests": [
+        "Preserved full failed candidate with 263 executed native binaries, all original inputs/bounds and actual 173-pass/one-fail curve run.",
+        "All original 1919 quantitative rows/defaults remain; one independently substantiated unpinned origin assertion changes 0 to 0.04 at the same 1e-10 bound.",
+        "Nine native controls/three profiles; original 832 plus 168 independent origin outputs and 18 corrected admission controls; full required fresh qualification without retained successes."
+      ]
     }
   ]
 }

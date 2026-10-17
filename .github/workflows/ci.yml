@@ -532,6 +532,15 @@ jobs:
       - name: Qualify quote marks schema
         run: cargo test --locked -p convex-core --test quote_marks --features schemars
 
+      - name: Checked native curve conversion default
+        run: cargo test --locked -p convex-curves --test native_conversions
+
+      - name: Checked native curve conversion no default features
+        run: cargo test --locked -p convex-curves --test native_conversions --no-default-features
+
+      - name: Checked native curve conversion schemas
+        run: cargo test --locked -p convex-curves --test native_conversions --features schemars
+
       - name: Qualify native discount default
         run: cargo test --locked -p convex-curves --test native_discount
 

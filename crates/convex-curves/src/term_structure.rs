@@ -111,10 +111,21 @@ pub trait TermStructure: Send + Sync {
     /// Returns an error if t is outside the valid range.
     fn try_value_at(&self, t: f64) -> CurveResult<f64> {
         let (min, max) = self.tenor_bounds();
+        if !t.is_finite() || t < 0.0 || !min.is_finite() || max.is_nan() || min < 0.0 || max < min {
+            return Err(crate::error::CurveError::invalid_value(
+                "invalid checked tenor or declared bounds",
+            ));
+        }
         if t < min || t > max {
             return Err(crate::error::CurveError::tenor_out_of_range(t, min, max));
         }
-        Ok(self.value_at(t))
+        let value = self.value_at(t);
+        if !value.is_finite() {
+            return Err(crate::error::CurveError::invalid_value(
+                "nonfinite checked curve value",
+            ));
+        }
+        Ok(value)
     }
 
     /// Returns the value at a specific date.

@@ -107,14 +107,14 @@ impl<T: TermStructure> CreditCurve<T> {
             ValueType::SurvivalProbability => Ok(value.clamp(0.0, 1.0)),
             ValueType::HazardRate => {
                 // For constant hazard rate: Q(t) = exp(-h * t)
-                Ok(ValueConverter::hazard_to_survival(value, t))
+                ValueConverter::hazard_to_survival(value, t)
             }
             ValueType::CreditSpread { recovery, .. } => {
                 // Convert spread to hazard rate, then to survival
                 // Spread ≈ h * (1 - R)
                 let lgd = 1.0 - recovery;
                 let hazard = if lgd > 1e-10 { value / lgd } else { 0.0 };
-                Ok(ValueConverter::hazard_to_survival(hazard, t))
+                ValueConverter::hazard_to_survival(hazard, t)
             }
             _ => Err(CurveError::incompatible_value_type(
                 "SurvivalProbability, HazardRate, or CreditSpread",
@@ -244,11 +244,11 @@ impl<T: TermStructure> CreditCurve<T> {
                 // Try to get derivative for exact hazard rate
                 if let Some(d_surv) = self.inner.derivative_at(t) {
                     let surv = self.inner.value_at(t);
-                    Ok(ValueConverter::survival_to_hazard(surv, d_surv))
+                    ValueConverter::survival_to_hazard(surv, d_surv)
                 } else {
                     // Fall back to implied constant hazard rate
                     let surv = self.inner.value_at(t);
-                    Ok(ValueConverter::implied_hazard_rate(surv, t))
+                    ValueConverter::implied_hazard_rate(surv, t)
                 }
             }
             ValueType::CreditSpread { recovery, .. } => {
@@ -279,7 +279,7 @@ impl<T: TermStructure> CreditCurve<T> {
     pub fn implied_hazard_rate(&self, date: Date) -> CurveResult<f64> {
         let t = self.date_to_tenor(date);
         let surv = self.survival_probability_at_tenor(t)?;
-        Ok(ValueConverter::implied_hazard_rate(surv, t))
+        ValueConverter::implied_hazard_rate(surv, t)
     }
 
     /// Returns the credit spread at the given date.
@@ -358,11 +358,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ) -> CurveResult<f64> {
         let df = discount_curve.discount_factor_at_tenor(t)?;
         let surv = self.survival_probability_at_tenor(t)?;
-        Ok(ValueConverter::risky_discount_factor(
-            df,
-            surv,
-            self.recovery_rate,
-        ))
+        ValueConverter::risky_discount_factor(df, surv, self.recovery_rate)
     }
 
     /// Returns the expected loss at the given date.
