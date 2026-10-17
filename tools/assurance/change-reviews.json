@@ -5730,6 +5730,53 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py --binary-dir /private/tmp/convex-core-lifecycle-target/debug",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 73d7139d7cbd44c616323a94ba74bd786ea6dfd4"
       ]
+    },
+    {
+      "base_commit": "8df3c0d8a6c21f2e8d81b226e897d1268b0caaea",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested simple provider-neutral CDS default/recovery through existing core ports with positions/risk/hedge/P&L and restart recovery. Existing native default/recovery/rounding/accrual/claim/receipt owners remain unchanged. Add a validated unresolved-CDS state audit without actual PV/risk; selecting its existing book record withdraws readiness across restart. Explicit schema2 may consolidate only the verified last unpriced event information set with actual matching recovery, preserving every earlier priced phase/counterfactual and immutable scoped fact. Original unpriced definition remains auditable, never retroactively priced. Known default state uses original full graph/claim revaluation; actual default entity excludes fresh candidates and requires complete affected holdings, with zero pending exposure and original solver/FX/quantity/admission policies. Non-default wire shape remains exact via absent optional metadata. No new route, dependency, storage schema, ledger, queue or execution service. Independent first-declared Decimal80 recovery/accrual cash and price/risk answers/units/1e-7bounds remain unchanged; retained request-only legal-context/obsolete-boundary/curve-pin repairs precede valid comparisons. Native cash/current-model P&L residuals remain exactly0 in the example; marking cancellation residuals are retained and verified under the derived half-ULP native-operation bound, not a selected/widened financial tolerance or clamp. Retain the first failed exact-zero comparison and diagnostic. All1940old numerical rows/defaults/physical files and original exact-zero examples/tests stay exact;5new controls give1945pins. All2154mandatory Planned requirements and149prior observations stay unchanged. Local engineering evidence only; no independent market/model/host/production/latency certificate or task acceptance.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "e2e0c832cd1e3289301390a6f6b0fbadb76d6d52b14cf26af97cc00a5176e57b",
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "8e8c12dec4c73e904485549033801321bc467751f1988affea8c0070d89d91ba",
+        "crates/convex-analytics/src/risk/hedging/constrained/types.rs": "099cb235ff2b918463310e3c32614a22877c07c551972afae621c8dd341bd584",
+        "crates/convex-analytics/src/workflow/reconciliation/product.rs": "ba2591d048f99e1bdbe18b0ef46a7e0730a14407cb70d1992d8393a04bd05345",
+        "crates/convex-server/README.md": "791d58e4986e63d9ca25340a872c68330d6f56af9ac37094fc1c49b7de0c588d",
+        "crates/convex/src/library/lifecycle_risk.rs": "5995c22deae6be5726243945cf34fc47c193bde408854507366375f950bb8cc7",
+        "crates/convex/tests/cds_events.rs": "b79e6ae42a25278b3edf8281159092868c322e30b2e03aa3501211eec201235a",
+        "docs/LIBRARY-API.md": "1732256d9115f27a3af1d242a848aa5bf3770a268f30b2ef1dba9631bfe2b32d",
+        "tests/fixtures/library/cds-events-contract.json": "9b29e0075c0e53ae9a8b8e41b7c0ece5cf8af4688e0255ff623ea3a6ef1c24ea",
+        "tests/scripts/cds_events_reference.py": "95903b60003c68cb74e1cb6848a5efbe16d78351f7cda58088cff2397136ec24",
+        "tools/BOOK-EVENTS.md": "98ea5889f4a48a9750e3f62db01b9154370bc9f4f6fbfab2eaf5dfa8519d329d",
+        "tools/BOOK-UPDATES.md": "d3c0253135e1b472be89a1ceaf1f59db90a3700e34aaa4988b8510ff4b17da09",
+        "tools/CDS-EVENTS.md": "93d7ce2da0f0c3f1ef070a9d3bd8e372089dfa73ebdbfad34c5df4463ef51e2f",
+        "tools/LIFECYCLE-RISK.md": "6ed22db91944a24cb4242e3f5d8c042c58a97db24724a17f5c26385621ee52b3",
+        "tools/assurance/check.py": "cc035fe3d9a4b5ffd8210c3c5dd850bb975ca77c826fea1263bb2979ebcedfd2",
+        "tools/assurance/inventory.json": "ad47d889b96b49ac3685732b15e1e2d9c1dd39daecc0956d3e4994716360985c",
+        "tools/assurance/numeric-evidence.json": "66ea27924c63239addf0e0143b2a400e81ff559a48ce778b1f0c49f3e4794b06",
+        "tools/book_events.py": "363caf95e244bb9d9a2fdc4466e89039d14e1cc4f161683e442bd849f07a9b8f",
+        "tools/core_cds_workflow.py": "ef0ba00ae058a2b988b029df2b90b0228c683dc2c5289a717ff1e1100cbf0461",
+        "tools/library/library-inventory.json": "528fbabf1d1db27ea7329abdfebf2e9e2978737957aefc7cf89399a8d10a3845",
+        "tools/lifecycle_risk.py": "6baa290d1fbe1e28cf05ced9afd30292b807b9d8a99b4a727905662377b975c9",
+        "tools/streaming_analytics.py": "983bcc06964d751059a05518789be072a61a58d2d3a04413bd6ff31ae4f2d2ab",
+        "tools/tests/test_cds_events.py": "8296f7847f89a371662f70247c721c069e0a502da8172d6685d44c085979b75a"
+      },
+      "tests": [
+        "cargo test --locked -p convex --test cds_events --test lifecycle_risk",
+        "cargo test --locked -p convex --test cds_events --test lifecycle_risk --no-default-features",
+        "cargo test --locked -p convex --test cds_events --test lifecycle_risk --features schemars",
+        "cargo test --locked -p convex-analytics --test lifecycle --test standalone_workflow --test pending_cash --test settled_claims --test claim_transfers --test directional_hedges",
+        "cargo test --locked -p convex --test causal_pnl --test graph_hedge --test mixed_scenario",
+        "cargo test --locked -p convex-engine -p convex-server --test core_workflow",
+        "cargo clippy --locked -p convex -p convex-engine -p convex-server --all-features --lib --bins -- -D warnings",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/cds_events_reference.py check",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_*.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_cds_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py --binary-dir /private/tmp/convex-core-cds-target/debug",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/assurance -p test_*.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/library -p test_coverage.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 8df3c0d8a6c21f2e8d81b226e897d1268b0caaea"
+      ]
     }
   ]
 }

@@ -59,6 +59,10 @@ For partial IRS/OIS termination and outstanding owned cash claims, use the
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py` to check
 current/pending exposure, fresh hedge candidates, full causal P&L and recovery.
 
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_cds_workflow.py` for
+[CDS default/recovery](CDS-EVENTS.md), unknown-claim blocking, native audit recovery,
+candidate exclusion and partial/completing cash reconciliation through those ports.
+
 ## Subscription and record
 
 Opt in by adding one book identity to the existing subscription:

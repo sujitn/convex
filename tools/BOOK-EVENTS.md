@@ -107,8 +107,16 @@ again before using actual current/pending risk alongside fresh hedge candidates.
 Without that proof, affected ended/partial/notified/physical states and future
 claims remain blocked. Due cash under the explicit nominal carrying policy and
 normal daily futures variation/receipts remain supported. Partial IRS/OIS requires
-the original joint accrual boundary; default, exercise, physical and cohort risk
-still need their complete owners.
+the original joint accrual boundary. [CDS default and actual recovery](CDS-EVENTS.md)
+use the same path; bond default, exercise, physical and cohort risk still need
+their complete owners.
+
+An unresolved native CDS default may return the existing book input-selection
+record without a priced P&L. Publish it so the worker immediately latches
+`cds_recovery_pending` and withdraws earlier readiness/proposals. The native
+unpriced audit contains no actual claim PV or sensitivity. Explicit schema 2
+resolves only that last unpriced information set with actual matching recovery,
+retaining every prior priced phase and immutable fact; see [the contract](CDS-EVENTS.md).
 
 On success, stdout contains **one existing normalized `book` record**. Publish it
 on the existing ordered feed; retain it in subsequent complete images. The

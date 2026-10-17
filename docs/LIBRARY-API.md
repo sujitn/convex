@@ -648,6 +648,13 @@ candidates retain separate amounts. The existing `hedge` operation accepts
 [the core lifecycle risk contract](../tools/LIFECYCLE-RISK.md) for full inputs,
 admission limits and the runnable partial-termination/receipt/recovery example.
 
+The same operation admits [native single-name CDS default/recovery](../tools/CDS-EVENTS.md).
+Unknown recovery returns a `lifecycle_unpriced` audit with no actual risk/P&L mark.
+Known recovery retains actual fixed claims and zero pending exposure;
+`lifecycle.default_entity` binds fresh-candidate exclusion and complete affected
+holding coverage in the existing native solver. Earlier non-default wire shapes
+remain unchanged.
+
 The additive `cohort_book_pnl` route retains exact original signed cohort cash
 ownership and complete actual physical asset/invoice handoff, including all-member
 CTD changes and actual-versus-model delivery choices. See

@@ -182,6 +182,11 @@ Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py` for a
 and recovery after an interrupted hedge result. New hedge trades retain fresh
 instrument risk; actual current claims stay with their original owner.
 
+Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_cds_workflow.py` for
+[CDS default and actual recovery](../../tools/CDS-EVENTS.md). It verifies unpriced
+default blocking across restart, recovery claim risk, defaulted-entity candidate
+exclusion, cash/P&L reconciliation and interrupted-result recovery.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

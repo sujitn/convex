@@ -3016,6 +3016,24 @@ jobs:
       - name: Run lifecycle risk hedge PnL and restart recovery
         run: python3 tools/core_lifecycle_workflow.py
 
+      - name: Check independent actual CDS recovery claim references
+        run: python3 tests/scripts/cds_events_reference.py check
+
+      - name: Check native CDS default recovery and candidate admission
+        run: cargo test --locked -p convex --test cds_events
+
+      - name: Check native CDS events without default features
+        run: cargo test --locked -p convex --test cds_events --no-default-features
+
+      - name: Check native CDS event schema
+        run: cargo test --locked -p convex --test cds_events --features schemars
+
+      - name: Check CDS default blocking and resolution controls
+        run: python3 -m unittest discover -s tools/tests -p test_cds_events.py
+
+      - name: Run core CDS default recovery cash and restart workflow
+        run: python3 tools/core_cds_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

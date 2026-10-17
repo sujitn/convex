@@ -393,6 +393,58 @@ pub fn mark_causal_pnl_position<'p>(
     )
 }
 
+/// Validate an actual unresolved CDS default without inventing its cash value.
+/// The immutable state is auditable; complete priced P&L remains unavailable.
+pub fn validate_causal_pnl_default_position(
+    path: &PreparedCausalPnl,
+    point_index: usize,
+    index: usize,
+    state: &l::LifecycleState,
+    product: &CausalPnlProduct<'_>,
+    cash_discount: &BuiltCurve,
+) -> ReconciliationResult<()> {
+    let point = path
+        .input
+        .points
+        .get(point_index)
+        .ok_or_else(|| bad("point", "outside original path"))?;
+    let pos = point
+        .positions
+        .get(index)
+        .ok_or_else(|| bad("holding", "outside expected coverage"))?;
+    let opening = path.input.points[0]
+        .positions
+        .get(index)
+        .ok_or_else(|| bad("holding", "opening owner absent"))?;
+    let view = state.view();
+    let CausalPnlProduct::Standard(p @ ValuationInputs::Cds { .. }) = product else {
+        return Err(WorkflowError::Unsupported(
+            "unpriced default requires the original single CDS owner",
+        )
+        .into());
+    };
+    standard(p, state, point, pos)?;
+    if path.cohorts.is_some()
+        || view.status != l::EconomicStatus::DefaultPending
+        || view.default_event.is_none()
+        || view.recovery.is_some()
+        || view.trade_id != pos.identity.id
+        || view.known_at > point.known_at
+        || view.effective_date > point.valuation_date
+        || !view.remaining_fraction.decimal().is_zero()
+        || unit(state) != opening.current.quantity.decimal()
+        || unit(state) != pos.current.quantity.decimal()
+        || !pos.pending_quantity.decimal().is_zero()
+        || !view.pending_boundaries.is_empty()
+        || cash_discount.recipe().key != pos.cash_discount
+        || cash_discount.recipe().currency != pos.current.currency
+        || !matches!(cash_discount.recipe().role,CurveRole::Discount{collateral_currency} if collateral_currency==pos.current.currency)
+    {
+        return Err(bad("unpriced default", "exact native opening/current CDS quantity, ended pending orders, date/cutoff and collateral owner required"));
+    }
+    Ok(())
+}
+
 /// Revalue the same replayed state on a complete native graph scenario. Actual
 /// events/receipts stay frozen; original product and claim owners do all pricing.
 pub fn mark_causal_pnl_scenario_position<'p>(

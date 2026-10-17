@@ -52,8 +52,11 @@ def facts(data):
 def prepare(client, batch):
     """Check immutable prefix, exact base pin and full current-risk bindings."""
     adapter.payload_bytes(batch)
-    if (not isinstance(batch, dict) or set(batch) != {'schema_version', 'id', 'base', 'definition', 'workflow'}
-            or type(batch['schema_version']) is not int or batch['schema_version'] != 1):
+    fields = {'schema_version', 'id', 'base', 'definition', 'workflow'}
+    if (not isinstance(batch, dict) or type(batch.get('schema_version')) is not int
+            or batch['schema_version'] not in (1, 2)
+            or set(batch) != fields | ({'resolve_default'} if batch['schema_version'] == 2 else set())
+            or batch['schema_version'] == 2 and batch['resolve_default'] is not True):
         raise ValueError('event_batch_schema')
     analytics.name(batch['id'])
     identity = stream.text_id(batch['base']['id'])
@@ -82,13 +85,22 @@ def prepare(client, batch):
     old = original['calculations'][previous['pnl']]['request']['operation']['input']
     new = proposed['calculations'][config['pnl']]['request']['operation']['input']
     count = len(old['steps'])
-    if (not 1 <= count < len(new['steps']) <= 16 or len(new['standalone']) != len(new['steps'])
+    resolving = batch['schema_version'] == 2
+    if resolving:
+        # Only an actually unpriced closing default may be consolidated. Its
+        # original complete definition remains immutable in the reference port.
+        pending = pending_defaults(client, base, original)
+        if not pending or old['steps'][-1]['cause'] != 'event':
+            raise ValueError('default_resolution_requires_unpriced_base')
+    common = count - 1 if resolving else count
+    if (not 1 <= count <= len(new['steps']) <= 16 or not resolving and count == len(new['steps'])
+            or len(new['standalone']) != len(new['steps'])
             or {k: v for k, v in old.items() if k not in ('before', 'steps', 'standalone', 'holdings')}
             != {k: v for k, v in new.items() if k not in ('before', 'steps', 'standalone', 'holdings')}):
         raise ValueError('event_batch_path_extension')
     if full_point(old, old['before']) != full_point(new, new['before']):
         raise ValueError('event_batch_opening_changed')
-    for i in range(count):
+    for i in range(common):
         a, b = old['steps'][i], new['steps'][i]
         sa, sb = copy.deepcopy(old['standalone'][i]), copy.deepcopy(new['standalone'][i])
         if sa['kind'] == 'available':
@@ -97,11 +109,17 @@ def prepare(client, batch):
             sb['information'] = full_point(new, sb['information'])
         if (a['cause'] != b['cause'] or full_point(old, a['after']) != full_point(new, b['after']) or sa != sb):
             raise ValueError('event_batch_history_changed')
-    if any(s['cause'] not in ('position', 'event', 'time') for s in new['steps'][count:]):
+    allowed = ('market', 'fx', 'position', 'event', 'time') if resolving else ('position', 'event', 'time')
+    if any(s['cause'] not in allowed for s in new['steps'][common:]):
         raise ValueError('event_batch_cause')
     before, after = facts(old), facts(new)
     if any(after.get(k) != v for k, v in before.items()) or not set(after) - set(before):
         raise ValueError('event_batch_requires_new_immutable_facts')
+    if resolving:
+        recoveries = [v['event']['action']['terms']['default_event'] for k, v in after.items()
+                      if k[0] == 'lifecycle' and k not in before and v['event']['action']['kind'] == 'recovery']
+        if not {v['state']['default_event'] for v in pending} <= set(recoveries):
+            raise ValueError('default_resolution_requires_actual_recovery')
     book_updates.bind(config, proposed, len(new['steps']) - 1)
     # Include orchestration too: reusing a batch ID with changed policy, source
     # book version or economics must conflict at the durable idempotency owner.
@@ -153,6 +171,26 @@ def risk_scope(report, close, previous_step=None, covered=()):
             raise ValueError('event_lifecycle_risk_unavailable')
 
 
+def pending_defaults(client, release, definition):
+    """Replay durable native default audits, without accepting a priced result."""
+    config = release['workflow']
+    record = book_updates.resolve(client, release)
+    plan = copy.deepcopy(config['plan'])
+    plan['known_at'] = analytics.iso(max(analytics.timestamp(plan['known_at']), analytics.timestamp(record['recorded_at'])))
+    snapshot = client.assemble(plan)
+    data = definition['calculations'][config['pnl']]['request']['operation']['input']
+    found = []
+    for calc in config['risks'].values():
+        operation = definition['calculations'][calc]['request']['operation']
+        if operation['kind'] == 'lifecycle_hedge_risk':
+            _, risk = client.run(snapshot, calc)
+            if risk['input']['snapshot_id'] != snapshot:
+                raise ValueError('lifecycle_risk_identity_mismatch')
+            if 'lifecycle_unpriced' in risk:
+                found.append(lifecycle_risk.checked_pending(risk, operation, data))
+    return found
+
+
 def ingest(client, batch):
     """Retry the identical command after uncertainty; release only checked P&L.
 
@@ -169,17 +207,30 @@ def ingest(client, batch):
     plan = copy.deepcopy(release['workflow']['plan'])
     plan['known_at'] = analytics.iso(max(analytics.timestamp(plan['known_at']), analytics.timestamp(record['recorded_at'])))
     snapshot = client.assemble(plan)
-    _, result = client.run(snapshot, release['workflow']['pnl'])
     data = batch['definition']['calculations'][release['workflow']['pnl']]['request']['operation']['input']
     covered = set()
+    pending = []
+    risks = []
     for identity, calc in release['workflow']['risks'].items():
         operation = batch['definition']['calculations'][calc]['request']['operation']
         if operation['kind'] == 'lifecycle_hedge_risk':
             _, risk = client.run(snapshot, calc)
             if risk['vector']['id'] != identity or risk['input']['snapshot_id'] != snapshot:
                 raise ValueError('lifecycle_risk_identity_mismatch')
-            lifecycle_risk.checked_state(risk, result['report'])
+            if 'lifecycle_unpriced' in risk:
+                pending.append(lifecycle_risk.checked_pending(risk, operation, data))
+            else:
+                risks.append(risk)
             covered.add(identity)
+    if pending:
+        if batch['schema_version'] == 2:
+            raise ValueError('default_resolution_incomplete')
+        # Publish the exact new input selection so the worker latches unavailable
+        # and withdraws old readiness. No recovery PV, risk or P&L is invented.
+        return dict(schema_version=1, kind='book', payload=release)
+    _, result = client.run(snapshot, release['workflow']['pnl'])
+    for risk in risks:
+        lifecycle_risk.checked_state(risk, result['report'])
     risk_scope(result['report'], data['steps'][-1]['after']['point'], batch['base']['position_step'], covered)
     return dict(schema_version=1, kind='book', payload=release)
 

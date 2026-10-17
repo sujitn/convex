@@ -434,7 +434,13 @@ class Workflow:
                         or any(s['snapshot_id'] != snapshot for s in vector['sensitivities'])):
                     raise Blocked('risk_identity_mismatch')
                 risks[identity], receipts[calc] = vector, receipt
-                expected_lifecycle = saved['content']['definition']['definition']['definition']['calculations'][calc]['request']['operation']['kind'] == 'lifecycle_hedge_risk'
+                definition = saved['content']['definition']['definition']['definition']
+                operation = definition['calculations'][calc]['request']['operation']
+                expected_lifecycle = operation['kind'] == 'lifecycle_hedge_risk'
+                if expected_lifecycle and 'lifecycle_unpriced' in result:
+                    data = definition['calculations'][self.config['pnl']]['request']['operation']['input']
+                    lifecycle_risk.checked_pending(result, operation, data)
+                    raise Blocked('cds_recovery_pending')
                 if expected_lifecycle != ('lifecycle' in result):
                     raise Blocked('lifecycle_risk_result_missing')
                 if expected_lifecycle:
@@ -512,6 +518,10 @@ class Workflow:
             item['risk'] = vector
         if states:
             request['operation']['action'] = dict(kind='solve_lifecycle', states=copy.deepcopy(states))
+            defaulted = {s['default_entity'] for s in states if s.get('default_entity') is not None}
+            if defaulted:
+                problem['candidates'] = [c for c in problem['candidates']
+                    if not any(r['entity_id'] in defaulted for r in c['risk']['credit_scope'])]
         return request
 
 

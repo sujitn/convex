@@ -193,6 +193,39 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
             "unique requested current holding states required",
         ));
     }
+    for state in states {
+        if let Some(entity) = &state.default_entity {
+            let holding = p
+                .holdings
+                .iter()
+                .find(|h| h.risk.id == state.position.identity.id)
+                .ok_or_else(|| invalid("default risk", "original holding absent"))?;
+            if holding.risk.product != HedgeProduct::Cds
+                || !holding
+                    .risk
+                    .credit_scope
+                    .iter()
+                    .any(|c| &c.entity_id == entity)
+                || !state.position.pending_quantity.decimal().is_zero()
+                || state
+                    .pending
+                    .iter()
+                    .any(|s| s.base_pv != 0.0 || s.value != 0.0)
+                || p.candidates
+                    .iter()
+                    .any(|c| c.risk.credit_scope.iter().any(|r| &r.entity_id == entity))
+                || p.holdings.iter().any(|h| {
+                    h.risk.credit_scope.iter().any(|r| &r.entity_id == entity)
+                        && !states.iter().any(|s| {
+                            s.position.identity.id == h.risk.id
+                                && s.default_entity.as_ref() == Some(entity)
+                        })
+                })
+            {
+                return Err(invalid("default risk", "complete defaulted entity holdings, zero pending exposure and no fresh defaulted-entity candidates required"));
+            }
+        }
+    }
     BusinessDate::try_from(p.settlement).map_err(|e| invalid("settlement", e.to_string()))?;
     settings(&p.settings)?;
     if finite(p.max_cost, "max_cost")? < 0.0 {

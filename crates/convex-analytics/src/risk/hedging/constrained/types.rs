@@ -101,6 +101,10 @@ pub struct Holding<S = QuoteSensitivity> {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LifecycleHoldingRisk {
+    /// Actual defaulted legal entity; fresh credit instruments are ineligible.
+    /// Absent for non-default states, preserving their exact wire shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_entity: Option<EntityId>,
     /// Exact same original native position and application identity.
     pub position: crate::workflow::PnlPositionInput,
     /// Full closing position/state manifest.

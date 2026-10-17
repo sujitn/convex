@@ -45,6 +45,10 @@ def checked_state(result, report):
     point = report['input']['points'][closing]
     position = next(p for p in point['positions'] if p['identity']['id'] == identity)
     mark = next(t for t in report['trades'] if t['id'] == identity)['marks'][closing]
+    expected_default = (result['vector']['credit_scope'][0]['entity_id']
+                        if mark['state'].get('default_event') is not None else None)
+    if state.get('default_entity') != expected_default:
+        raise ValueError('lifecycle_default_scope_mismatch')
     if (state['position'] != position or state['manifest'] != point['manifest']
             or state['settlement'] != point['valuation_date'] or state['snapshot_id'] != result['input']['snapshot_id']
             or result['lifecycle_mark']['state'] != mark['state'] or result['lifecycle_mark']['claims'] != mark['claims']
@@ -56,3 +60,24 @@ def checked_state(result, report):
                 or any(s['snapshot_id'] != state['snapshot_id'] or s['base_pv'] != mark['local'][key]['value'] for s in row)):
             raise ValueError('lifecycle_risk_amount_mismatch')
     return copy.deepcopy(state)
+
+
+def checked_pending(result, operation, data):
+    """An auditable native default state has no invented recovery value or risk."""
+    pending = result['lifecycle_unpriced']
+    identity = operation['input']['identity']['id']
+    point = data['steps'][-1]['after']['point']
+    position = next(p for p in point['positions'] if p['identity']['id'] == identity)
+    state = pending['state']
+    defaults = [s['event'] for s in operation['lifecycle']['events'] if s['event']['action']['kind'] == 'credit_default']
+    if (operation['product']['kind'] != 'cds' or len(defaults) != 1 or 'lifecycle' in result
+            or pending['position'] != position or pending['manifest'] != point['manifest']
+            or pending['settlement'] != point['valuation_date']
+            or pending['snapshot_id'] != result['input']['snapshot_id']
+            or result['vector']['id'] != identity or state['trade_id'] != identity
+            or pending['reason'] != 'actual_cds_recovery_unknown' or state['status'] != 'default_pending'
+            or state['default_event'] != defaults[0]['event_id'] or state['recovery'] is not None
+            or state['remaining_fraction'] != '0'
+            or pending['default_entity'] != operation['product']['terms']['reference']['entity_id']):
+        raise ValueError('unpriced_default_binding_mismatch')
+    return copy.deepcopy(pending)

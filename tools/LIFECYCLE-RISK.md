@@ -79,18 +79,22 @@ existing book definition without financial arithmetic. See
 The managed server resolves resources through the same ports and binds the
 captured snapshot ID. Historical dates/knowledge cannot exceed that snapshot.
 
-Before returning an event release, the adapter runs native P&L and lifecycle
+Before returning a priced event release, the adapter runs native P&L and lifecycle
 risk on the same snapshot. The worker repeats the checks on its selected input.
 Positions, manifests, dates, quantities, full state, claim ownership and local
 amounts must match exactly. Missing proof or mismatched history blocks the hedge.
 An ordinary product-risk operation cannot admit a terminated or partial holding.
+An [unresolved CDS default](CDS-EVENTS.md) instead selects a native unpriced audit;
+the worker withdraws readiness until actual recovery completes its valuation.
 
 ## Supported scope and recovery
 
 This composition supports standard bond, IRS/OIS and CDS states admitted by the
 original native owners. Partial termination currently requires an IRS/OIS joint
-fixed/floating accrual boundary; partial bonds/CDS, default, exercise, physical
-delivery and multi-cohort ownership remain rejected here. Ordinary rate futures
+fixed/floating accrual boundary. [Single-name CDS default and recovery](CDS-EVENTS.md)
+retain unknown recovery as explicitly unpriced and value actual known claims.
+Partial bonds/CDS, bond default, exercise, physical delivery and multi-cohort
+ownership remain rejected here. Ordinary rate futures
 retain their existing risk and settlement owners. The separate delivery-futures
 and CTD workflows are unchanged; this example does not qualify their lifecycle
 risk. Existing financial admission is not relaxed.
